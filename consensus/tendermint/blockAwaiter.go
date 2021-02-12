@@ -1,11 +1,15 @@
 package tendermint
 
 import (
+	"errors"
 	"sync"
 	time "time"
 
 	"github.com/clearmatics/autonity/core/types"
 )
+
+// errStopped is returned to the waiting goroutine when the waiter is stopped.
+var errStopped = errors.New("stopped")
 
 type blockAwaiter struct {
 	valueCond *sync.Cond

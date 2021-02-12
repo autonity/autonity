@@ -53,6 +53,7 @@ type Verifier struct {
 	vmConfig    *vm.Config
 	finalizer   Finalizer
 	blockPeriod uint64
+	address     common.Address
 }
 
 func NewVerifier(c *vm.Config, finalizer Finalizer, blockPeriod uint64) *Verifier {
@@ -368,4 +369,47 @@ func (v *Verifier) VerifySeal(chain consensus.ChainHeaderReader, header *types.H
 		return errUnknownBlock
 	}
 	return v.verifySigner(header, parent)
+}
+
+func (v *Verifier) SealHash(header *types.Header) common.Hash {
+	return types.SigHash(header)
+}
+
+// Author retrieves the Ethereum address of the account that minted the given
+// block, which may be different from the header's coinbase if a consensus
+// engine is based on signatures.
+func (v *Verifier) Author(header *types.Header) (common.Address, error) {
+	return types.Ecrecover(header)
+}
+
+// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
+// that a new block should have based on the previous blocks in the blockchain and the
+// current signer.
+func (v *Verifier) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
+	return big.NewInt(1)
+}
+
+// Prepare initializes the consensus fields of a block header according to the
+// rules of a particular engine. The changes are executed inline.
+func (v *Verifier) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
+	// unused fields, force to set to empty
+	header.Coinbase = v.address
+	header.Nonce = emptyNonce
+	header.MixDigest = types.BFTDigest
+
+	// copy the parent extra data as the header extra data
+	number := header.Number.Uint64()
+	parent := chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	// use the same difficulty for all blocks
+	header.Difficulty = defaultDifficulty
+
+	// set header's timestamp
+	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(v.blockPeriod)).Uint64()
+	if int64(header.Time) < time.Now().Unix() {
+		header.Time = uint64(time.Now().Unix())
+	}
+	return nil
 }

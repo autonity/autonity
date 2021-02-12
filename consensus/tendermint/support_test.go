@@ -415,6 +415,8 @@ func (b *testBridge) drainPendingMessages(timeout time.Duration) {
 	}
 }
 
+// proposer returns the address of the proposer for the current round and
+// height or an error if we fail to get this information from the contract.
 func (b *testBridge) proposer() (common.Address, error) {
 	var round int64
 	if b.lastSentMessage != nil {

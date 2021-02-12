@@ -3,9 +3,7 @@ package tendermint
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -13,7 +11,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/algorithm"
-	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -22,6 +19,15 @@ import (
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rpc"
 	"github.com/davecgh/go-spew/spew"
+)
+
+const (
+	// tendermintMsg is the p2p message code assigned to tendermint algorithm
+	// messages.
+	tendermintMsg = 0x11
+	// tendermintSyncMsg is the p2p message code assigned to tendermint
+	// algorithm sync requests.
+	tendermintSyncMsg = 0x12
 )
 
 // New creates a new Bridge instance.
@@ -38,7 +44,7 @@ func New(
 ) *Bridge {
 	address := crypto.PubkeyToAddress(key.PublicKey)
 	logger := log.New("addr", address.String())
-	dlog := newDebugLog("address", address.String()[2:6])
+	dlog := newDebugLog("address", addr(address))
 	messageBounds := &bounds{
 		centre: 0,
 		high:   5,
@@ -65,7 +71,6 @@ func New(
 		autonityContract: ac,
 		wg:               &sync.WaitGroup{},
 	}
-	b.syncer.Start()
 	b.currentBlockAwaiter.start()
 	b.wg.Add(1)
 	go b.mainEventLoop()
@@ -73,7 +78,7 @@ func New(
 }
 
 // Bridge acts as a intermediary between the tendermint algorithm and the go
-// ethereum system. Internally it starts up one long running go-routine for
+// ethereum system. Internally it starts up one long running go-routine for the
 // mainEventLoop. The various inputs to the bridge are serialised through a
 // selection of channels such that the mainEventLoop can handle them in a
 // single threaded manner. This allows us to have a straightforward
@@ -223,49 +228,6 @@ func (b *Bridge) NewChainHead() error {
 	return nil
 }
 
-func (b *Bridge) SealHash(header *types.Header) common.Hash {
-	return types.SigHash(header)
-}
-
-// Author retrieves the Ethereum address of the account that minted the given
-// block, which may be different from the header's coinbase if a consensus
-// engine is based on signatures.
-func (b *Bridge) Author(header *types.Header) (common.Address, error) {
-	return types.Ecrecover(header)
-}
-
-// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
-// that a new block should have based on the previous blocks in the blockchain and the
-// current signer.
-func (b *Bridge) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
-	return big.NewInt(1)
-}
-
-// Prepare initializes the consensus fields of a block header according to the
-// rules of a particular engine. The changes are executed inline.
-func (b *Bridge) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
-	// unused fields, force to set to empty
-	header.Coinbase = b.address
-	header.Nonce = emptyNonce
-	header.MixDigest = types.BFTDigest
-
-	// copy the parent extra data as the header extra data
-	number := header.Number.Uint64()
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-	// use the same difficulty for all blocks
-	header.Difficulty = defaultDifficulty
-
-	// set header's timestamp
-	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(b.blockPeriod)).Uint64()
-	if int64(header.Time) < time.Now().Unix() {
-		header.Time = uint64(time.Now().Unix())
-	}
-	return nil
-}
-
 // APIs returns the RPC APIs this consensus engine provides.
 func (b *Bridge) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
@@ -367,23 +329,12 @@ func (b *Bridge) postEvent(e interface{}) {
 		return // Drop event if stopped
 	}
 
-	// start := time.Now()
-	// b.dlog.print("posting event", fmt.Sprintf("%T", e))
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
-		// I'm seeing a buildup of events here, I guess because the main
-		// routine is blocked waiting for a value and so its not
-		// processing these message events.
 		select {
 		case b.eventChannel <- e:
-			// since := time.Since(start)
-			// if since > time.Second {
-			// 	// b.dlog.print("eventCh send took", since, "event", fmt.Sprintf("%T", e))
-			// }
 		case <-b.closeChannel:
-			// since := time.Since(start)
-			// b.dlog.print("eventCh send, stopped by closeCh, took", since/time.Second, "seconds", "event", fmt.Sprintf("%T", e))
 		}
 	}()
 }
@@ -400,6 +351,9 @@ func (b *Bridge) SetExtraComponents(blockchain *core.BlockChain, broadcaster con
 	b.blockchain = blockchain
 }
 
+// commit takes a confirmed proposal and builds a corresponding block from that
+// and either broadcasts it to the network if we are not the proposer or if we
+// are sends it back to the miner via the commitChannel.
 func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 	committedSeals := b.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
 	message := b.msgStore.matchingProposal(proposal)
@@ -431,14 +385,9 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 	block := message.value.WithSeal(h)
 
 	if b.address == b.proposer {
-		// b.dlog.print("commitCh send start", bid(block))
 		select {
 		case b.commitChannel <- block:
-			// b.dlog.print("commitCh send done", bid(block))
-		// Close channel must exist at this point (there is no way to reach
-		// this without calling Start) no need for mutex.
 		case <-b.closeChannel:
-			// b.dlog.print("commitCh send, stopped by closeCh", bid(block))
 		}
 	} else {
 		b.blockBroadcaster.Enqueue("tendermint", block)
@@ -448,8 +397,7 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 	return nil
 }
 
-var errStopped = errors.New("stopped")
-
+// Close stops and waits for all goroutines started by the bridge to exit.
 func (b *Bridge) Close() error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -470,7 +418,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	b.syncTimer = time.NewTimer(20 * time.Second)
 	b.lastHeader = prevBlock.Header()
 	b.height = prevBlock.NumberU64() + 1
-	proposeValue, err := b.UpdateProposer(b.lastHeader, 0)
+	proposeValue, err := b.updateProposer(b.lastHeader, 0)
 	if err != nil {
 		return fmt.Errorf("failed to update proposer: %v", err)
 	}
@@ -510,6 +458,9 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	return nil
 }
 
+// handle result handles the output of the tendermint algorithm which can
+// either be nothing, in the case where no state change occurred in the
+// algorithm or it can be one of round change consensus message or timeout.
 func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
 
 	switch {
@@ -521,7 +472,6 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		}
 		if rc.Decision != nil {
 			// A decision has been reached
-			//println(addr(c.address), "decided on block", rc.Decision.Height,common.Hash(rc.Decision.Value).String())
 
 			// This will ultimately lead to a commit event, which we will pick up on in the mainEventLoop and start a
 			// move to the new height by calling newHeight().
@@ -533,7 +483,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			// We are just changing round
 			var err error
 			// Update the proposer
-			proposalValue, err := b.UpdateProposer(b.lastHeader, rc.Round)
+			proposalValue, err := b.updateProposer(b.lastHeader, rc.Round)
 			if err != nil {
 				return fmt.Errorf("failed to update proposer: %v", err)
 			}
@@ -546,8 +496,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			}
 		}
 	case cm != nil:
-		//println(addr(c.address), c.height.String(), cm.String(), "sending")
-		// Broadcasting ends with the message reaching us eventually
+		// Broadcast the new message to the network.
 
 		// We must build message here since buildMessage relies on accessing
 		// the msg store, and since the message store is not syncronised we
@@ -561,11 +510,14 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			))
 		}
 		b.dlog.print("sending message", cm.String())
-		// println("msghash", common.BytesToHash(crypto.Keccak256(msg)).String()[2:6])
 
-		// send to self
+		// send to self, we process our own messages just as we process
+		// messgaes from other network participants.
 		go b.postEvent(msg)
-		// Broadcast to peers
+		// Broadcast to peers.
+		//
+		// Note the tests in bridge_test.go rely on calls to Broadcast
+		// being done in the main handler routine.
 		b.broadcaster.Broadcast(msg)
 	case to != nil:
 		b.timeoutScheduler.ScheduleTimeout(to.Delay, func() {
@@ -651,6 +603,8 @@ eventLoop:
 				// if it is a message from ourselves we will have already
 				// broadcast it.
 				if m.address != b.address {
+					// Note the tests in bridge_test.go rely on calls to Broadcast
+					// being done in the main handler routine.
 					b.broadcaster.Broadcast(e)
 				}
 			case *algorithm.Timeout:
@@ -658,13 +612,10 @@ eventLoop:
 				var rc *algorithm.RoundChange
 				switch e.TimeoutType {
 				case algorithm.Propose:
-					// b.dlog.print("timeout propose", "height", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPropose(e.Height, e.Round)
 				case algorithm.Prevote:
-					// b.dlog.print("timeout prevote", "height", e.Height, "round", e.Round)
 					cm = b.algo.OnTimeoutPrevote(e.Height, e.Round)
 				case algorithm.Precommit:
-					// b.dlog.print("timeout precommit", "height", e.Height, "round", e.Round)
 					rc = b.algo.OnTimeoutPrecommit(e.Height, e.Round)
 				}
 				err := b.handleResult(rc, cm, nil)
@@ -693,8 +644,9 @@ eventLoop:
 
 }
 
+// checkFromCommittee checks that m is from a committee member and if not
+// removes it from the store and returns an error.
 func (b *Bridge) checkFromCommittee(m *message) error {
-	// Check that the message came from a committee member, if not remove it from the store and return an error.
 	if b.lastHeader.CommitteeMember(m.address) == nil {
 		// We remove the message from the store since it came from a non
 		// validator.
@@ -707,8 +659,12 @@ func (b *Bridge) checkFromCommittee(m *message) error {
 	return nil
 }
 
+// handleCurrentHeightMessage processes messages that are at the same height as
+// the bridge, messages at a future height cannot be processed since we cannot
+// know if they come from a committee member until we have committed the previous block.
 func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 	cm := m.consensusMessage
+
 	/*
 		Domain specific validity checks, now we know that we are at the same
 		height as this message we can rely on lastHeader.
@@ -730,10 +686,12 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 		}
 	}
 
+	// let the algorithm receive the message and handle the result.
 	rc, cm, to := b.algo.ReceiveMessage(cm)
 	return b.handleResult(rc, cm, to)
 }
 
+// proposerAddr gets the address of the proposer given the previous header and round.
 func (b *Bridge) proposerAddr(previousHeader *types.Header, round int64) (common.Address, error) {
 	state, err := b.blockReader.BlockState(previousHeader.Root)
 	if err != nil {
@@ -742,10 +700,11 @@ func (b *Bridge) proposerAddr(previousHeader *types.Header, round int64) (common
 	return b.autonityContract.GetProposerFromAC(previousHeader, state, round)
 }
 
-// UpdateProposer updates b.proposer and if we are the proposer waits for a
-// proposal value and returns an algorithm.ValueID representing the proposal
-// value. If we are not the proposer then it returns algorithm.NilValue.
-func (b *Bridge) UpdateProposer(previousHeader *types.Header, round int64) (algorithm.ValueID, error) {
+// updateProposer updates b.proposer and if we are the proposer waits for a
+// proposal value, stores it in the msgStore and returns an algorithm.ValueID
+// representing the proposal value. If we are not the proposer then it returns
+// algorithm.NilValue.
+func (b *Bridge) updateProposer(previousHeader *types.Header, round int64) (algorithm.ValueID, error) {
 	var err error
 	b.proposer, err = b.proposerAddr(previousHeader, round)
 	if err != nil {
@@ -764,11 +723,6 @@ func (b *Bridge) UpdateProposer(previousHeader *types.Header, round int64) (algo
 	b.msgStore.addValue(v.Hash(), v)
 	return algorithm.ValueID(v.Hash()), nil
 }
-
-const (
-	tendermintMsg     = 0x11
-	tendermintSyncMsg = 0x12
-)
 
 // TODO need to clear this out, ideally when a peer disconnects and when we stop
 // caring about the tracked messages. So really we need a notion of height to
@@ -819,115 +773,12 @@ func (b *DefaultBroadcaster) Broadcast(payload []byte) {
 	}
 }
 
-type Syncer interface {
-	Start()
-	Stop()
-	AskSync(lastestHeader *types.Header)
-	SyncPeer(peerAddr common.Address, messages [][]byte)
-}
-
-type DefaultSyncer struct {
-	address common.Address
-	peers   consensus.Peers
-	stopped chan struct{}
-	mu      sync.Mutex
-}
-
-func NewSyncer(peers consensus.Peers, address common.Address) *DefaultSyncer {
-	return &DefaultSyncer{
-		peers:   peers,
-		address: address,
-	}
-}
-
-func (s *DefaultSyncer) Start() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stopped = make(chan struct{})
-}
-func (s *DefaultSyncer) Stop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	close(s.stopped)
-}
-
-func (s *DefaultSyncer) AskSync(latestHeader *types.Header) {
-	var count uint64
-
-	// Determine if there should be any other peers
-	potentialPeerCount := len(latestHeader.Committee)
-	if latestHeader.CommitteeMember(s.address) != nil {
-		// Remove ourselves from the other potential peers
-		potentialPeerCount--
-	}
-	// Exit if there are no other peers
-	if potentialPeerCount == 0 {
-		return
-	}
-	peers := s.peers.Peers()
-	// Wait for there to be peers
-	for len(peers) == 0 {
-		t := time.NewTimer(10 * time.Millisecond)
-		select {
-		case <-t.C:
-			peers = s.peers.Peers()
-			continue
-		case <-s.stopped:
-			return
-		}
-	}
-
-	// Ask for sync to peers
-	for _, p := range peers {
-		//ask to a quorum nodes to sync, 1 must then be honest and updated
-		if count >= bft.Quorum(latestHeader.TotalVotingPower()) {
-			break
-		}
-		go p.Send(tendermintSyncMsg, []byte{}) //nolint
-		member := latestHeader.CommitteeMember(p.Address())
-		if member == nil {
-			continue
-		}
-		count += member.VotingPower.Uint64()
-	}
-}
-
-// Synchronize new connected peer with current height state
-func (s *DefaultSyncer) SyncPeer(address common.Address, messages [][]byte) {
-	for _, p := range s.peers.Peers() {
-		if address == p.Address() {
-			for _, msg := range messages {
-				go p.Send(tendermintMsg, msg) //nolint
-			}
-			break
-		}
-	}
-}
-
-type debugLog struct {
-	prefix []interface{}
-}
-
-func newDebugLog(prefix ...interface{}) *debugLog {
-	return &debugLog{
-		prefix: prefix,
-	}
-}
-
-func (d *debugLog) print(info ...interface{}) {
-	// log := append(d.prefix, info...)
-	// fmt.Printf("%v %v", time.Now().Format(time.RFC3339Nano), fmt.Sprintln(log...))
-}
-
-func bid(b *types.Block) string {
-	return fmt.Sprintf("hash: %v, number: %v", b.Hash().String()[2:8], b.Number().String())
-}
-
 // TimeoutScheduler is an interface that can be used to schedule actions after some delay.
 type TimeoutScheduler interface {
 	ScheduleTimeout(delay uint, f func())
 }
 
+// DefaultTimeoutScheduler schedules the action after 'delay' seconds.
 type DefaultTimeoutScheduler struct{}
 
 func (s *DefaultTimeoutScheduler) ScheduleTimeout(delay uint, f func()) {
