@@ -138,6 +138,7 @@ func TestFeeRedistributionValidatorsAndStakeholders(t *testing.T) {
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
+	t.Skip("This test will be unreliable until https://github.com/clearmatics/autonity/issues/84 is fixed")
 	network, err := test.NewNetwork(5, "10e18,v,1,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 	defer network.Shutdown()
