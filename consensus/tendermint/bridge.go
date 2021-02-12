@@ -241,51 +241,29 @@ func (b *Bridge) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-// So this method is meant to allow interrupting of mining a block to start on
-// a new block, it doesn't make sense for autonity though because if we are not
-// the proposer then we don't need this unsigned block, and if we are the
-// proposer we only want the one unsigned block per round since we can't send
-// multiple differing proposals.
-//
-// So we want to have just the latest block available to be taken from here when this node becomes the proposer.
-//
-// The miner only has one results channel for its lifetime and we will only
-// have one miner so we can capture the results channel on the first call and
-// then not worry about it after that.
-//
-// We can't build the bridge with the results chan since the worker will need
-// the bridge to be constructed. We could create the results chan before
-// building either and pass it to both. But lets save that for later.
+// Seal implements consensus.Engine.Seal.
 func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 
-	// Check if we are handling the results and if not set up a goroutine to
-	// pass results back to the miner. We will only send a block on the
-	// commitChannel if we are the proposer.
+	// Set up a goroutine to pass results back to the miner. We will only send
+	// a block on the commitChannel if we are the proposer.
 	//
-	// Ok I think I'm understanding the problem here better now. We can be in a
-	// situation where the provided block has been proposed and is undergoing
-	// agreement,and the miner can interrupt mining of that block to provide
-	// another block at the same height, we may never propose that block if the
-	// currently proposed block achieves agreement. And then when the currently
-	// proposed block does reach agreement we will receive it on the commit
-	// channel and it will not match the block most recently passed to Seal.
-	//
-	// In fact the interrupting block does not even need to be at the same
-	// height, because some other network participant may have agreed the
-	// currently proposed block before us and as such the miner may have
-	// received a NewChainHead event and called Seal with a block for the next
-	// Height. In this scenario we will want to pass the currently proposed
-	// block back to the miner when it is committed even though the last
-	// request to seal was for the next height. If we happen to also be
-	// proposer for the next height we will also want to pass that block back
-	// to the proposer when it is committed.
-	//
-	// The result of this will be that we can receive a block on the
-	// commitChannel that does not match the block most recently passed to Seal
-	// and also that we may pass multiple blocks back to the miner in the
-	// lifetime of the goroutine that reads the commitChannel. So we must not
-	// exit the commitChannel when sending a block, instead we must wait for
-	// the miner's signal to stop or exit when we close the bridge.
+	// Also note that the block received on the commitChannel may not be the
+	// block that was last passed to seal. There is no guarantee that any block
+	// passed to seal will actually be proposed. Since a prior block may have
+	// already been proposed and this is what will be returned on the
+	// commitChannel. Also note that in the lifetime of this goroutine multiple
+	// blocks may be passed to the results chan. This can happen if we are the
+	// proposer and we receive a block through seal which we propose, a member
+	// of the network is able to commit the block before we do, and broadcasts
+	// it to us. This will result in the miner closing the current stop channel
+	// (thus closing our goroutine) and calling Seal with a block for the next
+	// height. We set up a new goroutine for this block and now we commit the
+	// previous block, which will be passed to the commitChannel, we then
+	// propose and commit the next block that was passed on the most recent
+	// invocation of Seal, this too will be sent on the commitChannel.
+
+	// This protects us from calling this function after we have been stopped
+	// and also from calling b.wg.Add after b.wg.Wait has been called in Close.
 	b.mutex.RLock()
 	if b.stopped {
 		b.mutex.RUnlock()
@@ -297,23 +275,16 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	go func() {
 		defer b.wg.Done()
 		for {
-			// b.dlog.print("commitCh receive start, block", bid(block))
 			select {
 			case committedBlock := <-b.commitChannel:
-				// b.dlog.print("commitCh receive done", bid(committedBlock))
 				select {
 				case results <- committedBlock:
 				case <-b.closeChannel:
-					// b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
 					return
 				}
-				// stop will be closed whenever eth is shutdouwn or a new
-				// sealing task is provided.
 			case <-stop:
-				// b.dlog.print("commitCh receive, stopped by miner", bid(block))
 				return
 			case <-b.closeChannel:
-				// b.dlog.print("commitCh receive, stopped by closeCh", bid(block))
 				return
 			}
 		}
@@ -349,10 +320,6 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 	return nil
 }
 
-// Methods for consensus.Handler: This interface was introduced by the istanbul
-// BFT fork, so we don't need to keep it to maintain some level of parity
-// between Autonity and go-ethereum.
-
 // Protocol implements consensus.Handler.Protocol
 func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 2 //nolint
@@ -378,6 +345,15 @@ func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	default:
 		return false, nil
 	}
+}
+
+// a sentinal type to indicate that we have a new chain head
+type newChainHead struct{}
+
+// NewChainHead implements consensus.Handler.NewChainHead
+func (b *Bridge) NewChainHead() error {
+	b.postEvent(newChainHead{})
+	return nil
 }
 
 // postEvent posts an event to the main handler if Bridge is started and has a
@@ -413,23 +389,16 @@ func (b *Bridge) postEvent(e interface{}) {
 	}()
 }
 
-// SetExtraComponents must be called before Start, this is not ideal but is the
-// best I think we can do without re-writing the core of go-ethereum. We end up
-// having to do this because go-etherum itself is quite tangled and there is no
-// easy way to access just the functionality we need. In this case the
-// blockchain and broadcaster both need to be constructed with a reference to
-// the bridge.
+// SetExtraComponents must be called before the ethereum service is started,
+// this is not ideal but is the best I think we can do without re-writing the
+// core of go-ethereum. We end up having to do this because go-etherum itself
+// is quite tangled and there is no easy way to access just the functionality
+// we need.  In this case the blockchain and broadcaster both need to be
+// constructed with a reference to the bridge. So we build the bridge then
+// build the blockchain and broadcaster and then call this.
 func (b *Bridge) SetExtraComponents(blockchain *core.BlockChain, broadcaster consensus.Broadcaster) {
 	b.blockBroadcaster = broadcaster
 	b.blockchain = blockchain
-}
-
-type commitEvent struct{}
-
-// NewChainHead implements consensus.Handler.NewChainHead
-func (b *Bridge) NewChainHead() error {
-	b.postEvent(commitEvent{})
-	return nil
 }
 
 func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
@@ -704,7 +673,7 @@ eventLoop:
 					b.dlog.print("exiting main event loop", "height", e.Height, "round", e.Round, "err", err.Error())
 					return
 				}
-			case commitEvent:
+			case newChainHead:
 
 				lastBlock, err := b.blockReader.LatestBlock()
 				if err != nil {
