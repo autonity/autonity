@@ -192,8 +192,10 @@ func (a *Algorithm) timeout(timeoutType Step) *Timeout {
 	}
 }
 
-// Start round takes a round to start. It then clears the first time flags and either returns a proposal
-// ConsensusMessage to be broadcast, if this node is the proposer or if not, a Timeout to be scheduled.
+// Start round takes a round to start and a non 'NilValue' valueID if this node
+// is the proposer. It then clears the first time flags and either returns a
+// proposal ConsensusMessage to be broadcast(if a proposal value was provided)
+// or a Timeout to be scheduled.
 func (a *Algorithm) StartRound(proposalValue ValueID, round int64) (*ConsensusMessage, *Timeout) {
 	//println(a.nodeID.String(), height, "isproposer", a.oracle.Proposer(round, a.nodeID))
 
