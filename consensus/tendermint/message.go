@@ -56,31 +56,13 @@ func (m *message) String() string {
 	return fmt.Sprintf("%s %v", addr(m.address), m.consensusMessage)
 }
 
-// func (cm *algorithm.ConsensusMessage, )
 func badMessageErr(description string, m *algorithm.ConsensusMessage, address common.Address) error {
 	return fmt.Errorf("%s - message: %q, from: %q", description, m, addr(address))
 }
 
-// TODO think about the values in the block, calling hash on a header
-// returns the hash but filters out the bft fields. Except for the proposer
-// seal.  This means that if we are building a proposal message at this
-// point we may have a fresh proposal from our miner, in which case it will
-// not have a proposer seal or it could be that we are reproposing a valid
-// value. In which case we need to set the proposer seal to be empty before
-// we hash it and add our seal. This means that the message we receive here
-// from the algorithm will be wrong, because when we propose a valid value
-// we are using the hash of a block that had a different proposer's seal. But we can catch this here.
-//
-// Alternatively we can ensure that the hashes that are passed around by
-// the algorithm do not include proposer seals. We could store the proposer
-// seal alongside the block and then participants could insert it into the
-// block before they add their committed seal. This seems nice actually
-// because it makes verifying the proposer seal easier. So that means that
-// all values in the message store are without any kind of seal.
-
-// Ok I don't think we actually need the proposer seal on messages other than
-// proposals. So we can just pass the block here rather than the store if we
-// are serialising a proposal.
+// encodeSignedMessage constructs a marshalled signed message from the given
+// parameters, the proposalBlock is expected when the consensus message is a
+// proposal.
 func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, proposalBlock *types.Block) ([]byte, error) {
 
 	// If we are building a proposal then serialise the value and generate the
@@ -134,6 +116,9 @@ func encodeConsensusMessage(height uint64, round, validRound int64, step algorit
 	return rlp.EncodeToBytes(rlpM)
 }
 
+// decodeSignedMessage decodes the given bytes into a *message. Note, we cannot
+// verify the signature at this point, verification happens when we see if the
+// signer address is part of the committee.
 func decodeSignedMessage(msgBytes []byte) (*message, error) {
 	sm := &signedMessage{}
 	err := rlp.Decode(bytes.NewBuffer(msgBytes), sm)

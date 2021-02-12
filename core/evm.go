@@ -77,7 +77,7 @@ func GetHashFn(ref *types.Header, hg HeaderGetter) func(n uint64) common.Hash {
 
 		for {
 			// TODO If we replace this with a cached header getter(which doesn't
-			// exist but I could make) then, we could get rid of th dependency
+			// exist but I could make) then, we could get rid of the dependency
 			// on a chain here, then we could get a new evmcontext without
 			// needing a blockchain then we could create an evm provider
 			// without needing a blockchain and then we could could create the

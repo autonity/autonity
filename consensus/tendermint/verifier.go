@@ -70,13 +70,7 @@ func NewVerifier(c *vm.Config, finalizer Finalizer, address common.Address, bloc
 // the time difference of the proposal and current time is also returned.
 func (v *Verifier) VerifyProposal(proposal types.Block, blockchain *core.BlockChain, address string) (time.Duration, error) {
 	// Check if the proposal is a valid block
-	// TODO: fix always false statement and check for non nil
-	// TODO: use interface instead of type
 	block := &proposal
-	//if block == nil {
-	//	sb.logger.Error("Invalid proposal, %v", proposal)
-	//	return 0, errInvalidProposal
-	//}
 
 	// check bad block
 	if blockchain.HasBadBlock(block.Hash()) {
@@ -367,7 +361,6 @@ func (v *Verifier) VerifySeal(chain consensus.ChainHeaderReader, header *types.H
 
 	parent := chain.GetHeaderByHash(header.ParentHash)
 	if parent == nil {
-		// TODO make this ErrUnknownAncestor
 		return errUnknownBlock
 	}
 	return v.verifySigner(header, parent)

@@ -226,7 +226,7 @@ func (a *Algorithm) StartRound(proposalValue ValueID, round int64) (*ConsensusMe
 // that was decided upon, Decision can only be set when Round is 0.
 type RoundChange struct {
 	Round    int64
-	Decision *ConsensusMessage //TODO: consider changing this to ValueID
+	Decision *ConsensusMessage
 }
 
 // ReceiveMessage processes a consensus message and returns 3 values of which
@@ -352,13 +352,6 @@ func (a *Algorithm) ReceiveMessage(cm *ConsensusMessage) (*RoundChange, *Consens
 
 	// Line 55
 	if cm.Round > r && o.FThresh(cm.Round) {
-		// TODO account for the fact that many rounds can be skipped here. So
-		// what happens to the old round messages? We don't process them, but
-		// we can't remove them from the messsage store because they may be
-		// used in this round in the condition at line 28. This means that we
-		// only should clean the message store when there is a height change,
-		// clearing out all messages for the height.
-		//println(a.nodeID.String(), a.height(), cm.String(), "line 55 start round")
 		return &RoundChange{Round: cm.Round}, nil, nil
 	}
 	//println(a.nodeID.String(), a.height(), cm.String(), "no condition match")
