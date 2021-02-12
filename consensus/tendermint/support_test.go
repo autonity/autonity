@@ -166,7 +166,7 @@ func createBridge(
 	}
 	config := g.Config.Tendermint
 	finalizer := NewFinalizer(autonityContract)
-	verifier := NewVerifier(vmConfig, finalizer, config.BlockPeriod)
+	verifier := NewVerifier(vmConfig, finalizer, crypto.PubkeyToAddress(user.Key.(*ecdsa.PrivateKey).PublicKey), config.BlockPeriod)
 	statedb := state.NewDatabase(db)
 	blockReader := NewBlockReader(db, statedb)
 

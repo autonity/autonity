@@ -56,11 +56,13 @@ type Verifier struct {
 	address     common.Address
 }
 
-func NewVerifier(c *vm.Config, finalizer Finalizer, blockPeriod uint64) *Verifier {
+func NewVerifier(c *vm.Config, finalizer Finalizer, address common.Address, blockPeriod uint64) *Verifier {
 	return &Verifier{
-		logger:    log.New(),
-		vmConfig:  c,
-		finalizer: finalizer,
+		logger:      log.New(),
+		vmConfig:    c,
+		finalizer:   finalizer,
+		blockPeriod: blockPeriod,
+		address:     address,
 	}
 }
 
