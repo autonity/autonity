@@ -74,10 +74,6 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 // or not), which could be abused to produce different hashes for the same header.
 func SigHash(header *Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
-
-	// Clean seal is required for calculating proposer seal.
-	// TODO I changed the bool to false, this actually means
-	// that proposer seal is not protected in a chain.
 	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
 	if err != nil {
 		log.Error("can't hash the header", "err", err, "header", header)
@@ -94,7 +90,7 @@ func Ecrecover(header *Header) (common.Address, error) {
 		return addr.(common.Address), nil
 	}
 
-	addr, err := GetSignatureAddressHash(hash.Bytes(), header.ProposerSeal)
+	addr, err := GetSignatureAddressHash(SigHash(header).Bytes(), header.ProposerSeal)
 	if err != nil {
 		return addr, err
 	}

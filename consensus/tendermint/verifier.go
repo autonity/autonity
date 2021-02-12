@@ -307,7 +307,7 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 	// Total Voting power for this block
 	var power uint64
 	// The commitment is the hash of the precommit message, which we reconstruct here.
-	encodedPrecommit, err := encodeConsensusMessage(header.Number.Uint64(), int64(header.Round), 0, algorithm.Precommit, algorithm.ValueID(header.Hash()))
+	encodedPrecommit, err := encodeConsensusMessage(header.Number.Uint64(), int64(header.Round), 0, algorithm.Precommit, algorithm.ValueID(v.SealHash(header)))
 	if err != nil {
 		return err
 	}

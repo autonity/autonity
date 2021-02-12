@@ -577,7 +577,7 @@ eventLoop:
 					continue
 				}
 				if m.consensusMessage.MsgType == algorithm.Propose {
-					b.msgStore.addValue(m.value.Hash(), m.value)
+					b.msgStore.addValue(b.SealHash(m.value.Header()), m.value)
 				}
 
 				// If this message is for a future height then we cannot validate it
@@ -720,8 +720,9 @@ func (b *Bridge) updateProposer(previousHeader *types.Header, round int64) (algo
 	}
 	// Add the value to the store, we do not mark it valid here since we
 	// will validate it when whe process our own proposal.
-	b.msgStore.addValue(v.Hash(), v)
-	return algorithm.ValueID(v.Hash()), nil
+	sealHash := b.SealHash(v.Header())
+	b.msgStore.addValue(sealHash, v)
+	return algorithm.ValueID(sealHash), nil
 }
 
 // TODO need to clear this out, ideally when a peer disconnects and when we stop

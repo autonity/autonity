@@ -60,7 +60,7 @@ func TestBlockGivenToSealIsComitted(t *testing.T) {
 	block := b.committedBlock(to, result)
 
 	// Check it is the correct block
-	assert.Equal(t, proposal.Hash(), block.Hash())
+	assert.Equal(t, proposal.Hash(), b.SealHash(block.Header()))
 	// Check it has the right number of committed seals
 	assert.Len(t, block.Header().CommittedSeals, 1)
 	// Verify the header
@@ -97,7 +97,7 @@ func TestNewChainHead(t *testing.T) {
 	block := b.committedBlock(to, result)
 
 	// Check it is the correct block
-	assert.Equal(t, proposal.Hash(), block.Hash())
+	assert.Equal(t, proposal.Hash(), b.SealHash(block.Header()))
 
 	// Now we will pass another block to seal, but we don't expect to see a
 	// proposal message until NewChainHead is called.
@@ -226,7 +226,7 @@ func TestReachingConsensus(t *testing.T) {
 	// Now we expect the block to be committed
 	committedBlock := proposer.committedBlock(to, result)
 	// Check it is the correct block
-	assert.Equal(t, proposal.Hash(), committedBlock.Hash())
+	assert.Equal(t, proposal.Hash(), proposer.SealHash(committedBlock.Header()))
 	// Check it has the right number of committed seals, since the algorithm is
 	// always run in a single goroutine, we can be sure that the block will be
 	// committed with the minimum required committed seals, in this case 3/4.

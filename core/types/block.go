@@ -188,7 +188,7 @@ func (h *Header) Hash() common.Hash {
 		// include the proposer seal.
 		//
 		// Seal is reserved in extra-data. To prove block is signed by the proposer.
-		if posHeader := BFTFilteredHeader(h, false); posHeader != nil {
+		if posHeader := BFTFilteredHeader(h, true); posHeader != nil {
 			return rlpHash(posHeader)
 		}
 	}
