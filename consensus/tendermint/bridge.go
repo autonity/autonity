@@ -45,20 +45,19 @@ func New(
 		low:    5,
 	}
 	b := &Bridge{
-		Verifier:             verifier,
-		DefaultFinalizer:     finalizer,
-		key:                  key,
-		blockPeriod:          config.BlockPeriod,
-		address:              address,
-		logger:               logger,
-		dlog:                 dlog,
-		currentBlockAwaiter:  newBlockAwaiter(dlog),
-		msgStore:             newMessageStore(messageBounds),
-		broadcaster:          broadcaster,
-		syncer:               syncer,
-		latestBlockRetriever: blockRetreiver,
-		verifier:             verifier,
-		timeoutScheduler:     timeoutScheduler,
+		Verifier:            verifier,
+		DefaultFinalizer:    finalizer,
+		key:                 key,
+		blockPeriod:         config.BlockPeriod,
+		address:             address,
+		logger:              logger,
+		dlog:                dlog,
+		currentBlockAwaiter: newBlockAwaiter(dlog),
+		msgStore:            newMessageStore(messageBounds),
+		broadcaster:         broadcaster,
+		syncer:              syncer,
+		blockReader:         blockRetreiver,
+		timeoutScheduler:    timeoutScheduler,
 
 		eventChannel:     make(chan interface{}),
 		commitChannel:    make(chan *types.Block),
@@ -74,12 +73,25 @@ func New(
 }
 
 // Bridge acts as a intermediary between the tendermint algorithm and the go
-// ethereum system.
+// ethereum system. Internally it starts up one long running go-routine for
+// mainEventLoop. The various inputs to the bridge are serialised through a
+// selection of channels such that the mainEventLoop can handle them in a
+// single threaded manner. This allows us to have a straightforward
+// implementation of the tendermint algorithm.
 //
-// The ethereum system interacts with the Bridge instance
-// primarily through the following methods. Start, Stop, Seal, NewChainHead,
-// HandleMsg. Start and Stop are self explanatory, Seal, NewChainHead and
-// HandleMsg are how inputs arrive in the bridge.
+// The ethereum system interacts with the Bridge instance primarily through the
+// following methods and objects. Stop, Seal, NewChainHead, HandleMsg and the
+// methods of the embedded Finalizer and Verifier. Stop is used to close the
+// bridge when a node is shutting down, Seal, NewChainHead and HandleMsg are
+// how inputs arrive in the bridge, these inputs will end up being processed in
+// the mainEventLoop. The finalizer and verifier define the block state
+// transition function and block verification logic respectively, the ethereum
+// system uses them in the fashion of a utility function, they are totally
+// separate from the operation of the rest of the bridge and could live
+// separately from it if it were not for the fact that ethereum bundles
+// together all this functionality in 2 interfaces 'consensus.Engine' and
+// 'consensus.Handler' which may as well be one interface because one is cast
+// to the other.
 //
 // Seal -> provides blocks to come to agreement on. These are provided
 // continuously by the miner, irrespective of whether we are mining or this
@@ -115,52 +127,61 @@ func New(
 // sync is fairly basic. The sync request message contains no information, and
 // the sync response is always to send all the messages that a node has for the
 // current height, unless nodes happen to be at the same height, the sync will
-// be of no use and simply clog up the network.
+// be of no use and will simply clog up the network.
 //
 // consensus.Broadcaster -> broadcasts committed blocks to the rest of the system.
 type Bridge struct {
+
+	// These embedded fields provide utility functions for the ethereum system.
 	*DefaultFinalizer
 	*Verifier
 
-	key         *ecdsa.PrivateKey
+	// These fields could be considered config
 	blockPeriod uint64
+	key         *ecdsa.PrivateKey
 	address     common.Address
 	logger      log.Logger
+	dlog        *debugLog
 
+	// These fields support the functioning of the mainEventLoop
+	//
+	// eventChannel serialises events into the mainEventLoop
 	eventChannel chan interface{}
-
-	msgStore  *messageStore
+	// syncTimer instigates periodic sync operations
 	syncTimer *time.Timer
-
+	// msgStore keeps track of all sent and received messages within some
+	// bounds defined as a range of blocks.
+	msgStore *messageStore
+	// lastHeader is the header of the latest confirmed block
 	lastHeader *types.Header
-	proposer   common.Address
-
+	// proposer is the address of the proposer for the current height and round
+	proposer common.Address
+	// autonityContract interfaces with the deployed autonity contract
 	autonityContract *autonity.Contract
-
+	// height is the current height
 	height uint64
-	algo   *algorithm.Algorithm
-
+	// algo is the tendermint algorithm
+	algo *algorithm.Algorithm
+	// currentBlockAwaiter provides a mechanism to wait for a block provided by
+	// the miner at a specific height.
 	currentBlockAwaiter *blockAwaiter
-
-	broadcaster          Broadcaster
-	syncer               Syncer
-	latestBlockRetriever *BlockReader
-
-	verifier *Verifier
-
+	// blockReader provides functionality to read blocks.
+	blockReader *BlockReader
+	// blockchain is only used to be able to call the verifier internally to
+	// verify proposals.
 	blockchain *core.BlockChain
-
-	blockBroadcaster consensus.Broadcaster
-
-	// Used to propagate blocks to the results channel provided by the miner on
-	// calls to Seal.
+	// commitChannel propagates blocks to the results channel provided by the
+	// miner on calls to Seal.
 	commitChannel chan *types.Block
-
-	dlog *debugLog
-
+	// timeoutScheduler schedules timeout events.
 	timeoutScheduler TimeoutScheduler
 
-	// mutext protects the fields below, this complicates things by having start stop.
+	// These 3 fields are used to communicate back to the ethereum system.
+	broadcaster      Broadcaster
+	syncer           Syncer
+	blockBroadcaster consensus.Broadcaster
+
+	// mutext protects the fields below
 	mutex        sync.RWMutex
 	stopped      bool
 	closeChannel chan struct{}
@@ -215,7 +236,7 @@ func (b *Bridge) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "tendermint",
 		Version:   "1.0",
-		Service:   NewAPI(chain, b.autonityContract, b.latestBlockRetriever),
+		Service:   NewAPI(chain, b.autonityContract, b.blockReader),
 		Public:    true,
 	}}
 }
@@ -590,7 +611,7 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 func (b *Bridge) mainEventLoop() {
 	defer b.wg.Done()
 
-	lastBlockMined, err := b.latestBlockRetriever.LatestBlock()
+	lastBlockMined, err := b.blockReader.LatestBlock()
 	if err != nil {
 		panic(err)
 	}
@@ -685,7 +706,7 @@ eventLoop:
 				}
 			case commitEvent:
 
-				lastBlock, err := b.latestBlockRetriever.LatestBlock()
+				lastBlock, err := b.blockReader.LatestBlock()
 				if err != nil {
 					panic(err)
 				}
@@ -735,7 +756,7 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 			return fmt.Errorf("received message from non proposer: %v", m)
 		}
 		// Proposal values are allowed to be invalid.
-		_, err := b.verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String())
+		_, err := b.Verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String())
 		if err == nil {
 			b.msgStore.setValid(common.Hash(cm.Value))
 		}
@@ -746,7 +767,7 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 }
 
 func (b *Bridge) proposerAddr(previousHeader *types.Header, round int64) (common.Address, error) {
-	state, err := b.latestBlockRetriever.BlockState(previousHeader.Root)
+	state, err := b.blockReader.BlockState(previousHeader.Root)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("cannot load state from block chain: %v", err)
 	}

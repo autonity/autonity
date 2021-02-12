@@ -124,7 +124,7 @@ func newTestBridge(
 	if err != nil {
 		return nil, err
 	}
-	genesisBlock, err := b.latestBlockRetriever.LatestBlock()
+	genesisBlock, err := b.blockReader.LatestBlock()
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis block: %v", err)
 	}
@@ -168,7 +168,7 @@ func createBridge(
 	finalizer := NewFinalizer(autonityContract)
 	verifier := NewVerifier(vmConfig, finalizer, config.BlockPeriod)
 	statedb := state.NewDatabase(db)
-	latestBlockRetriever := NewBlockReader(db, statedb)
+	blockReader := NewBlockReader(db, statedb)
 
 	b := New(
 		g.Config.Tendermint,
@@ -177,7 +177,7 @@ func createBridge(
 		syncer,
 		verifier,
 		finalizer,
-		latestBlockRetriever,
+		blockReader,
 		autonityContract,
 		timeoutScheduler,
 	)
@@ -448,7 +448,7 @@ func (b *testBridge) committedBlock(timeout time.Duration, sealChan chan *types.
 }
 
 func (b *testBridge) proposalBlock() (*types.Block, error) {
-	block, err := b.latestBlockRetriever.LatestBlock()
+	block, err := b.blockReader.LatestBlock()
 	if err != nil {
 		return nil, err
 	}
