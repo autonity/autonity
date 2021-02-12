@@ -183,6 +183,10 @@ func (h *Header) Hash() common.Hash {
 	// If the mix digest is equivalent to the predefined BFT digest, use BFT
 	// specific hash calculation. This is always the case with tendermint consensus protocol.
 	if h.MixDigest == BFTDigest {
+		// TODO I chainged the true to a false, to help simplify restructuring
+		// core, but it needs to be set back to true so that header hashes
+		// include the proposer seal.
+		//
 		// Seal is reserved in extra-data. To prove block is signed by the proposer.
 		if posHeader := BFTFilteredHeader(h, true); posHeader != nil {
 			return rlpHash(posHeader)

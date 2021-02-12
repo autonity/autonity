@@ -30,7 +30,6 @@ import (
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/accounts/scwallet"
-	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/common/math"
@@ -544,10 +543,6 @@ func (s *PublicBlockChainAPI) ChainId() *hexutil.Big {
 func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	header, _ := s.b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
 	return hexutil.Uint64(header.Number.Uint64())
-}
-
-func (s *PublicBlockChainAPI) AutonityContract() *autonity.Contract {
-	return s.b.AutonityContract()
 }
 
 // GetBalance returns the amount of wei for the given address in the state of the

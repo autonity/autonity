@@ -108,6 +108,7 @@ contract Autonity is IERC20 {
         contractVersion = _contractVersion;
         committeeSize = _committeeSize;
         deployer = msg.sender;
+        computeCommittee();
     }
 
     /**
