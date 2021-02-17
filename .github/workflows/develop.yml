@@ -1,11 +1,14 @@
 name: develop
+
 on:
   release:
     types:
       - created
+
 jobs:
   long-run_tests:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         e2e: [TestTendermintTC7]
@@ -23,8 +26,23 @@ jobs:
         with:
           clean: 'false'
 
+      - name: Get variables from GitHub
+        id: git_vars
+        run: |
+          echo ::set-output name=TAG::${GITHUB_REF/refs\/tags\//}
+
+      - name: Configure Docker
+        run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
       - name: Embed Autonity contract
         run: make embed-autonity-contract
 
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
+
+      - name: Build Tag and Push
+        run: |
+          docker build . --tag ghcr.io/$GITHUB_REPOSITORY:latest
+          docker tag ghcr.io/$GITHUB_REPOSITORY:latest ghcr.io/$GITHUB_REPOSITORY:${{ steps.git_vars.outputs.TAG }}
+          docker push ghcr.io/$GITHUB_REPOSITORY:latest
+          docker push ghcr.io/$GITHUB_REPOSITORY:${{ steps.git_vars.outputs.TAG }}
