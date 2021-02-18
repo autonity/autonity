@@ -8,10 +8,10 @@ import (
 var nilValue = common.Hash{}
 
 type message interface {
-	Round() uint
-	Height() uint
+	R() uint
+	H() uint64
 	Sender() common.Address
-	Type() byte
+	Type() uint64
 	Value() common.Hash // Block hash for a proposal,
 	ValidRound() int
 }
@@ -43,14 +43,14 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
 
-	proposalsNew := fd.msgStore.Get(height, func(m message) bool {
-		return m.Type() == p && m.ValidRound() == -1
+	proposalsNew := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+		return m.Type() == types.MsgProposal && m.ValidRound() == -1
 	})
 
 	for _, proposal := range proposalsNew {
 		//check all precommits for previous rounds from this sender are nil
-		precommits := fd.msgStore.Get(height, func(m message) bool {
-			return m.Sender() == proposal.Sender() && m.Type() == pc && m.Round() < proposal.Round() && m.Value() != nilValue
+		precommits := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+			return m.Sender() == proposal.Sender() && m.Type() == types.MsgPrecommit && m.R() < proposal.R() && m.Value() != nilValue
 		})
 		if len(precommits) != 0 {
 			proof := &types.Proof{
@@ -66,8 +66,8 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 	// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
 
-	proposalsOld := fd.msgStore.Get(height, func(m message) bool {
-		return m.Type() == p && m.ValidRound() > -1
+	proposalsOld := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+		return m.Type() == types.MsgProposal && m.ValidRound() > -1
 	})
 
 	for _, proposal := range proposalsOld {
@@ -80,8 +80,8 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 		// by the current proposer in the valid round? If there is the proposer
 		// has proposed a value for which it is not locked on, thus a proof of
 		// misbehaviour can be generated.
-		precommits := fd.msgStore.Get(height, func(m message) bool {
-			return m.Type() == pc && m.Round() == validRound &&
+		precommits := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+			return m.Type() == types.MsgPrecommit && m.R() == validRound &&
 				m.Sender() == proposal.Sender() && m.Value() != nilValue &&
 				m.Value() != proposal.Value()
 		})
@@ -98,9 +98,9 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 		// between the valid round and the round of the proposal? If there is
 		// then that implies the proposer saw 2f+1 prevotes in that round and
 		// hence it should have set that round as the valid round.
-		precommits = fd.msgStore.Get(height, func(m message) bool {
-			return m.Type() == pc &&
-				m.Round() > validRound && m.Round() < proposal.Round() &&
+		precommits = fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+			return m.Type() == types.MsgPrecommit &&
+				m.R() > validRound && m.R() < proposal.R() &&
 				m.Sender() == proposal.Sender() &&
 				m.Value() != nilValue
 		})
@@ -116,8 +116,8 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 		// Do we see a quorum of prevotes in the valid round, if not we can
 		// raise an accusation, since we cannot be sure that these prevotes
 		// don't exist
-		prevotes := fd.msgStore.Get(height, func(m message) bool {
-			return m.Type() == pv && m.Round() == validRound
+		prevotes := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+			return m.Type() == types.MsgPrevote && m.R() == validRound
 		})
 		if len(prevotes) < int(threshold(height)) {
 			accusation := &types.Accusation{
@@ -130,13 +130,13 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 
 	// ------------New and Old Prevotes------------
 
-	prevotes := fd.msgStore.Get(height, func(m message) bool {
-		return m.Type() == pv && m.Value() != nilValue
+	prevotes := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+		return m.Type() == types.MsgPrevote && m.Value() != nilValue
 	})
 
 	for _, prevote := range prevotes {
-		correspondingProposals := fd.msgStore.Get(height, func(m message) bool {
-			return m.Type() == p && m.Value() == prevote.Value() && m.Round() == prevote.Round()
+		correspondingProposals := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+			return m.Type() == types.MsgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
 		})
 
 		if len(correspondingProposals) == 0 {
@@ -173,10 +173,10 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 				// these rules since the only message in PVN that is not sent by
 				// pi is the proposal and you require the proposal before you
 				// can even attempt to apply the rule.
-				precommits := fd.msgStore.Get(height, func(m message) bool {
-					return m.Type() == pc && m.Value() != nilValue &&
+				precommits := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+					return m.Type() == types.MsgPrecommit && m.Value() != nilValue &&
 						m.Value() != prevote.Value() && prevote.Sender() == m.Sender() &&
-						m.Round() < prevote.Round()
+						m.R() < prevote.R()
 				})
 
 				if len(precommits) > 0 {
@@ -200,9 +200,9 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 				// the proposal precommitted for a different value V', then the prevote
 				// is considered invalid.
 
-				precommits := fd.msgStore.Get(height, func(m message) bool {
-					return m.Type() == pc && prevote.Sender() == m.Sender() &&
-						m.Round() < prevote.Round() && m.Value() != nilValue
+				precommits := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+					return m.Type() == types.MsgPrecommit && prevote.Sender() == m.Sender() &&
+						m.R() < prevote.R() && m.Value() != nilValue
 				})
 				//check most recent precommit if == V -> pass else --> fail
 
@@ -253,13 +253,13 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 			// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 			// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
-			precommits := fd.msgStore.Get(height, func(m message) bool {
-				return m.Type() == pc && m.Value() != nilValue
+			precommits := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+				return m.Type() == types.MsgProposal && m.Value() != nilValue
 			})
 
 			for _, precommit := range precommits {
-				proposals := fd.msgStore.Get(height, func(m message) bool {
-					return m.Type() == p && m.Value() == precommit.Value() && m.Round() == precommit.Round()
+				proposals := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+					return m.Type() == types.MsgProposal && m.Value() == precommit.Value() && m.R() == precommit.R()
 				})
 
 				if len(proposals) == 0 {
@@ -271,11 +271,11 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 					continue
 				}
 
-				prevotesForNotV := fd.msgStore.Get(height, func(m message) bool {
-					return m.Type() == pv && m.Value() != precommit.Value() && m.Round() == precommit.Round()
+				prevotesForNotV := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+					return m.Type() == types.MsgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R()
 				})
-				prevotesForV := fd.msgStore.Get(height, func(m message) bool {
-					return m.Type() == pv && m.Value() == precommit.Value() && m.Round() == precommit.Round()
+				prevotesForV := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+					return m.Type() == types.MsgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R()
 				})
 
 				if len(prevotesForNotV) >= int(threshold(height)) {
