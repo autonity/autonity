@@ -2,11 +2,13 @@ package afd
 
 import (
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/core/types"
 )
 
 var nilValue = common.Hash{}
 
+/*
 type message interface {
 	R() uint
 	H() uint64
@@ -14,12 +16,7 @@ type message interface {
 	Type() uint64
 	Value() common.Hash // Block hash for a proposal,
 	ValidRound() int
-}
-
-func threshold(height uint64) uint {
-	// Determine the quorum threshold for the current height
-	return 0
-}
+}*/
 
 func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusation) {
 	// Rules read right to left (find  the right and look for the left)
@@ -38,7 +35,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 
 	var proofs []types.Proof
 	var accusations []*types.Accusation
-
+	quorum := uint(bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower()))
 	// ------------New Proposal------------
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
@@ -119,7 +116,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 		prevotes := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
 			return m.Type() == types.MsgPrevote && m.R() == validRound
 		})
-		if len(prevotes) < int(threshold(height)) {
+		if len(prevotes) < int(quorum) {
 			accusation := &types.Accusation{
 				Rule:    types.PO,
 				Message: proposal,
@@ -278,7 +275,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 					return m.Type() == types.MsgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R()
 				})
 
-				if len(prevotesForNotV) >= int(threshold(height)) {
+				if len(prevotesForNotV) >= int(quorum) {
 					// In this case there cannot be enough remaining prevotes
 					// to justify a precommit for V.
 					proof := types.Proof{
@@ -288,7 +285,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 					}
 					proofs = append(proofs, proof)
 
-				} else if len(prevotesForV) < int(threshold(height)) {
+				} else if len(prevotesForV) < int(quorum) {
 					// In this case we simply don't see enough prevotes to
 					// justify the precommit.
 					accusation := &types.Accusation{
