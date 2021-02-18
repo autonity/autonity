@@ -8,16 +8,6 @@ import (
 
 var nilValue = common.Hash{}
 
-/*
-type message interface {
-	R() uint
-	H() uint64
-	Sender() common.Address
-	Type() uint64
-	Value() common.Hash // Block hash for a proposal,
-	ValidRound() int
-}*/
-
 func powerOfVotes(votes []types.ConsensusMessage) uint64 {
 	power := uint64(0)
 	for i:= 0; i < len(votes); i++ {
