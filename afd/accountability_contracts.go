@@ -123,11 +123,11 @@ func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
 	case types.C:
 		//todo Validate evidence of C rule.
 	case types.GarbageMessage:
-		return preProcessConsensusMsg(c.chain, &p.Message) == errGarbageMsg
+		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errGarbageMsg
 	case types.InvalidProposal:
-		return preProcessConsensusMsg(c.chain, &p.Message) == errProposal
+		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errProposal
 	case types.InvalidProposer:
-		return preProcessConsensusMsg(c.chain, &p.Message) == errProposer
+		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errProposer
 	case types.Equivocation:
 		return checkEquivocation(c.chain, &p.Message, p.Evidence) == errEquivocation
 	default:
@@ -183,7 +183,7 @@ func (c *ProofValidator) validateInnocentProof(in *types.Proof) ([]byte, error) 
 		}
 	}
 
-	// todo: check if the proof is an innocent behavior.
+	// todo: check if the proof of innocent is valid.
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	senderHash := types.RLPHash(in.Message.Address).Bytes()

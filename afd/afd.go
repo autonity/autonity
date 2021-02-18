@@ -18,8 +18,8 @@ import (
 
 var (
 	// todo: config the window and buffer height in genesis.
-	randomDelayWindow = 10000 // (0, 10] seconds random time window
-	msgBufferInHeight = 60    // buffer such range of msgs in height in msg store.
+	randomDelayWindow = 1000 * 10 // (0, 10] seconds random time window
+	msgBufferInHeight = 60    // buffer such range of msgs in height at msg store.
 	errFutureMsg = errors.New("future height msg")
 	errGarbageMsg = errors.New("garbage msg")
 	errNotCommitteeMsg = errors.New("msg from none committee member")
@@ -242,8 +242,7 @@ func (fd *FaultDetector) submitMisbehavior(m *types.ConsensusMessage, proofs []t
 	fd.sendProofs(types.ChallengeProof, ps)
 }
 
-// processMsg it decode consensus msg, apply auto-incriminating, equivocation rules to it,
-// and store it to msg store.
+// processMsg, decode consensus msg, check auto-incriminating, equivocation rules, and then store msg to msg store.
 func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 	// pre-check if msg is from valid committee member
 	err := checkMsgSignature(fd.blockchain, m)
@@ -255,7 +254,7 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 	}
 
 	// decode consensus msg, and auto-incriminating msg is addressed here.
-	err = preProcessConsensusMsg(fd.blockchain, m)
+	err = checkAutoIncriminatingMsg(fd.blockchain, m)
 	if err != nil {
 		if err == errFutureMsg {
 			fd.bufferMsg(m)
@@ -266,7 +265,7 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 		}
 	}
 
-	// store msg, if there is equivocation then rise errEquivocation and proofs.
+	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
 	p, err := fd.msgStore.Save(m)
 	if err == errEquivocation && p != nil {
 		proof := []types.ConsensusMessage{*p}
@@ -324,10 +323,9 @@ func (fd *FaultDetector) handleMyChallenges(block *types.Block, hash common.Hash
 	return nil
 }
 
-// get proof of innocent over msg store.
+// proveInnocent called by client who is on challenge to get proof of innocent from msg store.
 func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnChainProof, error) {
-	// todo: get proof from msg store over the rules.
-	//  , no need to provide proofs for auto-incriminating and equivocation challenge.
+	// todo: get innocent proof (evidence) from msg store by the suspicious msg and rule.
 	var proof types.OnChainProof
 	return proof, nil
 }
