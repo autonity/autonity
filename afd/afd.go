@@ -169,30 +169,46 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) ev
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
 func (fd *FaultDetector) runRuleEngine(headHeight uint64) {
 	// todo: process accusation too.
-	proofs, accusations := fd.runRules(headHeight)
+	proofs, _ := fd.runRules(headHeight)
 	if len(proofs) > 0 {
-		fd.sendProofs(types.ChallengeProof, proofs)
+		var onChainProofs []types.OnChainProof
+		for i:= 0; i < len(proofs); i++ {
+			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule)
+			if err != nil {
+				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
+				continue
+			}
+			onChainProofs = append(onChainProofs, p)
+		}
+		fd.sendProofs(types.ChallengeProof, onChainProofs)
 	}
 }
 
-func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) (types.OnChainProof, error) {
+func errorToRule(err error) (types.Rule, error) {
+	rule := types.UnknownRule
+	switch err {
+	case errEquivocation:
+		rule = types.Equivocation
+	case errProposer:
+		rule = types.InvalidProposer
+	case errProposal:
+		rule = types.InvalidProposal
+	case errGarbageMsg:
+		rule = types.GarbageMessage
+	default:
+		return rule, fmt.Errorf("errors of not provable")
+	}
+
+	return rule, nil
+}
+
+func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, rule types.Rule) (types.OnChainProof, error) {
 	var challenge types.OnChainProof
 	challenge.SenderHash = types.RLPHash(m.Address)
 	challenge.MsgHash = types.RLPHash(m.Payload())
 
 	var rawProof types.RawProof
-	switch err {
-	case errEquivocation:
-		rawProof.Rule = types.Equivocation
-	case errProposer:
-		rawProof.Rule = types.InvalidProposer
-	case errProposal:
-		rawProof.Rule = types.InvalidProposal
-	case errGarbageMsg:
-		rawProof.Rule = types.GarbageMessage
-	default:
-		return challenge, fmt.Errorf("errors of not provable")
-	}
+	rawProof.Rule = rule
 	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
 	rawProof.Message = m.Payload()
 	for i:= 0; i < len(proofs); i++ {
@@ -212,8 +228,11 @@ func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs 
 // submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
 // send the proof of misbehavior to TX pool.
 func (fd *FaultDetector) submitMisbehavior(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) {
-
-	proof, err := fd.generateOnChainProof(m, proofs, err)
+	rule, e := errorToRule(err)
+	if e != nil {
+		fd.logger.Warn("error to rule", "afd", e)
+	}
+	proof, err := fd.generateOnChainProof(m, proofs, rule)
 	if err != nil {
 		fd.logger.Warn("generate misbehavior proof", "afd", err)
 	}
@@ -312,6 +331,13 @@ func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnCh
 	return proof, nil
 }
 
+func (fd *FaultDetector) randomDelay() {
+	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
+	rand.Seed(time.Now().UnixNano())
+	n := rand.Intn(randomDelayWindow)
+	time.Sleep(time.Duration(n)*time.Millisecond)
+}
+
 // send proofs via event which will handled by ethereum object to signed the TX to send proof.
 func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainProof) {
 	fd.wg.Add(1)
@@ -322,10 +348,7 @@ func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainPro
 		}
 
 		if t == types.ChallengeProof {
-			// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
-			rand.Seed(time.Now().UnixNano())
-			n := rand.Intn(randomDelayWindow)
-			time.Sleep(time.Duration(n)*time.Millisecond)
+			fd.randomDelay()
 			unPresented := fd.filterMissingChallenges(&proofs)
 			if len(unPresented) != 0 {
 				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
