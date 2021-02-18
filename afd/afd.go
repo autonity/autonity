@@ -19,7 +19,7 @@ import (
 var (
 	// todo: config the window and buffer height in genesis.
 	randomDelayWindow = 10000 // (0, 10] seconds random time window
-	msgBufferInHeight = 30    // msg store buffer such range of msgs in height, almost equals to 30 seconds.
+	msgBufferInHeight = 60    // buffer such range of msgs in height in msg store.
 	errFutureMsg = errors.New("future height msg")
 	errGarbageMsg = errors.New("garbage msg")
 	errNotCommitteeMsg = errors.New("msg from none committee member")
@@ -107,6 +107,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			fd.processBufferedMsgs(ev.Block.NumberU64())
 
 			// run rule engine over msg store on each height update.
+
 			fd.runRuleEngine(ev.Block.NumberU64())
 
 			// msg store delete msgs out of buffering window.
@@ -167,9 +168,9 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) ev
 }
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
-func (fd *FaultDetector) runRuleEngine(headHeight uint64) {
+func (fd *FaultDetector) runRuleEngine(height uint64) {
 	// todo: process accusation too.
-	proofs, _ := fd.runRules(headHeight)
+	proofs, _ := fd.runRules(height)
 	if len(proofs) > 0 {
 		var onChainProofs []types.OnChainProof
 		for i:= 0; i < len(proofs); i++ {
