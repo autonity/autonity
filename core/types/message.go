@@ -238,6 +238,40 @@ func (m *ConsensusMessage) Height() (*big.Int, error) {
 	return m.decodedMsg.GetHeight(), nil
 }
 
+// used by afd for decoded msgs
+func (m *ConsensusMessage) R() uint {
+	r, err := m.Round()
+	// msg should be decoded, it shouldn't be an error.
+	if err != nil {
+		panic(err)
+	}
+	return uint(r)
+}
+
+func (m *ConsensusMessage) H() uint64 {
+	h, err := m.Height()
+	if err != nil {
+		panic(err)
+	}
+	return h.Uint64()
+}
+
+func (m *ConsensusMessage) Sender() common.Address {
+	return m.Address
+}
+
+func (m *ConsensusMessage) Type() uint64 {
+	return m.Code
+}
+
+func (m *ConsensusMessage) Value() common.Hash {
+	return m.decodedMsg.GetValue()
+}
+
+func (m *ConsensusMessage) ValidRound() int64 {
+	return m.decodedMsg.GetValidRound()
+}
+
 // ==============================================
 //
 // helper functions
