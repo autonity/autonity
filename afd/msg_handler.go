@@ -12,13 +12,13 @@ import (
 )
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
-func preProcessConsensusMsg(chain *core.BlockChain, m *types.ConsensusMessage) error {
+func checkAutoIncriminatingMsg(chain *core.BlockChain, m *types.ConsensusMessage) error {
 	if m.Code == types.MsgProposal {
-		return processProposal(chain, m)
+		return checkProposal(chain, m)
 	}
 
 	if m.Code == types.MsgPrevote || m.Code == types.MsgPrecommit {
-		return processVote(m)
+		return decodeVote(m)
 	}
 
 	return errUnknownMsg
@@ -26,13 +26,13 @@ func preProcessConsensusMsg(chain *core.BlockChain, m *types.ConsensusMessage) e
 
 func checkEquivocation(chain *core.BlockChain, m *types.ConsensusMessage, proof[]types.ConsensusMessage) error {
 	// decode msgs
-	err := preProcessConsensusMsg(chain, m)
+	err := checkAutoIncriminatingMsg(chain, m)
 	if err != nil {
 		return err
 	}
 
 	for i:= 0; i < len(proof); i++ {
-		err := preProcessConsensusMsg(chain, &proof[i])
+		err := checkAutoIncriminatingMsg(chain, &proof[i])
 		if err != nil {
 			return err
 		}
@@ -58,9 +58,8 @@ func sameVote(a *types.ConsensusMessage, b *types.ConsensusMessage) bool {
 	return false
 }
 
-// processProposal, checks if proposal is valid (no garbage msg, no invalid tx ),
-// it's from correct proposer.
-func processProposal(chain *core.BlockChain, m *types.ConsensusMessage) error {
+// checkProposal, checks if proposal is valid and it's from correct proposer.
+func checkProposal(chain *core.BlockChain, m *types.ConsensusMessage) error {
 	var proposal types.Proposal
 	err := m.Decode(&proposal)
 	if err != nil {
@@ -83,7 +82,7 @@ func processProposal(chain *core.BlockChain, m *types.ConsensusMessage) error {
 	return nil
 }
 
-//pre-process msg, it check if msg is from valid member of the committee, it return
+//checkMsgSignature, it check if msg is from valid member of the committee.
 func checkMsgSignature(chain *core.BlockChain, m *types.ConsensusMessage) error {
 	msgHeight, err := m.Height()
 	if err != nil {
@@ -187,7 +186,6 @@ func isProposerMsg(chain *core.BlockChain, m *types.ConsensusMessage) bool {
 }
 
 func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
-	// todo: before lifting evm again and again, let's buffer proposers in afd.
 	parentHeader := chain.GetHeaderByNumber(h-1)
 	if parentHeader.IsGenesis() {
 		sort.Sort(parentHeader.Committee)
@@ -207,7 +205,7 @@ func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, err
 	return proposer, nil
 }
 
-func processVote(m *types.ConsensusMessage) error {
+func decodeVote(m *types.ConsensusMessage) error {
 	var vote types.Vote
 	err := m.Decode(&vote)
 	if err != nil {
