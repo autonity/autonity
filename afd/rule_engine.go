@@ -21,7 +21,7 @@ func threshold(height uint64) uint {
 	return 0
 }
 
-func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accusation) {
+func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusation) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
@@ -36,7 +36,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 
 	// We should be here at time t = timestamp(h+1) + delta
 
-	var proofs []*types.Proof
+	var proofs []types.Proof
 	var accusations []*types.Accusation
 
 	// ------------New Proposal------------
@@ -53,7 +53,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 			return m.Sender() == proposal.Sender() && m.Type() == types.MsgPrecommit && m.R() < proposal.R() && m.Value() != nilValue
 		})
 		if len(precommits) != 0 {
-			proof := &types.Proof{
+			proof := types.Proof{
 				Rule:     types.PN,
 				Evidence: precommits,
 				Message:  proposal,
@@ -86,7 +86,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 				m.Value() != proposal.Value()
 		})
 		if len(precommits) > 0 {
-			proof := &types.Proof{
+			proof := types.Proof{
 				Rule:     types.PO,
 				Evidence: precommits,
 				Message:  proposal,
@@ -105,7 +105,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 				m.Value() != nilValue
 		})
 		if len(precommits) > 0 {
-			proof := &types.Proof{
+			proof := types.Proof{
 				Rule:     types.PO,
 				Evidence: precommits,
 				Message:  proposal,
@@ -180,7 +180,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 				})
 
 				if len(precommits) > 0 {
-					proof := &types.Proof{
+					proof := types.Proof{
 						Rule:     types.PVN,
 						Evidence: precommits,
 						Message:  prevote,
@@ -281,7 +281,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]*types.Proof, []*types.Accus
 				if len(prevotesForNotV) >= int(threshold(height)) {
 					// In this case there cannot be enough remaining prevotes
 					// to justify a precommit for V.
-					proof := &types.Proof{
+					proof := types.Proof{
 						Rule:     types.C,
 						Evidence: prevotesForNotV,
 						Message:  precommit,

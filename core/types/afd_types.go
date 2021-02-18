@@ -24,6 +24,7 @@ const (
 	InvalidProposal     // The value proposed by proposer cannot pass the blockchain's validation.
 	InvalidProposer     // A proposal sent from none proposer nodes of the committee.
 	Equivocation        // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
+	UnknownRule
 )
 
 // The proof used by accountability precompiled contract to validate the proof of innocent or misbehavior.
