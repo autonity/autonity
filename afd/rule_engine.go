@@ -1,6 +1,7 @@
 package afd
 
 import (
+	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/core/types"
@@ -14,6 +15,33 @@ func powerOfVotes(votes []types.ConsensusMessage) uint64 {
 		power += votes[i].GetPower()
 	}
 	return power
+}
+
+// run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
+func (fd *FaultDetector) runRuleEngine(height uint64) {
+	// todo: process accusation too.
+	proofs, _ := fd.runRules(height)
+	if len(proofs) > 0 {
+		var onChainProofs []types.OnChainProof
+		for i:= 0; i < len(proofs); i++ {
+			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule)
+			if err != nil {
+				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
+				continue
+			}
+			onChainProofs = append(onChainProofs, p)
+		}
+		fd.sendProofs(types.ChallengeProof, onChainProofs)
+	}
+}
+
+// proveInnocent called by client who is on challenge to get proof of innocent from msg store.
+func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnChainProof, error) {
+	// todo: get innocent proof (evidence) from msg store by the suspicious msg and rule.
+	var proof types.OnChainProof
+
+
+	return proof, nil
 }
 
 func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusation) {
@@ -297,4 +325,22 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 		}
 	}
 	return proofs, accusations
+}
+
+func errorToRule(err error) (types.Rule, error) {
+	rule := types.UnknownRule
+	switch err {
+	case errEquivocation:
+		rule = types.Equivocation
+	case errProposer:
+		rule = types.InvalidProposer
+	case errProposal:
+		rule = types.InvalidProposal
+	case errGarbageMsg:
+		rule = types.GarbageMessage
+	default:
+		return rule, fmt.Errorf("errors of not provable")
+	}
+
+	return rule, nil
 }
