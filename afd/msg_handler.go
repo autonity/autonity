@@ -8,8 +8,108 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/rlp"
 	"sort"
 )
+
+// convert the raw proofs into on-chain proof which contains raw bytes of messages.
+func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, rule types.Rule) (types.OnChainProof, error) {
+	var challenge types.OnChainProof
+	challenge.SenderHash = types.RLPHash(m.Address)
+	challenge.MsgHash = types.RLPHash(m.Payload())
+
+	var rawProof types.RawProof
+	rawProof.Rule = rule
+	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
+	rawProof.Message = m.Payload()
+	for i:= 0; i < len(proofs); i++ {
+		rawProof.Evidence = append(rawProof.Evidence, proofs[i].Payload())
+	}
+
+	rp, err := rlp.EncodeToBytes(rawProof)
+	if err != nil {
+		fd.logger.Warn("fail to rlp encode raw proof", "afd", err)
+		return challenge, err
+	}
+
+	challenge.RawProofBytes = rp
+	return challenge, nil
+}
+
+// submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
+// send the proof of misbehavior to event channel.
+func (fd *FaultDetector) submitMisbehavior(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) {
+	rule, e := errorToRule(err)
+	if e != nil {
+		fd.logger.Warn("error to rule", "afd", e)
+	}
+	proof, err := fd.generateOnChainProof(m, proofs, rule)
+	if err != nil {
+		fd.logger.Warn("generate misbehavior proof", "afd", err)
+	}
+	ps := []types.OnChainProof{proof}
+
+	fd.sendProofs(types.ChallengeProof, ps)
+}
+
+// processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
+func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
+	// pre-check if msg is from valid committee member
+	err := checkMsgSignature(fd.blockchain, m)
+	if err != nil {
+		if err == errFutureMsg {
+			fd.bufferMsg(m)
+		}
+		return err
+	}
+
+	// decode consensus msg, and auto-incriminating msg is addressed here.
+	err = checkAutoIncriminatingMsg(fd.blockchain, m)
+	if err != nil {
+		if err == errFutureMsg {
+			fd.bufferMsg(m)
+		} else {
+			proofs := []types.ConsensusMessage{*m}
+			fd.submitMisbehavior(m, proofs, err)
+			return err
+		}
+	}
+
+	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
+	p, err := fd.msgStore.Save(m)
+	if err == errEquivocation && p != nil {
+		proof := []types.ConsensusMessage{*p}
+		fd.submitMisbehavior(m, proof, err)
+		return err
+	}
+	return nil
+}
+
+// processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
+func (fd *FaultDetector) processBufferedMsgs(height uint64) {
+	for height, msgs := range fd.futureMsgs {
+		if height <= height {
+			for i:= 0; i < len(msgs); i++ {
+				if err := fd.processMsg(msgs[i]); err != nil {
+					fd.logger.Error("process consensus msg", "afd", err)
+					continue
+				}
+			}
+		}
+	}
+}
+
+// buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
+func (fd *FaultDetector) bufferMsg(m *types.ConsensusMessage) {
+	h, err := m.Height()
+	if err != nil {
+		return
+	}
+
+	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
+}
+
+/////// common helper functions shared between afd and precompiled contract to validate msgs.
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
 func checkAutoIncriminatingMsg(chain *core.BlockChain, m *types.ConsensusMessage) error {
@@ -133,9 +233,6 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 		// Instead only the transactions are applied to the copied state
 		for i, tx := range block.Transactions() {
 			state.Prepare(tx.Hash(), block.Hash(), i)
-			// Might be vulnerable to DoS Attack depending on gaslimit
-			// Todo : Double check
-			// use default values for vmConfig.
 			vmConfig := vm.Config{
 				EnablePreimageRecording: true,
 				EWASMInterpreter: "",

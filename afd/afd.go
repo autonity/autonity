@@ -1,7 +1,6 @@
 package afd
 
 import (
-	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
@@ -9,7 +8,6 @@ import (
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"math/rand"
 	"sync"
@@ -98,7 +96,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
 		case ev := <-fd.blockChan:
 			// take my challenge from latest state DB, and provide innocent proof if there are any.
-			err := fd.handleMyChallenges(ev.Block, ev.Hash)
+			err := fd.handleChallenges(ev.Block, ev.Hash)
 			if err != nil {
 				fd.logger.Warn("handle challenge","afd", err)
 			}
@@ -167,140 +165,8 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) ev
 	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
 }
 
-// run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
-func (fd *FaultDetector) runRuleEngine(height uint64) {
-	// todo: process accusation too.
-	proofs, _ := fd.runRules(height)
-	if len(proofs) > 0 {
-		var onChainProofs []types.OnChainProof
-		for i:= 0; i < len(proofs); i++ {
-			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule)
-			if err != nil {
-				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
-				continue
-			}
-			onChainProofs = append(onChainProofs, p)
-		}
-		fd.sendProofs(types.ChallengeProof, onChainProofs)
-	}
-}
-
-func errorToRule(err error) (types.Rule, error) {
-	rule := types.UnknownRule
-	switch err {
-	case errEquivocation:
-		rule = types.Equivocation
-	case errProposer:
-		rule = types.InvalidProposer
-	case errProposal:
-		rule = types.InvalidProposal
-	case errGarbageMsg:
-		rule = types.GarbageMessage
-	default:
-		return rule, fmt.Errorf("errors of not provable")
-	}
-
-	return rule, nil
-}
-
-func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, rule types.Rule) (types.OnChainProof, error) {
-	var challenge types.OnChainProof
-	challenge.SenderHash = types.RLPHash(m.Address)
-	challenge.MsgHash = types.RLPHash(m.Payload())
-
-	var rawProof types.RawProof
-	rawProof.Rule = rule
-	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
-	rawProof.Message = m.Payload()
-	for i:= 0; i < len(proofs); i++ {
-		rawProof.Evidence = append(rawProof.Evidence, proofs[i].Payload())
-	}
-
-	rp, err := rlp.EncodeToBytes(rawProof)
-	if err != nil {
-		fd.logger.Warn("fail to rlp encode raw proof", "afd", err)
-		return challenge, err
-	}
-
-	challenge.RawProofBytes = rp
-	return challenge, nil
-}
-
-// submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
-// send the proof of misbehavior to TX pool.
-func (fd *FaultDetector) submitMisbehavior(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) {
-	rule, e := errorToRule(err)
-	if e != nil {
-		fd.logger.Warn("error to rule", "afd", e)
-	}
-	proof, err := fd.generateOnChainProof(m, proofs, rule)
-	if err != nil {
-		fd.logger.Warn("generate misbehavior proof", "afd", err)
-	}
-	ps := []types.OnChainProof{proof}
-
-	fd.sendProofs(types.ChallengeProof, ps)
-}
-
-// processMsg, decode consensus msg, check auto-incriminating, equivocation rules, and then store msg to msg store.
-func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
-	// pre-check if msg is from valid committee member
-	err := checkMsgSignature(fd.blockchain, m)
-	if err != nil {
-		if err == errFutureMsg {
-			fd.bufferMsg(m)
-		}
-		return err
-	}
-
-	// decode consensus msg, and auto-incriminating msg is addressed here.
-	err = checkAutoIncriminatingMsg(fd.blockchain, m)
-	if err != nil {
-		if err == errFutureMsg {
-			fd.bufferMsg(m)
-		} else {
-			proofs := []types.ConsensusMessage{*m}
-			fd.submitMisbehavior(m, proofs, err)
-			return err
-		}
-	}
-
-	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
-	p, err := fd.msgStore.Save(m)
-	if err == errEquivocation && p != nil {
-		proof := []types.ConsensusMessage{*p}
-		fd.submitMisbehavior(m, proof, err)
-		return err
-	}
-	return nil
-}
-
-// processBufferedMsgs, called on chain event update, it take msgs from the buffered future height msgs, process them.
-func (fd *FaultDetector) processBufferedMsgs(headHeight uint64) {
-	for height, msgs := range fd.futureMsgs {
-		if height <= headHeight {
-			for i:= 0; i < len(msgs); i++ {
-				if err := fd.processMsg(msgs[i]); err != nil {
-					fd.logger.Error("process consensus msg", "afd", err)
-					continue
-				}
-			}
-		}
-	}
-}
-
-// buffer Msg since node are not synced to verify it.
-func (fd *FaultDetector) bufferMsg(m *types.ConsensusMessage) {
-	h, err := m.Height()
-	if err != nil {
-		return
-	}
-
-	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
-}
-
-// get challenges from chain via autonityContract calls.
-func (fd *FaultDetector) handleMyChallenges(block *types.Block, hash common.Hash) error {
+// get challenges from chain via autonityContract calls, and provide proofs if there were any challenge of client.
+func (fd *FaultDetector) handleChallenges(block *types.Block, hash common.Hash) error {
 	var innocentProofs []types.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
 	if err != nil {
@@ -323,13 +189,6 @@ func (fd *FaultDetector) handleMyChallenges(block *types.Block, hash common.Hash
 	return nil
 }
 
-// proveInnocent called by client who is on challenge to get proof of innocent from msg store.
-func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnChainProof, error) {
-	// todo: get innocent proof (evidence) from msg store by the suspicious msg and rule.
-	var proof types.OnChainProof
-	return proof, nil
-}
-
 func (fd *FaultDetector) randomDelay() {
 	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
 	rand.Seed(time.Now().UnixNano())
@@ -348,7 +207,7 @@ func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainPro
 
 		if t == types.ChallengeProof {
 			fd.randomDelay()
-			unPresented := fd.filterMissingChallenges(&proofs)
+			unPresented := fd.filterPresentedChallenges(&proofs)
 			if len(unPresented) != 0 {
 				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
 			}
@@ -356,7 +215,7 @@ func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainPro
 	}()
 }
 
-func (fd *FaultDetector) filterMissingChallenges(proofs *[]types.OnChainProof) []types.OnChainProof {
+func (fd *FaultDetector) filterPresentedChallenges(proofs *[]types.OnChainProof) []types.OnChainProof {
 	// get latest chain state.
 	var result []types.OnChainProof
 	state, err := fd.blockchain.State()
