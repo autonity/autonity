@@ -78,10 +78,6 @@ func (c *ChallengeValidator) Run(input []byte) ([]byte, error) {
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
 func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
-	if len(p.Evidence) == 0 {
-		return failure64Byte, errNoEvidence
-	}
-
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message)
 	if err != nil {
@@ -113,15 +109,13 @@ func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
 func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
 	switch types.Rule(p.Rule) {
 	case types.PN:
-		//todo Validate evidence of PN rule.
+		return validChallengeOfPN(p)
 	case types.PO:
-		//todo Validate evidence of PO rule.
+		return validChallengeOfPO(p)
 	case types.PVN:
-		//todo Validate evidence of PVN rule.
-	case types.PVO:
-		//todo Validate evidence of PVO rule.
+		return validChallengeOfPVN(p)
 	case types.C:
-		//todo Validate evidence of C rule.
+		return validChallengeOfC(p)
 	case types.GarbageMessage:
 		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errGarbageMsg
 	case types.InvalidProposal:
@@ -133,7 +127,6 @@ func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
 	default:
 		return false
 	}
-	return false
 }
 
 // ProofValidator implemented as a native contract to validate an on-chain innocent proof.
@@ -183,11 +176,28 @@ func (c *ProofValidator) validateInnocentProof(in *types.Proof) ([]byte, error) 
 		}
 	}
 
-	// todo: check if the proof of innocent is valid.
+	if !c.validInnocentProof(in) {
+		return failure64Byte, fmt.Errorf("invalid proof of innocent")
+	}
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	senderHash := types.RLPHash(in.Message.Address).Bytes()
 	return append(msgHash, senderHash...), nil
+}
+
+func (c *ProofValidator) validInnocentProof(p *types.Proof) bool {
+	switch types.Rule(p.Rule) {
+	case types.PN:
+		return validInnocentProofOfPN(p)
+	case types.PO:
+		return validInnocentProofOfPO(p)
+	case types.PVN:
+		return validInnocentProofOfPVN(p)
+	case types.C:
+		return validInnocentProofOfC(p)
+	default:
+		return false
+	}
 }
 
 // decode proof convert proof from rlp encoded bytes into object Proof.
