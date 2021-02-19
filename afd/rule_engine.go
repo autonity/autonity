@@ -35,13 +35,74 @@ func (fd *FaultDetector) runRuleEngine(height uint64) {
 	}
 }
 
-// proveInnocent called by client who is on challenge to get proof of innocent from msg store.
-func (fd *FaultDetector) proveInnocent(challenge types.OnChainProof) (types.OnChainProof, error) {
-	// todo: get innocent proof (evidence) from msg store by the suspicious msg and rule.
+// getInnocentProof called by client who is on challenge to get proof of innocent from msg store.
+func (fd *FaultDetector) getInnocentProof(c *types.Proof) (types.OnChainProof, error) {
 	var proof types.OnChainProof
+	// rule engine have below provable challenges for the time being:
+	switch c.Rule {
+	case types.PN:
+		return fd.InnocentProofOfPN(c)
+	case types.PO:
+		return fd.InnocentProofOfPO(c)
+	case types.PVN:
+		return fd.InnocentProofOfPVN(c)
+	case types.C:
+		return fd.InnocentProofOfC(c)
+	default:
+		return proof, fmt.Errorf("not provable rule")
+	}
+}
 
+func validChallengeOfPN(c *types.Proof) bool {
+	return true
+}
 
+func (fd *FaultDetector) InnocentProofOfPN(c *types.Proof) (types.OnChainProof, error) {
+	var proof types.OnChainProof
 	return proof, nil
+}
+
+func validInnocentProofOfPN(p *types.Proof) bool {
+	return true
+}
+
+func validChallengeOfPO(c *types.Proof) bool {
+	return true
+}
+
+func (fd *FaultDetector) InnocentProofOfPO(c *types.Proof) (types.OnChainProof, error) {
+	var proof types.OnChainProof
+	return proof, nil
+}
+
+func validInnocentProofOfPO(p *types.Proof) bool {
+	return true
+}
+
+func validChallengeOfPVN(c *types.Proof) bool {
+	return true
+}
+
+func (fd *FaultDetector) InnocentProofOfPVN(c *types.Proof) (types.OnChainProof, error) {
+	var proof types.OnChainProof
+	return proof, nil
+}
+
+func validInnocentProofOfPVN(p *types.Proof) bool {
+	return true
+}
+
+func validChallengeOfC(c *types.Proof) bool {
+	return true
+}
+
+func (fd *FaultDetector) InnocentProofOfC(c *types.Proof) (types.OnChainProof, error) {
+	var proof types.OnChainProof
+	return proof, nil
+}
+
+func validInnocentProofOfC(p *types.Proof) bool {
+	return true
 }
 
 func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusation) {

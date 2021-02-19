@@ -176,7 +176,12 @@ func (fd *FaultDetector) handleChallenges(block *types.Block, hash common.Hash) 
 	challenges := fd.blockchain.GetAutonityContract().GetChallenges(block.Header(), state)
 	for i:=0; i < len(challenges); i++ {
 		if challenges[i].SenderHash == types.RLPHash(fd.address) {
-			p, err := fd.proveInnocent(challenges[i])
+			c, err := decodeProof(challenges[i].RawProofBytes)
+			if err != nil {
+				continue
+			}
+
+			p, err := fd.getInnocentProof(c)
 			if err != nil {
 				continue
 			}
