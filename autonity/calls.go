@@ -231,3 +231,13 @@ func (ac *Contract) callGetChallenges(state *state.StateDB, header *types.Header
 	}
 	return proofs
 }
+
+func (ac *Contract) callGetAccusations(state *state.StateDB, header *types.Header) []types.OnChainProof {
+	var proofs []types.OnChainProof
+	err := ac.AutonityContractCall(state, header, "getAccusations", &proofs)
+
+	if err != nil {
+		log.Error("get proposer failed from contract.", "error", err)
+	}
+	return proofs
+}

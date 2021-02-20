@@ -15,8 +15,8 @@ import (
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
 func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, rule types.Rule) (types.OnChainProof, error) {
 	var challenge types.OnChainProof
-	challenge.SenderHash = types.RLPHash(m.Address)
-	challenge.MsgHash = types.RLPHash(m.Payload())
+	challenge.Sender = m.Address
+	challenge.Msghash = types.RLPHash(m.Payload())
 
 	var rawProof types.RawProof
 	rawProof.Rule = rule
@@ -32,7 +32,7 @@ func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs 
 		return challenge, err
 	}
 
-	challenge.RawProofBytes = rp
+	challenge.Rawproof = rp
 	return challenge, nil
 }
 
