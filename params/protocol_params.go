@@ -127,9 +127,7 @@ const (
 	Bn256PairingBaseGasIstanbul      uint64 = 45000  // Base price for an elliptic curve pairing check
 	Bn256PairingPerPointGasByzantium uint64 = 80000  // Byzantium per-point price for an elliptic curve pairing check
 	Bn256PairingPerPointGasIstanbul  uint64 = 34000  // Per-point price for an elliptic curve pairing check
-	EnodeCheckGas                    uint64 = 1      // Price for Autonity enode check
-	TakeChallengeGas                 uint64 = 1      // Price for take a challenge
-	CheckInnocentGas                 uint64 = 1      // Price for checking an innocent proof
+	MinimumGas                       uint64 = 1      // Minimum Price for autonity precompiled contracts
 
 	Bls12381G1AddGas          uint64 = 600    // Price for BLS12-381 elliptic curve G1 point addition
 	Bls12381G1MulGas          uint64 = 12000  // Price for BLS12-381 elliptic curve G1 point scalar multiplication

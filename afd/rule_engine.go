@@ -19,8 +19,8 @@ func powerOfVotes(votes []types.ConsensusMessage) uint64 {
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
 func (fd *FaultDetector) runRuleEngine(height uint64) {
-	// todo: process accusation too.
-	proofs, _ := fd.runRules(height)
+	// todo: to merge the two TXs into one.
+	proofs, accusations := fd.runRules(height)
 	if len(proofs) > 0 {
 		var onChainProofs []types.OnChainProof
 		for i:= 0; i < len(proofs); i++ {
@@ -33,79 +33,107 @@ func (fd *FaultDetector) runRuleEngine(height uint64) {
 		}
 		fd.sendProofs(types.ChallengeProof, onChainProofs)
 	}
+
+	if len(accusations) > 0 {
+		var onChainProofs []types.OnChainProof
+		for i:= 0; i < len(accusations); i++ {
+			p, err := fd.generateOnChainProof(&accusations[i].Message, accusations[i].Evidence, accusations[i].Rule)
+			if err != nil {
+				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
+				continue
+			}
+			onChainProofs = append(onChainProofs, p)
+		}
+		fd.sendProofs(types.AccusationProof, onChainProofs)
+	}
 }
 
 // getInnocentProof called by client who is on challenge to get proof of innocent from msg store.
 func (fd *FaultDetector) getInnocentProof(c *types.Proof) (types.OnChainProof, error) {
 	var proof types.OnChainProof
-	// rule engine have below provable challenges for the time being:
+	// rule engine have below provable accusation for the time being:
 	switch c.Rule {
-	case types.PN:
-		return fd.InnocentProofOfPN(c)
 	case types.PO:
-		return fd.InnocentProofOfPO(c)
+		return fd.GetInnocentProofOfPO(c)
 	case types.PVN:
-		return fd.InnocentProofOfPVN(c)
+		return fd.GetInnocentProofOfPVN(c)
 	case types.C:
-		return fd.InnocentProofOfC(c)
+		return fd.GetInnocentProofOfC(c)
 	default:
 		return proof, fmt.Errorf("not provable rule")
 	}
 }
 
+///////////////////////////////////////////////////////////////////////
+// validate proof of challenge for rules.
+// check if the proof of challenge of PN is valid.
 func validChallengeOfPN(c *types.Proof) bool {
+	// todo: check challenge of PN is valid
 	return true
 }
 
-func (fd *FaultDetector) InnocentProofOfPN(c *types.Proof) (types.OnChainProof, error) {
-	var proof types.OnChainProof
-	return proof, nil
-}
-
-func validInnocentProofOfPN(p *types.Proof) bool {
-	return true
-}
-
+// check if the proof of challenge of PO is valid
 func validChallengeOfPO(c *types.Proof) bool {
+	// todo: check challenge of PO is valid
 	return true
 }
 
-func (fd *FaultDetector) InnocentProofOfPO(c *types.Proof) (types.OnChainProof, error) {
-	var proof types.OnChainProof
-	return proof, nil
-}
-
-func validInnocentProofOfPO(p *types.Proof) bool {
-	return true
-}
-
+// check if the proof of challenge of PVN is valid.
 func validChallengeOfPVN(c *types.Proof) bool {
+	// todo: check challenge of PVN is valid
 	return true
 }
 
-func (fd *FaultDetector) InnocentProofOfPVN(c *types.Proof) (types.OnChainProof, error) {
-	var proof types.OnChainProof
-	return proof, nil
-}
-
-func validInnocentProofOfPVN(p *types.Proof) bool {
-	return true
-}
-
+// check if the proof of challenge of C is valid.
 func validChallengeOfC(c *types.Proof) bool {
+	// todo: check challenge of C is valid
 	return true
 }
 
-func (fd *FaultDetector) InnocentProofOfC(c *types.Proof) (types.OnChainProof, error) {
+/////////////////////////////////////////////////////////////////////
+// get proof of innocent of rules from msg store.
+// get proof of innocent of PO from msg store.
+func (fd *FaultDetector) GetInnocentProofOfPO(c *types.Proof) (types.OnChainProof, error) {
+	// todo: get innocent proofs for PO.
 	var proof types.OnChainProof
 	return proof, nil
 }
 
-func validInnocentProofOfC(p *types.Proof) bool {
+// get proof of innocent of PVN from msg store.
+func (fd *FaultDetector) GetInnocentProofOfPVN(c *types.Proof) (types.OnChainProof, error) {
+	// todo: get innocent proofs for PVN.
+	var proof types.OnChainProof
+	return proof, nil
+}
+
+// get proof of innocent of C from msg store.
+func (fd *FaultDetector) GetInnocentProofOfC(c *types.Proof) (types.OnChainProof, error) {
+	// todo: get innocent proofs for C.
+	var proof types.OnChainProof
+	return proof, nil
+}
+
+////////////////////////////////////////////////////////////////////
+// check if proofs of innocent is valid for rules.
+// check if the proof of innocent of PO is valid.
+func validInnocentProofOfPO(p *types.Proof) bool {
+	// todo: validate innocent proof of PO.
 	return true
 }
 
-func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusation) {
+// check if the proof of innocent of PVN is valid.
+func validInnocentProofOfPVN(p *types.Proof) bool {
+	// todo: validate innocent proof of PVN.
+	return true
+}
+
+// check if the proof of innocent of C is valid.
+func validInnocentProofOfC(p *types.Proof) bool {
+	// todo: validate innocent proof of C.
+	return true
+}
+
+func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusations []types.Proof) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
@@ -120,8 +148,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 
 	// We should be here at time t = timestamp(h+1) + delta
 
-	var proofs []types.Proof
-	var accusations []*types.Accusation
+	//var accusations []*types.Accusation
 	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
 	// ------------New Proposal------------
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
@@ -205,7 +232,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 		})
 
 		if powerOfVotes(prevotes) < quorum {
-			accusation := &types.Accusation{
+			accusation := types.Proof{
 				Rule:    types.PO,
 				Message: proposal,
 			}
@@ -225,7 +252,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 		})
 
 		if len(correspondingProposals) == 0 {
-			accusation := &types.Accusation{
+			accusation := types.Proof{
 				Rule: types.PVN, //This could be PVO as well, however, we can't decide since there are no corresponding
 				// proposal
 				Message: prevote,
@@ -348,7 +375,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 				})
 
 				if len(proposals) == 0 {
-					accusation := &types.Accusation{
+					accusation := types.Proof{
 						Rule:    types.C,
 						Message: precommit,
 					}
@@ -376,7 +403,7 @@ func (fd *FaultDetector) runRules(height uint64) ([]types.Proof, []*types.Accusa
 				} else if powerOfVotes(prevotesForV) < quorum {
 					// In this case we simply don't see enough prevotes to
 					// justify the precommit.
-					accusation := &types.Accusation{
+					accusation := types.Proof{
 						Rule:    types.C,
 						Message: precommit,
 					}

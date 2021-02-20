@@ -953,7 +953,7 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
 func (c *checkEnode) RequiredGas(_ []byte) uint64 {
-	return params.EnodeCheckGas
+	return params.MinimumGas
 }
 func (c *checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {

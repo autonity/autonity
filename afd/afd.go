@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	// todo: config the window and buffer height in genesis.
+	// todo: refine the window and buffer range in contract which can be tuned during run time.
 	randomDelayWindow = 1000 * 10 // (0, 10] seconds random time window
 	msgBufferInHeight = 60    // buffer such range of msgs in height at msg store.
 	errFutureMsg = errors.New("future height msg")
@@ -26,7 +26,6 @@ var (
 	errEquivocation = errors.New("equivocation happens")
 	errUnknownMsg = errors.New("unknown consensus msg")
 	errInvalidChallenge = errors.New("invalid challenge")
-	errNoEvidence = errors.New("no evidence")
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -95,8 +94,8 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 		select {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
 		case ev := <-fd.blockChan:
-			// take my challenge from latest state DB, and provide innocent proof if there are any.
-			err := fd.handleChallenges(ev.Block, ev.Hash)
+			// take my accusations from latest state DB, and provide innocent proof if there are any.
+			err := fd.handleAccusations(ev.Block, ev.Hash)
 			if err != nil {
 				fd.logger.Warn("handle challenge","afd", err)
 			}
@@ -165,18 +164,18 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) ev
 	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
 }
 
-// get challenges from chain via autonityContract calls, and provide proofs if there were any challenge of client.
-func (fd *FaultDetector) handleChallenges(block *types.Block, hash common.Hash) error {
+// get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
+func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) error {
 	var innocentProofs []types.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
 	if err != nil {
 		return err
 	}
 
-	challenges := fd.blockchain.GetAutonityContract().GetChallenges(block.Header(), state)
-	for i:=0; i < len(challenges); i++ {
-		if challenges[i].SenderHash == types.RLPHash(fd.address) {
-			c, err := decodeProof(challenges[i].RawProofBytes)
+	accusations := fd.blockchain.GetAutonityContract().GetAccusations(block.Header(), state)
+	for i:=0; i < len(accusations); i++ {
+		if accusations[i].Sender == fd.address {
+			c, err := decodeProof(accusations[i].Rawproof)
 			if err != nil {
 				continue
 			}
@@ -212,29 +211,45 @@ func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainPro
 
 		if t == types.ChallengeProof {
 			fd.randomDelay()
-			unPresented := fd.filterPresentedChallenges(&proofs)
+			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
 				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
 			}
 		}
+
+		if t == types.AccusationProof {
+			fd.randomDelay()
+			unPresented := fd.filterPresentedOnes(&proofs, t)
+			if len(unPresented) != 0 {
+				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
+			}
+		}
+
 	}()
 }
 
-func (fd *FaultDetector) filterPresentedChallenges(proofs *[]types.OnChainProof) []types.OnChainProof {
+func (fd *FaultDetector) filterPresentedOnes(proofs *[]types.OnChainProof, t types.ProofType) []types.OnChainProof {
 	// get latest chain state.
 	var result []types.OnChainProof
+	var presented []types.OnChainProof
 	state, err := fd.blockchain.State()
 	if err != nil {
 		return nil
 	}
-
 	header := fd.blockchain.CurrentBlock().Header()
-	challenges := fd.blockchain.GetAutonityContract().GetChallenges(header, state)
+
+	if t == types.AccusationProof {
+		presented = fd.blockchain.GetAutonityContract().GetAccusations(header, state)
+	}
+
+	if t == types.ChallengeProof {
+		presented = fd.blockchain.GetAutonityContract().GetChallenges(header, state)
+	}
 
 	for i:=0; i < len(*proofs); i++ {
 		present := false
-		for i:=0; i < len(challenges); i++ {
-			if (*proofs)[i].MsgHash == challenges[i].MsgHash {
+		for i:=0; i < len(presented); i++ {
+			if (*proofs)[i].Msghash == presented[i].Msghash {
 				present = true
 			}
 		}

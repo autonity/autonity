@@ -34,6 +34,7 @@ contract Autonity is IERC20 {
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
     Accountability.Proof[] public challenges;
+    Accountability.Proof[] public accusations;
     address[] private usersList;
     string[] private enodesWhitelist;
     mapping (address => User) private users;
@@ -74,7 +75,8 @@ contract Autonity is IERC20 {
     event BurnedStake(address _address, uint256 _amount);
     event Rewarded(address _address, uint256 _amount);
     event ChallengeAdded(Accountability.Proof proof);
-    event ChallengeRemoved(Accountability.Proof proof);
+    event AccusationAdded(Accountability.Proof proof);
+    event AccusationRemoved(Accountability.Proof proof);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -144,7 +146,7 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @notice Create an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
+    * @notice Create accountability challenges in the Autonity Contract with the specified role. Restricted to the validator account.
     */
     function addChallenge(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
         for (uint256 i = 0; i < Proofs.length; i++) {
@@ -153,34 +155,56 @@ contract Autonity is IERC20 {
                 continue;
             }
 
-            uint256[2] memory ret = Accountability.checkChallenge(Proofs[i].rawProof);
-            if (ret[0] != Proofs[i].msgHash && ret[1] != Proofs[i].senderHash) {
-                // todo: take governance action that msg.sender sent invalid challenge.
+            (address addr, bytes32 msgHash) = Accountability.checkChallenge(Proofs[i].rawproof);
+            if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
+                // todo: take governance action that msg.sender sent faulty challenge.
                 continue;
             }
-
+            // challenge is valid, take slashing actions.
             challenges.push(Proofs[i]);
             emit ChallengeAdded(Proofs[i]);
+            // todo: add slashing logic once challenge is valid.
         }
     }
 
     /**
-    * @notice Resolve an accountability challenge in the Autonity Contract with the specified role. Restricted to the validator account.
+    * @notice Create accountability accusations in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function resolveChallenge(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
+    function addAccusation(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
         for (uint256 i = 0; i < Proofs.length; i++) {
-            if (_isChallengeExists(Proofs[i]) == false) {
+
+            if (_isAccusationExists(Proofs[i]) == true) {
                 continue;
             }
 
-            uint256[2] memory ret = Accountability.checkInnocent(Proofs[i].rawProof);
-            if (ret[0] != Proofs[i].msgHash && ret[1] != Proofs[i].senderHash) {
+            (address addr, bytes32 msgHash) = Accountability.checkAccusation(Proofs[i].rawproof);
+            if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
+                // todo: take governance action that msg.sender sent faulty accusation.
+                continue;
+            }
+            // accusation is valid, add to storage, node should provide innocent proof after this.
+            accusations.push(Proofs[i]);
+            emit AccusationAdded(Proofs[i]);
+        }
+    }
+
+/**
+* @notice Resolve an accusation in the Autonity Contract with the specified role. Restricted to the validator account.
+*/
+function resolveAccusation(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
+        for (uint256 i = 0; i < Proofs.length; i++) {
+            if (_isAccusationExists(Proofs[i]) == false) {
+                continue;
+            }
+
+            (address addr, bytes32 msgHash) = Accountability.checkInnocent(Proofs[i].rawproof);
+            if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
                 // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
                 continue;
             }
 
-            _removeChallenge(Proofs[i]);
-            emit ChallengeRemoved(Proofs[i]);
+            _removeAccusation(Proofs[i]);
+            emit AccusationRemoved(Proofs[i]);
         }
     }
 
@@ -339,6 +363,13 @@ contract Autonity is IERC20 {
     */
     function getChallenges() external view returns (Accountability.Proof[] memory) {
         return challenges;
+    }
+
+    /**
+    * @dev Dump the on-chain accusations. Called by the afd fault detector to get latest on-chain accusation.
+    */
+    function getAccusations() external view returns (Accountability.Proof[] memory) {
+        return accusations;
     }
 
     /**
@@ -685,20 +716,29 @@ contract Autonity is IERC20 {
 
     function _isChallengeExists(Accountability.Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < challenges.length; i++) {
-            if (challenges[i].msgHash == proof.msgHash) {
+            if (challenges[i].msghash == proof.msghash) {
                 return true;
             }
         }
         return false;
     }
 
-    function _removeChallenge(Accountability.Proof memory proof) internal {
-        require(challenges.length > 0);
+    function _isAccusationExists(Accountability.Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < accusations.length; i++) {
+            if (accusations[i].msghash == proof.msghash) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-        for (uint256 i = 0; i < challenges.length; i++) {
-            if (challenges[i].msgHash == proof.msgHash) {
-                challenges[i] = challenges[challenges.length - 1];
-                challenges.pop();
+    function _removeAccusation(Accountability.Proof memory proof) internal {
+        require(accusations.length > 0);
+
+        for (uint256 i = 0; i < accusations.length; i++) {
+            if (accusations[i].msghash == proof.msghash) {
+                accusations[i] = accusations[accusations.length - 1];
+                accusations.pop();
                 break;
             }
         }

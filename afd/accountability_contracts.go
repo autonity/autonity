@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	checkAccusationAddress = common.BytesToAddress([]byte{252})
 	checkProofAddress = common.BytesToAddress([]byte{253})
 	checkChallengeAddress = common.BytesToAddress([]byte{254})
 	failure64Byte = make([]byte, 64)
@@ -19,35 +20,105 @@ var (
 
 // init the instances of AFD contracts, and register thems into evm's context
 func registerAFDContracts(chain *core.BlockChain) {
-	pv := ProofValidator{chain: chain}
+	pv := InnocentValidator{chain: chain}
 	cv := ChallengeValidator{chain: chain}
+	av := AccusationValidator{chain: chain}
 
 	vm.PrecompiledContractsByzantium[checkProofAddress] = &pv
 	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsByzantium[checkAccusationAddress] = &av
 
 	vm.PrecompiledContractsHomestead[checkProofAddress] = &pv
 	vm.PrecompiledContractsHomestead[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsHomestead[checkAccusationAddress] = &av
 
 	vm.PrecompiledContractsIstanbul[checkProofAddress] = &pv
 	vm.PrecompiledContractsIstanbul[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsIstanbul[checkAccusationAddress] = &av
 
 	vm.PrecompiledContractsYoloV1[checkProofAddress] = &pv
 	vm.PrecompiledContractsYoloV1[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsYoloV1[checkAccusationAddress] = &av
 }
 
 // un register AFD contracts from evm's context.
 func unRegisterAFDContracts() {
 	delete(vm.PrecompiledContractsByzantium, checkProofAddress)
 	delete(vm.PrecompiledContractsByzantium, checkChallengeAddress)
+	delete(vm.PrecompiledContractsByzantium, checkAccusationAddress)
 
 	delete(vm.PrecompiledContractsYoloV1, checkProofAddress)
 	delete(vm.PrecompiledContractsYoloV1, checkChallengeAddress)
+	delete(vm.PrecompiledContractsYoloV1, checkAccusationAddress)
 
 	delete(vm.PrecompiledContractsIstanbul, checkProofAddress)
 	delete(vm.PrecompiledContractsIstanbul, checkChallengeAddress)
+	delete(vm.PrecompiledContractsIstanbul, checkAccusationAddress)
 
 	delete(vm.PrecompiledContractsHomestead, checkProofAddress)
 	delete(vm.PrecompiledContractsHomestead, checkChallengeAddress)
+	delete(vm.PrecompiledContractsHomestead, checkAccusationAddress)
+}
+
+// AccusationValidator implemented as a native contract to validate if a accusation is valid
+type AccusationValidator struct {
+	chain *core.BlockChain
+}
+
+// the gas cost to execute AccusationValidator contract.
+func (a *AccusationValidator) RequiredGas(_ []byte) uint64 {
+	return params.MinimumGas
+}
+
+// take the rlp encoded proof of accusation in byte array, decode it and validate it, if the proof is validate, then
+// the rlp hash of the msg payload and the msg sender is returned.
+func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
+	if len(input) == 0 {
+		return failure64Byte, fmt.Errorf("invalid input")
+	}
+
+	p, err := decodeProof(input)
+	if err != nil {
+		return failure64Byte, err
+	}
+
+	return a.validateAccusation(p)
+}
+
+// validate if the accusation is valid.
+func (a *AccusationValidator) validateAccusation(in *types.Proof) ([]byte, error) {
+	// we have only 3 types of rule on accusation.
+	switch in.Rule {
+	case types.PO:
+		if in.Message.Code != types.MsgProposal {
+			return failure64Byte, fmt.Errorf("wrong msg for PO rule")
+		}
+	case types.PVN:
+		if in.Message.Code != types.MsgPrevote {
+			return failure64Byte, fmt.Errorf("wrong msg for PVN rule")
+		}
+	case types.C:
+		if in.Message.Code != types.MsgPrecommit {
+			return failure64Byte, fmt.Errorf("wrong msg for rule C")
+		}
+	default:
+		return failure64Byte, fmt.Errorf("not provable accusation rule")
+	}
+
+	// check if the suspicious msg is from the correct committee of that height.
+	h, err := in.Message.Height()
+	if err != nil {
+		return failure64Byte, err
+	}
+
+	header := a.chain.GetHeaderByNumber(h.Uint64())
+	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
+		return failure64Byte, err
+	}
+
+	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
+	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
+	return append(sender, msgHash...), nil
 }
 
 // ChallengeValidator implemented as a native contract to validate if challenge is valid
@@ -57,11 +128,11 @@ type ChallengeValidator struct{
 
 // the gas cost to execute ChallengeValidator contract.
 func (c *ChallengeValidator) RequiredGas(_ []byte) uint64 {
-	return params.TakeChallengeGas
+	return params.MinimumGas
 }
 
 // take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
-// the rlp hash of the msg payload and rlp hash of msg sender is returned as the valid identity for proof management.
+// the rlp hash of the msg payload and the msg sender is returned as the valid identity for proof management.
 func (c *ChallengeValidator) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		return failure64Byte, fmt.Errorf("invalid input")
@@ -129,20 +200,20 @@ func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
 	}
 }
 
-// ProofValidator implemented as a native contract to validate an on-chain innocent proof.
-type ProofValidator struct{
+// InnocentValidator implemented as a native contract to validate an innocent proof.
+type InnocentValidator struct{
 	chain *core.BlockChain
 }
 
 // the gas cost to execute this proof validator contract.
-func (c *ProofValidator) RequiredGas(_ []byte) uint64 {
-	return params.CheckInnocentGas
+func (c *InnocentValidator) RequiredGas(_ []byte) uint64 {
+	return params.MinimumGas
 }
 
-// ProofValidator, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
+// InnocentValidator, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
-func (c *ProofValidator) Run(input []byte) ([]byte, error) {
+func (c *InnocentValidator) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
 		return failure64Byte, fmt.Errorf("invalid input")
@@ -156,8 +227,8 @@ func (c *ProofValidator) Run(input []byte) ([]byte, error) {
 	return c.validateInnocentProof(p)
 }
 
-// validate the innocent proof is valid.
-func (c *ProofValidator) validateInnocentProof(in *types.Proof) ([]byte, error) {
+// validate if the innocent proof is valid, it returns sender address and msg hash in byte array when proof is valid.
+func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, error) {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
@@ -181,14 +252,13 @@ func (c *ProofValidator) validateInnocentProof(in *types.Proof) ([]byte, error) 
 	}
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
-	senderHash := types.RLPHash(in.Message.Address).Bytes()
-	return append(msgHash, senderHash...), nil
+	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
+	return append(sender, msgHash...), nil
 }
 
-func (c *ProofValidator) validInnocentProof(p *types.Proof) bool {
+func (c *InnocentValidator) validInnocentProof(p *types.Proof) bool {
+	// rule engine only have 3 kind of provable accusation for the time being.
 	switch types.Rule(p.Rule) {
-	case types.PN:
-		return validInnocentProofOfPN(p)
 	case types.PO:
 		return validInnocentProofOfPO(p)
 	case types.PVN:
