@@ -10,6 +10,7 @@ type ProofType uint64
 const (
 	InnocentProof ProofType = iota
 	ChallengeProof
+	AccusationProof
 )
 
 type Rule uint8
@@ -54,13 +55,7 @@ func (p *RawProof) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-// Accusation
-type Accusation struct {
-	Rule    Rule
-	Message ConsensusMessage
-}
-
-// RawProof to be decode into Proof for processing.
+// Proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
 type Proof struct {
 	Rule       Rule
 	Message    ConsensusMessage   // the msg to be considered as suspicious one
@@ -69,11 +64,10 @@ type Proof struct {
 
 // OnChainProof to be stored by autonity contract for on-chain proof management.
 type OnChainProof struct {
-	SenderHash common.Hash
-	MsgHash common.Hash
-
-	// rlp enoded bytes for struct RawProof object.
-	RawProofBytes []byte
+	Sender  common.Address `abi:"sender"`
+	Msghash common.Hash    `abi:"msghash"`
+	// rlp enoded bytes for struct Rawproof object.
+	Rawproof []byte        `abi:"rawproof"`
 }
 
 // event to submit proofs via standard transaction.
