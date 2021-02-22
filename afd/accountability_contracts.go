@@ -20,7 +20,7 @@ var (
 	failure64Byte          = make([]byte, 64)
 )
 
-// init the instances of AFD contracts, and register thems into evm's context
+// Initialise the instances of AFD contracts, and add them into evm's context
 func registerAFDContracts(chain *core.BlockChain) {
 	iv := InnocentValidator{chain: chain}
 	cv := ChallengeValidator{chain: chain}
@@ -43,7 +43,7 @@ func registerAFDContracts(chain *core.BlockChain) {
 	vm.PrecompiledContractsYoloV1[checkAccusationAddress] = &av
 }
 
-// un register AFD contracts from evm's context.
+// Unregister AFD contracts from evm's context.
 func unRegisterAFDContracts() {
 	delete(vm.PrecompiledContractsByzantium, checkProofAddress)
 	delete(vm.PrecompiledContractsByzantium, checkChallengeAddress)
