@@ -10,7 +10,6 @@ import (
 var nilValue = common.Hash{}
 
 func powerOfVotes(votes []types.ConsensusMessage) uint64 {
-	// todo: check distinguish msg from this vote set, since people might hack it with redundant msgs.
 	power := uint64(0)
 	for i:= 0; i < len(votes); i++ {
 		if votes[i].Type() != types.MsgPrevote || votes[i].Type() != types.MsgPrecommit {
@@ -374,7 +373,6 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusati
 					// to justify a precommit for V.
 					proof := types.Proof{
 						Rule:     types.C,
-						// add
 						Evidence: prevotesForNotV,
 						Message:  precommit,
 					}
