@@ -17,7 +17,6 @@ var (
 	checkAccusationAddress = common.BytesToAddress([]byte{252})
 	checkProofAddress      = common.BytesToAddress([]byte{253})
 	checkChallengeAddress  = common.BytesToAddress([]byte{254})
-	failure64Byte          = make([]byte, 64)
 )
 
 // Initialise the instances of AFD contracts, and add them into evm's context
@@ -76,12 +75,12 @@ func (a *AccusationValidator) RequiredGas(_ []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		return failure64Byte, fmt.Errorf("invalid input")
+		return nil, fmt.Errorf("invalid input")
 	}
 
 	p, err := decodeProof(input)
 	if err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	return a.validateAccusation(p)
@@ -93,33 +92,33 @@ func (a *AccusationValidator) validateAccusation(in *types.Proof) ([]byte, error
 	switch in.Rule {
 	case types.PO:
 		if in.Message.Code != types.MsgProposal {
-			return failure64Byte, fmt.Errorf("wrong msg for PO rule")
+			return nil, fmt.Errorf("wrong msg for PO rule")
 		}
 	case types.PVN:
 		if in.Message.Code != types.MsgPrevote {
-			return failure64Byte, fmt.Errorf("wrong msg for PVN rule")
+			return nil, fmt.Errorf("wrong msg for PVN rule")
 		}
 	case types.C:
 		if in.Message.Code != types.MsgPrecommit {
-			return failure64Byte, fmt.Errorf("wrong msg for rule C")
+			return nil, fmt.Errorf("wrong msg for rule C")
 		}
 	case types.C1:
 		if in.Message.Code != types.MsgPrecommit {
 			return failure64Byte, fmt.Errorf("wrong msg for rule C")
 		}
 	default:
-		return failure64Byte, fmt.Errorf("not provable accusation rule")
+		return nil, fmt.Errorf("not provable accusation rule")
 	}
 
 	// check if the suspicious msg is from the correct committee of that height.
 	h, err := in.Message.Height()
 	if err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	header := a.chain.GetHeaderByNumber(h.Uint64())
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
@@ -141,12 +140,12 @@ func (c *ChallengeValidator) RequiredGas(_ []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for proof management.
 func (c *ChallengeValidator) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		return failure64Byte, fmt.Errorf("invalid input")
+		return nil, fmt.Errorf("invalid input")
 	}
 
 	p, err := decodeProof(input)
 	if err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	return c.validateChallenge(p)
@@ -158,19 +157,19 @@ func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message)
 	if err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	// check if evidence msgs are from committee members of that height.
 	h, err := p.Message.Height()
 	if err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 	header := c.chain.GetHeaderByNumber(h.Uint64())
 
 	for i := 0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
-			return failure64Byte, err
+			return nil, err
 		}
 	}
 
@@ -179,7 +178,7 @@ func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
 		senderHash := types.RLPHash(p.Message.Address).Bytes()
 		return append(msgHash, senderHash...), nil
 	}
-	return failure64Byte, errInvalidChallenge
+	return nil, errInvalidChallenge
 }
 
 // check if the evidence of the challenge is valid or not.
@@ -222,12 +221,12 @@ func (c *InnocentValidator) RequiredGas(_ []byte) uint64 {
 func (c *InnocentValidator) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
-		return failure64Byte, fmt.Errorf("invalid input")
+		return nil, fmt.Errorf("invalid input")
 	}
 
 	p, err := decodeProof(input)
 	if err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	return c.validateInnocentProof(p)
@@ -238,23 +237,23 @@ func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, erro
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	header := c.chain.GetHeaderByNumber(h.Uint64())
 	// validate message.
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
-		return failure64Byte, err
+		return nil, err
 	}
 
 	for i := 0; i < len(in.Evidence); i++ {
 		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
-			return failure64Byte, err
+			return nil, err
 		}
 	}
 
 	if !c.validInnocentProof(in) {
-		return failure64Byte, fmt.Errorf("invalid proof of innocent")
+		return nil, fmt.Errorf("invalid proof of innocent")
 	}
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
