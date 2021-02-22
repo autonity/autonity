@@ -239,13 +239,13 @@ func (m *ConsensusMessage) Height() (*big.Int, error) {
 }
 
 // used by afd for decoded msgs
-func (m *ConsensusMessage) R() uint {
+func (m *ConsensusMessage) R() int64 {
 	r, err := m.Round()
 	// msg should be decoded, it shouldn't be an error.
 	if err != nil {
 		panic(err)
 	}
-	return uint(r)
+	return r
 }
 
 func (m *ConsensusMessage) H() uint64 {

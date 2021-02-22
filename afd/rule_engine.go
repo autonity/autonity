@@ -66,22 +66,77 @@ func (fd *FaultDetector) getInnocentProof(c *types.Proof) (types.OnChainProof, e
 
 ///////////////////////////////////////////////////////////////////////
 // validate proof of challenge for rules.
-// check if the proof of challenge of PN is valid.
+// check if the proof of challenge of PN is valid,
+// node propose a new value when there is a proof that it precommit at a different value at previous round.
 func validChallengeOfPN(c *types.Proof) bool {
-	// todo: check challenge of PN is valid
-	return true
+	if len(c.Evidence) == 0 {
+		return false
+	}
+
+	// should be a new proposal
+	proposal := c.Message
+
+	if proposal.Code != types.MsgProposal && proposal.ValidRound() != -1 {
+		return false
+	}
+
+	preCommit := c.Evidence[0]
+	if preCommit.Sender() == proposal.Sender() &&
+		preCommit.Type() == types.MsgPrecommit &&
+		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
+		return true
+	}
+
+	return false
 }
 
 // check if the proof of challenge of PO is valid
 func validChallengeOfPO(c *types.Proof) bool {
-	// todo: check challenge of PO is valid
-	return true
+	if len(c.Evidence) == 0 {
+		return false
+	}
+	proposal := c.Message
+	// should be an old proposal
+	if proposal.Type() != types.MsgProposal && proposal.ValidRound() == -1 {
+		return false
+	}
+	preCommit := c.Evidence[0]
+
+	if preCommit.Type() == types.MsgPrecommit && preCommit.R() == proposal.ValidRound() &&
+		preCommit.Sender() == proposal.Sender() && preCommit.Value() != nilValue &&
+		preCommit.Value() != proposal.Value() {
+		return true
+	}
+
+	if preCommit.Type() == types.MsgPrecommit &&
+		preCommit.R() > proposal.ValidRound() && preCommit.R() < proposal.R() &&
+		preCommit.Sender() == proposal.Sender() &&
+		preCommit.Value() != nilValue {
+		return true
+	}
+	return false
 }
 
 // check if the proof of challenge of PVN is valid.
 func validChallengeOfPVN(c *types.Proof) bool {
-	// todo: check challenge of PVN is valid
-	return true
+	if len(c.Evidence) == 0 {
+		return false
+	}
+	prevote := c.Message
+	if !(prevote.Type() == types.MsgPrevote && prevote.Value() != nilValue) {
+		return false
+	}
+	// todo: think about to involve correspondingProposal into the evidence, as rule engine use the
+	//  correspondingProposal as a pre-condition to address this mis-behavior, otherwise it can hardly to prove it at
+	//  precompiled contract.
+	preCommit := c.Evidence[0]
+	if preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue &&
+		preCommit.Value() != prevote.Value() && prevote.Sender() == preCommit.Sender() &&
+		preCommit.R() < prevote.R() {
+		return true
+	}
+
+	return false
 }
 
 // check if the proof of challenge of C is valid.
@@ -185,7 +240,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusati
 		// Check that in the valid round we see a quorum of prevotes and that
 		// there is no precommit at all or a precommit for v or nil.
 
-		validRound := uint(proposal.ValidRound())
+		validRound := proposal.ValidRound()
 
 		// Is there a precommit for a value other than nil or the proposed value
 		// by the current proposer in the valid round? If there is the proposer
