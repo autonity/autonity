@@ -23,7 +23,7 @@ var (
 func registerAFDContracts(chain *core.BlockChain) {
 	iv := ProofOfInnocenceVerifier{chain: chain}
 	cv := ChallengeVerifier{chain: chain}
-	av := AccusationValidator{chain: chain}
+	av := AccusationVerifier{chain: chain}
 
 	vm.PrecompiledContractsByzantium[checkProofAddress] = &iv
 	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &cv
@@ -61,19 +61,19 @@ func unRegisterAFDContracts() {
 	delete(vm.PrecompiledContractsHomestead, checkAccusationAddress)
 }
 
-// AccusationValidator implemented as a native contract to validate if a accusation is valid
-type AccusationValidator struct {
+// AccusationVerifier implemented as a native contract to validate if a accusation is valid
+type AccusationVerifier struct {
 	chain *core.BlockChain
 }
 
-// The gas cost to execute AccusationValidator contract.
-func (a *AccusationValidator) RequiredGas(_ []byte) uint64 {
+// The gas cost to execute AccusationVerifier contract.
+func (a *AccusationVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AccountabilityGas
 }
 
 // Run() takes the rlp encoded proof of accusation in byte array, decodes and validate it. If the proof is valid, then
 // the rlp hash of the msg payload and the msg sender is returned.
-func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
+func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, fmt.Errorf("invalid input")
 	}
@@ -86,7 +86,7 @@ func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
 	return a.validateAccusation(p)
 }
 
-func (a *AccusationValidator) validateAccusation(in *types.Proof) ([]byte, error) {
+func (a *AccusationVerifier) validateAccusation(in *types.Proof) ([]byte, error) {
 	// There are only 3 types of rules.
 	switch in.Rule {
 	case types.PO:
