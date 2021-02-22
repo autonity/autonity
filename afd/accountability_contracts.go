@@ -15,30 +15,30 @@ import (
 
 var (
 	checkAccusationAddress = common.BytesToAddress([]byte{252})
-	checkProofAddress = common.BytesToAddress([]byte{253})
-	checkChallengeAddress = common.BytesToAddress([]byte{254})
-	failure64Byte = make([]byte, 64)
+	checkProofAddress      = common.BytesToAddress([]byte{253})
+	checkChallengeAddress  = common.BytesToAddress([]byte{254})
+	failure64Byte          = make([]byte, 64)
 )
 
 // init the instances of AFD contracts, and register thems into evm's context
 func registerAFDContracts(chain *core.BlockChain) {
-	pv := InnocentValidator{chain: chain}
+	iv := InnocentValidator{chain: chain}
 	cv := ChallengeValidator{chain: chain}
 	av := AccusationValidator{chain: chain}
 
-	vm.PrecompiledContractsByzantium[checkProofAddress] = &pv
+	vm.PrecompiledContractsByzantium[checkProofAddress] = &iv
 	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &cv
 	vm.PrecompiledContractsByzantium[checkAccusationAddress] = &av
 
-	vm.PrecompiledContractsHomestead[checkProofAddress] = &pv
+	vm.PrecompiledContractsHomestead[checkProofAddress] = &iv
 	vm.PrecompiledContractsHomestead[checkChallengeAddress] = &cv
 	vm.PrecompiledContractsHomestead[checkAccusationAddress] = &av
 
-	vm.PrecompiledContractsIstanbul[checkProofAddress] = &pv
+	vm.PrecompiledContractsIstanbul[checkProofAddress] = &iv
 	vm.PrecompiledContractsIstanbul[checkChallengeAddress] = &cv
 	vm.PrecompiledContractsIstanbul[checkAccusationAddress] = &av
 
-	vm.PrecompiledContractsYoloV1[checkProofAddress] = &pv
+	vm.PrecompiledContractsYoloV1[checkProofAddress] = &iv
 	vm.PrecompiledContractsYoloV1[checkChallengeAddress] = &cv
 	vm.PrecompiledContractsYoloV1[checkAccusationAddress] = &av
 }
@@ -128,7 +128,7 @@ func (a *AccusationValidator) validateAccusation(in *types.Proof) ([]byte, error
 }
 
 // ChallengeValidator implemented as a native contract to validate if challenge is valid
-type ChallengeValidator struct{
+type ChallengeValidator struct {
 	chain *core.BlockChain
 }
 
@@ -168,7 +168,7 @@ func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
 	}
 	header := c.chain.GetHeaderByNumber(h.Uint64())
 
-	for i:=0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
 			return failure64Byte, err
 		}
@@ -207,7 +207,7 @@ func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
 }
 
 // InnocentValidator implemented as a native contract to validate an innocent proof.
-type InnocentValidator struct{
+type InnocentValidator struct {
 	chain *core.BlockChain
 }
 
@@ -247,7 +247,7 @@ func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, erro
 		return failure64Byte, err
 	}
 
-	for i:=0; i < len(in.Evidence); i++ {
+	for i := 0; i < len(in.Evidence); i++ {
 		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
 			return failure64Byte, err
 		}
@@ -394,7 +394,7 @@ func decodeProof(proof []byte) (*types.Proof, error) {
 	}
 	decodedP.Message = *msg
 
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		m := new(types.ConsensusMessage)
 		if err := m.FromPayload(p.Evidence[i]); err != nil {
 			return nil, fmt.Errorf("msg cannot be decoded")
