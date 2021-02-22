@@ -341,7 +341,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusati
 			// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
 			precommits := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
-				return m.Type() == types.MsgProposal && m.Value() != nilValue
+				return m.Type() == types.MsgPrecommit && m.Value() != nilValue
 			})
 
 			for _, precommit := range precommits {
