@@ -69,7 +69,7 @@ type AccusationValidator struct {
 
 // the gas cost to execute AccusationValidator contract.
 func (a *AccusationValidator) RequiredGas(_ []byte) uint64 {
-	return params.MinimumGas
+	return params.AccountabilityGas
 }
 
 // take the rlp encoded proof of accusation in byte array, decode it and validate it, if the proof is validate, then
@@ -134,7 +134,7 @@ type ChallengeValidator struct {
 
 // the gas cost to execute ChallengeValidator contract.
 func (c *ChallengeValidator) RequiredGas(_ []byte) uint64 {
-	return params.MinimumGas
+	return params.AccountabilityGas
 }
 
 // take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
@@ -211,9 +211,9 @@ type InnocentValidator struct {
 	chain *core.BlockChain
 }
 
-// the gas cost to execute this proof validator contract.
+// The gas cost required to execute this proof validator contract.
 func (c *InnocentValidator) RequiredGas(_ []byte) uint64 {
-	return params.MinimumGas
+	return params.AccountabilityGas
 }
 
 // InnocentValidator, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
