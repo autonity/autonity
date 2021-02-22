@@ -178,7 +178,7 @@ func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
 
 // check if the evidence of the challenge is valid or not.
 func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
-	switch types.Rule(p.Rule) {
+	switch p.Rule {
 	case types.PN:
 		return validChallengeOfPN(p)
 	case types.PO:
