@@ -18,7 +18,7 @@ library Accountability {
         uint256[2] memory retVal;
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfd, proof, length, retVal, 0x200)) {
+            if iszero(staticcall(gas(), 0xfd, proof, length, retVal, 64)) {
                 revert(0, 0)
             }
         }
@@ -34,7 +34,7 @@ library Accountability {
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfc, proof, length, retVal, 0x200)) {
+            if iszero(staticcall(gas(), 0xfc, proof, length, retVal, 64)) {
                 revert(0, 0)
             }
         }
@@ -50,7 +50,7 @@ library Accountability {
 
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfe, proof, length, retVal, 0x200)) {
+            if iszero(staticcall(gas(), 0xfe, proof, length, retVal, 64)) {
                 revert(0, 0)
             }
         }
