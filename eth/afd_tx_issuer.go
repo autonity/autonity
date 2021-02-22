@@ -10,11 +10,15 @@ import (
 func (s *Ethereum) sendAccountabilityTransaction(e *types.SubmitProofEvent) {
 	var method string
 	if e.Type == types.InnocentProof {
-		method = "resolveChallenge"
+		method = "resolveAccusation"
 	}
 
 	if e.Type == types.ChallengeProof {
 		method = "addChallenge"
+	}
+
+	if e.Type == types.AccusationProof {
+		method = "addAccusation"
 	}
 
 	tx, err := s.generateAccountabilityTX(method, e.Proofs)
