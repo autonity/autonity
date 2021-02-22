@@ -66,12 +66,12 @@ type AccusationValidator struct {
 	chain *core.BlockChain
 }
 
-// the gas cost to execute AccusationValidator contract.
+// The gas cost to execute AccusationValidator contract.
 func (a *AccusationValidator) RequiredGas(_ []byte) uint64 {
 	return params.AccountabilityGas
 }
 
-// take the rlp encoded proof of accusation in byte array, decode it and validate it, if the proof is validate, then
+// Run() takes the rlp encoded proof of accusation in byte array, decodes and validate it. If the proof is valid, then
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
@@ -86,9 +86,8 @@ func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
 	return a.validateAccusation(p)
 }
 
-// validate if the accusation is valid.
 func (a *AccusationValidator) validateAccusation(in *types.Proof) ([]byte, error) {
-	// we have only 3 types of rule on accusation.
+	// There are only 3 types of rules.
 	switch in.Rule {
 	case types.PO:
 		if in.Message.Code != types.MsgProposal {
