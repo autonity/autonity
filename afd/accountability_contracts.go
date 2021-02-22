@@ -21,7 +21,7 @@ var (
 
 // Initialise the instances of AFD contracts, and add them into evm's context
 func registerAFDContracts(chain *core.BlockChain) {
-	iv := InnocentValidator{chain: chain}
+	iv := ProofOfInnocenceVerifier{chain: chain}
 	cv := ChallengeValidator{chain: chain}
 	av := AccusationValidator{chain: chain}
 
@@ -204,20 +204,20 @@ func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
 	}
 }
 
-// InnocentValidator implemented as a native contract to validate an innocent proof.
-type InnocentValidator struct {
+// ProofOfInnocenceVerifier implemented as a native contract to validate an innocent proof.
+type ProofOfInnocenceVerifier struct {
 	chain *core.BlockChain
 }
 
 // The gas cost required to execute this proof validator contract.
-func (c *InnocentValidator) RequiredGas(_ []byte) uint64 {
+func (c *ProofOfInnocenceVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AccountabilityGas
 }
 
-// InnocentValidator, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
+// ProofOfInnocenceVerifier, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
-func (c *InnocentValidator) Run(input []byte) ([]byte, error) {
+func (c *ProofOfInnocenceVerifier) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
 		return nil, fmt.Errorf("invalid input")
@@ -228,11 +228,11 @@ func (c *InnocentValidator) Run(input []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return c.validateInnocentProof(p)
+	return c.validateProofOfInnocence(p)
 }
 
 // validate if the innocent proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, error) {
+func (c *ProofOfInnocenceVerifier) validateProofOfInnocence(in *types.Proof) ([]byte, error) {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
@@ -251,7 +251,7 @@ func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, erro
 		}
 	}
 
-	if !c.validInnocentProof(in) {
+	if !c.validProofOfInnocence(in) {
 		return nil, fmt.Errorf("invalid proof of innocent")
 	}
 
@@ -260,7 +260,7 @@ func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, erro
 	return append(sender, msgHash...), nil
 }
 
-func (c *InnocentValidator) validInnocentProof(p *types.Proof) bool {
+func (c *ProofOfInnocenceVerifier) validProofOfInnocence(p *types.Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
 	case types.PO:
