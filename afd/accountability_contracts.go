@@ -98,6 +98,9 @@ func (a *AccusationVerifier) validateAccusation(in *types.Proof) ([]byte, error)
 	}
 
 	// check if the suspicious msg is from the correct committee of that height.
+
+	// TODO: I am not sure that just checking the message is from a validator for that height is sufficient to prove
+	// the accusation is valid.
 	h, err := in.Message.Height()
 	if err != nil {
 		return nil, err
@@ -108,6 +111,7 @@ func (a *AccusationVerifier) validateAccusation(in *types.Proof) ([]byte, error)
 		return nil, err
 	}
 
+	// TODO: Understand the need to pad 32 empty bytes to the left of the sender's address
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
 	return append(sender, msgHash...), nil
