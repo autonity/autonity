@@ -61,7 +61,7 @@ func unRegisterAFDContracts() {
 	delete(vm.PrecompiledContractsHomestead, checkAccusationAddress)
 }
 
-// AccusationVerifier implemented as a native contract to validate if a accusation is valid
+// AccusationVerifier implemented as a precompiled contract to validate if a accusation is valid
 type AccusationVerifier struct {
 	chain *core.BlockChain
 }
@@ -117,7 +117,7 @@ func (a *AccusationVerifier) validateAccusation(in *types.Proof) ([]byte, error)
 	return append(sender, msgHash...), nil
 }
 
-// ChallengeVerifier implemented as a native contract to validate if challenge is valid
+// ChallengeVerifier implemented as a precompiled contract to validate if challenge is valid
 type ChallengeVerifier struct {
 	chain *core.BlockChain
 }
@@ -196,7 +196,7 @@ func (c *ChallengeVerifier) isValidEvidence(p *types.Proof) bool {
 	}
 }
 
-// ProofOfInnocenceVerifier implemented as a native contract to validate an innocent proof.
+// ProofOfInnocenceVerifier implemented as a precompiled contract to validate an innocent proof.
 type ProofOfInnocenceVerifier struct {
 	chain *core.BlockChain
 }
