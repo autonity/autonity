@@ -88,25 +88,13 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 
 func (a *AccusationVerifier) validateAccusation(in *types.Proof) ([]byte, error) {
 	// There are only 3 types of rules.
-	switch in.Rule {
-	case types.PO:
-		if in.Message.Code != types.MsgProposal {
-			return nil, fmt.Errorf("wrong msg for PO rule")
-		}
-	case types.PVN:
-		if in.Message.Code != types.MsgPrevote {
-			return nil, fmt.Errorf("wrong msg for PVN rule")
-		}
-	case types.C:
-		if in.Message.Code != types.MsgPrecommit {
-			return nil, fmt.Errorf("wrong msg for rule C")
-		}
-	case types.C1:
-		if in.Message.Code != types.MsgPrecommit {
-			return failure64Byte, fmt.Errorf("wrong msg for rule C")
-		}
-	default:
-		return nil, fmt.Errorf("not provable accusation rule")
+	r := in.Rule
+	c := in.Message.Code
+	if (r == types.PO && c != types.MsgProposal) ||
+		(r == types.PVN && c != types.MsgPrevote) ||
+		(r == types.C && c != types.MsgPrecommit) ||
+		(r == types.C1 && c != types.MsgPrecommit){
+		return nil, fmt.Errorf("message rule %v and message code %v mismatch", r, c)
 	}
 
 	// check if the suspicious msg is from the correct committee of that height.
@@ -277,7 +265,7 @@ func (c *ProofOfInnocenceVerifier) isValidProofOfInnocence(p *types.Proof) bool 
 }
 
 // check if the proof of innocent of PO is valid.
-func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
+func (c *ProofOfInnocenceVerifier) validInnocentProofOfPO(p *types.Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
 	if proposal.Type() != types.MsgProposal {
@@ -307,7 +295,7 @@ func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
 }
 
 // check if the proof of innocent of PVN is valid.
-func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
+func (c *ProofOfInnocenceVerifier) validInnocentProofOfPVN(p *types.Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
 	if !(preVote.Type() == types.MsgPrevote && preVote.Value() != nilValue) {
@@ -327,7 +315,7 @@ func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentValidator) validInnocentProofOfC(p *types.Proof) bool {
+func (c *ProofOfInnocenceVerifier) validInnocentProofOfC(p *types.Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -346,7 +334,7 @@ func (c *InnocentValidator) validInnocentProofOfC(p *types.Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentValidator) validInnocentProofOfC1(p *types.Proof) bool {
+func (c *ProofOfInnocenceVerifier) validInnocentProofOfC1(p *types.Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -494,7 +482,7 @@ func (c *ChallengeVerifier) validChallengeOfC(p *types.Proof) bool {
 	}
 
 	// check prevotes for not the same V of precommit.
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
