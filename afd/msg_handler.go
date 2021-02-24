@@ -22,7 +22,7 @@ func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs 
 	rawProof.Rule = rule
 	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
 	rawProof.Message = m.Payload()
-	for i:= 0; i < len(proofs); i++ {
+	for i := 0; i < len(proofs); i++ {
 		rawProof.Evidence = append(rawProof.Evidence, proofs[i].Payload())
 	}
 
@@ -89,7 +89,7 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 	for height, msgs := range fd.futureMsgs {
 		if height <= height {
-			for i:= 0; i < len(msgs); i++ {
+			for i := 0; i < len(msgs); i++ {
 				if err := fd.processMsg(msgs[i]); err != nil {
 					fd.logger.Error("process consensus msg", "afd", err)
 					continue
@@ -124,14 +124,15 @@ func checkAutoIncriminatingMsg(chain *core.BlockChain, m *types.ConsensusMessage
 	return errUnknownMsg
 }
 
-func checkEquivocation(chain *core.BlockChain, m *types.ConsensusMessage, proof[]types.ConsensusMessage) error {
+func checkEquivocation(chain *core.BlockChain, m *types.ConsensusMessage, proof []types.ConsensusMessage) error {
 	// decode msgs
+	// todo: I am not sure we should be checking for auto incriminating messages here
 	err := checkAutoIncriminatingMsg(chain, m)
 	if err != nil {
 		return err
 	}
 
-	for i:= 0; i < len(proof); i++ {
+	for i := 0; i < len(proof); i++ {
 		err := checkAutoIncriminatingMsg(chain, &proof[i])
 		if err != nil {
 			return err
@@ -189,6 +190,9 @@ func checkMsgSignature(chain *core.BlockChain, m *types.ConsensusMessage) error 
 		return err
 	}
 
+	// Todo: I am not sure that the for every check message wer should only check the current height, the message may
+	// refer to a different height so I am not sure why this is the case, maybe we can think about passing the height
+	// as a parameter so that it can be queried from the chain.
 	header := chain.CurrentHeader()
 	if msgHeight.Cmp(header.Number) > 1 {
 		return errFutureMsg
@@ -212,10 +216,10 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 	if err == nil || err == types.ErrEmptyCommittedSeals {
 		var (
 			receipts types.Receipts
-			usedGas        = new(uint64)
-			gp             = new(core.GasPool).AddGas(block.GasLimit())
-			header         = block.Header()
-			parent         = chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+			usedGas  = new(uint64)
+			gp       = new(core.GasPool).AddGas(block.GasLimit())
+			header   = block.Header()
+			parent   = chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 		)
 
 		// We need to process all of the transaction to get the latest state to get the latest committee
@@ -235,8 +239,8 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 			state.Prepare(tx.Hash(), block.Hash(), i)
 			vmConfig := vm.Config{
 				EnablePreimageRecording: true,
-				EWASMInterpreter: "",
-				EVMInterpreter: "",
+				EWASMInterpreter:        "",
+				EVMInterpreter:          "",
 			}
 			receipt, receiptErr := core.ApplyTransaction(chain.Config(), chain, nil, gp, state, header, tx, usedGas, vmConfig)
 			if receiptErr != nil {
@@ -283,7 +287,7 @@ func isProposerMsg(chain *core.BlockChain, m *types.ConsensusMessage) bool {
 }
 
 func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
-	parentHeader := chain.GetHeaderByNumber(h-1)
+	parentHeader := chain.GetHeaderByNumber(h - 1)
 	if parentHeader.IsGenesis() {
 		sort.Sort(parentHeader.Committee)
 		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
