@@ -99,9 +99,28 @@ func (fd *FaultDetector) GetInnocentProofOfPO(c *types.Proof) (types.OnChainProo
 
 // get proof of innocent of PVN from msg store.
 func (fd *FaultDetector) GetInnocentProofOfPVN(c *types.Proof) (types.OnChainProof, error) {
-	// todo: get innocent proofs for PVN.
+	// get innocent proofs for PVN, for a prevote that vote for a new value,
+	// then there must be a proposal for this new value.
 	var proof types.OnChainProof
-	return proof, nil
+	prevote := c.Message
+	height := prevote.H()
+
+	correspondingProposals := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+		return m.Type() == types.MsgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
+	})
+
+	if len(correspondingProposals) == 0 {
+		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
+		// time window for proof ends.
+		return proof, fmt.Errorf("node is malicious")
+	}
+
+	p, err := fd.generateOnChainProof(&prevote, correspondingProposals, c.Rule)
+	if err != nil {
+		return p, nil
+	}
+
+	return p, nil
 }
 
 // get proof of innocent of C from msg store.
