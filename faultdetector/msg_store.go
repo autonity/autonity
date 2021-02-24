@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"github.com/clearmatics/autonity/common"
@@ -12,7 +12,7 @@ type MsgStore struct {
 
 // store msg into msg store, it returns msg that is equivocation than the input msg, and an errEquivocation.
 // otherwise it return nil, nil
-func(ms *MsgStore) Save(m *types.ConsensusMessage) (*types.ConsensusMessage, error) {
+func (ms *MsgStore) Save(m *types.ConsensusMessage) (*types.ConsensusMessage, error) {
 	height, _ := m.Height()
 	roundMap, ok := ms.messages[height.Uint64()]
 	if !ok {
@@ -46,13 +46,13 @@ func(ms *MsgStore) Save(m *types.ConsensusMessage) (*types.ConsensusMessage, err
 	return nil, nil
 }
 
-func(ms *MsgStore) removeMsg(m *types.ConsensusMessage) {
+func (ms *MsgStore) removeMsg(m *types.ConsensusMessage) {
 	height, _ := m.Height()
 	round, _ := m.Round()
 	delete(ms.messages[height.Uint64()][round][m.Code], m.Address)
 }
 
-func(ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
+func (ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 	// Remove all messgages at this height
 	for _, msgTypeMap := range ms.messages[height] {
 		for _, addressMap := range msgTypeMap {

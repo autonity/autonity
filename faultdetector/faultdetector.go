@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"github.com/clearmatics/autonity/common"
@@ -16,15 +16,15 @@ import (
 
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	randomDelayWindow = 1000 * 10 // (0, 10] seconds random time window
-	msgBufferInHeight = 60    // buffer such range of msgs in height at msg store.
-	errFutureMsg = errors.New("future height msg")
-	errGarbageMsg = errors.New("garbage msg")
-	errNotCommitteeMsg = errors.New("msg from none committee member")
-	errProposer = errors.New("proposal is not from proposer")
-	errProposal = errors.New("proposal have invalid values")
-	errEquivocation = errors.New("equivocation happens")
-	errUnknownMsg = errors.New("unknown consensus msg")
+	randomDelayWindow   = 1000 * 10 // (0, 10] seconds random time window
+	msgBufferInHeight   = 60        // buffer such range of msgs in height at msg store.
+	errFutureMsg        = errors.New("future height msg")
+	errGarbageMsg       = errors.New("garbage msg")
+	errNotCommitteeMsg  = errors.New("msg from none committee member")
+	errProposer         = errors.New("proposal is not from proposer")
+	errProposal         = errors.New("proposal have invalid values")
+	errEquivocation     = errors.New("equivocation happens")
+	errUnknownMsg       = errors.New("unknown consensus msg")
 	errInvalidChallenge = errors.New("invalid challenge")
 )
 
@@ -34,9 +34,9 @@ var (
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
 	// use below 3 members to send proof via transaction issuing.
-	wg sync.WaitGroup
+	wg      sync.WaitGroup
 	afdFeed event.Feed
-	scope event.SubscriptionScope
+	scope   event.SubscriptionScope
 
 	// use below 2 members to forward consensus msg from protocol manager to afd.
 	tendermintMsgSub *event.TypeMuxSubscription
@@ -45,7 +45,7 @@ type FaultDetector struct {
 	// below 2 members subscribe block event to trigger execution
 	// of rule engine and make proof of innocent.
 	blockChan chan core.ChainEvent
-	blockSub event.Subscription
+	blockSub  event.Subscription
 
 	// chain context to validate consensus msgs.
 	blockchain *core.BlockChain
@@ -62,18 +62,17 @@ type FaultDetector struct {
 	logger log.Logger
 }
 
-
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
 	logger := log.New("afd", nodeAddress)
 	fd := &FaultDetector{
-		address: nodeAddress,
-		blockChan:  make(chan core.ChainEvent, 300),
-		blockchain: chain,
-		msgStore: new(MsgStore),
-		logger:logger,
-		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
-		futureMsgs: make(map[uint64][]*types.ConsensusMessage),
+		address:          nodeAddress,
+		blockChan:        make(chan core.ChainEvent, 300),
+		blockchain:       chain,
+		msgStore:         new(MsgStore),
+		logger:           logger,
+		tendermintMsgMux: event.NewTypeMuxSilent(logger),
+		futureMsgs:       make(map[uint64][]*types.ConsensusMessage),
 	}
 
 	// register afd contracts on evm's precompiled contract set.
@@ -97,7 +96,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			// take my accusations from latest state DB, and provide innocent proof if there are any.
 			err := fd.handleAccusations(ev.Block, ev.Hash)
 			if err != nil {
-				fd.logger.Warn("handle challenge","afd", err)
+				fd.logger.Warn("handle challenge", "afd", err)
 			}
 
 			// before run rule engine over msg store, check to process any buffered msg.
@@ -110,7 +109,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			// msg store delete msgs out of buffering window.
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
 
-		// to handle consensus msg from p2p layer.	
+		// to handle consensus msg from p2p layer.
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {
 				return
@@ -147,7 +146,7 @@ func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 	}
 
 	// post consensus event to event loop.
-	fd.tendermintMsgMux.Post(events.MessageEvent{Payload:data})
+	fd.tendermintMsgMux.Post(events.MessageEvent{Payload: data})
 	return
 }
 
@@ -173,7 +172,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	}
 
 	accusations := fd.blockchain.GetAutonityContract().GetAccusations(block.Header(), state)
-	for i:=0; i < len(accusations); i++ {
+	for i := 0; i < len(accusations); i++ {
 		if accusations[i].Sender == fd.address {
 			c, err := decodeProof(accusations[i].Rawproof)
 			if err != nil {
@@ -197,23 +196,23 @@ func (fd *FaultDetector) randomDelay() {
 	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
 	rand.Seed(time.Now().UnixNano())
 	n := rand.Intn(randomDelayWindow)
-	time.Sleep(time.Duration(n)*time.Millisecond)
+	time.Sleep(time.Duration(n) * time.Millisecond)
 }
 
 // send proofs via event which will handled by ethereum object to signed the TX to send proof.
-func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainProof) {
+func (fd *FaultDetector) sendProofs(t types.ProofType, proofs []types.OnChainProof) {
 	fd.wg.Add(1)
 	go func() {
 		defer fd.wg.Done()
 		if t == types.InnocentProof {
-			fd.afdFeed.Send(types.SubmitProofEvent{Proofs:proofs, Type:t})
+			fd.afdFeed.Send(types.SubmitProofEvent{Proofs: proofs, Type: t})
 		}
 
 		if t == types.ChallengeProof {
 			fd.randomDelay()
 			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
-				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
+				fd.afdFeed.Send(types.SubmitProofEvent{Proofs: unPresented, Type: t})
 			}
 		}
 
@@ -221,7 +220,7 @@ func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainPro
 			fd.randomDelay()
 			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
-				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
+				fd.afdFeed.Send(types.SubmitProofEvent{Proofs: unPresented, Type: t})
 			}
 		}
 
@@ -246,9 +245,9 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]types.OnChainProof, t typ
 		presented = fd.blockchain.GetAutonityContract().GetChallenges(header, state)
 	}
 
-	for i:=0; i < len(*proofs); i++ {
+	for i := 0; i < len(*proofs); i++ {
 		present := false
-		for i:=0; i < len(presented); i++ {
+		for i := 0; i < len(presented); i++ {
 			if (*proofs)[i].Msghash == presented[i].Msghash {
 				present = true
 			}

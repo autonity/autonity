@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ var nilValue = common.Hash{}
 
 func powerOfVotes(votes []types.ConsensusMessage) uint64 {
 	power := uint64(0)
-	for i:= 0; i < len(votes); i++ {
+	for i := 0; i < len(votes); i++ {
 		if votes[i].Type() != types.MsgPrevote || votes[i].Type() != types.MsgPrecommit {
 			continue
 		}
@@ -26,7 +26,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) {
 	proofs, accusations := fd.runRules(height)
 	if len(proofs) > 0 {
 		var onChainProofs []types.OnChainProof
-		for i:= 0; i < len(proofs); i++ {
+		for i := 0; i < len(proofs); i++ {
 			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule)
 			if err != nil {
 				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
@@ -39,7 +39,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) {
 
 	if len(accusations) > 0 {
 		var onChainProofs []types.OnChainProof
-		for i:= 0; i < len(accusations); i++ {
+		for i := 0; i < len(accusations); i++ {
 			p, err := fd.generateOnChainProof(&accusations[i].Message, accusations[i].Evidence, accusations[i].Rule)
 			if err != nil {
 				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
@@ -330,7 +330,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusati
 
 				if len(precommits) > 0 {
 					proof := types.Proof{
-						Rule:     types.PVN,
+						Rule: types.PVN,
 						// add corresponding proposal at last slot, as the part of evidence to be validated at precompiled contract.
 						Evidence: append(precommits, correspondingProposal),
 						Message:  prevote,

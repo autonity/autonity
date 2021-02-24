@@ -21,7 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/afd"
+	"github.com/clearmatics/autonity/faultdetector"
 	"math/big"
 	"runtime"
 	"sync"
@@ -96,8 +96,8 @@ type Ethereum struct {
 
 	afdCh         chan types.SubmitProofEvent
 	afdSub        event.Subscription
-	faultDetector *afd.FaultDetector
-	defaultKey    *ecdsa.PrivateKey   // the private key of etherbase address to sign accountability TXs.
+	faultDetector *faultdetector.FaultDetector
+	defaultKey    *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
 }
 
 // New creates a new Ethereum object (including the
@@ -224,7 +224,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
 	// Create AFD
-	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
+	eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
 	eth.defaultKey = stack.Config().NodeKey()
 
 	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,

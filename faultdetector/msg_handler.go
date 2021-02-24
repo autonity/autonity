@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"fmt"

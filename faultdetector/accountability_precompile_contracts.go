@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"fmt"
@@ -93,7 +93,7 @@ func (a *AccusationVerifier) validateAccusation(in *types.Proof) ([]byte, error)
 	if (r == types.PO && c != types.MsgProposal) ||
 		(r == types.PVN && c != types.MsgPrevote) ||
 		(r == types.C && c != types.MsgPrecommit) ||
-		(r == types.C1 && c != types.MsgPrecommit){
+		(r == types.C1 && c != types.MsgPrecommit) {
 		return nil, fmt.Errorf("message rule %v and message code %v mismatch", r, c)
 	}
 
@@ -280,7 +280,7 @@ func (c *ProofOfInnocenceVerifier) validInnocentProofOfPO(p *types.Proof) bool {
 	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
 	// check quorum prevotes for V at validRound.
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() == proposal.Value() &&
 			p.Evidence[i].R() == proposal.ValidRound()) {
 			return false
@@ -348,7 +348,7 @@ func (c *ProofOfInnocenceVerifier) validInnocentProofOfC1(p *types.Proof) bool {
 	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
 	// check quorum prevotes for V at the same round.
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() == preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
