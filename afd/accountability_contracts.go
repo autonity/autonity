@@ -103,6 +103,10 @@ func (a *AccusationValidator) validateAccusation(in *types.Proof) ([]byte, error
 		if in.Message.Code != types.MsgPrecommit {
 			return failure64Byte, fmt.Errorf("wrong msg for rule C")
 		}
+	case types.C1:
+		if in.Message.Code != types.MsgPrecommit {
+			return failure64Byte, fmt.Errorf("wrong msg for rule C")
+		}
 	default:
 		return failure64Byte, fmt.Errorf("not provable accusation rule")
 	}
@@ -260,13 +264,15 @@ func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, erro
 
 func (c *InnocentValidator) validInnocentProof(p *types.Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
-	switch types.Rule(p.Rule) {
+	switch p.Rule {
 	case types.PO:
 		return c.validInnocentProofOfPO(p)
 	case types.PVN:
 		return c.validInnocentProofOfPVN(p)
 	case types.C:
 		return c.validInnocentProofOfC(p)
+	case types.C1:
+		return c.validInnocentProofOfC1(p)
 	default:
 		return false
 	}
@@ -276,6 +282,10 @@ func (c *InnocentValidator) validInnocentProof(p *types.Proof) bool {
 func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
+	if proposal.Type() != types.MsgProposal {
+		return false
+	}
+
 	height := proposal.H()
 	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
@@ -302,6 +312,9 @@ func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
 func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
+	if !(preVote.Type() == types.MsgPrevote && preVote.Value() != nilValue) {
+		return false
+	}
 
 	if len(p.Evidence) == 0 {
 		return false
@@ -317,7 +330,49 @@ func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
 
 // check if the proof of innocent of C is valid.
 func (c *InnocentValidator) validInnocentProofOfC(p *types.Proof) bool {
-	// todo: validate innocent proof of C.
+	preCommit := p.Message
+	if !(preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue) {
+		return false
+	}
+
+	if len(p.Evidence) == 0 {
+		return false
+	}
+
+	proposal := p.Evidence[0]
+	if !(proposal.Type() == types.MsgProposal && proposal.Value() == preCommit.Value() &&
+		proposal.R() == preCommit.R()) {
+		return false
+	}
+	return true
+}
+
+// check if the proof of innocent of C is valid.
+func (c *InnocentValidator) validInnocentProofOfC1(p *types.Proof) bool {
+	preCommit := p.Message
+	if !(preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue) {
+		return false
+	}
+
+	height := preCommit.H()
+	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
+
+	// check quorum prevotes for V at the same round.
+	for i:= 0; i < len(p.Evidence); i++ {
+		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() == preCommit.Value() &&
+			p.Evidence[i].R() == preCommit.R()) {
+			return false
+		}
+	}
+
+	// check no redundant vote msg in evidence in case of hacking.
+	if haveRedundantVotes(p.Evidence) {
+		return false
+	}
+
+	if powerOfVotes(p.Evidence) < quorum {
+		return false
+	}
 	return true
 }
 

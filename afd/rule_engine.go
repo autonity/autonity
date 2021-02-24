@@ -62,6 +62,8 @@ func (fd *FaultDetector) getInnocentProof(c *types.Proof) (types.OnChainProof, e
 		return fd.GetInnocentProofOfPVN(c)
 	case types.C:
 		return fd.GetInnocentProofOfC(c)
+	case types.C1:
+		return fd.GetInnocentProofOfC1(c)
 	default:
 		return proof, fmt.Errorf("not provable rule")
 	}
@@ -125,9 +127,49 @@ func (fd *FaultDetector) GetInnocentProofOfPVN(c *types.Proof) (types.OnChainPro
 
 // get proof of innocent of C from msg store.
 func (fd *FaultDetector) GetInnocentProofOfC(c *types.Proof) (types.OnChainProof, error) {
-	// todo: get innocent proofs for C.
 	var proof types.OnChainProof
-	return proof, nil
+	preCommit := c.Message
+	height := preCommit.H()
+
+	proposals := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+		return m.Type() == types.MsgProposal && m.Value() == preCommit.Value() && m.R() == preCommit.R()
+	})
+
+	if len(proposals) == 0 {
+		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
+		// time window for proof ends.
+		return proof, fmt.Errorf("node is malicious")
+	}
+	p, err := fd.generateOnChainProof(&preCommit, proposals, c.Rule)
+	if err != nil {
+		return p, err
+	}
+	return p, nil
+}
+
+// get proof of innocent of C from msg store.
+func (fd *FaultDetector) GetInnocentProofOfC1(c *types.Proof) (types.OnChainProof, error) {
+	var proof types.OnChainProof
+	preCommit := c.Message
+	height := preCommit.H()
+	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
+
+	prevotesForV := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+		return m.Type() == types.MsgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
+	})
+
+	if powerOfVotes(prevotesForV) < quorum {
+		// cannot proof its innocent for PO for now, the on-chain contract will fine it latter once the
+		// time window for proof ends.
+		return proof, fmt.Errorf("node might be malicious")
+	}
+
+	p, err := fd.generateOnChainProof(&preCommit, prevotesForV, c.Rule)
+	if err != nil {
+		return p, err
+	}
+
+	return p, nil
 }
 
 func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusations []types.Proof) {
@@ -402,7 +444,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusati
 					// In this case we simply don't see enough prevotes to
 					// justify the precommit.
 					accusation := types.Proof{
-						Rule:    types.C,
+						Rule:    types.C1,
 						Message: precommit,
 					}
 					accusations = append(accusations, accusation)
