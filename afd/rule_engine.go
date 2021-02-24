@@ -69,8 +69,6 @@ func (fd *FaultDetector) getInnocentProof(c *types.Proof) (types.OnChainProof, e
 	}
 }
 
-/////////////////////////////////////////////////////////////////////
-// get proof of innocent of rules from msg store.
 // get proof of innocent of PO from msg store.
 func (fd *FaultDetector) GetInnocentProofOfPO(c *types.Proof) (types.OnChainProof, error) {
 	// PO: node propose an old value with an validRound, innocent proof of it should be:
@@ -147,7 +145,7 @@ func (fd *FaultDetector) GetInnocentProofOfC(c *types.Proof) (types.OnChainProof
 	return p, nil
 }
 
-// get proof of innocent of C from msg store.
+// get proof of innocent of C1 from msg store.
 func (fd *FaultDetector) GetInnocentProofOfC1(c *types.Proof) (types.OnChainProof, error) {
 	var proof types.OnChainProof
 	preCommit := c.Message
