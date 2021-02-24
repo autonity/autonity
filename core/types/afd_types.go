@@ -20,6 +20,7 @@ const (
 	PVN
 	PVO
 	C
+	C1
 
 	GarbageMessage		// message was signed by valid member, but it cannot be decoded.
 	InvalidProposal     // The value proposed by proposer cannot pass the blockchain's validation.
