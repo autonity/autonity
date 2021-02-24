@@ -300,7 +300,18 @@ func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
 
 // check if the proof of innocent of PVN is valid.
 func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
-	// todo: validate innocent proof of PVN.
+	// check if there is quorum number of prevote at the same value on the same valid round
+	preVote := p.Message
+
+	if len(p.Evidence) == 0 {
+		return false
+	}
+
+	proposal := p.Evidence[0]
+	if !(proposal.Type() == types.MsgProposal && proposal.Value() == preVote.Value() &&
+		proposal.R() == preVote.R()) {
+		return false
+	}
 	return true
 }
 
