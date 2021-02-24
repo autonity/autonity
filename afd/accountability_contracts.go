@@ -262,14 +262,52 @@ func (c *InnocentValidator) validInnocentProof(p *types.Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch types.Rule(p.Rule) {
 	case types.PO:
-		return validInnocentProofOfPO(p)
+		return c.validInnocentProofOfPO(p)
 	case types.PVN:
-		return validInnocentProofOfPVN(p)
+		return c.validInnocentProofOfPVN(p)
 	case types.C:
-		return validInnocentProofOfC(p)
+		return c.validInnocentProofOfC(p)
 	default:
 		return false
 	}
+}
+
+// check if the proof of innocent of PO is valid.
+func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
+	// check if there is quorum number of prevote at the same value on the same valid round
+	proposal := p.Message
+	height := proposal.H()
+	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
+
+	// check quorum prevotes for V at validRound.
+	for i:= 0; i < len(p.Evidence); i++ {
+		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() == proposal.Value() &&
+			p.Evidence[i].R() == proposal.ValidRound()) {
+			return false
+		}
+	}
+
+	// check no redundant vote msg in evidence in case of hacking.
+	if haveRedundantVotes(p.Evidence) {
+		return false
+	}
+
+	if powerOfVotes(p.Evidence) < quorum {
+		return false
+	}
+	return true
+}
+
+// check if the proof of innocent of PVN is valid.
+func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
+	// todo: validate innocent proof of PVN.
+	return true
+}
+
+// check if the proof of innocent of C is valid.
+func (c *InnocentValidator) validInnocentProofOfC(p *types.Proof) bool {
+	// todo: validate innocent proof of C.
+	return true
 }
 
 // decode proof convert proof from rlp encoded bytes into object Proof.

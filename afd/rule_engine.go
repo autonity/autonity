@@ -71,9 +71,30 @@ func (fd *FaultDetector) getInnocentProof(c *types.Proof) (types.OnChainProof, e
 // get proof of innocent of rules from msg store.
 // get proof of innocent of PO from msg store.
 func (fd *FaultDetector) GetInnocentProofOfPO(c *types.Proof) (types.OnChainProof, error) {
-	// todo: get innocent proofs for PO.
+	// PO: node propose an old value with an validRound, innocent proof of it should be:
+	// there are quorum num of prevote for that value at the validRound.
 	var proof types.OnChainProof
-	return proof, nil
+	proposal := c.Message
+	height := proposal.H()
+	validRound := proposal.ValidRound()
+	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
+
+	prevotes := fd.msgStore.Get(height, func(m *types.ConsensusMessage) bool {
+		return m.Type() == types.MsgPrevote && m.R() == validRound && m.Value() == proposal.Value()
+	})
+
+	if powerOfVotes(prevotes) < quorum {
+		// cannot proof its innocent for PO, the on-chain contract will fine it latter once the
+		// time window for proof ends.
+		return proof, fmt.Errorf("node is malicious")
+	}
+
+	p, err := fd.generateOnChainProof(&proposal, prevotes, c.Rule)
+	if err != nil {
+		return p, err
+	}
+
+	return p, nil
 }
 
 // get proof of innocent of PVN from msg store.
@@ -88,26 +109,6 @@ func (fd *FaultDetector) GetInnocentProofOfC(c *types.Proof) (types.OnChainProof
 	// todo: get innocent proofs for C.
 	var proof types.OnChainProof
 	return proof, nil
-}
-
-////////////////////////////////////////////////////////////////////
-// check if proofs of innocent is valid for rules.
-// check if the proof of innocent of PO is valid.
-func validInnocentProofOfPO(p *types.Proof) bool {
-	// todo: validate innocent proof of PO.
-	return true
-}
-
-// check if the proof of innocent of PVN is valid.
-func validInnocentProofOfPVN(p *types.Proof) bool {
-	// todo: validate innocent proof of PVN.
-	return true
-}
-
-// check if the proof of innocent of C is valid.
-func validInnocentProofOfC(p *types.Proof) bool {
-	// todo: validate innocent proof of C.
-	return true
 }
 
 func (fd *FaultDetector) runRules(height uint64) (proofs []types.Proof, accusations []types.Proof) {
