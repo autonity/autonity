@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, v common.Hash) *types.ConsensusMessage {
+func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *types.ConsensusMessage {
 	var vote = types.Vote{
 		Round:             r,
 		Height:            new(big.Int).SetUint64(h),
-		ProposedBlockHash: v,
+		ProposedBlockHash: value,
 	}
 
 	encodedVote, err := types.Encode(&vote)
@@ -34,7 +34,7 @@ func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, v common.Ha
 	}
 
 	m := new(types.ConsensusMessage)
-	if err := msg.FromPayload(payload); err != nil {
+	if err := m.FromPayload(payload); err != nil {
 		return nil
 	}
 
