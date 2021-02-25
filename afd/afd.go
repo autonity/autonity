@@ -70,7 +70,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		address: nodeAddress,
 		blockChan:  make(chan core.ChainEvent, 300),
 		blockchain: chain,
-		msgStore: new(MsgStore),
+		msgStore: newMsgStore(),
 		logger:logger,
 		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
 		futureMsgs: make(map[uint64][]*types.ConsensusMessage),

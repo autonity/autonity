@@ -10,6 +10,10 @@ type MsgStore struct {
 	messages map[uint64]map[int64]map[uint64]map[common.Address]*types.ConsensusMessage
 }
 
+func newMsgStore() *MsgStore {
+	return &MsgStore{messages:make(map[uint64]map[int64]map[uint64]map[common.Address]*types.ConsensusMessage)}
+}
+
 // store msg into msg store, it returns msg that is equivocation than the input msg, and an errEquivocation.
 // otherwise it return nil, nil
 func(ms *MsgStore) Save(m *types.ConsensusMessage) (*types.ConsensusMessage, error) {
