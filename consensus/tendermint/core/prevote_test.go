@@ -205,12 +205,12 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		msg := &types.ConsensusMessage{
-			Code:          types.msgPrecommit,
+			Code:          types.MsgPrecommit,
 			Msg:           encodedVote,
 			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
 		payload := msg.Payload()
 
@@ -268,12 +268,12 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		msg := &types.ConsensusMessage{
-			Code:          types.msgPrecommit,
+			Code:          types.MsgPrecommit,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
 
 		payload := msg.Payload()
@@ -333,7 +333,7 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		expectedMsg := &types.ConsensusMessage{
-			Code:          types.msgPrevote,
+			Code:          types.MsgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -372,12 +372,12 @@ func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *
 	}
 
 	expectedMsg := &types.ConsensusMessage{
-		Code:          types.msgPrevote,
+		Code:          types.MsgPrevote,
 		Msg:           encodedVote,
 		Address:       member.Address,
 		CommittedSeal: []byte{},
 		Signature:     []byte{0x1},
-		power:         member.VotingPower.Uint64(),
+		Power:         member.VotingPower.Uint64(),
 	}
 	return expectedMsg
 }
