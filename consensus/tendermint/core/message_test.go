@@ -14,8 +14,8 @@ import (
 )
 
 func TestMessageEncodeDecode(t *testing.T) {
-	msg := &types.ConsensusMessage{
-		Code:          types.MsgProposal,
+	msg := &ConsensusMessage{
+		Code:          msgProposal,
 		Msg:           []byte{0x1},
 		Address:       common.HexToAddress("0x1234567890"),
 		Signature:     []byte{0x2},
@@ -30,7 +30,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 
 	s := rlp.NewStream(buf, 0)
 
-	decMsg := &types.ConsensusMessage{}
+	decMsg := &ConsensusMessage{}
 	err = decMsg.DecodeRLP(s)
 	if err != nil {
 		t.Fatalf("have %v, want nil", err)
@@ -53,7 +53,7 @@ func TestMessageValidate(t *testing.T) {
 			return common.Address{}, wantErr
 		}
 
-		decMsg := &types.ConsensusMessage{}
+		decMsg := &ConsensusMessage{}
 		if err := decMsg.FromPayload(payload); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
@@ -78,7 +78,7 @@ func TestMessageValidate(t *testing.T) {
 				VotingPower: big.NewInt(2),
 			},
 		}}
-		decMsg := &types.ConsensusMessage{}
+		decMsg := &ConsensusMessage{}
 		if err := decMsg.FromPayload(payload); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -111,7 +111,7 @@ func TestMessageValidate(t *testing.T) {
 			return authorizedAddress, nil
 		}
 
-		decMsg := &types.ConsensusMessage{}
+		decMsg := &ConsensusMessage{}
 
 		if err := decMsg.FromPayload(payload); err != nil {
 			t.Fatalf("have %v, want nil", err)
@@ -140,7 +140,7 @@ func TestMessageValidate(t *testing.T) {
 				return member.Address, nil
 			}
 			lastHeader := &types.Header{Number: new(big.Int).SetUint64(i), Committee: []types.CommitteeMember{member}}
-			decMsg := &types.ConsensusMessage{}
+			decMsg := &ConsensusMessage{}
 			if err := decMsg.FromPayload(payload); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -160,24 +160,24 @@ func TestMessageValidate(t *testing.T) {
 }
 
 func TestMessageDecode(t *testing.T) {
-	vote := &types.Vote{
+	vote := &Vote{
 		Round:             1,
 		Height:            big.NewInt(2),
 		ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 	}
 
-	payload, err := types.Encode(vote)
+	payload, err := Encode(vote)
 	if err != nil {
 		t.Fatalf("have %v, want nil", err)
 	}
 
-	msg := &types.ConsensusMessage{
-		Code:    types.MsgProposal,
+	msg := &ConsensusMessage{
+		Code:    msgProposal,
 		Msg:     payload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
 
-	var decVote types.Vote
+	var decVote Vote
 	err = msg.Decode(&decVote)
 	if err != nil {
 		t.Fatalf("have %v, want nil", err)

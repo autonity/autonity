@@ -1,7 +1,9 @@
 package afd
 
 import (
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
+	core2 "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -57,7 +59,7 @@ type FaultDetector struct {
 	msgStore *MsgStore
 
 	// future height msg buffer
-	futureMsgs map[uint64][]*types.ConsensusMessage
+	futureMsgs map[uint64][]*core2.ConsensusMessage
 
 	logger log.Logger
 }
@@ -73,7 +75,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		msgStore: newMsgStore(),
 		logger:logger,
 		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
-		futureMsgs: make(map[uint64][]*types.ConsensusMessage),
+		futureMsgs: make(map[uint64][]*core2.ConsensusMessage),
 	}
 
 	// register afd contracts on evm's precompiled contract set.
@@ -117,7 +119,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			}
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg := new(types.ConsensusMessage)
+				msg := new(core2.ConsensusMessage)
 				if err := msg.FromPayload(e.Payload); err != nil {
 					fd.logger.Error("invalid payload", "afd", err)
 					continue
@@ -136,7 +138,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 
 // HandleMsg is called by p2p protocol manager to deliver the consensus msg to afd.
 func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
-	if msg.Code != types.TendermintMsg {
+	if msg.Code != core2.TendermintMsg {
 		return
 	}
 
@@ -160,13 +162,13 @@ func (fd *FaultDetector) Stop() {
 }
 
 // call by ethereum object to subscribe proofs Events.
-func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- types.SubmitProofEvent) event.Subscription {
+func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- SubmitProofEvent) event.Subscription {
 	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
 }
 
 // get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
 func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) error {
-	var innocentProofs []types.OnChainProof
+	var innocentProofs []autonity.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
 	if err != nil {
 		return err
@@ -189,7 +191,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	}
 
 	// send proofs via standard transaction.
-	fd.sendProofs(types.InnocentProof, innocentProofs)
+	fd.sendProofs(InnocentProof, innocentProofs)
 	return nil
 }
 
@@ -201,48 +203,48 @@ func (fd *FaultDetector) randomDelay() {
 }
 
 // send proofs via event which will handled by ethereum object to signed the TX to send proof.
-func (fd *FaultDetector) sendProofs(t types.ProofType,  proofs[]types.OnChainProof) {
+func (fd *FaultDetector) sendProofs(t ProofType,  proofs[]autonity.OnChainProof) {
 	fd.wg.Add(1)
 	go func() {
 		defer fd.wg.Done()
-		if t == types.InnocentProof {
-			fd.afdFeed.Send(types.SubmitProofEvent{Proofs:proofs, Type:t})
+		if t == InnocentProof {
+			fd.afdFeed.Send(SubmitProofEvent{Proofs: proofs, Type:t})
 		}
 
-		if t == types.ChallengeProof {
+		if t == ChallengeProof {
 			fd.randomDelay()
 			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
-				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
+				fd.afdFeed.Send(SubmitProofEvent{Proofs: unPresented, Type:t})
 			}
 		}
 
-		if t == types.AccusationProof {
+		if t == AccusationProof {
 			fd.randomDelay()
 			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
-				fd.afdFeed.Send(types.SubmitProofEvent{Proofs:unPresented, Type:t})
+				fd.afdFeed.Send(SubmitProofEvent{Proofs: unPresented, Type:t})
 			}
 		}
 
 	}()
 }
 
-func (fd *FaultDetector) filterPresentedOnes(proofs *[]types.OnChainProof, t types.ProofType) []types.OnChainProof {
+func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof, t ProofType) []autonity.OnChainProof {
 	// get latest chain state.
-	var result []types.OnChainProof
-	var presented []types.OnChainProof
+	var result []autonity.OnChainProof
+	var presented []autonity.OnChainProof
 	state, err := fd.blockchain.State()
 	if err != nil {
 		return nil
 	}
 	header := fd.blockchain.CurrentBlock().Header()
 
-	if t == types.AccusationProof {
+	if t == AccusationProof {
 		presented = fd.blockchain.GetAutonityContract().GetAccusations(header, state)
 	}
 
-	if t == types.ChallengeProof {
+	if t == ChallengeProof {
 		presented = fd.blockchain.GetAutonityContract().GetChallenges(header, state)
 	}
 

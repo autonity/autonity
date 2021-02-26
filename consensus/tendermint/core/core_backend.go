@@ -69,6 +69,6 @@ type Backend interface {
 type Tendermint interface {
 	Start(ctx context.Context, contract *autonity.Contract)
 	Stop()
-	GetCurrentHeightMessages() []*types.ConsensusMessage
+	GetCurrentHeightMessages() []*ConsensusMessage
 	CoreState() TendermintState
 }

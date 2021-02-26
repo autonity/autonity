@@ -22,6 +22,7 @@ import (
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
@@ -63,7 +64,7 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
-	if msg.Code != types.TendermintMsg && msg.Code != types.TendermintSyncMsg {
+	if msg.Code != core.TendermintMsg && msg.Code != core.TendermintSyncMsg {
 		return false, nil
 	}
 
@@ -71,7 +72,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 	defer sb.coreMu.Unlock()
 
 	switch msg.Code {
-	case types.TendermintMsg:
+	case core.TendermintMsg:
 		if !sb.coreStarted {
 			buffer := new(bytes.Buffer)
 			if _, err := io.Copy(buffer, msg.Payload); err != nil {
@@ -110,7 +111,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 		sb.postEvent(events.MessageEvent{
 			Payload: data,
 		})
-	case types.TendermintSyncMsg:
+	case core.TendermintSyncMsg:
 		if !sb.coreStarted {
 			sb.logger.Info("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped

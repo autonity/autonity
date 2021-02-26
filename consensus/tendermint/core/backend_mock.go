@@ -373,10 +373,10 @@ func (mr *MockTendermintMockRecorder) Stop() *gomock.Call {
 }
 
 // GetCurrentHeightMessages mocks base method
-func (m *MockTendermint) GetCurrentHeightMessages() []*types.ConsensusMessage {
+func (m *MockTendermint) GetCurrentHeightMessages() []*ConsensusMessage {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCurrentHeightMessages")
-	ret0, _ := ret[0].([]*types.ConsensusMessage)
+	ret0, _ := ret[0].([]*ConsensusMessage)
 	return ret0
 }
 

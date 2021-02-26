@@ -27,7 +27,7 @@ type RoundState struct {
 
 // MsgWithHash save the msg and extra field to be marshal to JSON.
 type MsgForDump struct {
-	types.ConsensusMessage
+	ConsensusMessage
 	Hash   common.Hash
 	Power  uint64
 	Height *big.Int
@@ -154,7 +154,7 @@ func getBacklogMsgs(c *core) []*MsgForDump {
 	return result
 }
 
-func msgForDump(msgs []*types.ConsensusMessage) []*MsgForDump {
+func msgForDump(msgs []*ConsensusMessage) []*MsgForDump {
 	result := make([]*MsgForDump, 0, len(msgs))
 	for _, m := range msgs {
 		msg := new(MsgForDump)
@@ -205,7 +205,7 @@ func getRoundState(c *core) []RoundState {
 	return states
 }
 
-func blockHashes(messages map[common.Hash]map[common.Address]types.ConsensusMessage) []common.Hash {
+func blockHashes(messages map[common.Hash]map[common.Address]ConsensusMessage) []common.Hash {
 	blockHashes := make([]common.Hash, 0, len(messages))
 	for key := range messages {
 		blockHashes = append(blockHashes, key)

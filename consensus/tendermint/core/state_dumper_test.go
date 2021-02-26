@@ -53,7 +53,7 @@ func TestGetRoundState(t *testing.T) {
 	height := big.NewInt(int64(100) + 1)
 
 	// Prepare 2 rounds of messages
-	proposals := make([]types.Proposal, 2)
+	proposals := make([]Proposal, 2)
 	proposals[0], _ = prepareRoundMsgs(t, c, rounds[0], height, sender)
 	proposals[1], _ = prepareRoundMsgs(t, c, rounds[1], height, sender)
 
@@ -87,7 +87,7 @@ func TestGetCoreState(t *testing.T) {
 	var rounds []int64 = []int64{0, 1}
 
 	// Prepare 2 rounds of messages
-	proposals := make([]types.Proposal, 2)
+	proposals := make([]Proposal, 2)
 	proposers := make([]common.Address, 2)
 	proposals[0], proposers[0] = prepareRoundMsgs(t, c, rounds[0], height, sender)
 	proposals[1], proposers[1] = prepareRoundMsgs(t, c, rounds[1], height, sender)
@@ -138,7 +138,7 @@ func TestGetCoreState(t *testing.T) {
 	}
 }
 
-func randomProposal(t *testing.T) (*types.ConsensusMessage, types.Proposal) {
+func randomProposal(t *testing.T) (*ConsensusMessage, Proposal) {
 	currentHeight := big.NewInt(int64(rand.Intn(100) + 1))
 	currentRound := int64(rand.Intn(100) + 1)
 
@@ -146,7 +146,7 @@ func randomProposal(t *testing.T) (*types.ConsensusMessage, types.Proposal) {
 	return generateBlockProposal(t, currentRound, currentHeight, currentRound-1, proposer, false)
 }
 
-func checkRoundState(t *testing.T, s RoundState, wantRound int64, wantProposal *types.Proposal, wantVerfied bool) {
+func checkRoundState(t *testing.T, s RoundState, wantRound int64, wantProposal *Proposal, wantVerfied bool) {
 	require.Equal(t, wantProposal.ProposalBlock.Hash(), s.Proposal)
 	require.Len(t, s.PrevoteState, 1)
 	require.Len(t, s.PrecommitState, 1)
@@ -159,12 +159,12 @@ func checkRoundState(t *testing.T, s RoundState, wantRound int64, wantProposal *
 	require.Equal(t, wantProposal.ProposalBlock.Hash(), s.PrecommitState[0].Value)
 }
 
-func prepareRoundMsgs(t *testing.T, c *core, r int64, h *big.Int, sender common.Address) (proposal types.Proposal, proposer common.Address) {
+func prepareRoundMsgs(t *testing.T, c *core, r int64, h *big.Int, sender common.Address) (proposal Proposal, proposer common.Address) {
 	privKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	proposalMsg, proposal := generateBlockProposal(t, r, h, 0, crypto.PubkeyToAddress(privKey.PublicKey), false)
-	prevoteMsg, _, _ := prepareVote(t, types.msgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
-	precommitMsg, _, _ := prepareVote(t, types.msgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+	prevoteMsg, _, _ := prepareVote(t, msgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+	precommitMsg, _, _ := prepareVote(t, msgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
 	c.messages.getOrCreate(r).SetProposal(&proposal, proposalMsg, true)
 	c.messages.getOrCreate(r).AddPrevote(proposal.ProposalBlock.Hash(), *prevoteMsg)
 	c.messages.getOrCreate(r).AddPrecommit(proposal.ProposalBlock.Hash(), *precommitMsg)

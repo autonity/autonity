@@ -222,8 +222,8 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 	return nil
 }
 
-func (ac *Contract) callGetChallenges(state *state.StateDB, header *types.Header) []types.OnChainProof {
-	var proofs []types.OnChainProof
+func (ac *Contract) callGetChallenges(state *state.StateDB, header *types.Header) []OnChainProof {
+	var proofs []OnChainProof
 	err := ac.AutonityContractCall(state, header, "getChallenges", &proofs)
 
 	if err != nil {
@@ -232,8 +232,8 @@ func (ac *Contract) callGetChallenges(state *state.StateDB, header *types.Header
 	return proofs
 }
 
-func (ac *Contract) callGetAccusations(state *state.StateDB, header *types.Header) []types.OnChainProof {
-	var proofs []types.OnChainProof
+func (ac *Contract) callGetAccusations(state *state.StateDB, header *types.Header) []OnChainProof {
+	var proofs []OnChainProof
 	err := ac.AutonityContractCall(state, header, "getAccusations", &proofs)
 
 	if err != nil {

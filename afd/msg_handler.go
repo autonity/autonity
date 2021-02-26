@@ -2,8 +2,10 @@ package afd
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	core2 "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -13,12 +15,12 @@ import (
 )
 
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
-func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs []types.ConsensusMessage, rule types.Rule) (types.OnChainProof, error) {
-	var challenge types.OnChainProof
+func (fd *FaultDetector) generateOnChainProof(m *core2.ConsensusMessage, proofs []core2.ConsensusMessage, rule Rule) (autonity.OnChainProof, error) {
+	var challenge autonity.OnChainProof
 	challenge.Sender = m.Address
 	challenge.Msghash = types.RLPHash(m.Payload())
 
-	var rawProof types.RawProof
+	var rawProof RawProof
 	rawProof.Rule = rule
 	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
 	rawProof.Message = m.Payload()
@@ -38,7 +40,7 @@ func (fd *FaultDetector) generateOnChainProof(m *types.ConsensusMessage, proofs 
 
 // submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
 // send the proof of misbehavior to event channel.
-func (fd *FaultDetector) submitMisbehavior(m *types.ConsensusMessage, proofs []types.ConsensusMessage, err error) {
+func (fd *FaultDetector) submitMisbehavior(m *core2.ConsensusMessage, proofs []core2.ConsensusMessage, err error) {
 	rule, e := errorToRule(err)
 	if e != nil {
 		fd.logger.Warn("error to rule", "afd", e)
@@ -47,13 +49,13 @@ func (fd *FaultDetector) submitMisbehavior(m *types.ConsensusMessage, proofs []t
 	if err != nil {
 		fd.logger.Warn("generate misbehavior proof", "afd", err)
 	}
-	ps := []types.OnChainProof{proof}
+	ps := []autonity.OnChainProof{proof}
 
-	fd.sendProofs(types.ChallengeProof, ps)
+	fd.sendProofs(ChallengeProof, ps)
 }
 
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
-func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
+func (fd *FaultDetector) processMsg(m *core2.ConsensusMessage) error {
 	// pre-check if msg is from valid committee member
 	err := checkMsgSignature(fd.blockchain, m)
 	if err != nil {
@@ -69,7 +71,7 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 		if err == errFutureMsg {
 			fd.bufferMsg(m)
 		} else {
-			proofs := []types.ConsensusMessage{*m}
+			proofs := []core2.ConsensusMessage{*m}
 			fd.submitMisbehavior(m, proofs, err)
 			return err
 		}
@@ -78,7 +80,7 @@ func (fd *FaultDetector) processMsg(m *types.ConsensusMessage) error {
 	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
 	p, err := fd.msgStore.Save(m)
 	if err == errEquivocation && p != nil {
-		proof := []types.ConsensusMessage{*p}
+		proof := []core2.ConsensusMessage{*p}
 		fd.submitMisbehavior(m, proof, err)
 		return err
 	}
@@ -100,7 +102,7 @@ func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 }
 
 // buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
-func (fd *FaultDetector) bufferMsg(m *types.ConsensusMessage) {
+func (fd *FaultDetector) bufferMsg(m *core2.ConsensusMessage) {
 	h, err := m.Height()
 	if err != nil {
 		return
@@ -112,19 +114,19 @@ func (fd *FaultDetector) bufferMsg(m *types.ConsensusMessage) {
 /////// common helper functions shared between afd and precompiled contract to validate msgs.
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
-func checkAutoIncriminatingMsg(chain *core.BlockChain, m *types.ConsensusMessage) error {
-	if m.Code == types.MsgProposal {
+func checkAutoIncriminatingMsg(chain *core.BlockChain, m *core2.ConsensusMessage) error {
+	if m.Code == msgProposal {
 		return checkProposal(chain, m)
 	}
 
-	if m.Code == types.MsgPrevote || m.Code == types.MsgPrecommit {
+	if m.Code == msgPrevote || m.Code == msgPrecommit {
 		return decodeVote(m)
 	}
 
 	return errUnknownMsg
 }
 
-func checkEquivocation(chain *core.BlockChain, m *types.ConsensusMessage, proof[]types.ConsensusMessage) error {
+func checkEquivocation(chain *core.BlockChain, m *core2.ConsensusMessage, proof[]core2.ConsensusMessage) error {
 	// decode msgs
 	err := checkAutoIncriminatingMsg(chain, m)
 	if err != nil {
@@ -144,7 +146,7 @@ func checkEquivocation(chain *core.BlockChain, m *types.ConsensusMessage, proof[
 	return nil
 }
 
-func sameVote(a *types.ConsensusMessage, b *types.ConsensusMessage) bool {
+func sameVote(a *core2.ConsensusMessage, b *core2.ConsensusMessage) bool {
 	ah, _ := a.Height()
 	ar, _ := a.Round()
 	bh, _ := b.Height()
@@ -159,8 +161,8 @@ func sameVote(a *types.ConsensusMessage, b *types.ConsensusMessage) bool {
 }
 
 // checkProposal, checks if proposal is valid and it's from correct proposer.
-func checkProposal(chain *core.BlockChain, m *types.ConsensusMessage) error {
-	var proposal types.Proposal
+func checkProposal(chain *core.BlockChain, m *core2.ConsensusMessage) error {
+	var proposal core2.Proposal
 	err := m.Decode(&proposal)
 	if err != nil {
 		return errGarbageMsg
@@ -183,7 +185,7 @@ func checkProposal(chain *core.BlockChain, m *types.ConsensusMessage) error {
 }
 
 //checkMsgSignature, it check if msg is from valid member of the committee.
-func checkMsgSignature(chain *core.BlockChain, m *types.ConsensusMessage) error {
+func checkMsgSignature(chain *core.BlockChain, m *core2.ConsensusMessage) error {
 	msgHeight, err := m.Height()
 	if err != nil {
 		return err
@@ -270,7 +272,7 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 	return err
 }
 
-func isProposerMsg(chain *core.BlockChain, m *types.ConsensusMessage) bool {
+func isProposerMsg(chain *core.BlockChain, m *core2.ConsensusMessage) bool {
 	h, _ := m.Height()
 	r, _ := m.Round()
 
@@ -302,8 +304,8 @@ func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, err
 	return proposer, nil
 }
 
-func decodeVote(m *types.ConsensusMessage) error {
-	var vote types.Vote
+func decodeVote(m *core2.ConsensusMessage) error {
+	var vote core2.Vote
 	err := m.Decode(&vote)
 	if err != nil {
 		return errGarbageMsg
