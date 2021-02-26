@@ -25,7 +25,6 @@ func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value commo
 		Msg:           encodedVote,
 		Address:       addr,
 		CommittedSeal: []byte{},
-		Power:         0,
 	}
 
 	payload, err := msg.PayloadNoSig()
@@ -49,21 +48,21 @@ func TestMsgStore_Get(t *testing.T) {
 	t.Run("msg store is empty", func(t *testing.T) {
 		ms := newMsgStore()
 		proposals := ms.Get(height, func(m *core.ConsensusMessage) bool {
-			return m.Type() == core.MsgProposal
+			return m.Type() == msgProposal
 		})
 		assert.Equal(t, 0, len(proposals))
 	})
 
 	t.Run("query preVote for nil from msg store", func(t *testing.T) {
 		ms := newMsgStore()
-		preVote := newVoteMsg(height, round, core.MsgPrevote, nodeAddr, nilValue)
+		preVote := newVoteMsg(height, round, msgPrevote, nodeAddr, nilValue)
 		_, err := ms.Save(preVote)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
 		votes := ms.Get(height, func(m *core.ConsensusMessage) bool {
-			return m.Type() == core.MsgPrevote && m.H() == height && m.R() == round && m.Sender() == nodeAddr &&
+			return m.Type() == msgPrevote && m.H() == height && m.R() == round && m.Sender() == nodeAddr &&
 				m.Value() == nilValue
 		})
 
