@@ -14,10 +14,11 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package types
+package core
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/pkg/errors"
 	"io"
 	"math/big"
@@ -43,7 +44,7 @@ type Proposal struct {
 	Round         int64
 	Height        *big.Int
 	ValidRound    int64
-	ProposalBlock *Block
+	ProposalBlock *types.Block
 }
 
 func (p *Proposal) String() string {
@@ -67,7 +68,7 @@ func (p *Proposal) GetHeight() *big.Int {
 	return p.Height
 }
 
-func NewProposal(r int64, h *big.Int, vr int64, p *Block) *Proposal {
+func NewProposal(r int64, h *big.Int, vr int64, p *types.Block) *Proposal {
 	return &Proposal{
 		Round:         r,
 		Height:        h,
@@ -109,7 +110,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		Height          *big.Int
 		ValidRound      uint64
 		IsValidRoundNil bool
-		ProposalBlock   *Block
+		ProposalBlock   *types.Block
 	}
 
 	if err := s.Decode(&proposal); err != nil {

@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/core/types"
 	"sync"
 
 	"github.com/clearmatics/autonity/common"
@@ -56,11 +55,11 @@ func (s *messagesMap) getOrCreate(round int64) *roundMessages {
 	return state
 }
 
-func (s *messagesMap) GetMessages() []*types.ConsensusMessage {
+func (s *messagesMap) GetMessages() []*ConsensusMessage {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	msgs := make([][]*types.ConsensusMessage, len(s.internal))
+	msgs := make([][]*ConsensusMessage, len(s.internal))
 	var totalLen int
 	i := 0
 	for _, state := range s.internal {
@@ -69,7 +68,7 @@ func (s *messagesMap) GetMessages() []*types.ConsensusMessage {
 		i++
 	}
 
-	result := make([]*types.ConsensusMessage, 0, totalLen)
+	result := make([]*ConsensusMessage, 0, totalLen)
 	for _, ms := range msgs {
 		result = append(result, ms...)
 	}
@@ -91,9 +90,9 @@ func (s *messagesMap) getRounds() []int64 {
 
 // roundMessages stores all message received for a specific round.
 type roundMessages struct {
-	proposal         *types.Proposal
+	proposal         *Proposal
 	verifiedProposal bool
-	proposalMsg      *types.ConsensusMessage
+	proposalMsg      *ConsensusMessage
 	prevotes         messageSet
 	precommits       messageSet
 	mu               sync.RWMutex
@@ -103,14 +102,14 @@ type roundMessages struct {
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
 func NewRoundMessages() *roundMessages {
 	return &roundMessages{
-		proposal:         new(types.Proposal),
+		proposal:         new(Proposal),
 		prevotes:         newMessageSet(),
 		precommits:       newMessageSet(),
 		verifiedProposal: false,
 	}
 }
 
-func (s *roundMessages) SetProposal(proposal *types.Proposal, msg *types.ConsensusMessage, verified bool) {
+func (s *roundMessages) SetProposal(proposal *Proposal, msg *ConsensusMessage, verified bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.proposalMsg = msg
@@ -131,19 +130,19 @@ func (s *roundMessages) PrecommitsTotalPower() uint64 {
 	return s.precommits.TotalVotePower()
 }
 
-func (s *roundMessages) AddPrevote(hash common.Hash, msg types.ConsensusMessage) {
+func (s *roundMessages) AddPrevote(hash common.Hash, msg ConsensusMessage) {
 	s.prevotes.AddVote(hash, msg)
 }
 
-func (s *roundMessages) AddPrecommit(hash common.Hash, msg types.ConsensusMessage) {
+func (s *roundMessages) AddPrecommit(hash common.Hash, msg ConsensusMessage) {
 	s.precommits.AddVote(hash, msg)
 }
 
-func (s *roundMessages) CommitedSeals(hash common.Hash) []types.ConsensusMessage {
+func (s *roundMessages) CommitedSeals(hash common.Hash) []ConsensusMessage {
 	return s.precommits.Values(hash)
 }
 
-func (s *roundMessages) Proposal() *types.Proposal {
+func (s *roundMessages) Proposal() *Proposal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -172,14 +171,14 @@ func (s *roundMessages) GetProposalHash() common.Hash {
 	return common.Hash{}
 }
 
-func (s *roundMessages) GetMessages() []*types.ConsensusMessage {
+func (s *roundMessages) GetMessages() []*ConsensusMessage {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	prevoteMsgs := s.prevotes.GetMessages()
 	precommitMsgs := s.precommits.GetMessages()
 
-	result := make([]*types.ConsensusMessage, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
+	result := make([]*ConsensusMessage, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
 	if s.proposalMsg != nil {
 		result = append(result, s.proposalMsg)
 	}

@@ -13,7 +13,7 @@ import (
 
 func TestProposalEncodeDecode(t *testing.T) {
 	t.Run("Valid round is positive", func(t *testing.T) {
-		proposal := types.NewProposal(
+		proposal := NewProposal(
 			1,
 			big.NewInt(2),
 			3,
@@ -27,7 +27,7 @@ func TestProposalEncodeDecode(t *testing.T) {
 
 		s := rlp.NewStream(buf, 0)
 
-		decProposal := &types.Proposal{}
+		decProposal := &Proposal{}
 		err = decProposal.DecodeRLP(s)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
@@ -47,7 +47,7 @@ func TestProposalEncodeDecode(t *testing.T) {
 	})
 
 	t.Run("Valid round is negative", func(t *testing.T) {
-		proposal := types.NewProposal(
+		proposal := NewProposal(
 			1,
 			big.NewInt(2),
 			-1,
@@ -61,7 +61,7 @@ func TestProposalEncodeDecode(t *testing.T) {
 
 		s := rlp.NewStream(buf, 0)
 
-		decProposal := &types.Proposal{}
+		decProposal := &Proposal{}
 		err = decProposal.DecodeRLP(s)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
@@ -83,7 +83,7 @@ func TestProposalEncodeDecode(t *testing.T) {
 }
 
 func TestVoteEncodeDecode(t *testing.T) {
-	vote := &types.Vote{
+	vote := &Vote{
 		Round:             1,
 		Height:            big.NewInt(2),
 		ProposedBlockHash: common.BytesToHash([]byte("1234567890")),
@@ -97,7 +97,7 @@ func TestVoteEncodeDecode(t *testing.T) {
 
 	s := rlp.NewStream(buf, 0)
 
-	decVote := &types.Vote{}
+	decVote := &Vote{}
 	err = decVote.DecodeRLP(s)
 	if err != nil {
 		t.Fatalf("Expected nil, got %v", err)
@@ -109,7 +109,7 @@ func TestVoteEncodeDecode(t *testing.T) {
 }
 
 func TestVoteString(t *testing.T) {
-	vote := &types.Vote{
+	vote := &Vote{
 		Round:             1,
 		Height:            big.NewInt(2),
 		ProposedBlockHash: common.BytesToHash([]byte("1")),

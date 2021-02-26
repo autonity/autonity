@@ -31,14 +31,14 @@ func TestSendPropose(t *testing.T) {
 		curRoundMessages := messages.getOrCreate(1)
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := types.NewProposal(1, big.NewInt(1), validRound, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(1, big.NewInt(1), validRound, block)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		expectedMsg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		expectedMsg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -96,14 +96,14 @@ func TestHandleProposal(t *testing.T) {
 
 		logger := log.New("backend", "test", "id", 0)
 
-		proposalBlock := types.NewProposal(1, big.NewInt(1), 1, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(1, big.NewInt(1), 1, block)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -138,14 +138,14 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.getOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := types.NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -190,14 +190,14 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := message.getOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := types.NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -214,24 +214,24 @@ func TestHandleProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		var decProposal types.Proposal
+		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
-		var prevote = types.Vote{
+		var prevote = Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.Hash{},
 		}
 
-		encodedVote, err := types.Encode(&prevote)
+		encodedVote, err := Encode(&prevote)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &types.ConsensusMessage{
-			Code:          types.msgPrevote,
+		preVoteMsg := &ConsensusMessage{
+			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -283,12 +283,12 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := message.getOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := types.NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := Encode(proposalBlock)
 		assert.NoError(t, err)
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -343,14 +343,14 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.getOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := types.NewProposal(2, big.NewInt(1), 2, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(2, big.NewInt(1), 2, block)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -367,7 +367,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		var decProposal types.Proposal
+		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
@@ -413,8 +413,8 @@ func TestHandleProposal(t *testing.T) {
 		messages := newMessagesMap()
 		curRoundMessages := messages.getOrCreate(2)
 
-		proposalMsg := types.NewProposal(2, big.NewInt(1), 2, proposalBlock)
-		proposal, err := types.Encode(proposalMsg)
+		proposalMsg := NewProposal(2, big.NewInt(1), 2, proposalBlock)
+		proposal, err := Encode(proposalMsg)
 		assert.NoError(t, err)
 
 		backendMock := NewMockBackend(ctrl)
@@ -442,15 +442,15 @@ func TestHandleProposal(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       proposer.Address,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
 			power:         1,
 		}
-		var decProposal types.Proposal
+		var decProposal Proposal
 		err = msg.Decode(&decProposal)
 		assert.NoError(t, err)
 		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
@@ -475,14 +475,14 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.getOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := types.NewProposal(2, big.NewInt(1), -1, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(2, big.NewInt(1), -1, block)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -499,24 +499,24 @@ func TestHandleProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		var decProposal types.Proposal
+		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
-		var prevote = types.Vote{
+		var prevote = Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: block.Hash(),
 		}
 
-		encodedVote, err := types.Encode(&prevote)
+		encodedVote, err := Encode(&prevote)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &types.ConsensusMessage{
-			Code:          types.msgPrevote,
+		preVoteMsg := &ConsensusMessage{
+			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -570,14 +570,14 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessage := messages.getOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := types.NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -594,24 +594,24 @@ func TestHandleProposal(t *testing.T) {
 			t.Error(err)
 		}
 
-		var decProposal types.Proposal
+		var decProposal Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
-		var prevote = types.Vote{
+		var prevote = Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: block.Hash(),
 		}
 
-		encodedVote, err := types.Encode(&prevote)
+		encodedVote, err := Encode(&prevote)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &types.ConsensusMessage{
-			Code:          types.msgPrevote,
+		preVoteMsg := &ConsensusMessage{
+			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},

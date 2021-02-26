@@ -5,7 +5,7 @@ package backend
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"math/big"
 	"reflect"
 	"testing"
@@ -28,7 +28,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		//we generate a bunch of messages overflowing max capacity
 		for i := int64(0); i < 2*ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(types.TendermintMsg, append(counter, []byte("data")...))
+			msg := makeMsg(core.TendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
@@ -43,7 +43,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 			addr := savedMsg.(UnhandledMsg).addr
 			expectedAddr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if savedMsg.(UnhandledMsg).msg.Code != types.TendermintMsg {
+			if savedMsg.(UnhandledMsg).msg.Code != core.TendermintMsg {
 				t.Fatalf("wrong msg code")
 			}
 			var payload []byte
@@ -74,7 +74,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		}
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(types.TendermintMsg, append(counter, []byte("data")...))
+			msg := makeMsg(core.TendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")

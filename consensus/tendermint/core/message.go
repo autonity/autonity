@@ -14,13 +14,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package types
+package core
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rlp"
 	"io"
 	"math/big"
@@ -28,9 +29,9 @@ import (
 )
 
 const (
-	MsgProposal uint64 = iota
-	MsgPrevote
-	MsgPrecommit
+	msgProposal uint64 = iota
+	msgPrevote
+	msgPrecommit
 )
 
 var (
@@ -45,7 +46,7 @@ type ConsensusMessage struct {
 	Signature     []byte
 	CommittedSeal []byte
 
-	Power      uint64
+	power      uint64
 	decodedMsg ConsensusMsg // cached decoded Msg
 	payload    []byte       // rlp encoded ConsensusMessage
 }
@@ -97,10 +98,10 @@ func (m *ConsensusMessage) FromPayload(b []byte) error {
 	}
 	// Decode the payload, this will cache the decoded msg payload.
 	switch m.Code {
-	case MsgProposal:
+	case msgProposal:
 		var proposal Proposal
 		return m.Decode(&proposal)
-	case MsgPrevote, MsgPrecommit:
+	case msgPrevote, msgPrecommit:
 		var vote Vote
 		return m.Decode(&vote)
 	default:
@@ -108,7 +109,7 @@ func (m *ConsensusMessage) FromPayload(b []byte) error {
 	}
 }
 
-func (m *ConsensusMessage) Validate(validateFn func(*Header, []byte, []byte) (common.Address, error), previousHeader *Header) (*CommitteeMember, error) {
+func (m *ConsensusMessage) Validate(validateFn func(*types.Header, []byte, []byte) (common.Address, error), previousHeader *types.Header) (*types.CommitteeMember, error) {
 	// Validate message (on a message without Signature)
 	msgHeight, err := m.Height()
 	if err != nil {
@@ -140,7 +141,7 @@ func (m *ConsensusMessage) Validate(validateFn func(*Header, []byte, []byte) (co
 		return nil, fmt.Errorf("message received is not from a committee member: %x", addr)
 	}
 
-	m.Power = v.VotingPower.Uint64()
+	m.power = v.VotingPower.Uint64()
 	return v, nil
 }
 
@@ -159,7 +160,7 @@ func (m *ConsensusMessage) Payload() []byte {
 }
 
 func (m *ConsensusMessage) GetPower() uint64 {
-	return m.Power
+	return m.power
 }
 
 func (m *ConsensusMessage) PayloadNoSig() ([]byte, error) {
@@ -204,7 +205,7 @@ func (m *ConsensusMessage) Decode(val interface{}) error {
 
 func (m *ConsensusMessage) String() string {
 	var msg string
-	if m.Code == MsgProposal {
+	if m.Code == msgProposal {
 		var proposal Proposal
 		err := m.Decode(&proposal)
 		if err != nil {
@@ -213,7 +214,7 @@ func (m *ConsensusMessage) String() string {
 		msg = proposal.String()
 	}
 
-	if m.Code == MsgPrevote || m.Code == MsgPrecommit {
+	if m.Code == msgPrevote || m.Code == msgPrecommit {
 		var vote Vote
 		err := m.Decode(&vote)
 		if err != nil {
@@ -221,7 +222,7 @@ func (m *ConsensusMessage) String() string {
 		}
 		msg = vote.String()
 	}
-	return fmt.Sprintf("{sender: %v, Power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.Power, m.Code, msg)
+	return fmt.Sprintf("{sender: %v, Power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
 }
 
 func (m *ConsensusMessage) Round() (int64, error) {

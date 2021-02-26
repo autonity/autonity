@@ -24,8 +24,8 @@ func TestHandleCheckedMessage(t *testing.T) {
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
 
-	createPrevote := func(round int64, height int64) *types.ConsensusMessage {
-		vote := &types.Vote{
+	createPrevote := func(round int64, height int64) *ConsensusMessage {
+		vote := &Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -34,15 +34,15 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		return &types.ConsensusMessage{
-			Code:    types.msgPrevote,
+		return &ConsensusMessage{
+			Code:    msgPrevote,
 			Msg:     encoded,
 			Address: sender.Address,
 		}
 	}
 
-	createPrecommit := func(round int64, height int64) *types.ConsensusMessage {
-		vote := &types.Vote{
+	createPrecommit := func(round int64, height int64) *ConsensusMessage {
+		vote := &Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -57,8 +57,8 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error signing")
 		}
-		return &types.ConsensusMessage{
-			Code:          types.msgPrecommit,
+		return &ConsensusMessage{
+			Code:          msgPrecommit,
 			Msg:           encoded,
 			Address:       sender.Address,
 			CommittedSeal: commitSign,
@@ -69,7 +69,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		round   int64
 		height  *big.Int
 		step    Step
-		message *types.ConsensusMessage
+		message *ConsensusMessage
 		outcome error
 		panic   bool
 	}{
@@ -137,7 +137,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		engine := core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]*types.ConsensusMessage),
+			backlogs:          make(map[common.Address][]*ConsensusMessage),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
@@ -187,20 +187,20 @@ func TestHandleMsg(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
-		vote := &types.Vote{
+		vote := &Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        payload,
 			decodedMsg: vote,
 			Address:    common.Address{},
@@ -219,21 +219,21 @@ func TestHandleMsg(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*types.ConsensusMessage),
-			backlogUnchecked: map[uint64][]*types.ConsensusMessage{},
+			backlogs:         make(map[common.Address][]*ConsensusMessage),
+			backlogUnchecked: map[uint64][]*ConsensusMessage{},
 			step:             propose,
 			round:            1,
 			height:           big.NewInt(2),
 		}
-		vote := &types.Vote{
+		vote := &Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        payload,
 			decodedMsg: vote,
 			Address:    common.Address{},

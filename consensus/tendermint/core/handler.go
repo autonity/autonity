@@ -18,7 +18,6 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"time"
 
@@ -131,7 +130,7 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg := new(types.ConsensusMessage)
+				msg := new(ConsensusMessage)
 				if err := msg.FromPayload(e.Payload); err != nil {
 					c.logger.Error("consensus message invalid payload", "err", err)
 					continue
@@ -167,11 +166,11 @@ eventLoop:
 			}
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				switch timeoutE.step {
-				case types.MsgProposal:
+				case msgProposal:
 					c.handleTimeoutPropose(ctx, timeoutE)
-				case types.MsgPrevote:
+				case msgPrevote:
 					c.handleTimeoutPrevote(ctx, timeoutE)
-				case types.MsgPrecommit:
+				case msgPrecommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
@@ -241,7 +240,7 @@ func (c *core) sendEvent(ev interface{}) {
 	c.backend.Post(ev)
 }
 
-func (c *core) handleMsg(ctx context.Context, msg *types.ConsensusMessage) error {
+func (c *core) handleMsg(ctx context.Context, msg *ConsensusMessage) error {
 
 	msgHeight, err := msg.Height()
 	if err != nil {
@@ -267,7 +266,7 @@ func (c *core) handleMsg(ctx context.Context, msg *types.ConsensusMessage) error
 	return c.handleCheckedMsg(ctx, msg)
 }
 
-func (c *core) handleFutureRoundMsg(ctx context.Context, msg *types.ConsensusMessage, sender common.Address) {
+func (c *core) handleFutureRoundMsg(ctx context.Context, msg *ConsensusMessage, sender common.Address) {
 	// Decoding functions can't fail here
 	msgRound, err := msg.Round()
 	if err != nil {
@@ -290,7 +289,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *types.ConsensusMes
 	}
 }
 
-func (c *core) handleCheckedMsg(ctx context.Context, msg *types.ConsensusMessage) error {
+func (c *core) handleCheckedMsg(ctx context.Context, msg *ConsensusMessage) error {
 	logger := c.logger.New("address", c.address, "from", msg.Address)
 
 	// Store the message if it's a future message
@@ -313,13 +312,13 @@ func (c *core) handleCheckedMsg(ctx context.Context, msg *types.ConsensusMessage
 	}
 
 	switch msg.Code {
-	case types.MsgProposal:
+	case msgProposal:
 		logger.Debug("tendermint.MessageEvent: PROPOSAL")
 		return testBacklog(c.handleProposal(ctx, msg))
-	case types.MsgPrevote:
+	case msgPrevote:
 		logger.Debug("tendermint.MessageEvent: PREVOTE")
 		return testBacklog(c.handlePrevote(ctx, msg))
-	case types.MsgPrecommit:
+	case msgPrecommit:
 		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
 		return testBacklog(c.handlePrecommit(ctx, msg))
 	default:

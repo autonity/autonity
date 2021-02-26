@@ -30,8 +30,8 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
-		proposalBlock := types.NewProposal(c.Round(), c.Height(), c.validRound, p)
-		proposal, err := types.Encode(proposalBlock)
+		proposalBlock := NewProposal(c.Round(), c.Height(), c.validRound, p)
+		proposal, err := Encode(proposalBlock)
 		if err != nil {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
 			return
@@ -42,8 +42,8 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 
 		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
 
-		c.broadcast(ctx, &types.ConsensusMessage{
-			Code:          types.MsgProposal,
+		c.broadcast(ctx, &ConsensusMessage{
+			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       c.address,
 			CommittedSeal: []byte{},
@@ -51,8 +51,8 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	}
 }
 
-func (c *core) handleProposal(ctx context.Context, msg *types.ConsensusMessage) error {
-	var proposal types.Proposal
+func (c *core) handleProposal(ctx context.Context, msg *ConsensusMessage) error {
+	var proposal Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
 		return errFailedDecodeProposal
@@ -174,7 +174,7 @@ func (c *core) stopFutureProposalTimer() {
 	}
 }
 
-func (c *core) logProposalMessageEvent(message string, proposal types.Proposal, from, to string) {
+func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, to string) {
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,

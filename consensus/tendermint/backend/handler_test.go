@@ -17,6 +17,7 @@
 package backend
 
 import (
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func TestTendermintMessage(t *testing.T) {
 	// generate one msg
 	data := []byte("data1")
 	hash := types.RLPHash(data)
-	msg := makeMsg(types.TendermintMsg, data)
+	msg := makeMsg(core.TendermintMsg, data)
 	addr := common.BytesToAddress([]byte("address"))
 
 	// 1. this message should not be in cache
@@ -79,7 +80,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(types.TendermintSyncMsg, []byte{})
+		msg := makeMsg(core.TendermintSyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
@@ -100,7 +101,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(types.TendermintSyncMsg, []byte{})
+		msg := makeMsg(core.TendermintSyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
