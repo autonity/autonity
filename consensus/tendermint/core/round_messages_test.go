@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 	"gotest.tools/assert"
 	"testing"
 )
