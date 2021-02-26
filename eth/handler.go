@@ -497,7 +497,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		addr := crypto.PubkeyToAddress(*pubKey)
 
 		// forward msg to faultDetector for tendermint BFT accountability.
-		pm.faultDetector.HandleMsg(addr, msg)
+		if pm.faultDetector != nil {
+			pm.faultDetector.HandleMsg(addr, msg)
+		}
 
 		// forward msg to tendermint BFT engine.
 		handled, err := handler.HandleMsg(addr, msg)
