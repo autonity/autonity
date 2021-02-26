@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *core.ConsensusMessage {
+func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *core.Message {
 	var vote = core.Vote{
 		Round:             r,
 		Height:            new(big.Int).SetUint64(h),
@@ -20,7 +20,7 @@ func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value commo
 		return nil
 	}
 
-	var msg = core.ConsensusMessage{
+	var msg = core.Message{
 		Code:          code,
 		Msg:           encodedVote,
 		Address:       addr,
@@ -32,7 +32,7 @@ func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value commo
 		return nil
 	}
 
-	m := new(core.ConsensusMessage)
+	m := new(core.Message)
 	if err := m.FromPayload(payload); err != nil {
 		return nil
 	}
@@ -47,7 +47,7 @@ func TestMsgStore_Get(t *testing.T) {
 
 	t.Run("msg store is empty", func(t *testing.T) {
 		ms := newMsgStore()
-		proposals := ms.Get(height, func(m *core.ConsensusMessage) bool {
+		proposals := ms.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgProposal
 		})
 		assert.Equal(t, 0, len(proposals))
@@ -61,7 +61,7 @@ func TestMsgStore_Get(t *testing.T) {
 			assert.Error(t, err)
 		}
 
-		votes := ms.Get(height, func(m *core.ConsensusMessage) bool {
+		votes := ms.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgPrevote && m.H() == height && m.R() == round && m.Sender() == nodeAddr &&
 				m.Value() == nilValue
 		})

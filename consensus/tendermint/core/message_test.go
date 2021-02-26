@@ -14,7 +14,7 @@ import (
 )
 
 func TestMessageEncodeDecode(t *testing.T) {
-	msg := &ConsensusMessage{
+	msg := &Message{
 		Code:          msgProposal,
 		Msg:           []byte{0x1},
 		Address:       common.HexToAddress("0x1234567890"),
@@ -30,7 +30,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 
 	s := rlp.NewStream(buf, 0)
 
-	decMsg := &ConsensusMessage{}
+	decMsg := &Message{}
 	err = decMsg.DecodeRLP(s)
 	if err != nil {
 		t.Fatalf("have %v, want nil", err)
@@ -53,7 +53,7 @@ func TestMessageValidate(t *testing.T) {
 			return common.Address{}, wantErr
 		}
 
-		decMsg := &ConsensusMessage{}
+		decMsg := &Message{}
 		if err := decMsg.FromPayload(payload); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
@@ -78,7 +78,7 @@ func TestMessageValidate(t *testing.T) {
 				VotingPower: big.NewInt(2),
 			},
 		}}
-		decMsg := &ConsensusMessage{}
+		decMsg := &Message{}
 		if err := decMsg.FromPayload(payload); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -111,7 +111,7 @@ func TestMessageValidate(t *testing.T) {
 			return authorizedAddress, nil
 		}
 
-		decMsg := &ConsensusMessage{}
+		decMsg := &Message{}
 
 		if err := decMsg.FromPayload(payload); err != nil {
 			t.Fatalf("have %v, want nil", err)
@@ -140,7 +140,7 @@ func TestMessageValidate(t *testing.T) {
 				return member.Address, nil
 			}
 			lastHeader := &types.Header{Number: new(big.Int).SetUint64(i), Committee: []types.CommitteeMember{member}}
-			decMsg := &ConsensusMessage{}
+			decMsg := &Message{}
 			if err := decMsg.FromPayload(payload); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -171,7 +171,7 @@ func TestMessageDecode(t *testing.T) {
 		t.Fatalf("have %v, want nil", err)
 	}
 
-	msg := &ConsensusMessage{
+	msg := &Message{
 		Code:    msgProposal,
 		Msg:     payload,
 		Address: common.HexToAddress("0x1234567890"),

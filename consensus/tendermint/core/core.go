@@ -83,8 +83,8 @@ func New(backend Backend, config *config.Config) *core {
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
-		backlogs:              make(map[common.Address][]*ConsensusMessage),
-		backlogUnchecked:      make(map[uint64][]*ConsensusMessage),
+		backlogs:              make(map[common.Address][]*Message),
+		backlogUnchecked:      make(map[uint64][]*Message),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
@@ -117,8 +117,8 @@ type core struct {
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
-	backlogs            map[common.Address][]*ConsensusMessage
-	backlogUnchecked    map[uint64][]*ConsensusMessage
+	backlogs            map[common.Address][]*Message
+	backlogUnchecked    map[uint64][]*Message
 	backlogUncheckedLen int
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
@@ -159,7 +159,7 @@ type core struct {
 	autonityContract *autonity.Contract
 }
 
-func (c *core) GetCurrentHeightMessages() []*ConsensusMessage {
+func (c *core) GetCurrentHeightMessages() []*Message {
 	return c.messages.GetMessages()
 }
 
@@ -168,7 +168,7 @@ func (c *core) IsMember(address common.Address) bool {
 	return err == nil
 }
 
-func (c *core) finalizeMessage(msg *ConsensusMessage) ([]byte, error) {
+func (c *core) finalizeMessage(msg *Message) ([]byte, error) {
 	var err error
 
 	// Sign message
@@ -184,7 +184,7 @@ func (c *core) finalizeMessage(msg *ConsensusMessage) ([]byte, error) {
 	return msg.Payload(), nil
 }
 
-func (c *core) broadcast(ctx context.Context, msg *ConsensusMessage) {
+func (c *core) broadcast(ctx context.Context, msg *Message) {
 	logger := c.logger.New("step", c.step)
 
 	payload, err := c.finalizeMessage(msg)
@@ -342,7 +342,7 @@ func (c *core) setInitialState(r int64) {
 	c.setRound(r)
 }
 
-func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash, msg ConsensusMessage) {
+func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash, msg Message) {
 	switch step {
 	case prevote:
 		roundMsgs.AddPrevote(hash, msg)

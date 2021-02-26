@@ -138,7 +138,7 @@ func TestGetCoreState(t *testing.T) {
 	}
 }
 
-func randomProposal(t *testing.T) (*ConsensusMessage, Proposal) {
+func randomProposal(t *testing.T) (*Message, Proposal) {
 	currentHeight := big.NewInt(int64(rand.Intn(100) + 1))
 	currentRound := int64(rand.Intn(100) + 1)
 

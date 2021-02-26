@@ -487,7 +487,7 @@ func TestOldProposal(t *testing.T) {
 		// responsible for sending the prevote for the incoming proposal
 		c.lockedValue = nil
 		c.validValue = nil
-		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), ConsensusMessage{Code: msgPrevote, power: c.committeeSet().Quorum()})
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.committeeSet().Quorum()})
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
@@ -528,7 +528,7 @@ func TestOldProposal(t *testing.T) {
 		c.validRound = proposalValidRound + 1
 		c.lockedValue = proposal.ProposalBlock
 		c.validValue = proposal.ProposalBlock
-		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), ConsensusMessage{Code: msgPrevote, power: c.committeeSet().Quorum()})
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.committeeSet().Quorum()})
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
@@ -570,7 +570,7 @@ func TestOldProposal(t *testing.T) {
 		c.validRound = proposalValidRound + 1
 		c.lockedValue = clientLockedValue
 		c.validValue = clientLockedValue
-		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), ConsensusMessage{Code: msgPrevote, power: c.committeeSet().Quorum()})
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.committeeSet().Quorum()})
 
 		backendMock.EXPECT().VerifyProposal(*proposal.ProposalBlock).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Sign(prevoteMsgRLPNoSig).Return(prevoteMsg.Signature, nil)
@@ -673,7 +673,7 @@ func TestOldProposal(t *testing.T) {
 		c := New(backendMock, config.DefaultConfig())
 		c.setCommitteeSet(committeeSet)
 		// construct round state with: old round's quorum-1 prevote for v on valid round.
-		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), ConsensusMessage{Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
+		c.messages.getOrCreate(proposalValidRound).AddPrevote(proposal.ProposalBlock.Hash(), Message{Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
 
 		// client on new round's step propose.
 		c.setHeight(currentHeight)
@@ -740,8 +740,8 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.setStep(prevote)
 		c.setCommitteeSet(committeeSet)
 		// create quorum prevote messages however there is no quorum on a specific hash
-		c.curRoundMessages.AddPrevote(common.Hash{}, ConsensusMessage{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 2})
-		c.curRoundMessages.AddPrevote(generateBlock(currentHeight).Hash(), ConsensusMessage{Address: members[3].Address, Code: msgPrevote, power: 1})
+		c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 2})
+		c.curRoundMessages.AddPrevote(generateBlock(currentHeight).Hash(), Message{Address: members[3].Address, Code: msgPrevote, power: 1})
 
 		assert.False(t, c.prevoteTimeout.timerStarted())
 		err := c.handleCheckedMsg(context.Background(), prevoteMsg)
@@ -776,8 +776,8 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.setStep(prevote)
 		c.setCommitteeSet(committeeSet)
 		// create quorum prevote messages however there is no quorum on a specific hash
-		c.curRoundMessages.AddPrevote(common.Hash{}, ConsensusMessage{Address: members[3].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 2})
-		c.curRoundMessages.AddPrevote(generateBlock(currentHeight).Hash(), ConsensusMessage{Address: members[0].Address, Code: msgPrevote, power: 1})
+		c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[3].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 2})
+		c.curRoundMessages.AddPrevote(generateBlock(currentHeight).Hash(), Message{Address: members[0].Address, Code: msgPrevote, power: 1})
 
 		assert.False(t, c.prevoteTimeout.timerStarted())
 
@@ -885,7 +885,7 @@ func TestQuorumPrevote(t *testing.T) {
 		c.setStep(currentStep)
 		c.setCommitteeSet(committeeSet)
 		c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
-		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), ConsensusMessage{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
+		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), Message{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
 
 		if currentStep == prevote {
 			committedSeal := PrepareCommittedSeal(proposal.ProposalBlock.Hash(), currentRound, currentHeight)
@@ -936,7 +936,7 @@ func TestQuorumPrevote(t *testing.T) {
 		c.setStep(currentStep)
 		c.setCommitteeSet(committeeSet)
 		c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
-		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), ConsensusMessage{Address: members[3].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
+		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), Message{Address: members[3].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
 
 		// receive first prevote to increase the total to quorum
 		if currentStep == prevote {
@@ -1005,7 +1005,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	c.setRound(currentRound)
 	c.setStep(prevote)
 	c.setCommitteeSet(committeeSet)
-	c.curRoundMessages.AddPrevote(common.Hash{}, ConsensusMessage{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
+	c.curRoundMessages.AddPrevote(common.Hash{}, Message{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1})
 
 	backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 	backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
@@ -1046,8 +1046,8 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setStep(precommit)
 		c.setCommitteeSet(committeeSet)
 		// create quorum precommit messages however there is no quorum on a specific hash
-		c.curRoundMessages.AddPrecommit(common.Hash{}, ConsensusMessage{Address: members[2].Address, Code: msgPrecommit, power: c.committeeSet().Quorum() - 2})
-		c.curRoundMessages.AddPrecommit(generateBlock(currentHeight).Hash(), ConsensusMessage{Address: members[3].Address, Code: msgPrecommit, power: 1})
+		c.curRoundMessages.AddPrecommit(common.Hash{}, Message{Address: members[2].Address, Code: msgPrecommit, power: c.committeeSet().Quorum() - 2})
+		c.curRoundMessages.AddPrecommit(generateBlock(currentHeight).Hash(), Message{Address: members[3].Address, Code: msgPrecommit, power: 1})
 
 		assert.False(t, c.precommitTimeout.timerStarted())
 		err := c.handleCheckedMsg(context.Background(), precommitMsg)
@@ -1083,8 +1083,8 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setStep(precommit)
 		c.setCommitteeSet(committeeSet)
 		// create quorum prevote messages however there is no quorum on a specific hash
-		c.curRoundMessages.AddPrecommit(common.Hash{}, ConsensusMessage{Address: members[3].Address, Code: msgPrecommit, power: c.committeeSet().Quorum() - 2})
-		c.curRoundMessages.AddPrecommit(generateBlock(currentHeight).Hash(), ConsensusMessage{Address: members[0].Address, Code: msgPrecommit, power: 1})
+		c.curRoundMessages.AddPrecommit(common.Hash{}, Message{Address: members[3].Address, Code: msgPrecommit, power: c.committeeSet().Quorum() - 2})
+		c.curRoundMessages.AddPrecommit(generateBlock(currentHeight).Hash(), Message{Address: members[0].Address, Code: msgPrecommit, power: 1})
 
 		assert.False(t, c.precommitTimeout.timerStarted())
 
@@ -1196,7 +1196,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	c.setStep(precommit)
 	c.setCommitteeSet(committeeSet)
 	c.curRoundMessages.SetProposal(&proposal, proposalMsg, true)
-	quorumPrecommitMsg := ConsensusMessage{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1}
+	quorumPrecommitMsg := Message{Address: members[2].Address, Code: msgPrevote, power: c.committeeSet().Quorum() - 1}
 	c.curRoundMessages.AddPrecommit(proposal.ProposalBlock.Hash(), quorumPrecommitMsg)
 
 	// The committed seal order is unpredictable, therefore, using gomock.Any()
@@ -1335,7 +1335,7 @@ func TestHandleMessage(t *testing.T) {
 		prevBlock := generateBlock(prevHeight)
 
 		// Prepare message
-		msg := &ConsensusMessage{Address: key2PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
+		msg := &Message{Address: key2PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
 		assert.NoError(t, err)
@@ -1360,7 +1360,7 @@ func TestHandleMessage(t *testing.T) {
 	t.Run("message sender is not the message signer", func(t *testing.T) {
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		prevBlock := generateBlock(prevHeight)
-		msg := &ConsensusMessage{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
+		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
 		assert.NoError(t, err)
@@ -1388,7 +1388,7 @@ func TestHandleMessage(t *testing.T) {
 		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), key1)
 		assert.NoError(t, err)
 
-		msg := &ConsensusMessage{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
+		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -1405,12 +1405,12 @@ func TestHandleMessage(t *testing.T) {
 	})
 }
 
-func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address, privateKey *ecdsa.PrivateKey) (*ConsensusMessage, []byte, []byte) {
+func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, validR int64, proposalBlock *types.Block, clientAddress common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	proposalRLP, err := Encode(NewProposal(currentRound, proposalHeight, validR, proposalBlock))
 	assert.NoError(t, err)
 
-	proposalMsg := &ConsensusMessage{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, power: 1}
+	proposalMsg := &Message{Code: msgProposal, Msg: proposalRLP, Address: clientAddress, power: 1}
 	proposalMsgRLPNoSig, err := proposalMsg.PayloadNoSig()
 	assert.NoError(t, err)
 
@@ -1422,11 +1422,11 @@ func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, 
 	return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 }
 
-func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address, privateKey *ecdsa.PrivateKey) (*ConsensusMessage, []byte, []byte) {
+func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
 	assert.NoError(t, err)
-	voteMsg := &ConsensusMessage{Code: step, Msg: voteRLP, Address: clientAddr, power: 1}
+	voteMsg := &Message{Code: step, Msg: voteRLP, Address: clientAddr, power: 1}
 	if step == msgPrecommit {
 		voteMsg.CommittedSeal, err = sign(PrepareCommittedSeal(blockHash, round, height), privateKey)
 		assert.NoError(t, err)
@@ -1447,7 +1447,7 @@ func sign(data []byte, key *ecdsa.PrivateKey) ([]byte, error) {
 	return crypto.Sign(hashData, key)
 }
 
-func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src common.Address, invalid bool) (*ConsensusMessage, Proposal) {
+func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src common.Address, invalid bool) (*Message, Proposal) {
 	var block *types.Block
 	if invalid {
 		header := &types.Header{Number: h}
@@ -1460,7 +1460,7 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src comm
 	proposalRlp, err := Encode(proposal)
 	assert.NoError(t, err)
 
-	msg := ConsensusMessage{Code: msgProposal, Msg: proposalRlp, Address: src}
+	msg := Message{Code: msgProposal, Msg: proposalRlp, Address: src}
 
 	var p Proposal
 	// we have to do this because encoding and decoding changes some default values and thus same blocks are no longer equal
