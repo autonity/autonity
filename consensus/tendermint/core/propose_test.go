@@ -37,7 +37,7 @@ func TestSendPropose(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		expectedMsg := &ConsensusMessage{
+		expectedMsg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -102,7 +102,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -144,7 +144,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -196,7 +196,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -230,7 +230,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &ConsensusMessage{
+		preVoteMsg := &Message{
 			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
@@ -287,7 +287,7 @@ func TestHandleProposal(t *testing.T) {
 		proposal, err := Encode(proposalBlock)
 		assert.NoError(t, err)
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -349,7 +349,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -442,7 +442,7 @@ func TestHandleProposal(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       proposer.Address,
@@ -481,7 +481,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -515,7 +515,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &ConsensusMessage{
+		preVoteMsg := &Message{
 			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
@@ -576,7 +576,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgProposal,
 			Msg:           proposal,
 			Address:       addr,
@@ -610,7 +610,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &ConsensusMessage{
+		preVoteMsg := &Message{
 			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,

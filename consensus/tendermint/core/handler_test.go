@@ -23,7 +23,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
 
-	createPrevote := func(round int64, height int64) *ConsensusMessage {
+	createPrevote := func(round int64, height int64) *Message {
 		vote := &Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
@@ -33,14 +33,14 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		return &ConsensusMessage{
+		return &Message{
 			Code:    msgPrevote,
 			Msg:     encoded,
 			Address: sender.Address,
 		}
 	}
 
-	createPrecommit := func(round int64, height int64) *ConsensusMessage {
+	createPrecommit := func(round int64, height int64) *Message {
 		vote := &Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
@@ -56,7 +56,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error signing")
 		}
-		return &ConsensusMessage{
+		return &Message{
 			Code:          msgPrecommit,
 			Msg:           encoded,
 			Address:       sender.Address,
@@ -68,7 +68,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		round   int64
 		height  *big.Int
 		step    Step
-		message *ConsensusMessage
+		message *Message
 		outcome error
 		panic   bool
 	}{
@@ -136,7 +136,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		engine := core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]*ConsensusMessage),
+			backlogs:          make(map[common.Address][]*Message),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
@@ -186,7 +186,7 @@ func TestHandleMsg(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*ConsensusMessage),
+			backlogs: make(map[common.Address][]*Message),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -198,7 +198,7 @@ func TestHandleMsg(t *testing.T) {
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:       msgPrevote,
 			Msg:        payload,
 			decodedMsg: vote,
@@ -218,8 +218,8 @@ func TestHandleMsg(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*ConsensusMessage),
-			backlogUnchecked: map[uint64][]*ConsensusMessage{},
+			backlogs:         make(map[common.Address][]*Message),
+			backlogUnchecked: map[uint64][]*Message{},
 			step:             propose,
 			round:            1,
 			height:           big.NewInt(2),
@@ -231,7 +231,7 @@ func TestHandleMsg(t *testing.T) {
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:       msgPrevote,
 			Msg:        payload,
 			decodedMsg: vote,

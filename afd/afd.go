@@ -59,7 +59,7 @@ type FaultDetector struct {
 	msgStore *MsgStore
 
 	// future height msg buffer
-	futureMsgs map[uint64][]*core2.ConsensusMessage
+	futureMsgs map[uint64][]*core2.Message
 
 	logger log.Logger
 }
@@ -75,7 +75,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		msgStore: newMsgStore(),
 		logger:logger,
 		tendermintMsgMux:  event.NewTypeMuxSilent(logger),
-		futureMsgs: make(map[uint64][]*core2.ConsensusMessage),
+		futureMsgs: make(map[uint64][]*core2.Message),
 	}
 
 	// register afd contracts on evm's precompiled contract set.
@@ -119,7 +119,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			}
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg := new(core2.ConsensusMessage)
+				msg := new(core2.Message)
 				if err := msg.FromPayload(e.Payload); err != nil {
 					fd.logger.Error("invalid payload", "afd", err)
 					continue

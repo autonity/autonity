@@ -68,7 +68,7 @@ func TestSendPrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &ConsensusMessage{
+		expectedMsg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       addr,
@@ -132,7 +132,7 @@ func TestSendPrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &ConsensusMessage{
+		expectedMsg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       addr,
@@ -185,7 +185,7 @@ func TestHandlePrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &ConsensusMessage{
+		expectedMsg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       addr,
@@ -225,7 +225,7 @@ func TestHandlePrecommit(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &ConsensusMessage{
+		expectedMsg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       member.Address,
@@ -510,7 +510,7 @@ func TestHandleCommit(t *testing.T) {
 	}
 }
 
-func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys addressKeyMap, member types.CommitteeMember) (*ConsensusMessage, error) {
+func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys addressKeyMap, member types.CommitteeMember) (*Message, error) {
 	var preCommit = Vote{
 		Round:             round,
 		Height:            big.NewInt(height),
@@ -529,7 +529,7 @@ func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, ke
 		return nil, err
 	}
 
-	expectedMsg := &ConsensusMessage{
+	expectedMsg := &Message{
 		Code:          msgPrecommit,
 		Msg:           encodedVote,
 		Address:       member.Address,

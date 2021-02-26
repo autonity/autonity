@@ -7,34 +7,34 @@ import (
 )
 
 type MsgStore struct {
-	// map[Height]map[Round]map[MsgType]map[common.address]*ConsensusMessage
-	messages map[uint64]map[int64]map[uint64]map[common.Address]*core.ConsensusMessage
+	// map[Height]map[Round]map[MsgType]map[common.address]*Message
+	messages map[uint64]map[int64]map[uint64]map[common.Address]*core.Message
 }
 
 func newMsgStore() *MsgStore {
-	return &MsgStore{messages:make(map[uint64]map[int64]map[uint64]map[common.Address]*core.ConsensusMessage)}
+	return &MsgStore{messages:make(map[uint64]map[int64]map[uint64]map[common.Address]*core.Message)}
 }
 
 // store msg into msg store, it returns msg that is equivocation than the input msg, and an errEquivocation.
 // otherwise it return nil, nil
-func(ms *MsgStore) Save(m *core.ConsensusMessage) (*core.ConsensusMessage, error) {
+func(ms *MsgStore) Save(m *core.Message) (*core.Message, error) {
 	height, _ := m.Height()
 	roundMap, ok := ms.messages[height.Uint64()]
 	if !ok {
-		roundMap = make(map[int64]map[uint64]map[common.Address]*core.ConsensusMessage)
+		roundMap = make(map[int64]map[uint64]map[common.Address]*core.Message)
 		ms.messages[height.Uint64()] = roundMap
 	}
 
 	round, _ := m.Round()
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
-		msgTypeMap = make(map[uint64]map[common.Address]*core.ConsensusMessage)
+		msgTypeMap = make(map[uint64]map[common.Address]*core.Message)
 		roundMap[round] = msgTypeMap
 	}
 
 	addressMap, ok := msgTypeMap[m.Code]
 	if !ok {
-		addressMap = make(map[common.Address]*core.ConsensusMessage)
+		addressMap = make(map[common.Address]*core.Message)
 		msgTypeMap[m.Code] = addressMap
 	}
 
@@ -51,7 +51,7 @@ func(ms *MsgStore) Save(m *core.ConsensusMessage) (*core.ConsensusMessage, error
 	return nil, nil
 }
 
-func(ms *MsgStore) removeMsg(m *core.ConsensusMessage) {
+func(ms *MsgStore) removeMsg(m *core.Message) {
 	height, _ := m.Height()
 	round, _ := m.Round()
 	delete(ms.messages[height.Uint64()][round][m.Code], m.Address)
@@ -71,9 +71,9 @@ func(ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 }
 
 // get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(height uint64, query func(*core.ConsensusMessage) bool) []core.ConsensusMessage {
+func (ms *MsgStore) Get(height uint64, query func(*core.Message) bool) []core.Message {
 
-	var result []core.ConsensusMessage
+	var result []core.Message
 	roundMap, ok := ms.messages[height]
 	if !ok {
 		return result

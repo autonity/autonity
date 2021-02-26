@@ -130,7 +130,7 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg := new(ConsensusMessage)
+				msg := new(Message)
 				if err := msg.FromPayload(e.Payload); err != nil {
 					c.logger.Error("consensus message invalid payload", "err", err)
 					continue
@@ -240,7 +240,7 @@ func (c *core) sendEvent(ev interface{}) {
 	c.backend.Post(ev)
 }
 
-func (c *core) handleMsg(ctx context.Context, msg *ConsensusMessage) error {
+func (c *core) handleMsg(ctx context.Context, msg *Message) error {
 
 	msgHeight, err := msg.Height()
 	if err != nil {
@@ -266,7 +266,7 @@ func (c *core) handleMsg(ctx context.Context, msg *ConsensusMessage) error {
 	return c.handleCheckedMsg(ctx, msg)
 }
 
-func (c *core) handleFutureRoundMsg(ctx context.Context, msg *ConsensusMessage, sender common.Address) {
+func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender common.Address) {
 	// Decoding functions can't fail here
 	msgRound, err := msg.Round()
 	if err != nil {
@@ -289,7 +289,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *ConsensusMessage, 
 	}
 }
 
-func (c *core) handleCheckedMsg(ctx context.Context, msg *ConsensusMessage) error {
+func (c *core) handleCheckedMsg(ctx context.Context, msg *Message) error {
 	logger := c.logger.New("address", c.address, "from", msg.Address)
 
 	// Store the message if it's a future message

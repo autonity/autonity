@@ -204,7 +204,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       member.Address,
@@ -267,7 +267,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		msg := &ConsensusMessage{
+		msg := &Message{
 			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       addr,
@@ -332,7 +332,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &ConsensusMessage{
+		expectedMsg := &Message{
 			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
@@ -358,7 +358,7 @@ func TestHandlePrevote(t *testing.T) {
 	})
 }
 
-func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *big.Int, member types.CommitteeMember) *ConsensusMessage {
+func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *big.Int, member types.CommitteeMember) *Message {
 	var preVote = Vote{
 		Round:             round,
 		Height:            height,
@@ -371,7 +371,7 @@ func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *
 		return nil
 	}
 
-	expectedMsg := &ConsensusMessage{
+	expectedMsg := &Message{
 		Code:          msgPrevote,
 		Msg:           encodedVote,
 		Address:       member.Address,
