@@ -23,8 +23,8 @@ import (
 
 func newMessageSet() messageSet {
 	return messageSet{
-		votes:      map[common.Hash]map[common.Address]ConsensusMessage{},
-		messages:   make(map[common.Address]*ConsensusMessage),
+		votes:      map[common.Hash]map[common.Address]Message{},
+		messages:   make(map[common.Address]*Message),
 		messagesMu: new(sync.RWMutex),
 	}
 }
@@ -32,12 +32,12 @@ func newMessageSet() messageSet {
 type messageSet struct {
 	// In some conditions we might receive prevotes or precommit before
 	// receiving a proposal, so we must save received message with differents proposed block hash.
-	votes      map[common.Hash]map[common.Address]ConsensusMessage // map[proposedBlockHash]map[validatorAddress]vote
-	messages   map[common.Address]*ConsensusMessage
+	votes      map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
+	messages   map[common.Address]*Message
 	messagesMu *sync.RWMutex
 }
 
-func (ms *messageSet) AddVote(blockHash common.Hash, msg ConsensusMessage) {
+func (ms *messageSet) AddVote(blockHash common.Hash, msg Message) {
 	ms.messagesMu.Lock()
 	defer ms.messagesMu.Unlock()
 
@@ -47,10 +47,10 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg ConsensusMessage) {
 		return
 	}
 
-	var addressesMap map[common.Address]ConsensusMessage
+	var addressesMap map[common.Address]Message
 
 	if _, ok := ms.votes[blockHash]; !ok {
-		ms.votes[blockHash] = make(map[common.Address]ConsensusMessage)
+		ms.votes[blockHash] = make(map[common.Address]Message)
 	}
 
 	addressesMap = ms.votes[blockHash]
@@ -58,10 +58,10 @@ func (ms *messageSet) AddVote(blockHash common.Hash, msg ConsensusMessage) {
 	ms.messages[msg.Address] = &msg
 }
 
-func (ms *messageSet) GetMessages() []*ConsensusMessage {
+func (ms *messageSet) GetMessages() []*Message {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
-	result := make([]*ConsensusMessage, len(ms.messages))
+	result := make([]*Message, len(ms.messages))
 	k := 0
 	for _, v := range ms.messages {
 		result[k] = v
@@ -93,14 +93,14 @@ func (ms *messageSet) TotalVotePower() uint64 {
 	return power
 }
 
-func (ms *messageSet) Values(blockHash common.Hash) []ConsensusMessage {
+func (ms *messageSet) Values(blockHash common.Hash) []Message {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
 	if _, ok := ms.votes[blockHash]; !ok {
 		return nil
 	}
 
-	var messages = make([]ConsensusMessage, 0)
+	var messages = make([]Message, 0)
 	for _, v := range ms.votes[blockHash] {
 		messages = append(messages, v)
 	}

@@ -44,21 +44,21 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 	prevoteHash := common.HexToHash("prevoteHash")
 	precommitHash := common.HexToHash("precommitHash")
 
-	proposalMsg := &ConsensusMessage{
+	proposalMsg := &Message{
 		Code:          msgProposal,
 		Msg:           []byte("proposal"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
-	prevoteMsg := &ConsensusMessage{
+	prevoteMsg := &Message{
 		Code:          msgPrevote,
 		Msg:           []byte("prevote"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
-	precommitMsg := &ConsensusMessage{
+	precommitMsg := &Message{
 		Code:          msgPrecommit,
 		Msg:           []byte("precommit"),
 		Address:       common.HexToAddress("val1"),

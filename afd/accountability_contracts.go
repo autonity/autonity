@@ -389,14 +389,14 @@ func decodeProof(proof []byte) (*Proof, error) {
 	decodedP.Rule = p.Rule
 
 	// decode consensus message which is rlp encoded.
-	msg := new(core2.ConsensusMessage)
+	msg := new(core2.Message)
 	if err := msg.FromPayload(p.Message); err != nil {
 		return nil, err
 	}
 	decodedP.Message = *msg
 
 	for i:= 0; i < len(p.Evidence); i++ {
-		m := new(core2.ConsensusMessage)
+		m := new(core2.Message)
 		if err := m.FromPayload(p.Evidence[i]); err != nil {
 			return nil, fmt.Errorf("msg cannot be decoded")
 		}
@@ -518,7 +518,7 @@ func (c *ChallengeValidator) validChallengeOfC(p *Proof) bool {
 	return true
 }
 
-func haveRedundantVotes(votes []core2.ConsensusMessage) bool {
+func haveRedundantVotes(votes []core2.Message) bool {
 	voteMap := make(map[common.Hash]struct{})
 	for _, vote := range votes {
 		hash := common.BytesToHash(crypto2.Keccak256(vote.Payload()))

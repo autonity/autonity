@@ -34,10 +34,10 @@ var (
 )
 
 type backlogEvent struct {
-	msg *ConsensusMessage
+	msg *Message
 }
 type backlogUncheckedEvent struct {
-	msg *ConsensusMessage
+	msg *Message
 }
 
 // checkMessage checks the message step
@@ -65,7 +65,7 @@ func (c *core) checkMessage(round int64, height *big.Int, step Step) error {
 	return nil
 }
 
-func (c *core) storeBacklog(msg *ConsensusMessage, src common.Address) {
+func (c *core) storeBacklog(msg *Message, src common.Address) {
 	logger := c.logger.New("from", src, "step", c.step)
 
 	if src == c.address {
@@ -79,7 +79,7 @@ func (c *core) storeBacklog(msg *ConsensusMessage, src common.Address) {
 
 // storeUncheckedBacklog push to a special backlog future height consensus messages
 // this is done in a way that prevents memory exhaustion in the case of a malicious peer.
-func (c *core) storeUncheckedBacklog(msg *ConsensusMessage) {
+func (c *core) storeUncheckedBacklog(msg *Message) {
 	// future height messages of a gap wider than one block should not occur frequently as block sync should happen
 	// Todo : implement a double ended priority queue (DEPQ)
 
@@ -151,7 +151,7 @@ func (c *core) processBacklog() {
 			// We need to ensure that there is no memory leak by reallocating new memory if the original underlying
 			// array become very large and only a small part of it is being used by the slice.
 			if cap(backlog)/capToLenRatio > len(backlog) {
-				tmp := make([]*ConsensusMessage, len(backlog))
+				tmp := make([]*Message, len(backlog))
 				copy(tmp, backlog)
 				backlog = tmp
 			}

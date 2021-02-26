@@ -55,11 +55,11 @@ func (s *messagesMap) getOrCreate(round int64) *roundMessages {
 	return state
 }
 
-func (s *messagesMap) GetMessages() []*ConsensusMessage {
+func (s *messagesMap) GetMessages() []*Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	msgs := make([][]*ConsensusMessage, len(s.internal))
+	msgs := make([][]*Message, len(s.internal))
 	var totalLen int
 	i := 0
 	for _, state := range s.internal {
@@ -68,7 +68,7 @@ func (s *messagesMap) GetMessages() []*ConsensusMessage {
 		i++
 	}
 
-	result := make([]*ConsensusMessage, 0, totalLen)
+	result := make([]*Message, 0, totalLen)
 	for _, ms := range msgs {
 		result = append(result, ms...)
 	}
@@ -92,7 +92,7 @@ func (s *messagesMap) getRounds() []int64 {
 type roundMessages struct {
 	proposal         *Proposal
 	verifiedProposal bool
-	proposalMsg      *ConsensusMessage
+	proposalMsg      *Message
 	prevotes         messageSet
 	precommits       messageSet
 	mu               sync.RWMutex
@@ -109,7 +109,7 @@ func NewRoundMessages() *roundMessages {
 	}
 }
 
-func (s *roundMessages) SetProposal(proposal *Proposal, msg *ConsensusMessage, verified bool) {
+func (s *roundMessages) SetProposal(proposal *Proposal, msg *Message, verified bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.proposalMsg = msg
@@ -130,15 +130,15 @@ func (s *roundMessages) PrecommitsTotalPower() uint64 {
 	return s.precommits.TotalVotePower()
 }
 
-func (s *roundMessages) AddPrevote(hash common.Hash, msg ConsensusMessage) {
+func (s *roundMessages) AddPrevote(hash common.Hash, msg Message) {
 	s.prevotes.AddVote(hash, msg)
 }
 
-func (s *roundMessages) AddPrecommit(hash common.Hash, msg ConsensusMessage) {
+func (s *roundMessages) AddPrecommit(hash common.Hash, msg Message) {
 	s.precommits.AddVote(hash, msg)
 }
 
-func (s *roundMessages) CommitedSeals(hash common.Hash) []ConsensusMessage {
+func (s *roundMessages) CommitedSeals(hash common.Hash) []Message {
 	return s.precommits.Values(hash)
 }
 
@@ -171,14 +171,14 @@ func (s *roundMessages) GetProposalHash() common.Hash {
 	return common.Hash{}
 }
 
-func (s *roundMessages) GetMessages() []*ConsensusMessage {
+func (s *roundMessages) GetMessages() []*Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	prevoteMsgs := s.prevotes.GetMessages()
 	precommitMsgs := s.precommits.GetMessages()
 
-	result := make([]*ConsensusMessage, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
+	result := make([]*Message, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
 	if s.proposalMsg != nil {
 		result = append(result, s.proposalMsg)
 	}

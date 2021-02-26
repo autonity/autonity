@@ -39,7 +39,7 @@ var (
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
 
-type ConsensusMessage struct {
+type Message struct {
 	Code          uint64
 	Msg           []byte
 	Address       common.Address
@@ -48,7 +48,7 @@ type ConsensusMessage struct {
 
 	power      uint64
 	decodedMsg ConsensusMsg // cached decoded Msg
-	payload    []byte       // rlp encoded ConsensusMessage
+	payload    []byte       // rlp encoded Message
 }
 
 // ==============================================
@@ -56,20 +56,20 @@ type ConsensusMessage struct {
 // define the functions that needs to be provided for rlp Encoder/Decoder.
 
 // EncodeRLP serializes m into the Ethereum RLP format.
-func (m *ConsensusMessage) EncodeRLP(w io.Writer) error {
+func (m *Message) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
 }
 
-func (m *ConsensusMessage) GetCode() uint64 {
+func (m *Message) GetCode() uint64 {
 	return m.Code
 }
 
-func (m *ConsensusMessage) GetSignature() []byte {
+func (m *Message) GetSignature() []byte {
 	return m.Signature
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (m *ConsensusMessage) DecodeRLP(s *rlp.Stream) error {
+func (m *Message) DecodeRLP(s *rlp.Stream) error {
 	var msg struct {
 		Code          uint64
 		Msg           []byte
@@ -89,7 +89,7 @@ func (m *ConsensusMessage) DecodeRLP(s *rlp.Stream) error {
 //
 // define the functions that needs to be provided for core.
 
-func (m *ConsensusMessage) FromPayload(b []byte) error {
+func (m *Message) FromPayload(b []byte) error {
 	m.payload = b
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
@@ -109,7 +109,7 @@ func (m *ConsensusMessage) FromPayload(b []byte) error {
 	}
 }
 
-func (m *ConsensusMessage) Validate(validateFn func(*types.Header, []byte, []byte) (common.Address, error), previousHeader *types.Header) (*types.CommitteeMember, error) {
+func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (common.Address, error), previousHeader *types.Header) (*types.CommitteeMember, error) {
 	// Validate message (on a message without Signature)
 	msgHeight, err := m.Height()
 	if err != nil {
@@ -145,7 +145,7 @@ func (m *ConsensusMessage) Validate(validateFn func(*types.Header, []byte, []byt
 	return v, nil
 }
 
-func (m *ConsensusMessage) Payload() []byte {
+func (m *Message) Payload() []byte {
 	if m.payload == nil {
 		payload, err := rlp.EncodeToBytes(m)
 		if err != nil {
@@ -159,12 +159,12 @@ func (m *ConsensusMessage) Payload() []byte {
 	return m.payload
 }
 
-func (m *ConsensusMessage) GetPower() uint64 {
+func (m *Message) GetPower() uint64 {
 	return m.power
 }
 
-func (m *ConsensusMessage) PayloadNoSig() ([]byte, error) {
-	return rlp.EncodeToBytes(&ConsensusMessage{
+func (m *Message) PayloadNoSig() ([]byte, error) {
+	return rlp.EncodeToBytes(&Message{
 		Code:          m.Code,
 		Msg:           m.Msg,
 		Address:       m.Address,
@@ -173,7 +173,7 @@ func (m *ConsensusMessage) PayloadNoSig() ([]byte, error) {
 	})
 }
 
-func (m *ConsensusMessage) Decode(val interface{}) error {
+func (m *Message) Decode(val interface{}) error {
 	//Decode is responsible to rlp-decode m.Msg. It is meant to only perform the actual decoding once,
 	//saving a cached value in m.decodedMsg.
 
@@ -203,7 +203,7 @@ func (m *ConsensusMessage) Decode(val interface{}) error {
 	return nil
 }
 
-func (m *ConsensusMessage) String() string {
+func (m *Message) String() string {
 	var msg string
 	if m.Code == msgProposal {
 		var proposal Proposal
@@ -225,14 +225,14 @@ func (m *ConsensusMessage) String() string {
 	return fmt.Sprintf("{sender: %v, Power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
 }
 
-func (m *ConsensusMessage) Round() (int64, error) {
+func (m *Message) Round() (int64, error) {
 	if m.decodedMsg == nil {
 		return 0, errMsgPayloadNotDecoded
 	}
 	return m.decodedMsg.GetRound(), nil
 }
 
-func (m *ConsensusMessage) Height() (*big.Int, error) {
+func (m *Message) Height() (*big.Int, error) {
 	if m.decodedMsg == nil {
 		return nil, errMsgPayloadNotDecoded
 	}
@@ -240,7 +240,7 @@ func (m *ConsensusMessage) Height() (*big.Int, error) {
 }
 
 // used by afd for decoded msgs
-func (m *ConsensusMessage) R() int64 {
+func (m *Message) R() int64 {
 	r, err := m.Round()
 	// msg should be decoded, it shouldn't be an error.
 	if err != nil {
@@ -249,7 +249,7 @@ func (m *ConsensusMessage) R() int64 {
 	return r
 }
 
-func (m *ConsensusMessage) H() uint64 {
+func (m *Message) H() uint64 {
 	h, err := m.Height()
 	if err != nil {
 		panic(err)
@@ -257,19 +257,19 @@ func (m *ConsensusMessage) H() uint64 {
 	return h.Uint64()
 }
 
-func (m *ConsensusMessage) Sender() common.Address {
+func (m *Message) Sender() common.Address {
 	return m.Address
 }
 
-func (m *ConsensusMessage) Type() uint64 {
+func (m *Message) Type() uint64 {
 	return m.Code
 }
 
-func (m *ConsensusMessage) Value() common.Hash {
+func (m *Message) Value() common.Hash {
 	return m.decodedMsg.GetValue()
 }
 
-func (m *ConsensusMessage) ValidRound() int64 {
+func (m *Message) ValidRound() int64 {
 	return m.decodedMsg.GetValidRound()
 }
 

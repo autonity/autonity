@@ -10,7 +10,7 @@ import (
 
 var nilValue = common.Hash{}
 
-func powerOfVotes(votes []core.ConsensusMessage) uint64 {
+func powerOfVotes(votes []core.Message) uint64 {
 	power := uint64(0)
 	for i:= 0; i < len(votes); i++ {
 		if votes[i].Type() != msgPrevote || votes[i].Type() != msgPrecommit {
@@ -80,7 +80,7 @@ func (fd *FaultDetector) GetInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 	validRound := proposal.ValidRound()
 	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
-	prevotes := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+	prevotes := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgPrevote && m.R() == validRound && m.Value() == proposal.Value()
 	})
 
@@ -106,7 +106,7 @@ func (fd *FaultDetector) GetInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 	prevote := c.Message
 	height := prevote.H()
 
-	correspondingProposals := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+	correspondingProposals := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
 	})
 
@@ -130,7 +130,7 @@ func (fd *FaultDetector) GetInnocentProofOfC(c *Proof) (autonity.OnChainProof, e
 	preCommit := c.Message
 	height := preCommit.H()
 
-	proposals := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+	proposals := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgProposal && m.Value() == preCommit.Value() && m.R() == preCommit.R()
 	})
 
@@ -153,7 +153,7 @@ func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 	height := preCommit.H()
 	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
-	prevotesForV := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+	prevotesForV := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
 	})
 
@@ -192,13 +192,13 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
 
-	proposalsNew := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+	proposalsNew := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgProposal && m.ValidRound() == -1
 	})
 
 	for _, proposal := range proposalsNew {
 		//check all precommits for previous rounds from this sender are nil
-		precommits := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+		precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 			return m.Sender() == proposal.Sender() && m.Type() == msgPrecommit && m.R() < proposal.R() && m.Value() != nilValue
 		})
 		if len(precommits) != 0 {
@@ -215,7 +215,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 	// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
 
-	proposalsOld := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+	proposalsOld := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgProposal && m.ValidRound() > -1
 	})
 
@@ -229,7 +229,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 		// by the current proposer in the valid round? If there is the proposer
 		// has proposed a value for which it is not locked on, thus a proof of
 		// misbehaviour can be generated.
-		precommits := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+		precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgPrecommit && m.R() == validRound &&
 				m.Sender() == proposal.Sender() && m.Value() != nilValue &&
 				m.Value() != proposal.Value()
@@ -247,7 +247,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 		// between the valid round and the round of the proposal? If there is
 		// then that implies the proposer saw 2f+1 prevotes in that round and
 		// hence it should have set that round as the valid round.
-		precommits = fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+		precommits = fd.msgStore.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgPrecommit &&
 				m.R() > validRound && m.R() < proposal.R() &&
 				m.Sender() == proposal.Sender() &&
@@ -265,7 +265,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 		// Do we see a quorum of prevotes in the valid round, if not we can
 		// raise an accusation, since we cannot be sure that these prevotes
 		// don't exist
-		prevotes := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+		prevotes := fd.msgStore.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgPrevote && m.R() == validRound
 		})
 
@@ -280,12 +280,12 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 
 	// ------------New and Old Prevotes------------
 
-	prevotes := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+	prevotes := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgPrevote && m.Value() != nilValue
 	})
 
 	for _, prevote := range prevotes {
-		correspondingProposals := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+		correspondingProposals := fd.msgStore.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
 		})
 
@@ -323,7 +323,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// these rules since the only message in PVN that is not sent by
 				// pi is the proposal and you require the proposal before you
 				// can even attempt to apply the rule.
-				precommits := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+				precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrecommit && m.Value() != nilValue &&
 						m.Value() != prevote.Value() && prevote.Sender() == m.Sender() &&
 						m.R() < prevote.R()
@@ -351,7 +351,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// the proposal precommitted for a different value V', then the prevote
 				// is considered invalid.
 
-				precommits := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+				precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() &&
 						m.R() < prevote.R() && m.Value() != nilValue
 				})
@@ -404,12 +404,12 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 			// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 			// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
-			precommits := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+			precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 				return m.Type() == msgPrecommit && m.Value() != nilValue
 			})
 
 			for _, precommit := range precommits {
-				proposals := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+				proposals := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R()
 				})
 
@@ -422,10 +422,10 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 					continue
 				}
 
-				prevotesForNotV := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+				prevotesForNotV := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R()
 				})
-				prevotesForV := fd.msgStore.Get(height, func(m *core.ConsensusMessage) bool {
+				prevotesForV := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R()
 				})
 

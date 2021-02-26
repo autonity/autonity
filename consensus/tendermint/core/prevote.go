@@ -48,7 +48,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.broadcast(ctx, &ConsensusMessage{
+	c.broadcast(ctx, &Message{
 		Code:          msgPrevote,
 		Msg:           encodedVote,
 		Address:       c.address,
@@ -56,7 +56,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	})
 }
 
-func (c *core) handlePrevote(ctx context.Context, msg *ConsensusMessage) error {
+func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	var preVote Vote
 	err := msg.Decode(&preVote)
 	if err != nil {
