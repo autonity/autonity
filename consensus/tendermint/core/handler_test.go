@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 	"math/big"
