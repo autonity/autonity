@@ -1,7 +1,8 @@
-package types
+package afd
 
 import (
-	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/autonity"
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/rlp"
 	"io"
 )
@@ -11,6 +12,12 @@ const (
 	InnocentProof ProofType = iota
 	ChallengeProof
 	AccusationProof
+)
+
+const (
+	msgProposal uint64 = iota
+	msgPrevote
+	msgPrecommit
 )
 
 type Rule uint8
@@ -58,21 +65,13 @@ func (p *RawProof) DecodeRLP(s *rlp.Stream) error {
 
 // Proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
 type Proof struct {
-	Rule       Rule
-	Message    ConsensusMessage   // the msg to be considered as suspicious one
-	Evidence   []ConsensusMessage // the msgs as proof of innocent or misbehavior.
-}
-
-// OnChainProof to be stored by autonity contract for on-chain proof management.
-type OnChainProof struct {
-	Sender  common.Address `abi:"sender"`
-	Msghash common.Hash    `abi:"msghash"`
-	// rlp enoded bytes for struct Rawproof object.
-	Rawproof []byte        `abi:"rawproof"`
+	Rule     Rule
+	Message  core.ConsensusMessage   // the msg to be considered as suspicious one
+	Evidence []core.ConsensusMessage // the msgs as proof of innocent or misbehavior.
 }
 
 // event to submit proofs via standard transaction.
 type SubmitProofEvent struct {
-	Proofs []OnChainProof
+	Proofs []autonity.OnChainProof
 	Type ProofType
 }

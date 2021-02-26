@@ -166,21 +166,21 @@ func TestStoreBacklog(t *testing.T) {
 		c := &core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 		}
 
-		vote := &types.Vote{
+		vote := &Vote{
 			Round:  1,
 			Height: big.NewInt(2),
 		}
 
-		votePayload, err := types.Encode(vote)
+		votePayload, err := Encode(vote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        votePayload,
 			decodedMsg: vote,
 		}
@@ -203,23 +203,23 @@ func TestStoreBacklog(t *testing.T) {
 		c := &core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 		}
 
-		proposal := &types.Proposal{
+		proposal := &Proposal{
 			Round:         1,
 			Height:        big.NewInt(2),
 			ValidRound:    1,
 			ProposalBlock: types.NewBlockWithHeader(&types.Header{}),
 		}
 
-		proposalPayload, err := types.Encode(proposal)
+		proposalPayload, err := Encode(proposal)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:       msgProposal,
 			Msg:        proposalPayload,
 			decodedMsg: proposal,
 		}
@@ -241,20 +241,20 @@ func TestStoreBacklog(t *testing.T) {
 
 func TestProcessBacklog(t *testing.T) {
 	t.Run("valid proposal received", func(t *testing.T) {
-		proposal := &types.Proposal{
+		proposal := &Proposal{
 			Round:         1,
 			Height:        big.NewInt(2),
 			ValidRound:    1,
 			ProposalBlock: types.NewBlockWithHeader(&types.Header{}),
 		}
 
-		proposalPayload, err := types.Encode(proposal)
+		proposalPayload, err := Encode(proposal)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgProposal,
+		msg := &ConsensusMessage{
+			Code:       msgProposal,
 			Msg:        proposalPayload,
 			decodedMsg: proposal,
 		}
@@ -280,7 +280,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -307,18 +307,18 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("valid vote received, processed at prevote step", func(t *testing.T) {
-		vote := &types.Vote{
+		vote := &Vote{
 			Round:  1,
 			Height: big.NewInt(2),
 		}
 
-		votePayload, err := types.Encode(vote)
+		votePayload, err := Encode(vote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        votePayload,
 			decodedMsg: vote,
 		}
@@ -344,7 +344,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 			step:     propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -381,18 +381,18 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("same height, but old round", func(t *testing.T) {
-		nilRoundVote := &types.Vote{
+		nilRoundVote := &Vote{
 			Round:  0,
 			Height: big.NewInt(1),
 		}
 
-		nilRoundVotePayload, err := types.Encode(nilRoundVote)
+		nilRoundVotePayload, err := Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        nilRoundVotePayload,
 			decodedMsg: nilRoundVote,
 		}
@@ -418,7 +418,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 			round:    1,
 			step:     prevote,
 			height:   big.NewInt(1),
@@ -445,18 +445,18 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future height message are not processed", func(t *testing.T) {
-		nilRoundVote := &types.Vote{
+		nilRoundVote := &Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := types.Encode(nilRoundVote)
+		nilRoundVotePayload, err := Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        nilRoundVotePayload,
 			decodedMsg: nilRoundVote,
 		}
@@ -474,7 +474,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -486,23 +486,23 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future height message are processed when height change", func(t *testing.T) {
-		nilRoundVote := &types.Vote{
+		nilRoundVote := &Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := types.Encode(nilRoundVote)
+		nilRoundVotePayload, err := Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        nilRoundVotePayload,
 			decodedMsg: nilRoundVote,
 		}
-		msg2 := &types.ConsensusMessage{
-			Code:       types.msgPrecommit,
+		msg2 := &ConsensusMessage{
+			Code:       msgPrecommit,
 			Msg:        nilRoundVotePayload,
 			decodedMsg: nilRoundVote,
 		}
@@ -519,7 +519,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -540,23 +540,23 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("untrusted messages are processed when height change", func(t *testing.T) {
-		nilRoundVote := &types.Vote{
+		nilRoundVote := &Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := types.Encode(nilRoundVote)
+		nilRoundVotePayload, err := Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        nilRoundVotePayload,
 			decodedMsg: nilRoundVote,
 		}
-		msg2 := &types.ConsensusMessage{
-			Code:       types.msgPrecommit,
+		msg2 := &ConsensusMessage{
+			Code:       msgPrecommit,
 			Msg:        nilRoundVotePayload,
 			decodedMsg: nilRoundVote,
 		}
@@ -571,8 +571,8 @@ func TestProcessBacklog(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*types.ConsensusMessage),
-			backlogUnchecked: map[uint64][]*types.ConsensusMessage{},
+			backlogs:         make(map[common.Address][]*ConsensusMessage),
+			backlogUnchecked: map[uint64][]*ConsensusMessage{},
 			round:            2,
 			height:           big.NewInt(3),
 		}
@@ -595,18 +595,18 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future round message are processed when round change", func(t *testing.T) {
-		nilRoundVote := &types.Vote{
+		nilRoundVote := &Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := types.Encode(nilRoundVote)
+		nilRoundVotePayload, err := Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:       types.msgPrevote,
+		msg := &ConsensusMessage{
+			Code:       msgPrevote,
 			Msg:        nilRoundVotePayload,
 			decodedMsg: nilRoundVote,
 		}
@@ -627,7 +627,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*types.ConsensusMessage),
+			backlogs: make(map[common.Address][]*ConsensusMessage),
 			step:     prevote,
 			round:    1,
 			height:   big.NewInt(4),
@@ -656,23 +656,23 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*types.ConsensusMessage),
-			backlogUnchecked: make(map[uint64][]*types.ConsensusMessage),
+			backlogs:         make(map[common.Address][]*ConsensusMessage),
+			backlogUnchecked: make(map[uint64][]*ConsensusMessage),
 			step:             prevote,
 			round:            1,
 			height:           big.NewInt(4),
 		}
-		var messages []*types.ConsensusMessage
+		var messages []*ConsensusMessage
 
 		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
-			nilRoundVote := &types.Vote{
+			nilRoundVote := &Vote{
 				Round:  i % 10,
 				Height: big.NewInt(i / (1 + i%10)),
 			}
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
-			msg := &types.ConsensusMessage{
-				Code:       types.msgPrevote,
+			msg := &ConsensusMessage{
+				Code:       msgPrevote,
 				Msg:        payload,
 				decodedMsg: nilRoundVote,
 			}
@@ -706,17 +706,17 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*types.ConsensusMessage),
-			backlogUnchecked: make(map[uint64][]*types.ConsensusMessage),
+			backlogs:         make(map[common.Address][]*ConsensusMessage),
+			backlogUnchecked: make(map[uint64][]*ConsensusMessage),
 			step:             prevote,
 			round:            1,
 			height:           big.NewInt(4),
 		}
 
-		var messages []*types.ConsensusMessage
+		var messages []*ConsensusMessage
 		uncheckedFounds := make(map[uint64]struct{})
 		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(payload []byte) {
-			var msg types.ConsensusMessage
+			var msg ConsensusMessage
 			err := msg.FromPayload(payload)
 			if err != nil {
 				t.Fatal("could not decode message payload")
@@ -732,14 +732,14 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 		})
 
 		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
-			nilRoundVote := &types.Vote{
+			nilRoundVote := &Vote{
 				Round:  i % 10,
 				Height: big.NewInt(i),
 			}
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
-			msg := &types.ConsensusMessage{
-				Code:       types.msgPrevote,
+			msg := &ConsensusMessage{
+				Code:       msgPrevote,
 				Msg:        payload,
 				decodedMsg: nilRoundVote,
 			}

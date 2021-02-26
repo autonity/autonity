@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
+	core2 "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -88,23 +89,23 @@ func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
 }
 
 // validate if the accusation is valid.
-func (a *AccusationValidator) validateAccusation(in *types.Proof) ([]byte, error) {
+func (a *AccusationValidator) validateAccusation(in *Proof) ([]byte, error) {
 	// we have only 3 types of rule on accusation.
 	switch in.Rule {
-	case types.PO:
-		if in.Message.Code != types.MsgProposal {
+	case PO:
+		if in.Message.Code != msgProposal {
 			return failure64Byte, fmt.Errorf("wrong msg for PO rule")
 		}
-	case types.PVN:
-		if in.Message.Code != types.MsgPrevote {
+	case PVN:
+		if in.Message.Code != msgPrevote {
 			return failure64Byte, fmt.Errorf("wrong msg for PVN rule")
 		}
-	case types.C:
-		if in.Message.Code != types.MsgPrecommit {
+	case C:
+		if in.Message.Code != msgPrecommit {
 			return failure64Byte, fmt.Errorf("wrong msg for rule C")
 		}
-	case types.C1:
-		if in.Message.Code != types.MsgPrecommit {
+	case C1:
+		if in.Message.Code != msgPrecommit {
 			return failure64Byte, fmt.Errorf("wrong msg for rule C")
 		}
 	default:
@@ -154,7 +155,7 @@ func (c *ChallengeValidator) Run(input []byte) ([]byte, error) {
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
+func (c *ChallengeValidator) validateChallenge(p *Proof) ([]byte, error) {
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message)
 	if err != nil {
@@ -183,23 +184,23 @@ func (c *ChallengeValidator) validateChallenge(p *types.Proof) ([]byte, error) {
 }
 
 // check if the evidence of the challenge is valid or not.
-func (c *ChallengeValidator) validEvidence(p *types.Proof) bool {
+func (c *ChallengeValidator) validEvidence(p *Proof) bool {
 	switch p.Rule {
-	case types.PN:
+	case PN:
 		return c.validChallengeOfPN(p)
-	case types.PO:
+	case PO:
 		return c.validChallengeOfPO(p)
-	case types.PVN:
+	case PVN:
 		return c.validChallengeOfPVN(p)
-	case types.C:
+	case C:
 		return c.validChallengeOfC(p)
-	case types.GarbageMessage:
+	case GarbageMessage:
 		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errGarbageMsg
-	case types.InvalidProposal:
+	case InvalidProposal:
 		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errProposal
-	case types.InvalidProposer:
+	case InvalidProposer:
 		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errProposer
-	case types.Equivocation:
+	case Equivocation:
 		return checkEquivocation(c.chain, &p.Message, p.Evidence) == errEquivocation
 	default:
 		return false
@@ -234,7 +235,7 @@ func (c *InnocentValidator) Run(input []byte) ([]byte, error) {
 }
 
 // validate if the innocent proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, error) {
+func (c *InnocentValidator) validateInnocentProof(in *Proof) ([]byte, error) {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
@@ -262,16 +263,16 @@ func (c *InnocentValidator) validateInnocentProof(in *types.Proof) ([]byte, erro
 	return append(sender, msgHash...), nil
 }
 
-func (c *InnocentValidator) validInnocentProof(p *types.Proof) bool {
+func (c *InnocentValidator) validInnocentProof(p *Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
-	case types.PO:
+	case PO:
 		return c.validInnocentProofOfPO(p)
-	case types.PVN:
+	case PVN:
 		return c.validInnocentProofOfPVN(p)
-	case types.C:
+	case C:
 		return c.validInnocentProofOfC(p)
-	case types.C1:
+	case C1:
 		return c.validInnocentProofOfC1(p)
 	default:
 		return false
@@ -279,10 +280,10 @@ func (c *InnocentValidator) validInnocentProof(p *types.Proof) bool {
 }
 
 // check if the proof of innocent of PO is valid.
-func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
+func (c *InnocentValidator) validInnocentProofOfPO(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
-	if proposal.Type() != types.MsgProposal {
+	if proposal.Type() != msgProposal {
 		return false
 	}
 
@@ -291,7 +292,7 @@ func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
 
 	// check quorum prevotes for V at validRound.
 	for i:= 0; i < len(p.Evidence); i++ {
-		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() == proposal.Value() &&
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() == proposal.Value() &&
 			p.Evidence[i].R() == proposal.ValidRound()) {
 			return false
 		}
@@ -309,10 +310,10 @@ func (c *InnocentValidator) validInnocentProofOfPO(p *types.Proof) bool {
 }
 
 // check if the proof of innocent of PVN is valid.
-func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
+func (c *InnocentValidator) validInnocentProofOfPVN(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
-	if !(preVote.Type() == types.MsgPrevote && preVote.Value() != nilValue) {
+	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
 		return false
 	}
 
@@ -321,7 +322,7 @@ func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
 	}
 
 	proposal := p.Evidence[0]
-	if !(proposal.Type() == types.MsgProposal && proposal.Value() == preVote.Value() &&
+	if !(proposal.Type() == msgProposal && proposal.Value() == preVote.Value() &&
 		proposal.R() == preVote.R()) {
 		return false
 	}
@@ -329,9 +330,9 @@ func (c *InnocentValidator) validInnocentProofOfPVN(p *types.Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentValidator) validInnocentProofOfC(p *types.Proof) bool {
+func (c *InnocentValidator) validInnocentProofOfC(p *Proof) bool {
 	preCommit := p.Message
-	if !(preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue) {
+	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
 	}
 
@@ -340,7 +341,7 @@ func (c *InnocentValidator) validInnocentProofOfC(p *types.Proof) bool {
 	}
 
 	proposal := p.Evidence[0]
-	if !(proposal.Type() == types.MsgProposal && proposal.Value() == preCommit.Value() &&
+	if !(proposal.Type() == msgProposal && proposal.Value() == preCommit.Value() &&
 		proposal.R() == preCommit.R()) {
 		return false
 	}
@@ -348,9 +349,9 @@ func (c *InnocentValidator) validInnocentProofOfC(p *types.Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentValidator) validInnocentProofOfC1(p *types.Proof) bool {
+func (c *InnocentValidator) validInnocentProofOfC1(p *Proof) bool {
 	preCommit := p.Message
-	if !(preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue) {
+	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
 	}
 
@@ -359,7 +360,7 @@ func (c *InnocentValidator) validInnocentProofOfC1(p *types.Proof) bool {
 
 	// check quorum prevotes for V at the same round.
 	for i:= 0; i < len(p.Evidence); i++ {
-		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() == preCommit.Value() &&
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() == preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
 		}
@@ -377,25 +378,25 @@ func (c *InnocentValidator) validInnocentProofOfC1(p *types.Proof) bool {
 }
 
 // decode proof convert proof from rlp encoded bytes into object Proof.
-func decodeProof(proof []byte) (*types.Proof, error) {
-	p := new(types.RawProof)
+func decodeProof(proof []byte) (*Proof, error) {
+	p := new(RawProof)
 	err := rlp.DecodeBytes(proof, p)
 	if err != nil {
 		return nil, err
 	}
 
-	decodedP := new(types.Proof)
+	decodedP := new(Proof)
 	decodedP.Rule = p.Rule
 
 	// decode consensus message which is rlp encoded.
-	msg := new(types.ConsensusMessage)
+	msg := new(core2.ConsensusMessage)
 	if err := msg.FromPayload(p.Message); err != nil {
 		return nil, err
 	}
 	decodedP.Message = *msg
 
 	for i:= 0; i < len(p.Evidence); i++ {
-		m := new(types.ConsensusMessage)
+		m := new(core2.ConsensusMessage)
 		if err := m.FromPayload(p.Evidence[i]); err != nil {
 			return nil, fmt.Errorf("msg cannot be decoded")
 		}
@@ -408,7 +409,7 @@ func decodeProof(proof []byte) (*types.Proof, error) {
 // validate proof of challenge for rules.
 // check if the proof of challenge of PN is valid,
 // node propose a new value when there is a proof that it precommit at a different value at previous round.
-func (c *ChallengeValidator) validChallengeOfPN(p *types.Proof) bool {
+func (c *ChallengeValidator) validChallengeOfPN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -416,13 +417,13 @@ func (c *ChallengeValidator) validChallengeOfPN(p *types.Proof) bool {
 	// should be a new proposal
 	proposal := p.Message
 
-	if proposal.Code != types.MsgProposal && proposal.ValidRound() != -1 {
+	if proposal.Code != msgProposal && proposal.ValidRound() != -1 {
 		return false
 	}
 
 	preCommit := p.Evidence[0]
 	if preCommit.Sender() == proposal.Sender() &&
-		preCommit.Type() == types.MsgPrecommit &&
+		preCommit.Type() == msgPrecommit &&
 		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
 		return true
 	}
@@ -431,24 +432,24 @@ func (c *ChallengeValidator) validChallengeOfPN(p *types.Proof) bool {
 }
 
 // check if the proof of challenge of PO is valid
-func (c *ChallengeValidator) validChallengeOfPO(p *types.Proof) bool {
+func (c *ChallengeValidator) validChallengeOfPO(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
 	proposal := p.Message
 	// should be an old proposal
-	if proposal.Type() != types.MsgProposal && proposal.ValidRound() == -1 {
+	if proposal.Type() != msgProposal && proposal.ValidRound() == -1 {
 		return false
 	}
 	preCommit := p.Evidence[0]
 
-	if preCommit.Type() == types.MsgPrecommit && preCommit.R() == proposal.ValidRound() &&
+	if preCommit.Type() == msgPrecommit && preCommit.R() == proposal.ValidRound() &&
 		preCommit.Sender() == proposal.Sender() && preCommit.Value() != nilValue &&
 		preCommit.Value() != proposal.Value() {
 		return true
 	}
 
-	if preCommit.Type() == types.MsgPrecommit &&
+	if preCommit.Type() == msgPrecommit &&
 		preCommit.R() > proposal.ValidRound() && preCommit.R() < proposal.R() &&
 		preCommit.Sender() == proposal.Sender() &&
 		preCommit.Value() != nilValue {
@@ -458,25 +459,25 @@ func (c *ChallengeValidator) validChallengeOfPO(p *types.Proof) bool {
 }
 
 // check if the proof of challenge of PVN is valid.
-func (c *ChallengeValidator) validChallengeOfPVN(p *types.Proof) bool {
+func (c *ChallengeValidator) validChallengeOfPVN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
 	prevote := p.Message
-	if !(prevote.Type() == types.MsgPrevote && prevote.Value() != nilValue) {
+	if !(prevote.Type() == msgPrevote && prevote.Value() != nilValue) {
 		return false
 	}
 
 	// get corresponding proposal from last slot.
 	correspondingProposal := p.Evidence[len(p.Evidence)-1]
-	if !(correspondingProposal.Type() == types.MsgProposal && correspondingProposal.Value() == prevote.Value() &&
+	if !(correspondingProposal.Type() == msgProposal && correspondingProposal.Value() == prevote.Value() &&
 		correspondingProposal.R() == prevote.R() && correspondingProposal.ValidRound() == -1) {
 		return false
 	}
 
 	// validate precommit.
 	preCommit := p.Evidence[0]
-	if preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue &&
+	if preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue &&
 		preCommit.Value() != prevote.Value() && prevote.Sender() == preCommit.Sender() &&
 		preCommit.R() < prevote.R() {
 		return true
@@ -486,18 +487,18 @@ func (c *ChallengeValidator) validChallengeOfPVN(p *types.Proof) bool {
 }
 
 // check if the proof of challenge of C is valid.
-func (c *ChallengeValidator) validChallengeOfC(p *types.Proof) bool {
+func (c *ChallengeValidator) validChallengeOfC(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
 	preCommit := p.Message
-	if !(preCommit.Type() == types.MsgPrecommit && preCommit.Value() != nilValue) {
+	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
 	}
 
 	// check prevotes for not the same V of precommit.
 	for i:= 0; i < len(p.Evidence); i++ {
-		if !(p.Evidence[i].Type() == types.MsgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
 		}
@@ -517,7 +518,7 @@ func (c *ChallengeValidator) validChallengeOfC(p *types.Proof) bool {
 	return true
 }
 
-func haveRedundantVotes(votes []types.ConsensusMessage) bool {
+func haveRedundantVotes(votes []core2.ConsensusMessage) bool {
 	voteMap := make(map[common.Hash]struct{})
 	for _, vote := range votes {
 		hash := common.BytesToHash(crypto2.Keccak256(vote.Payload()))

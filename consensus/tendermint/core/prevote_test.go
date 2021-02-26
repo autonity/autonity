@@ -44,7 +44,7 @@ func TestSendPrevote(t *testing.T) {
 		member := committeSet.Committee()[0]
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := types.NewProposal(
+		proposal := NewProposal(
 			1,
 			big.NewInt(2),
 			1,
@@ -140,7 +140,7 @@ func TestHandlePrevote(t *testing.T) {
 		curRoundMessages := messages.getOrCreate(2)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := types.NewProposal(
+		proposal := NewProposal(
 			1,
 			big.NewInt(2),
 			1,
@@ -179,7 +179,7 @@ func TestHandlePrevote(t *testing.T) {
 		committeeSet := newTestCommitteeSet(1)
 		logger := log.New("backend", "test", "id", 0)
 		member := committeeSet.Committee()[0]
-		proposal := types.NewProposal(
+		proposal := NewProposal(
 			2,
 			big.NewInt(3),
 			1,
@@ -193,19 +193,19 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil).AnyTimes()
 
-		var precommit = types.Vote{
+		var precommit = Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: curRoundMessage.GetProposalHash(),
 		}
 
-		encodedVote, err := types.Encode(&precommit)
+		encodedVote, err := Encode(&precommit)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgPrecommit,
+		msg := &ConsensusMessage{
+			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
@@ -256,19 +256,19 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock := NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil).AnyTimes()
 
-		var precommit = types.Vote{
+		var precommit = Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: common.Hash{},
 		}
 
-		encodedVote, err := types.Encode(&precommit)
+		encodedVote, err := Encode(&precommit)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		msg := &types.ConsensusMessage{
-			Code:          types.msgPrecommit,
+		msg := &ConsensusMessage{
+			Code:          msgPrecommit,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
@@ -311,7 +311,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := types.NewProposal(
+		proposal := NewProposal(
 			1,
 			big.NewInt(2),
 			1,
@@ -321,19 +321,19 @@ func TestHandlePrevote(t *testing.T) {
 
 		curRoundMessages.SetProposal(proposal, nil, true)
 
-		var preVote = types.Vote{
+		var preVote = Vote{
 			Round:             1,
 			Height:            big.NewInt(2),
 			ProposedBlockHash: curRoundMessages.GetProposalHash(),
 		}
 
-		encodedVote, err := types.Encode(&preVote)
+		encodedVote, err := Encode(&preVote)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &types.ConsensusMessage{
-			Code:          types.msgPrevote,
+		expectedMsg := &ConsensusMessage{
+			Code:          msgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -358,21 +358,21 @@ func TestHandlePrevote(t *testing.T) {
 	})
 }
 
-func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *big.Int, member types.CommitteeMember) *types.ConsensusMessage {
-	var preVote = types.Vote{
+func createPrevote(t *testing.T, proposalHash common.Hash, round int64, height *big.Int, member types.CommitteeMember) *ConsensusMessage {
+	var preVote = Vote{
 		Round:             round,
 		Height:            height,
 		ProposedBlockHash: proposalHash,
 	}
 
-	encodedVote, err := types.Encode(&preVote)
+	encodedVote, err := Encode(&preVote)
 	if err != nil {
 		t.Fatalf("Expected nil, got %v", err)
 		return nil
 	}
 
-	expectedMsg := &types.ConsensusMessage{
-		Code:          types.msgPrevote,
+	expectedMsg := &ConsensusMessage{
+		Code:          msgPrevote,
 		Msg:           encodedVote,
 		Address:       member.Address,
 		CommittedSeal: []byte{},

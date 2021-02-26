@@ -18,15 +18,13 @@ package core
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/core/types"
-
 	"github.com/clearmatics/autonity/common"
 )
 
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var prevote = types.Vote{
+	var prevote = Vote{
 		Round:  c.Round(),
 		Height: c.Height(),
 	}
@@ -41,7 +39,7 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 		prevote.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
-	encodedVote, err := types.Encode(&prevote)
+	encodedVote, err := Encode(&prevote)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", prevote)
 		return
@@ -50,16 +48,16 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.broadcast(ctx, &types.ConsensusMessage{
-		Code:          types.MsgPrevote,
+	c.broadcast(ctx, &ConsensusMessage{
+		Code:          msgPrevote,
 		Msg:           encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
 	})
 }
 
-func (c *core) handlePrevote(ctx context.Context, msg *types.ConsensusMessage) error {
-	var preVote types.Vote
+func (c *core) handlePrevote(ctx context.Context, msg *ConsensusMessage) error {
+	var preVote Vote
 	err := msg.Decode(&preVote)
 	if err != nil {
 		return errFailedDecodePrevote
@@ -142,7 +140,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *types.ConsensusMessage) e
 	return nil
 }
 
-func (c *core) logPrevoteMessageEvent(message string, prevote types.Vote, from, to string) {
+func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to string) {
 	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,

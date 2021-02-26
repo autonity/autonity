@@ -71,10 +71,6 @@ var (
 	errMovedToNewRound = errors.New("timer expired and new round started")
 )
 
-const (
-	MaxRound = 99 // consequence of backlog priority
-)
-
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
 	addr := backend.Address()
@@ -87,8 +83,8 @@ func New(backend Backend, config *config.Config) *core {
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
-		backlogs:              make(map[common.Address][]*types.ConsensusMessage),
-		backlogUnchecked:      make(map[uint64][]*types.ConsensusMessage),
+		backlogs:              make(map[common.Address][]*ConsensusMessage),
+		backlogUnchecked:      make(map[uint64][]*ConsensusMessage),
 		pendingUnminedBlocks:  make(map[uint64]*types.Block),
 		pendingUnminedBlockCh: make(chan *types.Block),
 		stopped:               make(chan struct{}, 4),
@@ -121,8 +117,8 @@ type core struct {
 	futureProposalTimer     *time.Timer
 	stopped                 chan struct{}
 
-	backlogs            map[common.Address][]*types.ConsensusMessage
-	backlogUnchecked    map[uint64][]*types.ConsensusMessage
+	backlogs            map[common.Address][]*ConsensusMessage
+	backlogUnchecked    map[uint64][]*ConsensusMessage
 	backlogUncheckedLen int
 	// map[Height]UnminedBlock
 	pendingUnminedBlocks     map[uint64]*types.Block
@@ -163,7 +159,7 @@ type core struct {
 	autonityContract *autonity.Contract
 }
 
-func (c *core) GetCurrentHeightMessages() []*types.ConsensusMessage {
+func (c *core) GetCurrentHeightMessages() []*ConsensusMessage {
 	return c.messages.GetMessages()
 }
 
@@ -172,7 +168,7 @@ func (c *core) IsMember(address common.Address) bool {
 	return err == nil
 }
 
-func (c *core) finalizeMessage(msg *types.ConsensusMessage) ([]byte, error) {
+func (c *core) finalizeMessage(msg *ConsensusMessage) ([]byte, error) {
 	var err error
 
 	// Sign message
@@ -188,7 +184,7 @@ func (c *core) finalizeMessage(msg *types.ConsensusMessage) ([]byte, error) {
 	return msg.Payload(), nil
 }
 
-func (c *core) broadcast(ctx context.Context, msg *types.ConsensusMessage) {
+func (c *core) broadcast(ctx context.Context, msg *ConsensusMessage) {
 	logger := c.logger.New("step", c.step)
 
 	payload, err := c.finalizeMessage(msg)
@@ -346,7 +342,7 @@ func (c *core) setInitialState(r int64) {
 	c.setRound(r)
 }
 
-func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash, msg types.ConsensusMessage) {
+func (c *core) acceptVote(roundMsgs *roundMessages, step Step, hash common.Hash, msg ConsensusMessage) {
 	switch step {
 	case prevote:
 		roundMsgs.AddPrevote(hash, msg)
