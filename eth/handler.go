@@ -496,14 +496,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
 
-		// forward msg to faultDetector for tendermint BFT accountability.
-		if pm.faultDetector != nil {
-			pm.faultDetector.HandleMsg(addr, msg)
-		}
-
 		// forward msg to tendermint BFT engine.
 		handled, err := handler.HandleMsg(addr, msg)
 		if handled {
+			// forward msg to faultDetector for tendermint BFT accountability.
+			// todo: memory copy payload from msg since the payload already consumed by
+			//  msg.decode. the payload is implemented by a IO buffer it only support one time
+			//  read. That is why AFD cannot decode msg.
+			if pm.faultDetector != nil {
+				pm.faultDetector.HandleMsg(addr, msg)
+			}
+
 			return err
 		}
 	}
