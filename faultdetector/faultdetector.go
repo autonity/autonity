@@ -34,6 +34,9 @@ var (
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
 	// use below 3 members to send proof via transaction issuing.
+
+	// todo: there is not need to use afdFeed and scope when only one person will be subscribing to the feed, therefore,
+	// it may be best to stick with built-in channels.
 	wg      sync.WaitGroup
 	afdFeed event.Feed
 	scope   event.SubscriptionScope
@@ -44,6 +47,8 @@ type FaultDetector struct {
 
 	// below 2 members subscribe block event to trigger execution
 	// of rule engine and make proof of innocent.
+	// todo: you do not need to store these channels in the FaultDetector if they are only used in one place, only
+	// consider putting them as fields when multiple methods require access to the the same channel.
 	blockChan chan core.ChainEvent
 	blockSub  event.Subscription
 
