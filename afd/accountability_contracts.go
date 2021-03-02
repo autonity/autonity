@@ -16,9 +16,9 @@ import (
 
 var (
 	checkAccusationAddress = common.BytesToAddress([]byte{252})
-	checkProofAddress = common.BytesToAddress([]byte{253})
-	checkChallengeAddress = common.BytesToAddress([]byte{254})
-	failure64Byte = make([]byte, 64)
+	checkProofAddress      = common.BytesToAddress([]byte{253})
+	checkChallengeAddress  = common.BytesToAddress([]byte{254})
+	failure64Byte          = make([]byte, 64)
 )
 
 // init the instances of AFD contracts, and register thems into evm's context
@@ -129,7 +129,7 @@ func (a *AccusationValidator) validateAccusation(in *Proof) ([]byte, error) {
 }
 
 // ChallengeValidator implemented as a native contract to validate if challenge is valid
-type ChallengeValidator struct{
+type ChallengeValidator struct {
 	chain *core.BlockChain
 }
 
@@ -169,7 +169,7 @@ func (c *ChallengeValidator) validateChallenge(p *Proof) ([]byte, error) {
 	}
 	header := c.chain.GetHeaderByNumber(h.Uint64())
 
-	for i:=0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
 			return failure64Byte, err
 		}
@@ -208,7 +208,7 @@ func (c *ChallengeValidator) validEvidence(p *Proof) bool {
 }
 
 // InnocentValidator implemented as a native contract to validate an innocent proof.
-type InnocentValidator struct{
+type InnocentValidator struct {
 	chain *core.BlockChain
 }
 
@@ -248,7 +248,7 @@ func (c *InnocentValidator) validateInnocentProof(in *Proof) ([]byte, error) {
 		return failure64Byte, err
 	}
 
-	for i:=0; i < len(in.Evidence); i++ {
+	for i := 0; i < len(in.Evidence); i++ {
 		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
 			return failure64Byte, err
 		}
@@ -291,7 +291,7 @@ func (c *InnocentValidator) validInnocentProofOfPO(p *Proof) bool {
 	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
 	// check quorum prevotes for V at validRound.
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() == proposal.Value() &&
 			p.Evidence[i].R() == proposal.ValidRound()) {
 			return false
@@ -359,7 +359,7 @@ func (c *InnocentValidator) validInnocentProofOfC1(p *Proof) bool {
 	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
 	// check quorum prevotes for V at the same round.
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() == preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
@@ -395,7 +395,7 @@ func decodeProof(proof []byte) (*Proof, error) {
 	}
 	decodedP.Message = *msg
 
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		m := new(core2.Message)
 		if err := m.FromPayload(p.Evidence[i]); err != nil {
 			return nil, fmt.Errorf("msg cannot be decoded")
@@ -497,7 +497,7 @@ func (c *ChallengeValidator) validChallengeOfC(p *Proof) bool {
 	}
 
 	// check prevotes for not the same V of precommit.
-	for i:= 0; i < len(p.Evidence); i++ {
+	for i := 0; i < len(p.Evidence); i++ {
 		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
