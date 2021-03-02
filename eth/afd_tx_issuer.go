@@ -8,27 +8,31 @@ import (
 	"github.com/clearmatics/autonity/log"
 )
 
-func (s *Ethereum) sendAccountabilityTransaction(e *afd.SubmitProofEvent) {
+func (s *Ethereum) sendAccountabilityTransaction(ev *afd.SubmitProofEvent) {
 	var method string
-	if e.Type == afd.InnocentProof {
+	if ev.Type == afd.InnocentProof {
 		method = "resolveAccusation"
 	}
 
-	if e.Type == afd.ChallengeProof {
+	if ev.Type == afd.ChallengeProof {
 		method = "addChallenge"
 	}
 
-	if e.Type == afd.AccusationProof {
+	if ev.Type == afd.AccusationProof {
 		method = "addAccusation"
 	}
 
-	tx, err := s.generateAccountabilityTX(method, e.Proofs)
+	tx, err := s.generateAccountabilityTX(method, ev.Proofs)
 	if err != nil {
 		log.Error("Could not generate accountability transaction", "err", err)
 		return
 	}
 
-	err = s.TxPool().AddLocal(tx)
+	e := s.TxPool().AddLocal(tx)
+	if e != nil {
+		log.Error("Cound not add TX into TX pool", "err", e)
+		return
+	}
 	log.Debug("Generate accountability transaction", "hash", tx.Hash())
 }
 

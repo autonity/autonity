@@ -364,6 +364,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// round 5 proposer proposes P(V, VR=2), so this would mean that p_i prevote nil even though there are 2f+1 prevotes for V in round 2
 
 				// Aneeque's initials thoughts on PVO
+				/* todo: missing rules from D3
 				if len(precommits) > 0 {
 					// PVO1a
 
@@ -389,7 +390,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 
 					// We don't have a precommit from the p_i
 					// check that in valid round we have 2f+1 prevotes for V rule passes, otherwise raise an accustion
-				}
+				}*/
 
 				// PVO1B: [∗] ∧ [∗] ∧ [V:r′′=r−1] ∧ [V] <--- [V] -- not needed as it is a special case of PVO1A
 
