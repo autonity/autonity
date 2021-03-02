@@ -23,6 +23,8 @@ var (
 
 // init the instances of AFD contracts, and register thems into evm's context
 func registerAFDContracts(chain *core.BlockChain) {
+	vm.ContractRWMutex.Lock()
+	defer vm.ContractRWMutex.Unlock()
 	pv := InnocentValidator{chain: chain}
 	cv := ChallengeValidator{chain: chain}
 	av := AccusationValidator{chain: chain}
@@ -46,6 +48,9 @@ func registerAFDContracts(chain *core.BlockChain) {
 
 // un register AFD contracts from evm's context.
 func unRegisterAFDContracts() {
+	vm.ContractRWMutex.Lock()
+	defer vm.ContractRWMutex.Unlock()
+
 	delete(vm.PrecompiledContractsByzantium, checkProofAddress)
 	delete(vm.PrecompiledContractsByzantium, checkChallengeAddress)
 	delete(vm.PrecompiledContractsByzantium, checkAccusationAddress)
