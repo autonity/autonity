@@ -12,7 +12,7 @@ var nilValue = common.Hash{}
 
 func powerOfVotes(votes []core.Message) uint64 {
 	power := uint64(0)
-	for i:= 0; i < len(votes); i++ {
+	for i := 0; i < len(votes); i++ {
 		if votes[i].Type() != msgPrevote || votes[i].Type() != msgPrecommit {
 			continue
 		}
@@ -27,7 +27,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) {
 	proofs, accusations := fd.runRules(height)
 	if len(proofs) > 0 {
 		var onChainProofs []autonity.OnChainProof
-		for i:= 0; i < len(proofs); i++ {
+		for i := 0; i < len(proofs); i++ {
 			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule)
 			if err != nil {
 				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
@@ -40,7 +40,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) {
 
 	if len(accusations) > 0 {
 		var onChainProofs []autonity.OnChainProof
-		for i:= 0; i < len(accusations); i++ {
+		for i := 0; i < len(accusations); i++ {
 			p, err := fd.generateOnChainProof(&accusations[i].Message, accusations[i].Evidence, accusations[i].Rule)
 			if err != nil {
 				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
