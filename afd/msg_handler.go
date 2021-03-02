@@ -191,7 +191,7 @@ func checkMsgSignature(chain *core.BlockChain, m *core2.Message) error {
 	}
 
 	header := chain.CurrentHeader()
-	if msgHeight.Cmp(header.Number) > 1 {
+	if msgHeight.Uint64() > header.Number.Uint64() + 1 {
 		return errFutureMsg
 	}
 
