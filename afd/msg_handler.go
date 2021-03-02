@@ -167,7 +167,6 @@ func checkProposal(chain *core.BlockChain, m *core2.Message) error {
 	if err != nil {
 		return errGarbageMsg
 	}
-
 	if !isProposerMsg(chain, m) {
 		return errProposer
 	}
@@ -291,7 +290,7 @@ func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, err
 		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
 	}
 
-	statedb, err := chain.StateAt(parentHeader.Hash())
+	statedb, err := chain.StateAt(parentHeader.Root)
 	if err != nil {
 		return common.Address{}, err
 	}
