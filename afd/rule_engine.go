@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
 )
 
@@ -22,9 +21,9 @@ func powerOfVotes(votes []core.Message) uint64 {
 }
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
-func (fd *FaultDetector) runRuleEngine(height uint64) {
+func (fd *FaultDetector) runRuleEngine(height uint64, quorum uint64) {
 	// todo: to merge the two TXs into one.
-	proofs, accusations := fd.runRules(height)
+	proofs, accusations := fd.runRules(height, quorum)
 	if len(proofs) > 0 {
 		var onChainProofs []autonity.OnChainProof
 		for i := 0; i < len(proofs); i++ {
@@ -78,7 +77,7 @@ func (fd *FaultDetector) GetInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 	proposal := c.Message
 	height := proposal.H()
 	validRound := proposal.ValidRound()
-	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
+	quorum := fd.quorum(height - 1)
 
 	prevotes := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgPrevote && m.R() == validRound && m.Value() == proposal.Value()
@@ -151,7 +150,7 @@ func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 	var proof autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
-	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
+	quorum := fd.quorum(height - 1)
 
 	prevotesForV := fd.msgStore.Get(height, func(m *core.Message) bool {
 		return m.Type() == msgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
@@ -171,7 +170,7 @@ func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 	return p, nil
 }
 
-func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []Proof) {
+func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof, accusations []Proof) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
@@ -187,7 +186,6 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 	// We should be here at time t = timestamp(h+1) + delta
 
 	//var accusations []*types.Accusation
-	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
 	// ------------New Proposal------------
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
