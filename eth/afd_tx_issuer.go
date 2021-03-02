@@ -25,13 +25,14 @@ func (s *Ethereum) sendAccountabilityTransaction(e *afd.SubmitProofEvent) {
 	tx, err := s.generateAccountabilityTX(method, e.Proofs)
 	if err != nil {
 		log.Error("Could not generate accountability transaction", "err", err)
+		return
 	}
 
 	err = s.TxPool().AddLocal(tx)
 	log.Debug("Generate accountability transaction", "hash", tx.Hash())
 }
 
-func (s *Ethereum) generateAccountabilityTX(method string, params ...interface{} ) (*types.Transaction, error) {
+func (s *Ethereum) generateAccountabilityTX(method string, params ...interface{}) (*types.Transaction, error) {
 	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.defaultKey.PublicKey))
 	to := s.BlockChain().GetAutonityContract().Address()
 	abi := s.BlockChain().GetAutonityContract().ABI()
@@ -42,7 +43,7 @@ func (s *Ethereum) generateAccountabilityTX(method string, params ...interface{}
 
 	// might to resolve a reasonable gas limit by weighting the bytes of TX.
 	return types.SignTx(
-		types.NewTransaction(nonce,	to,	common.Big0,210000000, s.gasPrice, packedData),
+		types.NewTransaction(nonce, to, common.Big0, 210000000, s.gasPrice, packedData),
 		types.HomesteadSigner{},
 		s.defaultKey)
 }

@@ -97,7 +97,7 @@ type Ethereum struct {
 	afdCh         chan afd.SubmitProofEvent
 	afdSub        event.Subscription
 	faultDetector *afd.FaultDetector
-	defaultKey    *ecdsa.PrivateKey   // the private key of etherbase address to sign accountability TXs.
+	defaultKey    *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
 }
 
 // New creates a new Ethereum object (including the
