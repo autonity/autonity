@@ -17,11 +17,13 @@
 package eth
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/afd"
+	core2 "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"math"
 	"math/big"
 	"sync"
@@ -488,31 +490,43 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 	defer msg.Discard()
-
-	if handler, ok := pm.engine.(consensus.Handler); ok {
+	// Handle the message depending on its contents
+	switch {
+	case msg.Code == core2.TendermintMsg:
+		handler, ok := pm.engine.(consensus.Handler)
+		if !ok {
+			return fmt.Errorf("handle tendermint msg without tendermint handler")
+		}
 		pubKey := p.Node().Pubkey()
 		if pubKey == nil {
 			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
+		payLoad, err := handler.HandleMsg(addr, msg)
 
-		// forward msg to tendermint BFT engine.
-		handled, err := handler.HandleMsg(addr, msg)
-		if handled {
-			// forward msg to faultDetector for tendermint BFT accountability.
-			// todo: memory copy payload from msg since the payload already consumed by
-			//  msg.decode. the payload is implemented by a IO buffer it only support one time
-			//  read. That is why AFD cannot decode msg.
+		if payLoad != nil {
+			// forward tendermint consensus msg to AFD.
+			b := new(bytes.Buffer)
+			b.Write(payLoad)
+			copyMsg := msg
+			copyMsg.Payload = b
 			if pm.faultDetector != nil {
-				pm.faultDetector.HandleMsg(addr, msg)
+				pm.faultDetector.HandleMsg(addr, copyMsg)
 			}
-
-			return err
 		}
-	}
-
-	// Handle the message depending on its contents
-	switch {
+		return err
+	case msg.Code == core2.TendermintSyncMsg:
+		handler, ok := pm.engine.(consensus.Handler)
+		if !ok {
+			return fmt.Errorf("handle tendermint msg without tendermint handler")
+		}
+		pubKey := p.Node().Pubkey()
+		if pubKey == nil {
+			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
+		}
+		addr := crypto.PubkeyToAddress(*pubKey)
+		_, err := handler.HandleMsg(addr, msg)
+		return err
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
