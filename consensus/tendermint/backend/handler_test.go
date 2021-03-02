@@ -82,7 +82,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		}
 		msg := makeMsg(core.TendermintSyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
-		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+		if _, err := b.HandleMsg(addr, msg); err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
 		timer := time.NewTimer(2 * time.Second)
@@ -103,7 +103,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		}
 		msg := makeMsg(core.TendermintSyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
-		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+		if _, err := b.HandleMsg(addr, msg); err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
 		timer := time.NewTimer(2 * time.Second)
