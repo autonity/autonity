@@ -12,12 +12,12 @@ type MsgStore struct {
 }
 
 func newMsgStore() *MsgStore {
-	return &MsgStore{messages:make(map[uint64]map[int64]map[uint64]map[common.Address]*core.Message)}
+	return &MsgStore{messages: make(map[uint64]map[int64]map[uint64]map[common.Address]*core.Message)}
 }
 
 // store msg into msg store, it returns msg that is equivocation than the input msg, and an errEquivocation.
 // otherwise it return nil, nil
-func(ms *MsgStore) Save(m *core.Message) (*core.Message, error) {
+func (ms *MsgStore) Save(m *core.Message) (*core.Message, error) {
 	height, _ := m.Height()
 	roundMap, ok := ms.messages[height.Uint64()]
 	if !ok {
@@ -51,13 +51,13 @@ func(ms *MsgStore) Save(m *core.Message) (*core.Message, error) {
 	return nil, nil
 }
 
-func(ms *MsgStore) removeMsg(m *core.Message) {
+func (ms *MsgStore) removeMsg(m *core.Message) {
 	height, _ := m.Height()
 	round, _ := m.Round()
 	delete(ms.messages[height.Uint64()][round][m.Code], m.Address)
 }
 
-func(ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
+func (ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 	// Remove all messgages at this height
 	for _, msgTypeMap := range ms.messages[height] {
 		for _, addressMap := range msgTypeMap {
