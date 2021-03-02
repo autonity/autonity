@@ -9,4 +9,3 @@ type OnChainProof struct {
 	// rlp enoded bytes for struct Rawproof object.
 	Rawproof []byte `abi:"rawproof"`
 }
-
