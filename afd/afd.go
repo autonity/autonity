@@ -94,9 +94,9 @@ func (fd *FaultDetector) quorum(h uint64) uint64 {
 	power, ok := fd.totalPowers[h]
 	if ok {
 		return bft.Quorum(power)
-	} else {
-		return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
 	}
+
+	return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
 }
 
 func (fd *FaultDetector) savePower(h uint64, power uint64) {
