@@ -351,6 +351,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// the proposal precommitted for a different value V', then the prevote
 				// is considered invalid.
 
+				/* todo: missing rules from D3
 				precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() &&
 						m.R() < prevote.R() && m.Value() != nilValue
@@ -364,7 +365,6 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// round 5 proposer proposes P(V, VR=2), so this would mean that p_i prevote nil even though there are 2f+1 prevotes for V in round 2
 
 				// Aneeque's initials thoughts on PVO
-				/* todo: missing rules from D3
 				if len(precommits) > 0 {
 					// PVO1a
 
