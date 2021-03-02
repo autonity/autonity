@@ -15,7 +15,7 @@ const (
 )
 
 type Proof struct {
-	parentHash common.Hash  // use by precompiled contract to get committee from chain db.
+	parentHash common.Hash // use by precompiled contract to get committee from chain db.
 	Rule       Rule
 	Message    message
 	Evidence   []message
@@ -50,7 +50,7 @@ type message interface {
 	Type() byte
 	Value() common.Hash // Block hash for a proposal,
 	ValidRound() int
-	Payload() []byte    // raw bytes of message
+	Payload() []byte // raw bytes of message
 }
 
 func (i *interceptor) Intercept(msg message) *Proof {
