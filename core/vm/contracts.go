@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -36,6 +37,8 @@ import (
 	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
 )
+
+var ContractRWMutex = sync.RWMutex{}
 
 // PrecompiledContract is the basic interface for native Go contracts. The implementation
 // requires a deterministic gas count based on the input size of the Run method of the
