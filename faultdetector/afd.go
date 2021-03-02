@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"github.com/clearmatics/autonity/autonity"
@@ -41,7 +41,7 @@ type FaultDetector struct {
 	afdFeed event.Feed
 	scope   event.SubscriptionScope
 
-	// use below 2 members to forward consensus msg from protocol manager to afd.
+	// use below 2 members to forward consensus msg from protocol manager to faultdetector.
 	tendermintMsgSub *event.TypeMuxSubscription
 	tendermintMsgMux *event.TypeMuxSilent
 
@@ -69,7 +69,7 @@ type FaultDetector struct {
 
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
-	logger := log.New("afd", nodeAddress)
+	logger := log.New("faultdetector", nodeAddress)
 	fd := &FaultDetector{
 		address:          nodeAddress,
 		blockChan:        make(chan core.ChainEvent, 300),
@@ -81,7 +81,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		totalPowers:      make(map[uint64]uint64),
 	}
 
-	// register afd contracts on evm's precompiled contract set.
+	// register faultdetector contracts on evm's precompiled contract set.
 	registerAFDContracts(chain)
 
 	// subscribe tendermint msg
@@ -121,7 +121,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			// take my accusations from latest state DB, and provide innocent proof if there are any.
 			err := fd.handleAccusations(ev.Block, ev.Hash)
 			if err != nil {
-				fd.logger.Warn("handle challenge", "afd", err)
+				fd.logger.Warn("handle challenge", "faultdetector", err)
 			}
 
 			// before run rule engine over msg store, check to process any buffered msg.
@@ -145,11 +145,11 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			case events.MessageEvent:
 				msg := new(core2.Message)
 				if err := msg.FromPayload(e.Payload); err != nil {
-					fd.logger.Error("invalid payload", "afd", err)
+					fd.logger.Error("invalid payload", "faultdetector", err)
 					continue
 				}
 				if err := fd.processMsg(msg); err != nil {
-					fd.logger.Error("process consensus msg", "afd", err)
+					fd.logger.Error("process consensus msg", "faultdetector", err)
 					continue
 				}
 			}
@@ -160,7 +160,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 	}
 }
 
-// HandleMsg is called by p2p protocol manager to deliver the consensus msg to afd.
+// HandleMsg is called by p2p protocol manager to deliver the consensus msg to faultdetector.
 func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 	if msg.Code != core2.TendermintMsg {
 		return

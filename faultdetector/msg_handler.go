@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ func (fd *FaultDetector) generateOnChainProof(m *core2.Message, proofs []core2.M
 
 	rp, err := rlp.EncodeToBytes(rawProof)
 	if err != nil {
-		fd.logger.Warn("fail to rlp encode raw proof", "afd", err)
+		fd.logger.Warn("fail to rlp encode raw proof", "faultdetector", err)
 		return challenge, err
 	}
 
@@ -43,11 +43,11 @@ func (fd *FaultDetector) generateOnChainProof(m *core2.Message, proofs []core2.M
 func (fd *FaultDetector) submitMisbehavior(m *core2.Message, proofs []core2.Message, err error) {
 	rule, e := errorToRule(err)
 	if e != nil {
-		fd.logger.Warn("error to rule", "afd", e)
+		fd.logger.Warn("error to rule", "faultdetector", e)
 	}
 	proof, err := fd.generateOnChainProof(m, proofs, rule)
 	if err != nil {
-		fd.logger.Warn("generate misbehavior proof", "afd", err)
+		fd.logger.Warn("generate misbehavior proof", "faultdetector", err)
 		return
 	}
 	ps := []autonity.OnChainProof{proof}
@@ -94,7 +94,7 @@ func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 		if h <= height {
 			for i := 0; i < len(msgs); i++ {
 				if err := fd.processMsg(msgs[i]); err != nil {
-					fd.logger.Error("process consensus msg", "afd", err)
+					fd.logger.Error("process consensus msg", "faultdetector", err)
 					continue
 				}
 			}
@@ -112,7 +112,7 @@ func (fd *FaultDetector) bufferMsg(m *core2.Message) {
 	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
 }
 
-/////// common helper functions shared between afd and precompiled contract to validate msgs.
+/////// common helper functions shared between faultdetector and precompiled contract to validate msgs.
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
 func checkAutoIncriminatingMsg(chain *core.BlockChain, m *core2.Message) error {

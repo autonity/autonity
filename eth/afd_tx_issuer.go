@@ -1,24 +1,24 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/afd"
+	"github.com/clearmatics/autonity/faultdetector"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 )
 
-func (s *Ethereum) sendAccountabilityTransaction(ev *afd.SubmitProofEvent) {
+func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.SubmitProofEvent) {
 	var method string
-	if ev.Type == afd.InnocentProof {
+	if ev.Type == faultdetector.InnocentProof {
 		method = "resolveAccusation"
 	}
 
-	if ev.Type == afd.ChallengeProof {
+	if ev.Type == faultdetector.ChallengeProof {
 		method = "addChallenge"
 	}
 
-	if ev.Type == afd.AccusationProof {
+	if ev.Type == faultdetector.AccusationProof {
 		method = "addAccusation"
 	}
 
