@@ -199,7 +199,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 	for _, proposal := range proposalsNew {
 		//check all precommits for previous rounds from this sender are nil
 		precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
-			return m.Sender() == proposal.Sender() && m.Type() == msgPrecommit && m.R() < proposal.R() && m.Value() != nilValue
+			return m.Sender() == proposal.Sender() && m.Type() == msgPrecommit && m.R() < proposal.R() && m.Value() != nilValue // nolint: scopelint
 		})
 		if len(precommits) != 0 {
 			proof := Proof{
@@ -231,8 +231,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 		// misbehaviour can be generated.
 		precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgPrecommit && m.R() == validRound &&
-				m.Sender() == proposal.Sender() && m.Value() != nilValue &&
-				m.Value() != proposal.Value()
+				m.Sender() == proposal.Sender() && m.Value() != nilValue && m.Value() != proposal.Value() // nolint: scopelint
 		})
 		if len(precommits) > 0 {
 			proof := Proof{
@@ -286,7 +285,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 
 	for _, prevote := range prevotes {
 		correspondingProposals := fd.msgStore.Get(height, func(m *core.Message) bool {
-			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
+			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R() // nolint: scopelint
 		})
 
 		if len(correspondingProposals) == 0 {
@@ -325,8 +324,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// can even attempt to apply the rule.
 				precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrecommit && m.Value() != nilValue &&
-						m.Value() != prevote.Value() && prevote.Sender() == m.Sender() &&
-						m.R() < prevote.R()
+						m.Value() != prevote.Value() && prevote.Sender() == m.Sender() && m.R() < prevote.R() // nolint: scopelint
 				})
 
 				if len(precommits) > 0 {
@@ -411,7 +409,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 
 			for _, precommit := range precommits {
 				proposals := fd.msgStore.Get(height, func(m *core.Message) bool {
-					return m.Type() == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R()
+					return m.Type() == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
 				})
 
 				if len(proposals) == 0 {
@@ -424,10 +422,10 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				}
 
 				prevotesForNotV := fd.msgStore.Get(height, func(m *core.Message) bool {
-					return m.Type() == msgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R()
+					return m.Type() == msgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R() // nolint: scopelint
 				})
 				prevotesForV := fd.msgStore.Get(height, func(m *core.Message) bool {
-					return m.Type() == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R()
+					return m.Type() == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
 				})
 
 				if powerOfVotes(prevotesForNotV) >= quorum {
