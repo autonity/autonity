@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64, quorum uint64) {
 		for i := 0; i < len(proofs); i++ {
 			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule)
 			if err != nil {
-				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
+				fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
 				continue
 			}
 			onChainProofs = append(onChainProofs, p)
@@ -42,7 +42,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64, quorum uint64) {
 		for i := 0; i < len(accusations); i++ {
 			p, err := fd.generateOnChainProof(&accusations[i].Message, accusations[i].Evidence, accusations[i].Rule)
 			if err != nil {
-				fd.logger.Warn("convert proof to on-chain proof", "afd", err)
+				fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
 				continue
 			}
 			onChainProofs = append(onChainProofs, p)

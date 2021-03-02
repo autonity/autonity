@@ -11,7 +11,7 @@ library Accountability {
         bytes rawproof;
     }
 
-    // checkChallenge, it validate proof of challenge is valid by according afd rules, the precompiled contract returns
+    // checkChallenge, it validate proof of challenge is valid by according faultdetector rules, the precompiled contract returns
     // the msg sender address and the msg hash when the proof is valid.
     function checkChallenge(bytes memory proof) internal view returns (address, bytes32) {
         uint length = proof.length;
@@ -42,7 +42,7 @@ library Accountability {
         return (address(retVal[0]), bytes32(retVal[1]));
     }
 
-    // checkInnocent, it validate the proof of innocent is valid by according to afd rules, the precompiled contract returns
+    // checkInnocent, it validate the proof of innocent is valid by according to faultdetector rules, the precompiled contract returns
     // the msg sender address and the msg hash when the proof is valid.
     function checkInnocent(bytes memory proof) internal view returns (address, bytes32) {
         uint length = proof.length;

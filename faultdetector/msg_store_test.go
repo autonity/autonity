@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"github.com/clearmatics/autonity/common"

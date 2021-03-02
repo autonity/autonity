@@ -21,7 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/afd"
+	"github.com/clearmatics/autonity/faultdetector"
 	"math/big"
 	"runtime"
 	"sync"
@@ -94,9 +94,9 @@ type Ethereum struct {
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
 
-	afdCh         chan afd.SubmitProofEvent
+	afdCh         chan faultdetector.SubmitProofEvent
 	afdSub        event.Subscription
-	faultDetector *afd.FaultDetector
+	faultDetector *faultdetector.FaultDetector
 	defaultKey    *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
 }
 
@@ -171,7 +171,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		glienickeCh:       make(chan core.WhitelistEvent),
-		afdCh:             make(chan afd.SubmitProofEvent),
+		afdCh:             make(chan faultdetector.SubmitProofEvent),
 		p2pServer:         stack.Server(),
 	}
 
@@ -224,7 +224,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
 	// Create AFD
-	eth.faultDetector = afd.NewFaultDetector(eth.blockchain, eth.etherbase)
+	eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
 	eth.defaultKey = stack.Config().NodeKey()
 
 	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,
