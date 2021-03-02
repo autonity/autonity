@@ -149,7 +149,6 @@ func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 
 	// post consensus event to event loop.
 	fd.tendermintMsgMux.Post(events.MessageEvent{Payload: data})
-	return
 }
 
 func (fd *FaultDetector) Stop() {
@@ -249,8 +248,8 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof, t 
 
 	for i := 0; i < len(*proofs); i++ {
 		present := false
-		for i := 0; i < len(presented); i++ {
-			if (*proofs)[i].Msghash == presented[i].Msghash {
+		for j := 0; j < len(presented); i++ {
+			if (*proofs)[i].Msghash == presented[j].Msghash {
 				present = true
 			}
 		}

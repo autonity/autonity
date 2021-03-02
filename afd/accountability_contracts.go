@@ -322,11 +322,8 @@ func (c *InnocentValidator) validInnocentProofOfPVN(p *Proof) bool {
 	}
 
 	proposal := p.Evidence[0]
-	if !(proposal.Type() == msgProposal && proposal.Value() == preVote.Value() &&
-		proposal.R() == preVote.R()) {
-		return false
-	}
-	return true
+	return proposal.Type() == msgProposal && proposal.Value() == preVote.Value() &&
+		proposal.R() == preVote.R()
 }
 
 // check if the proof of innocent of C is valid.
@@ -341,11 +338,8 @@ func (c *InnocentValidator) validInnocentProofOfC(p *Proof) bool {
 	}
 
 	proposal := p.Evidence[0]
-	if !(proposal.Type() == msgProposal && proposal.Value() == preCommit.Value() &&
-		proposal.R() == preCommit.R()) {
-		return false
-	}
-	return true
+	return proposal.Type() == msgProposal && proposal.Value() == preCommit.Value() &&
+		proposal.R() == preCommit.R()
 }
 
 // check if the proof of innocent of C is valid.

@@ -48,6 +48,7 @@ func (fd *FaultDetector) submitMisbehavior(m *core2.Message, proofs []core2.Mess
 	proof, err := fd.generateOnChainProof(m, proofs, rule)
 	if err != nil {
 		fd.logger.Warn("generate misbehavior proof", "afd", err)
+		return
 	}
 	ps := []autonity.OnChainProof{proof}
 
@@ -89,8 +90,8 @@ func (fd *FaultDetector) processMsg(m *core2.Message) error {
 
 // processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
 func (fd *FaultDetector) processBufferedMsgs(height uint64) {
-	for height, msgs := range fd.futureMsgs {
-		if height <= height {
+	for h, msgs := range fd.futureMsgs {
+		if h <= height {
 			for i := 0; i < len(msgs); i++ {
 				if err := fd.processMsg(msgs[i]); err != nil {
 					fd.logger.Error("process consensus msg", "afd", err)
