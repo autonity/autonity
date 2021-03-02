@@ -239,7 +239,7 @@ func (m *Message) Height() (*big.Int, error) {
 	return m.decodedMsg.GetHeight(), nil
 }
 
-// used by afd for decoded msgs
+// used by faultdetector for decoded msgs
 func (m *Message) R() int64 {
 	r, err := m.Round()
 	// msg should be decoded, it shouldn't be an error.

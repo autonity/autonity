@@ -1,4 +1,4 @@
-package afd
+package faultdetector
 
 import (
 	"fmt"
@@ -25,9 +25,9 @@ var (
 func registerAFDContracts(chain *core.BlockChain) {
 	vm.ContractRWMutex.Lock()
 	defer vm.ContractRWMutex.Unlock()
-	pv := InnocentValidator{chain: chain}
-	cv := ChallengeValidator{chain: chain}
-	av := AccusationValidator{chain: chain}
+	pv := InnocentVerifier{chain: chain}
+	cv := ChallengeVerifier{chain: chain}
+	av := AccusationVerifier{chain: chain}
 
 	vm.PrecompiledContractsByzantium[checkProofAddress] = &pv
 	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &cv
@@ -68,19 +68,19 @@ func unRegisterAFDContracts() {
 	delete(vm.PrecompiledContractsHomestead, checkAccusationAddress)
 }
 
-// AccusationValidator implemented as a native contract to validate if a accusation is valid
-type AccusationValidator struct {
+// AccusationVerifier implemented as a native contract to validate if a accusation is valid
+type AccusationVerifier struct {
 	chain *core.BlockChain
 }
 
-// the gas cost to execute AccusationValidator contract.
-func (a *AccusationValidator) RequiredGas(_ []byte) uint64 {
+// the gas cost to execute AccusationVerifier contract.
+func (a *AccusationVerifier) RequiredGas(_ []byte) uint64 {
 	return params.MinimumGas
 }
 
 // take the rlp encoded proof of accusation in byte array, decode it and validate it, if the proof is validate, then
 // the rlp hash of the msg payload and the msg sender is returned.
-func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
+func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		return failure64Byte, fmt.Errorf("invalid input")
 	}
@@ -94,7 +94,7 @@ func (a *AccusationValidator) Run(input []byte) ([]byte, error) {
 }
 
 // validate if the accusation is valid.
-func (a *AccusationValidator) validateAccusation(in *Proof) ([]byte, error) {
+func (a *AccusationVerifier) validateAccusation(in *Proof) ([]byte, error) {
 	// we have only 3 types of rule on accusation.
 	switch in.Rule {
 	case PO:
@@ -133,19 +133,19 @@ func (a *AccusationValidator) validateAccusation(in *Proof) ([]byte, error) {
 	return append(sender, msgHash...), nil
 }
 
-// ChallengeValidator implemented as a native contract to validate if challenge is valid
-type ChallengeValidator struct {
+// ChallengeVerifier implemented as a native contract to validate if challenge is valid
+type ChallengeVerifier struct {
 	chain *core.BlockChain
 }
 
-// the gas cost to execute ChallengeValidator contract.
-func (c *ChallengeValidator) RequiredGas(_ []byte) uint64 {
+// the gas cost to execute ChallengeVerifier contract.
+func (c *ChallengeVerifier) RequiredGas(_ []byte) uint64 {
 	return params.MinimumGas
 }
 
 // take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for proof management.
-func (c *ChallengeValidator) Run(input []byte) ([]byte, error) {
+func (c *ChallengeVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		return failure64Byte, fmt.Errorf("invalid input")
 	}
@@ -160,7 +160,7 @@ func (c *ChallengeValidator) Run(input []byte) ([]byte, error) {
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *ChallengeValidator) validateChallenge(p *Proof) ([]byte, error) {
+func (c *ChallengeVerifier) validateChallenge(p *Proof) ([]byte, error) {
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message)
 	if err != nil {
@@ -189,7 +189,7 @@ func (c *ChallengeValidator) validateChallenge(p *Proof) ([]byte, error) {
 }
 
 // check if the evidence of the challenge is valid or not.
-func (c *ChallengeValidator) validEvidence(p *Proof) bool {
+func (c *ChallengeVerifier) validEvidence(p *Proof) bool {
 	switch p.Rule {
 	case PN:
 		return c.validChallengeOfPN(p)
@@ -212,20 +212,20 @@ func (c *ChallengeValidator) validEvidence(p *Proof) bool {
 	}
 }
 
-// InnocentValidator implemented as a native contract to validate an innocent proof.
-type InnocentValidator struct {
+// InnocentVerifier implemented as a native contract to validate an innocent proof.
+type InnocentVerifier struct {
 	chain *core.BlockChain
 }
 
 // the gas cost to execute this proof validator contract.
-func (c *InnocentValidator) RequiredGas(_ []byte) uint64 {
+func (c *InnocentVerifier) RequiredGas(_ []byte) uint64 {
 	return params.MinimumGas
 }
 
-// InnocentValidator, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
+// InnocentVerifier, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
-func (c *InnocentValidator) Run(input []byte) ([]byte, error) {
+func (c *InnocentVerifier) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
 		return failure64Byte, fmt.Errorf("invalid input")
@@ -240,7 +240,7 @@ func (c *InnocentValidator) Run(input []byte) ([]byte, error) {
 }
 
 // validate if the innocent proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocentValidator) validateInnocentProof(in *Proof) ([]byte, error) {
+func (c *InnocentVerifier) validateInnocentProof(in *Proof) ([]byte, error) {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
@@ -268,7 +268,7 @@ func (c *InnocentValidator) validateInnocentProof(in *Proof) ([]byte, error) {
 	return append(sender, msgHash...), nil
 }
 
-func (c *InnocentValidator) validInnocentProof(p *Proof) bool {
+func (c *InnocentVerifier) validInnocentProof(p *Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
 	case PO:
@@ -285,7 +285,7 @@ func (c *InnocentValidator) validInnocentProof(p *Proof) bool {
 }
 
 // check if the proof of innocent of PO is valid.
-func (c *InnocentValidator) validInnocentProofOfPO(p *Proof) bool {
+func (c *InnocentVerifier) validInnocentProofOfPO(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
 	if proposal.Type() != msgProposal {
@@ -315,7 +315,7 @@ func (c *InnocentValidator) validInnocentProofOfPO(p *Proof) bool {
 }
 
 // check if the proof of innocent of PVN is valid.
-func (c *InnocentValidator) validInnocentProofOfPVN(p *Proof) bool {
+func (c *InnocentVerifier) validInnocentProofOfPVN(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
 	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
@@ -332,7 +332,7 @@ func (c *InnocentValidator) validInnocentProofOfPVN(p *Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentValidator) validInnocentProofOfC(p *Proof) bool {
+func (c *InnocentVerifier) validInnocentProofOfC(p *Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -348,7 +348,7 @@ func (c *InnocentValidator) validInnocentProofOfC(p *Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentValidator) validInnocentProofOfC1(p *Proof) bool {
+func (c *InnocentVerifier) validInnocentProofOfC1(p *Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -408,7 +408,7 @@ func decodeProof(proof []byte) (*Proof, error) {
 // validate proof of challenge for rules.
 // check if the proof of challenge of PN is valid,
 // node propose a new value when there is a proof that it precommit at a different value at previous round.
-func (c *ChallengeValidator) validChallengeOfPN(p *Proof) bool {
+func (c *ChallengeVerifier) validChallengeOfPN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -431,7 +431,7 @@ func (c *ChallengeValidator) validChallengeOfPN(p *Proof) bool {
 }
 
 // check if the proof of challenge of PO is valid
-func (c *ChallengeValidator) validChallengeOfPO(p *Proof) bool {
+func (c *ChallengeVerifier) validChallengeOfPO(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -458,7 +458,7 @@ func (c *ChallengeValidator) validChallengeOfPO(p *Proof) bool {
 }
 
 // check if the proof of challenge of PVN is valid.
-func (c *ChallengeValidator) validChallengeOfPVN(p *Proof) bool {
+func (c *ChallengeVerifier) validChallengeOfPVN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -486,7 +486,7 @@ func (c *ChallengeValidator) validChallengeOfPVN(p *Proof) bool {
 }
 
 // check if the proof of challenge of C is valid.
-func (c *ChallengeValidator) validChallengeOfC(p *Proof) bool {
+func (c *ChallengeVerifier) validChallengeOfC(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}

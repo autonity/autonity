@@ -359,14 +359,14 @@ function resolveAccusation(Accountability.Proof[] memory Proofs) public onlyVali
     }
 
     /**
-    * @dev Dump the on-chain challenges. Called by the afd fault detector to get latest on-chain challenge.
+    * @dev Dump the on-chain challenges. Called by the faultdetector fault detector to get latest on-chain challenge.
     */
     function getChallenges() external view returns (Accountability.Proof[] memory) {
         return challenges;
     }
 
     /**
-    * @dev Dump the on-chain accusations. Called by the afd fault detector to get latest on-chain accusation.
+    * @dev Dump the on-chain accusations. Called by the faultdetector fault detector to get latest on-chain accusation.
     */
     function getAccusations() external view returns (Accountability.Proof[] memory) {
         return accusations;
