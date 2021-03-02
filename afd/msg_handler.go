@@ -173,6 +173,12 @@ func checkProposal(chain *core.BlockChain, m *core2.Message) error {
 
 	err = verifyProposal(chain, *proposal.ProposalBlock)
 	if err != nil {
+		// due to network delay or timing issue, when AFD validate a proposal, that proposal could already be committed on the chain view.
+		// since the msg sender were checked with correct proposer, so we consider to take it as a valid proposal.
+		if err == core.ErrKnownBlock {
+			return nil
+		}
+
 		if err == consensus.ErrFutureBlock {
 			return errFutureMsg
 		} else {
