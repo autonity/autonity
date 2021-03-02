@@ -8,6 +8,7 @@ import (
 )
 
 type ProofType uint64
+
 const (
 	InnocentProof ProofType = iota
 	ChallengeProof
@@ -21,6 +22,7 @@ const (
 )
 
 type Rule uint8
+
 const (
 	PN Rule = iota
 	PO
@@ -29,10 +31,10 @@ const (
 	C
 	C1
 
-	GarbageMessage		// message was signed by valid member, but it cannot be decoded.
-	InvalidProposal     // The value proposed by proposer cannot pass the blockchain's validation.
-	InvalidProposer     // A proposal sent from none proposer nodes of the committee.
-	Equivocation        // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
+	GarbageMessage  // message was signed by valid member, but it cannot be decoded.
+	InvalidProposal // The value proposed by proposer cannot pass the blockchain's validation.
+	InvalidProposer // A proposal sent from none proposer nodes of the committee.
+	Equivocation    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
 	UnknownRule
 )
 
@@ -40,9 +42,9 @@ const (
 // Since precompiled contract take raw bytes as input, so it should be rlp encoded into bytes before client send the
 // proof into autonity contract.
 type RawProof struct {
-	Rule       Rule       // rule id.
-	Message    []byte      // the raw rlp encoded msg to be considered as suspicious one
-	Evidence   [][]byte    // the raw rlp encoded msgs as proof of innocent or misbehavior.
+	Rule     Rule     // rule id.
+	Message  []byte   // the raw rlp encoded msg to be considered as suspicious one
+	Evidence [][]byte // the raw rlp encoded msgs as proof of innocent or misbehavior.
 }
 
 func (p *RawProof) EncodeRLP(w io.Writer) error {
@@ -51,8 +53,8 @@ func (p *RawProof) EncodeRLP(w io.Writer) error {
 
 func (p *RawProof) DecodeRLP(s *rlp.Stream) error {
 	var proof struct {
-		Rule Rule
-		Message []byte
+		Rule     Rule
+		Message  []byte
 		Evidence [][]byte
 	}
 	if err := s.Decode(&proof); err != nil {
@@ -73,5 +75,5 @@ type Proof struct {
 // event to submit proofs via standard transaction.
 type SubmitProofEvent struct {
 	Proofs []autonity.OnChainProof
-	Type ProofType
+	Type   ProofType
 }
