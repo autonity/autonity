@@ -258,6 +258,9 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 
 		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
 		committeeSet, receipt, err := chain.Engine().Finalize(chain, header, state, block.Transactions(), nil, receipts)
+		if err != nil {
+			return err
+		}
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal
 		if err = chain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {

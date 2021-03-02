@@ -340,7 +340,8 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 					break
 				}
 
-			} else {
+			} /*else {
+				todo: missing PVO rules from D3
 				// PVO:   (Mr′<r,PC|pi) ∧ (Mr′≤r′′′<r,PV) ∧ (Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 
 				// PVO1A: [V] ∧ [∗] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil <-- broken we need to see the prevotes for valid round
@@ -351,7 +352,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// the proposal precommitted for a different value V', then the prevote
 				// is considered invalid.
 
-				/* todo: missing rules from D3
+				todo: missing PVO rules from D3
 				precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() &&
 						m.R() < prevote.R() && m.Value() != nilValue
@@ -390,7 +391,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 
 					// We don't have a precommit from the p_i
 					// check that in valid round we have 2f+1 prevotes for V rule passes, otherwise raise an accustion
-				}*/
+				}
 
 				// PVO1B: [∗] ∧ [∗] ∧ [V:r′′=r−1] ∧ [V] <--- [V] -- not needed as it is a special case of PVO1A
 
@@ -398,8 +399,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// If we can see an old proposal for V with valid round vr and
 				// 2f+1 prevotes for the V in round vr, then pi could have also
 				// seen them and hence be able to prevote for the old proposal.
-
-			}
+			} */
 
 			// ------------Precommits------------
 			// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]

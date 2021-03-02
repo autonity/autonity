@@ -248,7 +248,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof, t 
 
 	for i := 0; i < len(*proofs); i++ {
 		present := false
-		for j := 0; j < len(presented); i++ {
+		for j := 0; j < len(presented); j++ {
 			if (*proofs)[i].Msghash == presented[j].Msghash {
 				present = true
 			}
