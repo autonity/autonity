@@ -41,8 +41,8 @@ import (
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
-	RequiredGas(input []byte) uint64     // RequiredPrice calculates the contract gas use
-	Run(input []byte) ([]byte, error)    // Run runs the precompiled contract
+	RequiredGas(input []byte) uint64  // RequiredPrice calculates the contract gas use
+	Run(input []byte) ([]byte, error) // Run runs the precompiled contract
 }
 
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
@@ -167,6 +167,7 @@ func (c *ecrecover) Run(input []byte) ([]byte, error) {
 
 // SHA256 implemented as a native contract.
 type sha256hash struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
 // This method does not require any overflow checking as the input size gas costs
@@ -181,6 +182,7 @@ func (c *sha256hash) Run(input []byte) ([]byte, error) {
 
 // RIPEMD160 implemented as a native contract.
 type ripemd160hash struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
 // This method does not require any overflow checking as the input size gas costs
@@ -196,6 +198,7 @@ func (c *ripemd160hash) Run(input []byte) ([]byte, error) {
 
 // data copy implemented as a native contract.
 type dataCopy struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
 // This method does not require any overflow checking as the input size gas costs
@@ -209,6 +212,7 @@ func (c *dataCopy) Run(in []byte) ([]byte, error) {
 
 // bigModExp implements a native big integer exponential modular operation.
 type bigModExp struct{}
+
 var (
 	big0      = big.NewInt(0)
 	big1      = big.NewInt(1)
@@ -351,6 +355,7 @@ func runBn256Add(input []byte) ([]byte, error) {
 // bn256Add implements a native elliptic curve point addition conforming to
 // Istanbul consensus rules.
 type bn256AddIstanbul struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256AddIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasIstanbul
@@ -363,6 +368,7 @@ func (c *bn256AddIstanbul) Run(input []byte) ([]byte, error) {
 // bn256AddByzantium implements a native elliptic curve point addition
 // conforming to Byzantium consensus rules.
 type bn256AddByzantium struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256AddByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasByzantium
@@ -387,6 +393,7 @@ func runBn256ScalarMul(input []byte) ([]byte, error) {
 // bn256ScalarMulIstanbul implements a native elliptic curve scalar
 // multiplication conforming to Istanbul consensus rules.
 type bn256ScalarMulIstanbul struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256ScalarMulIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasIstanbul
@@ -399,6 +406,7 @@ func (c *bn256ScalarMulIstanbul) Run(input []byte) ([]byte, error) {
 // bn256ScalarMulByzantium implements a native elliptic curve scalar
 // multiplication conforming to Byzantium consensus rules.
 type bn256ScalarMulByzantium struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256ScalarMulByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasByzantium
@@ -453,6 +461,7 @@ func runBn256Pairing(input []byte) ([]byte, error) {
 // bn256PairingIstanbul implements a pairing pre-compile for the bn256 curve
 // conforming to Istanbul consensus rules.
 type bn256PairingIstanbul struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256PairingIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasIstanbul + uint64(len(input)/192)*params.Bn256PairingPerPointGasIstanbul
@@ -465,6 +474,7 @@ func (c *bn256PairingIstanbul) Run(input []byte) ([]byte, error) {
 // bn256PairingByzantium implements a pairing pre-compile for the bn256 curve
 // conforming to Byzantium consensus rules.
 type bn256PairingByzantium struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256PairingByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasByzantium + uint64(len(input)/192)*params.Bn256PairingPerPointGasByzantium
@@ -475,6 +485,7 @@ func (c *bn256PairingByzantium) Run(input []byte) ([]byte, error) {
 }
 
 type blake2F struct{}
+
 func (c *blake2F) RequiredGas(input []byte) uint64 {
 	// If the input is malformed, we can't calculate the gas, return 0 and let the
 	// actual call choke and fault.
@@ -543,6 +554,7 @@ var (
 
 // bls12381G1Add implements EIP-2537 G1Add precompile.
 type bls12381G1Add struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G1Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1AddGas
@@ -580,6 +592,7 @@ func (c *bls12381G1Add) Run(input []byte) ([]byte, error) {
 
 // bls12381G1Mul implements EIP-2537 G1Mul precompile.
 type bls12381G1Mul struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G1Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1MulGas
@@ -615,6 +628,7 @@ func (c *bls12381G1Mul) Run(input []byte) ([]byte, error) {
 
 // bls12381G1MultiExp implements EIP-2537 G1MultiExp precompile.
 type bls12381G1MultiExp struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G1MultiExp) RequiredGas(input []byte) uint64 {
 	// Calculate G1 point, scalar value pair length
@@ -671,6 +685,7 @@ func (c *bls12381G1MultiExp) Run(input []byte) ([]byte, error) {
 
 // bls12381G2Add implements EIP-2537 G2Add precompile.
 type bls12381G2Add struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G2Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2AddGas
@@ -708,6 +723,7 @@ func (c *bls12381G2Add) Run(input []byte) ([]byte, error) {
 
 // bls12381G2Mul implements EIP-2537 G2Mul precompile.
 type bls12381G2Mul struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G2Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2MulGas
@@ -743,6 +759,7 @@ func (c *bls12381G2Mul) Run(input []byte) ([]byte, error) {
 
 // bls12381G2MultiExp implements EIP-2537 G2MultiExp precompile.
 type bls12381G2MultiExp struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G2MultiExp) RequiredGas(input []byte) uint64 {
 	// Calculate G2 point, scalar value pair length
@@ -799,6 +816,7 @@ func (c *bls12381G2MultiExp) Run(input []byte) ([]byte, error) {
 
 // bls12381Pairing implements EIP-2537 Pairing precompile.
 type bls12381Pairing struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381Pairing) RequiredGas(input []byte) uint64 {
 	return params.Bls12381PairingBaseGas + uint64(len(input)/384)*params.Bls12381PairingPerPairGas
@@ -877,6 +895,7 @@ func decodeBLS12381FieldElement(in []byte) ([]byte, error) {
 
 // bls12381MapG1 implements EIP-2537 MapG1 precompile.
 type bls12381MapG1 struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381MapG1) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG1Gas
@@ -911,6 +930,7 @@ func (c *bls12381MapG1) Run(input []byte) ([]byte, error) {
 
 // bls12381MapG2 implements EIP-2537 MapG2 precompile.
 type bls12381MapG2 struct{}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381MapG2) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG2Gas
@@ -952,6 +972,7 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
+
 func (c *checkEnode) RequiredGas(_ []byte) uint64 {
 	return params.MinimumGas
 }

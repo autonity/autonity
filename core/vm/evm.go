@@ -515,4 +515,3 @@ type ChainContext interface {
 	// Engine retrieves the chain's consensus engine.
 	Engine() consensus.Engine
 }
-

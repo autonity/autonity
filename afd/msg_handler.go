@@ -24,7 +24,7 @@ func (fd *FaultDetector) generateOnChainProof(m *core2.Message, proofs []core2.M
 	rawProof.Rule = rule
 	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
 	rawProof.Message = m.Payload()
-	for i:= 0; i < len(proofs); i++ {
+	for i := 0; i < len(proofs); i++ {
 		rawProof.Evidence = append(rawProof.Evidence, proofs[i].Payload())
 	}
 
@@ -91,7 +91,7 @@ func (fd *FaultDetector) processMsg(m *core2.Message) error {
 func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 	for height, msgs := range fd.futureMsgs {
 		if height <= height {
-			for i:= 0; i < len(msgs); i++ {
+			for i := 0; i < len(msgs); i++ {
 				if err := fd.processMsg(msgs[i]); err != nil {
 					fd.logger.Error("process consensus msg", "afd", err)
 					continue
@@ -126,14 +126,14 @@ func checkAutoIncriminatingMsg(chain *core.BlockChain, m *core2.Message) error {
 	return errUnknownMsg
 }
 
-func checkEquivocation(chain *core.BlockChain, m *core2.Message, proof[]core2.Message) error {
+func checkEquivocation(chain *core.BlockChain, m *core2.Message, proof []core2.Message) error {
 	// decode msgs
 	err := checkAutoIncriminatingMsg(chain, m)
 	if err != nil {
 		return err
 	}
 
-	for i:= 0; i < len(proof); i++ {
+	for i := 0; i < len(proof); i++ {
 		err := checkAutoIncriminatingMsg(chain, &proof[i])
 		if err != nil {
 			return err
@@ -197,7 +197,7 @@ func checkMsgSignature(chain *core.BlockChain, m *core2.Message) error {
 	}
 
 	header := chain.CurrentHeader()
-	if msgHeight.Uint64() > header.Number.Uint64() + 1 {
+	if msgHeight.Uint64() > header.Number.Uint64()+1 {
 		return errFutureMsg
 	}
 
@@ -219,10 +219,10 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 	if err == nil || err == types.ErrEmptyCommittedSeals {
 		var (
 			receipts types.Receipts
-			usedGas        = new(uint64)
-			gp             = new(core.GasPool).AddGas(block.GasLimit())
-			header         = block.Header()
-			parent         = chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+			usedGas  = new(uint64)
+			gp       = new(core.GasPool).AddGas(block.GasLimit())
+			header   = block.Header()
+			parent   = chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 		)
 
 		// We need to process all of the transaction to get the latest state to get the latest committee
@@ -242,8 +242,8 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 			state.Prepare(tx.Hash(), block.Hash(), i)
 			vmConfig := vm.Config{
 				EnablePreimageRecording: true,
-				EWASMInterpreter: "",
-				EVMInterpreter: "",
+				EWASMInterpreter:        "",
+				EVMInterpreter:          "",
 			}
 			receipt, receiptErr := core.ApplyTransaction(chain.Config(), chain, nil, gp, state, header, tx, usedGas, vmConfig)
 			if receiptErr != nil {
@@ -290,7 +290,7 @@ func isProposerMsg(chain *core.BlockChain, m *core2.Message) bool {
 }
 
 func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
-	parentHeader := chain.GetHeaderByNumber(h-1)
+	parentHeader := chain.GetHeaderByNumber(h - 1)
 	if parentHeader.IsGenesis() {
 		sort.Sort(parentHeader.Committee)
 		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
