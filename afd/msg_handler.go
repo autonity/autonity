@@ -202,6 +202,9 @@ func checkMsgSignature(chain *core.BlockChain, m *core2.Message) error {
 	}
 
 	lastHeader := chain.GetHeaderByNumber(msgHeight.Uint64() - 1)
+	if lastHeader == nil {
+		return errFutureMsg
+	}
 
 	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return errNotCommitteeMsg
