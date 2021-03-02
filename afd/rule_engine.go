@@ -248,9 +248,7 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 		// hence it should have set that round as the valid round.
 		precommits = fd.msgStore.Get(height, func(m *core.Message) bool {
 			return m.Type() == msgPrecommit &&
-				m.R() > validRound && m.R() < proposal.R() &&
-				m.Sender() == proposal.Sender() &&
-				m.Value() != nilValue
+				m.R() > validRound && m.R() < proposal.R() && m.Sender() == proposal.Sender() && m.Value() != nilValue // nolint: scopelint
 		})
 		if len(precommits) > 0 {
 			proof := Proof{
@@ -350,7 +348,6 @@ func (fd *FaultDetector) runRules(height uint64) (proofs []Proof, accusations []
 				// the proposal precommitted for a different value V', then the prevote
 				// is considered invalid.
 
-				todo: missing PVO rules from D3
 				precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
 					return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() &&
 						m.R() < prevote.R() && m.Value() != nilValue
