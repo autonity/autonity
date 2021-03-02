@@ -30,7 +30,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			counter := big.NewInt(i).Bytes()
 			msg := makeMsg(core.TendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
+			if _, err := backend.HandleMsg(addr, msg); err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
 		}
@@ -76,7 +76,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			counter := big.NewInt(i).Bytes()
 			msg := makeMsg(core.TendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
+			if _, err := backend.HandleMsg(addr, msg); err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
 		}
