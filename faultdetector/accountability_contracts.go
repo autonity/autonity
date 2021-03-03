@@ -75,7 +75,7 @@ type AccusationVerifier struct {
 
 // the gas cost to execute AccusationVerifier contract.
 func (a *AccusationVerifier) RequiredGas(_ []byte) uint64 {
-	return params.MinimumGas
+	return params.AutonityPrecompiledContractGas
 }
 
 // take the rlp encoded proof of accusation in byte array, decode it and validate it, if the proof is validate, then
@@ -140,7 +140,7 @@ type ChallengeVerifier struct {
 
 // the gas cost to execute ChallengeVerifier contract.
 func (c *ChallengeVerifier) RequiredGas(_ []byte) uint64 {
-	return params.MinimumGas
+	return params.AutonityPrecompiledContractGas
 }
 
 // take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
@@ -219,7 +219,7 @@ type InnocentVerifier struct {
 
 // the gas cost to execute this proof validator contract.
 func (c *InnocentVerifier) RequiredGas(_ []byte) uint64 {
-	return params.MinimumGas
+	return params.AutonityPrecompiledContractGas
 }
 
 // InnocentVerifier, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
