@@ -242,7 +242,7 @@ func (fd *FaultDetector) sendProofs(t ProofType, proofs []autonity.OnChainProof)
 			}
 		}
 
-		if t == AccusationProof {
+		if t == Accusation {
 			fd.randomDelay()
 			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
@@ -263,7 +263,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof, t 
 	}
 	header := fd.blockchain.CurrentBlock().Header()
 
-	if t == AccusationProof {
+	if t == Accusation {
 		presented = fd.blockchain.GetAutonityContract().GetAccusations(header, state)
 	}
 

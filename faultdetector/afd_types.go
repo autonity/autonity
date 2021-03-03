@@ -12,7 +12,7 @@ type ProofType uint64
 const (
 	InnocenceProof ProofType = iota
 	ProofOfMisbehaviour
-	AccusationProof
+	Accusation
 )
 
 const (
