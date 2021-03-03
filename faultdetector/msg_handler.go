@@ -52,7 +52,7 @@ func (fd *FaultDetector) submitMisbehavior(m *core2.Message, proofs []core2.Mess
 	}
 	ps := []autonity.OnChainProof{proof}
 
-	fd.sendProofs(ChallengeProof, ps)
+	fd.sendProofs(ProofOfMisbehaviour, ps)
 }
 
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
