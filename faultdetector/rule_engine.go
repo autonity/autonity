@@ -34,7 +34,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64, quorum uint64) {
 			}
 			onChainProofs = append(onChainProofs, p)
 		}
-		fd.sendProofs(ChallengeProof, onChainProofs)
+		fd.sendProofs(ProofOfMisbehaviour, onChainProofs)
 	}
 
 	if len(accusations) > 0 {
