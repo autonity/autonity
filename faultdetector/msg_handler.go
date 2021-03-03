@@ -28,7 +28,7 @@ func (fd *FaultDetector) generateOnChainProof(m *core2.Message, proofs []core2.M
 		rawProof.Evidence = append(rawProof.Evidence, proofs[i].Payload())
 	}
 
-	rp, err := rlp.EncodeToBytes(rawProof)
+	rp, err := rlp.EncodeToBytes(&rawProof)
 	if err != nil {
 		fd.logger.Warn("fail to rlp encode raw proof", "faultdetector", err)
 		return challenge, err
