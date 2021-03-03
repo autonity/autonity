@@ -94,7 +94,7 @@ type Ethereum struct {
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
 
-	afdCh         chan faultdetector.SubmitProofEvent
+	afdCh         chan faultdetector.AccountabilityEvent
 	afdSub        event.Subscription
 	faultDetector *faultdetector.FaultDetector
 	defaultKey    *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
@@ -171,7 +171,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		glienickeCh:       make(chan core.WhitelistEvent),
-		afdCh:             make(chan faultdetector.SubmitProofEvent),
+		afdCh:             make(chan faultdetector.AccountabilityEvent),
 		p2pServer:         stack.Server(),
 	}
 

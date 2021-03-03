@@ -73,7 +73,7 @@ type Proof struct {
 }
 
 // event to submit proofs via standard transaction.
-type SubmitProofEvent struct {
+type AccountabilityEvent struct {
 	Proofs []autonity.OnChainProof
 	Type   ProofType
 }

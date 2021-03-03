@@ -185,7 +185,7 @@ func (fd *FaultDetector) Stop() {
 }
 
 // call by ethereum object to subscribe proofs Events.
-func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- SubmitProofEvent) event.Subscription {
+func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event.Subscription {
 	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
 }
 
@@ -231,14 +231,14 @@ func (fd *FaultDetector) sendProofs(t ProofType, proofs []autonity.OnChainProof)
 	go func() {
 		defer fd.wg.Done()
 		if t == InnocenceProof {
-			fd.afdFeed.Send(SubmitProofEvent{Proofs: proofs, Type: t})
+			fd.afdFeed.Send(AccountabilityEvent{Proofs: proofs, Type: t})
 		}
 
 		if t == ProofOfMisbehaviour {
 			fd.randomDelay()
 			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
-				fd.afdFeed.Send(SubmitProofEvent{Proofs: unPresented, Type: t})
+				fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented, Type: t})
 			}
 		}
 
@@ -246,7 +246,7 @@ func (fd *FaultDetector) sendProofs(t ProofType, proofs []autonity.OnChainProof)
 			fd.randomDelay()
 			unPresented := fd.filterPresentedOnes(&proofs, t)
 			if len(unPresented) != 0 {
-				fd.afdFeed.Send(SubmitProofEvent{Proofs: unPresented, Type: t})
+				fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented, Type: t})
 			}
 		}
 
