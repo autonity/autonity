@@ -18,8 +18,6 @@ package vm
 
 import (
 	"errors"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -508,12 +506,3 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
-
-// ChainContext supports retrieving headers and consensus parameters from the
-// current blockchain to be used during transaction processing.
-type ChainContext interface {
-	// GetHeader returns the hash corresponding to their hash.
-	GetHeader(common.Hash, uint64) *types.Header
-	// Engine retrieves the chain's consensus engine.
-	Engine() consensus.Engine
-}
