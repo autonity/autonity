@@ -9,7 +9,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 )
 
-func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.SubmitProofEvent) {
+func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.AccountabilityEvent) {
 	var method string
 	if ev.Type == faultdetector.InnocenceProof {
 		method = "resolveAccusation"
