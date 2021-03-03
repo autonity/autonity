@@ -1,6 +1,7 @@
 package eth
 
 import (
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -36,11 +37,11 @@ func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.SubmitProofEv
 	log.Debug("Generate accountability transaction", "hash", tx.Hash())
 }
 
-func (s *Ethereum) generateAccountabilityTX(method string, params ...interface{}) (*types.Transaction, error) {
+func (s *Ethereum) generateAccountabilityTX(method string, proofs[]autonity.OnChainProof) (*types.Transaction, error) {
 	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.defaultKey.PublicKey))
 	to := s.BlockChain().GetAutonityContract().Address()
 	abi := s.BlockChain().GetAutonityContract().ABI()
-	packedData, err := abi.Pack(method, params)
+	packedData, err := abi.Pack(method, proofs)
 	if err != nil {
 		return nil, err
 	}
