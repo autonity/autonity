@@ -3,8 +3,9 @@ package faultdetector
 import (
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
-	core2 "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -60,7 +61,7 @@ type FaultDetector struct {
 	msgStore *MsgStore
 
 	// future height msg buffer
-	futureMsgs map[uint64][]*core2.Message
+	futureMsgs map[uint64][]*tendermintCore.Message
 
 	// buffer quorum for blocks.
 	totalPowers map[uint64]uint64
@@ -77,7 +78,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		msgStore:         newMsgStore(),
 		logger:           logger,
 		tendermintMsgMux: event.NewTypeMuxSilent(logger),
-		futureMsgs:       make(map[uint64][]*core2.Message),
+		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
 		totalPowers:      make(map[uint64]uint64),
 	}
 
@@ -143,7 +144,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			}
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg := new(core2.Message)
+				msg := new(tendermintCore.Message)
 				if err := msg.FromPayload(e.Payload); err != nil {
 					fd.logger.Error("invalid payload", "faultdetector", err)
 					continue
@@ -162,7 +163,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 
 // HandleMsg is called by p2p protocol manager to deliver the consensus msg to faultdetector.
 func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
-	if msg.Code != core2.TendermintMsg {
+	if msg.Code != tendermintBackend.TendermintMsg {
 		return
 	}
 

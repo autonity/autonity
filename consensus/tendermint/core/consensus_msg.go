@@ -27,12 +27,6 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-const (
-	MaxRound          = 99 // consequence of backlog priority
-	TendermintMsg     = 0x11
-	TendermintSyncMsg = 0x12
-)
-
 type ConsensusMsg interface {
 	GetRound() int64
 	GetHeight() *big.Int

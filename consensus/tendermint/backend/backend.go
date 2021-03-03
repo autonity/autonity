@@ -172,7 +172,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 				break
 			}
 			sb.logger.Info("Asking sync to", "addr", addr)
-			go p.Send(tendermintCore.TendermintSyncMsg, []byte{}) //nolint
+			go p.Send(TendermintSyncMsg, []byte{}) //nolint
 
 			member := header.CommitteeMember(addr)
 			if member == nil {
@@ -214,7 +214,7 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(tendermintCore.TendermintMsg, payload) //nolint
+			go p.Send(TendermintMsg, payload) //nolint
 		}
 	}
 }
@@ -453,7 +453,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(tendermintCore.TendermintMsg, msg.Payload()) //nolint
+		go p.Send(TendermintMsg, msg.Payload()) //nolint
 	}
 }
 
