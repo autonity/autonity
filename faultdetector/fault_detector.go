@@ -214,7 +214,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	}
 
 	// send proofs via standard transaction.
-	fd.sendProofs(InnocentProof, innocentProofs)
+	fd.sendProofs(InnocenceProof, innocentProofs)
 	return nil
 }
 
@@ -230,7 +230,7 @@ func (fd *FaultDetector) sendProofs(t ProofType, proofs []autonity.OnChainProof)
 	fd.wg.Add(1)
 	go func() {
 		defer fd.wg.Done()
-		if t == InnocentProof {
+		if t == InnocenceProof {
 			fd.afdFeed.Send(SubmitProofEvent{Proofs: proofs, Type: t})
 		}
 
