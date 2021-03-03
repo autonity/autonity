@@ -10,7 +10,7 @@ import (
 type ProofType uint64
 
 const (
-	InnocentProof ProofType = iota
+	InnocenceProof ProofType = iota
 	ChallengeProof
 	AccusationProof
 )
