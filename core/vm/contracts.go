@@ -977,7 +977,7 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 type checkEnode struct{}
 
 func (c *checkEnode) RequiredGas(_ []byte) uint64 {
-	return params.MinimumGas
+	return params.AutonityPrecompiledContractGas
 }
 func (c *checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
