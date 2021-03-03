@@ -11,7 +11,7 @@ import (
 
 func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.SubmitProofEvent) {
 	var method string
-	if ev.Type == faultdetector.InnocentProof {
+	if ev.Type == faultdetector.InnocenceProof {
 		method = "resolveAccusation"
 	}
 
@@ -37,7 +37,7 @@ func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.SubmitProofEv
 	log.Debug("Generate accountability transaction", "hash", tx.Hash())
 }
 
-func (s *Ethereum) generateAccountabilityTX(method string, proofs[]autonity.OnChainProof) (*types.Transaction, error) {
+func (s *Ethereum) generateAccountabilityTX(method string, proofs []autonity.OnChainProof) (*types.Transaction, error) {
 	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.defaultKey.PublicKey))
 	to := s.BlockChain().GetAutonityContract().Address()
 	abi := s.BlockChain().GetAutonityContract().ABI()
