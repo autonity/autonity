@@ -176,7 +176,7 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 	}
 	sub.Round = int64(vote.Round)
 	if sub.Round > MaxRound {
-		return errors.New("invalid message")
+		return errInvalidMessage
 	}
 	sub.Height = vote.Height
 	sub.ProposedBlockHash = vote.ProposedBlockHash
