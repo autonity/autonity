@@ -15,7 +15,7 @@ func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.SubmitProofEv
 		method = "resolveAccusation"
 	}
 
-	if ev.Type == faultdetector.ChallengeProof {
+	if ev.Type == faultdetector.ProofOfMisbehaviour {
 		method = "addChallenge"
 	}
 

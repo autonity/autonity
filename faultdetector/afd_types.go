@@ -11,7 +11,7 @@ type ProofType uint64
 
 const (
 	InnocenceProof ProofType = iota
-	ChallengeProof
+	ProofOfMisbehaviour
 	AccusationProof
 )
 
