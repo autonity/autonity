@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	core2 "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/faultdetector"
 	"math"
 	"math/big"
@@ -492,7 +492,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	defer msg.Discard()
 	// Handle the message depending on its contents
 	switch {
-	case msg.Code == core2.TendermintMsg:
+	case msg.Code == tendermintBackend.TendermintMsg:
 		handler, ok := pm.engine.(consensus.Handler)
 		if !ok {
 			return fmt.Errorf("handle tendermint msg without tendermint handler")
@@ -515,7 +515,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		return err
-	case msg.Code == core2.TendermintSyncMsg:
+	case msg.Code == tendermintBackend.TendermintSyncMsg:
 		handler, ok := pm.engine.(consensus.Handler)
 		if !ok {
 			return fmt.Errorf("handle tendermint msg without tendermint handler")

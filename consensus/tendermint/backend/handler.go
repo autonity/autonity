@@ -22,12 +22,16 @@ import (
 	"errors"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/hashicorp/golang-lru"
 	"io"
+)
+
+const (
+	TendermintMsg     = 0x11
+	TendermintSyncMsg = 0x12
 )
 
 type UnhandledMsg struct {
@@ -67,7 +71,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) ([]byte, error) {
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 
-	if msg.Code == core.TendermintSyncMsg {
+	if msg.Code == TendermintSyncMsg {
 		if !sb.coreStarted {
 			sb.logger.Info("Sync message received but core not running")
 			// we return nil as we don't want to shutdown the connection if core is stopped
@@ -77,7 +81,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) ([]byte, error) {
 		sb.postEvent(events.SyncEvent{Addr: addr})
 	}
 
-	if msg.Code == core.TendermintMsg {
+	if msg.Code == TendermintMsg {
 
 		b := new(bytes.Buffer)
 		if _, err := io.Copy(b, msg.Payload); err != nil {

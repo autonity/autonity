@@ -71,6 +71,10 @@ var (
 	errMovedToNewRound = errors.New("timer expired and new round started")
 )
 
+const (
+	MaxRound = 99 // consequence of backlog priority
+)
+
 // New creates an Tendermint consensus core
 func New(backend Backend, config *config.Config) *core {
 	addr := backend.Address()

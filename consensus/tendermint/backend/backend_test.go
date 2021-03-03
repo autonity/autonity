@@ -58,7 +58,7 @@ func TestAskSync(t *testing.T) {
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(uint64(tendermintCore.TendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(uint64(TendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -110,7 +110,7 @@ func TestGossip(t *testing.T) {
 		} else {
 			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == uint64(tendermintCore.TendermintMsg) && reflect.DeepEqual(data, payload) {
+				if msgCode == uint64(TendermintMsg) && reflect.DeepEqual(data, payload) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
@@ -409,7 +409,7 @@ func TestSyncPeer(t *testing.T) {
 		payload := messages[0].Payload()
 
 		peer1Mock := consensus.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().Send(uint64(tendermintCore.TendermintMsg), payload)
+		peer1Mock.EXPECT().Send(uint64(TendermintMsg), payload)
 
 		peers := make(map[common.Address]consensus.Peer)
 		peers[peerAddr1] = peer1Mock
