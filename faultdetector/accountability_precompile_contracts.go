@@ -125,6 +125,9 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) ([]byte, error) {
 	}
 
 	lastHeader := a.chain.GetHeaderByNumber(h.Uint64() - 1)
+	if lastHeader == nil {
+		return failure64Byte, fmt.Errorf("cannot find previous header")
+	}
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return failure64Byte, err
 	}
@@ -175,6 +178,9 @@ func (c *ChallengeVerifier) validateChallenge(p *Proof) ([]byte, error) {
 		return failure64Byte, err
 	}
 	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
+	if lastHeader == nil {
+		return failure64Byte, fmt.Errorf("cannot find previous header")
+	}
 
 	for i := 0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
@@ -251,6 +257,10 @@ func (c *InnocentVerifier) validateInnocentProof(in *Proof) ([]byte, error) {
 	}
 
 	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
+	if lastHeader == nil {
+		return failure64Byte, fmt.Errorf("cannot find previous header")
+	}
+
 	// validate message.
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return failure64Byte, err
