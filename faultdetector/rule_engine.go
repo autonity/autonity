@@ -23,31 +23,18 @@ func powerOfVotes(votes []core.Message) uint64 {
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
 func (fd *FaultDetector) runRuleEngine(height uint64, quorum uint64) {
 	// todo: to merge the two TXs into one.
-	proofs, accusations := fd.runRules(height, quorum)
+	proofs := fd.runRules(height, quorum)
 	if len(proofs) > 0 {
 		var onChainProofs []autonity.OnChainProof
 		for i := 0; i < len(proofs); i++ {
-			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule)
+			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
 			if err != nil {
 				fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
 				continue
 			}
 			onChainProofs = append(onChainProofs, p)
 		}
-		fd.sendProofs(ProofOfMisbehaviour, onChainProofs)
-	}
-
-	if len(accusations) > 0 {
-		var onChainProofs []autonity.OnChainProof
-		for i := 0; i < len(accusations); i++ {
-			p, err := fd.generateOnChainProof(&accusations[i].Message, accusations[i].Evidence, accusations[i].Rule)
-			if err != nil {
-				fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
-				continue
-			}
-			onChainProofs = append(onChainProofs, p)
-		}
-		fd.sendProofs(Accusation, onChainProofs)
+		fd.sendProofs(true, onChainProofs)
 	}
 }
 
@@ -89,7 +76,7 @@ func (fd *FaultDetector) GetInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 		return proof, fmt.Errorf("node is malicious")
 	}
 
-	p, err := fd.generateOnChainProof(&proposal, prevotes, c.Rule)
+	p, err := fd.generateOnChainProof(&proposal, prevotes, c.Rule, Innocence)
 	if err != nil {
 		return p, err
 	}
@@ -115,7 +102,7 @@ func (fd *FaultDetector) GetInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 		return proof, fmt.Errorf("node is malicious")
 	}
 
-	p, err := fd.generateOnChainProof(&prevote, correspondingProposals, c.Rule)
+	p, err := fd.generateOnChainProof(&prevote, correspondingProposals, c.Rule, Innocence)
 	if err != nil {
 		return p, nil
 	}
@@ -138,7 +125,7 @@ func (fd *FaultDetector) GetInnocentProofOfC(c *Proof) (autonity.OnChainProof, e
 		// time window for proof ends.
 		return proof, fmt.Errorf("node is malicious")
 	}
-	p, err := fd.generateOnChainProof(&preCommit, proposals, c.Rule)
+	p, err := fd.generateOnChainProof(&preCommit, proposals, c.Rule, Innocence)
 	if err != nil {
 		return p, err
 	}
@@ -162,7 +149,7 @@ func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 		return proof, fmt.Errorf("node might be malicious")
 	}
 
-	p, err := fd.generateOnChainProof(&preCommit, prevotesForV, c.Rule)
+	p, err := fd.generateOnChainProof(&preCommit, prevotesForV, c.Rule, Innocence)
 	if err != nil {
 		return p, err
 	}
@@ -170,7 +157,7 @@ func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 	return p, nil
 }
 
-func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof, accusations []Proof) {
+func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
@@ -185,7 +172,6 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 
 	// We should be here at time t = timestamp(h+1) + delta
 
-	//var accusations []*types.Accusation
 	// ------------New Proposal------------
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
@@ -201,6 +187,7 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 		})
 		if len(precommits) != 0 {
 			proof := Proof{
+				Type:     Misbehaviour,
 				Rule:     PN,
 				Evidence: precommits,
 				Message:  proposal,
@@ -233,6 +220,7 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 		})
 		if len(precommits) > 0 {
 			proof := Proof{
+				Type:     Misbehaviour,
 				Rule:     PO,
 				Evidence: precommits,
 				Message:  proposal,
@@ -250,6 +238,7 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 		})
 		if len(precommits) > 0 {
 			proof := Proof{
+				Type:     Misbehaviour,
 				Rule:     PO,
 				Evidence: precommits,
 				Message:  proposal,
@@ -266,10 +255,11 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 
 		if powerOfVotes(prevotes) < quorum {
 			accusation := Proof{
+				Type:    Accusation,
 				Rule:    PO,
 				Message: proposal,
 			}
-			accusations = append(accusations, accusation)
+			proofs = append(proofs, accusation)
 		}
 	}
 
@@ -286,11 +276,12 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 
 		if len(correspondingProposals) == 0 {
 			accusation := Proof{
+				Type: Accusation,
 				Rule: PVN, //This could be PVO as well, however, we can't decide since there are no corresponding
 				// proposal
 				Message: prevote,
 			}
-			accusations = append(accusations, accusation)
+			proofs = append(proofs, accusation)
 		}
 
 		// We need to ensure that we keep all proposals in the message store, so that we have the maximum chance of
@@ -325,6 +316,7 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 
 				if len(precommits) > 0 {
 					proof := Proof{
+						Type: Misbehaviour,
 						Rule: PVN,
 						// add corresponding proposal at last slot, as the part of evidence to be validated at precompiled contract.
 						Evidence: append(precommits, correspondingProposal),
@@ -409,10 +401,11 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 
 				if len(proposals) == 0 {
 					accusation := Proof{
+						Type:    Accusation,
 						Rule:    C,
 						Message: precommit,
 					}
-					accusations = append(accusations, accusation)
+					proofs = append(proofs, accusation)
 					continue
 				}
 
@@ -427,6 +420,7 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 					// In this case there cannot be enough remaining prevotes
 					// to justify a precommit for V.
 					proof := Proof{
+						Type:     Misbehaviour,
 						Rule:     C,
 						Evidence: prevotesForNotV,
 						Message:  precommit,
@@ -437,15 +431,16 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof,
 					// In this case we simply don't see enough prevotes to
 					// justify the precommit.
 					accusation := Proof{
+						Type:    Accusation,
 						Rule:    C1,
 						Message: precommit,
 					}
-					accusations = append(accusations, accusation)
+					proofs = append(proofs, accusation)
 				}
 			}
 		}
 	}
-	return proofs, accusations
+	return proofs
 }
 
 func errorToRule(err error) (Rule, error) {

@@ -10,20 +10,8 @@ import (
 )
 
 func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.AccountabilityEvent) {
-	var method string
-	if ev.Type == faultdetector.InnocenceProof {
-		method = "resolveAccusation"
-	}
 
-	if ev.Type == faultdetector.ProofOfMisbehaviour {
-		method = "addChallenge"
-	}
-
-	if ev.Type == faultdetector.Accusation {
-		method = "addAccusation"
-	}
-
-	tx, err := s.generateAccountabilityTX(method, ev.Proofs)
+	tx, err := s.generateAccountabilityTX("handleProofs", ev.Proofs)
 	if err != nil {
 		log.Error("Could not generate accountability transaction", "err", err)
 		return
