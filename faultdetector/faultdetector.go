@@ -13,6 +13,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"math/big"
 	"math/rand"
 	"sync"
 	"time"
@@ -215,7 +216,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	}
 
 	// send proofs via standard transaction.
-	fd.sendProofs(InnocenceProof, innocentProofs)
+	fd.sendProofs(false, innocentProofs)
 	return nil
 }
 
@@ -227,58 +228,52 @@ func (fd *FaultDetector) randomDelay() {
 }
 
 // send proofs via event which will handled by ethereum object to signed the TX to send proof.
-func (fd *FaultDetector) sendProofs(t ProofType, proofs []autonity.OnChainProof) {
+func (fd *FaultDetector) sendProofs(withDelay bool, proofs []autonity.OnChainProof) {
 	fd.wg.Add(1)
 	go func() {
 		defer fd.wg.Done()
-		if t == InnocenceProof {
-			fd.afdFeed.Send(AccountabilityEvent{Proofs: proofs, Type: t})
+		if !withDelay {
+			fd.afdFeed.Send(AccountabilityEvent{Proofs: proofs})
 		}
 
-		if t == ProofOfMisbehaviour {
+		if withDelay {
 			fd.randomDelay()
-			unPresented := fd.filterPresentedOnes(&proofs, t)
+			unPresented := fd.filterPresentedOnes(&proofs)
 			if len(unPresented) != 0 {
-				fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented, Type: t})
+				fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented})
 			}
 		}
-
-		if t == Accusation {
-			fd.randomDelay()
-			unPresented := fd.filterPresentedOnes(&proofs, t)
-			if len(unPresented) != 0 {
-				fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented, Type: t})
-			}
-		}
-
 	}()
 }
 
-func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof, t ProofType) []autonity.OnChainProof {
+func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []autonity.OnChainProof {
 	// get latest chain state.
 	var result []autonity.OnChainProof
-	var presented []autonity.OnChainProof
 	state, err := fd.blockchain.State()
 	if err != nil {
 		return nil
 	}
 	header := fd.blockchain.CurrentBlock().Header()
 
-	if t == Accusation {
-		presented = fd.blockchain.GetAutonityContract().GetAccusations(header, state)
-	}
-
-	if t == ProofOfMisbehaviour {
-		presented = fd.blockchain.GetAutonityContract().GetChallenges(header, state)
-	}
+	presentedAccusation := fd.blockchain.GetAutonityContract().GetAccusations(header, state)
+	presentedMisbehavior := fd.blockchain.GetAutonityContract().GetChallenges(header, state)
 
 	for i := 0; i < len(*proofs); i++ {
 		present := false
-		for j := 0; j < len(presented); j++ {
-			if (*proofs)[i].Msghash == presented[j].Msghash {
+		for j := 0; j < len(presentedAccusation); j++ {
+		    if (*proofs)[i].Msghash == presentedAccusation[j].Msghash &&
+		        (*proofs)[i].Type.Cmp(new(big.Int).SetUint64(uint64(Accusation))) == 0 {
 				present = true
 			}
 		}
+
+		for j := 0; j < len(presentedMisbehavior); j++ {
+			if (*proofs)[i].Msghash == presentedMisbehavior[j].Msghash &&
+				(*proofs)[i].Type.Cmp(new(big.Int).SetUint64(uint64(Misbehaviour))) == 0 {
+				present = true
+			}
+		}
+
 		if !present {
 			result = append(result, (*proofs)[i])
 		}
