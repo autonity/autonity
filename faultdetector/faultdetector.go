@@ -121,7 +121,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			fd.savePower(ev.Block.Number().Uint64(), ev.Block.Header().TotalVotingPower())
 
 			// take my accusations from latest state DB, and provide innocent proof if there are any.
-			err := fd.handleAccusations(ev.Block, ev.Hash)
+			err := fd.handleAccusations(ev.Block, ev.Block.Root())
 			if err != nil {
 				fd.logger.Warn("handle challenge", "faultdetector", err)
 			}
