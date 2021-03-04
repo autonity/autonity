@@ -123,8 +123,8 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) ([]byte, error) {
 		return failure64Byte, err
 	}
 
-	header := a.chain.GetHeaderByNumber(h.Uint64())
-	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
+	lastHeader := a.chain.GetHeaderByNumber(h.Uint64() - 1)
+	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return failure64Byte, err
 	}
 
@@ -172,10 +172,10 @@ func (c *ChallengeVerifier) validateChallenge(p *Proof) ([]byte, error) {
 	if err != nil {
 		return failure64Byte, err
 	}
-	header := c.chain.GetHeaderByNumber(h.Uint64())
+	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
 
 	for i := 0; i < len(p.Evidence); i++ {
-		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
+		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 			return failure64Byte, err
 		}
 	}
@@ -247,14 +247,14 @@ func (c *InnocentVerifier) validateInnocentProof(in *Proof) ([]byte, error) {
 		return failure64Byte, err
 	}
 
-	header := c.chain.GetHeaderByNumber(h.Uint64())
+	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
 	// validate message.
-	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, header); err != nil {
+	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return failure64Byte, err
 	}
 
 	for i := 0; i < len(in.Evidence); i++ {
-		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, header); err != nil {
+		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 			return failure64Byte, err
 		}
 	}
