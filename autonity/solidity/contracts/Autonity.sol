@@ -5,7 +5,6 @@ pragma experimental ABIEncoderV2;
 import "./interfaces/IERC20.sol";
 import "./SafeMath.sol";
 import "./Precompiled.sol";
-import "./Accountability.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20 {
@@ -32,9 +31,18 @@ contract Autonity is IERC20 {
         uint256 stakesupply;
     }
 
+    enum ProofType { Misbehavior, Accusation, Innocence}
+    struct Proof {
+        uint256 t; // proof type: Misbehavior, Accusation, Innocence
+        address sender;
+        bytes32 msghash;
+        // the rlp encoded Proof. Please check afd_types.go type RaWProof struct.
+        bytes rawproof;
+    }
+
     /* State data that needs to be dumped in-case of a contract upgrade. */
-    Accountability.Proof[] public challenges;
-    Accountability.Proof[] public accusations;
+    Proof[] private challenges;
+    Proof[] private accusations;
     address[] private usersList;
     string[] private enodesWhitelist;
     mapping (address => User) private users;
@@ -74,9 +82,9 @@ contract Autonity is IERC20 {
     event MintedStake(address _address, uint256 _amount);
     event BurnedStake(address _address, uint256 _amount);
     event Rewarded(address _address, uint256 _amount);
-    event ChallengeAdded(Accountability.Proof proof);
-    event AccusationAdded(Accountability.Proof proof);
-    event AccusationRemoved(Accountability.Proof proof);
+    event ChallengeAdded(Proof proof);
+    event AccusationAdded(Proof proof);
+    event AccusationRemoved(Proof proof);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -146,65 +154,54 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @notice Create accountability challenges in the Autonity Contract with the specified role. Restricted to the validator account.
+    * @notice handle accountability proofs in the Autonity Contract with the specified role. Restricted to the validator account.
     */
-    function addChallenge(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
+    function handleProofs(Proof[] memory Proofs) public onlyValidator(msg.sender) {
         for (uint256 i = 0; i < Proofs.length; i++) {
+            if (ProofType(Proofs[i].t) == ProofType.Misbehavior) {
+                if (_isChallengeExists(Proofs[i]) == true) {
+                    continue;
+                }
 
-            if (_isChallengeExists(Proofs[i]) == true) {
-                continue;
+                (address addr, bytes32 msgHash) = Precompiled.checkChallenge(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
+                    // todo: take governance action that msg.sender sent faulty challenge.
+                    continue;
+                }
+                // challenge is valid, take slashing actions.
+                challenges.push(Proofs[i]);
+                emit ChallengeAdded(Proofs[i]);
+                // todo: add slashing logic once challenge is valid.
             }
 
-            (address addr, bytes32 msgHash) = Accountability.checkChallenge(Proofs[i].rawproof);
-            if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
-                // todo: take governance action that msg.sender sent faulty challenge.
-                continue;
-            }
-            // challenge is valid, take slashing actions.
-            challenges.push(Proofs[i]);
-            emit ChallengeAdded(Proofs[i]);
-            // todo: add slashing logic once challenge is valid.
-        }
-    }
+            if (ProofType(Proofs[i].t) == ProofType.Accusation) {
+                if (_isAccusationExists(Proofs[i]) == true) {
+                    continue;
+                }
 
-    /**
-    * @notice Create accountability accusations in the Autonity Contract with the specified role. Restricted to the validator account.
-    */
-    function addAccusation(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
-        for (uint256 i = 0; i < Proofs.length; i++) {
-
-            if (_isAccusationExists(Proofs[i]) == true) {
-                continue;
+                (address addr, bytes32 msgHash) = Precompiled.checkAccusation(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
+                    // todo: take governance action that msg.sender sent faulty accusation.
+                    continue;
+                }
+                // accusation is valid, add to storage, node should provide innocent proof after this.
+                accusations.push(Proofs[i]);
+                emit AccusationAdded(Proofs[i]);
             }
 
-            (address addr, bytes32 msgHash) = Accountability.checkAccusation(Proofs[i].rawproof);
-            if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
-                // todo: take governance action that msg.sender sent faulty accusation.
-                continue;
-            }
-            // accusation is valid, add to storage, node should provide innocent proof after this.
-            accusations.push(Proofs[i]);
-            emit AccusationAdded(Proofs[i]);
-        }
-    }
+            if (ProofType(Proofs[i].t) == ProofType.Innocence) {
+                if (_isAccusationExists(Proofs[i]) == false) {
+                    continue;
+                }
 
-/**
-* @notice Resolve an accusation in the Autonity Contract with the specified role. Restricted to the validator account.
-*/
-function resolveAccusation(Accountability.Proof[] memory Proofs) public onlyValidator(msg.sender) {
-        for (uint256 i = 0; i < Proofs.length; i++) {
-            if (_isAccusationExists(Proofs[i]) == false) {
-                continue;
+                (address addr, bytes32 msgHash) = Precompiled.checkInnocent(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
+                    // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
+                    continue;
+                }
+                _removeAccusation(Proofs[i]);
+                emit AccusationRemoved(Proofs[i]);
             }
-
-            (address addr, bytes32 msgHash) = Accountability.checkInnocent(Proofs[i].rawproof);
-            if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
-                // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
-                continue;
-            }
-
-            _removeAccusation(Proofs[i]);
-            emit AccusationRemoved(Proofs[i]);
         }
     }
 
@@ -361,14 +358,14 @@ function resolveAccusation(Accountability.Proof[] memory Proofs) public onlyVali
     /**
     * @dev Dump the on-chain challenges. Called by the faultdetector fault detector to get latest on-chain challenge.
     */
-    function getChallenges() external view returns (Accountability.Proof[] memory) {
+    function getChallenges() external view returns (Proof[] memory) {
         return challenges;
     }
 
     /**
     * @dev Dump the on-chain accusations. Called by the faultdetector fault detector to get latest on-chain accusation.
     */
-    function getAccusations() external view returns (Accountability.Proof[] memory) {
+    function getAccusations() external view returns (Proof[] memory) {
         return accusations;
     }
 
@@ -714,7 +711,7 @@ function resolveAccusation(Accountability.Proof[] memory Proofs) public onlyVali
         emit ChangedUserType(u.addr , u.userType , newUserType);
     }
 
-    function _isChallengeExists(Accountability.Proof memory proof) internal view returns (bool) {
+    function _isChallengeExists(Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < challenges.length; i++) {
             if (challenges[i].msghash == proof.msghash) {
                 return true;
@@ -723,7 +720,7 @@ function resolveAccusation(Accountability.Proof[] memory Proofs) public onlyVali
         return false;
     }
 
-    function _isAccusationExists(Accountability.Proof memory proof) internal view returns (bool) {
+    function _isAccusationExists(Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < accusations.length; i++) {
             if (accusations[i].msghash == proof.msghash) {
                 return true;
@@ -732,7 +729,7 @@ function resolveAccusation(Accountability.Proof[] memory Proofs) public onlyVali
         return false;
     }
 
-    function _removeAccusation(Accountability.Proof memory proof) internal {
+    function _removeAccusation(Proof memory proof) internal {
         require(accusations.length > 0);
 
         for (uint256 i = 0; i < accusations.length; i++) {

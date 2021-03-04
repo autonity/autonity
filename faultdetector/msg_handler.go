@@ -11,14 +11,16 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/rlp"
+	"math/big"
 	"sort"
 )
 
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
-func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs []tendermintCore.Message, rule Rule) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs []tendermintCore.Message, rule Rule, t ProofType) (autonity.OnChainProof, error) {
 	var challenge autonity.OnChainProof
 	challenge.Sender = m.Address
 	challenge.Msghash = types.RLPHash(m.Payload())
+	challenge.Type = new(big.Int).SetUint64(uint64(t))
 
 	var rawProof RawProof
 	rawProof.Rule = rule
@@ -45,14 +47,14 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []t
 	if e != nil {
 		fd.logger.Warn("error to rule", "faultdetector", e)
 	}
-	proof, err := fd.generateOnChainProof(m, proofs, rule)
+	proof, err := fd.generateOnChainProof(m, proofs, rule, Misbehaviour)
 	if err != nil {
 		fd.logger.Warn("generate misbehavior proof", "faultdetector", err)
 		return
 	}
 	ps := []autonity.OnChainProof{proof}
 
-	fd.sendProofs(ProofOfMisbehaviour, ps)
+	fd.sendProofs(true, ps)
 }
 
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
