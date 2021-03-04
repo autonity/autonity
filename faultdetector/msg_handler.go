@@ -17,10 +17,10 @@ import (
 
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
 func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs []tendermintCore.Message, rule Rule, t ProofType) (autonity.OnChainProof, error) {
-	var challenge autonity.OnChainProof
-	challenge.Sender = m.Address
-	challenge.Msghash = types.RLPHash(m.Payload())
-	challenge.Type = new(big.Int).SetUint64(uint64(t))
+	var proof autonity.OnChainProof
+	proof.Sender = m.Address
+	proof.Msghash = types.RLPHash(m.Payload())
+	proof.Type = new(big.Int).SetUint64(uint64(t))
 
 	var rawProof RawProof
 	rawProof.Rule = rule
@@ -33,11 +33,11 @@ func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs 
 	rp, err := rlp.EncodeToBytes(&rawProof)
 	if err != nil {
 		fd.logger.Warn("fail to rlp encode raw proof", "faultdetector", err)
-		return challenge, err
+		return proof, err
 	}
 
-	challenge.Rawproof = rp
-	return challenge, nil
+	proof.Rawproof = rp
+	return proof, nil
 }
 
 // submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
