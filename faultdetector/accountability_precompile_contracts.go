@@ -131,7 +131,7 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) ([]byte, error) {
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
-	return append(sender, msgHash...), nil
+	return append(sender, msgHash...)[0:63], nil
 }
 
 // ChallengeVerifier implemented as a native contract to validate if challenge is valid
@@ -184,8 +184,8 @@ func (c *ChallengeVerifier) validateChallenge(p *Proof) ([]byte, error) {
 
 	if c.validEvidence(p) {
 		msgHash := types.RLPHash(p.Message.Payload()).Bytes()
-		senderHash := types.RLPHash(p.Message.Address).Bytes()
-		return append(msgHash, senderHash...), nil
+		sender := common.LeftPadBytes(p.Message.Address.Bytes(), 32)
+		return append(sender, msgHash...)[0:63], nil
 	}
 	return failure64Byte, errInvalidChallenge
 }
@@ -268,7 +268,7 @@ func (c *InnocentVerifier) validateInnocentProof(in *Proof) ([]byte, error) {
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
-	return append(sender, msgHash...), nil
+	return append(sender, msgHash...)[0:63], nil
 }
 
 func (c *InnocentVerifier) validInnocentProof(p *Proof) bool {
