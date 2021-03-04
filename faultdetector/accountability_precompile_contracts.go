@@ -85,7 +85,7 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 		return failure64Byte, fmt.Errorf("invalid input")
 	}
 
-	p, err := decodeProof(input)
+	p, err := decodeProof(input[32:])
 	if err != nil {
 		return failure64Byte, err
 	}
@@ -150,7 +150,7 @@ func (c *ChallengeVerifier) Run(input []byte) ([]byte, error) {
 		return failure64Byte, fmt.Errorf("invalid input")
 	}
 
-	p, err := decodeProof(input)
+	p, err := decodeProof(input[32:])
 	if err != nil {
 		return failure64Byte, err
 	}
@@ -231,7 +231,7 @@ func (c *InnocentVerifier) Run(input []byte) ([]byte, error) {
 		return failure64Byte, fmt.Errorf("invalid input")
 	}
 
-	p, err := decodeProof(input)
+	p, err := decodeProof(input[32:])
 	if err != nil {
 		return failure64Byte, err
 	}
