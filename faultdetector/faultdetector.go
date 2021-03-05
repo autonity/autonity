@@ -21,9 +21,9 @@ import (
 
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	randomDelayWindow            = 1000 * 10              // (0, 10] seconds random time window
-	msgBufferInHeight            = 60                     // buffer such range of msgs in height at msg store.
-	deltaToWaitForAccountability = msgBufferInHeight - 50 // Wait until the GST + delta (10 blocks) to start rule scan.
+	randomDelayWindow            = 1000 * 10                         // (0, 10] seconds random time window
+	deltaToWaitForAccountability = 10                                // Wait until the GST + delta (10 blocks) to start rule scan.
+	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
 	errFutureMsg                 = errors.New("future height msg")
 	errGarbageMsg                = errors.New("garbage msg")
 	errNotCommitteeMsg           = errors.New("msg from none committee member")
@@ -67,6 +67,10 @@ type FaultDetector struct {
 
 	// buffer quorum for blocks.
 	totalPowers map[uint64]uint64
+
+	// buffer those proofs, aggregate them into single TX to send with latest nonce of account.
+	bufferedProofs []autonity.OnChainProof
+
 	logger      log.Logger
 }
 
@@ -121,22 +125,22 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 		case ev := <-fd.blockChan:
 			fd.savePower(ev.Block.Number().Uint64(), ev.Block.Header().TotalVotingPower())
 
-			// take my accusations from latest state DB, and provide innocent proof if there are any.
-			err := fd.handleAccusations(ev.Block, ev.Block.Root())
-			if err != nil {
-				fd.logger.Warn("handle challenge", "faultdetector", err)
-			}
-
-			// before run rule engine over msg store, check to process any buffered msg.
+			// before run rule engine over msg store, process any buffered msg.
 			fd.processBufferedMsgs(ev.Block.NumberU64())
 
-			// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
-			if ev.Block.NumberU64() > uint64(deltaToWaitForAccountability) {
-				// run rule engine over the previous delta offset height.
-				lastDeltaHeight := ev.Block.NumberU64() - uint64(deltaToWaitForAccountability)
-				quorum := fd.quorum(lastDeltaHeight - 1)
-				fd.runRuleEngine(lastDeltaHeight, quorum)
+			// handle accusations and provide innocence proof if there were any for a node.
+			innocenceProofs, _ := fd.handleAccusations(ev.Block, ev.Block.Root())
+			if innocenceProofs != nil {
+				fd.bufferedProofs = append(fd.bufferedProofs, innocenceProofs...)
 			}
+
+			// run rule engine over a specific height.
+			proofs := fd.runRuleEngine(ev.Block.NumberU64())
+			if proofs != nil {
+				fd.bufferedProofs = append(fd.bufferedProofs, proofs...)
+			}
+
+			fd.sentProofs()
 
 			// msg store delete msgs out of buffering window.
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
@@ -164,6 +168,16 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 		case <-fd.blockSub.Err():
 			return
 		}
+	}
+}
+
+func (fd *FaultDetector) sentProofs() {
+	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
+	//  consider to break down into multiples if it cannot fit in.
+	if len(fd.bufferedProofs) != 0 {
+		fd.sendProofs(fd.bufferedProofs)
+		// release items from buffer
+		fd.bufferedProofs = fd.bufferedProofs[:0]
 	}
 }
 
@@ -197,11 +211,12 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event
 }
 
 // get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
-func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) error {
+func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]autonity.OnChainProof, error) {
 	var innocentProofs []autonity.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
 	if err != nil {
-		return err
+		fd.logger.Error("handleAccusation", "faultdetector", err)
+		return nil, err
 	}
 
 	accusations := fd.blockchain.GetAutonityContract().GetAccusations(block.Header(), state)
@@ -220,10 +235,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 		}
 	}
 
-	if innocentProofs != nil {
-		fd.sendProofs(false, innocentProofs)
-	}
-	return nil
+	return innocentProofs, nil
 }
 
 func (fd *FaultDetector) randomDelay() {
@@ -234,20 +246,14 @@ func (fd *FaultDetector) randomDelay() {
 }
 
 // send proofs via event which will handled by ethereum object to signed the TX to send proof.
-func (fd *FaultDetector) sendProofs(withDelay bool, proofs []autonity.OnChainProof) {
+func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
 	fd.wg.Add(1)
 	go func() {
 		defer fd.wg.Done()
-		if !withDelay {
-			fd.afdFeed.Send(AccountabilityEvent{Proofs: proofs})
-		}
-
-		if withDelay {
-			fd.randomDelay()
-			unPresented := fd.filterPresentedOnes(&proofs)
-			if len(unPresented) != 0 {
-				fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented})
-			}
+		fd.randomDelay()
+		unPresented := fd.filterPresentedOnes(&proofs)
+		if len(unPresented) != 0 {
+			fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented})
 		}
 	}()
 }
