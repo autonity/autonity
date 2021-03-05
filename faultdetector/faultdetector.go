@@ -71,7 +71,7 @@ type FaultDetector struct {
 	// buffer those proofs, aggregate them into single TX to send with latest nonce of account.
 	bufferedProofs []autonity.OnChainProof
 
-	logger      log.Logger
+	logger log.Logger
 }
 
 // call by ethereum object to create fd instance.
