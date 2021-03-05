@@ -385,61 +385,62 @@ func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof)
 				// 2f+1 prevotes for the V in round vr, then pi could have also
 				// seen them and hence be able to prevote for the old proposal.
 			} */
-
-			// ------------Precommits------------
-			// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
-			// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
-
-			precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
-				return m.Type() == msgPrecommit && m.Value() != nilValue
-			})
-
-			for _, precommit := range precommits {
-				proposals := fd.msgStore.Get(height, func(m *core.Message) bool {
-					return m.Type() == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
-				})
-
-				if len(proposals) == 0 {
-					accusation := Proof{
-						Type:    Accusation,
-						Rule:    C,
-						Message: precommit,
-					}
-					proofs = append(proofs, accusation)
-					continue
-				}
-
-				prevotesForNotV := fd.msgStore.Get(height, func(m *core.Message) bool {
-					return m.Type() == msgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R() // nolint: scopelint
-				})
-				prevotesForV := fd.msgStore.Get(height, func(m *core.Message) bool {
-					return m.Type() == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
-				})
-
-				if powerOfVotes(prevotesForNotV) >= quorum {
-					// In this case there cannot be enough remaining prevotes
-					// to justify a precommit for V.
-					proof := Proof{
-						Type:     Misbehaviour,
-						Rule:     C,
-						Evidence: prevotesForNotV,
-						Message:  precommit,
-					}
-					proofs = append(proofs, proof)
-
-				} else if powerOfVotes(prevotesForV) < quorum {
-					// In this case we simply don't see enough prevotes to
-					// justify the precommit.
-					accusation := Proof{
-						Type:    Accusation,
-						Rule:    C1,
-						Message: precommit,
-					}
-					proofs = append(proofs, accusation)
-				}
-			}
 		}
 	}
+
+	// ------------Precommits------------
+	// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
+	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
+
+	precommits := fd.msgStore.Get(height, func(m *core.Message) bool {
+		return m.Type() == msgPrecommit && m.Value() != nilValue
+	})
+
+	for _, precommit := range precommits {
+		proposals := fd.msgStore.Get(height, func(m *core.Message) bool {
+			return m.Type() == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
+		})
+
+		if len(proposals) == 0 {
+			accusation := Proof{
+				Type:    Accusation,
+				Rule:    C,
+				Message: precommit,
+			}
+			proofs = append(proofs, accusation)
+			continue
+		}
+
+		prevotesForNotV := fd.msgStore.Get(height, func(m *core.Message) bool {
+			return m.Type() == msgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R() // nolint: scopelint
+		})
+		prevotesForV := fd.msgStore.Get(height, func(m *core.Message) bool {
+			return m.Type() == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
+		})
+
+		if powerOfVotes(prevotesForNotV) >= quorum {
+			// In this case there cannot be enough remaining prevotes
+			// to justify a precommit for V.
+			proof := Proof{
+				Type:     Misbehaviour,
+				Rule:     C,
+				Evidence: prevotesForNotV,
+				Message:  precommit,
+			}
+			proofs = append(proofs, proof)
+
+		} else if powerOfVotes(prevotesForV) < quorum {
+			// In this case we simply don't see enough prevotes to
+			// justify the precommit.
+			accusation := Proof{
+				Type:    Accusation,
+				Rule:    C1,
+				Message: precommit,
+			}
+			proofs = append(proofs, accusation)
+		}
+	}
+
 	return proofs
 }
 
