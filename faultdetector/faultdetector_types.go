@@ -67,7 +67,7 @@ func (p *RawProof) DecodeRLP(s *rlp.Stream) error {
 
 // Proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
 type Proof struct {
-	Type     ProofType      // Misbehaviour, Accusation, Innocence.
+	Type     ProofType // Misbehaviour, Accusation, Innocence.
 	Rule     Rule
 	Message  core.Message   // the msg to be considered as suspicious one
 	Evidence []core.Message // the msgs as proof of innocent or misbehavior.
