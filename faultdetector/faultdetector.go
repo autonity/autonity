@@ -21,16 +21,17 @@ import (
 
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	randomDelayWindow   = 1000 * 10 // (0, 10] seconds random time window
-	msgBufferInHeight   = 60        // buffer such range of msgs in height at msg store.
-	errFutureMsg        = errors.New("future height msg")
-	errGarbageMsg       = errors.New("garbage msg")
-	errNotCommitteeMsg  = errors.New("msg from none committee member")
-	errProposer         = errors.New("proposal is not from proposer")
-	errProposal         = errors.New("proposal have invalid values")
-	errEquivocation     = errors.New("equivocation happens")
-	errUnknownMsg       = errors.New("unknown consensus msg")
-	errInvalidChallenge = errors.New("invalid challenge")
+	randomDelayWindow            = 1000 * 10              // (0, 10] seconds random time window
+	msgBufferInHeight            = 60                     // buffer such range of msgs in height at msg store.
+	deltaToWaitForAccountability = msgBufferInHeight - 50 // Wait until the GST + delta (10 blocks) to start rule scan.
+	errFutureMsg                 = errors.New("future height msg")
+	errGarbageMsg                = errors.New("garbage msg")
+	errNotCommitteeMsg           = errors.New("msg from none committee member")
+	errProposer                  = errors.New("proposal is not from proposer")
+	errProposal                  = errors.New("proposal have invalid values")
+	errEquivocation              = errors.New("equivocation happens")
+	errUnknownMsg                = errors.New("unknown consensus msg")
+	errInvalidChallenge          = errors.New("invalid challenge")
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -129,8 +130,13 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			// before run rule engine over msg store, check to process any buffered msg.
 			fd.processBufferedMsgs(ev.Block.NumberU64())
 
-			quorum := fd.quorum(ev.Block.NumberU64() - 1)
-			fd.runRuleEngine(ev.Block.NumberU64(), quorum)
+			// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
+			if ev.Block.NumberU64() > uint64(deltaToWaitForAccountability) {
+				// run rule engine over the previous delta offset height.
+				lastDeltaHeight := ev.Block.NumberU64() - uint64(deltaToWaitForAccountability)
+				quorum := fd.quorum(lastDeltaHeight - 1)
+				fd.runRuleEngine(lastDeltaHeight, quorum)
+			}
 
 			// msg store delete msgs out of buffering window.
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
