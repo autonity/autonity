@@ -52,9 +52,9 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []t
 		fd.logger.Warn("generate misbehavior proof", "faultdetector", err)
 		return
 	}
-	ps := []autonity.OnChainProof{proof}
 
-	fd.sendProofs(true, ps)
+	// submit misbehavior proof to buffer, it will be sent once aggregated.
+	fd.bufferedProofs = append(fd.bufferedProofs, proof)
 }
 
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
