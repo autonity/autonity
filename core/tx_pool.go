@@ -525,6 +525,10 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
+	// todo: think about shall we keep this tx size limitation?
+	//  since the proof of an invalid proposal might contain a entire block which exceed such tx size
+	//  limitation, it would not possible to submit an on-chain proof for such case. We might need to
+	//  take another way to make accountability over such case.
 	// Reject transactions over defined size to prevent DOS attacks
 	if uint64(tx.Size()) > txMaxSize {
 		return ErrOversizedData
