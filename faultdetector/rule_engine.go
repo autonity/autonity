@@ -78,7 +78,7 @@ func (fd *FaultDetector) GetInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 	if powerOfVotes(prevotes) < quorum {
 		// cannot proof its innocent for PO, the on-chain contract will fine it latter once the
 		// time window for proof ends.
-		return proof, fmt.Errorf("node is malicious")
+		return proof, fmt.Errorf("node is malicious on rule PO")
 	}
 
 	p, err := fd.generateOnChainProof(&proposal, prevotes, c.Rule, Innocence)
@@ -104,7 +104,7 @@ func (fd *FaultDetector) GetInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 	if len(correspondingProposals) == 0 {
 		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
 		// time window for proof ends.
-		return proof, fmt.Errorf("node is malicious")
+		return proof, fmt.Errorf("node is malicious on rule PVN")
 	}
 
 	p, err := fd.generateOnChainProof(&prevote, correspondingProposals, c.Rule, Innocence)
@@ -128,7 +128,7 @@ func (fd *FaultDetector) GetInnocentProofOfC(c *Proof) (autonity.OnChainProof, e
 	if len(proposals) == 0 {
 		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
 		// time window for proof ends.
-		return proof, fmt.Errorf("node is malicious")
+		return proof, fmt.Errorf("node is malicious on rule C")
 	}
 	p, err := fd.generateOnChainProof(&preCommit, proposals, c.Rule, Innocence)
 	if err != nil {
@@ -151,7 +151,7 @@ func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 	if powerOfVotes(prevotesForV) < quorum {
 		// cannot proof its innocent for PO for now, the on-chain contract will fine it latter once the
 		// time window for proof ends.
-		return proof, fmt.Errorf("node might be malicious")
+		return proof, fmt.Errorf("node might be malicious on rule C1")
 	}
 
 	p, err := fd.generateOnChainProof(&preCommit, prevotesForV, c.Rule, Innocence)
