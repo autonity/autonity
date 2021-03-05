@@ -12,7 +12,7 @@ var nilValue = common.Hash{}
 func powerOfVotes(votes []core.Message) uint64 {
 	power := uint64(0)
 	for i := 0; i < len(votes); i++ {
-		if votes[i].Type() != msgPrevote || votes[i].Type() != msgPrecommit {
+		if votes[i].Type() == msgProposal {
 			continue
 		}
 		power += votes[i].GetPower()
