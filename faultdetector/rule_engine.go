@@ -21,20 +21,26 @@ func powerOfVotes(votes []core.Message) uint64 {
 }
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
-func (fd *FaultDetector) runRuleEngine(height uint64, quorum uint64) {
-	proofs := fd.runRules(height, quorum)
-	if len(proofs) > 0 {
-		var onChainProofs []autonity.OnChainProof
-		for i := 0; i < len(proofs); i++ {
-			p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
-			if err != nil {
-				fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
-				continue
+func (fd *FaultDetector) runRuleEngine(height uint64) []autonity.OnChainProof {
+	var onChainProofs []autonity.OnChainProof
+	// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
+	if height > uint64(deltaToWaitForAccountability) {
+		// run rule engine over the previous delta offset height.
+		lastDeltaHeight := height - uint64(deltaToWaitForAccountability)
+		quorum := fd.quorum(lastDeltaHeight - 1)
+		proofs := fd.runRulesOverHeight(lastDeltaHeight, quorum)
+		if len(proofs) > 0 {
+			for i := 0; i < len(proofs); i++ {
+				p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
+				if err != nil {
+					fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
+					continue
+				}
+				onChainProofs = append(onChainProofs, p)
 			}
-			onChainProofs = append(onChainProofs, p)
 		}
-		fd.sendProofs(true, onChainProofs)
 	}
+	return onChainProofs
 }
 
 // getInnocentProof called by client who is on challenge to get proof of innocent from msg store.
@@ -156,7 +162,7 @@ func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 	return p, nil
 }
 
-func (fd *FaultDetector) runRules(height uint64, quorum uint64) (proofs []Proof) {
+func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proofs []Proof) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
