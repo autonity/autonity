@@ -140,6 +140,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 				fd.bufferedProofs = append(fd.bufferedProofs, proofs...)
 			}
 
+			// aggregate buffered proofs into single TX and send.
 			fd.sentProofs()
 
 			// msg store delete msgs out of buffering window.
