@@ -129,7 +129,6 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			// before run rule engine over msg store, check to process any buffered msg.
 			fd.processBufferedMsgs(ev.Block.NumberU64())
 
-			// run rule engine over msg store on each height update.
 			quorum := fd.quorum(ev.Block.NumberU64() - 1)
 			fd.runRuleEngine(ev.Block.NumberU64(), quorum)
 
@@ -215,8 +214,9 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 		}
 	}
 
-	// send proofs via standard transaction.
-	fd.sendProofs(false, innocentProofs)
+	if innocentProofs != nil {
+		fd.sendProofs(false, innocentProofs)
+	}
 	return nil
 }
 
@@ -261,8 +261,8 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []
 	for i := 0; i < len(*proofs); i++ {
 		present := false
 		for j := 0; j < len(presentedAccusation); j++ {
-		    if (*proofs)[i].Msghash == presentedAccusation[j].Msghash &&
-		        (*proofs)[i].Type.Cmp(new(big.Int).SetUint64(uint64(Accusation))) == 0 {
+			if (*proofs)[i].Msghash == presentedAccusation[j].Msghash &&
+				(*proofs)[i].Type.Cmp(new(big.Int).SetUint64(uint64(Accusation))) == 0 {
 				present = true
 			}
 		}
