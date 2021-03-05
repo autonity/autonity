@@ -22,7 +22,6 @@ func powerOfVotes(votes []core.Message) uint64 {
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
 func (fd *FaultDetector) runRuleEngine(height uint64, quorum uint64) {
-	// todo: to merge the two TXs into one.
 	proofs := fd.runRules(height, quorum)
 	if len(proofs) > 0 {
 		var onChainProofs []autonity.OnChainProof
