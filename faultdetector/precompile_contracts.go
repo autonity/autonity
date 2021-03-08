@@ -85,6 +85,9 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 		return failure64Byte, fmt.Errorf("invalid input")
 	}
 
+	// todo: returning errors in the run function would revert the transaction therefore we have to think carefully
+	//  about the cases where we would like to slash we don't want to revert the transaction.
+
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeProof(input[32:])
 	if err != nil {
