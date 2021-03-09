@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *core.Message {
+func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *core.Message { // nolint: unparam
 	var vote = core.Vote{
 		Round:             r,
 		Height:            new(big.Int).SetUint64(h),
