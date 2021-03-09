@@ -662,20 +662,20 @@ func (fd *FaultDetector) getInnocentProof(c *Proof) (autonity.OnChainProof, erro
 	// rule engine have below provable accusation for the time being:
 	switch c.Rule {
 	case PO:
-		return fd.GetInnocentProofOfPO(c)
+		return fd.getInnocentProofOfPO(c)
 	case PVN:
-		return fd.GetInnocentProofOfPVN(c)
+		return fd.getInnocentProofOfPVN(c)
 	case C:
-		return fd.GetInnocentProofOfC(c)
+		return fd.getInnocentProofOfC(c)
 	case C1:
-		return fd.GetInnocentProofOfC1(c)
+		return fd.getInnocentProofOfC1(c)
 	default:
 		return proof, fmt.Errorf("not provable rule")
 	}
 }
 
 // get proof of innocent of PO from msg store.
-func (fd *FaultDetector) GetInnocentProofOfPO(c *Proof) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (autonity.OnChainProof, error) {
 	// PO: node propose an old value with an validRound, innocent proof of it should be:
 	// there are quorum num of prevote for that value at the validRound.
 	var proof autonity.OnChainProof
@@ -703,7 +703,7 @@ func (fd *FaultDetector) GetInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 }
 
 // get proof of innocent of PVN from msg store.
-func (fd *FaultDetector) GetInnocentProofOfPVN(c *Proof) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (autonity.OnChainProof, error) {
 	// get innocent proofs for PVN, for a prevote that vote for a new value,
 	// then there must be a proposal for this new value.
 	var proof autonity.OnChainProof
@@ -729,7 +729,7 @@ func (fd *FaultDetector) GetInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 }
 
 // get proof of innocent of C from msg store.
-func (fd *FaultDetector) GetInnocentProofOfC(c *Proof) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (autonity.OnChainProof, error) {
 	var proof autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
@@ -751,7 +751,7 @@ func (fd *FaultDetector) GetInnocentProofOfC(c *Proof) (autonity.OnChainProof, e
 }
 
 // get proof of innocent of C1 from msg store.
-func (fd *FaultDetector) GetInnocentProofOfC1(c *Proof) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (autonity.OnChainProof, error) {
 	var proof autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
