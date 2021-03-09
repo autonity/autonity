@@ -107,8 +107,8 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 	registerAFDContracts(chain)
 
 	// subscribe tendermint msg
-	s := fd.tendermintMsgMux.Subscribe(events.MessageEvent{})
-	fd.tendermintMsgSub = s
+	fd.tendermintMsgSub = fd.tendermintMsgMux.Subscribe(events.MessageEvent{})
+
 	return fd
 }
 
