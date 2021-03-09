@@ -269,7 +269,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []
 	header := fd.blockchain.CurrentBlock().Header()
 
 	presentedAccusation := fd.blockchain.GetAutonityContract().GetAccusations(header, state)
-	presentedMisbehavior := fd.blockchain.GetAutonityContract().GetChallenges(header, state)
+	presentedMisbehavior := fd.blockchain.GetAutonityContract().GetMisBehaviours(header, state)
 
 	for i := 0; i < len(*proofs); i++ {
 		present := false
