@@ -3,26 +3,17 @@ package faultdetector
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/stretchr/testify/assert"
 	"math/big"
+	"math/rand"
 	"testing"
 )
 
-func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *core.Message { // nolint: unparam
-	var vote = core.Vote{
-		Round:             r,
-		Height:            new(big.Int).SetUint64(h),
-		ProposedBlockHash: value,
-	}
-
-	encodedVote, err := core.Encode(&vote)
-	if err != nil {
-		return nil
-	}
-
+func genMsg(rlpBytes []byte, code uint64, addr common.Address) *core.Message {
 	var msg = core.Message{
 		Code:          code,
-		Msg:           encodedVote,
+		Msg:           rlpBytes,
 		Address:       addr,
 		CommittedSeal: []byte{},
 	}
@@ -38,6 +29,52 @@ func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value commo
 	}
 
 	return m
+}
+
+func generateBlock(height *big.Int) *types.Block {
+	// use random nonce to create different blocks
+	var nonce types.BlockNonce
+	for i := 0; i < len(nonce); i++ {
+		nonce[0] = byte(rand.Intn(256))
+	}
+	header := &types.Header{Number: height, Nonce: nonce}
+	block := types.NewBlockWithHeader(header)
+	return block
+}
+
+func newProposal(r int64, h *big.Int, vr int64, p *types.Block) *core.Proposal {
+	return &core.Proposal{
+		Round:         r,
+		Height:        h,
+		ValidRound:    vr,
+		ProposalBlock: p,
+	}
+}
+
+func newProposalMsg(h uint64, r int64, vr int64, addr common.Address) *core.Message {
+	height := new(big.Int).SetUint64(h)
+	newBlock := generateBlock(height)
+	proposalMsg := newProposal(r, height, vr, newBlock)
+	encodeProposal, err := core.Encode(proposalMsg)
+	if err != nil {
+		return nil
+	}
+	return genMsg(encodeProposal, msgProposal, addr)
+}
+
+func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *core.Message {
+	var vote = core.Vote{
+		Round:             r,
+		Height:            new(big.Int).SetUint64(h),
+		ProposedBlockHash: value,
+	}
+
+	encodedVote, err := core.Encode(&vote)
+	if err != nil {
+		return nil
+	}
+
+	return genMsg(encodedVote, code, addr)
 }
 
 func TestMsgStore(t *testing.T) {
