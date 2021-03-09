@@ -81,7 +81,7 @@ type FaultDetector struct {
 
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
-	logger := log.New("faultdetector", nodeAddress)
+	logger := log.New("Fault-Detector", nodeAddress)
 	fd := &FaultDetector{
 		address:          nodeAddress,
 		blockChan:        make(chan core.ChainEvent, 300),
@@ -111,14 +111,6 @@ func (fd *FaultDetector) quorum(h uint64) uint64 {
 	return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
 }
 
-func (fd *FaultDetector) savePower(h uint64, power uint64) {
-	fd.totalPowers[h] = power
-}
-
-func (fd *FaultDetector) deletePower(h uint64) {
-	delete(fd.totalPowers, h)
-}
-
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
 func (fd *FaultDetector) FaultDetectorEventLoop() {
@@ -128,7 +120,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 		select {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
 		case ev := <-fd.blockChan:
-			fd.savePower(ev.Block.Number().Uint64(), ev.Block.Header().TotalVotingPower())
+			fd.totalPowers[ev.Block.Number().Uint64()] = ev.Block.Header().TotalVotingPower()
 
 			// before run rule engine over msg store, process any buffered msg.
 			fd.processBufferedMsgs(ev.Block.NumberU64())
@@ -152,7 +144,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
 
 			// delete power out of buffering window.
-			fd.deletePower(ev.Block.NumberU64() - uint64(msgBufferInHeight))
+			delete(fd.totalPowers, ev.Block.NumberU64()-uint64(msgBufferInHeight))
 		// to handle consensus msg from p2p layer.
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {
