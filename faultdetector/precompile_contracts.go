@@ -18,7 +18,9 @@ var (
 	checkAccusationAddress = common.BytesToAddress([]byte{252})
 	checkProofAddress      = common.BytesToAddress([]byte{253})
 	checkChallengeAddress  = common.BytesToAddress([]byte{254})
-	failure64Byte          = make([]byte, 64)
+	// error codes of the execution of precompiled contract to verify the input proof.
+	validProofByte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	failure96Byte  = make([]byte, 96)
 )
 
 // init the instances of AFD contracts, and register thems into evm's context
@@ -82,62 +84,59 @@ func (a *AccusationVerifier) RequiredGas(_ []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		return failure64Byte, fmt.Errorf("invalid input")
+		return failure96Byte, nil
 	}
-
-	// todo: returning errors in the run function would revert the transaction therefore we have to think carefully
-	//  about the cases where we would like to slash we don't want to revert the transaction.
 
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeProof(input[32:])
 	if err != nil {
-		return failure64Byte, err
+		return failure96Byte, nil
 	}
 
-	return a.validateAccusation(p)
+	return a.validateAccusation(p), nil
 }
 
 // validate if the accusation is valid.
-func (a *AccusationVerifier) validateAccusation(in *Proof) ([]byte, error) {
+func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
 	// we have only 3 types of rule on accusation.
 	switch in.Rule {
 	case PO:
 		if in.Message.Code != msgProposal {
-			return failure64Byte, fmt.Errorf("wrong msg for PO rule")
+			return failure96Byte
 		}
 	case PVN:
 		if in.Message.Code != msgPrevote {
-			return failure64Byte, fmt.Errorf("wrong msg for PVN rule")
+			return failure96Byte
 		}
 	case C:
 		if in.Message.Code != msgPrecommit {
-			return failure64Byte, fmt.Errorf("wrong msg for rule C")
+			return failure96Byte
 		}
 	case C1:
 		if in.Message.Code != msgPrecommit {
-			return failure64Byte, fmt.Errorf("wrong msg for rule C")
+			return failure96Byte
 		}
 	default:
-		return failure64Byte, fmt.Errorf("not provable accusation rule")
+		return failure96Byte
 	}
 
 	// check if the suspicious msg is from the correct committee of that height.
 	h, err := in.Message.Height()
 	if err != nil {
-		return failure64Byte, err
+		return failure96Byte
 	}
 
 	lastHeader := a.chain.GetHeaderByNumber(h.Uint64() - 1)
 	if lastHeader == nil {
-		return failure64Byte, fmt.Errorf("cannot find previous header")
+		return failure96Byte
 	}
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-		return failure64Byte, err
+		return failure96Byte
 	}
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
-	return append(sender, msgHash...)[0:64], nil
+	return append(append(sender, msgHash...), validProofByte...)
 }
 
 // ChallengeVerifier implemented as a native contract to validate if challenge is valid
@@ -154,49 +153,49 @@ func (c *ChallengeVerifier) RequiredGas(_ []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for proof management.
 func (c *ChallengeVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		return failure64Byte, fmt.Errorf("invalid input")
+		return failure96Byte, nil
 	}
 
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeProof(input[32:])
 	if err != nil {
-		return failure64Byte, err
+		return failure96Byte, nil
 	}
 
-	return c.validateChallenge(p)
+	return c.validateChallenge(p), nil
 }
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *ChallengeVerifier) validateChallenge(p *Proof) ([]byte, error) {
+func (c *ChallengeVerifier) validateChallenge(p *Proof) []byte {
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message)
 	if err != nil {
-		return failure64Byte, err
+		return failure96Byte
 	}
 
 	// check if evidence msgs are from committee members of that height.
 	h, err := p.Message.Height()
 	if err != nil {
-		return failure64Byte, err
+		return failure96Byte
 	}
 	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
 	if lastHeader == nil {
-		return failure64Byte, fmt.Errorf("cannot find previous header")
+		return failure96Byte
 	}
 
 	for i := 0; i < len(p.Evidence); i++ {
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-			return failure64Byte, err
+			return failure96Byte
 		}
 	}
 
 	if c.validEvidence(p) {
 		msgHash := types.RLPHash(p.Message.Payload()).Bytes()
 		sender := common.LeftPadBytes(p.Message.Address.Bytes(), 32)
-		return append(sender, msgHash...)[0:64], nil
+		return append(append(sender, msgHash...), validProofByte...)
 	}
-	return failure64Byte, errInvalidChallenge
+	return failure96Byte
 }
 
 // check if the evidence of the challenge is valid or not.
@@ -239,49 +238,49 @@ func (c *InnocentVerifier) RequiredGas(_ []byte) uint64 {
 func (c *InnocentVerifier) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
-		return failure64Byte, fmt.Errorf("invalid input")
+		return failure96Byte, nil
 	}
 
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeProof(input[32:])
 	if err != nil {
-		return failure64Byte, err
+		return failure96Byte, nil
 	}
 
-	return c.validateInnocentProof(p)
+	return c.validateInnocentProof(p), nil
 }
 
 // validate if the innocent proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocentVerifier) validateInnocentProof(in *Proof) ([]byte, error) {
+func (c *InnocentVerifier) validateInnocentProof(in *Proof) []byte {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
-		return failure64Byte, err
+		return failure96Byte
 	}
 
 	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
 	if lastHeader == nil {
-		return failure64Byte, fmt.Errorf("cannot find previous header")
+		return failure96Byte
 	}
 
 	// validate message.
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-		return failure64Byte, err
+		return failure96Byte
 	}
 
 	for i := 0; i < len(in.Evidence); i++ {
 		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-			return failure64Byte, err
+			return failure96Byte
 		}
 	}
 
 	if !c.validInnocentProof(in) {
-		return failure64Byte, fmt.Errorf("invalid proof of innocent")
+		return failure96Byte
 	}
 
 	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
-	return append(sender, msgHash...)[0:64], nil
+	return append(append(sender, msgHash...), validProofByte...)
 }
 
 func (c *InnocentVerifier) validInnocentProof(p *Proof) bool {

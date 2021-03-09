@@ -40,7 +40,7 @@ contract Autonity is IERC20 {
     }
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
-    Proof[] private challenges;
+    Proof[] private misBehaviours;
     Proof[] private accusations;
     address[] private usersList;
     string[] private enodesWhitelist;
@@ -81,7 +81,7 @@ contract Autonity is IERC20 {
     event MintedStake(address _address, uint256 _amount);
     event BurnedStake(address _address, uint256 _amount);
     event Rewarded(address _address, uint256 _amount);
-    event ChallengeAdded(Proof proof);
+    event MisbehaviourAdded(Proof proof);
     event AccusationAdded(Proof proof);
     event AccusationRemoved(Proof proof);
 
@@ -158,18 +158,18 @@ contract Autonity is IERC20 {
     function handleProofs(Proof[] memory Proofs) public onlyValidator(msg.sender) {
         for (uint256 i = 0; i < Proofs.length; i++) {
             if (ProofType(Proofs[i].t) == ProofType.Misbehavior) {
-                if (_isChallengeExists(Proofs[i]) == true) {
+                if (_isMisBehaviourExists(Proofs[i]) == true) {
                     continue;
                 }
 
-                (address addr, bytes32 msgHash) = Precompiled.checkChallenge(Proofs[i].rawproof);
-                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
-                    // todo: take governance action that msg.sender sent faulty challenge.
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkMisbehaviour(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
+                    // todo: take governance action that msg.sender sent faulty proof of misbehaviour.
                     continue;
                 }
                 // challenge is valid, take slashing actions.
-                challenges.push(Proofs[i]);
-                emit ChallengeAdded(Proofs[i]);
+                misBehaviours.push(Proofs[i]);
+                emit MisbehaviourAdded(Proofs[i]);
                 // todo: add slashing logic once challenge is valid.
             }
 
@@ -178,8 +178,8 @@ contract Autonity is IERC20 {
                     continue;
                 }
 
-                (address addr, bytes32 msgHash) = Precompiled.checkAccusation(Proofs[i].rawproof);
-                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccusation(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
                     // todo: take governance action that msg.sender sent faulty accusation.
                     continue;
                 }
@@ -193,8 +193,8 @@ contract Autonity is IERC20 {
                     continue;
                 }
 
-                (address addr, bytes32 msgHash) = Precompiled.checkInnocent(Proofs[i].rawproof);
-                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender) {
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkInnocence(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
                     // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
                     continue;
                 }
@@ -355,10 +355,10 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @dev Dump the on-chain challenges. Called by the faultdetector fault detector to get latest on-chain challenge.
+    * @dev Dump the on-chain misbehaviour. Called by the faultdetector fault detector to get latest on-chain misbehaviour.
     */
-    function getChallenges() external view returns (Proof[] memory) {
-        return challenges;
+    function getMisbehaviours() external view returns (Proof[] memory) {
+        return misBehaviours;
     }
 
     /**
@@ -710,9 +710,9 @@ contract Autonity is IERC20 {
         emit ChangedUserType(u.addr , u.userType , newUserType);
     }
 
-    function _isChallengeExists(Proof memory proof) internal view returns (bool) {
-        for (uint256 i = 0; i < challenges.length; i++) {
-            if (challenges[i].msghash == proof.msghash) {
+    function _isMisBehaviourExists(Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < misBehaviours.length; i++) {
+            if (misBehaviours[i].msghash == proof.msghash) {
                 return true;
             }
         }
