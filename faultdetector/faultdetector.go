@@ -175,7 +175,9 @@ func (fd *FaultDetector) sentProofs() {
 	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
 	//  consider to break down into multiples if it cannot fit in.
 	if len(fd.bufferedProofs) != 0 {
-		fd.sendProofs(fd.bufferedProofs)
+		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
+		copy(copyProofs, fd.bufferedProofs)
+		fd.sendProofs(copyProofs)
 		// release items from buffer
 		fd.bufferedProofs = fd.bufferedProofs[:0]
 	}
