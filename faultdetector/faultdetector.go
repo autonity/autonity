@@ -31,7 +31,6 @@ var (
 	errProposal                  = errors.New("proposal have invalid values")
 	errEquivocation              = errors.New("equivocation happens")
 	errUnknownMsg                = errors.New("unknown consensus msg")
-	errInvalidChallenge          = errors.New("invalid challenge")
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
