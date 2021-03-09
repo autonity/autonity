@@ -269,7 +269,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	return innocentProofs, nil
 }
 
-func (fd *FaultDetector) randomDelay() {
+func randomDelay() {
 	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
 	rand.Seed(time.Now().UnixNano())
 	n := rand.Intn(randomDelayWindow)
@@ -281,7 +281,7 @@ func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
 	fd.wg.Add(1)
 	go func() {
 		defer fd.wg.Done()
-		fd.randomDelay()
+		randomDelay()
 		unPresented := fd.filterPresentedOnes(&proofs)
 		if len(unPresented) != 0 {
 			fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented})
