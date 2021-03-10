@@ -224,7 +224,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
 	// Create AFD
-	eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
+	//eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
 	eth.defaultKey = stack.Config().NodeKey()
 
 	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,
@@ -546,10 +546,10 @@ func (s *Ethereum) Start() error {
 	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
 	go s.glienickeEventLoop(s.p2pServer)
 
-	s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
-	go s.afdTXEventLoop()
+	//s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
+	//go s.afdTXEventLoop()
 
-	go s.faultDetector.FaultDetectorEventLoop()
+	//go s.faultDetector.FaultDetectorEventLoop()
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
