@@ -166,8 +166,9 @@ jobs:
         if: steps.cache-git-modules.outputs.cache-hit != 'true'
         run: git submodule update --init --recursive
 
-      - name: unit tests
-        run: go test -timeout 30m ./tests/...
+      #- name: unit tests
+        #run: go test -timeout 30m ./tests/...
+        #run: go test -timeout 30m ./tests/...
 
   build:
     needs: bootstrap-checkout
