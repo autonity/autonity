@@ -615,8 +615,9 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
-	s.glienickeSub.Unsubscribe()
 	// Stop faultDetector event loop
+	s.faultDetector.Stop()
+	s.glienickeSub.Unsubscribe()
 	s.afdSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
@@ -625,7 +626,6 @@ func (s *Ethereum) Stop() error {
 	s.miner.Close()
 	s.blockchain.Stop()
 	s.chainDb.Close()
-	s.faultDetector.Stop()
 	s.eventMux.Stop()
 	return nil
 }
