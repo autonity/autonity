@@ -23,7 +23,7 @@ import (
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
 	randomDelayWindow            = 1000 * 5                          // (0, 5] seconds random time window
-	deltaToWaitForAccountability = 30                                // Wait until the GST + delta (30 blocks) to start rule scan.
+	deltaToWaitForAccountability = 10                                // Wait until the GST + delta (10 blocks) to start rule scan.
 	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
 	errFutureMsg                 = errors.New("future height msg")
 	errGarbageMsg                = errors.New("garbage msg")
