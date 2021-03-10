@@ -1,6 +1,7 @@
 package faultdetector
 
 import (
+	"fmt"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
@@ -221,12 +222,17 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event
 func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]autonity.OnChainProof, error) {
 	var innocentProofs []autonity.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
-	if err != nil {
+	if err != nil || state == nil {
 		fd.logger.Error("handleAccusation", "faultdetector", err)
 		return nil, err
 	}
 
-	accusations := fd.blockchain.GetAutonityContract().GetAccusations(block.Header(), state)
+	contract := fd.blockchain.GetAutonityContract()
+	if contract == nil {
+		return nil, fmt.Errorf("cannot get contract instance")
+	}
+
+	accusations := contract.GetAccusations(block.Header(), state)
 	for i := 0; i < len(accusations); i++ {
 		if accusations[i].Sender == fd.address {
 			c, err := decodeProof(accusations[i].Rawproof)
