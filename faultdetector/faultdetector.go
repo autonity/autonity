@@ -160,7 +160,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 					continue
 				}
 				if err := fd.processMsg(msg); err != nil {
-					fd.logger.Error("process consensus msg", "faultdetector", err)
+					fd.logger.Warn("process consensus msg", "faultdetector", err)
 					continue
 				}
 			}
