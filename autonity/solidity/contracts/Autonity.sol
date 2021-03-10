@@ -355,14 +355,14 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @dev Dump the on-chain misbehaviour. Called by the faultdetector fault detector to get latest on-chain misbehaviour.
+    * @dev Dump the on-chain misbehaviour. Called by the fault_detector fault detector to get latest on-chain misbehaviour.
     */
     function getMisbehaviours() external view returns (Proof[] memory) {
         return misBehaviours;
     }
 
     /**
-    * @dev Dump the on-chain accusations. Called by the faultdetector fault detector to get latest on-chain accusation.
+    * @dev Dump the on-chain accusations. Called by the fault_detector fault detector to get latest on-chain accusation.
     */
     function getAccusations() external view returns (Proof[] memory) {
         return accusations;

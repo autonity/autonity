@@ -1,4 +1,4 @@
-package faultdetector
+package fault_detector
 
 import (
 	"context"
@@ -54,7 +54,7 @@ type FaultDetector struct {
 	afdFeed event.Feed
 	scope   event.SubscriptionScope
 
-	// use below 2 members to forward consensus msg from protocol manager to faultdetector.
+	// use below 2 members to forward consensus msg from protocol manager to fault_detector.
 	tendermintMsgSub *event.TypeMuxSubscription
 	tendermintMsgMux *event.TypeMuxSilent
 
@@ -90,7 +90,7 @@ type FaultDetector struct {
 
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
-	logger := log.New("faultdetector", nodeAddress)
+	logger := log.New("FaultDetector", nodeAddress)
 	fd := &FaultDetector{
 		address:          nodeAddress,
 		blockChan:        make(chan core.ChainEvent, 300),
@@ -103,7 +103,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		stopped:          make(chan struct{}, 2),
 	}
 
-	// register faultdetector contracts on evm's precompiled contract set.
+	// register fault_detector contracts on evm's precompiled contract set.
 	registerAFDContracts(chain)
 
 	// subscribe tendermint msg
@@ -166,11 +166,11 @@ eventLoop:
 			case events.MessageEvent:
 				msg := new(tendermintCore.Message)
 				if err := msg.FromPayload(e.Payload); err != nil {
-					fd.logger.Error("invalid payload", "faultdetector", err)
+					fd.logger.Error("invalid payload", "fault_detector", err)
 					continue
 				}
 				if err := fd.processMsg(msg); err != nil {
-					fd.logger.Warn("process consensus msg", "faultdetector", err)
+					fd.logger.Warn("process consensus msg", "fault_detector", err)
 					continue
 				}
 			}
@@ -198,7 +198,7 @@ func (fd *FaultDetector) sentProofs() {
 	}
 }
 
-// HandleMsg is called by p2p protocol manager to deliver the consensus msg to faultdetector.
+// HandleMsg is called by p2p protocol manager to deliver the consensus msg to fault_detector.
 func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 	if msg.Code != tendermintBackend.TendermintMsg {
 		return
@@ -241,7 +241,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	var innocentProofs []autonity.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
 	if err != nil || state == nil {
-		fd.logger.Error("handleAccusation", "faultdetector", err)
+		fd.logger.Error("handleAccusation", "fault_detector", err)
 		return nil, err
 	}
 
@@ -348,7 +348,7 @@ func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs 
 
 	rp, err := rlp.EncodeToBytes(&rawProof)
 	if err != nil {
-		fd.logger.Warn("fail to rlp encode raw proof", "faultdetector", err)
+		fd.logger.Warn("fail to rlp encode raw proof", "fault_detector", err)
 		return proof, err
 	}
 
@@ -361,11 +361,11 @@ func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs 
 func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []tendermintCore.Message, err error) {
 	rule, e := errorToRule(err)
 	if e != nil {
-		fd.logger.Warn("error to rule", "faultdetector", e)
+		fd.logger.Warn("error to rule", "fault_detector", e)
 	}
 	proof, err := fd.generateOnChainProof(m, proofs, rule, Misbehaviour)
 	if err != nil {
-		fd.logger.Warn("generate misbehavior proof", "faultdetector", err)
+		fd.logger.Warn("generate misbehavior proof", "fault_detector", err)
 		return
 	}
 
@@ -415,7 +415,7 @@ func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 		if h <= height {
 			for i := 0; i < len(msgs); i++ {
 				if err := fd.processMsg(msgs[i]); err != nil {
-					fd.logger.Warn("process consensus msg", "faultdetector", err)
+					fd.logger.Warn("process consensus msg", "fault_detector", err)
 					continue
 				}
 			}
@@ -433,7 +433,7 @@ func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
 	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
 }
 
-/////// common helper functions shared between faultdetector and precompiled contract to validate msgs.
+/////// common helper functions shared between fault_detector and precompiled contract to validate msgs.
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
 func checkAutoIncriminatingMsg(chain *core.BlockChain, m *tendermintCore.Message) error {
@@ -681,7 +681,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []autonity.OnChainProof {
 			for i := 0; i < len(proofs); i++ {
 				p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
 				if err != nil {
-					fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
+					fd.logger.Warn("convert proof to on-chain proof", "fault_detector", err)
 					continue
 				}
 				onChainProofs = append(onChainProofs, p)
