@@ -125,6 +125,7 @@ func TestGossip(t *testing.T) {
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
+	broadcaster.EXPECT().BroadcastToLocal(payload)
 
 	knownMessages, err := lru.NewARC(inmemoryMessages)
 	if err != nil {
