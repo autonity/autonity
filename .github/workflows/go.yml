@@ -19,6 +19,8 @@ jobs:
         id: go
 
       - name: Set GOPATH
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
         run: |
           echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
           echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
@@ -322,8 +324,7 @@ jobs:
         run: make embed-autonity-contract
 
       - name: Test
-        run: go test ./consensus/test/... -v -timeout 40m -run='${{ matrix.e2e }}' -timeout 40m
-        #run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
+        run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m
 
   race_tests:
     needs: bootstrap-checkout
