@@ -96,7 +96,7 @@ func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 		if h <= height {
 			for i := 0; i < len(msgs); i++ {
 				if err := fd.processMsg(msgs[i]); err != nil {
-					fd.logger.Error("process consensus msg", "faultdetector", err)
+					fd.logger.Warn("process consensus msg", "faultdetector", err)
 					continue
 				}
 			}
