@@ -37,6 +37,7 @@ var (
 	errProposal                  = errors.New("proposal have invalid values")
 	errEquivocation              = errors.New("equivocation happens")
 	errUnknownMsg                = errors.New("unknown consensus msg")
+	nilValue                     = common.Hash{}
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -102,15 +103,6 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 	return fd
 }
 
-func (fd *FaultDetector) quorum(h uint64) uint64 {
-	power, ok := fd.totalPowers[h]
-	if ok {
-		return bft.Quorum(power)
-	}
-
-	return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
-}
-
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
 func (fd *FaultDetector) FaultDetectorEventLoop() {
@@ -169,18 +161,6 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 	}
 }
 
-func (fd *FaultDetector) sentProofs() {
-	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
-	//  consider to break down into multiples if it cannot fit in.
-	if len(fd.bufferedProofs) != 0 {
-		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
-		copy(copyProofs, fd.bufferedProofs)
-		fd.sendProofs(copyProofs)
-		// release items from buffer
-		fd.bufferedProofs = fd.bufferedProofs[:0]
-	}
-}
-
 // HandleMsg is called by p2p protocol manager to deliver the consensus msg to fault_detector.
 func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 	if msg.Code != tendermintBackend.TendermintMsg {
@@ -215,57 +195,14 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event
 	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
 }
 
-// get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
-func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]autonity.OnChainProof, error) {
-	var innocentProofs []autonity.OnChainProof
-	state, err := fd.blockchain.StateAt(hash)
-	if err != nil || state == nil {
-		fd.logger.Error("handleAccusation", "fault_detector", err)
-		return nil, err
+// buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
+func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
+	h, err := m.Height()
+	if err != nil {
+		return
 	}
 
-	contract := fd.blockchain.GetAutonityContract()
-	if contract == nil {
-		return nil, fmt.Errorf("cannot get contract instance")
-	}
-
-	accusations := contract.GetAccusations(block.Header(), state)
-	for i := 0; i < len(accusations); i++ {
-		if accusations[i].Sender == fd.address {
-			c, err := decodeProof(accusations[i].Rawproof)
-			if err != nil {
-				continue
-			}
-
-			p, err := fd.getInnocentProof(c)
-			if err != nil {
-				continue
-			}
-			innocentProofs = append(innocentProofs, p)
-		}
-	}
-
-	return innocentProofs, nil
-}
-
-func randomDelay() {
-	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
-	rand.Seed(time.Now().UnixNano())
-	n := rand.Intn(randomDelayWindow)
-	time.Sleep(time.Duration(n) * time.Millisecond)
-}
-
-// send proofs via event which will handled by ethereum object to signed the TX to send proof.
-func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
-	fd.wg.Add(1)
-	go func() {
-		defer fd.wg.Done()
-		randomDelay()
-		unPresented := fd.filterPresentedOnes(&proofs)
-		if len(unPresented) != 0 {
-			fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented})
-		}
-	}()
+	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
 }
 
 func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []autonity.OnChainProof {
@@ -304,8 +241,6 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []
 	return result
 }
 
-// --------------------Functions from msg_handler.go-------------------
-
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
 func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs []tendermintCore.Message, rule Rule, t ProofType) (autonity.OnChainProof, error) {
 	var proof autonity.OnChainProof
@@ -331,331 +266,6 @@ func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs 
 	return proof, nil
 }
 
-// submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
-// send the proof of misbehavior to event channel.
-func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []tendermintCore.Message, err error) {
-	rule, e := errorToRule(err)
-	if e != nil {
-		fd.logger.Warn("error to rule", "fault_detector", e)
-	}
-	proof, err := fd.generateOnChainProof(m, proofs, rule, Misbehaviour)
-	if err != nil {
-		fd.logger.Warn("generate misbehavior proof", "fault_detector", err)
-		return
-	}
-
-	// submit misbehavior proof to buffer, it will be sent once aggregated.
-	fd.bufferedProofs = append(fd.bufferedProofs, proof)
-}
-
-// processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
-func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
-	// pre-check if msg is from valid committee member
-	err := checkMsgSignature(fd.blockchain, m)
-	if err != nil {
-		if err == errFutureMsg {
-			fd.bufferMsg(m)
-		}
-		return err
-	}
-
-	// decode consensus msg, and auto-incriminating msg is addressed here.
-	err = checkAutoIncriminatingMsg(fd.blockchain, m)
-	if err != nil {
-		if err == errFutureMsg {
-			fd.bufferMsg(m)
-		} else {
-			proofs := []tendermintCore.Message{*m}
-			fd.submitMisbehavior(m, proofs, err)
-			return err
-		}
-	}
-
-	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
-	p, err := fd.msgStore.Save(m)
-	if err == errEquivocation && p != nil {
-		proof := []tendermintCore.Message{*p}
-		fd.submitMisbehavior(m, proof, err)
-		return err
-	}
-	return nil
-}
-
-// processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
-func (fd *FaultDetector) processBufferedMsgs(height uint64) {
-	for h, msgs := range fd.futureMsgs {
-		if h <= height {
-			for i := 0; i < len(msgs); i++ {
-				if err := fd.processMsg(msgs[i]); err != nil {
-					fd.logger.Error("process consensus msg", "fault_detector", err)
-					continue
-				}
-			}
-		}
-	}
-}
-
-// buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
-func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
-	h, err := m.Height()
-	if err != nil {
-		return
-	}
-
-	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
-}
-
-/////// common helper functions shared between fault_detector and precompiled contract to validate msgs.
-
-// decode consensus msgs, address garbage msg and invalid proposal by returning error.
-func checkAutoIncriminatingMsg(chain *core.BlockChain, m *tendermintCore.Message) error {
-	if m.Code == msgProposal {
-		return checkProposal(chain, m)
-	}
-
-	if m.Code == msgPrevote || m.Code == msgPrecommit {
-		return decodeVote(m)
-	}
-
-	return errUnknownMsg
-}
-
-func checkEquivocation(chain *core.BlockChain, m *tendermintCore.Message, proof []tendermintCore.Message) error {
-	// decode msgs
-	err := checkAutoIncriminatingMsg(chain, m)
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < len(proof); i++ {
-		err := checkAutoIncriminatingMsg(chain, &proof[i])
-		if err != nil {
-			return err
-		}
-	}
-	// check equivocations.
-	if !sameVote(m, &proof[0]) {
-		return errEquivocation
-	}
-	return nil
-}
-
-func sameVote(a *tendermintCore.Message, b *tendermintCore.Message) bool {
-	ah, _ := a.Height()
-	ar, _ := a.Round()
-	bh, _ := b.Height()
-	br, _ := b.Round()
-	aHash := types.RLPHash(a.Payload())
-	bHash := types.RLPHash(b.Payload())
-
-	if ah == bh && ar == br && a.Code == b.Code && a.Address == b.Address && aHash == bHash {
-		return true
-	}
-	return false
-}
-
-// checkProposal, checks if proposal is valid and it's from correct proposer.
-func checkProposal(chain *core.BlockChain, m *tendermintCore.Message) error {
-	var proposal tendermintCore.Proposal
-	err := m.Decode(&proposal)
-	if err != nil {
-		return errGarbageMsg
-	}
-	if !isProposerMsg(chain, m) {
-		return errProposer
-	}
-
-	err = verifyProposal(chain, *proposal.ProposalBlock)
-	// due to network delay or timing issue, when AFD validate a proposal, that proposal could already be committed on the chain view.
-	// since the msg sender were checked with correct proposer, so we consider to take it as a valid proposal.
-	if err == core.ErrKnownBlock {
-		return nil
-	}
-
-	if err == consensus.ErrFutureBlock {
-		return errFutureMsg
-	}
-
-	if err != nil {
-		return errProposal
-	}
-
-	return nil
-}
-
-//checkMsgSignature, it check if msg is from valid member of the committee.
-func checkMsgSignature(chain *core.BlockChain, m *tendermintCore.Message) error {
-	msgHeight, err := m.Height()
-	if err != nil {
-		return err
-	}
-
-	header := chain.CurrentHeader()
-	if msgHeight.Uint64() > header.Number.Uint64()+1 {
-		return errFutureMsg
-	}
-
-	lastHeader := chain.GetHeaderByNumber(msgHeight.Uint64() - 1)
-	if lastHeader == nil {
-		return errFutureMsg
-	}
-
-	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-		return errNotCommitteeMsg
-	}
-	return nil
-}
-
-func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
-	block := &proposal
-	if chain.HasBadBlock(block.Hash()) {
-		return core.ErrBlacklistedHash
-	}
-
-	err := chain.Engine().VerifyHeader(chain, block.Header(), false)
-	if err == nil || err == types.ErrEmptyCommittedSeals {
-		var (
-			receipts types.Receipts
-			usedGas  = new(uint64)
-			gp       = new(core.GasPool).AddGas(block.GasLimit())
-			header   = block.Header()
-			parent   = chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
-		)
-
-		// We need to process all of the transaction to get the latest state to get the latest committee
-		state, stateErr := chain.StateAt(parent.Root())
-		if stateErr != nil {
-			return stateErr
-		}
-
-		// Validate the body of the proposal
-		if err = chain.Validator().ValidateBody(block); err != nil {
-			return err
-		}
-
-		// sb.chain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
-		// Instead only the transactions are applied to the copied state
-		for i, tx := range block.Transactions() {
-			state.Prepare(tx.Hash(), block.Hash(), i)
-			vmConfig := vm.Config{
-				EnablePreimageRecording: true,
-				EWASMInterpreter:        "",
-				EVMInterpreter:          "",
-			}
-			receipt, receiptErr := core.ApplyTransaction(chain.Config(), chain, nil, gp, state, header, tx, usedGas, vmConfig)
-			if receiptErr != nil {
-				return receiptErr
-			}
-			receipts = append(receipts, receipt)
-		}
-
-		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
-		committeeSet, receipt, err := chain.Engine().Finalize(chain, header, state, block.Transactions(), nil, receipts)
-		if err != nil {
-			return err
-		}
-		receipts = append(receipts, receipt)
-		//Validate the state of the proposal
-		if err = chain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
-			return err
-		}
-
-		//Perform the actual comparison
-		if len(header.Committee) != len(committeeSet) {
-			return consensus.ErrInconsistentCommitteeSet
-		}
-
-		for i := range committeeSet {
-			if header.Committee[i].Address != committeeSet[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committeeSet[i].VotingPower) != 0 {
-				return consensus.ErrInconsistentCommitteeSet
-			}
-		}
-
-		return nil
-	}
-	return err
-}
-
-func isProposerMsg(chain *core.BlockChain, m *tendermintCore.Message) bool {
-	h, _ := m.Height()
-	r, _ := m.Round()
-
-	proposer, err := getProposer(chain, h.Uint64(), r)
-	if err != nil {
-		return false
-	}
-
-	return m.Address == proposer
-}
-
-func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
-	parentHeader := chain.GetHeaderByNumber(h - 1)
-	if parentHeader.IsGenesis() {
-		sort.Sort(parentHeader.Committee)
-		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
-	}
-
-	statedb, err := chain.StateAt(parentHeader.Root)
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	proposer := chain.GetAutonityContract().GetProposerFromAC(parentHeader, statedb, parentHeader.Number.Uint64(), r)
-	member := parentHeader.CommitteeMember(proposer)
-	if member == nil {
-		return common.Address{}, fmt.Errorf("cannot find correct proposer")
-	}
-	return proposer, nil
-}
-
-func decodeVote(m *tendermintCore.Message) error {
-	var vote tendermintCore.Vote
-	err := m.Decode(&vote)
-	if err != nil {
-		return errGarbageMsg
-	}
-	return nil
-}
-
-// --------------------Functions from rule_engine.go-------------------
-
-var nilValue = common.Hash{}
-
-func powerOfVotes(votes []tendermintCore.Message) uint64 {
-	power := uint64(0)
-	for i := 0; i < len(votes); i++ {
-		if votes[i].Type() == msgProposal {
-			continue
-		}
-		power += votes[i].GetPower()
-	}
-	return power
-}
-
-// run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
-func (fd *FaultDetector) runRuleEngine(height uint64) []autonity.OnChainProof {
-	var onChainProofs []autonity.OnChainProof
-	// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
-	if height > uint64(deltaToWaitForAccountability) {
-		// run rule engine over the previous delta offset height.
-		lastDeltaHeight := height - uint64(deltaToWaitForAccountability)
-		quorum := fd.quorum(lastDeltaHeight - 1)
-		proofs := fd.runRulesOverHeight(lastDeltaHeight, quorum)
-		if len(proofs) > 0 {
-			for i := 0; i < len(proofs); i++ {
-				p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
-				if err != nil {
-					fd.logger.Warn("convert proof to on-chain proof", "fault_detector", err)
-					continue
-				}
-				onChainProofs = append(onChainProofs, p)
-			}
-		}
-	}
-	return onChainProofs
-}
-
 // getInnocentProof called by client who is on challenge to get proof of innocent from msg store.
 func (fd *FaultDetector) getInnocentProof(c *Proof) (autonity.OnChainProof, error) {
 	var proof autonity.OnChainProof
@@ -672,6 +282,53 @@ func (fd *FaultDetector) getInnocentProof(c *Proof) (autonity.OnChainProof, erro
 	default:
 		return proof, fmt.Errorf("not provable rule")
 	}
+}
+
+// get proof of innocent of C from msg store.
+func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (autonity.OnChainProof, error) {
+	var proof autonity.OnChainProof
+	preCommit := c.Message
+	height := preCommit.H()
+
+	proposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+		return m.Type() == msgProposal && m.Value() == preCommit.Value() && m.R() == preCommit.R()
+	})
+
+	if len(proposals) == 0 {
+		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
+		// time window for proof ends.
+		return proof, fmt.Errorf("node is malicious on rule C")
+	}
+	p, err := fd.generateOnChainProof(&preCommit, proposals, c.Rule, Innocence)
+	if err != nil {
+		return p, err
+	}
+	return p, nil
+}
+
+// get proof of innocent of C1 from msg store.
+func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (autonity.OnChainProof, error) {
+	var proof autonity.OnChainProof
+	preCommit := c.Message
+	height := preCommit.H()
+	quorum := fd.quorum(height - 1)
+
+	prevotesForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+		return m.Type() == msgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
+	})
+
+	if powerOfVotes(prevotesForV) < quorum {
+		// cannot proof its innocent for PO for now, the on-chain contract will fine it latter once the
+		// time window for proof ends.
+		return proof, fmt.Errorf("node might be malicious on rule C1")
+	}
+
+	p, err := fd.generateOnChainProof(&preCommit, prevotesForV, c.Rule, Innocence)
+	if err != nil {
+		return p, err
+	}
+
+	return p, nil
 }
 
 // get proof of innocent of PO from msg store.
@@ -728,51 +385,116 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 	return p, nil
 }
 
-// get proof of innocent of C from msg store.
-func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (autonity.OnChainProof, error) {
-	var proof autonity.OnChainProof
-	preCommit := c.Message
-	height := preCommit.H()
-
-	proposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return m.Type() == msgProposal && m.Value() == preCommit.Value() && m.R() == preCommit.R()
-	})
-
-	if len(proposals) == 0 {
-		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
-		// time window for proof ends.
-		return proof, fmt.Errorf("node is malicious on rule C")
+// get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
+func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]autonity.OnChainProof, error) {
+	var innocentProofs []autonity.OnChainProof
+	state, err := fd.blockchain.StateAt(hash)
+	if err != nil || state == nil {
+		fd.logger.Error("handleAccusation", "fault_detector", err)
+		return nil, err
 	}
-	p, err := fd.generateOnChainProof(&preCommit, proposals, c.Rule, Innocence)
-	if err != nil {
-		return p, err
+
+	contract := fd.blockchain.GetAutonityContract()
+	if contract == nil {
+		return nil, fmt.Errorf("cannot get contract instance")
 	}
-	return p, nil
+
+	accusations := contract.GetAccusations(block.Header(), state)
+	for i := 0; i < len(accusations); i++ {
+		if accusations[i].Sender == fd.address {
+			c, err := decodeProof(accusations[i].Rawproof)
+			if err != nil {
+				continue
+			}
+
+			p, err := fd.getInnocentProof(c)
+			if err != nil {
+				continue
+			}
+			innocentProofs = append(innocentProofs, p)
+		}
+	}
+
+	return innocentProofs, nil
 }
 
-// get proof of innocent of C1 from msg store.
-func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (autonity.OnChainProof, error) {
-	var proof autonity.OnChainProof
-	preCommit := c.Message
-	height := preCommit.H()
-	quorum := fd.quorum(height - 1)
-
-	prevotesForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return m.Type() == msgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
-	})
-
-	if powerOfVotes(prevotesForV) < quorum {
-		// cannot proof its innocent for PO for now, the on-chain contract will fine it latter once the
-		// time window for proof ends.
-		return proof, fmt.Errorf("node might be malicious on rule C1")
+// processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
+func (fd *FaultDetector) processBufferedMsgs(height uint64) {
+	for h, msgs := range fd.futureMsgs {
+		if h <= height {
+			for i := 0; i < len(msgs); i++ {
+				if err := fd.processMsg(msgs[i]); err != nil {
+					fd.logger.Error("process consensus msg", "fault_detector", err)
+					continue
+				}
+			}
+		}
 	}
+}
 
-	p, err := fd.generateOnChainProof(&preCommit, prevotesForV, c.Rule, Innocence)
+// processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
+func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
+	// pre-check if msg is from valid committee member
+	err := checkMsgSignature(fd.blockchain, m)
 	if err != nil {
-		return p, err
+		if err == errFutureMsg {
+			fd.bufferMsg(m)
+		}
+		return err
 	}
 
-	return p, nil
+	// decode consensus msg, and auto-incriminating msg is addressed here.
+	err = checkAutoIncriminatingMsg(fd.blockchain, m)
+	if err != nil {
+		if err == errFutureMsg {
+			fd.bufferMsg(m)
+		} else {
+			proofs := []tendermintCore.Message{*m}
+			fd.submitMisbehavior(m, proofs, err)
+			return err
+		}
+	}
+
+	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
+	p, err := fd.msgStore.Save(m)
+	if err == errEquivocation && p != nil {
+		proof := []tendermintCore.Message{*p}
+		fd.submitMisbehavior(m, proof, err)
+		return err
+	}
+	return nil
+}
+
+func (fd *FaultDetector) quorum(h uint64) uint64 {
+	power, ok := fd.totalPowers[h]
+	if ok {
+		return bft.Quorum(power)
+	}
+
+	return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
+}
+
+// run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
+func (fd *FaultDetector) runRuleEngine(height uint64) []autonity.OnChainProof {
+	var onChainProofs []autonity.OnChainProof
+	// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
+	if height > uint64(deltaToWaitForAccountability) {
+		// run rule engine over the previous delta offset height.
+		lastDeltaHeight := height - uint64(deltaToWaitForAccountability)
+		quorum := fd.quorum(lastDeltaHeight - 1)
+		proofs := fd.runRulesOverHeight(lastDeltaHeight, quorum)
+		if len(proofs) > 0 {
+			for i := 0; i < len(proofs); i++ {
+				p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
+				if err != nil {
+					fd.logger.Warn("convert proof to on-chain proof", "fault_detector", err)
+					continue
+				}
+				onChainProofs = append(onChainProofs, p)
+			}
+		}
+	}
+	return onChainProofs
 }
 
 func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proofs []Proof) {
@@ -1062,6 +784,142 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 	return proofs
 }
 
+// send proofs via event which will handled by ethereum object to signed the TX to send proof.
+func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
+	fd.wg.Add(1)
+	go func() {
+		defer fd.wg.Done()
+		randomDelay()
+		unPresented := fd.filterPresentedOnes(&proofs)
+		if len(unPresented) != 0 {
+			fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented})
+		}
+	}()
+}
+
+func (fd *FaultDetector) sentProofs() {
+	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
+	//  consider to break down into multiples if it cannot fit in.
+	if len(fd.bufferedProofs) != 0 {
+		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
+		copy(copyProofs, fd.bufferedProofs)
+		fd.sendProofs(copyProofs)
+		// release items from buffer
+		fd.bufferedProofs = fd.bufferedProofs[:0]
+	}
+}
+
+// submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
+// send the proof of misbehavior to event channel.
+func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []tendermintCore.Message, err error) {
+	rule, e := errorToRule(err)
+	if e != nil {
+		fd.logger.Warn("error to rule", "fault_detector", e)
+	}
+	proof, err := fd.generateOnChainProof(m, proofs, rule, Misbehaviour)
+	if err != nil {
+		fd.logger.Warn("generate misbehavior proof", "fault_detector", err)
+		return
+	}
+
+	// submit misbehavior proof to buffer, it will be sent once aggregated.
+	fd.bufferedProofs = append(fd.bufferedProofs, proof)
+}
+
+// decode consensus msgs, address garbage msg and invalid proposal by returning error.
+func checkAutoIncriminatingMsg(chain *core.BlockChain, m *tendermintCore.Message) error {
+	if m.Code == msgProposal {
+		return checkProposal(chain, m)
+	}
+
+	if m.Code == msgPrevote || m.Code == msgPrecommit {
+		return decodeVote(m)
+	}
+
+	return errUnknownMsg
+}
+
+func checkEquivocation(chain *core.BlockChain, m *tendermintCore.Message, proof []tendermintCore.Message) error {
+	// decode msgs
+	err := checkAutoIncriminatingMsg(chain, m)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(proof); i++ {
+		err := checkAutoIncriminatingMsg(chain, &proof[i])
+		if err != nil {
+			return err
+		}
+	}
+	// check equivocations.
+	if !sameVote(m, &proof[0]) {
+		return errEquivocation
+	}
+	return nil
+}
+
+//checkMsgSignature, it check if msg is from valid member of the committee.
+func checkMsgSignature(chain *core.BlockChain, m *tendermintCore.Message) error {
+	msgHeight, err := m.Height()
+	if err != nil {
+		return err
+	}
+
+	header := chain.CurrentHeader()
+	if msgHeight.Uint64() > header.Number.Uint64()+1 {
+		return errFutureMsg
+	}
+
+	lastHeader := chain.GetHeaderByNumber(msgHeight.Uint64() - 1)
+	if lastHeader == nil {
+		return errFutureMsg
+	}
+
+	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		return errNotCommitteeMsg
+	}
+	return nil
+}
+
+// checkProposal, checks if proposal is valid and it's from correct proposer.
+func checkProposal(chain *core.BlockChain, m *tendermintCore.Message) error {
+	var proposal tendermintCore.Proposal
+	err := m.Decode(&proposal)
+	if err != nil {
+		return errGarbageMsg
+	}
+	if !isProposerMsg(chain, m) {
+		return errProposer
+	}
+
+	err = verifyProposal(chain, *proposal.ProposalBlock)
+	// due to network delay or timing issue, when AFD validate a proposal, that proposal could already be committed on the chain view.
+	// since the msg sender were checked with correct proposer, so we consider to take it as a valid proposal.
+	if err == core.ErrKnownBlock {
+		return nil
+	}
+
+	if err == consensus.ErrFutureBlock {
+		return errFutureMsg
+	}
+
+	if err != nil {
+		return errProposal
+	}
+
+	return nil
+}
+
+func decodeVote(m *tendermintCore.Message) error {
+	var vote tendermintCore.Vote
+	err := m.Decode(&vote)
+	if err != nil {
+		return errGarbageMsg
+	}
+	return nil
+}
+
 func errorToRule(err error) (Rule, error) {
 	rule := UnknownRule
 	switch err {
@@ -1078,4 +936,139 @@ func errorToRule(err error) (Rule, error) {
 	}
 
 	return rule, nil
+}
+
+func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
+	parentHeader := chain.GetHeaderByNumber(h - 1)
+	if parentHeader.IsGenesis() {
+		sort.Sort(parentHeader.Committee)
+		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
+	}
+
+	statedb, err := chain.StateAt(parentHeader.Root)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	proposer := chain.GetAutonityContract().GetProposerFromAC(parentHeader, statedb, parentHeader.Number.Uint64(), r)
+	member := parentHeader.CommitteeMember(proposer)
+	if member == nil {
+		return common.Address{}, fmt.Errorf("cannot find correct proposer")
+	}
+	return proposer, nil
+}
+
+func isProposerMsg(chain *core.BlockChain, m *tendermintCore.Message) bool {
+	h, _ := m.Height()
+	r, _ := m.Round()
+
+	proposer, err := getProposer(chain, h.Uint64(), r)
+	if err != nil {
+		return false
+	}
+
+	return m.Address == proposer
+}
+
+func powerOfVotes(votes []tendermintCore.Message) uint64 {
+	power := uint64(0)
+	for i := 0; i < len(votes); i++ {
+		if votes[i].Type() == msgProposal {
+			continue
+		}
+		power += votes[i].GetPower()
+	}
+	return power
+}
+
+func randomDelay() {
+	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
+	rand.Seed(time.Now().UnixNano())
+	n := rand.Intn(randomDelayWindow)
+	time.Sleep(time.Duration(n) * time.Millisecond)
+}
+
+func sameVote(a *tendermintCore.Message, b *tendermintCore.Message) bool {
+	ah, _ := a.Height()
+	ar, _ := a.Round()
+	bh, _ := b.Height()
+	br, _ := b.Round()
+	aHash := types.RLPHash(a.Payload())
+	bHash := types.RLPHash(b.Payload())
+
+	if ah == bh && ar == br && a.Code == b.Code && a.Address == b.Address && aHash == bHash {
+		return true
+	}
+	return false
+}
+
+func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
+	block := &proposal
+	if chain.HasBadBlock(block.Hash()) {
+		return core.ErrBlacklistedHash
+	}
+
+	err := chain.Engine().VerifyHeader(chain, block.Header(), false)
+	if err == nil || err == types.ErrEmptyCommittedSeals {
+		var (
+			receipts types.Receipts
+			usedGas  = new(uint64)
+			gp       = new(core.GasPool).AddGas(block.GasLimit())
+			header   = block.Header()
+			parent   = chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+		)
+
+		// We need to process all of the transaction to get the latest state to get the latest committee
+		state, stateErr := chain.StateAt(parent.Root())
+		if stateErr != nil {
+			return stateErr
+		}
+
+		// Validate the body of the proposal
+		if err = chain.Validator().ValidateBody(block); err != nil {
+			return err
+		}
+
+		// sb.chain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
+		// Instead only the transactions are applied to the copied state
+		for i, tx := range block.Transactions() {
+			state.Prepare(tx.Hash(), block.Hash(), i)
+			vmConfig := vm.Config{
+				EnablePreimageRecording: true,
+				EWASMInterpreter:        "",
+				EVMInterpreter:          "",
+			}
+			receipt, receiptErr := core.ApplyTransaction(chain.Config(), chain, nil, gp, state, header, tx, usedGas, vmConfig)
+			if receiptErr != nil {
+				return receiptErr
+			}
+			receipts = append(receipts, receipt)
+		}
+
+		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
+		committeeSet, receipt, err := chain.Engine().Finalize(chain, header, state, block.Transactions(), nil, receipts)
+		if err != nil {
+			return err
+		}
+		receipts = append(receipts, receipt)
+		//Validate the state of the proposal
+		if err = chain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
+			return err
+		}
+
+		//Perform the actual comparison
+		if len(header.Committee) != len(committeeSet) {
+			return consensus.ErrInconsistentCommitteeSet
+		}
+
+		for i := range committeeSet {
+			if header.Committee[i].Address != committeeSet[i].Address ||
+				header.Committee[i].VotingPower.Cmp(committeeSet[i].VotingPower) != 0 {
+				return consensus.ErrInconsistentCommitteeSet
+			}
+		}
+
+		return nil
+	}
+	return err
 }
