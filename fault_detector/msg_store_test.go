@@ -1,4 +1,4 @@
-package faultdetector
+package fault_detector
 
 import (
 	"github.com/clearmatics/autonity/common"

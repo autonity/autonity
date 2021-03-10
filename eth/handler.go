@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/faultdetector"
+	"github.com/clearmatics/autonity/fault_detector"
 	"math"
 	"math/big"
 	"sync"
@@ -112,14 +112,14 @@ type ProtocolManager struct {
 
 	engine        consensus.Engine
 	pub           *ecdsa.PublicKey
-	faultDetector *faultdetector.FaultDetector
+	faultDetector *fault_detector.FaultDetector
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode,
 	networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
-	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, afd *faultdetector.FaultDetector) (*ProtocolManager, error) {
+	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, afd *fault_detector.FaultDetector) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:     networkID,
