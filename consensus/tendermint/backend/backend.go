@@ -217,6 +217,11 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 			go p.Send(TendermintMsg, payload) //nolint
 		}
 	}
+
+	// broadcast consensus msg to local protocol manager for accountability.
+	if sb.broadcaster != nil {
+		sb.broadcaster.BroadcastToLocal(payload)
+	}
 }
 
 // KnownMsgHash dumps the known messages in case of gossiping.
