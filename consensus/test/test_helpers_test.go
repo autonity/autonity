@@ -99,7 +99,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 	}
 
 	users := make([]params.User, 0, len(nodes))
-	for n, node := range nodes {
+	for n, client := range nodes {
 		var nodeType params.UserType
 		stake := uint64(100)
 
@@ -116,16 +116,16 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 			//an unknown user
 			skip = true
 		default:
-			require.FailNow(t, "incorrect node type")
+			require.FailNow(t, "incorrect client type")
 		}
 
 		if skip {
 			continue
 		}
-		address := crypto.PubkeyToAddress(node.privateKey.PublicKey)
+		address := crypto.PubkeyToAddress(client.privateKey.PublicKey)
 		users = append(users, params.User{
 			Address: &address,
-			Enode:   node.url,
+			Enode:   client.url,
 			Type:    nodeType,
 			Stake:   stake,
 		})
@@ -214,8 +214,6 @@ func maliciousTest(t *testing.T, test *testCase, validators map[string]*testNode
 }
 
 func sendTransactions(t *testing.T, test *testCase, peers map[string]*testNode, txPerPeer int, errorOnTx bool, names []string) {
-	// extend the blockToWait to get pending TX be mined.
-	const blocksToWait = 60
 
 	txs := make(map[uint64]int) // blockNumber to count
 	txsMu := &sync.Mutex{}
@@ -238,7 +236,7 @@ func sendTransactions(t *testing.T, test *testCase, peers map[string]*testNode, 
 		}
 
 		wg.Go(func() error {
-			return runNode(ctx, peer, test, peers, logger, index, blocksToWait, txs, txsMu, errorOnTx, txPerPeer, names)
+			return runNode(ctx, peer, test, peers, logger, index, txs, txsMu, errorOnTx, txPerPeer, names)
 		})
 	}
 	err := wg.Wait()
@@ -359,7 +357,7 @@ func hookStartNode(nodeIndex string, durationAfterStop float64) hook {
 	}
 }
 
-func runNode(ctx context.Context, peer *testNode, test *testCase, peers map[string]*testNode, logger log.Logger, index string, blocksToWait int, txs map[uint64]int, txsMu sync.Locker, errorOnTx bool, txPerPeer int, names []string) error {
+func runNode(ctx context.Context, peer *testNode, test *testCase, peers map[string]*testNode, logger log.Logger, index string, txs map[uint64]int, txsMu sync.Locker, errorOnTx bool, txPerPeer int, names []string) error {
 	var err error
 	testCanBeStopped := new(uint32)
 	fromAddr := crypto.PubkeyToAddress(peer.privateKey.PublicKey)
@@ -492,56 +490,13 @@ wgLoop:
 				// all transactions were included into the chain
 				if errorOnTx && !isExternalUser {
 					peer.transactionsMu.Lock()
-					if len(peer.transactions) == 0 {
-						if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-							atomic.AddInt64(test.validatorsCanBeStopped, 1)
-						}
+					if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+						atomic.AddInt64(test.validatorsCanBeStopped, 1)
 					}
 					peer.transactionsMu.Unlock()
 				} else {
 					if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
 						atomic.AddInt64(test.validatorsCanBeStopped, 1)
-					}
-				}
-			}
-
-			if !isExternalUser && peer.isRunning && int(peer.lastBlock) >= test.numBlocks+blocksToWait {
-				if errorOnTx {
-					pending, queued := peer.service.TxPool().Stats()
-					if pending > 0 {
-						return fmt.Errorf("after a new block it should be 0 pending transactions got %d. block %d", pending, ev.Block.Number().Uint64())
-					}
-					if queued > 0 {
-						return fmt.Errorf("after a new block it should be 0 queued transactions got %d. block %d", queued, ev.Block.Number().Uint64())
-					}
-
-					peer.transactionsMu.Lock()
-					pendingTransactions := len(peer.transactions)
-					havePendingTransactions := pendingTransactions != 0
-					peer.transactionsMu.Unlock()
-
-					if havePendingTransactions {
-						var txsChainCount int64
-						for _, txsBlockCount := range peer.txsChainCount {
-							txsChainCount += txsBlockCount
-						}
-
-						if peer.wasStopped {
-							// fixme an error should be returned
-							logger.Error("test error!!!", "err", fmt.Errorf("a peer %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
-								index,
-								pendingTransactions, ev.Block.Number().Uint64(),
-								atomic.LoadInt64(peer.txsSendCount), txsChainCount))
-
-							if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-								atomic.AddInt64(test.validatorsCanBeStopped, 1)
-							}
-						} else {
-							return fmt.Errorf("a peer %s still have transactions to be mined %d. block %d. Total sent %d, total mined %d",
-								index,
-								pendingTransactions, ev.Block.Number().Uint64(),
-								atomic.LoadInt64(peer.txsSendCount), txsChainCount)
-						}
 					}
 				}
 			}

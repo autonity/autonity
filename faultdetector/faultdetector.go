@@ -1,6 +1,8 @@
 package faultdetector
 
 import (
+	"context"
+	"fmt"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
@@ -21,8 +23,8 @@ import (
 
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	randomDelayWindow            = 1000 * 10                         // (0, 10] seconds random time window
-	deltaToWaitForAccountability = 10                                // Wait until the GST + delta (10 blocks) to start rule scan.
+	randomDelayWindow            = 1000 * 5                          // (0, 5] seconds random time window
+	deltaToWaitForAccountability = 30                                // Wait until the GST + delta (30 blocks) to start rule scan.
 	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
 	errFutureMsg                 = errors.New("future height msg")
 	errGarbageMsg                = errors.New("garbage msg")
@@ -31,7 +33,6 @@ var (
 	errProposal                  = errors.New("proposal have invalid values")
 	errEquivocation              = errors.New("equivocation happens")
 	errUnknownMsg                = errors.New("unknown consensus msg")
-	errInvalidChallenge          = errors.New("invalid challenge")
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -71,6 +72,10 @@ type FaultDetector struct {
 	// buffer those proofs, aggregate them into single TX to send with latest nonce of account.
 	bufferedProofs []autonity.OnChainProof
 
+	stopped chan struct{}
+
+	cancel context.CancelFunc
+
 	logger log.Logger
 }
 
@@ -86,6 +91,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		tendermintMsgMux: event.NewTypeMuxSilent(logger),
 		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
 		totalPowers:      make(map[uint64]uint64),
+		stopped:          make(chan struct{}, 2),
 	}
 
 	// register faultdetector contracts on evm's precompiled contract set.
@@ -116,9 +122,11 @@ func (fd *FaultDetector) deletePower(h uint64) {
 
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
-func (fd *FaultDetector) FaultDetectorEventLoop() {
+func (fd *FaultDetector) FaultDetectorEventLoop(ctx context.Context) {
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockChan)
+	ctx, fd.cancel = context.WithCancel(ctx)
 
+eventLoop:
 	for {
 		select {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
@@ -151,7 +159,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 		// to handle consensus msg from p2p layer.
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {
-				return
+				break eventLoop
 			}
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
@@ -161,22 +169,29 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 					continue
 				}
 				if err := fd.processMsg(msg); err != nil {
-					fd.logger.Error("process consensus msg", "faultdetector", err)
+					fd.logger.Warn("process consensus msg", "faultdetector", err)
 					continue
 				}
 			}
 
 		case <-fd.blockSub.Err():
-			return
+			break eventLoop
+		case <-ctx.Done():
+			fd.logger.Info("FaultDetectorEventLoop is stopped", "event", ctx.Err())
+			break eventLoop
 		}
 	}
+
+	fd.stopped <- struct{}{}
 }
 
 func (fd *FaultDetector) sentProofs() {
 	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
 	//  consider to break down into multiples if it cannot fit in.
 	if len(fd.bufferedProofs) != 0 {
-		fd.sendProofs(fd.bufferedProofs)
+		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
+		copy(copyProofs, fd.bufferedProofs)
+		fd.sendProofs(copyProofs)
 		// release items from buffer
 		fd.bufferedProofs = fd.bufferedProofs[:0]
 	}
@@ -198,10 +213,17 @@ func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 	fd.tendermintMsgMux.Post(events.MessageEvent{Payload: data})
 }
 
+// since tendermint gossip only send to remote peer, so to handle self msgs called by protocol manager.
+func (fd *FaultDetector) HandleSelfMsg(payload []byte) {
+	fd.tendermintMsgMux.Post(events.MessageEvent{Payload: payload})
+}
+
 func (fd *FaultDetector) Stop() {
+	fd.cancel()
 	fd.scope.Close()
 	fd.blockSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
+	<-fd.stopped
 	fd.wg.Wait()
 	unRegisterAFDContracts()
 }
@@ -215,12 +237,17 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event
 func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]autonity.OnChainProof, error) {
 	var innocentProofs []autonity.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
-	if err != nil {
+	if err != nil || state == nil {
 		fd.logger.Error("handleAccusation", "faultdetector", err)
 		return nil, err
 	}
 
-	accusations := fd.blockchain.GetAutonityContract().GetAccusations(block.Header(), state)
+	contract := fd.blockchain.GetAutonityContract()
+	if contract == nil {
+		return nil, fmt.Errorf("cannot get contract instance")
+	}
+
+	accusations := contract.GetAccusations(block.Header(), state)
 	for i := 0; i < len(accusations); i++ {
 		if accusations[i].Sender == fd.address {
 			c, err := decodeProof(accusations[i].Rawproof)
@@ -269,7 +296,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []
 	header := fd.blockchain.CurrentBlock().Header()
 
 	presentedAccusation := fd.blockchain.GetAutonityContract().GetAccusations(header, state)
-	presentedMisbehavior := fd.blockchain.GetAutonityContract().GetChallenges(header, state)
+	presentedMisbehavior := fd.blockchain.GetAutonityContract().GetMisBehaviours(header, state)
 
 	for i := 0; i < len(*proofs); i++ {
 		present := false

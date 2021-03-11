@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -549,7 +550,7 @@ func (s *Ethereum) Start() error {
 	s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
 	go s.afdTXEventLoop()
 
-	go s.faultDetector.FaultDetectorEventLoop()
+	go s.faultDetector.FaultDetectorEventLoop(context.Background())
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
@@ -615,8 +616,9 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
-	s.glienickeSub.Unsubscribe()
 	// Stop faultDetector event loop
+	s.faultDetector.Stop()
+	s.glienickeSub.Unsubscribe()
 	s.afdSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
@@ -626,7 +628,6 @@ func (s *Ethereum) Stop() error {
 	s.blockchain.Stop()
 	s.engine.Close()
 	s.chainDb.Close()
-	s.faultDetector.Stop()
 	s.eventMux.Stop()
 	return nil
 }
