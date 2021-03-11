@@ -1,6 +1,7 @@
 package faultdetector
 
 import (
+	"context"
 	"fmt"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
@@ -71,6 +72,10 @@ type FaultDetector struct {
 	// buffer those proofs, aggregate them into single TX to send with latest nonce of account.
 	bufferedProofs []autonity.OnChainProof
 
+	stopped chan struct{}
+
+	cancel context.CancelFunc
+
 	logger log.Logger
 }
 
@@ -86,6 +91,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 		tendermintMsgMux: event.NewTypeMuxSilent(logger),
 		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
 		totalPowers:      make(map[uint64]uint64),
+		stopped:          make(chan struct{}, 2),
 	}
 
 	// register faultdetector contracts on evm's precompiled contract set.
@@ -116,9 +122,11 @@ func (fd *FaultDetector) deletePower(h uint64) {
 
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
-func (fd *FaultDetector) FaultDetectorEventLoop() {
+func (fd *FaultDetector) FaultDetectorEventLoop(ctx context.Context) {
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockChan)
+	ctx, fd.cancel = context.WithCancel(ctx)
 
+eventLoop:
 	for {
 		select {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
@@ -151,7 +159,7 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 		// to handle consensus msg from p2p layer.
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {
-				return
+				break eventLoop
 			}
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
@@ -167,9 +175,14 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 			}
 
 		case <-fd.blockSub.Err():
-			return
+			break eventLoop
+		case <-ctx.Done():
+			fd.logger.Info("FaultDetectorEventLoop is stopped", "event", ctx.Err())
+			break eventLoop
 		}
 	}
+
+	fd.stopped <- struct{}{}
 }
 
 func (fd *FaultDetector) sentProofs() {
@@ -206,9 +219,11 @@ func (fd *FaultDetector) HandleSelfMsg(payload []byte) {
 }
 
 func (fd *FaultDetector) Stop() {
+	fd.cancel()
 	fd.scope.Close()
 	fd.blockSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
+	<-fd.stopped
 	fd.wg.Wait()
 	unRegisterAFDContracts()
 }
