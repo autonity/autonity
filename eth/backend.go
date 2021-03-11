@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -549,7 +550,7 @@ func (s *Ethereum) Start() error {
 	s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
 	go s.afdTXEventLoop()
 
-	go s.faultDetector.FaultDetectorEventLoop()
+	go s.faultDetector.FaultDetectorEventLoop(context.Background())
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 

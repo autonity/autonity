@@ -11,10 +11,6 @@ func TestTendermintStopUpToFNodes(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	// todo: track why the 10~ min timeout happens.
-	// logs: https://github.com/clearmatics/autonity/runs/2012793563?check_suite_focus=true
-	t.Skip("Not stable after AFD integration")
-
 	cases := []*testCase{
 		{
 			name:          "one node stops at block 1",
