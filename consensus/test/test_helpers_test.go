@@ -491,10 +491,8 @@ wgLoop:
 				// all transactions were included into the chain
 				if errorOnTx && !isExternalUser {
 					peer.transactionsMu.Lock()
-					if len(peer.transactions) == 0 {
-						if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
-							atomic.AddInt64(test.validatorsCanBeStopped, 1)
-						}
+					if atomic.CompareAndSwapUint32(testCanBeStopped, 0, 1) {
+						atomic.AddInt64(test.validatorsCanBeStopped, 1)
 					}
 					peer.transactionsMu.Unlock()
 				} else {
