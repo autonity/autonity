@@ -1,68 +1,73 @@
 package faultdetector
 
 import (
+	"crypto/ecdsa"
+	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
+	"sort"
 	"testing"
 )
 
-func genMsg(rlpBytes []byte, code uint64, addr common.Address) *core.Message {
-	var msg = core.Message{
-		Code:          code,
-		Msg:           rlpBytes,
-		Address:       addr,
-		CommittedSeal: []byte{},
-	}
+type addressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-	payload, err := msg.PayloadNoSig()
-	if err != nil {
-		return nil
+func generateCommittee(n int) (types.Committee, addressKeyMap) {
+	vals := make(types.Committee, 0)
+	keymap := make(addressKeyMap)
+	for i := 0; i < n; i++ {
+		privateKey, _ := crypto.GenerateKey()
+		committeeMember := types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
+		vals = append(vals, committeeMember)
+		keymap[committeeMember.Address] = privateKey
 	}
-
-	m := new(core.Message)
-	if err := m.FromPayload(payload); err != nil {
-		return nil
-	}
-
-	return m
+	sort.Sort(vals)
+	return vals, keymap
 }
 
-func generateBlock(height *big.Int) *types.Block {
+func newBlockHeader(height uint64, committee types.Committee) *types.Header {
 	// use random nonce to create different blocks
 	var nonce types.BlockNonce
 	for i := 0; i < len(nonce); i++ {
 		nonce[0] = byte(rand.Intn(256))
 	}
-	header := &types.Header{Number: height, Nonce: nonce}
-	block := types.NewBlockWithHeader(header)
-	return block
-}
-
-func newProposal(r int64, h *big.Int, vr int64, p *types.Block) *core.Proposal {
-	return &core.Proposal{
-		Round:         r,
-		Height:        h,
-		ValidRound:    vr,
-		ProposalBlock: p,
+	return &types.Header{
+		Number: new(big.Int).SetUint64(height),
+		Nonce: nonce,
+		Committee: committee,
 	}
 }
 
-func newProposalMsg(h uint64, r int64, vr int64, addr common.Address) *core.Message {
-	height := new(big.Int).SetUint64(h)
-	newBlock := generateBlock(height)
-	proposalMsg := newProposal(r, height, vr, newBlock)
-	encodeProposal, err := core.Encode(proposalMsg)
+func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey, committee types.Committee) *core.Message {
+	header := newBlockHeader(h, committee)
+	lastHeader := newBlockHeader(h-1, committee)
+	block := types.NewBlockWithHeader(header)
+
+	proposal := &core.Proposal{
+		Round:         r,
+		Height:        new(big.Int).SetUint64(h),
+		ValidRound:    vr,
+		ProposalBlock: block,
+	}
+	encodeProposal, err := core.Encode(proposal)
 	if err != nil {
 		return nil
 	}
-	return genMsg(encodeProposal, msgProposal, addr)
+
+	msg := createMsg(encodeProposal, msgProposal, senderKey)
+
+	return decodeMsg(msg, lastHeader)
 }
 
-func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value common.Hash) *core.Message {
+func newVoteMsg(h uint64, r int64, code uint64, senderKey *ecdsa.PrivateKey, value common.Hash, committee types.Committee) *core.Message {
+	lastHeader := newBlockHeader(h-1, committee)
 	var vote = core.Vote{
 		Round:             r,
 		Height:            new(big.Int).SetUint64(h),
@@ -74,14 +79,73 @@ func newVoteMsg(h uint64, r int64, code uint64, addr common.Address, value commo
 		return nil
 	}
 
-	return genMsg(encodedVote, code, addr)
+	msg := createMsg(encodedVote, code, senderKey)
+
+	return decodeMsg(msg, lastHeader)
+}
+
+func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+	// 1. Get signature address
+	signer, err := types.GetSignatureAddress(data, sig)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	// 2. Check validator
+	val := previousHeader.CommitteeMember(signer)
+	if val == nil {
+		return common.Address{}, fmt.Errorf("wrong membership")
+	}
+
+	return val.Address, nil
+}
+
+func createMsg(rlpBytes []byte, code uint64, senderKey *ecdsa.PrivateKey) *core.Message {
+	var msg = core.Message{
+		Code:          code,
+		Msg:           rlpBytes,
+		Address:       crypto.PubkeyToAddress(senderKey.PublicKey),
+		CommittedSeal: []byte{},
+	}
+	data, err := msg.PayloadNoSig()
+	if err != nil {
+		return nil
+	}
+
+	hashData := crypto.Keccak256(data)
+	msg.Signature, err = crypto.Sign(hashData, senderKey)
+	if err != nil {
+		return nil
+	}
+	return &msg
+}
+
+// decode msg do the msg decoding and validation to recover the voting power and decodedMsg fields.
+func decodeMsg(msg *core.Message, lastHeader *types.Header) *core.Message {
+	m := new(core.Message)
+	err := m.FromPayload(msg.Payload())
+	if err != nil {
+		return nil
+	}
+
+	// validate msg and get voting power with last header.
+	if _, err = m.Validate(CheckValidatorSignature, lastHeader); err != nil {
+		return nil
+	}
+	return m
 }
 
 func TestMsgStore(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
-	addrAlice := common.Address{0x1}
-	addrBob := common.Address{0x2}
+
+	committee, keys := generateCommittee(5)
+	proposer := committee[0].Address
+	proposerKey := keys[proposer]
+
+	addrAlice := committee[0].Address
+	addrBob := committee[1].Address
+	keyBob := keys[addrBob]
 	noneNilValue := common.Hash{0x1}
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
@@ -94,13 +158,13 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := newMsgStore()
-		preVoteNil := newVoteMsg(height, round, msgPrevote, addrAlice, nilValue)
+		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
 		_, err := ms.Save(preVoteNil)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, addrAlice, noneNilValue)
+		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, proposerKey, noneNilValue, committee)
 		equivocatedMsg, err := ms.Save(preVoteNoneNil)
 		assert.NotNil(t, equivocatedMsg)
 		assert.Equal(t, err, errEquivocation)
@@ -113,7 +177,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := newMsgStore()
-		preVote := newVoteMsg(height, round, msgPrevote, addrAlice, nilValue)
+		preVote := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
 		_, err := ms.Save(preVote)
 		if err != nil {
 			assert.Error(t, err)
@@ -134,13 +198,13 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := newMsgStore()
-		preVoteNil := newVoteMsg(height, round, msgPrevote, addrAlice, nilValue)
+		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
 		_, err := ms.Save(preVoteNil)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, addrBob, noneNilValue)
+		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, keyBob, noneNilValue, committee)
 		_, err = ms.Save(preVoteNoneNil)
 		if err != nil {
 			assert.Error(t, err)
@@ -161,13 +225,13 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := newMsgStore()
-		preVoteNil := newVoteMsg(height, round, msgPrevote, addrAlice, nilValue)
+		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
 		_, err := ms.Save(preVoteNil)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, addrBob, noneNilValue)
+		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, keyBob, noneNilValue, committee)
 		_, err = ms.Save(preVoteNoneNil)
 		if err != nil {
 			assert.Error(t, err)

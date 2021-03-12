@@ -33,6 +33,10 @@ var (
 	errProposal                  = errors.New("proposal have invalid values")
 	errEquivocation              = errors.New("equivocation happens")
 	errUnknownMsg                = errors.New("unknown consensus msg")
+	errNoEvidenceForPO           = errors.New("no evidence for innocence of rule PO")
+	errNoEvidenceForPVN          = errors.New("no evidence for innocence of rule PVN")
+	errNoEvidenceForC            = errors.New("no evidence for innocence of rule C")
+	errNoEvidenceForC1           = errors.New("no evidence for innocence of rule C1")
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
