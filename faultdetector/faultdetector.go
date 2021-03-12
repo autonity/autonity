@@ -223,7 +223,9 @@ func (fd *FaultDetector) HandleSelfMsg(payload []byte) {
 }
 
 func (fd *FaultDetector) Stop() {
-	fd.cancel()
+	if fd.cancel != nil {
+		fd.cancel()
+	}
 	fd.scope.Close()
 	fd.blockSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
