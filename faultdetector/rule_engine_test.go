@@ -254,7 +254,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, GarbageMessage, rule)
 
-		rule, err = errorToRule(fmt.Errorf("unknown err"))
+		_, err = errorToRule(fmt.Errorf("unknown err"))
 		assert.Error(t, err)
 	})
 }
