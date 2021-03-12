@@ -3,6 +3,8 @@ package faultdetector
 import (
 	"fmt"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/tendermint/bft"
+	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -93,7 +95,6 @@ func TestRuleEngine(t *testing.T) {
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
 
 		fd := NewFaultDetector(nil, proposer)
-		fd.savePower(lastHeight, totalPower)
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee)
 		_, err := fd.msgStore.Save(proposal)
@@ -120,7 +121,6 @@ func TestRuleEngine(t *testing.T) {
 
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
 		fd := NewFaultDetector(nil, proposer)
-		fd.savePower(lastHeight, totalPower)
 
 		preVote := newVoteMsg(height, round, msgPrevote, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preVote)
@@ -141,7 +141,6 @@ func TestRuleEngine(t *testing.T) {
 		// C: node preCommit at a none nil value, there must be a corresponding proposal.
 
 		fd := NewFaultDetector(nil, proposer)
-		fd.savePower(lastHeight, totalPower)
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee)
 		_, err := fd.msgStore.Save(proposal)
@@ -169,7 +168,6 @@ func TestRuleEngine(t *testing.T) {
 		// C: node preCommit at a none nil value, there must be a corresponding proposal.
 
 		fd := NewFaultDetector(nil, proposer)
-		fd.savePower(lastHeight, totalPower)
 
 		preCommit := newVoteMsg(height, round, msgPrecommit, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preCommit)
@@ -256,5 +254,52 @@ func TestRuleEngine(t *testing.T) {
 
 		_, err = errorToRule(fmt.Errorf("unknown err"))
 		assert.Error(t, err)
+	})
+
+	t.Run("Test calculate power of votes", func(t *testing.T) {
+		var preVotes []core.Message
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, round, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVotes = append(preVotes, *preVote)
+		}
+
+		assert.Equal(t, uint64(len(committee)), powerOfVotes(preVotes))
+	})
+
+	t.Run("RunRulesOverHeight address the misbehaviour of PN", func(t *testing.T) {
+		// ------------New Proposal------------
+		// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
+		// PN1: [nil ∨ ⊥] <--- [V]
+		// If one send a maliciousProposal for a new V, then all preCommits for previous rounds from this sender are nil.
+
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+
+		// simulate there was a maliciousProposal at init round 0, and save to msg store.
+		initProposal := newProposalMessage(height, 0, -1, keys[committee[1].Address], committee)
+		_, err := fd.msgStore.Save(initProposal)
+
+		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, int64(0), msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			_, err = fd.msgStore.Save(preVote)
+		}
+
+		// Node preCommit for init Proposal at init round 0 since there were quorum preVotes for it, and save it.
+		preCommit := newVoteMsg(height, int64(0), msgPrecommit, proposerKey, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit)
+
+		// While Node propose a new maliciousProposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
+		maliciousProposal := newProposalMessage(height, round, -1, proposerKey, committee)
+		_, err = fd.msgStore.Save(maliciousProposal)
+		assert.NoError(t, err)
+
+		// Run rule engine over msg store on height.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
+		assert.Equal(t, PN, onChainProofs[0].Rule)
+		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
+		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
 }
