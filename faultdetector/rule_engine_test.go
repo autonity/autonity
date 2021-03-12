@@ -42,16 +42,16 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
-		for i:=0; i < len(committee); i++ {
+		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, validRound, msgPrevote, keys[committee[i].Address], proposal.Value(), committee)
 			_, err = fd.msgStore.Save(preVote)
 			assert.NoError(t, err)
 		}
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     PO,
-			Message:  *proposal,
+			Type:    Accusation,
+			Rule:    PO,
+			Message: *proposal,
 		}
 
 		proof, err := fd.GetInnocentProofOfPO(&accusation)
@@ -79,9 +79,9 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     PO,
-			Message:  *proposal,
+			Type:    Accusation,
+			Rule:    PO,
+			Message: *proposal,
 		}
 
 		_, err = fd.GetInnocentProofOfPO(&accusation)
@@ -104,9 +104,9 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     PVN,
-			Message:  *preVote,
+			Type:    Accusation,
+			Rule:    PVN,
+			Message: *preVote,
 		}
 
 		proof, err := fd.GetInnocentProofOfPVN(&accusation)
@@ -122,15 +122,14 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer)
 		fd.savePower(lastHeight, totalPower)
 
-
 		preVote := newVoteMsg(height, round, msgPrevote, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     PVN,
-			Message:  *preVote,
+			Type:    Accusation,
+			Rule:    PVN,
+			Message: *preVote,
 		}
 
 		_, err = fd.GetInnocentProofOfPVN(&accusation)
@@ -153,9 +152,9 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     C,
-			Message:  *preCommit,
+			Type:    Accusation,
+			Rule:    C,
+			Message: *preCommit,
 		}
 
 		proof, err := fd.GetInnocentProofOfC(&accusation)
@@ -177,9 +176,9 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     C,
-			Message:  *preCommit,
+			Type:    Accusation,
+			Rule:    C,
+			Message: *preCommit,
 		}
 
 		_, err = fd.GetInnocentProofOfC(&accusation)
@@ -194,7 +193,7 @@ func TestRuleEngine(t *testing.T) {
 		fd.savePower(lastHeight, totalPower)
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
-		for i:=0; i < len(committee); i++ {
+		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, round, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
 			_, err := fd.msgStore.Save(preVote)
 			assert.NoError(t, err)
@@ -205,9 +204,9 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     C1,
-			Message:  *preCommit,
+			Type:    Accusation,
+			Rule:    C1,
+			Message: *preCommit,
 		}
 
 		proof, err := fd.GetInnocentProofOfC1(&accusation)
@@ -229,9 +228,9 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		var accusation = Proof{
-			Type:     Accusation,
-			Rule:     C1,
-			Message:  *preCommit,
+			Type:    Accusation,
+			Rule:    C1,
+			Message: *preCommit,
 		}
 
 		_, err = fd.GetInnocentProofOfC1(&accusation)
