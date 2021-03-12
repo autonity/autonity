@@ -278,16 +278,18 @@ func TestRuleEngine(t *testing.T) {
 		// simulate there was a maliciousProposal at init round 0, and save to msg store.
 		initProposal := newProposalMessage(height, 0, -1, keys[committee[1].Address], committee)
 		_, err := fd.msgStore.Save(initProposal)
-
+		assert.NoError(t, err)
 		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, int64(0), msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
 		}
 
 		// Node preCommit for init Proposal at init round 0 since there were quorum preVotes for it, and save it.
 		preCommit := newVoteMsg(height, int64(0), msgPrecommit, proposerKey, initProposal.Value(), committee)
 		_, err = fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
 
 		// While Node propose a new maliciousProposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
 		maliciousProposal := newProposalMessage(height, round, -1, proposerKey, committee)
