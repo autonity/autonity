@@ -291,7 +291,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		// While Node propose a new maliciousProposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
+		// While Node propose a new malicious Proposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
 		maliciousProposal := newProposalMessage(height, round, -1, proposerKey, committee)
 		_, err = fd.msgStore.Save(maliciousProposal)
 		assert.NoError(t, err)
