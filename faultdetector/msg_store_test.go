@@ -45,10 +45,15 @@ func newBlockHeader(height uint64, committee types.Committee) *types.Header {
 	}
 }
 
-func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey, committee types.Committee) *core.Message {
+// new proposal with meta data, if the withValue is not nil, it will use the value as proposal, otherwise an
+// random block will be used as the value for proposal.
+func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey, committee types.Committee, withValue *types.Block) *core.Message {
 	header := newBlockHeader(h, committee)
 	lastHeader := newBlockHeader(h-1, committee)
-	block := types.NewBlockWithHeader(header)
+	block := withValue
+	if withValue == nil {
+		block = types.NewBlockWithHeader(header)
+	}
 
 	proposal := &core.Proposal{
 		Round:         r,
