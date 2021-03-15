@@ -39,7 +39,7 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer)
 		fd.savePower(lastHeight, totalPower)
 		// simulate a proposal message with an old value and a valid round.
-		proposal := newProposalMessage(height, round, validRound, proposerKey, committee)
+		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
 		assert.NoError(t, err)
 
@@ -71,7 +71,7 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer)
 		fd.savePower(lastHeight, totalPower)
 		// simulate a proposal message with an old value and a valid round.
-		proposal := newProposalMessage(height, round, validRound, proposerKey, committee)
+		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
 		assert.NoError(t, err)
 
@@ -96,7 +96,7 @@ func TestRuleEngine(t *testing.T) {
 
 		fd := NewFaultDetector(nil, proposer)
 		// simulate a proposal message with an old value and a valid round.
-		proposal := newProposalMessage(height, round, -1, proposerKey, committee)
+		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
 		assert.NoError(t, err)
 
@@ -142,7 +142,7 @@ func TestRuleEngine(t *testing.T) {
 
 		fd := NewFaultDetector(nil, proposer)
 		// simulate a proposal message with an old value and a valid round.
-		proposal := newProposalMessage(height, round, -1, proposerKey, committee)
+		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
 		assert.NoError(t, err)
 
@@ -266,7 +266,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, uint64(len(committee)), powerOfVotes(preVotes))
 	})
 
-	t.Run("RunRulesOverHeight address the misbehaviour of PN", func(t *testing.T) {
+	t.Run("RunRule address the misbehaviour of PN rule", func(t *testing.T) {
 		// ------------New Proposal------------
 		// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 		// PN1: [nil ∨ ⊥] <--- [V]
@@ -276,7 +276,7 @@ func TestRuleEngine(t *testing.T) {
 		quorum := bft.Quorum(totalPower)
 
 		// simulate there was a maliciousProposal at init round 0, and save to msg store.
-		initProposal := newProposalMessage(height, 0, -1, keys[committee[1].Address], committee)
+		initProposal := newProposalMessage(height, 0, -1, keys[committee[1].Address], committee, nil)
 		_, err := fd.msgStore.Save(initProposal)
 		assert.NoError(t, err)
 		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
@@ -292,7 +292,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		// While Node propose a new malicious Proposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
-		maliciousProposal := newProposalMessage(height, round, -1, proposerKey, committee)
+		maliciousProposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		_, err = fd.msgStore.Save(maliciousProposal)
 		assert.NoError(t, err)
 
@@ -301,6 +301,121 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
 		assert.Equal(t, PN, onChainProofs[0].Rule)
+		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
+		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
+	})
+
+	t.Run("RunRule address the misbehaviour of PO rule, the old value proposed is not locked", func(t *testing.T) {
+		// ------------Old Proposal------------
+		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
+		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
+
+		// to address below scenario:
+		// Is there a precommit for a value other than nil or the proposed value
+		// by the current proposer in the valid round? If there is the proposer
+		// has proposed a value for which it is not locked on, thus a proof of
+		// misbehaviour can be generated.
+
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+
+		// simulate a init proposal at r: 0, with v1.
+		initProposal := newProposalMessage(height, 0, -1, keys[committee[1].Address], committee, nil)
+		_, err := fd.msgStore.Save(initProposal)
+		assert.NoError(t, err)
+
+		// simulate quorum preVotes at r: 0 for v1.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, int64(0), msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		// simulate a preCommit at r: 0 for v1 for the node who is going to be addressed as
+		// malicious on rule PO for proposing an old value which was not locked at all.
+		preCommit := newVoteMsg(height, int64(0), msgPrecommit, proposerKey, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
+
+		// simulate malicious proposal at r: 1, vith v2 which was not locked at all.
+		// simulate a init proposal at r: 0, with v1.
+		maliciousProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
+		_, err = fd.msgStore.Save(maliciousProposal)
+		assert.NoError(t, err)
+
+		// run rule engine.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
+		assert.Equal(t, PO, onChainProofs[0].Rule)
+		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
+		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
+	})
+
+	t.Run("RunRule address the misbehaviour of PO rule, the valid round proposed is not correct", func(t *testing.T) {
+		// ------------Old Proposal------------
+		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
+		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
+
+		// To address below scenario:
+		// Is there a precommit for anything other than nil from the proposer
+		// between the valid round and the round of the proposal? If there is
+		// then that implies the proposer saw 2f+1 prevotes in that round and
+		// hence it should have set that round as the valid round.
+
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+		proposer1 := keys[committee[1].Address]
+		maliciousProposer := keys[committee[2].Address]
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a init proposal at r: 0, with v.
+		initProposal := newProposalMessage(height, 0, -1, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(initProposal)
+		assert.NoError(t, err)
+
+		// simulate quorum preVotes for init proposal
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, int64(0), msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		// simulate a preCommit for init proposal of proposer1, now valid round == 0.
+		preCommit1 := newVoteMsg(height, int64(0), msgPrecommit, proposer1, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit1)
+		assert.NoError(t, err)
+
+		// assume round changes happens, now proposer1 propose old value with vr: 0.
+		// simulate a new proposal at r: 3, with v.
+		proposal1 := newProposalMessage(height, 3, 0, proposer1, committee, block)
+		_, err = fd.msgStore.Save(proposal1)
+		assert.NoError(t, err)
+
+		// now quorum preVotes for proposal1, it makes valid round change to 3.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 3, msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		// the malicious proposer did preCommit on this round, make its valid round == 3
+		preCommit := newVoteMsg(height, 3, msgPrecommit, maliciousProposer, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
+
+		// malicious proposer propose at r: 5, with v and a vr: 0 which was not correct anymore.
+		maliciousProposal := newProposalMessage(height, 5, 0, maliciousProposer, committee, block)
+		_, err = fd.msgStore.Save(maliciousProposal)
+		assert.NoError(t, err)
+
+		// run rule engine.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
+		assert.Equal(t, PO, onChainProofs[0].Rule)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
