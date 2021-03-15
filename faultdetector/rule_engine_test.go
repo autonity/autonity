@@ -419,4 +419,33 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
+
+	t.Run("RunRule address the Accusation of PO rule, no quorum preVotes presented on the valid round", func(t *testing.T) {
+		// ------------Old Proposal------------
+		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
+		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
+
+		// To address below accusation scenario:
+		// If proposer rise an old proposal, then there must be a quorum preVotes on the valid round.
+		// Do we see a quorum of preVotes in the valid round, if not we can raise an accusation, since we cannot be sure
+		// that these preVotes don't exist
+
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate an old proposal at r: 2, with v and vr: 0.
+		oldProposal := newProposalMessage(height, 2, 0, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(oldProposal)
+		assert.NoError(t, err)
+
+		// run rule engine.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Accusation, onChainProofs[0].Type)
+		assert.Equal(t, PO, onChainProofs[0].Rule)
+		assert.Equal(t, oldProposal.Signature, onChainProofs[0].Message.Signature)
+	})
 }
