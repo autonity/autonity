@@ -448,4 +448,27 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, PO, onChainProofs[0].Rule)
 		assert.Equal(t, oldProposal.Signature, onChainProofs[0].Message.Signature)
 	})
+
+	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote", func(t *testing.T) {
+		// PVN: preVote for new value.
+		// To address below accusation scenario:
+		// If there an proVote for a non nil value, then there must be a corresponding proposal at the same round,
+		// otherwise an accusation of PVN should be rise.
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+
+		// simulate a preVote for v at round, let's the corresponding proposal missing.
+		preVote := newVoteMsg(height, round, msgPrevote, keys[committee[1].Address], noneNilValue, committee)
+		_, err := fd.msgStore.Save(preVote)
+		assert.NoError(t, err)
+
+		// run rule engine.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Accusation, onChainProofs[0].Type)
+		assert.Equal(t, PVN, onChainProofs[0].Rule)
+		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
+	})
+
+
 }
