@@ -23,6 +23,18 @@ var (
 	failure96Byte  = make([]byte, 96)
 )
 
+// wrap chain context calls to make unit test easier.
+type HeaderGetter func(chain *core.BlockChain, h uint64) *types.Header
+type CurrentHeaderGetter func(chain *core.BlockChain) *types.Header
+
+func getHeader(chain *core.BlockChain, h uint64) *types.Header {
+	return chain.GetHeaderByNumber(h)
+}
+
+func currentHeader(chain *core.BlockChain) *types.Header {
+	return chain.CurrentHeader()
+}
+
 // init the instances of AFD contracts, and register thems into evm's context
 func registerAFDContracts(chain *core.BlockChain) {
 	vm.PrecompileContractRWMutex.Lock()
@@ -93,11 +105,11 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return a.validateAccusation(p), nil
+	return a.validateAccusation(p, getHeader), nil
 }
 
 // validate if the accusation is valid.
-func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
+func (a *AccusationVerifier) validateAccusation(in *Proof, getHeader HeaderGetter) []byte {
 	// we have only 3 types of rule on accusation.
 	switch in.Rule {
 	case PO:
@@ -126,7 +138,7 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
 		return failure96Byte
 	}
 
-	lastHeader := a.chain.GetHeaderByNumber(h.Uint64() - 1)
+	lastHeader := getHeader(a.chain, h.Uint64()-1)
 	if lastHeader == nil {
 		return failure96Byte
 	}
@@ -162,14 +174,14 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return c.validateChallenge(p), nil
+	return c.validateChallenge(p, getHeader), nil
 }
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *MisbehaviourVerifier) validateChallenge(p *Proof) []byte {
+func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGetter) []byte {
 	// check if suspicious message is from correct committee member.
-	err := checkMsgSignature(c.chain, &p.Message)
+	err := checkMsgSignature(c.chain, &p.Message, getHeader, currentHeader)
 	if err != nil {
 		return failure96Byte
 	}
@@ -179,7 +191,7 @@ func (c *MisbehaviourVerifier) validateChallenge(p *Proof) []byte {
 	if err != nil {
 		return failure96Byte
 	}
-	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
+	lastHeader := getHeader(c.chain, h.Uint64()-1)
 	if lastHeader == nil {
 		return failure96Byte
 	}
@@ -208,7 +220,7 @@ func (c *MisbehaviourVerifier) validEvidence(p *Proof) bool {
 	case PVN:
 		return c.validChallengeOfPVN(p)
 	case C:
-		return c.validChallengeOfC(p)
+		return c.validChallengeOfC(p, getHeader)
 	case GarbageMessage:
 		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errGarbageMsg
 	case InvalidProposal:
@@ -247,18 +259,18 @@ func (c *InnocenceVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return c.validateInnocenceProof(p), nil
+	return c.validateInnocenceProof(p, getHeader), nil
 }
 
 // validate if the innocence proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
+func (c *InnocenceVerifier) validateInnocenceProof(in *Proof, getHeader HeaderGetter) []byte {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
 		return failure96Byte
 	}
 
-	lastHeader := c.chain.GetHeaderByNumber(h.Uint64() - 1)
+	lastHeader := getHeader(c.chain, h.Uint64()-1)
 	if lastHeader == nil {
 		return failure96Byte
 	}
@@ -287,20 +299,20 @@ func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
 	case PO:
-		return c.validInnocenceProofOfPO(p)
+		return c.validInnocenceProofOfPO(p, getHeader)
 	case PVN:
 		return c.validInnocenceProofOfPVN(p)
 	case C:
 		return c.validInnocenceProofOfC(p)
 	case C1:
-		return c.validInnocenceProofOfC1(p)
+		return c.validInnocenceProofOfC1(p, getHeader)
 	default:
 		return false
 	}
 }
 
 // check if the proof of innocent of PO is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof, getHeader HeaderGetter) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
 	if proposal.Type() != msgProposal {
@@ -308,7 +320,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof) bool {
 	}
 
 	height := proposal.H()
-	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
+	quorum := bft.Quorum(getHeader(c.chain, height-1).TotalVotingPower())
 
 	// check quorum prevotes for V at validRound.
 	for i := 0; i < len(p.Evidence); i++ {
@@ -363,14 +375,14 @@ func (c *InnocenceVerifier) validInnocenceProofOfC(p *Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof, getHeader HeaderGetter) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
 	}
 
 	height := preCommit.H()
-	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
+	quorum := bft.Quorum(getHeader(c.chain, height-1).TotalVotingPower())
 
 	// check quorum prevotes for V at the same round.
 	for i := 0; i < len(p.Evidence); i++ {
@@ -501,7 +513,7 @@ func (c *MisbehaviourVerifier) validChallengeOfPVN(p *Proof) bool {
 }
 
 // check if the proof of challenge of C is valid.
-func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof) bool {
+func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof, getHeader HeaderGetter) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -524,7 +536,7 @@ func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof) bool {
 	}
 
 	// check if prevotes for not V reaches to quorum.
-	quorum := bft.Quorum(c.chain.GetHeaderByNumber(p.Message.H() - 1).TotalVotingPower())
+	quorum := bft.Quorum(getHeader(c.chain, p.Message.H()-1).TotalVotingPower())
 	if powerOfVotes(p.Evidence) >= quorum {
 		return true
 	}
