@@ -64,8 +64,8 @@ func (ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 	// Remove all messgages at this height
 	for round, roundMsgMap := range ms.messages[height] {
 		for code, typeMsgMap := range roundMsgMap {
-			for addr, _ := range typeMsgMap {
-				ms.messages[height][round][code] = nil
+			for addr, msgs := range typeMsgMap {
+				msgs = msgs[:0]
 				delete(ms.messages[height][round][code], addr)
 			}
 			delete(ms.messages[height][round], code)
