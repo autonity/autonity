@@ -81,10 +81,13 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	}
 
 	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
-	p, err := fd.msgStore.Save(m)
-	if err == errEquivocation && p != nil {
-		proof := []tendermintCore.Message{*p}
-		fd.submitMisbehavior(m, proof, err)
+	msgs, err := fd.msgStore.Save(m)
+	if err == errEquivocation && msgs != nil {
+		var proofs []tendermintCore.Message
+		for i := 0; i < len(msgs); i++ {
+			proofs = append(proofs, *msgs[i])
+		}
+		fd.submitMisbehavior(m, proofs, err)
 		return err
 	}
 	return nil

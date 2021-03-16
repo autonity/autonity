@@ -172,12 +172,18 @@ func TestMsgStore(t *testing.T) {
 		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, proposerKey, noneNilValue, committee)
 		equivocatedMsg, err := ms.Save(preVoteNoneNil)
 		assert.NotNil(t, equivocatedMsg)
+
 		assert.Equal(t, err, errEquivocation)
-		assert.Equal(t, nilValue, equivocatedMsg.Value())
-		assert.Equal(t, addrAlice, equivocatedMsg.Sender())
-		assert.Equal(t, height, equivocatedMsg.H())
-		assert.Equal(t, round, equivocatedMsg.R())
-		assert.Equal(t, msgPrevote, equivocatedMsg.Type())
+		assert.Equal(t, nilValue, equivocatedMsgs[0].Value())
+		assert.Equal(t, addrAlice, equivocatedMsgs[0].Sender())
+		assert.Equal(t, height, equivocatedMsgs[0].H())
+		assert.Equal(t, round, equivocatedMsgs[0].R())
+		assert.Equal(t, msgPrevote, equivocatedMsgs[0].Type())
+		// check equivocated msg is also stored at msg store.
+		votes := ms.Get(height, func(m *core.Message) bool {
+			return m.Type() == msgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
+		})
+		assert.Equal(t, 2, len(votes))
 	})
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {

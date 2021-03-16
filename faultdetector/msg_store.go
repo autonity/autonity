@@ -7,64 +7,70 @@ import (
 )
 
 type MsgStore struct {
-	// map[Height]map[Round]map[MsgType]map[common.address]*Message
-	messages map[uint64]map[int64]map[uint64]map[common.Address]*core.Message
+	// map[Height]map[Round]map[MsgType]map[common.address][]*Message
+	messages map[uint64]map[int64]map[uint64]map[common.Address][]*core.Message
 }
 
 func newMsgStore() *MsgStore {
-	return &MsgStore{messages: make(map[uint64]map[int64]map[uint64]map[common.Address]*core.Message)}
+	return &MsgStore{messages: make(map[uint64]map[int64]map[uint64]map[common.Address][]*core.Message)}
 }
 
-// store msg into msg store, it returns msg that is equivocation than the input msg, and an errEquivocation.
+// store msg into msg store, it returns msgs that is equivocation than the input msg, and an errEquivocation.
 // otherwise it return nil, nil
-func (ms *MsgStore) Save(m *core.Message) (*core.Message, error) {
+func (ms *MsgStore) Save(m *core.Message) ([]*core.Message, error) {
 	height, _ := m.Height()
 	roundMap, ok := ms.messages[height.Uint64()]
 	if !ok {
-		roundMap = make(map[int64]map[uint64]map[common.Address]*core.Message)
+		roundMap = make(map[int64]map[uint64]map[common.Address][]*core.Message)
 		ms.messages[height.Uint64()] = roundMap
 	}
 
 	round, _ := m.Round()
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
-		msgTypeMap = make(map[uint64]map[common.Address]*core.Message)
+		msgTypeMap = make(map[uint64]map[common.Address][]*core.Message)
 		roundMap[round] = msgTypeMap
 	}
 
 	addressMap, ok := msgTypeMap[m.Code]
 	if !ok {
-		addressMap = make(map[common.Address]*core.Message)
+		addressMap = make(map[common.Address][]*core.Message)
 		msgTypeMap[m.Code] = addressMap
 	}
 
-	msg, ok := addressMap[m.Address]
+	msgs, ok := addressMap[m.Address]
 	if !ok {
-		addressMap[m.Address] = m
+		var msgList []*core.Message
+		addressMap[m.Address] = append(msgList, m)
 		return nil, nil
 	}
 
-	// check equivocation here.
-	if types.RLPHash(msg.Payload()) != types.RLPHash(m.Payload()) {
-		return msg, errEquivocation
+	presented := false
+	for i := 0; i < len(msgs); i++ {
+		if types.RLPHash(msgs[i].Payload()) == types.RLPHash(m.Payload()) {
+			presented = true
+		}
 	}
-	return nil, nil
-}
 
-func (ms *MsgStore) removeMsg(m *core.Message) {
-	height, _ := m.Height()
-	round, _ := m.Round()
-	delete(ms.messages[height.Uint64()][round][m.Code], m.Address)
+	if !presented {
+		addressMap[m.Address] = append(msgs, m)
+		return msgs, errEquivocation
+	}
+
+	return nil, nil
 }
 
 func (ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 	// Remove all messgages at this height
-	for _, msgTypeMap := range ms.messages[height] {
-		for _, addressMap := range msgTypeMap {
-			for _, m := range addressMap {
-				ms.removeMsg(m)
+	for round, roundMsgMap := range ms.messages[height] {
+		for code, typeMsgMap := range roundMsgMap {
+			for addr, msgs := range typeMsgMap {
+				msgs = msgs[:0]
+				delete(ms.messages[height][round][code], addr)
 			}
+			delete(ms.messages[height][round], code)
 		}
+		delete(ms.messages[height], round)
 	}
 	// Delete map entry for this height
 	delete(ms.messages, height)
@@ -81,9 +87,11 @@ func (ms *MsgStore) Get(height uint64, query func(*core.Message) bool) []core.Me
 
 	for _, msgTypeMap := range roundMap {
 		for _, addressMap := range msgTypeMap {
-			for _, m := range addressMap {
-				if query(m) {
-					result = append(result, *m)
+			for _, msgs := range addressMap {
+				for i := 0; i < len(msgs); i++ {
+					if query(msgs[i]) {
+						result = append(result, *msgs[i])
+					}
 				}
 			}
 		}
