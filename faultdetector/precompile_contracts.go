@@ -27,8 +27,8 @@ var (
 func registerAFDContracts(chain *core.BlockChain) {
 	vm.PrecompileContractRWMutex.Lock()
 	defer vm.PrecompileContractRWMutex.Unlock()
-	pv := InnocentVerifier{chain: chain}
-	cv := ChallengeVerifier{chain: chain}
+	pv := InnocenceVerifier{chain: chain}
+	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
 
 	vm.PrecompiledContractsByzantium[checkProofAddress] = &pv
@@ -139,19 +139,19 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
 	return append(append(sender, msgHash...), validProofByte...)
 }
 
-// ChallengeVerifier implemented as a native contract to validate if challenge is valid
-type ChallengeVerifier struct {
+// MisbehaviourVerifier implemented as a native contract to validate if misbehaviour is valid
+type MisbehaviourVerifier struct {
 	chain *core.BlockChain
 }
 
-// the gas cost to execute ChallengeVerifier contract.
-func (c *ChallengeVerifier) RequiredGas(_ []byte) uint64 {
+// the gas cost to execute MisbehaviourVerifier contract.
+func (c *MisbehaviourVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityPrecompiledContractGas
 }
 
 // take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for proof management.
-func (c *ChallengeVerifier) Run(input []byte) ([]byte, error) {
+func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		return failure96Byte, nil
 	}
@@ -167,7 +167,7 @@ func (c *ChallengeVerifier) Run(input []byte) ([]byte, error) {
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *ChallengeVerifier) validateChallenge(p *Proof) []byte {
+func (c *MisbehaviourVerifier) validateChallenge(p *Proof) []byte {
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message)
 	if err != nil {
@@ -199,7 +199,7 @@ func (c *ChallengeVerifier) validateChallenge(p *Proof) []byte {
 }
 
 // check if the evidence of the challenge is valid or not.
-func (c *ChallengeVerifier) validEvidence(p *Proof) bool {
+func (c *MisbehaviourVerifier) validEvidence(p *Proof) bool {
 	switch p.Rule {
 	case PN:
 		return c.validChallengeOfPN(p)
@@ -222,20 +222,20 @@ func (c *ChallengeVerifier) validEvidence(p *Proof) bool {
 	}
 }
 
-// InnocentVerifier implemented as a native contract to validate an innocent proof.
-type InnocentVerifier struct {
+// InnocenceVerifier implemented as a native contract to validate an innocence proof.
+type InnocenceVerifier struct {
 	chain *core.BlockChain
 }
 
 // the gas cost to execute this proof validator contract.
-func (c *InnocentVerifier) RequiredGas(_ []byte) uint64 {
+func (c *InnocenceVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityPrecompiledContractGas
 }
 
-// InnocentVerifier, take the rlp encoded proof of innocent, decode it and validate it, if the proof is valid, then
+// InnocenceVerifier, take the rlp encoded proof of innocence, decode it and validate it, if the proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
-func (c *InnocentVerifier) Run(input []byte) ([]byte, error) {
+func (c *InnocenceVerifier) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
 	if len(input) == 0 {
 		return failure96Byte, nil
@@ -247,11 +247,11 @@ func (c *InnocentVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return c.validateInnocentProof(p), nil
+	return c.validateInnocenceProof(p), nil
 }
 
-// validate if the innocent proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocentVerifier) validateInnocentProof(in *Proof) []byte {
+// validate if the innocence proof is valid, it returns sender address and msg hash in byte array when proof is valid.
+func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
@@ -274,7 +274,7 @@ func (c *InnocentVerifier) validateInnocentProof(in *Proof) []byte {
 		}
 	}
 
-	if !c.validInnocentProof(in) {
+	if !c.validInnocenceProof(in) {
 		return failure96Byte
 	}
 
@@ -283,24 +283,24 @@ func (c *InnocentVerifier) validateInnocentProof(in *Proof) []byte {
 	return append(append(sender, msgHash...), validProofByte...)
 }
 
-func (c *InnocentVerifier) validInnocentProof(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
 	case PO:
-		return c.validInnocentProofOfPO(p)
+		return c.validInnocenceProofOfPO(p)
 	case PVN:
-		return c.validInnocentProofOfPVN(p)
+		return c.validInnocenceProofOfPVN(p)
 	case C:
-		return c.validInnocentProofOfC(p)
+		return c.validInnocenceProofOfC(p)
 	case C1:
-		return c.validInnocentProofOfC1(p)
+		return c.validInnocenceProofOfC1(p)
 	default:
 		return false
 	}
 }
 
 // check if the proof of innocent of PO is valid.
-func (c *InnocentVerifier) validInnocentProofOfPO(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
 	if proposal.Type() != msgProposal {
@@ -330,7 +330,7 @@ func (c *InnocentVerifier) validInnocentProofOfPO(p *Proof) bool {
 }
 
 // check if the proof of innocent of PVN is valid.
-func (c *InnocentVerifier) validInnocentProofOfPVN(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
 	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
@@ -347,7 +347,7 @@ func (c *InnocentVerifier) validInnocentProofOfPVN(p *Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentVerifier) validInnocentProofOfC(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfC(p *Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -363,7 +363,7 @@ func (c *InnocentVerifier) validInnocentProofOfC(p *Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocentVerifier) validInnocentProofOfC1(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -423,7 +423,7 @@ func decodeProof(proof []byte) (*Proof, error) {
 // validate proof of challenge for rules.
 // check if the proof of challenge of PN is valid,
 // node propose a new value when there is a proof that it precommit at a different value at previous round.
-func (c *ChallengeVerifier) validChallengeOfPN(p *Proof) bool {
+func (c *MisbehaviourVerifier) validChallengeOfPN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -446,7 +446,7 @@ func (c *ChallengeVerifier) validChallengeOfPN(p *Proof) bool {
 }
 
 // check if the proof of challenge of PO is valid
-func (c *ChallengeVerifier) validChallengeOfPO(p *Proof) bool {
+func (c *MisbehaviourVerifier) validChallengeOfPO(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -473,7 +473,7 @@ func (c *ChallengeVerifier) validChallengeOfPO(p *Proof) bool {
 }
 
 // check if the proof of challenge of PVN is valid.
-func (c *ChallengeVerifier) validChallengeOfPVN(p *Proof) bool {
+func (c *MisbehaviourVerifier) validChallengeOfPVN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -501,7 +501,7 @@ func (c *ChallengeVerifier) validChallengeOfPVN(p *Proof) bool {
 }
 
 // check if the proof of challenge of C is valid.
-func (c *ChallengeVerifier) validChallengeOfC(p *Proof) bool {
+func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
