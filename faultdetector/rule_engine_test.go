@@ -281,13 +281,13 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, int64(0), msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			_, err = fd.msgStore.Save(preVote)
 			assert.NoError(t, err)
 		}
 
 		// Node preCommit for init Proposal at init round 0 since there were quorum preVotes for it, and save it.
-		preCommit := newVoteMsg(height, int64(0), msgPrecommit, proposerKey, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, initProposal.Value(), committee)
 		_, err = fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
@@ -326,14 +326,14 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum preVotes at r: 0 for v1.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, int64(0), msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			_, err = fd.msgStore.Save(preVote)
 			assert.NoError(t, err)
 		}
 
 		// simulate a preCommit at r: 0 for v1 for the node who is going to be addressed as
 		// malicious on rule PO for proposing an old value which was not locked at all.
-		preCommit := newVoteMsg(height, int64(0), msgPrecommit, proposerKey, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, initProposal.Value(), committee)
 		_, err = fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
@@ -378,13 +378,13 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum preVotes for init proposal
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, int64(0), msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			_, err = fd.msgStore.Save(preVote)
 			assert.NoError(t, err)
 		}
 
 		// simulate a preCommit for init proposal of proposer1, now valid round == 0.
-		preCommit1 := newVoteMsg(height, int64(0), msgPrecommit, proposer1, initProposal.Value(), committee)
+		preCommit1 := newVoteMsg(height, 0, msgPrecommit, proposer1, initProposal.Value(), committee)
 		_, err = fd.msgStore.Save(preCommit1)
 		assert.NoError(t, err)
 
@@ -450,7 +450,7 @@ func TestRuleEngine(t *testing.T) {
 	})
 
 	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote", func(t *testing.T) {
-		// PVN: preVote for new value.
+		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 		// To address below accusation scenario:
 		// If there an proVote for a non nil value, then there must be a corresponding proposal at the same round,
 		// otherwise an accusation of PVN should be rise.
@@ -468,5 +468,164 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, Accusation, onChainProofs[0].Type)
 		assert.Equal(t, PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
+	})
+
+	t.Run("RunRule address the misbehaviour of PVN, node preVote for value V1 while it preCommitted another value at previous round",
+		func(t *testing.T) {
+		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
+		// PVN2: [nil ∨ ⊥] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]: r′= 0,∀r′′< r:Mr′′,PC|pi=nil
+		// PVN2, If there is a valid proposal V at round r, and pi never
+		// ever precommit(locked a value) before, then pi should prevote
+		// for V or a nil in case of timeout at this round.
+
+		// To address below misbehaviour scenario:
+		// Node preCommitted at v1 at R_x, while it preVote for v2 at R_x + n.
+
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+		maliciousNode := keys[committee[1].Address]
+		newProposer := keys[committee[2].Address]
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a init proposal at r: 0, with v.
+		initProposal := newProposalMessage(height, 0, -1, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(initProposal)
+		assert.NoError(t, err)
+
+		// simulate quorum preVotes for init proposal
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		// the malicious node did preCommit for v1 on round 0
+		preCommit := newVoteMsg(height, 0, msgPrecommit, maliciousNode, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
+
+		// assume round changes, some one propose V2 at round 3, and malicious Node now it preVote for this V2.
+		newProposal := newProposalMessage(height, 3, -1, newProposer, committee, nil)
+		_, err = fd.msgStore.Save(newProposal)
+		assert.NoError(t, err)
+
+		// now the malicious node preVote for a new value V2 at higher round 3.
+		preVote := newVoteMsg(height, 3, msgPrevote, maliciousNode, newProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preVote)
+		assert.NoError(t, err)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
+		assert.Equal(t, PVN, onChainProofs[0].Rule)
+		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
+		assert.Equal(t, 2, len(onChainProofs[0].Evidence))
+		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
+		assert.Equal(t, newProposal.Signature, onChainProofs[0].Evidence[1].Signature)
+	})
+
+	t.Run("RunRule address Accusation of rule C, no corresponding proposal for a preCommit msg", func(t *testing.T) {
+		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
+		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
+
+		// To address below accusation scenario:
+		// Node preCommit for a V at round R, but we cannot see the corresponding proposal that propose the value at
+		// the same round of that preCommit msg.
+
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		_, err := fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Accusation, onChainProofs[0].Type)
+		assert.Equal(t, C, onChainProofs[0].Rule)
+		assert.Equal(t, preCommit.Signature, onChainProofs[0].Message.Signature)
+	})
+
+	t.Run("RunRule address misbehaviour of rule C, node preCommit for V1 with having quorum preVotes of V2", func(t *testing.T) {
+		// ------------Precommits------------
+		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
+		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
+
+		// To address below misbehaviour scenario:
+		// Node preCommit for a value V1, but there was more than quorum preVotes for not V1 at the same round.
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+		maliciousNode := keys[committee[1].Address]
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a init proposal at r: 0, with v.
+		initProposal := newProposalMessage(height, 0, -1, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(initProposal)
+		assert.NoError(t, err)
+
+		// simulate more than quorum preVotes for not v.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], nilValue, committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		// malicious node preCommit to v even through there was no quorum preVotes for v.
+		preCommit := newVoteMsg(height, 0, msgPrecommit, maliciousNode, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
+		assert.Equal(t, C, onChainProofs[0].Rule)
+		assert.Equal(t, preCommit.Signature, onChainProofs[0].Message.Signature)
+
+		// validate if there is enough preVotes for not v.
+		assert.GreaterOrEqual(t, uint64(len(onChainProofs[0].Evidence)), quorum)
+		for _, m := range onChainProofs[0].Evidence {
+			assert.Equal(t, height, m.H())
+			assert.Equal(t, int64(0), m.R())
+			assert.Equal(t, msgPrevote, m.Code)
+			assert.Equal(t, nilValue, m.Value())
+		}
+	})
+
+
+	t.Run("RunRule address accusation of rule C1, no present of quorum preVotes of V to justify the preCommit of V", func(t *testing.T) {
+		// ------------Precommits------------
+		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
+		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
+
+		// To address below accusation scenario:
+		// Node preCommit for a value V, but observer haven't seen quorum preVotes for V at the round, an accusation shall
+		// be rise.
+		fd := NewFaultDetector(nil, proposer)
+		quorum := bft.Quorum(totalPower)
+		maliciousNode := keys[committee[1].Address]
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a init proposal at r: 0, with v.
+		initProposal := newProposalMessage(height, 0, -1, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(initProposal)
+		assert.NoError(t, err)
+
+		// malicious node preCommit to v even through there was no quorum preVotes for v.
+		preCommit := newVoteMsg(height, 0, msgPrecommit, maliciousNode, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, Accusation, onChainProofs[0].Type)
+		assert.Equal(t, C1, onChainProofs[0].Rule)
+		assert.Equal(t, preCommit.Signature, onChainProofs[0].Message.Signature)
 	})
 }
