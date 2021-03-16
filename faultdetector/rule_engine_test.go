@@ -469,6 +469,4 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
 	})
-
-
 }
