@@ -170,8 +170,8 @@ func TestMsgStore(t *testing.T) {
 		}
 
 		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, proposerKey, noneNilValue, committee)
-		equivocatedMsg, err := ms.Save(preVoteNoneNil)
-		assert.NotNil(t, equivocatedMsg)
+		equivocatedMsgs, err := ms.Save(preVoteNoneNil)
+		assert.NotNil(t, equivocatedMsgs)
 
 		assert.Equal(t, err, errEquivocation)
 		assert.Equal(t, nilValue, equivocatedMsgs[0].Value())
