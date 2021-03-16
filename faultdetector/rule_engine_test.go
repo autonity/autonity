@@ -470,8 +470,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
 	})
 
-	t.Run("RunRule address the misbehaviour of PVN, node preVote for value V1 while it preCommitted another value at previous round",
-		func(t *testing.T) {
+	t.Run("RunRule address the misbehaviour of PVN, node preVote for value V1 while it preCommitted another value at previous round", func(t *testing.T) {
 		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 		// PVN2: [nil ∨ ⊥] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]: r′= 0,∀r′′< r:Mr′′,PC|pi=nil
 		// PVN2, If there is a valid proposal V at round r, and pi never
