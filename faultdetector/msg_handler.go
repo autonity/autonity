@@ -15,6 +15,10 @@ import (
 	"sort"
 )
 
+// wrap chain context calls to make unit test easier
+type ProposerGetter func(chain *core.BlockChain, h uint64, r int64) (common.Address, error)
+type ProposalChecker func(chain *core.BlockChain, proposal types.Block) error
+
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
 func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs []tendermintCore.Message, rule Rule, t ProofType) (autonity.OnChainProof, error) {
 	var proof autonity.OnChainProof
@@ -60,7 +64,7 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []t
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
 func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	// pre-check if msg is from valid committee member
-	err := checkMsgSignature(fd.blockchain, m)
+	err := checkMsgSignature(fd.blockchain, m, getHeader, currentHeader)
 	if err != nil {
 		if err == errFutureMsg {
 			fd.bufferMsg(m)
@@ -122,7 +126,7 @@ func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
 func checkAutoIncriminatingMsg(chain *core.BlockChain, m *tendermintCore.Message) error {
 	if m.Code == msgProposal {
-		return checkProposal(chain, m)
+		return checkProposal(chain, m, verifyProposal)
 	}
 
 	if m.Code == msgPrevote || m.Code == msgPrecommit {
@@ -167,17 +171,17 @@ func sameVote(a *tendermintCore.Message, b *tendermintCore.Message) bool {
 }
 
 // checkProposal, checks if proposal is valid and it's from correct proposer.
-func checkProposal(chain *core.BlockChain, m *tendermintCore.Message) error {
+func checkProposal(chain *core.BlockChain, m *tendermintCore.Message, validateProposal ProposalChecker) error {
 	var proposal tendermintCore.Proposal
 	err := m.Decode(&proposal)
 	if err != nil {
 		return errGarbageMsg
 	}
-	if !isProposerMsg(chain, m) {
+	if !isProposerMsg(chain, m, getProposer) {
 		return errProposer
 	}
 
-	err = verifyProposal(chain, *proposal.ProposalBlock)
+	err = validateProposal(chain, *proposal.ProposalBlock)
 	// due to network delay or timing issue, when AFD validate a proposal, that proposal could already be committed on the chain view.
 	// since the msg sender were checked with correct proposer, so we consider to take it as a valid proposal.
 	if err == core.ErrKnownBlock {
@@ -196,18 +200,18 @@ func checkProposal(chain *core.BlockChain, m *tendermintCore.Message) error {
 }
 
 //checkMsgSignature, it check if msg is from valid member of the committee.
-func checkMsgSignature(chain *core.BlockChain, m *tendermintCore.Message) error {
+func checkMsgSignature(chain *core.BlockChain, m *tendermintCore.Message, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) error {
 	msgHeight, err := m.Height()
 	if err != nil {
 		return err
 	}
 
-	header := chain.CurrentHeader()
+	header := currentHeader(chain)
 	if msgHeight.Uint64() > header.Number.Uint64()+1 {
 		return errFutureMsg
 	}
 
-	lastHeader := chain.GetHeaderByNumber(msgHeight.Uint64() - 1)
+	lastHeader := getHeader(chain, msgHeight.Uint64()-1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}
@@ -289,11 +293,11 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 	return err
 }
 
-func isProposerMsg(chain *core.BlockChain, m *tendermintCore.Message) bool {
+func isProposerMsg(chain *core.BlockChain, m *tendermintCore.Message, proposerGetter ProposerGetter) bool {
 	h, _ := m.Height()
 	r, _ := m.Round()
 
-	proposer, err := getProposer(chain, h.Uint64(), r)
+	proposer, err := proposerGetter(chain, h.Uint64(), r)
 	if err != nil {
 		return false
 	}
