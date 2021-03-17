@@ -139,7 +139,7 @@ func TestAccusationVerifier(t *testing.T) {
 		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
 	})
 
-	t.Run("Test validate accusation, with correct accuation msg", func(t *testing.T) {
+	t.Run("Test validate accusation, with correct accusation msg", func(t *testing.T) {
 
 	})
 }
