@@ -80,7 +80,7 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 	// Copy the base node config, so we can modify it without damaging the
 	// original.
 	c := &node.Config{}
-	err := copyObject(baseNodeConfig, c)
+	err := copyNodeConfig(baseNodeConfig, c)
 	if err != nil {
 		return nil, err
 	}
@@ -388,8 +388,6 @@ func copyNodeConfig(source, dest *node.Config) error {
 	s.Config = *source
 	p := MarshalableP2PConfig{}
 	p.Config = source.P2P
-
-	crypto.FromECDSA(source.P2P.PrivateKey)
 
 	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.P2P.PrivateKey)
 	s.P2P = p
