@@ -281,7 +281,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PN rule with on evidence of proof", func(t *testing.T) {
+	t.Run("Test validate misbehaviour proof of PN rule with no evidence of proof", func(t *testing.T) {
 		var proof Proof
 		proof.Rule = PN
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
@@ -293,8 +293,54 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PO rule with correct proof", func(t *testing.T) {
+	t.Run("Test validate misbehaviour proof of PO, propose a v rather than the locked one", func(t *testing.T) {
+		// simulate a proof of misbehaviour of PO, with the proposer proposed a old value that was not
+		// the one he locked at previous round, the validation of this proof should return true.
+		var proof Proof
+		proof.Rule = PO
+		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *proposal
+		proof.Evidence = append(proof.Evidence, *preCommit)
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validEvidence(&proof)
+		assert.Equal(t, true, ret)
+	})
 
+	t.Run("Test validate misbehaviour proof of PO, propose a valid round rather than the locked one", func(t *testing.T) {
+		// simulate a proof of misbehaviour of PO, with the proposer proposed a valid round that was not
+		// the one he locked at previous round, the validation of this proof should return true.
+		var proof Proof
+		proof.Rule = PO
+		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *proposal
+		proof.Evidence = append(proof.Evidence, *preCommit)
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validEvidence(&proof)
+		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PO, with no evidence", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = PO
+		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		proof.Message = *proposal
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validEvidence(&proof)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PO, with a proposal of new value", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = PO
+		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *proposal
+		proof.Evidence = append(proof.Evidence, *preCommit)
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validEvidence(&proof)
+		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate misbehaviour proof of PVN rule", func(t *testing.T) {
