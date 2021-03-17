@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	checkAccusationAddress = common.BytesToAddress([]byte{252})
-	checkProofAddress      = common.BytesToAddress([]byte{253})
-	checkChallengeAddress  = common.BytesToAddress([]byte{254})
+	checkAccusationAddress   = common.BytesToAddress([]byte{252})
+	checkInnocenceAddress    = common.BytesToAddress([]byte{253})
+	checkMisbehaviourAddress = common.BytesToAddress([]byte{254})
 	// error codes of the execution of precompiled contract to verify the input proof.
 	validProofByte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 	failure96Byte  = make([]byte, 96)
@@ -43,20 +43,20 @@ func registerAFDContracts(chain *core.BlockChain) {
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
 
-	vm.PrecompiledContractsByzantium[checkProofAddress] = &pv
-	vm.PrecompiledContractsByzantium[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsByzantium[checkInnocenceAddress] = &pv
+	vm.PrecompiledContractsByzantium[checkMisbehaviourAddress] = &cv
 	vm.PrecompiledContractsByzantium[checkAccusationAddress] = &av
 
-	vm.PrecompiledContractsHomestead[checkProofAddress] = &pv
-	vm.PrecompiledContractsHomestead[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsHomestead[checkInnocenceAddress] = &pv
+	vm.PrecompiledContractsHomestead[checkMisbehaviourAddress] = &cv
 	vm.PrecompiledContractsHomestead[checkAccusationAddress] = &av
 
-	vm.PrecompiledContractsIstanbul[checkProofAddress] = &pv
-	vm.PrecompiledContractsIstanbul[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsIstanbul[checkInnocenceAddress] = &pv
+	vm.PrecompiledContractsIstanbul[checkMisbehaviourAddress] = &cv
 	vm.PrecompiledContractsIstanbul[checkAccusationAddress] = &av
 
-	vm.PrecompiledContractsYoloV1[checkProofAddress] = &pv
-	vm.PrecompiledContractsYoloV1[checkChallengeAddress] = &cv
+	vm.PrecompiledContractsYoloV1[checkInnocenceAddress] = &pv
+	vm.PrecompiledContractsYoloV1[checkMisbehaviourAddress] = &cv
 	vm.PrecompiledContractsYoloV1[checkAccusationAddress] = &av
 }
 
@@ -65,20 +65,20 @@ func unRegisterAFDContracts() {
 	vm.PrecompileContractRWMutex.Lock()
 	defer vm.PrecompileContractRWMutex.Unlock()
 
-	delete(vm.PrecompiledContractsByzantium, checkProofAddress)
-	delete(vm.PrecompiledContractsByzantium, checkChallengeAddress)
+	delete(vm.PrecompiledContractsByzantium, checkInnocenceAddress)
+	delete(vm.PrecompiledContractsByzantium, checkMisbehaviourAddress)
 	delete(vm.PrecompiledContractsByzantium, checkAccusationAddress)
 
-	delete(vm.PrecompiledContractsYoloV1, checkProofAddress)
-	delete(vm.PrecompiledContractsYoloV1, checkChallengeAddress)
+	delete(vm.PrecompiledContractsYoloV1, checkInnocenceAddress)
+	delete(vm.PrecompiledContractsYoloV1, checkMisbehaviourAddress)
 	delete(vm.PrecompiledContractsYoloV1, checkAccusationAddress)
 
-	delete(vm.PrecompiledContractsIstanbul, checkProofAddress)
-	delete(vm.PrecompiledContractsIstanbul, checkChallengeAddress)
+	delete(vm.PrecompiledContractsIstanbul, checkInnocenceAddress)
+	delete(vm.PrecompiledContractsIstanbul, checkMisbehaviourAddress)
 	delete(vm.PrecompiledContractsIstanbul, checkAccusationAddress)
 
-	delete(vm.PrecompiledContractsHomestead, checkProofAddress)
-	delete(vm.PrecompiledContractsHomestead, checkChallengeAddress)
+	delete(vm.PrecompiledContractsHomestead, checkInnocenceAddress)
+	delete(vm.PrecompiledContractsHomestead, checkMisbehaviourAddress)
 	delete(vm.PrecompiledContractsHomestead, checkAccusationAddress)
 }
 
@@ -95,7 +95,7 @@ func (a *AccusationVerifier) RequiredGas(_ []byte) uint64 {
 // take the rlp encoded proof of accusation in byte array, decode it and validate it, if the proof is validate, then
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
-	if len(input) == 0 {
+	if len(input) <= 32 {
 		return failure96Byte, nil
 	}
 
@@ -110,7 +110,7 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 
 // validate if the accusation is valid.
 func (a *AccusationVerifier) validateAccusation(in *Proof, getHeader HeaderGetter) []byte {
-	// we have only 3 types of rule on accusation.
+	// we have only 4 types of rule on accusation.
 	switch in.Rule {
 	case PO:
 		if in.Message.Code != msgProposal {
@@ -164,7 +164,7 @@ func (c *MisbehaviourVerifier) RequiredGas(_ []byte) uint64 {
 // take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for proof management.
 func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
-	if len(input) == 0 {
+	if len(input) <= 32 {
 		return failure96Byte, nil
 	}
 
@@ -249,7 +249,7 @@ func (c *InnocenceVerifier) RequiredGas(_ []byte) uint64 {
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
 func (c *InnocenceVerifier) Run(input []byte) ([]byte, error) {
 	// take an on-chain innocent proof, tell the results of the checking
-	if len(input) == 0 {
+	if len(input) <= 32 {
 		return failure96Byte, nil
 	}
 
