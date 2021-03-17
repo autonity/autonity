@@ -85,9 +85,15 @@ func TestDecodeProof(t *testing.T) {
 }
 
 func TestAccusationVerifier(t *testing.T) {
+	height := uint64(100)
+	committee, keys := generateCommittee(5)
+	proposer := committee[0].Address
+	proposerKey := keys[proposer]
+	proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+
 	t.Run("Test accusation verifier required gas", func(t *testing.T) {
 		av := AccusationVerifier{chain: nil}
-		assert.Equal(t, uint64(params.AutonityPrecompiledContractGas), av.RequiredGas(nil))
+		assert.Equal(t, params.AutonityPrecompiledContractGas, av.RequiredGas(nil))
 	})
 
 	t.Run("Test accusation verifier run with nil bytes", func(t *testing.T) {
@@ -106,6 +112,34 @@ func TestAccusationVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate accusation, with wrong rule ID", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = UnknownRule
+		av := AccusationVerifier{chain: nil}
+		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
+	})
+
+	t.Run("Test validate accusation, with wrong accusation msg", func(t *testing.T) {
+		var proof Proof
+		av := AccusationVerifier{chain: nil}
+		proof.Rule = PO
+		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, proposal.Value(), committee)
+		proof.Message = *preVote
+		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
+
+		proof.Rule = PVN
+		proof.Message = *proposal
+		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
+
+		proof.Rule = C
+		proof.Message = *proposal
+		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
+
+		proof.Rule = C1
+		proof.Message = *proposal
+		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
+	})
+
+	t.Run("Test validate accusation, with correct accuation msg", func(t *testing.T) {
 
 	})
 }
