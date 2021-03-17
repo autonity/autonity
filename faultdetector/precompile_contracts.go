@@ -174,12 +174,12 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return c.validateChallenge(p, getHeader), nil
+	return c.validateChallenge(p, getHeader, currentHeader), nil
 }
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGetter) []byte {
+func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message, getHeader, currentHeader)
 	if err != nil {
@@ -443,7 +443,7 @@ func (c *MisbehaviourVerifier) validChallengeOfPN(p *Proof) bool {
 	// should be a new proposal
 	proposal := p.Message
 
-	if proposal.Code != msgProposal && proposal.ValidRound() != -1 {
+	if proposal.Code != msgProposal || proposal.ValidRound() != -1 {
 		return false
 	}
 
@@ -464,7 +464,7 @@ func (c *MisbehaviourVerifier) validChallengeOfPO(p *Proof) bool {
 	}
 	proposal := p.Message
 	// should be an old proposal
-	if proposal.Type() != msgProposal && proposal.ValidRound() == -1 {
+	if proposal.Type() != msgProposal || proposal.ValidRound() == -1 {
 		return false
 	}
 	preCommit := p.Evidence[0]
@@ -490,7 +490,7 @@ func (c *MisbehaviourVerifier) validChallengeOfPVN(p *Proof) bool {
 		return false
 	}
 	prevote := p.Message
-	if !(prevote.Type() == msgPrevote && prevote.Value() != nilValue) {
+	if prevote.Type() != msgPrevote || prevote.Value() == nilValue {
 		return false
 	}
 
@@ -518,7 +518,7 @@ func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof, getHeader HeaderGette
 		return false
 	}
 	preCommit := p.Message
-	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
+	if preCommit.Type() != msgPrecommit || preCommit.Value() == nilValue {
 		return false
 	}
 
