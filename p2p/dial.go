@@ -424,11 +424,11 @@ func (d *dialScheduler) startStaticDials(n int) (started int) {
 
 		// Add this task to the history so we don't go crazy trying to redial it
 		//
-		// The task history is consuled before dialing and if an entry found it
+		// The task history is consulted before dialling and if an entry found it
 		// is not dialled. Entries expire and when they do they send an event
 		// on the expiry channel that kicks off another round of dialing.
 		hkey := string(task.dest.ID().Bytes())
-		// We add a bit of randomness to the expiration to try and interleave crossidals.
+		// We add a bit of randomness to the expiration to try and interleave cross-dials.
 		d.history.add(hkey, d.clock.Now().Add(time.Millisecond*time.Duration(10+rand.Intn(10))))
 
 		d.startDial(task)

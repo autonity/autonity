@@ -176,8 +176,6 @@ func readKey(keyFile string) (interface{}, error) {
 		return nil, err
 	}
 
-	// keyString := strings.TrimSpace(string(content), "\n")
-	// We trim the whitespace here otherwise we can end up with a 0 length trailing '\r' string.
 	var k interface{}
 	switch len(content) {
 	case 64: // Private key
@@ -269,7 +267,7 @@ func ParseUser(u string) (*User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse stake: %v", err)
 	}
-	if !bigStake.IsInt64() {
+	if !bigStake.IsUint64() {
 		return nil, fmt.Errorf("stake %q is not an integer in the uint64 domain", fields[2])
 	}
 	stake := bigStake.Uint64()
