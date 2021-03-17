@@ -142,6 +142,23 @@ func TestAccusationVerifier(t *testing.T) {
 		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
 	})
 
+	t.Run("Test validate accusation, with invalid signature of msg", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = PO
+		invalidCommittee, keys := generateCommittee(5)
+		newProposal := newProposalMessage(height, 1, 0, keys[invalidCommittee[0].Address], invalidCommittee, nil)
+		proof.Message = *newProposal
+
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		av := AccusationVerifier{chain: nil}
+		ret := av.validateAccusation(&proof, mockGetHeader)
+		assert.Equal(t, failure96Byte, ret)
+	})
+
 	t.Run("Test validate accusation, with correct accusation msg", func(t *testing.T) {
 		av := AccusationVerifier{chain: nil}
 		var proof Proof
@@ -163,7 +180,146 @@ func TestAccusationVerifier(t *testing.T) {
 }
 
 func TestMisbehaviourVerifier(t *testing.T) {
+	height := uint64(100)
+	committee, keys := generateCommittee(5)
+	proposer := committee[0].Address
+	proposerKey := keys[proposer]
+	noneNilValue := common.Hash{0x1}
 
+	t.Run("Test misbehaviour verifier required gas", func(t *testing.T) {
+		mv := MisbehaviourVerifier{chain: nil}
+		assert.Equal(t, params.AutonityPrecompiledContractGas, mv.RequiredGas(nil))
+	})
+
+	t.Run("Test misbehaviour verifier run with nil bytes", func(t *testing.T) {
+		mv := MisbehaviourVerifier{chain: nil}
+		ret, err := mv.Run(nil)
+		assert.Equal(t, failure96Byte, ret)
+		assert.Nil(t, err)
+	})
+
+	t.Run("Test misbehaviour verifier run with invalid rlp bytes", func(t *testing.T) {
+		wrongBytes := failure96Byte
+		mv := MisbehaviourVerifier{chain: nil}
+		ret, err := mv.Run(wrongBytes)
+		assert.Equal(t, failure96Byte, ret)
+		assert.Nil(t, err)
+	})
+
+	t.Run("Test validate misbehaviour proof, with invalid signature of misbehaved msg", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = PO
+		invalidCommittee, keys := generateCommittee(5)
+		invalidProposal := newProposalMessage(height, 1, 0, keys[invalidCommittee[0].Address], invalidCommittee, nil)
+		proof.Message = *invalidProposal
+
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+		currentHeader := newBlockHeader(height, committee)
+		mockCurrentHeader := func(_ *core.BlockChain) *types.Header {
+			return currentHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validateChallenge(&proof, mockGetHeader, mockCurrentHeader)
+		assert.Equal(t, failure96Byte, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof, with invalid signature of evidence msgs", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = PO
+		invalidCommittee, ikeys := generateCommittee(5)
+		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
+		proof.Message = *proposal
+		invalidPreCommit := newVoteMsg(height, 1, msgPrecommit, ikeys[invalidCommittee[0].Address], proposal.Value(), invalidCommittee)
+		proof.Evidence = append(proof.Evidence, *invalidPreCommit)
+
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+		currentHeader := newBlockHeader(height, committee)
+		mockCurrentHeader := func(_ *core.BlockChain) *types.Header {
+			return currentHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validateChallenge(&proof, mockGetHeader, mockCurrentHeader)
+		assert.Equal(t, failure96Byte, ret)
+	})
+	
+	t.Run("Test validate misbehaviour proof of PN rule with correct proof", func(t *testing.T) {
+		// prepare a proof that node propose for a new value, but he preCommitted a non nil value
+		// at previous rounds, such proof should be valid.
+		var proof Proof
+		proof.Rule = PN
+		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
+		proof.Message = *proposal
+
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Evidence = append(proof.Evidence, *preCommit)
+		mv := MisbehaviourVerifier{chain: nil}
+
+		ret := mv.validEvidence(&proof)
+		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PN rule with incorrect proposal of proof", func(t *testing.T) {
+		// prepare a proof that node propose for an old value.
+		var proof Proof
+		proof.Rule = PN
+		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
+		proof.Message = *proposal
+
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Evidence = append(proof.Evidence, *preCommit)
+		mv := MisbehaviourVerifier{chain: nil}
+
+		ret := mv.validEvidence(&proof)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PN rule with on evidence of proof", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = PN
+		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
+		proof.Message = *proposal
+
+		mv := MisbehaviourVerifier{chain: nil}
+
+		ret := mv.validEvidence(&proof)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PO rule with correct proof", func(t *testing.T) {
+		
+	})
+	
+	t.Run("Test validate misbehaviour proof of PVN rule", func(t *testing.T) {
+		
+	})
+	
+	t.Run("Test validate misbehaviour proof of C rule", func(t *testing.T) {
+		
+	})
+	
+	t.Run("Test validate misbehaviour proof of Garbage Message", func(t *testing.T) {
+		
+	})
+	
+	t.Run("Test validate misbehaviour proof of Invalid Proposal", func(t *testing.T) {
+		
+	})
+	
+	t.Run("Test validate misbehaviour proof of Invalid Proposer", func(t *testing.T) {
+		
+	})
+	
+	t.Run("Test validate misbehaviour proof of equivocation", func(t *testing.T) {
+
+	})
 }
 
 func TestInnocenceVerifier(t *testing.T) {
