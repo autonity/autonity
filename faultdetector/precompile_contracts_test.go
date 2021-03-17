@@ -249,7 +249,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		ret := mv.validateChallenge(&proof, mockGetHeader, mockCurrentHeader)
 		assert.Equal(t, failure96Byte, ret)
 	})
-	
+
 	t.Run("Test validate misbehaviour proof of PN rule with correct proof", func(t *testing.T) {
 		// prepare a proof that node propose for a new value, but he preCommitted a non nil value
 		// at previous rounds, such proof should be valid.
@@ -294,29 +294,29 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PO rule with correct proof", func(t *testing.T) {
-		
+
 	})
-	
+
 	t.Run("Test validate misbehaviour proof of PVN rule", func(t *testing.T) {
-		
+
 	})
-	
+
 	t.Run("Test validate misbehaviour proof of C rule", func(t *testing.T) {
-		
+
 	})
-	
+
 	t.Run("Test validate misbehaviour proof of Garbage Message", func(t *testing.T) {
-		
+
 	})
-	
+
 	t.Run("Test validate misbehaviour proof of Invalid Proposal", func(t *testing.T) {
-		
+
 	})
-	
+
 	t.Run("Test validate misbehaviour proof of Invalid Proposer", func(t *testing.T) {
-		
+
 	})
-	
+
 	t.Run("Test validate misbehaviour proof of equivocation", func(t *testing.T) {
 
 	})
