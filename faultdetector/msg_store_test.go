@@ -16,7 +16,7 @@ import (
 
 type addressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-func generateCommittee(n int) (types.Committee, addressKeyMap) {
+func generateCommittee(n int) (types.Committee, addressKeyMap) { // nolint: unparam
 	vals := make(types.Committee, 0)
 	keymap := make(addressKeyMap)
 	for i := 0; i < n; i++ {
