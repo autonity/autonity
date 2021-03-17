@@ -256,7 +256,7 @@ type transport interface {
 }
 
 func (c *conn) String() string {
-	s := c.flags.String()
+	s := connFlag(atomic.LoadInt32((*int32)(&c.flags))).String()
 	if (c.node.ID() != enode.ID{}) {
 		s += " " + c.node.ID().String()
 	}
@@ -285,8 +285,7 @@ func (f connFlag) String() string {
 }
 
 func (c *conn) is(f connFlag) bool {
-	flags := connFlag(atomic.LoadInt32((*int32)(&c.flags)))
-	return flags&f != 0
+	return connFlag(atomic.LoadInt32((*int32)(&c.flags)))&f != 0
 }
 
 func (c *conn) set(f connFlag, val bool) {
@@ -802,7 +801,7 @@ running:
 			// the remote identity is known (but hasn't been verified yet).
 			if trusted[c.node.ID()] {
 				// Ensure that the trusted flag is set before checking against MaxPeers.
-				c.flags |= trustedConn
+				atomic.StoreInt32((*int32)(&c.flags), atomic.LoadInt32((*int32)(&c.flags))|int32(trustedConn))
 			}
 			// TODO: track in-progress inbound node IDs (pre-Peer) to avoid dialing them.
 			c.cont <- srv.postHandshakeChecks(peers, inboundCount, c)
@@ -815,7 +814,7 @@ running:
 				// The handshakes are done and it passed all checks.
 				p := srv.launchPeer(c)
 				peers[c.node.ID()] = p
-				srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", c.flags, "addr", p.RemoteAddr(), "name", p.Name())
+				srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))), "addr", p.RemoteAddr(), "name", p.Name())
 				srv.dialsched.peerAdded(c)
 				if p.Inbound() {
 					inboundCount++
@@ -1001,7 +1000,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		dialPubkey = new(ecdsa.PublicKey)
 		if err := dialDest.Load((*enode.Secp256k1)(dialPubkey)); err != nil {
 			err = errors.New("dial destination doesn't have a secp256k1 public key")
-			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))), "err", err)
 			return err
 		}
 	}
@@ -1009,7 +1008,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	// Run the RLPx handshake.
 	remotePubkey, err := c.doEncHandshake(srv.PrivateKey)
 	if err != nil {
-		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))), "err", err)
 		return err
 	}
 	if dialDest != nil {
@@ -1017,7 +1016,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	} else {
 		c.node = nodeFromConn(remotePubkey, c.fd)
 	}
-	clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", c.flags)
+	clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))))
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {
 		clog.Trace("Rejected peer", "err", err)
