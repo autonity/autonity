@@ -143,7 +143,6 @@ func (n *Node) Start() error {
 	// copy, since it is not useful for black box testing and it is also not
 	// marshalable since the implementation contains unexported fields.
 	nodeConfigCopy.Logger = log.New("node", n.Address.String()[2:7])
-	// n.Config.P2P.PrivateKey = n.ConfigCopy.P2P.PrivateKey
 	n.Node, err = node.New(nodeConfigCopy)
 	if err != nil {
 		return err
@@ -280,7 +279,7 @@ func NewNetworkFromUsers(users []*gengen.User) (Network, error) {
 		network[i] = n
 	}
 	// There is a race condition in miner.worker its field snapshotBlock is set
-	// only when new transacting are received or commitNewWork is called. But
+	// only when new transactions are received or commitNewWork is called. But
 	// both of these happen in goroutines separate to the call to miner.Start
 	// and miner.Start does not wait for snapshotBlock to be set. Therefore
 	// there is currently no way to know when it is safe to call estimate gas.

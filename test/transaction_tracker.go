@@ -117,7 +117,7 @@ func (tr *TransactionTracker) trackTransactions() error {
 // AwaitTransactions waits for the transactions listed in hashes to be
 // processed, it will return the ctx.Err() if ctx expires before all the
 // transactions in hashes were processed or ErrStopped if StopTracking is
-// called before all the transactions in hases were processed.
+// called before all the transactions in hashes were processed.
 func (tr *TransactionTracker) AwaitTransactions(ctx context.Context, hashes []common.Hash) error {
 	hashmap := make(map[common.Hash]struct{}, len(hashes))
 	for i := range hashes {
