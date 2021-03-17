@@ -1,6 +1,9 @@
 package faultdetector
 
 import (
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
@@ -140,7 +143,22 @@ func TestAccusationVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate accusation, with correct accusation msg", func(t *testing.T) {
+		av := AccusationVerifier{chain: nil}
+		var proof Proof
+		proof.Rule = PO
+		newProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
+		proof.Message = *newProposal
+		lastHeader := newBlockHeader(height-1, committee)
 
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		ret := av.validateAccusation(&proof, mockGetHeader)
+		assert.NotEqual(t, failure96Byte, ret)
+		assert.Equal(t, common.LeftPadBytes(proposer.Bytes(), 32), ret[0:32])
+		assert.Equal(t, types.RLPHash(newProposal.Payload()).Bytes(), ret[32:64])
+		assert.Equal(t, validProofByte, ret[64:96])
 	})
 }
 
