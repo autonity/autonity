@@ -224,9 +224,12 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	// Create AFD
-	eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
-	eth.defaultKey = stack.Config().NodeKey()
+
+	if chainConfig.Tendermint != nil {
+		// Create AFD
+		eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
+		eth.defaultKey = stack.Config().NodeKey()
+	}
 
 	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,
 		eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist,
@@ -547,10 +550,11 @@ func (s *Ethereum) Start() error {
 	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
 	go s.glienickeEventLoop(s.p2pServer)
 
-	s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
-	go s.afdTXEventLoop()
-
-	go s.faultDetector.FaultDetectorEventLoop(context.Background())
+	if s.faultDetector != nil {
+		s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
+		go s.afdTXEventLoop()
+		go s.faultDetector.FaultDetectorEventLoop(context.Background())
+	}
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
@@ -616,10 +620,12 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
-	// Stop faultDetector event loop
-	s.faultDetector.Stop()
+	if s.faultDetector != nil {
+		// Stop faultDetector event loop
+		s.faultDetector.Stop()
+		s.afdSub.Unsubscribe()
+	}
 	s.glienickeSub.Unsubscribe()
-	s.afdSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
