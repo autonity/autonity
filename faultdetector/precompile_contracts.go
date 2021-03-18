@@ -9,7 +9,6 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
-	crypto2 "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -515,7 +514,7 @@ func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof, getHeader HeaderGette
 		return false
 	}
 
-	// check prevotes for not the same V of precommit.
+	// check preVotes for not the same V compares to preCommit.
 	for i := 0; i < len(p.Evidence); i++ {
 		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
@@ -528,22 +527,21 @@ func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof, getHeader HeaderGette
 		return false
 	}
 
-	// check if prevotes for not V reaches to quorum.
+	// check if preVotes for not V reaches to quorum.
 	quorum := bft.Quorum(getHeader(c.chain, p.Message.H()-1).TotalVotingPower())
 	if powerOfVotes(p.Evidence) >= quorum {
 		return true
 	}
 
-	return true
+	return false
 }
 
 func haveRedundantVotes(votes []core2.Message) bool {
-	voteMap := make(map[common.Hash]struct{})
+	voteMap := make(map[common.Address]struct{})
 	for _, vote := range votes {
-		hash := common.BytesToHash(crypto2.Keccak256(vote.Payload()))
-		_, ok := voteMap[hash]
+		_, ok := voteMap[vote.Address]
 		if !ok {
-			voteMap[hash] = struct{}{}
+			voteMap[vote.Address] = struct{}{}
 		} else {
 			return true
 		}
