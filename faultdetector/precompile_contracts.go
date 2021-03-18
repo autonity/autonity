@@ -529,11 +529,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, getHeader HeaderGe
 
 	// check if preVotes for not V reaches to quorum.
 	quorum := bft.Quorum(getHeader(c.chain, p.Message.H()-1).TotalVotingPower())
-	if powerOfVotes(p.Evidence) >= quorum {
-		return true
-	}
-
-	return false
+	return powerOfVotes(p.Evidence) >= quorum
 }
 
 func haveRedundantVotes(votes []core2.Message) bool {
