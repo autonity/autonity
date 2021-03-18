@@ -1066,7 +1066,9 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 
 // use by tendermint backend to forward self msg to AFD.
 func (pm *ProtocolManager) BroadcastToLocal(payload []byte) {
-	pm.faultDetector.HandleSelfMsg(payload)
+	if pm.faultDetector != nil {
+		pm.faultDetector.HandleSelfMsg(payload)
+	}
 }
 
 func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
