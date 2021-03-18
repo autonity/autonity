@@ -21,6 +21,14 @@ func TestRuleEngine(t *testing.T) {
 	totalPower := uint64(len(committee))
 	noneNilValue := common.Hash{0x1}
 
+	t.Run("Test de-Equivocated msg", func(t *testing.T) {
+		inputMsgs := make([]core.Message, 2)
+		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
+		inputMsgs[0] = *proposal
+		inputMsgs[1] = *proposal
+		assert.Equal(t, 1, len(deEquivocatedMsgs(inputMsgs)))
+	})
+
 	t.Run("getInnocentProof with unprovable rule id", func(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer)
 		var input = Proof{
@@ -263,6 +271,8 @@ func TestRuleEngine(t *testing.T) {
 			preVotes = append(preVotes, *preVote)
 		}
 
+		// let duplicated msg happens, the counting should skip duplicated ones.
+		preVotes = append(preVotes, preVotes...)
 		assert.Equal(t, uint64(len(committee)), powerOfVotes(preVotes))
 	})
 
@@ -521,9 +531,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
 		assert.Equal(t, PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
-		assert.Equal(t, 2, len(onChainProofs[0].Evidence))
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
-		assert.Equal(t, newProposal.Signature, onChainProofs[0].Evidence[1].Signature)
 	})
 
 	t.Run("RunRule address Accusation of rule C, no corresponding proposal for a preCommit msg", func(t *testing.T) {

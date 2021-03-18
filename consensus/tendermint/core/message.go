@@ -115,8 +115,9 @@ func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (commo
 	if err != nil {
 		return nil, err
 	}
+	// since Accountability Precompiled contract validate message too, in case of not to panic EVM, let's return err.
 	if previousHeader.Number.Uint64()+1 != msgHeight.Uint64() {
-		panic("inconsistent message verification")
+		return nil, fmt.Errorf("inconsistent message verification")
 	}
 
 	// Still return the message even the err is not nil

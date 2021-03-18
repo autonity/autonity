@@ -9,7 +9,6 @@ import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
-	crypto2 "github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -174,12 +173,13 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return c.validateChallenge(p, getHeader, currentHeader), nil
+	return c.validateProof(p, getHeader, currentHeader), nil
 }
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
+func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
+
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message, getHeader, currentHeader)
 	if err != nil {
@@ -197,12 +197,13 @@ func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGette
 	}
 
 	for i := 0; i < len(p.Evidence); i++ {
+		// the height of msg of the evidences is checked at Validate function.
 		if _, err = p.Evidence[i].Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 			return failure96Byte
 		}
 	}
 
-	if c.validEvidence(p) {
+	if c.validProof(p) {
 		msgHash := types.RLPHash(p.Message.Payload()).Bytes()
 		sender := common.LeftPadBytes(p.Message.Address.Bytes(), 32)
 		return append(append(sender, msgHash...), validProofByte...)
@@ -210,17 +211,17 @@ func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGette
 	return failure96Byte
 }
 
-// check if the evidence of the challenge is valid or not.
-func (c *MisbehaviourVerifier) validEvidence(p *Proof) bool {
+// check if the evidence of the misbehaviour is valid or not.
+func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 	switch p.Rule {
 	case PN:
-		return c.validChallengeOfPN(p)
+		return c.validMisbehaviourOfPN(p)
 	case PO:
-		return c.validChallengeOfPO(p)
+		return c.validMisbehaviourOfPO(p)
 	case PVN:
-		return c.validChallengeOfPVN(p)
+		return c.validMisbehaviourOfPVN(p)
 	case C:
-		return c.validChallengeOfC(p, getHeader)
+		return c.validMisbehaviourOfC(p, getHeader)
 	case GarbageMessage:
 		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errGarbageMsg
 	case InvalidProposal:
@@ -232,6 +233,106 @@ func (c *MisbehaviourVerifier) validEvidence(p *Proof) bool {
 	default:
 		return false
 	}
+}
+
+// check if the proof of challenge of PN is valid,
+// node propose a new value when there is a proof that it precommit at a different value at previous round.
+func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
+	if len(p.Evidence) == 0 {
+		return false
+	}
+
+	// should be a new proposal
+	proposal := p.Message
+
+	if proposal.Code != msgProposal || proposal.ValidRound() != -1 {
+		return false
+	}
+
+	preCommit := p.Evidence[0]
+	if preCommit.Sender() == proposal.Sender() &&
+		preCommit.Type() == msgPrecommit &&
+		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
+		return true
+	}
+
+	return false
+}
+
+// check if the proof of challenge of PO is valid
+func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
+	if len(p.Evidence) == 0 {
+		return false
+	}
+	proposal := p.Message
+	// should be an old proposal
+	if proposal.Type() != msgProposal || proposal.ValidRound() == -1 {
+		return false
+	}
+	preCommit := p.Evidence[0]
+
+	if preCommit.Type() == msgPrecommit && preCommit.R() == proposal.ValidRound() &&
+		preCommit.Sender() == proposal.Sender() && preCommit.Value() != nilValue &&
+		preCommit.Value() != proposal.Value() {
+		return true
+	}
+
+	if preCommit.Type() == msgPrecommit &&
+		preCommit.R() > proposal.ValidRound() && preCommit.R() < proposal.R() &&
+		preCommit.Sender() == proposal.Sender() &&
+		preCommit.Value() != nilValue {
+		return true
+	}
+	return false
+}
+
+// check if the proof of challenge of PVN is valid.
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
+	if len(p.Evidence) == 0 {
+		return false
+	}
+	prevote := p.Message
+	if prevote.Type() != msgPrevote || prevote.Value() == nilValue {
+		return false
+	}
+
+	// validate precommit.
+	preCommit := p.Evidence[0]
+	if preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue &&
+		preCommit.Value() != prevote.Value() && prevote.Sender() == preCommit.Sender() &&
+		preCommit.R() < prevote.R() {
+		return true
+	}
+
+	return false
+}
+
+// check if the proof of challenge of C is valid.
+func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, getHeader HeaderGetter) bool {
+	if len(p.Evidence) == 0 {
+		return false
+	}
+	preCommit := p.Message
+	if preCommit.Type() != msgPrecommit || preCommit.Value() == nilValue {
+		return false
+	}
+
+	// check preVotes for not the same V compares to preCommit.
+	for i := 0; i < len(p.Evidence); i++ {
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
+			p.Evidence[i].R() == preCommit.R()) {
+			return false
+		}
+	}
+
+	// check no redundant vote msg in evidence in case of hacking.
+	if haveRedundantVotes(p.Evidence) {
+		return false
+	}
+
+	// check if preVotes for not V reaches to quorum.
+	quorum := bft.Quorum(getHeader(c.chain, p.Message.H()-1).TotalVotingPower())
+	return powerOfVotes(p.Evidence) >= quorum
 }
 
 // InnocenceVerifier implemented as a native contract to validate an innocence proof.
@@ -281,6 +382,7 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *Proof, getHeader HeaderGe
 	}
 
 	for i := 0; i < len(in.Evidence); i++ {
+		// the height of msg of the evidences is checked at Validate function.
 		if _, err = in.Evidence[i].Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 			return failure96Byte
 		}
@@ -403,6 +505,20 @@ func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof, getHeader HeaderGe
 	return true
 }
 
+func haveRedundantVotes(votes []core2.Message) bool {
+	voteMap := make(map[common.Address]struct{})
+	for _, vote := range votes {
+		_, ok := voteMap[vote.Address]
+		if !ok {
+			voteMap[vote.Address] = struct{}{}
+		} else {
+			return true
+		}
+	}
+
+	return false
+}
+
 // decode proof convert proof from rlp encoded bytes into object Proof.
 func decodeProof(proof []byte) (*Proof, error) {
 	p := new(RawProof)
@@ -429,132 +545,4 @@ func decodeProof(proof []byte) (*Proof, error) {
 		decodedP.Evidence = append(decodedP.Evidence, *m)
 	}
 	return decodedP, nil
-}
-
-///////////////////////////////////////////////////////////////////////
-// validate proof of challenge for rules.
-// check if the proof of challenge of PN is valid,
-// node propose a new value when there is a proof that it precommit at a different value at previous round.
-func (c *MisbehaviourVerifier) validChallengeOfPN(p *Proof) bool {
-	if len(p.Evidence) == 0 {
-		return false
-	}
-
-	// should be a new proposal
-	proposal := p.Message
-
-	if proposal.Code != msgProposal || proposal.ValidRound() != -1 {
-		return false
-	}
-
-	preCommit := p.Evidence[0]
-	if preCommit.Sender() == proposal.Sender() &&
-		preCommit.Type() == msgPrecommit &&
-		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
-		return true
-	}
-
-	return false
-}
-
-// check if the proof of challenge of PO is valid
-func (c *MisbehaviourVerifier) validChallengeOfPO(p *Proof) bool {
-	if len(p.Evidence) == 0 {
-		return false
-	}
-	proposal := p.Message
-	// should be an old proposal
-	if proposal.Type() != msgProposal || proposal.ValidRound() == -1 {
-		return false
-	}
-	preCommit := p.Evidence[0]
-
-	if preCommit.Type() == msgPrecommit && preCommit.R() == proposal.ValidRound() &&
-		preCommit.Sender() == proposal.Sender() && preCommit.Value() != nilValue &&
-		preCommit.Value() != proposal.Value() {
-		return true
-	}
-
-	if preCommit.Type() == msgPrecommit &&
-		preCommit.R() > proposal.ValidRound() && preCommit.R() < proposal.R() &&
-		preCommit.Sender() == proposal.Sender() &&
-		preCommit.Value() != nilValue {
-		return true
-	}
-	return false
-}
-
-// check if the proof of challenge of PVN is valid.
-func (c *MisbehaviourVerifier) validChallengeOfPVN(p *Proof) bool {
-	if len(p.Evidence) == 0 {
-		return false
-	}
-	prevote := p.Message
-	if prevote.Type() != msgPrevote || prevote.Value() == nilValue {
-		return false
-	}
-
-	// get corresponding proposal from last slot.
-	correspondingProposal := p.Evidence[len(p.Evidence)-1]
-	if !(correspondingProposal.Type() == msgProposal && correspondingProposal.Value() == prevote.Value() &&
-		correspondingProposal.R() == prevote.R() && correspondingProposal.ValidRound() == -1) {
-		return false
-	}
-
-	// validate precommit.
-	preCommit := p.Evidence[0]
-	if preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue &&
-		preCommit.Value() != prevote.Value() && prevote.Sender() == preCommit.Sender() &&
-		preCommit.R() < prevote.R() {
-		return true
-	}
-
-	return false
-}
-
-// check if the proof of challenge of C is valid.
-func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof, getHeader HeaderGetter) bool {
-	if len(p.Evidence) == 0 {
-		return false
-	}
-	preCommit := p.Message
-	if preCommit.Type() != msgPrecommit || preCommit.Value() == nilValue {
-		return false
-	}
-
-	// check prevotes for not the same V of precommit.
-	for i := 0; i < len(p.Evidence); i++ {
-		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
-			p.Evidence[i].R() == preCommit.R()) {
-			return false
-		}
-	}
-
-	// check no redundant vote msg in evidence in case of hacking.
-	if haveRedundantVotes(p.Evidence) {
-		return false
-	}
-
-	// check if prevotes for not V reaches to quorum.
-	quorum := bft.Quorum(getHeader(c.chain, p.Message.H()-1).TotalVotingPower())
-	if powerOfVotes(p.Evidence) >= quorum {
-		return true
-	}
-
-	return true
-}
-
-func haveRedundantVotes(votes []core2.Message) bool {
-	voteMap := make(map[common.Hash]struct{})
-	for _, vote := range votes {
-		hash := common.BytesToHash(crypto2.Keccak256(vote.Payload()))
-		_, ok := voteMap[hash]
-		if !ok {
-			voteMap[hash] = struct{}{}
-		} else {
-			return true
-		}
-	}
-
-	return false
 }
