@@ -173,12 +173,12 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return c.validateChallenge(p, getHeader, currentHeader), nil
+	return c.validateProof(p, getHeader, currentHeader), nil
 }
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
+func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message, getHeader, currentHeader)
 	if err != nil {
@@ -201,7 +201,7 @@ func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGette
 		}
 	}
 
-	if c.validEvidence(p) {
+	if c.validProof(p) {
 		msgHash := types.RLPHash(p.Message.Payload()).Bytes()
 		sender := common.LeftPadBytes(p.Message.Address.Bytes(), 32)
 		return append(append(sender, msgHash...), validProofByte...)
@@ -209,17 +209,17 @@ func (c *MisbehaviourVerifier) validateChallenge(p *Proof, getHeader HeaderGette
 	return failure96Byte
 }
 
-// check if the evidence of the challenge is valid or not.
-func (c *MisbehaviourVerifier) validEvidence(p *Proof) bool {
+// check if the evidence of the misbehaviour is valid or not.
+func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 	switch p.Rule {
 	case PN:
-		return c.validChallengeOfPN(p)
+		return c.validMisbehaviourOfPN(p)
 	case PO:
-		return c.validChallengeOfPO(p)
+		return c.validMisbehaviourOfPO(p)
 	case PVN:
-		return c.validChallengeOfPVN(p)
+		return c.validMisbehaviourOfPVN(p)
 	case C:
-		return c.validChallengeOfC(p, getHeader)
+		return c.validMisbehaviourOfC(p, getHeader)
 	case GarbageMessage:
 		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errGarbageMsg
 	case InvalidProposal:
@@ -434,7 +434,7 @@ func decodeProof(proof []byte) (*Proof, error) {
 // validate proof of challenge for rules.
 // check if the proof of challenge of PN is valid,
 // node propose a new value when there is a proof that it precommit at a different value at previous round.
-func (c *MisbehaviourVerifier) validChallengeOfPN(p *Proof) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -457,7 +457,7 @@ func (c *MisbehaviourVerifier) validChallengeOfPN(p *Proof) bool {
 }
 
 // check if the proof of challenge of PO is valid
-func (c *MisbehaviourVerifier) validChallengeOfPO(p *Proof) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -484,7 +484,7 @@ func (c *MisbehaviourVerifier) validChallengeOfPO(p *Proof) bool {
 }
 
 // check if the proof of challenge of PVN is valid.
-func (c *MisbehaviourVerifier) validChallengeOfPVN(p *Proof) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -505,7 +505,7 @@ func (c *MisbehaviourVerifier) validChallengeOfPVN(p *Proof) bool {
 }
 
 // check if the proof of challenge of C is valid.
-func (c *MisbehaviourVerifier) validChallengeOfC(p *Proof, getHeader HeaderGetter) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, getHeader HeaderGetter) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}

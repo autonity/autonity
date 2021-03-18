@@ -209,8 +209,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	t.Run("Test validate misbehaviour proof, with invalid signature of misbehaved msg", func(t *testing.T) {
 		var proof Proof
 		proof.Rule = PO
-		invalidCommittee, keys := generateCommittee(5)
-		invalidProposal := newProposalMessage(height, 1, 0, keys[invalidCommittee[0].Address], invalidCommittee, nil)
+		invalidCommittee, iKeys := generateCommittee(5)
+		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
 		proof.Message = *invalidProposal
 
 		lastHeader := newBlockHeader(height-1, committee)
@@ -223,7 +223,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validateChallenge(&proof, mockGetHeader, mockCurrentHeader)
+		ret := mv.validateProof(&proof, mockGetHeader, mockCurrentHeader)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
@@ -246,7 +246,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validateChallenge(&proof, mockGetHeader, mockCurrentHeader)
+		ret := mv.validateProof(&proof, mockGetHeader, mockCurrentHeader)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
@@ -262,7 +262,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Evidence = append(proof.Evidence, *preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, true, ret)
 	})
 
@@ -277,7 +277,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Evidence = append(proof.Evidence, *preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})
 
@@ -289,7 +289,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		mv := MisbehaviourVerifier{chain: nil}
 
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})
 
@@ -303,7 +303,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Message = *proposal
 		proof.Evidence = append(proof.Evidence, *preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, true, ret)
 	})
 
@@ -317,7 +317,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Message = *proposal
 		proof.Evidence = append(proof.Evidence, *preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, true, ret)
 	})
 
@@ -327,7 +327,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		proof.Message = *proposal
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})
 
@@ -339,7 +339,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Message = *proposal
 		proof.Evidence = append(proof.Evidence, *preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})
 
@@ -358,7 +358,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Evidence = append(proof.Evidence, *preCommit)
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, true, ret)
 	})
 
@@ -371,7 +371,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Message = *preVote
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})
 
@@ -384,7 +384,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		proof.Evidence = append(proof.Evidence, *preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})
 
@@ -399,7 +399,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Evidence = append(proof.Evidence, *preCommit)
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validEvidence(&proof)
+		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})
 
@@ -420,7 +420,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		ret := mv.validMisbehaviourOfC(&proof, mockGetHeader)
 		assert.Equal(t, true, ret)
 	})
 
@@ -436,7 +436,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		ret := mv.validMisbehaviourOfC(&proof, mockGetHeader)
 		assert.Equal(t, false, ret)
 	})
 
@@ -456,7 +456,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		ret := mv.validMisbehaviourOfC(&proof, mockGetHeader)
 		assert.Equal(t, false, ret)
 	})
 
@@ -476,7 +476,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		ret := mv.validMisbehaviourOfC(&proof, mockGetHeader)
 		assert.Equal(t, false, ret)
 	})
 
@@ -498,7 +498,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		ret := mv.validMisbehaviourOfC(&proof, mockGetHeader)
 		assert.Equal(t, false, ret)
 	})
 
@@ -520,7 +520,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		ret := mv.validMisbehaviourOfC(&proof, mockGetHeader)
 		assert.Equal(t, false, ret)
 	})
 
@@ -541,7 +541,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		ret := mv.validMisbehaviourOfC(&proof, mockGetHeader)
 		assert.Equal(t, false, ret)
 	})
 
