@@ -321,8 +321,8 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 				if len(precommits) > 0 {
 					proof := Proof{
-						Type: Misbehaviour,
-						Rule: PVN,
+						Type:     Misbehaviour,
+						Rule:     PVN,
 						Evidence: precommits,
 						Message:  prevote,
 					}
