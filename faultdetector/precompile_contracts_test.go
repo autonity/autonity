@@ -403,8 +403,146 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule", func(t *testing.T) {
+	t.Run("Test validate misbehaviour proof of C rule, with correct proof", func(t *testing.T) {
+		// Node preCommit for a V at round R, but in that round, there were quorum PreVotes for notV at that round.
+		var proof Proof
+		proof.Rule = C
+		// Node preCommit for V at round R.
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *preCommit
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], nilValue, committee)
+			proof.Evidence = append(proof.Evidence, *preVote)
+		}
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
 
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of C rule, with no Evidence", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = C
+		// Node preCommit for V at round R.
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *preCommit
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of C rule, with wrong preCommit msg", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = C
+		// Node preCommit for nil at round R, not provable
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, nilValue, committee)
+		proof.Message = *preCommit
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			proof.Evidence = append(proof.Evidence, *preVote)
+		}
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of C rule, with wrong msg", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = C
+
+		wrongMsg := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
+		proof.Message = *wrongMsg
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], nilValue, committee)
+			proof.Evidence = append(proof.Evidence, *preVote)
+		}
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of C rule, with invalid evidence", func(t *testing.T) {
+		// the evidence contains same value of preCommit that node preVoted for.
+		var proof Proof
+		proof.Rule = C
+
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *preCommit
+		// quorum preVotes of same value, this shouldn't be a valid evidence.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			proof.Evidence = append(proof.Evidence, *preVote)
+		}
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of C rule, with invalid evidence: duplicated msg in evidence", func(t *testing.T) {
+		// the evidence contains same value of preCommit that node preVoted for.
+		var proof Proof
+		proof.Rule = C
+
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *preCommit
+		// duplicated preVotes msg in evidence, should be addressed.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, nilValue, committee)
+			proof.Evidence = append(proof.Evidence, *preVote)
+		}
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of C rule, with invalid evidence: no quorum preVotes", func(t *testing.T) {
+		var proof Proof
+		proof.Rule = C
+
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		proof.Message = *preCommit
+
+		// no quorum preVotes msg in evidence, should be addressed.
+		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, nilValue, committee)
+		proof.Evidence = append(proof.Evidence, *preVote)
+
+		lastHeader := newBlockHeader(height-1, committee)
+		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
+			return lastHeader
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validChallengeOfC(&proof, mockGetHeader)
+		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate misbehaviour proof of Garbage Message", func(t *testing.T) {
