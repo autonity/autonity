@@ -13,8 +13,6 @@ import (
 	"github.com/clearmatics/autonity/rlp"
 )
 
-// todo: check height in proofs
-
 var (
 	checkAccusationAddress   = common.BytesToAddress([]byte{252})
 	checkInnocenceAddress    = common.BytesToAddress([]byte{253})
