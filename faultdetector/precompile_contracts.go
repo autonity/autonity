@@ -494,13 +494,6 @@ func (c *MisbehaviourVerifier) validChallengeOfPVN(p *Proof) bool {
 		return false
 	}
 
-	// get corresponding proposal from last slot.
-	correspondingProposal := p.Evidence[len(p.Evidence)-1]
-	if !(correspondingProposal.Type() == msgProposal && correspondingProposal.Value() == prevote.Value() &&
-		correspondingProposal.R() == prevote.R() && correspondingProposal.ValidRound() == -1) {
-		return false
-	}
-
 	// validate precommit.
 	preCommit := p.Evidence[0]
 	if preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue &&

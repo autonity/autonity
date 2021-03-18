@@ -323,8 +323,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					proof := Proof{
 						Type: Misbehaviour,
 						Rule: PVN,
-						// add corresponding proposal at last slot, as the part of evidence to be validated at precompiled contract.
-						Evidence: append(precommits, correspondingProposal),
+						Evidence: precommits,
 						Message:  prevote,
 					}
 					proofs = append(proofs, proof)
