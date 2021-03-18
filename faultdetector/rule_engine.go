@@ -455,14 +455,14 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 	return proofs
 }
 
-func deEquivocatedMsgs(msgs []core.Message) []core.Message {
-	var deEquivocated []core.Message
+func deEquivocatedMsgs(msgs []core.Message) (deEquivocated []core.Message) {
 	presented := make(map[common.Address]struct{})
 	for _, v := range msgs {
 		if _, ok := presented[v.Address]; ok {
 			continue
 		}
 		deEquivocated = append(deEquivocated, v)
+		presented[v.Address] = struct{}{}
 	}
 	return deEquivocated
 }

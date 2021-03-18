@@ -21,6 +21,14 @@ func TestRuleEngine(t *testing.T) {
 	totalPower := uint64(len(committee))
 	noneNilValue := common.Hash{0x1}
 
+	t.Run("Test de-Equivocated msg", func(t *testing.T) {
+		inputMsgs := make([]core.Message, 2)
+		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
+		inputMsgs[0] = *proposal
+		inputMsgs[1] = *proposal
+		assert.Equal(t, 1, len(deEquivocatedMsgs(inputMsgs)))
+	})
+
 	t.Run("getInnocentProof with unprovable rule id", func(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer)
 		var input = Proof{
