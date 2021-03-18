@@ -211,6 +211,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
+
 		proof.Message = *invalidProposal
 
 		lastHeader := newBlockHeader(height-1, committee)
@@ -288,7 +289,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Message = *proposal
 
 		mv := MisbehaviourVerifier{chain: nil}
-
 		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
 	})

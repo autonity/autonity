@@ -179,6 +179,7 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
 func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
+
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, &p.Message, getHeader, currentHeader)
 	if err != nil {
