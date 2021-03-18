@@ -263,6 +263,8 @@ func TestRuleEngine(t *testing.T) {
 			preVotes = append(preVotes, *preVote)
 		}
 
+		// let duplicated msg happens, the counting should skip duplicated ones.
+		preVotes = append(preVotes, preVotes...)
 		assert.Equal(t, uint64(len(committee)), powerOfVotes(preVotes))
 	})
 

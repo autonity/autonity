@@ -10,12 +10,19 @@ import (
 var nilValue = common.Hash{}
 
 func powerOfVotes(votes []core.Message) uint64 {
+	counted := make(map[common.Address]struct{})
 	power := uint64(0)
 	for i := 0; i < len(votes); i++ {
 		if votes[i].Type() == msgProposal {
 			continue
 		}
+
+		if _, ok := counted[votes[i].Address]; ok {
+			continue
+		}
+
 		power += votes[i].GetPower()
+		counted[votes[i].Address] = struct{}{}
 	}
 	return power
 }
@@ -258,7 +265,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			return m.Type() == msgPrevote && m.R() == validRound
 		})
 
-		if powerOfVotes(prevotes) < quorum {
+		if powerOfVotes(deEquivocatedMsgs(prevotes)) < quorum {
 			accusation := Proof{
 				Type:    Accusation,
 				Rule:    PO,
@@ -428,7 +435,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			proof := Proof{
 				Type:     Misbehaviour,
 				Rule:     C,
-				Evidence: prevotesForNotV,
+				Evidence: deEquivocatedMsgs(prevotesForNotV),
 				Message:  precommit,
 			}
 			proofs = append(proofs, proof)
@@ -446,6 +453,18 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 	}
 
 	return proofs
+}
+
+func deEquivocatedMsgs(msgs []core.Message) []core.Message {
+	var deEquivocated []core.Message
+	presented := make(map[common.Address]struct{})
+	for _, v := range msgs {
+		if _, ok := presented[v.Address]; ok {
+			continue
+		}
+		deEquivocated = append(deEquivocated, v)
+	}
+	return deEquivocated
 }
 
 func errorToRule(err error) (Rule, error) {
