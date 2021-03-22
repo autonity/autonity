@@ -39,7 +39,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.NotNil(t, err)
 	})
 
-	t.Run("GetInnocentProofOfPO have quorum preVotes", func(t *testing.T) {
+	t.Run("getInnocentProofOfPO have quorum preVotes", func(t *testing.T) {
 
 		// PO: node propose an old value with an validRound, innocent proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
@@ -64,14 +64,14 @@ func TestRuleEngine(t *testing.T) {
 			Message: *proposal,
 		}
 
-		proof, err := fd.GetInnocentProofOfPO(&accusation)
+		proof, err := fd.getInnocentProofOfPO(&accusation)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(Innocence), proof.Type.Uint64())
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, types.RLPHash(proposal.Payload()), proof.Msghash)
 	})
 
-	t.Run("GetInnocentProofOfPO no quorum preVotes", func(t *testing.T) {
+	t.Run("getInnocentProofOfPO no quorum preVotes", func(t *testing.T) {
 
 		// PO: node propose an old value with an validRound, innocent proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
@@ -94,11 +94,11 @@ func TestRuleEngine(t *testing.T) {
 			Message: *proposal,
 		}
 
-		_, err = fd.GetInnocentProofOfPO(&accusation)
+		_, err = fd.getInnocentProofOfPO(&accusation)
 		assert.Equal(t, errNoEvidenceForPO, err)
 	})
 
-	t.Run("GetInnocentProofOfPVN have corresponding proposal", func(t *testing.T) {
+	t.Run("getInnocentProofOfPVN have corresponding proposal", func(t *testing.T) {
 
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
 
@@ -118,14 +118,14 @@ func TestRuleEngine(t *testing.T) {
 			Message: *preVote,
 		}
 
-		proof, err := fd.GetInnocentProofOfPVN(&accusation)
+		proof, err := fd.getInnocentProofOfPVN(&accusation)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(Innocence), proof.Type.Uint64())
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, types.RLPHash(preVote.Payload()), proof.Msghash)
 	})
 
-	t.Run("GetInnocentProofOfPVN have no corresponding proposal", func(t *testing.T) {
+	t.Run("getInnocentProofOfPVN have no corresponding proposal", func(t *testing.T) {
 
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
 		fd := NewFaultDetector(nil, proposer)
@@ -140,11 +140,11 @@ func TestRuleEngine(t *testing.T) {
 			Message: *preVote,
 		}
 
-		_, err = fd.GetInnocentProofOfPVN(&accusation)
+		_, err = fd.getInnocentProofOfPVN(&accusation)
 		assert.Equal(t, errNoEvidenceForPVN, err)
 	})
 
-	t.Run("GetInnocentProofOfC have corresponding proposal", func(t *testing.T) {
+	t.Run("getInnocentProofOfC have corresponding proposal", func(t *testing.T) {
 
 		// C: node preCommit at a none nil value, there must be a corresponding proposal.
 
@@ -164,14 +164,14 @@ func TestRuleEngine(t *testing.T) {
 			Message: *preCommit,
 		}
 
-		proof, err := fd.GetInnocentProofOfC(&accusation)
+		proof, err := fd.getInnocentProofOfC(&accusation)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(Innocence), proof.Type.Uint64())
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, types.RLPHash(preCommit.Payload()), proof.Msghash)
 	})
 
-	t.Run("GetInnocentProofOfC have no corresponding proposal", func(t *testing.T) {
+	t.Run("getInnocentProofOfC have no corresponding proposal", func(t *testing.T) {
 
 		// C: node preCommit at a none nil value, there must be a corresponding proposal.
 
@@ -187,11 +187,11 @@ func TestRuleEngine(t *testing.T) {
 			Message: *preCommit,
 		}
 
-		_, err = fd.GetInnocentProofOfC(&accusation)
+		_, err = fd.getInnocentProofOfC(&accusation)
 		assert.Equal(t, errNoEvidenceForC, err)
 	})
 
-	t.Run("GetInnocentProofOfC1 have quorum preVotes", func(t *testing.T) {
+	t.Run("getInnocentProofOfC1 have quorum preVotes", func(t *testing.T) {
 
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
 
@@ -215,14 +215,14 @@ func TestRuleEngine(t *testing.T) {
 			Message: *preCommit,
 		}
 
-		proof, err := fd.GetInnocentProofOfC1(&accusation)
+		proof, err := fd.getInnocentProofOfC1(&accusation)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(Innocence), proof.Type.Uint64())
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, types.RLPHash(preCommit.Payload()), proof.Msghash)
 	})
 
-	t.Run("GetInnocentProofOfC1 have no quorum preVotes", func(t *testing.T) {
+	t.Run("getInnocentProofOfC1 have no quorum preVotes", func(t *testing.T) {
 
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
 
@@ -239,7 +239,7 @@ func TestRuleEngine(t *testing.T) {
 			Message: *preCommit,
 		}
 
-		_, err = fd.GetInnocentProofOfC1(&accusation)
+		_, err = fd.getInnocentProofOfC1(&accusation)
 		assert.Equal(t, errNoEvidenceForC1, err)
 	})
 
