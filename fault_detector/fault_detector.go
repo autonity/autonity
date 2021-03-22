@@ -28,20 +28,23 @@ import (
 
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	randomDelayWindow            = 1000 * 5                          // (0, 5] seconds random time window
 	deltaToWaitForAccountability = 30                                // Wait until the GST + delta (30 blocks) to start rule scan.
 	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
-	errFutureMsg                 = errors.New("future height msg")
-	errGarbageMsg                = errors.New("garbage msg")
-	errNotCommitteeMsg           = errors.New("msg from none committee member")
-	errProposer                  = errors.New("proposal is not from proposer")
-	errProposal                  = errors.New("proposal have invalid values")
-	errEquivocation              = errors.New("equivocation happens")
-	errUnknownMsg                = errors.New("unknown consensus msg")
-	errNoEvidenceForPO           = errors.New("no evidence for innocence of rule PO")
-	errNoEvidenceForPVN          = errors.New("no evidence for innocence of rule PVN")
-	errNoEvidenceForC            = errors.New("no evidence for innocence of rule C")
-	errNoEvidenceForC1           = errors.New("no evidence for innocence of rule C1")
+
+	errEquivocation    = errors.New("equivocation happens")
+	errFutureMsg       = errors.New("future height msg")
+	errGarbageMsg      = errors.New("garbage msg")
+	errNotCommitteeMsg = errors.New("msg from none committee member")
+	errProposal        = errors.New("proposal have invalid values")
+	errProposer        = errors.New("proposal is not from proposer")
+
+	errNoEvidenceForPO  = errors.New("no evidence for innocence of rule PO")
+	errNoEvidenceForPVN = errors.New("no evidence for innocence of rule PVN")
+	errNoEvidenceForC   = errors.New("no evidence for innocence of rule C")
+	errNoEvidenceForC1  = errors.New("no evidence for innocence of rule C1")
+
+	nilValue          = common.Hash{}
+	randomDelayWindow = 1000 * 5 // (0, 5] seconds random time window
 )
 
 // Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
@@ -112,15 +115,6 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 	return fd
 }
 
-func (fd *FaultDetector) quorum(h uint64) uint64 {
-	power, ok := fd.totalPowers[h]
-	if ok {
-		return bft.Quorum(power)
-	}
-
-	return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
-}
-
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
 func (fd *FaultDetector) FaultDetectorEventLoop(ctx context.Context) {
@@ -186,18 +180,6 @@ eventLoop:
 	fd.stopped <- struct{}{}
 }
 
-func (fd *FaultDetector) sentProofs() {
-	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
-	//  consider to break down into multiples if it cannot fit in.
-	if len(fd.bufferedProofs) != 0 {
-		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
-		copy(copyProofs, fd.bufferedProofs)
-		fd.sendProofs(copyProofs)
-		// release items from buffer
-		fd.bufferedProofs = fd.bufferedProofs[:0]
-	}
-}
-
 // HandleMsg is called by p2p protocol manager to deliver the consensus msg to fault_detector.
 func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 	if msg.Code != tendermintBackend.TendermintMsg {
@@ -234,6 +216,27 @@ func (fd *FaultDetector) Stop() {
 // call by ethereum object to subscribe proofs Events.
 func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event.Subscription {
 	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
+}
+
+func (fd *FaultDetector) quorum(h uint64) uint64 {
+	power, ok := fd.totalPowers[h]
+	if ok {
+		return bft.Quorum(power)
+	}
+
+	return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
+}
+
+func (fd *FaultDetector) sentProofs() {
+	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
+	//  consider to break down into multiples if it cannot fit in.
+	if len(fd.bufferedProofs) != 0 {
+		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
+		copy(copyProofs, fd.bufferedProofs)
+		fd.sendProofs(copyProofs)
+		// release items from buffer
+		fd.bufferedProofs = fd.bufferedProofs[:0]
+	}
 }
 
 // get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
@@ -445,7 +448,7 @@ func checkAutoIncriminatingMsg(chain *core.BlockChain, m *tendermintCore.Message
 		return decodeVote(m)
 	}
 
-	return errUnknownMsg
+	return errors.New("unknown consensus msg")
 }
 
 func checkEquivocation(chain *core.BlockChain, m *tendermintCore.Message, proof []tendermintCore.Message) error {
@@ -647,8 +650,6 @@ func decodeVote(m *tendermintCore.Message) error {
 }
 
 //---------------------Methods from rule_engine.go---------------------
-
-var nilValue = common.Hash{}
 
 func powerOfVotes(votes []tendermintCore.Message) uint64 {
 	counted := make(map[common.Address]struct{})
