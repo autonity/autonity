@@ -107,6 +107,25 @@ type CommitteeMember struct {
 	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
 }
 
+// MarshalText encodes b as a hex string with 0x prefix.
+func (c *CommitteeMember) MarshalText() ([]byte, error) {
+	data, err := rlp.EncodeToBytes(c)
+	if err != nil {
+		return nil, err
+	}
+	return hexutil.Bytes(data).MarshalText()
+}
+
+// UnmarshalText b as a hex string with 0x prefix.
+func (c *CommitteeMember) UnmarshalText(input []byte) error {
+	var b hexutil.Bytes
+	err := b.UnmarshalText(input)
+	if err != nil {
+		return err
+	}
+	return rlp.DecodeBytes(b, &c)
+}
+
 type Committee []CommitteeMember
 
 // originalHeader represents the ethereum blockchain header.
@@ -136,7 +155,11 @@ type headerExtra struct {
 	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
 }
 
-// field type overrides for gencodec
+// headerMarshaling is used by gencodec (which can be invoked bu running go
+// generate in this package) and defines marshalling types for fields that
+// would not marshal correctly to hex of their own accord. When modifying the
+// structure of Header, this will likely need to be updated before running go
+// generate to regenerate the json marshalling code.
 type headerMarshaling struct {
 	Difficulty *hexutil.Big
 	Number     *hexutil.Big
@@ -149,6 +172,7 @@ type headerMarshaling struct {
 		PoS header fields type overriedes
 	*/
 	ProposerSeal       hexutil.Bytes
+	Round              hexutil.Uint64
 	CommittedSeals     []hexutil.Bytes
 	PastCommittedSeals []hexutil.Bytes
 }
@@ -206,13 +230,17 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 
 	hExtra := &headerExtra{}
 	if origin.MixDigest == BFTDigest {
-		if err := rlp.DecodeBytes(origin.Extra, hExtra); err == nil {
-			h.CommittedSeals = hExtra.CommittedSeals
-			h.Committee = hExtra.Committee
-			h.PastCommittedSeals = hExtra.PastCommittedSeals
-			h.ProposerSeal = hExtra.ProposerSeal
-			h.Round = hExtra.Round
+		err := rlp.DecodeBytes(origin.Extra, hExtra)
+		if err != nil {
+			return err
 		}
+		h.CommittedSeals = hExtra.CommittedSeals
+		h.Committee = hExtra.Committee
+		h.PastCommittedSeals = hExtra.PastCommittedSeals
+		h.ProposerSeal = hExtra.ProposerSeal
+		h.Round = hExtra.Round
+	} else {
+		h.Extra = origin.Extra
 	}
 
 	h.ParentHash = origin.ParentHash
@@ -229,12 +257,20 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.Time = origin.Time
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
-	h.Extra = origin.Extra
 
 	return nil
 }
 
 // EncodeRLP serializes b into the Ethereum RLP block format.
+//
+// To maintain RLP compatibility with eth tooling we have to encode our
+// additional header fields into the extra data field. RLP decoding expects the
+// encoded data to have an exact number of fields of a certain type in a
+// particular order, if there is a mismatch decoding fails. So to maintain
+// compatibility with ethereum we encode all our additional header fields into
+// the extra data field leaving us with just the original ethereum header
+// fields. When we decode we repopulate our additional header fields from the
+// extra data.
 func (h *Header) EncodeRLP(w io.Writer) error {
 	hExtra := headerExtra{
 		Committee:          h.Committee,
@@ -410,51 +446,82 @@ func NewBlockWithHeader(header *Header) *Block {
 // CopyHeader creates a deep copy of a block header to prevent side effects from
 // modifying a header variable.
 func CopyHeader(h *Header) *Header {
-	cpy := *h
-	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
-		cpy.Difficulty.Set(h.Difficulty)
+
+	difficulty := big.NewInt(0)
+	if h.Difficulty != nil {
+		difficulty.Set(h.Difficulty)
 	}
-	if cpy.Number = new(big.Int); h.Number != nil {
-		cpy.Number.Set(h.Number)
+
+	number := big.NewInt(0)
+	if h.Number != nil {
+		number.Set(h.Number)
 	}
+
+	extra := make([]byte, 0)
 	if len(h.Extra) > 0 {
-		cpy.Extra = make([]byte, len(h.Extra))
-		copy(cpy.Extra, h.Extra)
+		extra = make([]byte, len(h.Extra))
+		copy(extra, h.Extra)
 	}
 
 	/* PoS fields deep copy section*/
+	committee := make([]CommitteeMember, 0)
 	if len(h.Committee) > 0 {
-		cpy.Committee = make([]CommitteeMember, len(h.Committee))
+		committee = make([]CommitteeMember, len(h.Committee))
 		for i, val := range h.Committee {
-			cpy.Committee[i] = CommitteeMember{
+			committee[i] = CommitteeMember{
 				Address:     val.Address,
 				VotingPower: new(big.Int).Set(val.VotingPower),
 			}
 		}
 	}
 
+	proposerSeal := make([]byte, 0)
 	if len(h.ProposerSeal) > 0 {
-		cpy.ProposerSeal = make([]byte, len(h.ProposerSeal))
-		copy(cpy.ProposerSeal, h.ProposerSeal)
+		proposerSeal = make([]byte, len(h.ProposerSeal))
+		copy(proposerSeal, h.ProposerSeal)
 	}
 
+	committedSeals := make([][]byte, 0)
 	if len(h.CommittedSeals) > 0 {
-		cpy.CommittedSeals = make([][]byte, len(h.CommittedSeals))
+		committedSeals = make([][]byte, len(h.CommittedSeals))
 		for i, val := range h.CommittedSeals {
-			cpy.CommittedSeals[i] = make([]byte, len(val))
-			copy(cpy.CommittedSeals[i], val)
+			committedSeals[i] = make([]byte, len(val))
+			copy(committedSeals[i], val)
 		}
 	}
 
+	pastCommittedSeals := make([][]byte, 0)
 	if len(h.PastCommittedSeals) > 0 {
-		cpy.PastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
+		pastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
 		for i, val := range h.PastCommittedSeals {
-			cpy.PastCommittedSeals[i] = make([]byte, len(val))
-			copy(cpy.PastCommittedSeals[i], val)
+			pastCommittedSeals[i] = make([]byte, len(val))
+			copy(pastCommittedSeals[i], val)
 		}
 	}
 
-	return &cpy
+	cpy := &Header{
+		ParentHash:         h.ParentHash,
+		UncleHash:          h.UncleHash,
+		Coinbase:           h.Coinbase,
+		Root:               h.Root,
+		TxHash:             h.TxHash,
+		ReceiptHash:        h.ReceiptHash,
+		Bloom:              h.Bloom,
+		Difficulty:         difficulty,
+		Number:             number,
+		GasLimit:           h.GasLimit,
+		GasUsed:            h.GasUsed,
+		Time:               h.Time,
+		Extra:              extra,
+		MixDigest:          h.MixDigest,
+		Nonce:              h.Nonce,
+		Committee:          committee,
+		ProposerSeal:       proposerSeal,
+		Round:              h.Round,
+		CommittedSeals:     committedSeals,
+		PastCommittedSeals: pastCommittedSeals,
+	}
+	return cpy
 }
 
 // DecodeRLP decodes the Ethereum
