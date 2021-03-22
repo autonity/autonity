@@ -855,13 +855,6 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []t
 	fd.bufferedProofs = append(fd.bufferedProofs, proof)
 }
 
-func randomDelay() {
-	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
-	rand.Seed(time.Now().UnixNano())
-	n := rand.Intn(randomDelayWindow)
-	time.Sleep(time.Duration(n) * time.Millisecond)
-}
-
 /////// common helper functions shared between fault_detector and precompiled contract to validate msgs.
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
@@ -897,18 +890,27 @@ func checkEquivocation(chain *core.BlockChain, m *tendermintCore.Message, proof 
 	return nil
 }
 
-func sameVote(a *tendermintCore.Message, b *tendermintCore.Message) bool {
-	ah, _ := a.Height()
-	ar, _ := a.Round()
-	bh, _ := b.Height()
-	br, _ := b.Round()
-	aHash := types.RLPHash(a.Payload())
-	bHash := types.RLPHash(b.Payload())
-
-	if ah == bh && ar == br && a.Code == b.Code && a.Address == b.Address && aHash == bHash {
-		return true
+//checkMsgSignature, it check if msg is from valid member of the committee.
+func checkMsgSignature(chain *core.BlockChain, m *tendermintCore.Message, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) error {
+	msgHeight, err := m.Height()
+	if err != nil {
+		return err
 	}
-	return false
+
+	header := currentHeader(chain)
+	if msgHeight.Uint64() > header.Number.Uint64()+1 {
+		return errFutureMsg
+	}
+
+	lastHeader := getHeader(chain, msgHeight.Uint64()-1)
+	if lastHeader == nil {
+		return errFutureMsg
+	}
+
+	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		return errNotCommitteeMsg
+	}
+	return nil
 }
 
 // checkProposal, checks if proposal is valid and it's from correct proposer.
@@ -940,27 +942,114 @@ func checkProposal(chain *core.BlockChain, m *tendermintCore.Message, validatePr
 	return nil
 }
 
-//checkMsgSignature, it check if msg is from valid member of the committee.
-func checkMsgSignature(chain *core.BlockChain, m *tendermintCore.Message, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) error {
-	msgHeight, err := m.Height()
+func decodeVote(m *tendermintCore.Message) error {
+	var vote tendermintCore.Vote
+	err := m.Decode(&vote)
 	if err != nil {
-		return err
-	}
-
-	header := currentHeader(chain)
-	if msgHeight.Uint64() > header.Number.Uint64()+1 {
-		return errFutureMsg
-	}
-
-	lastHeader := getHeader(chain, msgHeight.Uint64()-1)
-	if lastHeader == nil {
-		return errFutureMsg
-	}
-
-	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-		return errNotCommitteeMsg
+		return errGarbageMsg
 	}
 	return nil
+}
+
+func deEquivocatedMsgs(msgs []tendermintCore.Message) (deEquivocated []tendermintCore.Message) {
+	presented := make(map[common.Address]struct{})
+	for _, v := range msgs {
+		if _, ok := presented[v.Address]; ok {
+			continue
+		}
+		deEquivocated = append(deEquivocated, v)
+		presented[v.Address] = struct{}{}
+	}
+	return deEquivocated
+}
+
+func errorToRule(err error) (Rule, error) {
+	rule := UnknownRule
+	switch err {
+	case errEquivocation:
+		rule = Equivocation
+	case errProposer:
+		rule = InvalidProposer
+	case errProposal:
+		rule = InvalidProposal
+	case errGarbageMsg:
+		rule = GarbageMessage
+	default:
+		return rule, fmt.Errorf("errors of not provable")
+	}
+
+	return rule, nil
+}
+
+func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
+	parentHeader := chain.GetHeaderByNumber(h - 1)
+	if parentHeader.IsGenesis() {
+		sort.Sort(parentHeader.Committee)
+		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
+	}
+
+	statedb, err := chain.StateAt(parentHeader.Root)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	proposer := chain.GetAutonityContract().GetProposerFromAC(parentHeader, statedb, parentHeader.Number.Uint64(), r)
+	member := parentHeader.CommitteeMember(proposer)
+	if member == nil {
+		return common.Address{}, fmt.Errorf("cannot find correct proposer")
+	}
+	return proposer, nil
+}
+
+func isProposerMsg(chain *core.BlockChain, m *tendermintCore.Message, proposerGetter ProposerGetter) bool {
+	h, _ := m.Height()
+	r, _ := m.Round()
+
+	proposer, err := proposerGetter(chain, h.Uint64(), r)
+	if err != nil {
+		return false
+	}
+
+	return m.Address == proposer
+}
+
+func powerOfVotes(votes []tendermintCore.Message) uint64 {
+	counted := make(map[common.Address]struct{})
+	power := uint64(0)
+	for i := 0; i < len(votes); i++ {
+		if votes[i].Type() == msgProposal {
+			continue
+		}
+
+		if _, ok := counted[votes[i].Address]; ok {
+			continue
+		}
+
+		power += votes[i].GetPower()
+		counted[votes[i].Address] = struct{}{}
+	}
+	return power
+}
+
+func randomDelay() {
+	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
+	rand.Seed(time.Now().UnixNano())
+	n := rand.Intn(randomDelayWindow)
+	time.Sleep(time.Duration(n) * time.Millisecond)
+}
+
+func sameVote(a *tendermintCore.Message, b *tendermintCore.Message) bool {
+	ah, _ := a.Height()
+	ar, _ := a.Round()
+	bh, _ := b.Height()
+	br, _ := b.Round()
+	aHash := types.RLPHash(a.Payload())
+	bHash := types.RLPHash(b.Payload())
+
+	if ah == bh && ar == br && a.Code == b.Code && a.Address == b.Address && aHash == bHash {
+		return true
+	}
+	return false
 }
 
 func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
@@ -1032,93 +1121,4 @@ func verifyProposal(chain *core.BlockChain, proposal types.Block) error {
 		return nil
 	}
 	return err
-}
-
-func isProposerMsg(chain *core.BlockChain, m *tendermintCore.Message, proposerGetter ProposerGetter) bool {
-	h, _ := m.Height()
-	r, _ := m.Round()
-
-	proposer, err := proposerGetter(chain, h.Uint64(), r)
-	if err != nil {
-		return false
-	}
-
-	return m.Address == proposer
-}
-
-func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
-	parentHeader := chain.GetHeaderByNumber(h - 1)
-	if parentHeader.IsGenesis() {
-		sort.Sort(parentHeader.Committee)
-		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
-	}
-
-	statedb, err := chain.StateAt(parentHeader.Root)
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	proposer := chain.GetAutonityContract().GetProposerFromAC(parentHeader, statedb, parentHeader.Number.Uint64(), r)
-	member := parentHeader.CommitteeMember(proposer)
-	if member == nil {
-		return common.Address{}, fmt.Errorf("cannot find correct proposer")
-	}
-	return proposer, nil
-}
-
-func decodeVote(m *tendermintCore.Message) error {
-	var vote tendermintCore.Vote
-	err := m.Decode(&vote)
-	if err != nil {
-		return errGarbageMsg
-	}
-	return nil
-}
-
-func powerOfVotes(votes []tendermintCore.Message) uint64 {
-	counted := make(map[common.Address]struct{})
-	power := uint64(0)
-	for i := 0; i < len(votes); i++ {
-		if votes[i].Type() == msgProposal {
-			continue
-		}
-
-		if _, ok := counted[votes[i].Address]; ok {
-			continue
-		}
-
-		power += votes[i].GetPower()
-		counted[votes[i].Address] = struct{}{}
-	}
-	return power
-}
-
-func deEquivocatedMsgs(msgs []tendermintCore.Message) (deEquivocated []tendermintCore.Message) {
-	presented := make(map[common.Address]struct{})
-	for _, v := range msgs {
-		if _, ok := presented[v.Address]; ok {
-			continue
-		}
-		deEquivocated = append(deEquivocated, v)
-		presented[v.Address] = struct{}{}
-	}
-	return deEquivocated
-}
-
-func errorToRule(err error) (Rule, error) {
-	rule := UnknownRule
-	switch err {
-	case errEquivocation:
-		rule = Equivocation
-	case errProposer:
-		rule = InvalidProposer
-	case errProposal:
-		rule = InvalidProposal
-	case errGarbageMsg:
-		rule = GarbageMessage
-	default:
-		return rule, fmt.Errorf("errors of not provable")
-	}
-
-	return rule, nil
 }
