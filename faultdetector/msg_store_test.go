@@ -1,4 +1,4 @@
-package fault_detector
+package faultdetector
 
 import (
 	"crypto/ecdsa"
