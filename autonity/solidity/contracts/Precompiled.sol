@@ -13,7 +13,7 @@ library Precompiled {
         }
         return p;
     }
-    // checkChallenge, it validate proof of challenge is valid by according fault_detector rules, the precompiled contract returns
+    // checkChallenge, it validate proof of challenge is valid by according faultdetector rules, the precompiled contract returns
     // the msg sender address and the msg hash when the proof is valid.
     function checkMisbehaviour(bytes memory proof) internal view returns (address, bytes32, uint256) {
         // bytes in solidity consumes the first 32 bytes as the length of the byte array, so the length for memory copy should plus
@@ -48,7 +48,7 @@ library Precompiled {
         return (address(retVal[0]), bytes32(retVal[1]), retVal[2]);
     }
 
-    // checkInnocence, it validate the proof of innocent is valid by according to fault_detector rules, the precompiled contract returns
+    // checkInnocence, it validate the proof of innocent is valid by according to faultdetector rules, the precompiled contract returns
     // the msg sender address and the msg hash when the proof is valid.
     function checkInnocence(bytes memory proof) internal view returns (address, bytes32, uint256) {
         // bytes in solidity consumes the first 32 bytes as the length of the byte array, so the length for memory copy should plus

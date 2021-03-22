@@ -5,11 +5,11 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/fault_detector"
+	"github.com/clearmatics/autonity/faultdetector"
 	"github.com/clearmatics/autonity/log"
 )
 
-func (s *Ethereum) sendAccountabilityTransaction(ev *fault_detector.AccountabilityEvent) {
+func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.AccountabilityEvent) {
 
 	tx, err := s.generateAccountabilityTX("handleProofs", ev.Proofs)
 	if err != nil {
