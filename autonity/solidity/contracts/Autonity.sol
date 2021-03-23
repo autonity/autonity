@@ -184,8 +184,6 @@ contract Autonity is IERC20 {
                     // todo: take governance action that msg.sender sent faulty accusation.
                     continue;
                 }
-                // accusation proof is validated, release raw rlp bytes to save gas cost.
-                delete Proofs[i].rawproof;
                 accusations.push(Proofs[i]);
                 emit AccusationAdded(Proofs[i]);
             }
