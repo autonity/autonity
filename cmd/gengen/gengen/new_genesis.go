@@ -91,6 +91,7 @@ func NewGenesis(minGasPrice uint64, users []*User) (*core.Genesis, error) {
 			IstanbulBlock:       big.NewInt(0),
 			Tendermint: &config.Config{
 				BlockPeriod: 1,
+				ProposerPolicy: 1,
 			},
 			AutonityContractConfig: &params.AutonityContractGenesis{
 				MinGasPrice: minGasPrice,
