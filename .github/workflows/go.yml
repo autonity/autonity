@@ -7,6 +7,7 @@ on:
   # pull_request triggers this workflow on both internal and forked pull
   # requests.
   pull_request:
+  push: # the manual trigger seems broken for now (triggers only develop)
 
 env:
   # We don't have access to the HOME environment variable here since we are not
@@ -156,7 +157,7 @@ jobs:
 
       - name: Run lninting
         run: |
-          git fetch -fu --no-tags --depth=2 origin develop:develop
+          git fetch -fu --unshallow origin develop:develop
           make lint-ci
         shell: bash
 
@@ -257,9 +258,13 @@ jobs:
       - name: Build and start helloworld
         run: docker-compose up -d
 
+      - name: show helloworld logs
+        run: sleep 1 && docker logs autonity-node-1
+
       - name: Test helloworld console access
         run: |
           set -e && \
+          sleep 1 && \
           for x in 11 12 13 14 15; do \
             docker run \
             --network helloworld_chainnet \

@@ -10,11 +10,14 @@ import (
 
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
 )
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")
@@ -30,9 +33,6 @@ type EVMProvider interface {
 }
 
 type Blockchainer interface {
-	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
-	ReadEnodeWhitelist() *types.Nodes
-
 	PutKeyValue(key []byte, value []byte) error
 }
 
@@ -42,24 +42,47 @@ type Contract struct {
 	initialMinGasPrice uint64
 	contractABI        *abi.ABI
 	stringABI          string
-	bc                 Blockchainer
+	db                 ethdb.Database
 	metrics            EconomicMetrics
 
 	sync.RWMutex
 }
 
+type HeaderGetter interface {
+	GetHeader(hash common.Hash, number uint64) *types.Header
+}
+
+func NewAutonityContractFromConfig(db ethdb.Database, hg HeaderGetter, evmP EVMProvider, autonityConfig *params.AutonityContractGenesis) (*Contract, error) {
+	var JSONString = autonityConfig.ABI
+	bytes, err := rawdb.GetKeyValue(db, []byte(ABISPEC))
+
+	if err != nil && JSONString == "" {
+		return nil, err
+	}
+	if bytes != nil {
+		JSONString = string(bytes)
+	}
+	return NewAutonityContract(
+		db,
+		autonityConfig.Operator,
+		autonityConfig.MinGasPrice,
+		JSONString,
+		evmP,
+	)
+}
+
 func NewAutonityContract(
-	bc Blockchainer,
+	db ethdb.Database,
 	operator common.Address,
 	minGasPrice uint64,
 	ABI string,
 	evmProvider EVMProvider,
 ) (*Contract, error) {
 	contract := Contract{
+		db:                 db,
 		stringABI:          ABI,
 		operator:           operator,
 		initialMinGasPrice: minGasPrice,
-		bc:                 bc,
 		evmProvider:        evmProvider,
 	}
 	err := contract.upgradeAbiCache(ABI)
@@ -129,32 +152,9 @@ func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (
 	return committeeSet, err
 }
 
-func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
-	newWhitelist, err := ac.GetWhitelist(block, state)
-	if err != nil {
-		log.Error("Could not call contract", "err", err)
-		return ErrAutonityContract
-	}
-
-	ac.bc.UpdateEnodeWhitelist(newWhitelist)
-	return nil
-}
-
 func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
-	var (
-		newWhitelist *types.Nodes
-		err          error
-	)
-
-	if block.Number().Uint64() == 1 {
-		// use genesis block whitelist
-		newWhitelist = ac.bc.ReadEnodeWhitelist()
-	} else {
-		// call retrieveWhitelist contract function
-		newWhitelist, err = ac.callGetWhitelist(db, block.Header())
-	}
-
-	return newWhitelist, err
+	// call retrieveWhitelist contract function
+	return ac.callGetWhitelist(db, block.Header())
 }
 
 func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
@@ -165,8 +165,8 @@ func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (u
 	return ac.callGetMinimumGasPrice(db, block.Header())
 }
 
-func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, height uint64, round int64) common.Address {
-	return ac.callGetProposer(db, header, height, round)
+func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, round int64) (common.Address, error) {
+	return ac.callGetProposer(db, header, round)
 }
 
 func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {
@@ -246,7 +246,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	}
 
 	// save new abi in persistent, once node reset, it load from persistent level db.
-	if err := ac.bc.PutKeyValue([]byte(ABISPEC), []byte(newAbi)); err != nil {
+	if err := rawdb.PutKeyValue(ac.db, []byte(ABISPEC), []byte(newAbi)); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}
@@ -263,6 +263,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 func (ac *Contract) upgradeAbiCache(newAbi string) error {
 	ac.Lock()
 	defer ac.Unlock()
+	ac.stringABI = newAbi
 	newABI, err := abi.JSON(strings.NewReader(newAbi))
 	if err != nil {
 		return err

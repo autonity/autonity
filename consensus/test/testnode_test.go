@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus"
-
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/p2p/enode"
@@ -32,7 +30,6 @@ type testNode struct {
 	node                    *node.Node
 	nodeConfig              *node.Config
 	ethConfig               *eth.Config
-	engineConstructor       func(basic consensus.Engine) consensus.Engine
 	enode                   *enode.Node
 	service                 *eth.Ethereum
 	eventChan               chan core.ChainEvent
@@ -74,7 +71,7 @@ func (validator *testNode) startNode() error {
 		return err
 	}
 
-	validator.service, err = eth.New(validator.node, validator.ethConfig, validator.engineConstructor)
+	validator.service, err = eth.New(validator.node, validator.ethConfig)
 	if err != nil {
 		return err
 	}
@@ -164,10 +161,6 @@ func (validator *testNode) startService() error {
 
 	if err := validator.service.StartMining(1); err != nil {
 		return fmt.Errorf("cant start mining %s", err)
-	}
-
-	for !validator.service.IsMining() {
-		time.Sleep(50 * time.Millisecond)
 	}
 
 	validator.isRunning = true

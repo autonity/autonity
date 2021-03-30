@@ -18,7 +18,6 @@
 package consensus
 
 import (
-	"context"
 	"math/big"
 
 	"github.com/clearmatics/autonity/p2p"
@@ -136,9 +135,6 @@ type Handler interface {
 	// HandleMsg handles a message from peer
 	HandleMsg(address common.Address, data p2p.Msg) (bool, error)
 
-	// SetBroadcaster sets the broadcaster to send message to peers
-	SetBroadcaster(Broadcaster)
-
 	//msgCodes returns the number of extra implemented msgCodes by this consensus algorithm
 	Protocol() (protocolName string, extraMsgCodes uint64)
 }
@@ -154,13 +150,5 @@ type PoW interface {
 // BFT is a consensus engine to avoid byzantine failure
 type BFT interface {
 	Engine
-
-	// Start starts the engine
-	Start(ctx context.Context) error
-}
-
-type Syncer interface {
-	SyncPeer(address common.Address)
-
-	ResetPeerCache(address common.Address)
+	Handler
 }

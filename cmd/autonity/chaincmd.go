@@ -19,15 +19,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/davecgh/go-spew/spew"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/common"
@@ -44,7 +45,6 @@ import (
 )
 
 var (
-
 	importCommand = cli.Command{
 		Action:    utils.MigrateFlags(importChain),
 		Name:      "import",
@@ -453,7 +453,11 @@ func copyDb(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), func() bool { return false })
+	hg, err := core.NewHeaderGetter(db)
+	if err != nil {
+		return err
+	}
+	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), func() bool { return false }, hg)
 	if err != nil {
 		return err
 	}

@@ -190,7 +190,7 @@ func TestMemberManagement(t *testing.T) {
 		{
 			name:          "add users",
 			numValidators: 6,
-			numBlocks:     30,
+			numBlocks:     15,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": addUsersHook,
@@ -201,7 +201,7 @@ func TestMemberManagement(t *testing.T) {
 		{
 			name:          "remove user",
 			numValidators: 6,
-			numBlocks:     20,
+			numBlocks:     15,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VD": removeUserHook,

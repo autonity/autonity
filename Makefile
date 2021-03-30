@@ -11,10 +11,7 @@
 NPMBIN= $(shell npm bin)
 BINDIR = ./build/bin
 GO ?= latest
-LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
-ifeq ($(LATEST_COMMIT),)
-LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
-endif
+MERGE_BASE = $(shell git merge-base origin/develop HEAD)
 SOLC_VERSION = 0.7.1
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 
@@ -131,7 +128,6 @@ docker-e2e-test: embed-autonity-contract
 	cd docker_e2e_test && sudo python3 test_via_docker.py ..
 
 mock-gen:
-	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 
@@ -140,22 +136,22 @@ lint-dead:
 		--config ./.golangci/step_dead.yml
 
 lint: embed-autonity-contract
-	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
+	@echo "--> Running linter for code diff versus commit $(MERGE_BASE)"
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step1.yml \
 	    --exclude "which can be annoying to use"
 
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step2.yml
 
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step3.yml
 
 	@./build/bin/golangci-lint run \
-	    --new-from-rev=$(LATEST_COMMIT) \
+	    --new-from-rev=$(MERGE_BASE) \
 	    --config ./.golangci/step4.yml
 
 lint-ci: lint-deps lint
@@ -166,7 +162,7 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.23.7
+	test -e ./build/bin/golangci-lint || curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.23.7
 
 clean:
 	go clean -cache

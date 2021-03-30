@@ -23,14 +23,16 @@ import (
 	"testing"
 	"time"
 
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/clearmatics/autonity/autonity"
+	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/stretchr/testify/require"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
@@ -112,7 +114,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	}
 
 	switch engine.(type) {
-	case *tendermintBackend.Backend:
+	case *tendermint.Bridge:
 		gspec.Mixhash = types.BFTDigest
 	case *ethash.Ethash:
 	default:
@@ -123,11 +125,6 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	senderCacher := &core.TxSenderCacher{}
 	chain, _ := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher, nil)
 	txpool := core.NewTxPool(testTxPoolConfig, chainConfig, chain, senderCacher)
-
-	te, ok := engine.(*tendermintBackend.Backend)
-	if ok {
-		te.SetBlockchain(chain)
-	}
 
 	// Generate a small n-block chain and an uncle block for it
 	if n > 0 {
@@ -200,15 +197,23 @@ func TestGenerateBlockAndImportTendermint(t *testing.T) {
 	testGenerateBlockAndImport(t, true)
 }
 
+type mockPeers struct{}
+
+func (m *mockPeers) Peers() []consensus.Peer {
+	return nil
+}
+
 func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	var (
 		engine      consensus.Engine
 		chainConfig *params.ChainConfig
 		db          = rawdb.NewMemoryDatabase()
+		err         error
 	)
 	if isTendermint {
 		chainConfig = tendermintChainConfig
-		engine = tendermintBackend.New(chainConfig.Tendermint, testUserKey, db, chainConfig, &vm.Config{})
+		engine, db, err = newBackend(chainConfig)
+		require.NoError(t, err)
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
 		engine = ethash.NewFaker()
@@ -222,6 +227,13 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	b.genesis.MustCommit(db2)
 	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	defer chain.Stop()
+
+	// We need to set the broadcaster so that the engine will process messages,
+	// it should really be set to a real value but that would require a massive
+	// rewrite of these tests
+	if bridge, ok := engine.(*tendermint.Bridge); ok {
+		bridge.SetExtraComponents(chain, nil)
+	}
 
 	// Ignore empty commit here for less noise.
 	w.skipSealHook = func(task *task) bool {
@@ -260,7 +272,9 @@ func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 func TestEmptyWorkTendermint(t *testing.T) {
-	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
+	engine, _, err := newBackend(tendermintChainConfig)
+	require.NoError(t, err)
+	testEmptyWork(t, tendermintChainConfig, engine, true)
 }
 
 func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -377,7 +391,10 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockTendermint(t *testing.T) {
-	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
+
+	engine, _, err := newBackend(tendermintChainConfig)
+	require.NoError(t, err)
+	testRegenerateMiningBlock(t, tendermintChainConfig, engine, true)
 }
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -446,7 +463,9 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
+	engine, _, err := newBackend(tendermintChainConfig)
+	require.NoError(t, err)
+	testAdjustInterval(t, tendermintChainConfig, engine)
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -533,4 +552,56 @@ func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine co
 	case <-time.NewTimer(time.Second).C:
 		t.Error("interval reset timeout")
 	}
+}
+
+func newBackend(config *params.ChainConfig) (*tendermint.Bridge, ethdb.Database, error) {
+	peers := &mockPeers{}
+	broadcaster := tendermint.NewBroadcaster(*config.AutonityContractConfig.Users[0].Address, peers)
+	syncer := tendermint.NewSyncer(peers, *config.AutonityContractConfig.Users[0].Address)
+
+	db := rawdb.NewMemoryDatabase()
+
+	// generate genesis block
+	g := core.DefaultGenesisBlock()
+	g.Config = config
+	g.Difficulty = big.NewInt(1)
+	g.Mixhash = types.BFTDigest
+
+	_, err := g.Commit(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	hg, err := core.NewHeaderGetter(db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	vmConfig := vm.Config{}
+	autonityContract, err := autonity.NewAutonityContractFromConfig(
+		db,
+		hg,
+		core.NewDefaultEVMProvider(hg, vmConfig, config),
+		config.AutonityContractConfig,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	statedb := state.NewDatabase(db)
+
+	finalizer := tendermint.NewFinalizer(autonityContract)
+	verifier := tendermint.NewVerifier(&vmConfig, finalizer, crypto.PubkeyToAddress(testUserKey.PublicKey), tendermintChainConfig.Tendermint.BlockPeriod)
+	latestBlockRetriever := tendermint.NewBlockReader(db, statedb)
+	engine := tendermint.New(
+		tendermintChainConfig.Tendermint,
+		testUserKey,
+		broadcaster,
+		syncer,
+		verifier,
+		finalizer,
+		latestBlockRetriever,
+		autonityContract,
+		&tendermint.DefaultTimeoutScheduler{},
+	)
+
+	return engine, db, nil
 }

@@ -156,7 +156,7 @@ func (n *Node) Start() error {
 	if err != nil {
 		return err
 	}
-	n.Eth, err = eth.New(n.Node, ethConfigCopy, nil)
+	n.Eth, err = eth.New(n.Node, ethConfigCopy)
 	if err != nil {
 		return err
 	}
