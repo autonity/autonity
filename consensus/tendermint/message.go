@@ -28,62 +28,119 @@ type rlpConsensusMesage struct {
 type signedMessage struct {
 	// ConsensusMessage is a serialised rlpConsensusMesage.
 	ConsensusMessage []byte
-	// Signature is a signature over the the Keccak256 hash of
+	// Signature is a Signature over the the Keccak256 Hash of
 	// ConsensusMessage.
 	Signature []byte
 	// Value is a serialised types.Block, this is only set if the consensus
-	// message is a proposal.
+	// Message is a proposal.
 	Value []byte
-	// ProposerSeal is a signature over the types.Block.Hash() of the block
+	// ProposerSeal is a Signature over the types.Block.Hash() of the block
 	// serialised in Value, this is only set if Value is set, (i.e if this
-	// message is a proposal message).
+	// Message is a proposal Message).
 	ProposerSeal []byte
 }
 
-// message is a convenience type that holds the information contained in a
-// signed message unpacked into a useful form. It is never serialised directly
-// it is only used internally by the bridge to represent a message.
-type message struct {
-	hash             common.Hash
-	address          common.Address
-	consensusMessage *algorithm.ConsensusMessage
-	signature        []byte
-	proposerSeal     []byte
-	value            *types.Block
+// Message is a convenience type that holds the information contained in a
+// signed Message unpacked into a useful form. It is never serialised directly
+// it is only used internally by the bridge to represent a Message.
+type Message struct {
+	Hash             common.Hash
+	Address          common.Address
+	ConsensusMessage *algorithm.ConsensusMessage
+	Signature        []byte
+	ProposerSeal     []byte
+	Value            *types.Block
 }
 
-func (m *message) String() string {
-	return fmt.Sprintf("%s %v", addr(m.address), m.consensusMessage)
+func (m *Message) String() string {
+	return fmt.Sprintf("%s %v", addr(m.Address), m.ConsensusMessage)
+}
+
+func (m *Message) H() uint64 {
+	return m.ConsensusMessage.Height
+}
+
+func (m *Message) R() int64 {
+	return m.ConsensusMessage.Round
+}
+
+func (m *Message) VR() int64 {
+	return m.ConsensusMessage.ValidRound
+}
+
+func (m *Message) Type() algorithm.Step {
+	return m.ConsensusMessage.MsgType
+}
+
+func (m *Message) Sender() common.Address {
+	return m.Address
+}
+
+func (m *Message) V() common.Hash {
+	return common.Hash(m.ConsensusMessage.Value)
+}
+
+func (m *Message) MsgHash() common.Hash {
+	return m.Hash
+}
+
+func (m *Message) Payload() []byte {
+	var value []byte
+	var err error
+	if m.Type() == algorithm.Propose {
+		value, err = rlp.EncodeToBytes(m.Value)
+		if err != nil {
+			return nil
+		}
+	}
+
+	cmBytes, err := encodeConsensusMessage(m.H(), m.R(), m.VR(), m.Type(), algorithm.ValueID(m.V()))
+	if err != nil {
+		return nil
+	}
+
+	sm := &signedMessage{
+		ConsensusMessage: cmBytes,
+		Signature:        m.Signature,
+		Value:            value,
+		ProposerSeal:     m.ProposerSeal,
+	}
+
+	b, err := rlp.EncodeToBytes(sm)
+	if err != nil {
+		return nil
+	}
+	return b
 }
 
 // func (cm *algorithm.ConsensusMessage, )
 func badMessageErr(description string, m *algorithm.ConsensusMessage, address common.Address) error {
-	return fmt.Errorf("%s - message: %q, from: %q", description, m, addr(address))
+	return fmt.Errorf("%s - Message: %q, from: %q", description, m, addr(address))
 }
 
-// TODO think about the values in the block, calling hash on a header
-// returns the hash but filters out the bft fields. Except for the proposer
-// seal.  This means that if we are building a proposal message at this
+// TODO think about the values in the block, calling Hash on a header
+// returns the Hash but filters out the bft fields. Except for the proposer
+// seal.  This means that if we are building a proposal Message at this
 // point we may have a fresh proposal from our miner, in which case it will
 // not have a proposer seal or it could be that we are reproposing a valid
-// value. In which case we need to set the proposer seal to be empty before
-// we hash it and add our seal. This means that the message we receive here
-// from the algorithm will be wrong, because when we propose a valid value
-// we are using the hash of a block that had a different proposer's seal. But we can catch this here.
+// Value. In which case we need to set the proposer seal to be empty before
+// we Hash it and add our seal. This means that the Message we receive here
+// from the algorithm will be wrong, because when we propose a valid Value
+// we are using the Hash of a block that had a different proposer's seal. But we can catch this here.
 //
 // Alternatively we can ensure that the hashes that are passed around by
 // the algorithm do not include proposer seals. We could store the proposer
 // seal alongside the block and then participants could insert it into the
 // block before they add their committed seal. This seems nice actually
 // because it makes verifying the proposer seal easier. So that means that
-// all values in the message store are without any kind of seal.
+// all values in the Message store are without any kind of seal.
 
 // Ok I don't think we actually need the proposer seal on messages other than
 // proposals. So we can just pass the block here rather than the store if we
 // are serialising a proposal.
 func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, proposalBlock *types.Block) ([]byte, error) {
 
-	// If we are building a proposal then serialise the value and generate the
+	// If we are building a proposal then serialise the Value and generate the
 	// proposer seal.
 	var value []byte
 	var proposerSeal []byte
@@ -99,15 +156,15 @@ func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, 
 		}
 	}
 
-	// Encode the consensus message.
+	// Encode the consensus Message.
 	cmBytes, err := encodeConsensusMessage(cm.Height, cm.Round, cm.ValidRound, cm.MsgType, cm.Value)
 	if err != nil {
 		return nil, err
 	}
 
-	// The message signature is over the hash of serialised consensus message.
-	// We don't need to sign over the value because we can verify that the
-	// value hash matches cm.Value and cm was signed over.
+	// The Message Signature is over the Hash of serialised consensus Message.
+	// We don't need to sign over the Value because we can verify that the
+	// Value Hash matches cm.Value and cm was signed over.
 	msgHash := crypto.Keccak256(cmBytes)
 	signature, err := crypto.Sign(msgHash, key)
 	if err != nil {
@@ -134,18 +191,18 @@ func encodeConsensusMessage(height uint64, round, validRound int64, step algorit
 	return rlp.EncodeToBytes(rlpM)
 }
 
-func decodeSignedMessage(msgBytes []byte) (*message, error) {
+func DecodeSignedMessage(msgBytes []byte) (*Message, error) {
 	sm := &signedMessage{}
 	err := rlp.Decode(bytes.NewBuffer(msgBytes), sm)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode signed message: %v", err)
+		return nil, fmt.Errorf("failed to decode signed Message: %v", err)
 	}
 
-	// Decode the consensus message
+	// Decode the consensus Message
 	rlpMsg := &rlpConsensusMesage{}
 	err = rlp.Decode(bytes.NewBuffer(sm.ConsensusMessage), rlpMsg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode consensus message message: %v", err)
+		return nil, fmt.Errorf("failed to decode consensus Message Message: %v", err)
 	}
 	cm := &algorithm.ConsensusMessage{
 		MsgType:    rlpMsg.MsgType,
@@ -155,15 +212,15 @@ func decodeSignedMessage(msgBytes []byte) (*message, error) {
 		ValidRound: int64(rlpMsg.ValidRound),
 	}
 
-	// Get the sender address, note we are not verifying the signature here,
-	// we are simply recovering the sender address. Verification will occur at
-	// the point when we check to see if the sender address is part of the
+	// Get the sender Address, note we are not verifying the Signature here,
+	// we are simply recovering the sender Address. Verification will occur at
+	// the point when we check to see if the sender Address is part of the
 	// committee for the block in question.
 	msgHash := crypto.Keccak256(sm.ConsensusMessage)
 	signerAddress, err := types.GetSignatureAddressHash(msgHash, sm.Signature)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"unable to retrieve address from message signature: %v - message: %q",
+			"unable to retrieve Address from Message Signature: %v - Message: %q",
 			err,
 			cm.String(),
 		)
@@ -171,20 +228,20 @@ func decodeSignedMessage(msgBytes []byte) (*message, error) {
 
 	var value *types.Block
 	if cm.MsgType == algorithm.Propose {
-		// Get the proposer address, note we are not verifying the signature
-		// here, we are simply recovering the proposer address. Verification
-		// will occur at the point when we check to see if the propser address
+		// Get the proposer Address, note we are not verifying the Signature
+		// here, we are simply recovering the proposer Address. Verification
+		// will occur at the point when we check to see if the propser Address
 		// matches the selected proposer for this height and round.
 		proposerAddress, err := types.GetSignatureAddressHash(cm.Value[:], sm.ProposerSeal)
 		if err != nil {
-			return nil, badMessageErr(fmt.Sprintf("received proposal message with invalid proposer seal: %v", err),
+			return nil, badMessageErr(fmt.Sprintf("received proposal Message with invalid proposer seal: %v", err),
 				cm,
 				signerAddress,
 			)
 		}
-		// Check that the proposer seal address matches the signer address.
+		// Check that the proposer seal Address matches the signer Address.
 		if proposerAddress != signerAddress {
-			return nil, badMessageErr(fmt.Sprintf("proposer seal address %q does not match sender address", proposerAddress.String()),
+			return nil, badMessageErr(fmt.Sprintf("proposer seal Address %q does not match sender Address", proposerAddress.String()),
 				cm,
 				signerAddress,
 			)
@@ -193,7 +250,7 @@ func decodeSignedMessage(msgBytes []byte) (*message, error) {
 		// Check that a block was provided.
 		if len(sm.Value) == 0 {
 			return nil, badMessageErr(
-				"received proposal message without associated value",
+				"received proposal Message without associated Value",
 				cm,
 				signerAddress,
 			)
@@ -204,21 +261,21 @@ func decodeSignedMessage(msgBytes []byte) (*message, error) {
 			return nil, err
 		}
 
-		// Check proposal message hash and block hash match.
+		// Check proposal Message Hash and block Hash match.
 		if value.Hash() != common.Hash(cm.Value) {
 			return nil, badMessageErr(
-				fmt.Sprintf("received proposal message with mismatching value having hash %q", value.Hash().String()),
+				fmt.Sprintf("received proposal Message with mismatching Value having Hash %q", value.Hash().String()),
 				cm,
 				signerAddress,
 			)
 		}
 	}
-	return &message{
-		hash:             common.Hash(sha256.Sum256(msgBytes)),
-		signature:        sm.Signature,
-		consensusMessage: cm,
-		value:            value,
-		proposerSeal:     sm.ProposerSeal,
-		address:          signerAddress,
+	return &Message{
+		Hash:             common.Hash(sha256.Sum256(msgBytes)),
+		Signature:        sm.Signature,
+		ConsensusMessage: cm,
+		Value:            value,
+		ProposerSeal:     sm.ProposerSeal,
+		Address:          signerAddress,
 	}, nil
 }

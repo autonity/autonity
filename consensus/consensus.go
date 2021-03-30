@@ -133,7 +133,7 @@ type Handler interface {
 	NewChainHead() error
 
 	// HandleMsg handles a message from peer
-	HandleMsg(address common.Address, data p2p.Msg) (bool, error)
+	HandleMsg(address common.Address, data p2p.Msg) ([]byte, error)
 
 	//msgCodes returns the number of extra implemented msgCodes by this consensus algorithm
 	Protocol() (protocolName string, extraMsgCodes uint64)

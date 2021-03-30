@@ -17,10 +17,13 @@
 package eth
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint"
+	"github.com/clearmatics/autonity/faultdetector"
 	"math"
 	"math/big"
 	"sync"
@@ -106,28 +109,33 @@ type ProtocolManager struct {
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 
-	engine consensus.Engine
-	pub    *ecdsa.PublicKey
+	engine        consensus.Engine
+	pub           *ecdsa.PublicKey
+	faultDetector *faultdetector.FaultDetector
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, peerset *peerSet) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode,
+	networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
+	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, peerset *peerSet,
+	afd *faultdetector.FaultDetector) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		txpool:      txpool,
-		blockchain:  blockchain,
-		chaindb:     chaindb,
-		peers:       peerset,
-		engine:      engine,
-		whitelist:   whitelist,
-		whitelistCh: make(chan core.WhitelistEvent, 64),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
-		pub:         pub,
+		networkID:     networkID,
+		forkFilter:    forkid.NewFilter(blockchain),
+		eventMux:      mux,
+		txpool:        txpool,
+		blockchain:    blockchain,
+		chaindb:       chaindb,
+		peers:         peerset,
+		engine:        engine,
+		whitelist:     whitelist,
+		whitelistCh:   make(chan core.WhitelistEvent, 64),
+		txsyncCh:      make(chan *txsync),
+		quitSync:      make(chan struct{}),
+		pub:           pub,
+		faultDetector: afd,
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -491,20 +499,43 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 
-	if handler, ok := pm.engine.(consensus.Handler); ok {
+	// Handle the message depending on its contents
+	switch {
+	case msg.Code == tendermint.TendermintMsg:
+		handler, ok := pm.engine.(consensus.Handler)
+		if !ok {
+			return fmt.Errorf("handle tendermint msg without tendermint handler")
+		}
 		pubKey := p.Node().Pubkey()
 		if pubKey == nil {
 			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
 		}
 		addr := crypto.PubkeyToAddress(*pubKey)
-		handled, err := handler.HandleMsg(addr, msg)
-		if handled {
-			return err
-		}
-	}
+		payLoad, err := handler.HandleMsg(addr, msg)
 
-	// Handle the message depending on its contents
-	switch {
+		if payLoad != nil {
+			// forward tendermint consensus msg to AFD.
+			b := new(bytes.Buffer)
+			b.Write(payLoad)
+			copyMsg := msg
+			copyMsg.Payload = b
+			if pm.faultDetector != nil {
+				pm.faultDetector.HandleMsg(addr, copyMsg)
+			}
+		}
+		return err
+	case msg.Code == tendermint.TendermintSyncMsg:
+		handler, ok := pm.engine.(consensus.Handler)
+		if !ok {
+			return fmt.Errorf("handle tendermint msg without tendermint handler")
+		}
+		pubKey := p.Node().Pubkey()
+		if pubKey == nil {
+			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
+		}
+		addr := crypto.PubkeyToAddress(*pubKey)
+		_, err := handler.HandleMsg(addr, msg)
+		return err
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
@@ -1061,5 +1092,12 @@ func (pm *ProtocolManager) NodeInfo() *NodeInfo {
 		Genesis:    pm.blockchain.Genesis().Hash(),
 		Config:     pm.blockchain.Config(),
 		Head:       currentBlock.Hash(),
+	}
+}
+
+// use by tendermint backend to forward local msg to AFD for accountability.
+func (pm *ProtocolManager) SendLocalMsgToAFD(payload []byte) {
+	if pm.faultDetector != nil {
+		pm.faultDetector.HandleSelfMsg(payload)
 	}
 }

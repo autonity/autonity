@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -36,6 +37,8 @@ import (
 	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
 )
+
+var PrecompileContractRWMutex = sync.RWMutex{}
 
 // PrecompiledContract is the basic interface for native Go contracts. The implementation
 // requires a deterministic gas count based on the input size of the Run method of the
@@ -974,7 +977,7 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 type checkEnode struct{}
 
 func (c checkEnode) RequiredGas(_ []byte) uint64 {
-	return params.EnodeCheckGas
+	return params.AutonityPrecompiledContractGas
 }
 func (c checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {

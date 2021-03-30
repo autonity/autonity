@@ -25,7 +25,7 @@ var (
 	errUnknownBlock = errors.New("unknown block")
 	// errUnauthorized is returned if a header is signed by a non authorized entity.
 	errUnauthorized = errors.New("unauthorized")
-	// errInvalidCoindbase is returned if the signer is not the coinbase address,
+	// errInvalidCoindbase is returned if the signer is not the coinbase Address,
 	errInvalidCoinbase = errors.New("invalid coinbase")
 	// errInvalidDifficulty is returned if the difficulty of a block is not 1
 	errInvalidDifficulty = errors.New("invalid difficulty")
@@ -34,7 +34,7 @@ var (
 	// errInvalidNonce is returned if a block's nonce is invalid
 	errInvalidNonce = errors.New("invalid nonce")
 	// errInvalidUncleHash is returned if a block contains an non-empty uncle list.
-	errInvalidUncleHash = errors.New("non empty uncle hash")
+	errInvalidUncleHash = errors.New("non empty uncle Hash")
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
 )
@@ -312,7 +312,7 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 
 	// Total Voting power for this block
 	var power uint64
-	// The commitment is the hash of the precommit message, which we reconstruct here.
+	// The commitment is the Hash of the precommit Message, which we reconstruct here.
 	encodedPrecommit, err := encodeConsensusMessage(header.Number.Uint64(), int64(header.Round), 0, algorithm.Precommit, algorithm.ValueID(header.Hash()))
 	if err != nil {
 		return err
@@ -321,10 +321,10 @@ func (v *Verifier) verifyCommittedSeals(header, parent *types.Header) error {
 
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {
-		// 2. Get the address from signature
+		// 2. Get the Address from Signature
 		addr, err := types.GetSignatureAddressHash(commitment, signedSeal)
 		if err != nil {
-			v.logger.Error("not a valid address", "err", err)
+			v.logger.Error("not a valid Address", "err", err)
 			return types.ErrInvalidSignature
 		}
 
@@ -377,7 +377,7 @@ func (v *Verifier) SealHash(header *types.Header) common.Hash {
 	return types.SigHash(header)
 }
 
-// Author retrieves the Ethereum address of the account that minted the given
+// Author retrieves the Ethereum Address of the account that minted the given
 // block, which may be different from the header's coinbase if a consensus
 // engine is based on signatures.
 func (v *Verifier) Author(header *types.Header) (common.Address, error) {

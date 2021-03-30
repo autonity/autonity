@@ -40,7 +40,7 @@ func TestGetMatchingProposal(t *testing.T) {
 	msgBytes, err := encodeSignedMessage(p, k, b)
 	require.NoError(t, err)
 
-	msg, err := decodeSignedMessage(msgBytes)
+	msg, err := DecodeSignedMessage(msgBytes)
 	require.NoError(t, err)
 
 	err = m.addMessage(msg, msgBytes)

@@ -13,7 +13,7 @@ func addr(a common.Address) string {
 }
 
 func bid(b *types.Block) string {
-	return fmt.Sprintf("hash: %v, number: %v", b.Hash().String()[2:8], b.Number().String())
+	return fmt.Sprintf("Hash: %v, number: %v", b.Hash().String()[2:8], b.Number().String())
 }
 
 type debugLog struct {

@@ -61,7 +61,7 @@ func (s *DefaultSyncer) AskSync(latestHeader *types.Header) {
 		if count >= bft.Quorum(latestHeader.TotalVotingPower()) {
 			break
 		}
-		go p.Send(tendermintSyncMsg, []byte{}) //nolint
+		go p.Send(TendermintSyncMsg, []byte{}) //nolint
 		member := latestHeader.CommitteeMember(p.Address())
 		if member == nil {
 			continue
@@ -75,7 +75,7 @@ func (s *DefaultSyncer) SyncPeer(address common.Address, messages [][]byte) {
 	for _, p := range s.peers.Peers() {
 		if address == p.Address() {
 			for _, msg := range messages {
-				go p.Send(tendermintMsg, msg) //nolint
+				go p.Send(TendermintMsg, msg) //nolint
 			}
 			break
 		}

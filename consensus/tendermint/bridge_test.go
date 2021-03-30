@@ -100,13 +100,13 @@ func TestNewChainHead(t *testing.T) {
 	assert.Equal(t, proposal.Hash(), block.Hash())
 
 	// Now we will pass another block to seal, but we don't expect to see a
-	// proposal message until NewChainHead is called.
+	// proposal Message until NewChainHead is called.
 	proposal, err = b.proposalBlock()
 	require.NoError(t, err)
 	err = b.Seal(b.blockchain, proposal, result, stop)
 	require.NoError(t, err)
 
-	// Expect nil message
+	// Expect nil Message
 	proposeMessage := b.pendingMessage(to)
 	require.Nil(t, proposeMessage)
 
@@ -121,9 +121,9 @@ func TestNewChainHead(t *testing.T) {
 		ValidRound: int64(-1),
 		Value:      algorithm.ValueID(proposal.Hash()),
 	}
-	// Expect new propose message.
+	// Expect new propose Message.
 	proposeMessage = b.pendingMessage(to)
-	require.Equal(t, expectedConsensusMessage, proposeMessage.consensusMessage)
+	require.Equal(t, expectedConsensusMessage, proposeMessage.ConsensusMessage)
 
 }
 
@@ -159,7 +159,7 @@ func TestReachingConsensus(t *testing.T) {
 	block := proposer.committedBlock(to, result)
 	require.Nil(t, block)
 
-	// get the proposal message and validate it
+	// get the proposal Message and validate it
 	expectedConsensusMessage := &algorithm.ConsensusMessage{
 		MsgType:    algorithm.Propose,
 		Height:     proposal.NumberU64(),
@@ -170,7 +170,7 @@ func TestReachingConsensus(t *testing.T) {
 	proposeMsg := proposer.pendingMessage(to)
 	validateProposeMessage(t, proposeMsg, expectedConsensusMessage, proposer, proposal)
 
-	// broadcst the propose message
+	// broadcst the propose Message
 	err = bridges.broadcast(proposeMsg)
 	require.NoError(t, err)
 
@@ -203,7 +203,7 @@ func TestReachingConsensus(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start brodacsting precommit messages one by one, at this point all the
-	// bridges will have handled their own precommit message, so it will only
+	// bridges will have handled their own precommit Message, so it will only
 	// take 2 more to bring the network to agreement on the block.
 	expectedConsensusMessage = &algorithm.ConsensusMessage{
 		MsgType: algorithm.Precommit,

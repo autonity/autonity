@@ -29,7 +29,7 @@ func (o *oracle) FThresh(round int64) bool {
 func (o *oracle) MatchingProposal(cm *algorithm.ConsensusMessage) *algorithm.ConsensusMessage {
 	mp := o.store.matchingProposal(cm)
 	if mp != nil {
-		return mp.consensusMessage
+		return mp.ConsensusMessage
 	}
 	return nil
 }

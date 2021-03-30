@@ -33,17 +33,17 @@ func (l *BlockReader) LatestBlock() (*types.Block, error) {
 
 	number := rawdb.ReadHeaderNumber(l.db, hash)
 	if number == nil {
-		return nil, fmt.Errorf("failed to find number for block hash %s", hash.String())
+		return nil, fmt.Errorf("failed to find number for block Hash %s", hash.String())
 	}
 
 	block := rawdb.ReadBlock(l.db, hash, *number)
 	if block == nil {
-		return nil, fmt.Errorf("failed to read block content for block number %d with hash %s", *number, hash.String())
+		return nil, fmt.Errorf("failed to read block content for block number %d with Hash %s", *number, hash.String())
 	}
 
 	_, err := l.statedb.OpenTrie(block.Root())
 	if err != nil {
-		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", *number, hash.String(), err)
+		return nil, fmt.Errorf("missing state for block number %d with Hash %s err: %v", *number, hash.String(), err)
 	}
 	return block, nil
 }
@@ -55,12 +55,12 @@ func (l *BlockReader) BlockByHeight(height uint64) (*types.Block, error) {
 	}
 	block := rawdb.ReadBlock(l.db, hash, height)
 	if block == nil {
-		panic(fmt.Errorf("missing block in db at number %d but found hash %v", height, hash.String()))
+		panic(fmt.Errorf("missing block in db at number %d but found Hash %v", height, hash.String()))
 	}
 
 	_, err := l.statedb.OpenTrie(block.Root())
 	if err != nil {
-		return nil, fmt.Errorf("missing state for block number %d with hash %s err: %v", height, hash.String(), err)
+		return nil, fmt.Errorf("missing state for block number %d with Hash %s err: %v", height, hash.String(), err)
 	}
 	return block, nil
 }

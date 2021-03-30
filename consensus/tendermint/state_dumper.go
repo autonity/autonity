@@ -11,7 +11,7 @@ package tendermint
 // 	stateChan chan TendermintState
 // }
 
-// // VoteState save the prevote or precommit voting status for a specific value.
+// // VoteState save the prevote or precommit voting status for a specific Value.
 // type VoteState struct {
 // 	Value            common.Hash
 // 	ProposalVerified bool
@@ -37,7 +37,7 @@ package tendermint
 
 // // TendermintState save an instant status for the tendermint consensus engine.
 // type TendermintState struct {
-// 	// validator address
+// 	// validator Address
 // 	Client common.Address
 
 // 	// core state of tendermint
@@ -92,7 +92,7 @@ package tendermint
 // // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
 // func (c *core) handleStateDump(e coreStateRequestEvent) {
 // 	state := TendermintState{
-// 		Client:            c.address,
+// 		Client:            c.Address,
 // 		ProposerPolicy:    uint64(c.proposerPolicy),
 // 		BlockPeriod:       c.blockPeriod,
 // 		CurHeightMessages: msgForDump(c.GetCurrentHeightMessages()),

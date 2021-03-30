@@ -1,9 +1,12 @@
 package tendermint
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -22,12 +25,17 @@ import (
 )
 
 const (
-	// tendermintMsg is the p2p message code assigned to tendermint algorithm
+	// TendermintMsg is the p2p Message code assigned to tendermint algorithm
 	// messages.
-	tendermintMsg = 0x11
-	// tendermintSyncMsg is the p2p message code assigned to tendermint
+	TendermintMsg = 0x11
+	// TendermintSyncMsg is the p2p Message code assigned to tendermint
 	// algorithm sync requests.
-	tendermintSyncMsg = 0x12
+	TendermintSyncMsg = 0x12
+)
+
+var (
+	// errDecodeFailed is returned when decode message fails
+	errDecodeFailed = errors.New("fail to decode tendermint message")
 )
 
 // New creates a new Bridge instance.
@@ -44,7 +52,7 @@ func New(
 ) *Bridge {
 	address := crypto.PubkeyToAddress(key.PublicKey)
 	logger := log.New("addr", address.String())
-	dlog := newDebugLog("address", addr(address))
+	dlog := newDebugLog("Address", addr(address))
 	messageBounds := &bounds{
 		centre: 0,
 		high:   5,
@@ -60,7 +68,7 @@ func New(
 		dlog:                dlog,
 		currentBlockAwaiter: newBlockAwaiter(dlog),
 		msgStore:            newMessageStore(messageBounds),
-		broadcaster:         broadcaster,
+		peerBroadcaster:     broadcaster,
 		syncer:              syncer,
 		blockReader:         blockRetreiver,
 		timeoutScheduler:    timeoutScheduler,
@@ -111,7 +119,7 @@ func New(
 //
 // HandleMsg -> is called by the ethereum protocol manager, when messages are
 // received from other peers, we process these eventually passing them to the
-// tendermint algorithm and potentially emitting a message of our own if our
+// tendermint algorithm and potentially emitting a Message of our own if our
 // state changed.
 //
 // The bridge interacts with the ethereum system through the Broadcaster,
@@ -129,7 +137,7 @@ func New(
 // Syncer -> initiates and fulfills sync requests. Note sync in this sense is
 // concerned with syncing the tendermint protocol messages, not blocks from the
 // chain, that is handled in the 'eth/downloader' package. Note also that this
-// sync is fairly basic. The sync request message contains no information, and
+// sync is fairly basic. The sync request Message contains no information, and
 // the sync response is always to send all the messages that a node has for the
 // current height, unless nodes happen to be at the same height, the sync will
 // be of no use and will simply clog up the network.
@@ -158,7 +166,7 @@ type Bridge struct {
 	msgStore *messageStore
 	// lastHeader is the header of the latest confirmed block
 	lastHeader *types.Header
-	// proposer is the address of the proposer for the current height and round
+	// proposer is the Address of the proposer for the current height and round
 	proposer common.Address
 	// autonityContract interfaces with the deployed autonity contract
 	autonityContract *autonity.Contract
@@ -181,9 +189,9 @@ type Bridge struct {
 	timeoutScheduler TimeoutScheduler
 
 	// These 3 fields are used to communicate back to the ethereum system.
-	broadcaster      Broadcaster
+	peerBroadcaster  Broadcaster
 	syncer           Syncer
-	blockBroadcaster consensus.Broadcaster
+	localBroadcaster consensus.Broadcaster
 
 	// mutext protects the fields below
 	mutex        sync.RWMutex
@@ -197,26 +205,39 @@ func (b *Bridge) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 2 //nolint
 }
 
-// HandleMsg implements consensus.Handler.HandleMsg, this returns a bool to
-// indicate whether the message was handled, if we return false then the
-// message will be passed on by the caller to be handled by the default eth
-// handler. If this function returns an error then the connection to the peer
-// sending the message will be dropped.
-func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
-	switch msg.Code {
-	case tendermintMsg:
-		var data []byte
-		if err := msg.Decode(&data); err != nil {
-			return true, fmt.Errorf("failed to decode tendermint message: %v", err)
-		}
-		b.postEvent(data)
-		return true, nil
-	case tendermintSyncMsg:
+// HandleMsg implements consensus.Handler.HandleMsg, this returns a byte slice to
+// indicate whether p2p protocol the Message need to forward the consensus msg to fault detector,
+// handled, if this function returns an error then the connection to the peer
+// sending the Message will be dropped.
+func (b *Bridge) HandleMsg(addr common.Address, msg p2p.Msg) ([]byte, error) {
+
+	if msg.Code == TendermintSyncMsg {
+		b.logger.Info("Received sync message", "from", addr)
 		b.postEvent(addr)
-		return true, nil
-	default:
-		return false, nil
 	}
+
+	if msg.Code == TendermintMsg {
+		buff := new(bytes.Buffer)
+		if _, err := io.Copy(buff, msg.Payload); err != nil {
+			return nil, errDecodeFailed
+		}
+		copyPayload := make([]byte, len(buff.Bytes()))
+		copy(copyPayload, buff.Bytes())
+
+		var data []byte
+		copyMsg := msg
+		buf := new(bytes.Buffer)
+		buf.Write(copyPayload)
+		copyMsg.Payload = buf
+		if err := copyMsg.Decode(&data); err != nil {
+			return copyPayload, errDecodeFailed
+		}
+
+		b.postEvent(data)
+		return copyPayload, nil
+	}
+
+	return nil, nil
 }
 
 // a sentinal type to indicate that we have a new chain head
@@ -318,7 +339,7 @@ func (b *Bridge) Seal(chain consensus.ChainReader, block *types.Block, results c
 }
 
 // postEvent posts an event to the main handler if Bridge is started and has a
-// broadcaster, otherwise the event is dropped. This is to prevent an event
+// peerBroadcaster, otherwise the event is dropped. This is to prevent an event
 // buildup when Bridge is stopped, since the ethereum code that passes messages
 // to the Bridge seems to be unaware of whether the Bridge is in a position to
 // handle them.
@@ -343,11 +364,11 @@ func (b *Bridge) postEvent(e interface{}) {
 // this is not ideal but is the best I think we can do without re-writing the
 // core of go-ethereum. We end up having to do this because go-etherum itself
 // is quite tangled and there is no easy way to access just the functionality
-// we need.  In this case the blockchain and broadcaster both need to be
+// we need.  In this case the blockchain and peerBroadcaster both need to be
 // constructed with a reference to the bridge. So we build the bridge then
-// build the blockchain and broadcaster and then call this.
+// build the blockchain and peerBroadcaster and then call this.
 func (b *Bridge) SetExtraComponents(blockchain *core.BlockChain, broadcaster consensus.Broadcaster) {
-	b.blockBroadcaster = broadcaster
+	b.localBroadcaster = broadcaster
 	b.blockchain = blockchain
 }
 
@@ -358,10 +379,10 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 	committedSeals := b.msgStore.signatures(proposal.Value, proposal.Round, proposal.Height)
 	message := b.msgStore.matchingProposal(proposal)
 	// Sanity checks
-	if message == nil || message.value == nil {
+	if message == nil || message.Value == nil {
 		return fmt.Errorf("attempted to commit nil block")
 	}
-	if message.proposerSeal == nil {
+	if message.ProposerSeal == nil {
 		return fmt.Errorf("attempted to commit block without proposer seal")
 	}
 	if proposal.Round < 0 {
@@ -377,12 +398,12 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 		}
 	}
 	// Add the proposer seal coinbase and committed seals into the block.
-	h := message.value.Header()
+	h := message.Value.Header()
 	h.CommittedSeals = committedSeals
-	h.ProposerSeal = message.proposerSeal
-	h.Coinbase = message.address
+	h.ProposerSeal = message.ProposerSeal
+	h.Coinbase = message.Address
 	h.Round = uint64(proposal.Round)
-	block := message.value.WithSeal(h)
+	block := message.Value.WithSeal(h)
 
 	if b.address == b.proposer {
 		select {
@@ -390,10 +411,10 @@ func (b *Bridge) commit(proposal *algorithm.ConsensusMessage) error {
 		case <-b.closeChannel:
 		}
 	} else {
-		b.blockBroadcaster.Enqueue("tendermint", block)
+		b.localBroadcaster.Enqueue("tendermint", block)
 	}
 
-	b.logger.Info("committed a block", "hash", block.Hash())
+	b.logger.Info("committed a block", "Hash", block.Hash())
 	return nil
 }
 
@@ -423,7 +444,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 		return fmt.Errorf("failed to update proposer: %v", err)
 	}
 
-	// Update the height in the message store, this will clean out old messages.
+	// Update the height in the Message store, this will clean out old messages.
 	b.msgStore.setHeight(b.height)
 
 	// Create new oracle and algorithm
@@ -452,7 +473,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 	for _, msg := range b.msgStore.heightMessages(b.height) {
 		err := b.handleCurrentHeightMessage(msg)
 		if err != nil {
-			b.logger.Error("failed to handle current height message", "message", msg.String(), "err", err)
+			b.logger.Error("failed to handle current height Message", "Message", msg.String(), "err", err)
 		}
 	}
 	return nil
@@ -460,7 +481,7 @@ func (b *Bridge) newHeight(prevBlock *types.Block) error {
 
 // handle result handles the output of the tendermint algorithm which can
 // either be nothing, in the case where no state change occurred in the
-// algorithm or it can be one of round change consensus message or timeout.
+// algorithm or it can be one of round change consensus Message or timeout.
 func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.ConsensusMessage, to *algorithm.Timeout) error {
 
 	switch {
@@ -496,29 +517,32 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			}
 		}
 	case cm != nil:
-		// Broadcast the new message to the network.
+		// Broadcast the new Message to the network.
 
-		// We must build message here since buildMessage relies on accessing
-		// the msg store, and since the message store is not syncronised we
+		// We must build Message here since buildMessage relies on accessing
+		// the msg store, and since the Message store is not syncronised we
 		// need to do it from the handler routine.
 		msg, err := encodeSignedMessage(cm, b.key, b.msgStore.value(common.Hash(cm.Value)))
 		if err != nil {
 			panic(fmt.Sprintf(
-				"%s We were unable to build a message, this indicates a programming error: %v",
+				"%s We were unable to build a Message, this indicates a programming error: %v",
 				addr(b.address),
 				err,
 			))
 		}
-		b.dlog.print("sending message", cm.String())
+		b.dlog.print("sending Message", cm.String())
 
 		// send to self, we process our own messages just as we process
 		// messgaes from other network participants.
 		go b.postEvent(msg)
+		// send msg to local AFD for accountability.
+		b.localBroadcaster.SendLocalMsgToAFD(msg)
+
 		// Broadcast to peers.
 		//
 		// Note the tests in bridge_test.go rely on calls to Broadcast
 		// being done in the main handler routine.
-		b.broadcaster.Broadcast(msg)
+		b.peerBroadcaster.Broadcast(msg)
 	case to != nil:
 		b.timeoutScheduler.ScheduleTimeout(to.Delay, func() {
 			b.postEvent(to)
@@ -559,14 +583,14 @@ eventLoop:
 		case ev := <-b.eventChannel:
 			switch e := ev.(type) {
 			case common.Address:
-				b.logger.Info("Processing sync message", "from", e)
+				b.logger.Info("Processing sync Message", "from", e)
 				b.syncer.SyncPeer(e, b.msgStore.rawHeightMessages(b.height))
 			case []byte:
 				/*
 					Basic validity checks
 				*/
 
-				m, err := decodeSignedMessage(e)
+				m, err := DecodeSignedMessage(e)
 				if err != nil {
 					fmt.Printf("some error: %v\n", err)
 					continue
@@ -576,36 +600,36 @@ eventLoop:
 					// could be multiple proposal messages from the same proposer
 					continue
 				}
-				if m.consensusMessage.MsgType == algorithm.Propose {
-					b.msgStore.addValue(m.value.Hash(), m.value)
+				if m.ConsensusMessage.MsgType == algorithm.Propose {
+					b.msgStore.addValue(m.Value.Hash(), m.Value)
 				}
 
-				// If this message is for a future height then we cannot validate it
+				// If this Message is for a future height then we cannot validate it
 				// because we lack the relevant header, we will process it when we reach
 				// that height. If it is for a previous height then we are not intersted in
-				// it. But it has been added to the message store in case other peers would
+				// it. But it has been added to the Message store in case other peers would
 				// like to sync it.
-				if m.consensusMessage.Height != b.height {
+				if m.ConsensusMessage.Height != b.height {
 					// Nothing to do here
 					continue
 				}
 
-				// println("handling current height message", m.consensusMessage.String())
+				// println("handling current height Message", m.ConsensusMessage.String())
 				err = b.handleCurrentHeightMessage(m)
 				if err == errStopped {
 					return
 				}
 				if err != nil {
-					b.logger.Debug("core.mainEventLoop problem processing message", "err", err)
+					b.logger.Debug("core.mainEventLoop problem processing Message", "err", err)
 					continue
 				}
-				// Re-broadcast the message if it is not a message from ourselves,
-				// if it is a message from ourselves we will have already
+				// Re-broadcast the Message if it is not a Message from ourselves,
+				// if it is a Message from ourselves we will have already
 				// broadcast it.
-				if m.address != b.address {
+				if m.Address != b.address {
 					// Note the tests in bridge_test.go rely on calls to Broadcast
 					// being done in the main handler routine.
-					b.broadcaster.Broadcast(e)
+					b.peerBroadcaster.Broadcast(e)
 				}
 			case *algorithm.Timeout:
 				var cm *algorithm.ConsensusMessage
@@ -646,15 +670,15 @@ eventLoop:
 
 // checkFromCommittee checks that m is from a committee member and if not
 // removes it from the store and returns an error.
-func (b *Bridge) checkFromCommittee(m *message) error {
-	if b.lastHeader.CommitteeMember(m.address) == nil {
-		// We remove the message from the store since it came from a non
+func (b *Bridge) checkFromCommittee(m *Message) error {
+	if b.lastHeader.CommitteeMember(m.Address) == nil {
+		// We remove the Message from the store since it came from a non
 		// validator.
 		b.msgStore.removeMessage(m)
 
 		// TODO turn this into an error type that can be checked for at a
 		// higher level to close the connection to this peer.
-		return fmt.Errorf("received message from non committee member: %v", m)
+		return fmt.Errorf("received Message from non committee member: %v", m)
 	}
 	return nil
 }
@@ -662,12 +686,12 @@ func (b *Bridge) checkFromCommittee(m *message) error {
 // handleCurrentHeightMessage processes messages that are at the same height as
 // the bridge, messages at a future height cannot be processed since we cannot
 // know if they come from a committee member until we have committed the previous block.
-func (b *Bridge) handleCurrentHeightMessage(m *message) error {
-	cm := m.consensusMessage
+func (b *Bridge) handleCurrentHeightMessage(m *Message) error {
+	cm := m.ConsensusMessage
 
 	/*
 		Domain specific validity checks, now we know that we are at the same
-		height as this message we can rely on lastHeader.
+		height as this Message we can rely on lastHeader.
 	*/
 
 	err := b.checkFromCommittee(m)
@@ -676,8 +700,8 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 	}
 	if cm.MsgType == algorithm.Propose {
 		// We ignore proposals from non proposers
-		if b.proposer != m.address {
-			return fmt.Errorf("received message from non proposer: %v", m)
+		if b.proposer != m.Address {
+			return fmt.Errorf("received Message from non proposer: %v", m)
 		}
 		// Proposal values are allowed to be invalid.
 		_, err := b.Verifier.VerifyProposal(*b.msgStore.value(common.Hash(cm.Value)), b.blockchain, b.address.String())
@@ -686,12 +710,12 @@ func (b *Bridge) handleCurrentHeightMessage(m *message) error {
 		}
 	}
 
-	// let the algorithm receive the message and handle the result.
+	// let the algorithm receive the Message and handle the result.
 	rc, cm, to := b.algo.ReceiveMessage(cm)
 	return b.handleResult(rc, cm, to)
 }
 
-// proposerAddr gets the address of the proposer given the previous header and round.
+// proposerAddr gets the Address of the proposer given the previous header and round.
 func (b *Bridge) proposerAddr(previousHeader *types.Header, round int64) (common.Address, error) {
 	state, err := b.blockReader.BlockState(previousHeader.Root)
 	if err != nil {
@@ -701,8 +725,8 @@ func (b *Bridge) proposerAddr(previousHeader *types.Header, round int64) (common
 }
 
 // updateProposer updates b.proposer and if we are the proposer waits for a
-// proposal value, stores it in the msgStore and returns an algorithm.ValueID
-// representing the proposal value. If we are not the proposer then it returns
+// proposal Value, stores it in the msgStore and returns an algorithm.ValueID
+// representing the proposal Value. If we are not the proposer then it returns
 // algorithm.NilValue.
 func (b *Bridge) updateProposer(previousHeader *types.Header, round int64) (algorithm.ValueID, error) {
 	var err error
@@ -710,15 +734,15 @@ func (b *Bridge) updateProposer(previousHeader *types.Header, round int64) (algo
 	if err != nil {
 		return algorithm.NilValue, fmt.Errorf("cannot load state from block chain: %v", err)
 	}
-	// If we are not the proposer then return nil value.
+	// If we are not the proposer then return nil Value.
 	if b.address != b.proposer {
 		return algorithm.NilValue, nil
 	}
 	v, err := b.currentBlockAwaiter.value(b.height)
 	if err != nil {
-		return algorithm.NilValue, fmt.Errorf("failed to get value: %v", err)
+		return algorithm.NilValue, fmt.Errorf("failed to get Value: %v", err)
 	}
-	// Add the value to the store, we do not mark it valid here since we
+	// Add the Value to the store, we do not mark it valid here since we
 	// will validate it when whe process our own proposal.
 	b.msgStore.addValue(v.Hash(), v)
 	return algorithm.ValueID(v.Hash()), nil
@@ -728,7 +752,7 @@ func (b *Bridge) updateProposer(previousHeader *types.Header, round int64) (algo
 // caring about the tracked messages. So really we need a notion of height to
 // be worked in here.
 type peerMessageMap interface {
-	// knowsMessage returns true if the peer knows the current message
+	// knowsMessage returns true if the peer knows the current Message
 	knowsMessage(addr common.Address, hash common.Hash) bool
 }
 
@@ -765,10 +789,10 @@ func (b *DefaultBroadcaster) Broadcast(payload []byte) {
 	for _, p := range b.peers.Peers() {
 		if !b.pmm.knowsMessage(p.Address(), hash) {
 			// TODO make sure we update the peerMessageMap with the sent
-			// message, once successfully sent. previously we were updating
-			// the map before trying to send the message so if message
+			// Message, once successfully sent. previously we were updating
+			// the map before trying to send the Message so if Message
 			// sending failed we would not have tried again.
-			go p.Send(tendermintMsg, payload) //nolint
+			go p.Send(TendermintMsg, payload) //nolint
 		}
 	}
 }

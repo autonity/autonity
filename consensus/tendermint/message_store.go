@@ -10,22 +10,22 @@ import (
 
 // messageStore stores messages
 type messageStore struct {
-	// msgHashes maps height, round, message type and address to message hash.
+	// msgHashes maps height, round, Message type and Address to Message Hash.
 	msgHashes map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash
-	// valid is a set containing message hashes for messages considered valid.
+	// valid is a set containing Message hashes for messages considered valid.
 	valid map[common.Hash]struct{}
-	// messages maps message hash to message.
-	messages map[common.Hash]*message
-	// rawMessages maps message hash to raw message bytes.
+	// messages maps Message Hash to Message.
+	messages map[common.Hash]*Message
+	// rawMessages maps Message Hash to raw Message bytes.
 	rawMessages map[common.Hash][]byte
-	// values maps value hash to value.
+	// values maps Value Hash to Value.
 	values map[common.Hash]*types.Block
 	// messageBounds keeps track of the heights for which the messageStore retains messages.
 	messageBounds *bounds
 }
 
-func (m *messageStore) heightMessages(height uint64) []*message {
-	var messages []*message
+func (m *messageStore) heightMessages(height uint64) []*Message {
+	var messages []*Message
 	for _, msgTypeMap := range m.msgHashes[height] {
 		for _, addressMap := range msgTypeMap {
 			for _, hash := range addressMap {
@@ -52,7 +52,7 @@ func newMessageStore(messageBounds *bounds) *messageStore {
 	return &messageStore{
 		msgHashes:     make(map[uint64]map[int64]map[algorithm.Step]map[common.Address]common.Hash),
 		rawMessages:   make(map[common.Hash][]byte),
-		messages:      make(map[common.Hash]*message),
+		messages:      make(map[common.Hash]*Message),
 		valid:         make(map[common.Hash]struct{}),
 		values:        make(map[common.Hash]*types.Block),
 		messageBounds: messageBounds,
@@ -60,7 +60,7 @@ func newMessageStore(messageBounds *bounds) *messageStore {
 
 }
 
-func (m *messageStore) Message(h common.Hash) *message {
+func (m *messageStore) Message(h common.Hash) *Message {
 	return m.messages[h]
 }
 
@@ -70,8 +70,8 @@ func (m *messageStore) signatures(value algorithm.ValueID, round int64, height u
 	// println("signatures -----")
 	for _, msgHash := range m.msgHashes[height][round][algorithm.Precommit] {
 		// spew.Dump(m.rawMessages[msgHash].decodedMsg)
-		if value == m.messages[msgHash].consensusMessage.Value {
-			sigs = append(sigs, m.messages[msgHash].signature)
+		if value == m.messages[msgHash].ConsensusMessage.Value {
+			sigs = append(sigs, m.messages[msgHash].Signature)
 		}
 	}
 	// println("----------------")
@@ -105,9 +105,9 @@ func (m *messageStore) fail(round int64, header *types.Header) bool {
 }
 
 func (m *messageStore) votePower(
-	valueHash *common.Hash, // A nil value hash indicates that we match any value.
+	valueHash *common.Hash, // A nil Value Hash indicates that we match any Value.
 	round int64,
-	msgType *algorithm.Step, // A nil value hash indicates that we match both prevote and precommit.
+	msgType *algorithm.Step, // A nil Value Hash indicates that we match both prevote and precommit.
 	header *types.Header,
 ) uint64 {
 
@@ -121,23 +121,23 @@ func (m *messageStore) votePower(
 		))
 	}
 
-	// Total the power of all votes in this height and round for this value,
+	// Total the power of all votes in this height and round for this Value,
 	// failure to find a committee member in the header indicates a programming
 	// error and an invalid memory acccess panic will ensue.
 	var power uint64
 	// For all messages at the given height in the given round ...
 	for mType, addressMap := range m.msgHashes[header.Number.Uint64()+1][round] {
-		// Skip proposal messages or message types we are not considerding.
+		// Skip proposal messages or Message types we are not considerding.
 		if mType == algorithm.Propose || msgType != nil && *msgType != mType {
 			continue
 		}
 		for address, msgHash := range addressMap {
 			// Skip messages with differing values
-			if valueHash != nil && *valueHash != common.Hash(m.messages[msgHash].consensusMessage.Value) {
-				// // println("skipping mismatch value")
+			if valueHash != nil && *valueHash != common.Hash(m.messages[msgHash].ConsensusMessage.Value) {
+				// // println("skipping mismatch Value")
 				continue
 			}
-			// Now either value hash is nil (matches everything) or it actually matches the msg's value.
+			// Now either Value Hash is nil (matches everything) or it actually matches the msg's Value.
 			power += header.CommitteeMember(address).VotingPower.Uint64()
 		}
 	}
@@ -173,39 +173,39 @@ func addMsgHash(
 	return nil
 }
 
-func (m *messageStore) addMessage(msg *message, rawMsg []byte) error {
-	// Check message is in bounds
-	if !m.messageBounds.in(msg.consensusMessage.Height) {
-		return fmt.Errorf("message %v out of bounds", msg.String())
+func (m *messageStore) addMessage(msg *Message, rawMsg []byte) error {
+	// Check Message is in bounds
+	if !m.messageBounds.in(msg.ConsensusMessage.Height) {
+		return fmt.Errorf("Message %v out of bounds", msg.String())
 	}
-	// Check we haven't already processed this message
-	if m.Message(msg.hash) != nil {
+	// Check we haven't already processed this Message
+	if m.Message(msg.Hash) != nil {
 		// Message was already processed
-		return fmt.Errorf("message %v already processed", msg.String())
+		return fmt.Errorf("Message %v already processed", msg.String())
 	}
-	err := addMsgHash(m.msgHashes, msg.consensusMessage.Height, msg.consensusMessage.Round, msg.consensusMessage.MsgType, msg.address, msg.hash)
+	err := addMsgHash(m.msgHashes, msg.ConsensusMessage.Height, msg.ConsensusMessage.Round, msg.ConsensusMessage.MsgType, msg.Address, msg.Hash)
 	if err != nil {
 		return err
 	}
 	// // println(id, "hashes len", len(m.msgHashes))
-	m.messages[msg.hash] = msg
-	m.rawMessages[msg.hash] = rawMsg
+	m.messages[msg.Hash] = msg
+	m.rawMessages[msg.Hash] = rawMsg
 	return nil
 }
 
-// removeMessage removes a single message, it does not handle deleting empty
-// maps after message removal, that will be handled when deleting whole heights
+// removeMessage removes a single Message, it does not handle deleting empty
+// maps after Message removal, that will be handled when deleting whole heights
 // due to height changes.
-func (m *messageStore) removeMessage(msg *message) {
+func (m *messageStore) removeMessage(msg *Message) {
 	// Delete entry in hashes
-	delete(m.msgHashes[msg.consensusMessage.Height][msg.consensusMessage.Round][msg.consensusMessage.MsgType], msg.address)
+	delete(m.msgHashes[msg.ConsensusMessage.Height][msg.ConsensusMessage.Round][msg.ConsensusMessage.MsgType], msg.Address)
 	// Delete entry in messages
-	delete(m.messages, msg.hash)
+	delete(m.messages, msg.Hash)
 	// Delete entry in rawMessages
-	delete(m.rawMessages, msg.hash)
+	delete(m.rawMessages, msg.Hash)
 
-	if msg.consensusMessage.MsgType == algorithm.Propose {
-		valueHash := msg.value.Hash()
+	if msg.ConsensusMessage.MsgType == algorithm.Propose {
+		valueHash := msg.Value.Hash()
 		delete(m.values, valueHash)
 		delete(m.valid, valueHash)
 	}
@@ -239,21 +239,21 @@ func (m *messageStore) value(valueHash common.Hash) *types.Block {
 	return m.values[valueHash]
 }
 
-// Mark the hash of a value valid.
+// Mark the Hash of a Value valid.
 func (m *messageStore) setValid(valueHash common.Hash) {
 	m.valid[valueHash] = struct{}{}
 }
 
-// Check if a value is considered valid
+// Check if a Value is considered valid
 func (m *messageStore) isValid(valueHash common.Hash) bool {
 	_, ok := m.valid[valueHash]
 	return ok
 }
 
-func (m *messageStore) matchingProposal(cm *algorithm.ConsensusMessage) *message {
+func (m *messageStore) matchingProposal(cm *algorithm.ConsensusMessage) *Message {
 	for _, proposalHash := range m.msgHashes[cm.Height][cm.Round][algorithm.Propose] {
 		proposal := m.messages[proposalHash]
-		if proposal.consensusMessage.Value == cm.Value {
+		if proposal.ConsensusMessage.Value == cm.Value {
 			// fmt.Printf(" got: %s\n", proposal.String())
 			return proposal
 		}
@@ -268,7 +268,7 @@ type bounds struct {
 	low    uint64
 }
 
-// setCentre sets the centre value for the bounds, it retruns a range of all
+// setCentre sets the centre Value for the bounds, it retruns a range of all
 // values that were in the range and are now not in the range [a,b) with a
 // inclusive and b exclusive.
 func (b *bounds) setCentre(v uint64) (uint64, uint64) {

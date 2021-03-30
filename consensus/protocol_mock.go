@@ -84,6 +84,18 @@ func (mr *MockBroadcasterMockRecorder) Enqueue(id, block interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockBroadcaster)(nil).Enqueue), id, block)
 }
 
+// BroadcastToLocal mocks base method
+func (m *MockBroadcaster) SendLocalMsgToAFD(payload []byte) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SendLocalMsgToAFD", payload)
+}
+
+// BroadcastToLocal indicates an expected call of BroadcastToLocal
+func (mr *MockBroadcasterMockRecorder) SendLocalMsgToAFD(payload interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendLocalMsgToAFD", reflect.TypeOf((*MockBroadcaster)(nil).SendLocalMsgToAFD), payload)
+}
+
 // MockPeer is a mock of Peer interface
 type MockPeer struct {
 	ctrl     *gomock.Controller

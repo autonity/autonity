@@ -77,7 +77,7 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (types.Committee, error) {
 	return committee, nil
 }
 
-// Get Autonity contract address
+// Get Autonity contract Address
 func (api *API) GetContractAddress() common.Address {
 	return autonity.ContractAddress
 }

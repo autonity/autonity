@@ -18,8 +18,11 @@
 package eth
 
 import (
+	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/faultdetector"
 	"math/big"
 	"runtime"
 	"sync"
@@ -91,6 +94,11 @@ type Ethereum struct {
 
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
+
+	afdCh         chan faultdetector.AccountabilityEvent
+	afdSub        event.Subscription
+	faultDetector *faultdetector.FaultDetector
+	defaultKey    *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
 }
 
 // New creates a new Ethereum object (including the
@@ -179,6 +187,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		glienickeCh:       make(chan core.WhitelistEvent),
+		afdCh:             make(chan faultdetector.AccountabilityEvent),
 		p2pServer:         stack.Server(),
 	}
 
@@ -227,7 +236,16 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist, &stack.Config().NodeKey().PublicKey, peers); err != nil {
+
+	if chainConfig.Tendermint != nil {
+		// Create AFD
+		eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
+		eth.defaultKey = stack.Config().NodeKey()
+	}
+
+	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,
+		eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist,
+		&stack.Config().NodeKey().PublicKey, peers, eth.faultDetector); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
@@ -567,6 +585,12 @@ func (s *Ethereum) Start() error {
 		go s.glienickeEventLoop(s.p2pServer)
 	}
 
+	if s.faultDetector != nil {
+		s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
+		go s.afdTXEventLoop()
+		go s.faultDetector.FaultDetectorEventLoop(context.Background())
+	}
+
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
 
 	// Start the bloom bits servicing goroutines
@@ -638,6 +662,12 @@ func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
+	if s.faultDetector != nil {
+		// Stop faultDetector event loop
+		s.faultDetector.Stop()
+		s.afdSub.Unsubscribe()
+	}
+
 	if s.config.Genesis != nil && s.config.Genesis.Config.AutonityContractConfig != nil {
 		s.glienickeSub.Unsubscribe()
 	}

@@ -38,7 +38,7 @@ func Users(count int, e, stake uint64, usertype params.UserType) ([]*gengen.User
 			Key:        key,
 			//We use the empty string here since the key will not be persisted.
 			KeyPath: "",
-			// We use the zero address here because we won't actualls make or
+			// We use the zero Address here because we won't actualls make or
 			// receive any connections.
 			NodeIP:   net.ParseIP("0.0.0.0"),
 			NodePort: 0,
@@ -138,7 +138,7 @@ func newTestBridge(
 }
 
 // createBridge creates a fully running bridge with the exception of the
-// syncer, broadcaster and blockBroadcaster provided. For these three
+// syncer, peerBroadcaster and localBroadcaster provided. For these three
 // components we provide test implementations that allow us to intercept the
 // sync messages, broadcast messages and broadcast blocks.
 func createBridge(
@@ -268,7 +268,7 @@ func (b *testBridges) stop() error {
 // 	}
 // 	p := proposers[0]
 // 	to := time.Millisecond * 100
-// 	m := p.pendingMessage(to) // get the proposal message
+// 	m := p.pendingMessage(to) // get the proposal Message
 // 	err = b.broadcast(m)      // send it to everyone else
 // 	if err != nil {
 // 		return err
@@ -292,31 +292,31 @@ func (b *testBridges) stop() error {
 // 	// now get the blocks
 // 	for _, bridge := range b.bridges {
 // 		var sc chan *types.Block
-// 		if bridge.address == p.address {
+// 		if bridge.Address == p.Address {
 // 			sc = sealChan
 // 		}
 // 		block := bridge.committedBlock(to, sc)
 // 		if err != nil {
 // 			return err
 // 		}
-// 		if block.Hash() != m.value.Hash() {
-// 			return fmt.Errorf("unexpected block, expecting: %v, got: %v", m.value.Hash().String(), block.Hash().String())
+// 		if block.Hash() != m.Value.Hash() {
+// 			return fmt.Errorf("unexpected block, expecting: %v, got: %v", m.Value.Hash().String(), block.Hash().String())
 // 		}
 // 	}
 // 	return nil
 // }
 
-// broadcast takes the message encodes it and calls HandleMsg with the result
-// on all bridges in the group, except the bridge from which the message
+// broadcast takes the Message encodes it and calls HandleMsg with the result
+// on all bridges in the group, except the bridge from which the Message
 // originates.
-func (b *testBridges) broadcast(m *message) error {
-	println("broadcasting", m.consensusMessage.String())
-	encoded, err := encodeSignedMessage(m.consensusMessage, b.byAddress(m.address).key, m.value)
+func (b *testBridges) broadcast(m *Message) error {
+	println("broadcasting", m.ConsensusMessage.String())
+	encoded, err := encodeSignedMessage(m.ConsensusMessage, b.byAddress(m.Address).key, m.Value)
 	if err != nil {
 		return err
 	}
 	for _, b := range b.bridges {
-		if b.address == m.address {
+		if b.address == m.Address {
 			continue
 		}
 		size, reader, err := rlp.EncodeToReader(encoded)
@@ -324,12 +324,12 @@ func (b *testBridges) broadcast(m *message) error {
 			return err
 		}
 		msg := p2p.Msg{
-			Code:    tendermintMsg,
+			Code:    TendermintMsg,
 			Payload: reader,
 			Size:    uint32(size),
 		}
 
-		_, err = b.HandleMsg(m.address, msg)
+		_, err = b.HandleMsg(m.Address, msg)
 		if err != nil {
 			return err
 		}
@@ -338,13 +338,13 @@ func (b *testBridges) broadcast(m *message) error {
 }
 
 // broadcastPendingMessages calls pendingMessage for each bridge and forwards
-// the returned message to all other bridges. The given timeout is the time to
+// the returned Message to all other bridges. The given timeout is the time to
 // wait per bridge for the result from pendingMessage.
 func (b *testBridges) broadcastPendingMessages(timeout time.Duration) error {
 	// Now send the prevotes
 	for _, bridge := range b.bridges {
 		m := bridge.pendingMessage(timeout)
-		println("broadcasting", m.consensusMessage.String())
+		println("broadcasting", m.ConsensusMessage.String())
 		err := b.broadcast(m)
 		if err != nil {
 			return err
@@ -357,7 +357,7 @@ func (b *testBridges) broadcastPendingMessages(timeout time.Duration) error {
 type testBridge struct {
 	*Bridge
 	messageChan        chan []byte
-	lastSentMessage    *message
+	lastSentMessage    *Message
 	blockChan          chan *types.Block
 	lastCommittedBlock *types.Block
 	closeCh            chan struct{}
@@ -365,9 +365,9 @@ type testBridge struct {
 
 // This closes the test bridge, it is permanent calling this twice will panic.
 // Bridges will likely not shut down properly with a direct call to Close since
-// they will probably be stuck sending a message on the notifyingBroadcaster or
+// they will probably be stuck sending a Message on the notifyingBroadcaster or
 // notifyingBlockBroadcaster, this method closes the closeCh which releases
-// goroutines stuck sending a message on the notifyingBroadcaster or
+// goroutines stuck sending a Message on the notifyingBroadcaster or
 // notifyingBlockBroadcaster thereby allowing them to close.
 func (b *testBridge) stop() error {
 	close(b.closeCh)
@@ -376,27 +376,27 @@ func (b *testBridge) stop() error {
 
 // pendintMessage retrieves the messages from this bridge that have been
 // broadcast by this bridge one at a time and in the order they were broadcast.
-// If no message is broadcast before the timeout expires then nil is returned.
+// If no Message is broadcast before the timeout expires then nil is returned.
 // It is important to note that we can only rely on the order of messages sent
 // because the bridge always calls Broadcast from its main goroutine. If we
 // called Broadcast from multiple goroutines within the bridge then we would
 // not be able to rely on the order of messages and this would break the tests
 // of the bridge.
-func (b *testBridge) pendingMessage(timeout time.Duration) *message {
+func (b *testBridge) pendingMessage(timeout time.Duration) *Message {
 	t := time.NewTimer(timeout)
 	for {
 		select {
 		case m := <-b.messageChan:
-			message, err := decodeSignedMessage(m)
+			message, err := DecodeSignedMessage(m)
 			if err != nil {
-				panic(fmt.Sprintf("failed to decode signed message: %v", err))
+				panic(fmt.Sprintf("failed to decode signed Message: %v", err))
 			}
-			if message.address != b.address {
+			if message.Address != b.address {
 				// ignore rebroadcast messages
 				continue
 			}
 			b.lastSentMessage = message
-			println("gotmessage", message.consensusMessage.String())
+			println("gotmessage", message.ConsensusMessage.String())
 			return message
 		case <-t.C:
 			println("nomessage")
@@ -409,18 +409,18 @@ func (b *testBridge) pendingMessage(timeout time.Duration) *message {
 // returned. This is required to free up the routine from the bridge that might
 // be stuck trying to send on the messageChan, so that we can close the bridge.
 func (b *testBridge) drainPendingMessages(timeout time.Duration) {
-	msg := &message{}
+	msg := &Message{}
 	for msg != nil {
 		msg = b.pendingMessage(timeout)
 	}
 }
 
-// proposer returns the address of the proposer for the current round and
+// proposer returns the Address of the proposer for the current round and
 // height or an error if we fail to get this information from the contract.
 func (b *testBridge) proposer() (common.Address, error) {
 	var round int64
 	if b.lastSentMessage != nil {
-		round = b.lastSentMessage.consensusMessage.Round
+		round = b.lastSentMessage.ConsensusMessage.Round
 	}
 	return b.proposerAddr(b.lastCommittedBlock.Header(), round)
 }
@@ -475,18 +475,18 @@ func (b *testBridge) proposalBlock() (*types.Block, error) {
 	return b.FinalizeAndAssemble(b.blockchain, header, state, nil, nil, &receipts)
 }
 
-func validateMessage(t *testing.T, msg *message, expectedConsensusMessage *algorithm.ConsensusMessage, b *testBridge) {
-	require.Equal(t, expectedConsensusMessage, msg.consensusMessage)
-	require.Equal(t, b.address, msg.address)
+func validateMessage(t *testing.T, msg *Message, expectedConsensusMessage *algorithm.ConsensusMessage, b *testBridge) {
+	require.Equal(t, expectedConsensusMessage, msg.ConsensusMessage)
+	require.Equal(t, b.address, msg.Address)
 }
 
-func validateProposeMessage(t *testing.T, proposeMsg *message, expectedConsensusMessage *algorithm.ConsensusMessage, proposer *testBridge, proposal *types.Block) {
+func validateProposeMessage(t *testing.T, proposeMsg *Message, expectedConsensusMessage *algorithm.ConsensusMessage, proposer *testBridge, proposal *types.Block) {
 	validateMessage(t, proposeMsg, expectedConsensusMessage, proposer)
 	// Due to the way that blocks are constructed they can be conceptually
 	// equal even if they are not equal in the point of view of the go
-	// language. So we just check the hash here.
-	require.Equal(t, proposal.Hash(), proposeMsg.value.Hash())
+	// language. So we just check the Hash here.
+	require.Equal(t, proposal.Hash(), proposeMsg.Value.Hash())
 	expectedProposerSeal, err := crypto.Sign(proposal.Hash().Bytes(), proposer.key)
 	require.NoError(t, err)
-	require.Equal(t, expectedProposerSeal, proposeMsg.proposerSeal)
+	require.Equal(t, expectedProposerSeal, proposeMsg.ProposerSeal)
 }

@@ -30,8 +30,17 @@ contract Autonity is IERC20 {
         uint256 mingasprice;
         uint256 stakesupply;
     }
+    enum ProofType { Misbehavior, Accusation, Innocence}
+    struct Proof {
+        uint256 t;      // proof type: Misbehavior, Accusation, Innocence
+        address sender;
+        bytes32 msghash;
+        bytes rawproof; // the rlp encoded Proof. Please check afd_types.go type RaWProof struct.
+    }
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
+    Proof[] private misBehaviours;
+    Proof[] private accusations;
     address[] private usersList;
     string[] private enodesWhitelist;
     mapping (address => User) private users;
@@ -71,7 +80,9 @@ contract Autonity is IERC20 {
     event MintedStake(address _address, uint256 _amount);
     event BurnedStake(address _address, uint256 _amount);
     event Rewarded(address _address, uint256 _amount);
-
+    event MisbehaviourAdded(Proof proof);
+    event AccusationAdded(Proof proof);
+    event AccusationRemoved(Proof proof);
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
      * Note that `gasPrice` may be zero.
@@ -138,6 +149,58 @@ contract Autonity is IERC20 {
     */
     function symbol() external pure returns (string memory) {
         return "NEW";
+    }
+
+    /**
+    * @notice handle accountability proofs in the Autonity Contract with the specified role. Restricted to the validator account.
+    */
+    function handleProofs(Proof[] memory Proofs) public onlyValidator(msg.sender) {
+        for (uint256 i = 0; i < Proofs.length; i++) {
+            if (ProofType(Proofs[i].t) == ProofType.Misbehavior) {
+                if (_isMisBehaviourExists(Proofs[i]) == true) {
+                    continue;
+                }
+
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkMisbehaviour(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
+                    // todo: take governance action that msg.sender sent faulty proof of misbehaviour.
+                    continue;
+                }
+                // misbehaviour proof is validated, release raw rlp bytes to save gas cost.
+                delete Proofs[i].rawproof;
+                misBehaviours.push(Proofs[i]);
+                emit MisbehaviourAdded(Proofs[i]);
+                // todo: add slashing logic once challenge is valid.
+            }
+
+            if (ProofType(Proofs[i].t) == ProofType.Accusation) {
+                if (_isAccusationExists(Proofs[i]) == true) {
+                    continue;
+                }
+
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccusation(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
+                    // todo: take governance action that msg.sender sent faulty accusation.
+                    continue;
+                }
+                accusations.push(Proofs[i]);
+                emit AccusationAdded(Proofs[i]);
+            }
+
+            if (ProofType(Proofs[i].t) == ProofType.Innocence) {
+                if (_isAccusationExists(Proofs[i]) == false) {
+                    continue;
+                }
+
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkInnocence(Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
+                    // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
+                    continue;
+                }
+                _removeAccusation(Proofs[i]);
+                emit AccusationRemoved(Proofs[i]);
+            }
+        }
     }
 
     /**
@@ -326,6 +389,20 @@ contract Autonity is IERC20 {
         Getters
     ============================================================
     */
+
+    /**
+    * @dev Dump the on-chain misbehaviour. Called by the faultdetector fault detector to get latest on-chain misbehaviour.
+    */
+    function getMisbehaviours() external view returns (Proof[] memory) {
+        return misBehaviours;
+    }
+
+    /**
+    * @dev Dump the on-chain accusations. Called by the faultdetector fault detector to get latest on-chain accusation.
+    */
+    function getAccusations() external view returns (Proof[] memory) {
+        return accusations;
+    }
 
     /**
     * @notice Returns the current contract version.
@@ -522,6 +599,15 @@ contract Autonity is IERC20 {
     */
     modifier onlyProtocol(address _caller) {
         require(deployer == _caller, "function restricted to the protocol");
+        _;
+    }
+
+    /**
+    * @dev Modifier that checks if the caller is a validator.
+    * Only the validator can invoke such API.
+    */
+    modifier onlyValidator(address _caller) {
+        require(users[_caller].userType == UserType.Validator);
         _;
     }
 
@@ -733,5 +819,32 @@ contract Autonity is IERC20 {
         }
     }
 
+    function _isMisBehaviourExists(Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < misBehaviours.length; i++) {
+            if (misBehaviours[i].msghash == proof.msghash) {
+                return true;
+            }
+        }
+        return false;
+    }
 
+    function _isAccusationExists(Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < accusations.length; i++) {
+            if (accusations[i].msghash == proof.msghash) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _removeAccusation(Proof memory proof) internal {
+        require(accusations.length > 0);
+        for (uint256 i = 0; i < accusations.length; i++) {
+            if (accusations[i].msghash == proof.msghash) {
+                accusations[i] = accusations[accusations.length - 1];
+                accusations.pop();
+                break;
+            }
+        }
+    }
 }

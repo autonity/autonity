@@ -27,10 +27,14 @@ type Peers interface {
 	Peers() []Peer
 }
 
-// Broadcaster defines the interface to enqueue blocks to fetcher and find peer
+// Broadcaster defines the interface to enqueue blocks to fetcher and send local consensus msg to AFD.
 type Broadcaster interface {
 	// Enqueue add a block into fetcher queue
 	Enqueue(id string, block *types.Block)
+
+	// SendLocalMsgToAFD
+	// SendLocalMsgToAFD to forward self consensus msg to local AFD for accountability.
+	SendLocalMsgToAFD(payload []byte)
 }
 
 // Peer defines the interface to communicate with peer
