@@ -536,7 +536,9 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 		// messgaes from other network participants.
 		go b.postEvent(msg)
 		// send msg to local AFD for accountability.
-		b.localBroadcaster.SendLocalMsgToAFD(msg)
+		if b.localBroadcaster != nil {
+			b.localBroadcaster.SendLocalMsgToAFD(msg)
+		}
 
 		// Broadcast to peers.
 		//
