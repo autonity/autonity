@@ -58,28 +58,6 @@ func registerAFDContracts(chain *core.BlockChain) {
 	vm.PrecompiledContractsYoloV1[checkAccusationAddress] = &av
 }
 
-// un register AFD contracts from evm's context.
-func unRegisterAFDContracts() {
-	vm.PrecompileContractRWMutex.Lock()
-	defer vm.PrecompileContractRWMutex.Unlock()
-
-	delete(vm.PrecompiledContractsByzantium, checkInnocenceAddress)
-	delete(vm.PrecompiledContractsByzantium, checkMisbehaviourAddress)
-	delete(vm.PrecompiledContractsByzantium, checkAccusationAddress)
-
-	delete(vm.PrecompiledContractsYoloV1, checkInnocenceAddress)
-	delete(vm.PrecompiledContractsYoloV1, checkMisbehaviourAddress)
-	delete(vm.PrecompiledContractsYoloV1, checkAccusationAddress)
-
-	delete(vm.PrecompiledContractsIstanbul, checkInnocenceAddress)
-	delete(vm.PrecompiledContractsIstanbul, checkMisbehaviourAddress)
-	delete(vm.PrecompiledContractsIstanbul, checkAccusationAddress)
-
-	delete(vm.PrecompiledContractsHomestead, checkInnocenceAddress)
-	delete(vm.PrecompiledContractsHomestead, checkMisbehaviourAddress)
-	delete(vm.PrecompiledContractsHomestead, checkAccusationAddress)
-}
-
 // AccusationVerifier implemented as a native contract to validate if a accusation is valid
 type AccusationVerifier struct {
 	chain *core.BlockChain

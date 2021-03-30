@@ -213,7 +213,6 @@ func (fd *FaultDetector) Stop() {
 	fd.tendermintMsgSub.Unsubscribe()
 	<-fd.stopped
 	fd.wg.Wait()
-	unRegisterAFDContracts()
 }
 
 // call by ethereum object to subscribe proofs Events.

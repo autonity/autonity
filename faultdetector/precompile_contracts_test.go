@@ -29,23 +29,6 @@ func TestContractsManagement(t *testing.T) {
 	assert.NotNil(t, vm.PrecompiledContractsYoloV1[checkInnocenceAddress])
 	assert.NotNil(t, vm.PrecompiledContractsYoloV1[checkAccusationAddress])
 	assert.NotNil(t, vm.PrecompiledContractsYoloV1[checkMisbehaviourAddress])
-	// un-register them from evm package.
-	unRegisterAFDContracts()
-	assert.Nil(t, vm.PrecompiledContractsByzantium[checkInnocenceAddress])
-	assert.Nil(t, vm.PrecompiledContractsByzantium[checkMisbehaviourAddress])
-	assert.Nil(t, vm.PrecompiledContractsByzantium[checkAccusationAddress])
-
-	assert.Nil(t, vm.PrecompiledContractsHomestead[checkInnocenceAddress])
-	assert.Nil(t, vm.PrecompiledContractsHomestead[checkMisbehaviourAddress])
-	assert.Nil(t, vm.PrecompiledContractsHomestead[checkAccusationAddress])
-
-	assert.Nil(t, vm.PrecompiledContractsIstanbul[checkInnocenceAddress])
-	assert.Nil(t, vm.PrecompiledContractsIstanbul[checkMisbehaviourAddress])
-	assert.Nil(t, vm.PrecompiledContractsIstanbul[checkAccusationAddress])
-
-	assert.Nil(t, vm.PrecompiledContractsYoloV1[checkInnocenceAddress])
-	assert.Nil(t, vm.PrecompiledContractsYoloV1[checkAccusationAddress])
-	assert.Nil(t, vm.PrecompiledContractsYoloV1[checkMisbehaviourAddress])
 }
 
 func TestDecodeProof(t *testing.T) {
