@@ -26,7 +26,7 @@ func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.Accountabilit
 }
 
 func (s *Ethereum) generateAccountabilityTX(method string, proofs []autonity.OnChainProof) (*types.Transaction, error) {
-	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.defaultKey.PublicKey))
+	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.nodeKey.PublicKey))
 	to := s.BlockChain().GetAutonityContract().Address()
 	abi := s.BlockChain().GetAutonityContract().ABI()
 	packedData, err := abi.Pack(method, proofs)
@@ -38,7 +38,7 @@ func (s *Ethereum) generateAccountabilityTX(method string, proofs []autonity.OnC
 	return types.SignTx(
 		types.NewTransaction(nonce, to, common.Big0, 210000000, s.gasPrice, packedData),
 		types.HomesteadSigner{},
-		s.defaultKey)
+		s.nodeKey)
 }
 
 func (s *Ethereum) afdTXEventLoop() {

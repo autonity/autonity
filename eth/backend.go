@@ -98,7 +98,7 @@ type Ethereum struct {
 	afdCh         chan faultdetector.AccountabilityEvent
 	afdSub        event.Subscription
 	faultDetector *faultdetector.FaultDetector
-	defaultKey    *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
+	nodeKey       *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
 }
 
 // New creates a new Ethereum object (including the
@@ -228,7 +228,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	if chainConfig.Tendermint != nil {
 		// Create AFD
 		eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
-		eth.defaultKey = stack.Config().NodeKey()
+		eth.nodeKey = stack.Config().NodeKey()
 	}
 
 	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,
