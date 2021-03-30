@@ -22,8 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/faultdetector"
 	"math"
 	"math/big"
 	"sync"
@@ -32,6 +30,8 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/consensus/tendermint/faultdetector"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
 	"github.com/clearmatics/autonity/core/rawdb"
