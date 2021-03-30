@@ -79,6 +79,7 @@ func (b *notifyingBroadcaster) Broadcast(message []byte) {
 type blockBroadcasterMock struct{}
 
 func (b *blockBroadcasterMock) Enqueue(id string, block *types.Block) {}
+func (b *blockBroadcasterMock) SendLocalMsgToAFD(payload []byte) {}
 
 // notifyingBlockBroadcaster simply passes broadcast blocks to a channel which
 // we read from within the test.
@@ -93,6 +94,8 @@ func (b *notifyingBlockBroadcaster) Enqueue(id string, block *types.Block) {
 	case <-b.closeCh:
 	}
 }
+
+func (b *notifyingBlockBroadcaster) SendLocalMsgToAFD(payload []byte) {}
 
 type noActionScheduler struct {
 }
