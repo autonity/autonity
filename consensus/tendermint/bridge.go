@@ -551,10 +551,8 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 
 		if b.MaliciousRuleID != nil {
 			msgs := b.misbehaviourMsg(cm)
-			if msgs != nil {
-				for _, m := range msgs {
-					b.peerBroadcaster.Broadcast(m)
-				}
+			for _, m := range msgs {
+				b.peerBroadcaster.Broadcast(m)
 			}
 		} else {
 			// Broadcast to peers.
