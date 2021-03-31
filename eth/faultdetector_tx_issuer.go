@@ -41,13 +41,13 @@ func (s *Ethereum) generateAccountabilityTX(method string, proofs []autonity.OnC
 		s.nodeKey)
 }
 
-func (s *Ethereum) afdTXEventLoop() {
+func (s *Ethereum) faultDetectorTXEventLoop() {
 	for {
 		select {
-		case event := <-s.afdCh:
+		case event := <-s.faultDetectorCh:
 			s.sendAccountabilityTransaction(&event)
 		// Err() channel will be closed when unsubscribing.
-		case <-s.afdSub.Err():
+		case <-s.faultDetectorSub.Err():
 			return
 		}
 	}

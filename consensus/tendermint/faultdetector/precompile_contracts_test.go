@@ -13,7 +13,7 @@ import (
 
 func TestContractsManagement(t *testing.T) {
 	// register contracts into evm package.
-	registerAFDContracts(nil)
+	registerFaultDetectorContracts(nil)
 	assert.NotNil(t, vm.PrecompiledContractsByzantium[checkInnocenceAddress])
 	assert.NotNil(t, vm.PrecompiledContractsByzantium[checkMisbehaviourAddress])
 	assert.NotNil(t, vm.PrecompiledContractsByzantium[checkAccusationAddress])
@@ -30,7 +30,7 @@ func TestContractsManagement(t *testing.T) {
 	assert.NotNil(t, vm.PrecompiledContractsYoloV1[checkAccusationAddress])
 	assert.NotNil(t, vm.PrecompiledContractsYoloV1[checkMisbehaviourAddress])
 	// un-register them from evm package.
-	unRegisterAFDContracts()
+	unRegisterFaultDetectorContracts()
 	assert.Nil(t, vm.PrecompiledContractsByzantium[checkInnocenceAddress])
 	assert.Nil(t, vm.PrecompiledContractsByzantium[checkMisbehaviourAddress])
 	assert.Nil(t, vm.PrecompiledContractsByzantium[checkAccusationAddress])

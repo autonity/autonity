@@ -34,8 +34,8 @@ func currentHeader(chain *core.BlockChain) *types.Header {
 	return chain.CurrentHeader()
 }
 
-// init the instances of AFD contracts, and register thems into evm's context
-func registerAFDContracts(chain *core.BlockChain) {
+// init the instances of Fault Detector contracts, and register thems into evm's context
+func registerFaultDetectorContracts(chain *core.BlockChain) {
 	vm.PrecompileContractRWMutex.Lock()
 	defer vm.PrecompileContractRWMutex.Unlock()
 	pv := InnocenceVerifier{chain: chain}
@@ -59,8 +59,8 @@ func registerAFDContracts(chain *core.BlockChain) {
 	vm.PrecompiledContractsYoloV1[checkAccusationAddress] = &av
 }
 
-// un register AFD contracts from evm's context.
-func unRegisterAFDContracts() {
+// unregister Faul Detector contracts from evm's context.
+func unRegisterFaultDetectorContracts() {
 	vm.PrecompileContractRWMutex.Lock()
 	defer vm.PrecompileContractRWMutex.Unlock()
 

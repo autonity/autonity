@@ -57,9 +57,9 @@ type ProposalChecker func(chain *core.BlockChain, proposal types.Block) error
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
 	// use below 3 members to send proof via transaction issuing.
-	wg      sync.WaitGroup
-	afdFeed event.Feed
-	scope   event.SubscriptionScope
+	wg                sync.WaitGroup
+	faultDetectorFeed event.Feed
+	scope             event.SubscriptionScope
 
 	// use below 2 members to forward consensus msg from protocol manager to faultdetector.
 	tendermintMsgSub *event.TypeMuxSubscription
@@ -111,7 +111,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 	}
 
 	// register faultdetector contracts on evm's precompiled contract set.
-	registerAFDContracts(chain)
+	registerFaultDetectorContracts(chain)
 
 	// subscribe tendermint msg
 	fd.tendermintMsgSub = fd.tendermintMsgMux.Subscribe(events.MessageEvent{})
@@ -120,7 +120,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 }
 
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
-// AFD rule engine could also triggered from here to scan those msgs of msg store by applying rules.
+// Fault Detector rule engine could also triggered from here to scan those msgs of msg store by applying rules.
 func (fd *FaultDetector) FaultDetectorEventLoop(ctx context.Context) {
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockChan)
 	ctx, fd.cancel = context.WithCancel(ctx)
@@ -222,12 +222,12 @@ func (fd *FaultDetector) Stop() {
 	fd.tendermintMsgSub.Unsubscribe()
 	<-fd.stopped
 	fd.wg.Wait()
-	unRegisterAFDContracts()
+	unRegisterFaultDetectorContracts()
 }
 
 // call by ethereum object to subscribe proofs Events.
-func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event.Subscription {
-	return fd.scope.Track(fd.afdFeed.Subscribe(ch))
+func (fd *FaultDetector) SubscribeFaultDetectorEvents(ch chan<- AccountabilityEvent) event.Subscription {
+	return fd.scope.Track(fd.faultDetectorFeed.Subscribe(ch))
 }
 
 // buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
@@ -829,7 +829,7 @@ func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
 		randomDelay()
 		unPresented := fd.filterPresentedOnes(&proofs)
 		if len(unPresented) != 0 {
-			fd.afdFeed.Send(AccountabilityEvent{Proofs: unPresented})
+			fd.faultDetectorFeed.Send(AccountabilityEvent{Proofs: unPresented})
 		}
 	}()
 }
@@ -933,7 +933,8 @@ func checkProposal(chain *core.BlockChain, m *tendermintCore.Message, validatePr
 	}
 
 	err = validateProposal(chain, *proposal.ProposalBlock)
-	// due to network delay or timing issue, when AFD validate a proposal, that proposal could already be committed on the chain view.
+	// due to network delay or timing issue, when Fault Detector validate a proposal, that proposal could already be
+	// committed on the chain view.
 	// since the msg sender were checked with correct proposer, so we consider to take it as a valid proposal.
 	if err == core.ErrKnownBlock {
 		return nil

@@ -95,10 +95,10 @@ type Ethereum struct {
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
 
-	afdCh         chan faultdetector.AccountabilityEvent
-	afdSub        event.Subscription
-	faultDetector *faultdetector.FaultDetector
-	nodeKey       *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
+	faultDetectorCh  chan faultdetector.AccountabilityEvent
+	faultDetectorSub event.Subscription
+	faultDetector    *faultdetector.FaultDetector
+	nodeKey          *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
 }
 
 // New creates a new Ethereum object (including the
@@ -172,7 +172,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		glienickeCh:       make(chan core.WhitelistEvent),
-		afdCh:             make(chan faultdetector.AccountabilityEvent),
+		faultDetectorCh:   make(chan faultdetector.AccountabilityEvent),
 		p2pServer:         stack.Server(),
 	}
 
@@ -226,7 +226,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	}
 
 	if chainConfig.Tendermint != nil {
-		// Create AFD
+		// Create Fault Detector
 		eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
 		eth.nodeKey = stack.Config().NodeKey()
 	}
@@ -551,8 +551,8 @@ func (s *Ethereum) Start() error {
 	go s.glienickeEventLoop(s.p2pServer)
 
 	if s.faultDetector != nil {
-		s.afdSub = s.faultDetector.SubscribeAFDEvents(s.afdCh)
-		go s.afdTXEventLoop()
+		s.faultDetectorSub = s.faultDetector.SubscribeFaultDetectorEvents(s.faultDetectorCh)
+		go s.faultDetectorTXEventLoop()
 		go s.faultDetector.FaultDetectorEventLoop(context.Background())
 	}
 
@@ -623,7 +623,7 @@ func (s *Ethereum) Stop() error {
 	if s.faultDetector != nil {
 		// Stop faultDetector event loop
 		s.faultDetector.Stop()
-		s.afdSub.Unsubscribe()
+		s.faultDetectorSub.Unsubscribe()
 	}
 	s.glienickeSub.Unsubscribe()
 	// Then stop everything else.

@@ -119,7 +119,7 @@ type ProtocolManager struct {
 // with the Ethereum network.
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode,
 	networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
-	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, afd *faultdetector.FaultDetector) (*ProtocolManager, error) {
+	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, fd *faultdetector.FaultDetector) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:     networkID,
@@ -131,7 +131,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		peers:         newPeerSet(),
 		engine:        engine,
 		whitelist:     whitelist,
-		faultDetector: afd,
+		faultDetector: fd,
 		whitelistCh:   make(chan core.WhitelistEvent, 64),
 		txsyncCh:      make(chan *txsync),
 		quitSync:      make(chan struct{}),
@@ -505,7 +505,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		payLoad, err := handler.HandleMsg(addr, msg)
 
 		if payLoad != nil {
-			// forward tendermint consensus msg to AFD.
+			// forward tendermint consensus msg to Fault Detector
 			b := new(bytes.Buffer)
 			b.Write(payLoad)
 			copyMsg := msg
@@ -1064,7 +1064,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
-// use by tendermint backend to forward self msg to AFD.
+// use by tendermint backend to forward self msg to Fault Detector
 func (pm *ProtocolManager) BroadcastToLocal(payload []byte) {
 	if pm.faultDetector != nil {
 		pm.faultDetector.HandleSelfMsg(payload)
