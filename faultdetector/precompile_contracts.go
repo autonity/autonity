@@ -147,12 +147,12 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 		return failure96Byte, nil
 	}
 
-	return c.validateProof(p, getHeader, currentHeader), nil
+	return c.validateProof(p, getHeader), nil
 }
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
+func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter) []byte {
 	h := p.Message.H()
 	lastHeader := getHeader(c.chain, h-1)
 	if lastHeader == nil {

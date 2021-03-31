@@ -203,13 +203,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
 			return lastHeader
 		}
-		currentHeader := newBlockHeader(height, committee)
-		mockCurrentHeader := func(_ *core.BlockChain) *types.Header {
-			return currentHeader
-		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validateProof(&proof, mockGetHeader, mockCurrentHeader)
+		ret := mv.validateProof(&proof, mockGetHeader)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
@@ -226,13 +222,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
 			return lastHeader
 		}
-		currentHeader := newBlockHeader(height, committee)
-		mockCurrentHeader := func(_ *core.BlockChain) *types.Header {
-			return currentHeader
-		}
 
 		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validateProof(&proof, mockGetHeader, mockCurrentHeader)
+		ret := mv.validateProof(&proof, mockGetHeader)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
