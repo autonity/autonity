@@ -67,43 +67,30 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
-func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) ([]byte, error) {
+func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+	if msg.Code != TendermintMsg && msg.Code != TendermintSyncMsg {
+		return false, nil
+	}
+
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 
-	if msg.Code == TendermintSyncMsg {
+	switch msg.Code {
+	case TendermintMsg:
 		if !sb.coreStarted {
-			sb.logger.Info("Sync message received but core not running")
-			// we return nil as we don't want to shutdown the connection if core is stopped
-			return nil, nil
-		}
-		sb.logger.Info("Received sync message", "from", addr)
-		sb.postEvent(events.SyncEvent{Addr: addr})
-	}
-
-	if msg.Code == TendermintMsg {
-
-		b := new(bytes.Buffer)
-		if _, err := io.Copy(b, msg.Payload); err != nil {
-			return nil, errDecodeFailed
-		}
-		copyPayload := make([]byte, len(b.Bytes()))
-		copy(copyPayload, b.Bytes())
-
-		if !sb.coreStarted {
+			buffer := new(bytes.Buffer)
+			if _, err := io.Copy(buffer, msg.Payload); err != nil {
+				return true, errDecodeFailed
+			}
 			savedMsg := msg
-			savedMsg.Payload = b
+			savedMsg.Payload = buffer
 			sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: savedMsg})
-			return copyPayload, nil //return nil to avoid shutting down connection during block sync.
+			return true, nil //return nil to avoid shutting down connection during block sync.
 		}
 
 		var data []byte
-		copyMsg := msg
-		buf := new(bytes.Buffer)
-		buf.Write(copyPayload)
-		copyMsg.Payload = buf
-		if err := copyMsg.Decode(&data); err != nil {
-			return copyPayload, errDecodeFailed
+		if err := msg.Decode(&data); err != nil {
+			return true, errDecodeFailed
 		}
 
 		hash := types.RLPHash(data)
@@ -121,17 +108,25 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) ([]byte, error) {
 
 		// Mark self known message
 		if _, ok := sb.knownMessages.Get(hash); ok {
-			return copyPayload, nil
+			return true, nil
 		}
 		sb.knownMessages.Add(hash, true)
 
 		sb.postEvent(events.MessageEvent{
 			Payload: data,
 		})
-		return copyPayload, nil
+	case TendermintSyncMsg:
+		if !sb.coreStarted {
+			sb.logger.Info("Sync message received but core not running")
+			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped
+		}
+		sb.logger.Info("Received sync message", "from", addr)
+		sb.postEvent(events.SyncEvent{Addr: addr})
+	default:
+		return false, nil
 	}
 
-	return nil, nil
+	return true, nil
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster

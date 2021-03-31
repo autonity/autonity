@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
@@ -30,8 +29,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/consensus/tendermint/faultdetector"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -110,32 +107,30 @@ type ProtocolManager struct {
 	enodesWhitelist     []*enode.Node
 	enodesWhitelistLock sync.RWMutex
 
-	engine        consensus.Engine
-	pub           *ecdsa.PublicKey
-	faultDetector *faultdetector.FaultDetector
+	engine consensus.Engine
+	pub    *ecdsa.PublicKey
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode,
 	networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain,
-	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey, fd *faultdetector.FaultDetector) (*ProtocolManager, error) {
+	chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:     networkID,
-		forkFilter:    forkid.NewFilter(blockchain),
-		eventMux:      mux,
-		txpool:        txpool,
-		blockchain:    blockchain,
-		chaindb:       chaindb,
-		peers:         newPeerSet(),
-		engine:        engine,
-		whitelist:     whitelist,
-		faultDetector: fd,
-		whitelistCh:   make(chan core.WhitelistEvent, 64),
-		txsyncCh:      make(chan *txsync),
-		quitSync:      make(chan struct{}),
-		pub:           pub,
+		networkID:   networkID,
+		forkFilter:  forkid.NewFilter(blockchain),
+		eventMux:    mux,
+		txpool:      txpool,
+		blockchain:  blockchain,
+		chaindb:     chaindb,
+		peers:       newPeerSet(),
+		engine:      engine,
+		whitelist:   whitelist,
+		whitelistCh: make(chan core.WhitelistEvent, 64),
+		txsyncCh:    make(chan *txsync),
+		quitSync:    make(chan struct{}),
+		pub:         pub,
 	}
 	if handler, ok := manager.engine.(consensus.Handler); ok {
 		handler.SetBroadcaster(manager)
@@ -490,43 +485,21 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, protocolMaxMsgSize)
 	}
 	defer msg.Discard()
+
+	if handler, ok := pm.engine.(consensus.Handler); ok {
+		pubKey := p.Node().Pubkey()
+		if pubKey == nil {
+			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
+		}
+		addr := crypto.PubkeyToAddress(*pubKey)
+		handled, err := handler.HandleMsg(addr, msg)
+		if handled {
+			return err
+		}
+	}
+
 	// Handle the message depending on its contents
 	switch {
-	case msg.Code == tendermintBackend.TendermintMsg:
-		handler, ok := pm.engine.(consensus.Handler)
-		if !ok {
-			return fmt.Errorf("handle tendermint msg without tendermint handler")
-		}
-		pubKey := p.Node().Pubkey()
-		if pubKey == nil {
-			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
-		}
-		addr := crypto.PubkeyToAddress(*pubKey)
-		payLoad, err := handler.HandleMsg(addr, msg)
-
-		if payLoad != nil {
-			// forward tendermint consensus msg to Fault Detector
-			b := new(bytes.Buffer)
-			b.Write(payLoad)
-			copyMsg := msg
-			copyMsg.Payload = b
-			if pm.faultDetector != nil {
-				pm.faultDetector.HandleMsg(addr, copyMsg)
-			}
-		}
-		return err
-	case msg.Code == tendermintBackend.TendermintSyncMsg:
-		handler, ok := pm.engine.(consensus.Handler)
-		if !ok {
-			return fmt.Errorf("handle tendermint msg without tendermint handler")
-		}
-		pubKey := p.Node().Pubkey()
-		if pubKey == nil {
-			return errResp(ErrNoPubKeyFound, "%s", p.Node().ID().GoString())
-		}
-		addr := crypto.PubkeyToAddress(*pubKey)
-		_, err := handler.HandleMsg(addr, msg)
-		return err
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")

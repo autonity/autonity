@@ -22,6 +22,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"runtime"
 	"sync"
@@ -154,7 +155,10 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	)
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	consEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
+	// The event mux is shared between the consensus engine and fault detector such that both of them will receive the
+	// the same messages
+	evMux := new(event.TypeMux)
+	consEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig, evMux)
 	if cons != nil {
 		consEngine = cons(consEngine)
 	}
@@ -227,13 +231,13 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 
 	if chainConfig.Tendermint != nil {
 		// Create Fault Detector
-		eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase)
+		eth.faultDetector = faultdetector.NewFaultDetector(eth.blockchain, eth.etherbase, evMux.Subscribe(events.MessageEvent{}))
 		eth.nodeKey = stack.Config().NodeKey()
 	}
 
 	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId,
 		eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist,
-		&stack.Config().NodeKey().PublicKey, eth.faultDetector); err != nil {
+		&stack.Config().NodeKey().PublicKey); err != nil {
 		return nil, err
 	}
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
@@ -273,10 +277,9 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
-
+func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config, evMux *event.TypeMux) consensus.Engine {
 	if chainConfig.Tendermint != nil {
-		return tendermintBackend.New(&config.Tendermint, ctx.Config().NodeKey(), db, chainConfig, vmConfig)
+		return tendermintBackend.New(&config.Tendermint, ctx.Config().NodeKey(), db, chainConfig, vmConfig, evMux)
 	}
 
 	// Otherwise assume proof-of-work

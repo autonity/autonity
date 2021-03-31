@@ -57,23 +57,21 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database,
+	chainConfig *params.ChainConfig, vmConfig *vm.Config, evMux *event.TypeMux) *Backend {
 	if chainConfig.Tendermint.BlockPeriod != 0 {
 		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
 	}
+
+	logger := log.New("addr", crypto.PubkeyToAddress(privateKey.PublicKey).String())
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
-	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
-	logger := log.New("addr", pub)
-
-	logger.Warn("new backend with public key")
-
 	backend := &Backend{
 		config:         config,
-		eventMux:       event.NewTypeMuxSilent(logger),
+		eventMux:       evMux,
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         logger,
@@ -85,6 +83,8 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 		vmConfig:       vmConfig,
 	}
 
+	backend.logger.Warn("new backend with public key")
+
 	backend.pendingMessages.SetCapacity(ringCapacity)
 	backend.core = tendermintCore.New(backend, config)
 	return backend
@@ -94,7 +94,7 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 
 type Backend struct {
 	config       *tendermintConfig.Config
-	eventMux     *event.TypeMuxSilent
+	eventMux     *event.TypeMux
 	privateKey   *ecdsa.PrivateKey
 	address      common.Address
 	logger       log.Logger

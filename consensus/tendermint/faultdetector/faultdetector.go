@@ -6,7 +6,6 @@ import (
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
@@ -16,7 +15,6 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"math/big"
@@ -63,7 +61,6 @@ type FaultDetector struct {
 
 	// use below 2 members to forward consensus msg from protocol manager to faultdetector.
 	tendermintMsgSub *event.TypeMuxSubscription
-	tendermintMsgMux *event.TypeMuxSilent
 
 	// below 2 members subscribe block event to trigger execution
 	// of rule engine and make proof of innocent.
@@ -96,15 +93,16 @@ type FaultDetector struct {
 }
 
 // call by ethereum object to create fd instance.
-func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *FaultDetector {
+func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, sub *event.TypeMuxSubscription) *FaultDetector {
 	logger := log.New("FaultDetector", nodeAddress)
+
 	fd := &FaultDetector{
 		address:          nodeAddress,
 		blockChan:        make(chan core.ChainEvent, 300),
 		blockchain:       chain,
 		msgStore:         newMsgStore(),
 		logger:           logger,
-		tendermintMsgMux: event.NewTypeMuxSilent(logger),
+		tendermintMsgSub: sub,
 		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
 		totalPowers:      make(map[uint64]uint64),
 		stopped:          make(chan struct{}, 2),
@@ -112,10 +110,6 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address) *Fault
 
 	// register faultdetector contracts on evm's precompiled contract set.
 	registerFaultDetectorContracts(chain)
-
-	// subscribe tendermint msg
-	fd.tendermintMsgSub = fd.tendermintMsgMux.Subscribe(events.MessageEvent{})
-
 	return fd
 }
 
@@ -190,22 +184,6 @@ eventLoop:
 	}
 
 	fd.stopped <- struct{}{}
-}
-
-// HandleMsg is called by p2p protocol manager to deliver the consensus msg to faultdetector.
-func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
-	if msg.Code != tendermintBackend.TendermintMsg {
-		return
-	}
-
-	var data []byte
-	if err := msg.Decode(&data); err != nil {
-		log.Error("cannot decode consensus msg", "from", addr)
-		return
-	}
-
-	// post consensus event to event loop.
-	fd.tendermintMsgMux.Post(events.MessageEvent{Payload: data})
 }
 
 func (fd *FaultDetector) Stop() {
