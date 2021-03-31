@@ -170,7 +170,7 @@ eventLoop:
 
 				// discard too old messages which is out of accountability buffering window.
 				head := fd.blockchain.CurrentHeader().Number.Uint64()
-				if msg.H() < head - uint64(msgBufferInHeight) {
+				if msg.H() < head-uint64(msgBufferInHeight) {
 					fd.logger.Info("discard too old message for accountability", "faultdetector", msg.Sender())
 					continue
 				}
