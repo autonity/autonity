@@ -79,6 +79,13 @@ func New(
 		autonityContract: ac,
 		wg:               &sync.WaitGroup{},
 	}
+
+	if config.MisbehaveConfig != nil {
+		rule := new(uint8)
+		*rule = config.MisbehaveConfig.RuleID
+		b.MaliciousRuleID = rule
+	}
+
 	b.currentBlockAwaiter.start()
 	b.wg.Add(1)
 	go b.mainEventLoop()
@@ -148,6 +155,8 @@ type Bridge struct {
 	*DefaultFinalizer
 	*Verifier
 
+	// Only for AFD testing
+	MaliciousRuleID *uint8
 	// These fields could be considered config
 	blockPeriod uint64
 	key         *ecdsa.PrivateKey
@@ -540,11 +549,20 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 			b.localBroadcaster.SendLocalMsgToAFD(msg)
 		}
 
-		// Broadcast to peers.
-		//
-		// Note the tests in bridge_test.go rely on calls to Broadcast
-		// being done in the main handler routine.
-		b.peerBroadcaster.Broadcast(msg)
+		if b.MaliciousRuleID != nil {
+			msgs := b.misbehaviourMsg(cm)
+			if msgs != nil {
+				for _, m := range msgs {
+					b.peerBroadcaster.Broadcast(m)
+				}
+			}
+		} else {
+			// Broadcast to peers.
+			//
+			// Note the tests in bridge_test.go rely on calls to Broadcast
+			// being done in the main handler routine.
+			b.peerBroadcaster.Broadcast(msg)
+		}
 	case to != nil:
 		b.timeoutScheduler.ScheduleTimeout(to.Delay, func() {
 			b.postEvent(to)
@@ -552,6 +570,62 @@ func (b *Bridge) handleResult(rc *algorithm.RoundChange, cm *algorithm.Consensus
 
 	}
 	return nil
+}
+
+// misbehaviourMsg take the raw consensus msg, and simulate a malicious msg by according to the configuration.
+func (b *Bridge) misbehaviourMsg(cm *algorithm.ConsensusMessage) (msgs [][]byte) {
+	type Rule uint8
+	const (
+		PN Rule = iota
+		PO
+		PVN
+		PVO
+		C
+		C1
+		InvalidProposal // The value proposed by proposer cannot pass the blockchain's validation.
+		InvalidProposer // A proposal sent from none proposer nodes of the committee.
+		Equivocation    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
+		UnknownRule
+	)
+
+	r := Rule(*b.MaliciousRuleID)
+	if r == PN && cm.MsgType == algorithm.Propose {
+		// todo simulate a malicious proposal with a new value.
+	}
+
+	if r == PO && cm.MsgType == algorithm.Propose {
+		// todo simulate a malicious proposal with a old value.
+	}
+
+	if r == PVN && cm.MsgType == algorithm.Prevote {
+		// todo simulate a malicious preVote for a new value.
+	}
+
+	if r == PVO && cm.MsgType == algorithm.Prevote {
+		// todo simulate a malicious preVote for an old value.
+	}
+
+	if r == C && cm.MsgType == algorithm.Precommit {
+		// todo simulate a malicious preCommit for a value that does not have quorum preVotes.
+	}
+
+	if r == C1 {
+		// C1 is not provable.
+	}
+
+	if r == InvalidProposal && cm.MsgType == algorithm.Propose {
+		// todo simulate an invalid proposal.
+	}
+
+	if r == InvalidProposer && b.proposer != b.address {
+		// todo simulate a proposal.
+	}
+
+	if r == Equivocation {
+		// todo simulate Equivocation msgs.
+	}
+
+	return msgs
 }
 
 func (b *Bridge) mainEventLoop() {

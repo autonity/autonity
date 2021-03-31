@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -123,7 +124,7 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 		Tracker:   NewTransactionTracker(),
 	}
 
-	return node, node.Start()
+	return node, nil
 }
 
 // This creates the node.Node and eth.Ethereum and starts the node.Node and
@@ -262,6 +263,42 @@ func (n *Node) TxFee(ctx context.Context, tx *types.Transaction) (*big.Int, erro
 // create, start and stop a collection of nodes.
 type Network []*Node
 
+// NewNetworkWithMaliciousUser generate a network of nodes that are running and
+// mining, the index refer to the malicious user of the user slice, and the rule
+// ID is ID of the malicious behaviour. The malicious user will do a one-time shot
+// misbehaviour.
+func NewNetworkWithMaliciousUser(users []*gengen.User, index int, ruleID uint8) (Network, error) {
+	g, err := Genesis(users)
+	if err != nil {
+		return nil, err
+	}
+	network := make([]*Node, len(users))
+	for i, u := range users {
+		n, err := NewNode(u, g)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build node for network: %v", err)
+		}
+
+		if i == index {
+			n.EthConfig.Tendermint.MisbehaveConfig = &config.MaliciousConfig{RuleID: ruleID}
+		}
+
+		if err := n.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start node for network: %v", err)
+		}
+
+		network[i] = n
+	}
+	// There is a race condition in miner.worker its field snapshotBlock is set
+	// only when new transacting are received or commitNewWork is called. But
+	// both of these happen in goroutines separate to the call to miner.Start
+	// and miner.Start does not wait for snapshotBlock to be set. Therefore
+	// there is currently no way to know when it is safe to call estimate gas.
+	// What we do here is sleep a bit and cross our fingers.
+	time.Sleep(10 * time.Millisecond)
+	return network, nil
+}
+
 // NewNetworkFromUsers generates a network of nodes that are running and
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
@@ -277,6 +314,10 @@ func NewNetworkFromUsers(users []*gengen.User) (Network, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to build node for network: %v", err)
 		}
+		if err := n.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start node for network: %v", err)
+		}
+
 		network[i] = n
 	}
 	// There is a race condition in miner.worker its field snapshotBlock is set

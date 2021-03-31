@@ -22,6 +22,11 @@ var blockPeriod = flag.Uint64("blockperiod", 0, "The minimum time between blocks
 
 type Config struct {
 	BlockPeriod uint64 `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
+	MisbehaveConfig *MaliciousConfig
+}
+
+type MaliciousConfig struct {
+	RuleID uint8
 }
 
 func (c *Config) String() string {
