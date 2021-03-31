@@ -314,7 +314,7 @@ func (b *testBridges) stop() error {
 // originates.
 func (b *testBridges) broadcast(m *Message) error {
 	println("broadcasting", m.ConsensusMessage.String())
-	encoded, err := encodeSignedMessage(m.ConsensusMessage, b.byAddress(m.Address).key, m.Value)
+	encoded, err := EncodeSignedMessage(m.ConsensusMessage, b.byAddress(m.Address).key, m.Value)
 	if err != nil {
 		return err
 	}

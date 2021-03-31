@@ -138,7 +138,7 @@ func badMessageErr(description string, m *algorithm.ConsensusMessage, address co
 // Ok I don't think we actually need the proposer seal on messages other than
 // proposals. So we can just pass the block here rather than the store if we
 // are serialising a proposal.
-func encodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, proposalBlock *types.Block) ([]byte, error) {
+func EncodeSignedMessage(cm *algorithm.ConsensusMessage, key *ecdsa.PrivateKey, proposalBlock *types.Block) ([]byte, error) {
 
 	// If we are building a proposal then serialise the Value and generate the
 	// proposer seal.

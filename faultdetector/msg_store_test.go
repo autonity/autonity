@@ -2,8 +2,9 @@ package faultdetector
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"github.com/clearmatics/autonity/common"
+	tdm "github.com/clearmatics/autonity/consensus/tendermint"
+	algo "github.com/clearmatics/autonity/consensus/tendermint/algorithm"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/stretchr/testify/assert"
@@ -46,97 +47,50 @@ func newBlockHeader(height uint64, committee types.Committee) *types.Header {
 
 // new proposal with meta data, if the withValue is not nil, it will use the value as proposal, otherwise an
 // random block will be used as the value for proposal.
-func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey, committee types.Committee, withValue *types.Block) *core.Message {
+func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey, committee types.Committee, withValue *types.Block) *tdm.Message {
 	header := newBlockHeader(h, committee)
-	lastHeader := newBlockHeader(h-1, committee)
 	block := withValue
 	if withValue == nil {
 		block = types.NewBlockWithHeader(header)
 	}
 
-	proposal := &core.Proposal{
-		Round:         r,
-		Height:        new(big.Int).SetUint64(h),
-		ValidRound:    vr,
-		ProposalBlock: block,
+	p := &algo.ConsensusMessage{
+		MsgType:    algo.Propose,
+		Height:     h,
+		Round:      r,
+		Value:      algo.ValueID(block.Hash()),
+		ValidRound: vr,
 	}
-	encodeProposal, err := core.Encode(proposal)
+
+	msgBytes, err := tdm.EncodeSignedMessage(p, senderKey, block)
 	if err != nil {
 		return nil
 	}
 
-	msg := createMsg(encodeProposal, msgProposal, senderKey)
-
-	return decodeMsg(msg, lastHeader)
+	msg, err := tdm.DecodeSignedMessage(msgBytes)
+	if err != nil {
+		return nil
+	}
+	return msg
 }
 
-func newVoteMsg(h uint64, r int64, code uint64, senderKey *ecdsa.PrivateKey, value common.Hash, committee types.Committee) *core.Message {
-	lastHeader := newBlockHeader(h-1, committee)
-	var vote = core.Vote{
-		Round:             r,
-		Height:            new(big.Int).SetUint64(h),
-		ProposedBlockHash: value,
+func newVoteMsg(h uint64, r int64, msgType algo.Step, senderKey *ecdsa.PrivateKey, value common.Hash) *tdm.Message {
+	vote := &algo.ConsensusMessage{
+		MsgType: msgType,
+		Height:  h,
+		Round:   r,
+		Value:   algo.ValueID(value),
 	}
-
-	encodedVote, err := core.Encode(&vote)
+	msgBytes, err := tdm.EncodeSignedMessage(vote, senderKey, nil)
 	if err != nil {
 		return nil
 	}
 
-	msg := createMsg(encodedVote, code, senderKey)
-
-	return decodeMsg(msg, lastHeader)
-}
-
-func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
-	// 1. Get signature address
-	signer, err := types.GetSignatureAddress(data, sig)
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	// 2. Check validator
-	val := previousHeader.CommitteeMember(signer)
-	if val == nil {
-		return common.Address{}, fmt.Errorf("wrong membership")
-	}
-
-	return val.Address, nil
-}
-
-func createMsg(rlpBytes []byte, code uint64, senderKey *ecdsa.PrivateKey) *core.Message {
-	var msg = core.Message{
-		Code:          code,
-		Msg:           rlpBytes,
-		Address:       crypto.PubkeyToAddress(senderKey.PublicKey),
-		CommittedSeal: []byte{},
-	}
-	data, err := msg.PayloadNoSig()
+	msg, err := tdm.DecodeSignedMessage(msgBytes)
 	if err != nil {
 		return nil
 	}
-
-	hashData := crypto.Keccak256(data)
-	msg.Signature, err = crypto.Sign(hashData, senderKey)
-	if err != nil {
-		return nil
-	}
-	return &msg
-}
-
-// decode msg do the msg decoding and validation to recover the voting power and decodedMsg fields.
-func decodeMsg(msg *core.Message, lastHeader *types.Header) *core.Message {
-	m := new(core.Message)
-	err := m.FromPayload(msg.Payload())
-	if err != nil {
-		return nil
-	}
-
-	// validate msg and get voting power with last header.
-	if _, err = m.Validate(CheckValidatorSignature, lastHeader); err != nil {
-		return nil
-	}
-	return m
+	return msg
 }
 
 func TestMsgStore(t *testing.T) {
@@ -154,78 +108,78 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := newMsgStore()
-		proposals := ms.Get(height, func(m *core.Message) bool {
-			return m.Type() == msgProposal
+		proposals := ms.Get(height, func(m *tdm.Message) bool {
+			return m.Type() == algo.Propose
 		})
 		assert.Equal(t, 0, len(proposals))
 	})
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := newMsgStore()
-		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
+		preVoteNil := newVoteMsg(height, round, algo.Prevote, proposerKey, nilValue)
 		_, err := ms.Save(preVoteNil)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, proposerKey, noneNilValue, committee)
+		preVoteNoneNil := newVoteMsg(height, round, algo.Prevote, proposerKey, noneNilValue)
 		equivocatedMsgs, err := ms.Save(preVoteNoneNil)
 		assert.NotNil(t, equivocatedMsgs)
 		assert.Equal(t, err, errEquivocation)
-		assert.Equal(t, nilValue, equivocatedMsgs[0].Value())
+		assert.Equal(t, nilValue, equivocatedMsgs[0].V())
 		assert.Equal(t, addrAlice, equivocatedMsgs[0].Sender())
 		assert.Equal(t, height, equivocatedMsgs[0].H())
 		assert.Equal(t, round, equivocatedMsgs[0].R())
-		assert.Equal(t, msgPrevote, equivocatedMsgs[0].Type())
+		assert.Equal(t, algo.Prevote, equivocatedMsgs[0].Type())
 		// check equivocated msg is also stored at msg store.
-		votes := ms.Get(height, func(m *core.Message) bool {
-			return m.Type() == msgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
+		votes := ms.Get(height, func(m *tdm.Message) bool {
+			return m.Type() == algo.Prevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
 		})
 		assert.Equal(t, 2, len(votes))
 	})
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := newMsgStore()
-		preVote := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
+		preVote := newVoteMsg(height, round, algo.Prevote, proposerKey, nilValue)
 		_, err := ms.Save(preVote)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		votes := ms.Get(height, func(m *core.Message) bool {
-			return m.Type() == msgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
-				m.Value() == nilValue
+		votes := ms.Get(height, func(m *tdm.Message) bool {
+			return m.Type() == algo.Prevote && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
+				m.V() == nilValue
 		})
 
 		assert.Equal(t, 1, len(votes))
-		assert.Equal(t, msgPrevote, votes[0].Type())
+		assert.Equal(t, algo.Prevote, votes[0].Type())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, addrAlice, votes[0].Sender())
-		assert.Equal(t, nilValue, votes[0].Value())
+		assert.Equal(t, nilValue, votes[0].V())
 	})
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := newMsgStore()
-		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
+		preVoteNil := newVoteMsg(height, round, algo.Prevote, proposerKey, nilValue)
 		_, err := ms.Save(preVoteNil)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, keyBob, noneNilValue, committee)
+		preVoteNoneNil := newVoteMsg(height, round, algo.Prevote, keyBob, noneNilValue)
 		_, err = ms.Save(preVoteNoneNil)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		votes := ms.Get(height, func(m *core.Message) bool {
-			return m.Type() == msgPrevote && m.H() == height && m.R() == round
+		votes := ms.Get(height, func(m *tdm.Message) bool {
+			return m.Type() == algo.Prevote && m.H() == height && m.R() == round
 		})
 
 		assert.Equal(t, 2, len(votes))
-		assert.Equal(t, msgPrevote, votes[0].Type())
-		assert.Equal(t, msgPrevote, votes[1].Type())
+		assert.Equal(t, algo.Prevote, votes[0].Type())
+		assert.Equal(t, algo.Prevote, votes[1].Type())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, height, votes[1].H())
@@ -234,13 +188,13 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := newMsgStore()
-		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
+		preVoteNil := newVoteMsg(height, round, algo.Prevote, proposerKey, nilValue)
 		_, err := ms.Save(preVoteNil)
 		if err != nil {
 			assert.Error(t, err)
 		}
 
-		preVoteNoneNil := newVoteMsg(height, round, msgPrevote, keyBob, noneNilValue, committee)
+		preVoteNoneNil := newVoteMsg(height, round, algo.Prevote, keyBob, noneNilValue)
 		_, err = ms.Save(preVoteNoneNil)
 		if err != nil {
 			assert.Error(t, err)
@@ -248,7 +202,7 @@ func TestMsgStore(t *testing.T) {
 
 		ms.DeleteMsgsAtHeight(height)
 
-		votes := ms.Get(height, func(m *core.Message) bool {
+		votes := ms.Get(height, func(m *tdm.Message) bool {
 			return m.H() == height
 		})
 

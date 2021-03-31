@@ -37,7 +37,7 @@ func TestGetMatchingProposal(t *testing.T) {
 		ValidRound: -1,
 	}
 
-	msgBytes, err := encodeSignedMessage(p, k, b)
+	msgBytes, err := EncodeSignedMessage(p, k, b)
 	require.NoError(t, err)
 
 	msg, err := DecodeSignedMessage(msgBytes)
