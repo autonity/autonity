@@ -176,12 +176,12 @@ func addMsgHash(
 func (m *messageStore) addMessage(msg *Message, rawMsg []byte) error {
 	// Check Message is in bounds
 	if !m.messageBounds.in(msg.ConsensusMessage.Height) {
-		return fmt.Errorf("Message %v out of bounds", msg.String())
+		return fmt.Errorf("message %v out of bounds", msg.String())
 	}
 	// Check we haven't already processed this Message
 	if m.Message(msg.Hash) != nil {
 		// Message was already processed
-		return fmt.Errorf("Message %v already processed", msg.String())
+		return fmt.Errorf("message %v already processed", msg.String())
 	}
 	err := addMsgHash(m.msgHashes, msg.ConsensusMessage.Height, msg.ConsensusMessage.Round, msg.ConsensusMessage.MsgType, msg.Address, msg.Hash)
 	if err != nil {
