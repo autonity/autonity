@@ -208,11 +208,6 @@ func (fd *FaultDetector) HandleMsg(addr common.Address, msg p2p.Msg) {
 	fd.tendermintMsgMux.Post(events.MessageEvent{Payload: data})
 }
 
-// since tendermint gossip only send to remote peer, so to handle self msgs called by protocol manager.
-func (fd *FaultDetector) HandleSelfMsg(payload []byte) {
-	fd.tendermintMsgMux.Post(events.MessageEvent{Payload: payload})
-}
-
 func (fd *FaultDetector) Stop() {
 	if fd.cancel != nil {
 		fd.cancel()

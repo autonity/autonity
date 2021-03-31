@@ -28,8 +28,6 @@ type Broadcaster interface {
 	Enqueue(id string, block *types.Block)
 	// FindPeers retrives connected peers by addresses
 	FindPeers(map[common.Address]struct{}) map[common.Address]Peer
-	// BroadcastToLocal to forward self consensus msg to local node for accountability.
-	BroadcastToLocal(payload []byte)
 }
 
 // Peer defines the interface to communicate with peer
