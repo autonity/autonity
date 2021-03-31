@@ -150,7 +150,7 @@ eventLoop:
 			// msg store delete msgs out of buffering window.
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
 
-			// delete power out of buffering window.
+			// delete headers out of buffering window.
 			delete(fd.headers, ev.Block.NumberU64()-uint64(msgBufferInHeight))
 		// to handle consensus msg from p2p layer.
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
@@ -163,6 +163,13 @@ eventLoop:
 				m, err := tdm.DecodeSignedMessage(e.Payload)
 				if err != nil {
 					fd.logger.Error("cannot decode signed message", "faultdetector", err)
+					continue
+				}
+
+				// discard too old messages which is out of accountability buffering window.
+				head := fd.blockchain.CurrentHeader().Number.Uint64()
+				if m.H() < head - uint64(msgBufferInHeight) {
+					fd.logger.Info("discard too old message for accountability", "faultdetector", m.Sender())
 					continue
 				}
 
@@ -222,7 +229,7 @@ func (fd *FaultDetector) SubscribeAFDEvents(ch chan<- AccountabilityEvent) event
 
 // buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
 func (fd *FaultDetector) bufferMsg(m *tdm.Message) {
-	h := m.ConsensusMessage.Height
+	h := m.H()
 
 	fd.futureMsgs[h] = append(fd.futureMsgs[h], m)
 }
@@ -867,7 +874,7 @@ func checkEquivocation(m *tdm.Message, proof []tdm.Message) error {
 
 //checkFromCommittee, it check if msg is from valid member of the committee.
 func checkFromCommittee(chain *core.BlockChain, m *tdm.Message, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) error {
-	msgHeight := m.ConsensusMessage.Height
+	msgHeight := m.H()
 
 	header := currentHeader(chain)
 	if msgHeight > header.Number.Uint64()+1 {

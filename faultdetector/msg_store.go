@@ -4,7 +4,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	tdm "github.com/clearmatics/autonity/consensus/tendermint"
 	algo "github.com/clearmatics/autonity/consensus/tendermint/algorithm"
-	"github.com/clearmatics/autonity/core/types"
 )
 
 type MsgStore struct {
@@ -48,7 +47,7 @@ func (ms *MsgStore) Save(m *tdm.Message) ([]*tdm.Message, error) {
 
 	presented := false
 	for i := 0; i < len(msgs); i++ {
-		if types.RLPHash(msgs[i].Payload()) == types.RLPHash(m.Payload()) {
+		if msgs[i].MsgHash() == m.MsgHash() {
 			presented = true
 		}
 	}
