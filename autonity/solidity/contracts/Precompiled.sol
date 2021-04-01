@@ -22,7 +22,7 @@ library Precompiled {
         uint256[3] memory retVal;
         assembly {
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfd, proof, length, retVal, 96)) {
+            if iszero(staticcall(gas(), 0xfe, proof, length, retVal, 96)) {
                 revert(0, 0)
             }
         }
@@ -58,7 +58,7 @@ library Precompiled {
 
         assembly {
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xfe, proof, length, retVal, 96)) {
+            if iszero(staticcall(gas(), 0xfd, proof, length, retVal, 96)) {
                 revert(0, 0)
             }
         }

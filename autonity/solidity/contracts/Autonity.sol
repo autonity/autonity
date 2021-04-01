@@ -167,8 +167,7 @@ contract Autonity is IERC20 {
                     // todo: take governance action that msg.sender sent faulty proof of misbehaviour.
                     continue;
                 }
-                // misbehaviour proof is validated, release raw rlp bytes to save gas cost.
-                delete Proofs[i].rawproof;
+                // misbehaviour proof is validated
                 misBehaviours.push(Proofs[i]);
                 emit MisbehaviourAdded(Proofs[i]);
                 // todo: add slashing logic once challenge is valid.
