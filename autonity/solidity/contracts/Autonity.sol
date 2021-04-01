@@ -167,7 +167,6 @@ contract Autonity is IERC20 {
                     continue;
                 }
                 // misbehaviour proof is validated, release raw rlp bytes to save gas cost.
-                // delete Proofs[i].rawproof;
                 misBehaviours.push(Proofs[i]);
                 emit MisbehaviourAdded(Proofs[i]);
                 // todo: add slashing logic once challenge is valid.
