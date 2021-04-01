@@ -264,10 +264,9 @@ func (n *Node) TxFee(ctx context.Context, tx *types.Transaction) (*big.Int, erro
 type Network []*Node
 
 // NewNetworkWithMaliciousUser generate a network of nodes that are running and
-// mining, the index refer to the malicious user of the user slice, and the rule
-// ID is ID of the malicious behaviour. The malicious user will do a one-time shot
-// misbehaviour.
-func NewNetworkWithMaliciousUser(users []*gengen.User, index int, ruleID uint8) (Network, error) {
+// mining with a block period 1 second. The rule ID is ID of the malicious behaviour.
+// The malicious user will do a one-time shot misbehaviour.
+func NewNetworkWithMaliciousUser(users []*gengen.User, ruleID uint8) (Network, error) {
 	g, err := Genesis(users)
 	if err != nil {
 		return nil, err
@@ -279,9 +278,9 @@ func NewNetworkWithMaliciousUser(users []*gengen.User, index int, ruleID uint8) 
 			return nil, fmt.Errorf("failed to build node for network: %v", err)
 		}
 
-		if i == index {
-			n.EthConfig.Tendermint.MisbehaveConfig = &config.MaliciousConfig{RuleID: ruleID}
-		}
+		// set block period to 1 second since otherwise it cause none necessary accusations.
+		n.EthConfig.Tendermint.BlockPeriod = 1
+		n.EthConfig.Tendermint.MisbehaveConfig = &config.MaliciousConfig{RuleID: ruleID}
 
 		if err := n.Start(); err != nil {
 			return nil, fmt.Errorf("failed to start node for network: %v", err)
