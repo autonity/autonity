@@ -135,6 +135,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
+
 	var (
 		vmConfig = vm.Config{
 			EnablePreimageRecording: config.EnablePreimageRecording,
@@ -168,6 +169,11 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// copy config of fault simulation test to generated chainConfig.
+		if config.Tendermint.MisbehaveConfig != nil {
+			chainConfig.Tendermint.MisbehaveConfig = config.Tendermint.MisbehaveConfig
 		}
 	}
 	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit, cacheConfig.TrieCleanJournal)
