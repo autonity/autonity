@@ -174,6 +174,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		// copy config of fault simulation test to generated chainConfig.
 		if config.Tendermint.MisbehaveConfig != nil {
 			chainConfig.Tendermint.MisbehaveConfig = config.Tendermint.MisbehaveConfig
+			chainConfig.Tendermint.BlockPeriod = config.Tendermint.BlockPeriod
 		}
 	}
 	statedb := state.NewDatabaseWithCache(chainDb, cacheConfig.TrieCleanLimit, cacheConfig.TrieCleanJournal)
