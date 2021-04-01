@@ -19,7 +19,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"math/big"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
 )
@@ -948,10 +947,6 @@ func errorToRule(err error) (Rule, error) {
 
 func getProposer(chain *core.BlockChain, h uint64, r int64) (common.Address, error) {
 	parentHeader := chain.GetHeaderByNumber(h - 1)
-	if parentHeader.IsGenesis() {
-		sort.Sort(parentHeader.Committee)
-		return parentHeader.Committee[r%int64(len(parentHeader.Committee))].Address, nil
-	}
 
 	statedb, err := chain.StateAt(parentHeader.Root)
 	if err != nil {
