@@ -197,31 +197,3 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	err = n.SendETracked(context.Background(), network[1].Address, 10)
 	require.NoError(t, err)
 }
-
-func TestFaultDetectorMaliciousBehaviourPN(t *testing.T) {
-
-}
-
-func TestFaultDetectorMaliciousBehaviourPO(t *testing.T) {
-
-}
-
-func TestFaultDetectorMaliciousBehaviourPVN(t *testing.T) {
-
-}
-
-func TestFaultDetectorMaliciousBehaviourC(t *testing.T) {
-
-}
-
-func TestFaultDetectorMaliciousBehaviourInvalidProposal(t *testing.T) {
-
-}
-
-func TestFaultDetectorMaliciousBehaviourInvalidProposer(t *testing.T) {
-
-}
-
-func TestFaultDetectorMaliciousBehaviourEquivocation(t *testing.T) {
-
-}
