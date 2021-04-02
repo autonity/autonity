@@ -17,6 +17,9 @@ func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.Accountabilit
 		return
 	}
 
+	// todo: check returned error for the reason of sending failures, eg. oversize, try to break proofs into multiple TXs.
+	//  we cannot handle a single proof which exceed 512 KB that is the latest size of a transaction. It happens when
+	//  the proof contains a big proposal which contains the entire block.
 	e := s.TxPool().AddLocal(tx)
 	if e != nil {
 		log.Error("Cound not add TX into TX pool", "err", e)
@@ -31,10 +34,11 @@ func (s *Ethereum) generateAccountabilityTX(method string, proofs []autonity.OnC
 	abi := s.BlockChain().GetAutonityContract().ABI()
 	packedData, err := abi.Pack(method, proofs)
 	if err != nil {
+		log.Error("Cannot pack accountability transaction", "err", err)
 		return nil, err
 	}
 
-	// might to resolve a reasonable gas limit by weighting the bytes of TX.
+	// todo: estimate a reasonable gasLimit, and check if TX size exceed 512 KB, need to break proofs into multiple TXs.
 	return types.SignTx(
 		types.NewTransaction(nonce, to, common.Big0, 210000000, s.gasPrice, packedData),
 		types.HomesteadSigner{},
