@@ -11,52 +11,73 @@ import (
 )
 
 func TestFaultDetectorMaliciousBehaviourPN(t *testing.T) {
-	network, cancel := setupNetworkWithMaliciousBehaviour(t, 4, faultdetector.PN, 90*time.Second)
+	to := 90 * time.Second
+	rule := faultdetector.PN
+	committeeSize := 4
+	network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	verifyOnChainProof(t, network, faultdetector.PN)
+	verifyOnChainProof(t, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourPO(t *testing.T) {
-	network, cancel := setupNetworkWithMaliciousBehaviour(t, 4, faultdetector.PO, 90*time.Second)
+	to := 90 * time.Second
+	rule := faultdetector.PO
+	committeeSize := 4
+	network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	verifyOnChainProof(t, network, faultdetector.PO)
+	verifyOnChainProof(t, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourPVN(t *testing.T) {
-	network, cancel := setupNetworkWithMaliciousBehaviour(t, 4, faultdetector.PVN, 90*time.Second)
+	to := 90 * time.Second
+	rule := faultdetector.PVN
+	committeeSize := 4
+	network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	verifyOnChainProof(t, network, faultdetector.PVN)
+	verifyOnChainProof(t, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourC(t *testing.T) {
-	network, cancel := setupNetworkWithMaliciousBehaviour(t, 4, faultdetector.C, 90*time.Second)
+	to := 90 * time.Second
+	rule := faultdetector.C
+	committeeSize := 4
+	network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	verifyOnChainProof(t, network, faultdetector.C)
+	verifyOnChainProof(t, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourInvalidProposal(t *testing.T) {
-	network, cancel := setupNetworkWithMaliciousBehaviour(t, 4, faultdetector.InvalidProposal, 90*time.Second)
+	to := 90 * time.Second
+	rule := faultdetector.InvalidProposal
+	committeeSize := 4
+	network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	verifyOnChainProof(t, network, faultdetector.InvalidProposal)
+	verifyOnChainProof(t, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourInvalidProposer(t *testing.T) {
-	network, cancel := setupNetworkWithMaliciousBehaviour(t, 4, faultdetector.InvalidProposer, 90*time.Second)
+	to := 90 * time.Second
+	rule := faultdetector.InvalidProposer
+	committeeSize := 4
+	network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	verifyOnChainProof(t, network, faultdetector.InvalidProposer)
+	verifyOnChainProof(t, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourEquivocation(t *testing.T) {
-	network, cancel := setupNetworkWithMaliciousBehaviour(t, 4, faultdetector.Equivocation, 90*time.Second)
+	to := 90 * time.Second
+	rule := faultdetector.Equivocation
+	committeeSize := 4
+	network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	verifyOnChainProof(t, network, faultdetector.Equivocation)
+	verifyOnChainProof(t, network, rule)
 }
 
 func setupNetworkWithMaliciousBehaviour(t *testing.T, committeeSize int, ruleID faultdetector.Rule,
@@ -75,6 +96,6 @@ func setupNetworkWithMaliciousBehaviour(t *testing.T, committeeSize int, ruleID 
 	return network, cancel
 }
 
-func verifyOnChainProof(t *testing.T, network test.Network, ruleID faultdetector.Rule) {
-	// todo: fetch and check if on-chain proofs of misbehaviour presented.
+func verifyOnChainProof(t *testing.T, network test.Network, ruleID faultdetector.Rule) { // nolint
+	// todo: fetch and check if on-chain proofs of misbehaviour presented. // nolint
 }
