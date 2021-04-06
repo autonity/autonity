@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/autonity"
 	"math/big"
 
 	"github.com/clearmatics/autonity"
@@ -514,6 +515,19 @@ func (ec *Client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64
 		return 0, err
 	}
 	return uint64(hex), nil
+}
+
+// GetOnChainProofs get the on-chain proofs of misbehaviour or accusation produced by
+// accountability module.
+// the method: "aut_getAccusations" returns the on-chain proofs of accusation.
+// the method: "aut_getMisbehaviours" returns the on-chain proofs of misbehaviour.
+func (ec *Client) GetOnChainProofs(ctx context.Context, method string) ([]autonity.OnChainProof, error) {
+	var proofs []autonity.OnChainProof
+	err := ec.c.CallContext(ctx, &proofs, method)
+	if err != nil {
+		return nil, err
+	}
+	return proofs, nil
 }
 
 // SendTransaction injects a signed transaction into the pending pool for execution.

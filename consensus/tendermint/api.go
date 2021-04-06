@@ -87,6 +87,34 @@ func (api *API) GetContractABI() string {
 	return api.autonityContract.StringABI()
 }
 
+func (api *API) GetAccusations() []autonity.OnChainProof {
+	b, err := api.blockRetriever.LatestBlock()
+	if err != nil {
+		panic(err)
+	}
+	state, err := api.blockRetriever.BlockState(b.Root())
+	if err != nil {
+		panic(err)
+	}
+
+	proofs := api.autonityContract.GetAccusations(b.Header(), state)
+	return proofs
+}
+
+func (api *API) GetMisbehaviours() []autonity.OnChainProof {
+	b, err := api.blockRetriever.LatestBlock()
+	if err != nil {
+		panic(err)
+	}
+	state, err := api.blockRetriever.BlockState(b.Root())
+	if err != nil {
+		panic(err)
+	}
+
+	proofs := api.autonityContract.GetMisBehaviours(b.Header(), state)
+	return proofs
+}
+
 // Whitelist for the current block
 func (api *API) GetWhitelist() []string {
 	// TODO this should really return errors
