@@ -18,7 +18,6 @@
 package eth
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -556,7 +555,7 @@ func (s *Ethereum) Start() error {
 	if s.faultDetector != nil {
 		s.faultDetectorSub = s.faultDetector.SubscribeFaultDetectorEvents(s.faultDetectorCh)
 		go s.faultDetectorTXEventLoop()
-		go s.faultDetector.FaultDetectorEventLoop(context.Background())
+		s.faultDetector.FaultDetectorEventLoop()
 	}
 
 	s.startEthEntryUpdate(s.p2pServer.LocalNode())
