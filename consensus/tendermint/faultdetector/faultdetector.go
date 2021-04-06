@@ -95,7 +95,48 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, sub *e
 
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // Fault Detector rule engine could also triggered from here to scan those msgs of msg store by applying rules.
-func (fd *FaultDetector) FaultDetectorEventLoop(ctx context.Context) {
+func (fd *FaultDetector) FaultDetectorEventLoop() {
+	go fd.blockEventLoop()
+	go fd.tendermintMsgEventLoop()
+}
+
+func (fd *FaultDetector) tendermintMsgEventLoop() {
+	for {
+		select {
+		// to handle consensus msg from p2p layer.
+		case ev, ok := <-fd.tendermintMsgSub.Chan():
+			if !ok {
+				return
+			}
+
+			mv, ok := ev.Data.(events.MessageEvent)
+			if !ok {
+				return
+			}
+
+			msg := new(tendermintCore.Message)
+			if err := msg.FromPayload(mv.Payload); err != nil {
+				fd.logger.Error("invalid payload", "faultdetector", err)
+				continue
+			}
+
+			// discard too old messages which is out of accountability buffering window.
+			head := fd.blockchain.CurrentHeader().Number.Uint64()
+			if msg.H() < head-uint64(msgBufferInHeight) {
+				fd.logger.Info("discard too old message for accountability", "faultdetector", msg.Sender())
+				continue
+			}
+
+			if err := fd.processMsg(msg); err != nil {
+				fd.logger.Warn("process consensus msg", "faultdetector", err)
+				continue
+			}
+
+		}
+	}
+}
+
+func (fd *FaultDetector) blockEventLoop() {
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockChan)
 
 	for {
@@ -127,41 +168,15 @@ func (fd *FaultDetector) FaultDetectorEventLoop(ctx context.Context) {
 
 			// delete power out of buffering window.
 			delete(fd.totalPowers, ev.Block.NumberU64()-uint64(msgBufferInHeight))
-		// to handle consensus msg from p2p layer.
-		case ev, ok := <-fd.tendermintMsgSub.Chan():
+
+		case err, ok := <-fd.blockSub.Err():
 			if !ok {
-				break eventLoop
+				// todo: think about returning the error
+				fd.logger.Error("block subscription error", err.Error())
 			}
-			switch e := ev.Data.(type) {
-			case events.MessageEvent:
-				msg := new(tendermintCore.Message)
-				if err := msg.FromPayload(e.Payload); err != nil {
-					fd.logger.Error("invalid payload", "faultdetector", err)
-					continue
-				}
-
-				// discard too old messages which is out of accountability buffering window.
-				head := fd.blockchain.CurrentHeader().Number.Uint64()
-				if msg.H() < head-uint64(msgBufferInHeight) {
-					fd.logger.Info("discard too old message for accountability", "faultdetector", msg.Sender())
-					continue
-				}
-
-				if err := fd.processMsg(msg); err != nil {
-					fd.logger.Warn("process consensus msg", "faultdetector", err)
-					continue
-				}
-			}
-
-		case <-fd.blockSub.Err():
-			break eventLoop
-		case <-ctx.Done():
-			fd.logger.Info("FaultDetectorEventLoop is stopped", "event", ctx.Err())
-			break eventLoop
+			return
 		}
 	}
-
-	fd.stopped <- struct{}{}
 }
 
 func (fd *FaultDetector) Stop() {
