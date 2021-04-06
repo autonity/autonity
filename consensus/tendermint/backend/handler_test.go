@@ -72,7 +72,7 @@ func TestTendermintMessage(t *testing.T) {
 
 func TestSynchronisationMessage(t *testing.T) {
 	t.Run("engine not running, ignored", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		eventMux := new(event.TypeMux)
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
 			coreStarted: false,
@@ -93,7 +93,7 @@ func TestSynchronisationMessage(t *testing.T) {
 	})
 
 	t.Run("engine running, sync returned", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		eventMux := new(event.TypeMux)
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
 			coreStarted: true,
@@ -139,7 +139,7 @@ func TestNewChainHead(t *testing.T) {
 	t.Run("engine is running, no errors", func(t *testing.T) {
 		b := &Backend{
 			coreStarted: true,
-			eventMux:    event.NewTypeMuxSilent(log.New("backend", "test", "id", 0)),
+			eventMux:    new(event.TypeMux),
 		}
 
 		err := b.NewChainHead()
