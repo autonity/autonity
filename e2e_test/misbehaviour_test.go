@@ -18,7 +18,8 @@ func TestFaultDetectorMaliciousBehaviourPN(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(ctx, t, to, network, rule)
+	exist := keepCheckingProofExistence(ctx, t, to, network, rule)
+	require.Equal(t, true, exist)
 }
 
 func TestFaultDetectorMaliciousBehaviourPO(t *testing.T) {
@@ -28,7 +29,8 @@ func TestFaultDetectorMaliciousBehaviourPO(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(ctx, t, to, network, rule)
+	exist := keepCheckingProofExistence(ctx, t, to, network, rule)
+	require.Equal(t, true, exist)
 }
 
 func TestFaultDetectorMaliciousBehaviourPVN(t *testing.T) {
@@ -38,17 +40,19 @@ func TestFaultDetectorMaliciousBehaviourPVN(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(ctx, t, to, network, rule)
+	exist := keepCheckingProofExistence(ctx, t, to, network, rule)
+	require.Equal(t, true, exist)
 }
 
 func TestFaultDetectorMaliciousBehaviourC(t *testing.T) {
 	to := 90 * time.Second
 	rule := faultdetector.C
-	committeeSize := 4
+	committeeSize := 5
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(ctx, t, to, network, rule)
+	exist := keepCheckingProofExistence(ctx, t, to, network, rule)
+	require.Equal(t, true, exist)
 }
 
 func TestFaultDetectorMaliciousBehaviourInvalidProposal(t *testing.T) {
@@ -58,7 +62,8 @@ func TestFaultDetectorMaliciousBehaviourInvalidProposal(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(ctx, t, to, network, rule)
+	exist := keepCheckingProofExistence(ctx, t, to, network, rule)
+	require.Equal(t, true, exist)
 }
 
 func TestFaultDetectorMaliciousBehaviourInvalidProposer(t *testing.T) {
@@ -68,7 +73,8 @@ func TestFaultDetectorMaliciousBehaviourInvalidProposer(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(ctx, t, to, network, rule)
+	exist := keepCheckingProofExistence(ctx, t, to, network, rule)
+	require.Equal(t, true, exist)
 }
 
 func TestFaultDetectorMaliciousBehaviourEquivocation(t *testing.T) {
@@ -78,11 +84,11 @@ func TestFaultDetectorMaliciousBehaviourEquivocation(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(ctx, t, to, network, rule)
+	exist := keepCheckingProofExistence(ctx, t, to, network, rule)
+	require.Equal(t, true, exist)
 }
 
-func setupNetworkWithMaliciousBehaviour(t *testing.T, committeeSize int, ruleID faultdetector.Rule,
-	timeout time.Duration) (context.Context, test.Network, context.CancelFunc) {
+func setupNetworkWithMaliciousBehaviour(t *testing.T, committeeSize int, ruleID faultdetector.Rule, timeout time.Duration) (context.Context, test.Network, context.CancelFunc) { // nolint: unparam
 	users, err := test.Users(committeeSize, "10e18,v,1,0.0.0.0:%s,%s", 11111)
 	require.NoError(t, err)
 	for i := 0; i < committeeSize; i++ {
@@ -99,8 +105,7 @@ func setupNetworkWithMaliciousBehaviour(t *testing.T, committeeSize int, ruleID 
 
 // keepCheckingProof will keep trying to check if the wanted proof is presented on-chain until either
 // we get a result from doSomething() or the timeout expires
-func keepCheckingProofExistence(c context.Context, t *testing.T, to time.Duration, net test.Network,
-	ruleID faultdetector.Rule) bool {
+func keepCheckingProofExistence(c context.Context, t *testing.T, to time.Duration, net test.Network, ruleID faultdetector.Rule) bool { // nolint: unparam
 	timeout := time.After(to)
 	tick := time.Tick(1 * time.Second)
 	// Keep trying until we're timed out or got a result or got an error
