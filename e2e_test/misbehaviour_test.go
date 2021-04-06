@@ -18,7 +18,7 @@ func TestFaultDetectorMaliciousBehaviourPN(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(t, to, ctx, network, rule)
+	keepCheckingProofExistence(ctx, t, to, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourPO(t *testing.T) {
@@ -28,7 +28,7 @@ func TestFaultDetectorMaliciousBehaviourPO(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(t, to, ctx, network, rule)
+	keepCheckingProofExistence(ctx, t, to, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourPVN(t *testing.T) {
@@ -38,7 +38,7 @@ func TestFaultDetectorMaliciousBehaviourPVN(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(t, to, ctx, network, rule)
+	keepCheckingProofExistence(ctx, t, to, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourC(t *testing.T) {
@@ -48,7 +48,7 @@ func TestFaultDetectorMaliciousBehaviourC(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(t, to, ctx, network, rule)
+	keepCheckingProofExistence(ctx, t, to, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourInvalidProposal(t *testing.T) {
@@ -58,7 +58,7 @@ func TestFaultDetectorMaliciousBehaviourInvalidProposal(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(t, to, ctx, network, rule)
+	keepCheckingProofExistence(ctx, t, to, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourInvalidProposer(t *testing.T) {
@@ -68,7 +68,7 @@ func TestFaultDetectorMaliciousBehaviourInvalidProposer(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(t, to, ctx, network, rule)
+	keepCheckingProofExistence(ctx, t, to, network, rule)
 }
 
 func TestFaultDetectorMaliciousBehaviourEquivocation(t *testing.T) {
@@ -78,7 +78,7 @@ func TestFaultDetectorMaliciousBehaviourEquivocation(t *testing.T) {
 	ctx, network, cancel := setupNetworkWithMaliciousBehaviour(t, committeeSize, rule, to)
 	defer network.Shutdown()
 	defer cancel()
-	keepCheckingProofExistence(t, to, ctx, network, rule)
+	keepCheckingProofExistence(ctx, t, to, network, rule)
 }
 
 func setupNetworkWithMaliciousBehaviour(t *testing.T, committeeSize int, ruleID faultdetector.Rule,
@@ -99,7 +99,7 @@ func setupNetworkWithMaliciousBehaviour(t *testing.T, committeeSize int, ruleID 
 
 // keepCheckingProof will keep trying to check if the wanted proof is presented on-chain until either
 // we get a result from doSomething() or the timeout expires
-func keepCheckingProofExistence(t *testing.T, to time.Duration, c context.Context, net test.Network,
+func keepCheckingProofExistence(c context.Context, t *testing.T, to time.Duration, net test.Network,
 	ruleID faultdetector.Rule) bool {
 	timeout := time.After(to)
 	tick := time.Tick(1 * time.Second)
@@ -109,14 +109,14 @@ func keepCheckingProofExistence(t *testing.T, to time.Duration, c context.Contex
 		case <-timeout:
 			return false
 		case <-tick:
-			if proofExists(t, c, net, ruleID) {
+			if proofExists(c, t, net, ruleID) {
 				return true
 			}
 		}
 	}
 }
 
-func proofExists(t *testing.T, c context.Context, network test.Network, ruleID faultdetector.Rule) bool { // nolint
+func proofExists(c context.Context, t *testing.T, network test.Network, ruleID faultdetector.Rule) bool { // nolint
 	mis, err := network[0].WsClient.GetOnChainProofs(c, "tendermint_getMisbehaviours")
 	require.NoError(t, err)
 	expected := false
