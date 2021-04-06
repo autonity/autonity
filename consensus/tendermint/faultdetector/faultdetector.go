@@ -54,29 +54,17 @@ type ProposalChecker func(chain *core.BlockChain, proposal types.Block) error
 // read state db on each new height to get latest challenges from autonity contract's view,
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
-	// use below 3 members to send proof via transaction issuing.
 	wg                sync.WaitGroup
 	faultDetectorFeed event.Feed
-	scope             event.SubscriptionScope
+	tendermintMsgSub  *event.TypeMuxSubscription
 
-	// use below 2 members to forward consensus msg from protocol manager to faultdetector.
-	tendermintMsgSub *event.TypeMuxSubscription
-
-	// below 2 members subscribe block event to trigger execution
-	// of rule engine and make proof of innocent.
-	blockChan chan core.ChainEvent
-	blockSub  event.Subscription
-
-	// chain context to validate consensus msgs.
+	blockChan  chan core.ChainEvent
+	blockSub   event.Subscription
 	blockchain *core.BlockChain
 
-	// node address
 	address common.Address
 
-	// msg store
-	msgStore *MsgStore
-
-	// future height msg buffer
+	msgStore   *MsgStore
 	futureMsgs map[uint64][]*tendermintCore.Message
 
 	// buffer quorum for blocks.
@@ -86,22 +74,19 @@ type FaultDetector struct {
 	bufferedProofs []autonity.OnChainProof
 
 	stopped chan struct{}
-
-	cancel context.CancelFunc
+	cancel  context.CancelFunc
 
 	logger log.Logger
 }
 
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, sub *event.TypeMuxSubscription) *FaultDetector {
-	logger := log.New("FaultDetector", nodeAddress)
-
 	fd := &FaultDetector{
 		address:          nodeAddress,
 		blockChan:        make(chan core.ChainEvent, 300),
 		blockchain:       chain,
 		msgStore:         newMsgStore(),
-		logger:           logger,
+		logger:           log.New("FaultDetector", nodeAddress),
 		tendermintMsgSub: sub,
 		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
 		totalPowers:      make(map[uint64]uint64),
@@ -190,7 +175,6 @@ func (fd *FaultDetector) Stop() {
 	if fd.cancel != nil {
 		fd.cancel()
 	}
-	fd.scope.Close()
 	fd.blockSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	<-fd.stopped
@@ -200,7 +184,7 @@ func (fd *FaultDetector) Stop() {
 
 // call by ethereum object to subscribe proofs Events.
 func (fd *FaultDetector) SubscribeFaultDetectorEvents(ch chan<- AccountabilityEvent) event.Subscription {
-	return fd.scope.Track(fd.faultDetectorFeed.Subscribe(ch))
+	return fd.faultDetectorFeed.Subscribe(ch)
 }
 
 // buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
