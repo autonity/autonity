@@ -102,36 +102,32 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 
 func (fd *FaultDetector) tendermintMsgEventLoop() {
 	for {
-		select {
-		// to handle consensus msg from p2p layer.
-		case ev, ok := <-fd.tendermintMsgSub.Chan():
-			if !ok {
-				return
-			}
+		ev, ok := <-fd.tendermintMsgSub.Chan()
+		if !ok {
+			return
+		}
 
-			mv, ok := ev.Data.(events.MessageEvent)
-			if !ok {
-				return
-			}
+		mv, ok := ev.Data.(events.MessageEvent)
+		if !ok {
+			return
+		}
 
-			msg := new(tendermintCore.Message)
-			if err := msg.FromPayload(mv.Payload); err != nil {
-				fd.logger.Error("invalid payload", "faultdetector", err)
-				continue
-			}
+		msg := new(tendermintCore.Message)
+		if err := msg.FromPayload(mv.Payload); err != nil {
+			fd.logger.Error("invalid payload", "faultdetector", err)
+			continue
+		}
 
-			// discard too old messages which is out of accountability buffering window.
-			head := fd.blockchain.CurrentHeader().Number.Uint64()
-			if msg.H() < head-uint64(msgBufferInHeight) {
-				fd.logger.Info("discard too old message for accountability", "faultdetector", msg.Sender())
-				continue
-			}
+		// discard too old messages which is out of accountability buffering window.
+		head := fd.blockchain.CurrentHeader().Number.Uint64()
+		if msg.H() < head-uint64(msgBufferInHeight) {
+			fd.logger.Info("discard too old message for accountability", "faultdetector", msg.Sender())
+			continue
+		}
 
-			if err := fd.processMsg(msg); err != nil {
-				fd.logger.Warn("process consensus msg", "faultdetector", err)
-				continue
-			}
-
+		if err := fd.processMsg(msg); err != nil {
+			fd.logger.Warn("process consensus msg", "faultdetector", err)
+			continue
 		}
 	}
 }
