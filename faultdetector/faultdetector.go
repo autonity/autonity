@@ -795,6 +795,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64) (proofs []Proof) {
 			return m.Type() == algo.Prevote && m.V() == precommit.V() && m.R() == precommit.R() // nolint: scopelint
 		})
 
+		// todo: since we store equivocation msgs, this misbehaviour of C is not 100% provable anymore.
 		if powerOfVotes(prevotesForNotV, lastHeader) >= quorum {
 			// In this case there cannot be enough remaining prevotes
 			// to justify a precommit for V.

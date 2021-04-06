@@ -114,15 +114,19 @@ func (b *Bridge) createMisbehaviourContext(innocentMsg *algorithm.ConsensusMessa
 	}
 
 	// simulate a context of msgs that node preCommit at a value V of the round where exist quorum preVotes
-	// for not V.
+	// for not V, in this case, we simulate quorum prevotes for not V, to trigger the fault of breaking of C.
+	// TODO: since we store equivocation msgs in msg store, this Misbehaviour of C cannot 100% provable anymore.
 	maliciousContextC := func() [][]byte {
-		msgC := msg(algorithm.Precommit, innocentMsg.Height, innocentMsg.Round, nonNilValue, 0)
-		mC, err := EncodeSignedMessage(msgC, b.key, nil)
-		if err != nil {
-			return nil
-		}
+		if innocentMsg.Height == uint64(5) && innocentMsg.Round == 0 {
+			msgPV := msg(algorithm.Prevote, innocentMsg.Height, innocentMsg.Round, nonNilValue, 0)
+			mPV, err := EncodeSignedMessage(msgPV, b.key, nil)
+			if err != nil {
+				return nil
+			}
 
-		return append(msgs, mC)
+			return append(msgs, mPV)
+		}
+		return msgs
 	}
 
 	// simulate an invalid proposal.
