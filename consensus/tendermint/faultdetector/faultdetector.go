@@ -63,8 +63,9 @@ type FaultDetector struct {
 
 	address common.Address
 
-	msgStore   *MsgStore
-	futureMsgs map[uint64][]*tendermintCore.Message
+	msgStore    *MsgStore
+	futureMsgRW *sync.RWMutex
+	futureMsgs  map[uint64][]*tendermintCore.Message
 
 	// buffer quorum for blocks.
 	totalPowers map[uint64]uint64
@@ -85,6 +86,7 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, sub *e
 		logger:           log.New("FaultDetector", nodeAddress),
 		tendermintMsgSub: sub,
 		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
+		futureMsgRW:      &sync.RWMutex{},
 		totalPowers:      make(map[uint64]uint64),
 	}
 
@@ -194,6 +196,8 @@ func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
 		return
 	}
 
+	fd.futureMsgRW.Lock()
+	defer fd.futureMsgRW.Unlock()
 	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
 }
 
@@ -412,6 +416,8 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 
 // processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
 func (fd *FaultDetector) processBufferedMsgs(height uint64) {
+	fd.futureMsgRW.RLock()
+	defer fd.futureMsgRW.RUnlock()
 	for h, msgs := range fd.futureMsgs {
 		if h <= height {
 			for i := 0; i < len(msgs); i++ {
