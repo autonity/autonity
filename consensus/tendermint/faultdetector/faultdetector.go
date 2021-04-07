@@ -112,6 +112,7 @@ func (fd *FaultDetector) tendermintMsgEventLoop() {
 
 		mv, ok := ev.Data.(events.MessageEvent)
 		if !ok {
+			fd.logger.Crit("programming error", "cannot cast message event to events.MessageEvent instead received ", ev.Data)
 			return
 		}
 
@@ -174,7 +175,7 @@ func (fd *FaultDetector) blockEventLoop() {
 
 		case err, ok := <-fd.blockSub.Err():
 			if ok {
-				// todo: think about returning the error
+				// todo: think about returning the error, same for other go routines
 				fd.logger.Error("block subscription error", err.Error())
 			}
 			return

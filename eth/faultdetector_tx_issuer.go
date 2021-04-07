@@ -42,13 +42,15 @@ func (s *Ethereum) generateAccountabilityTX(method string, proofs []autonity.OnC
 }
 
 func (s *Ethereum) faultDetectorTXEventLoop() {
-	for {
-		select {
-		case event := <-s.faultDetectorCh:
-			s.sendAccountabilityTransaction(&event)
-		// Err() channel will be closed when unsubscribing.
-		case <-s.faultDetectorSub.Err():
-			return
+	go func() {
+		for {
+			select {
+			case event := <-s.faultDetectorCh:
+				s.sendAccountabilityTransaction(&event)
+			// Err() channel will be closed when unsubscribing.
+			case <-s.faultDetectorSub.Err():
+				return
+			}
 		}
-	}
+	}()
 }

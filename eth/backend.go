@@ -554,7 +554,7 @@ func (s *Ethereum) Start() error {
 
 	if s.faultDetector != nil {
 		s.faultDetectorSub = s.faultDetector.SubscribeFaultDetectorEvents(s.faultDetectorCh)
-		go s.faultDetectorTXEventLoop()
+		s.faultDetectorTXEventLoop()
 		s.faultDetector.FaultDetectorEventLoop()
 	}
 
