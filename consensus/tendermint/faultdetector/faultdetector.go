@@ -55,7 +55,7 @@ type ProposalChecker func(chain *core.BlockChain, proposal types.Block) error
 type FaultDetector struct {
 	sync.RWMutex
 
-	wg                sync.WaitGroup
+	proofWG           sync.WaitGroup
 	faultDetectorFeed event.Feed
 
 	tendermintMsgSub *event.TypeMuxSubscription
@@ -186,7 +186,7 @@ func (fd *FaultDetector) blockEventLoop() {
 func (fd *FaultDetector) Stop() {
 	fd.blockSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
-	fd.wg.Wait()
+	fd.proofWG.Wait()
 	unRegisterFaultDetectorContracts()
 }
 
@@ -792,9 +792,9 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 // send proofs via event which will handled by ethereum object to signed the TX to send proof.
 func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
-	fd.wg.Add(1)
+	fd.proofWG.Add(1)
 	go func() {
-		defer fd.wg.Done()
+		defer fd.proofWG.Done()
 		randomDelay()
 		unPresented := fd.filterPresentedOnes(&proofs)
 		if len(unPresented) != 0 {
