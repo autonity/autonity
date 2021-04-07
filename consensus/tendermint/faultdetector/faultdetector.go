@@ -166,7 +166,7 @@ func (fd *FaultDetector) blockEventLoop() {
 			delete(fd.totalPowers, ev.Block.NumberU64()-uint64(msgBufferInHeight))
 
 		case err, ok := <-fd.blockSub.Err():
-			if !ok {
+			if ok {
 				// todo: think about returning the error
 				fd.logger.Error("block subscription error", err.Error())
 			}
