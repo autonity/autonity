@@ -53,19 +53,20 @@ type ProposalChecker func(chain *core.BlockChain, proposal types.Block) error
 // read state db on each new height to get latest challenges from autonity contract's view,
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
+	sync.RWMutex
+
 	wg                sync.WaitGroup
 	faultDetectorFeed event.Feed
-	tendermintMsgSub  *event.TypeMuxSubscription
 
-	blockChan  chan core.ChainEvent
-	blockSub   event.Subscription
+	tendermintMsgSub *event.TypeMuxSubscription
+	blockChan        chan core.ChainEvent
+	blockSub         event.Subscription
+
 	blockchain *core.BlockChain
 
-	address common.Address
-
-	msgStore    *MsgStore
-	futureMsgRW *sync.RWMutex
-	futureMsgs  map[uint64][]*tendermintCore.Message
+	address    common.Address
+	msgStore   *MsgStore
+	futureMsgs map[uint64][]*tendermintCore.Message
 
 	// buffer quorum for blocks.
 	totalPowers map[uint64]uint64
@@ -79,6 +80,7 @@ type FaultDetector struct {
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, sub *event.TypeMuxSubscription) *FaultDetector {
 	fd := &FaultDetector{
+		RWMutex:          sync.RWMutex{},
 		address:          nodeAddress,
 		blockChan:        make(chan core.ChainEvent, 300),
 		blockchain:       chain,
@@ -86,7 +88,6 @@ func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, sub *e
 		logger:           log.New("FaultDetector", nodeAddress),
 		tendermintMsgSub: sub,
 		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
-		futureMsgRW:      &sync.RWMutex{},
 		totalPowers:      make(map[uint64]uint64),
 	}
 
@@ -149,13 +150,17 @@ func (fd *FaultDetector) blockEventLoop() {
 			// handle accusations and provide innocence proof if there were any for a node.
 			innocenceProofs, _ := fd.handleAccusations(ev.Block, ev.Block.Root())
 			if innocenceProofs != nil {
+				fd.Lock()
 				fd.bufferedProofs = append(fd.bufferedProofs, innocenceProofs...)
+				fd.Unlock()
 			}
 
 			// run rule engine over a specific height.
 			proofs := fd.runRuleEngine(ev.Block.NumberU64())
 			if proofs != nil {
+				fd.Lock()
 				fd.bufferedProofs = append(fd.bufferedProofs, proofs...)
+				fd.Unlock()
 			}
 
 			// aggregate buffered proofs into single TX and send.
@@ -196,8 +201,8 @@ func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
 		return
 	}
 
-	fd.futureMsgRW.Lock()
-	defer fd.futureMsgRW.Unlock()
+	fd.Lock()
+	defer fd.Unlock()
 	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
 }
 
@@ -416,8 +421,8 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 
 // processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
 func (fd *FaultDetector) processBufferedMsgs(height uint64) {
-	fd.futureMsgRW.RLock()
-	defer fd.futureMsgRW.RUnlock()
+	fd.RLock()
+	defer fd.RUnlock()
 	for h, msgs := range fd.futureMsgs {
 		if h <= height {
 			for i := 0; i < len(msgs); i++ {
@@ -798,6 +803,9 @@ func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
 }
 
 func (fd *FaultDetector) sentProofs() {
+	fd.Lock()
+	defer fd.Unlock()
+
 	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
 	//  consider to break down into multiples if it cannot fit in.
 	if len(fd.bufferedProofs) != 0 {
@@ -823,6 +831,8 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []t
 	}
 
 	// submit misbehavior proof to buffer, it will be sent once aggregated.
+	fd.Lock()
+	defer fd.Unlock()
 	fd.bufferedProofs = append(fd.bufferedProofs, proof)
 }
 
