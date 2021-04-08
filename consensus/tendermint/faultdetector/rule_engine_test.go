@@ -47,7 +47,7 @@ func TestRuleEngine(t *testing.T) {
 		// there were quorum num of preVote for that value at the validRound.
 
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.totalPowers[lastHeight] = totalPower
+		fd.blocksTotalVotingPower[lastHeight] = totalPower
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
@@ -79,7 +79,7 @@ func TestRuleEngine(t *testing.T) {
 		// there were quorum num of preVote for that value at the validRound.
 
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.totalPowers[lastHeight] = totalPower
+		fd.blocksTotalVotingPower[lastHeight] = totalPower
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
@@ -198,7 +198,7 @@ func TestRuleEngine(t *testing.T) {
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
 
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.totalPowers[lastHeight] = totalPower
+		fd.blocksTotalVotingPower[lastHeight] = totalPower
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
 		for i := 0; i < len(committee); i++ {
@@ -229,7 +229,7 @@ func TestRuleEngine(t *testing.T) {
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
 
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.totalPowers[lastHeight] = totalPower
+		fd.blocksTotalVotingPower[lastHeight] = totalPower
 
 		preCommit := newVoteMsg(height, round, msgPrecommit, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preCommit)

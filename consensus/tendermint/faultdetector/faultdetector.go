@@ -48,7 +48,7 @@ var (
 type ProposerGetter func(chain *core.BlockChain, h uint64, r int64) (common.Address, error)
 type ProposalChecker func(chain *core.BlockChain, proposal types.Block) error
 
-// Fault detector, it subscribe chain event to trigger rule engine to apply patterns over
+// FaultDetector it subscribe chain event to trigger rule engine to apply patterns over
 // msg store, it send proof of challenge if it detects any potential misbehavior, either it
 // read state db on each new height to get latest challenges from autonity contract's view,
 // and to prove its innocent if there were any challenges on the suspicious node.
@@ -64,15 +64,13 @@ type FaultDetector struct {
 
 	blockchain *core.BlockChain
 
-	address    common.Address
-	msgStore   *MsgStore
-	futureMsgs map[uint64][]*tendermintCore.Message
+	address         common.Address
+	msgStore        *MsgStore
+	futureHeightMsg map[uint64][]*tendermintCore.Message // map[blockHeight][]*tendermintMessages
 
-	// buffer quorum for blocks.
-	totalPowers map[uint64]uint64
-
-	// buffer those proofs, aggregate them into single TX to send with latest nonce of account.
-	bufferedProofs []autonity.OnChainProof
+	// todo: this buffer may not be required, for testing use mocks through interfaces.
+	blocksTotalVotingPower map[uint64]uint64       // buffer for block's total voting power for quorum calculations.
+	proofsBuffer           []autonity.OnChainProof // buffer proofs to aggregate them into single TX.
 
 	logger log.Logger
 }
@@ -80,15 +78,15 @@ type FaultDetector struct {
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain *core.BlockChain, nodeAddress common.Address, sub *event.TypeMuxSubscription) *FaultDetector {
 	fd := &FaultDetector{
-		RWMutex:          sync.RWMutex{},
-		address:          nodeAddress,
-		blockChan:        make(chan core.ChainEvent, 300),
-		blockchain:       chain,
-		msgStore:         newMsgStore(),
-		logger:           log.New("FaultDetector", nodeAddress),
-		tendermintMsgSub: sub,
-		futureMsgs:       make(map[uint64][]*tendermintCore.Message),
-		totalPowers:      make(map[uint64]uint64),
+		RWMutex:                sync.RWMutex{},
+		address:                nodeAddress,
+		blockChan:              make(chan core.ChainEvent, 300),
+		blockchain:             chain,
+		msgStore:               newMsgStore(),
+		logger:                 log.New("FaultDetector", nodeAddress),
+		tendermintMsgSub:       sub,
+		futureHeightMsg:        make(map[uint64][]*tendermintCore.Message),
+		blocksTotalVotingPower: make(map[uint64]uint64),
 	}
 
 	// register faultdetector contracts on evm's precompiled contract set.
@@ -143,7 +141,7 @@ func (fd *FaultDetector) blockEventLoop() {
 		select {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
 		case ev := <-fd.blockChan:
-			fd.totalPowers[ev.Block.Number().Uint64()] = ev.Block.Header().TotalVotingPower()
+			fd.blocksTotalVotingPower[ev.Block.Number().Uint64()] = ev.Block.Header().TotalVotingPower()
 
 			// before run rule engine over msg store, process any buffered msg.
 			fd.processBufferedMsgs(ev.Block.NumberU64())
@@ -152,7 +150,7 @@ func (fd *FaultDetector) blockEventLoop() {
 			innocenceProofs, _ := fd.handleAccusations(ev.Block, ev.Block.Root())
 			if innocenceProofs != nil {
 				fd.Lock()
-				fd.bufferedProofs = append(fd.bufferedProofs, innocenceProofs...)
+				fd.proofsBuffer = append(fd.proofsBuffer, innocenceProofs...)
 				fd.Unlock()
 			}
 
@@ -160,7 +158,7 @@ func (fd *FaultDetector) blockEventLoop() {
 			proofs := fd.runRuleEngine(ev.Block.NumberU64())
 			if proofs != nil {
 				fd.Lock()
-				fd.bufferedProofs = append(fd.bufferedProofs, proofs...)
+				fd.proofsBuffer = append(fd.proofsBuffer, proofs...)
 				fd.Unlock()
 			}
 
@@ -171,12 +169,11 @@ func (fd *FaultDetector) blockEventLoop() {
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
 
 			// delete power out of buffering window.
-			delete(fd.totalPowers, ev.Block.NumberU64()-uint64(msgBufferInHeight))
+			delete(fd.blocksTotalVotingPower, ev.Block.NumberU64()-uint64(msgBufferInHeight))
 
 		case err, ok := <-fd.blockSub.Err():
 			if ok {
-				// todo: think about returning the error, same for other go routines
-				fd.logger.Error("block subscription error", err.Error())
+				fd.logger.Crit("block subscription error", err.Error())
 			}
 			return
 		}
@@ -204,7 +201,7 @@ func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
 
 	fd.Lock()
 	defer fd.Unlock()
-	fd.futureMsgs[h.Uint64()] = append(fd.futureMsgs[h.Uint64()], m)
+	fd.futureHeightMsg[h.Uint64()] = append(fd.futureHeightMsg[h.Uint64()], m)
 }
 
 func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []autonity.OnChainProof {
@@ -424,7 +421,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 	fd.RLock()
 	defer fd.RUnlock()
-	for h, msgs := range fd.futureMsgs {
+	for h, msgs := range fd.futureHeightMsg {
 		if h <= height {
 			for i := 0; i < len(msgs); i++ {
 				if err := fd.processMsg(msgs[i]); err != nil {
@@ -473,7 +470,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 }
 
 func (fd *FaultDetector) quorum(h uint64) uint64 {
-	power, ok := fd.totalPowers[h]
+	power, ok := fd.blocksTotalVotingPower[h]
 	if ok {
 		return bft.Quorum(power)
 	}
@@ -809,12 +806,12 @@ func (fd *FaultDetector) sentProofs() {
 
 	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
 	//  consider to break down into multiples if it cannot fit in.
-	if len(fd.bufferedProofs) != 0 {
-		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
-		copy(copyProofs, fd.bufferedProofs)
+	if len(fd.proofsBuffer) != 0 {
+		copyProofs := make([]autonity.OnChainProof, len(fd.proofsBuffer))
+		copy(copyProofs, fd.proofsBuffer)
 		fd.sendProofs(copyProofs)
 		// release items from buffer
-		fd.bufferedProofs = fd.bufferedProofs[:0]
+		fd.proofsBuffer = fd.proofsBuffer[:0]
 	}
 }
 
@@ -834,7 +831,7 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []t
 	// submit misbehavior proof to buffer, it will be sent once aggregated.
 	fd.Lock()
 	defer fd.Unlock()
-	fd.bufferedProofs = append(fd.bufferedProofs, proof)
+	fd.proofsBuffer = append(fd.proofsBuffer, proof)
 }
 
 /////// common helper functions shared between faultdetector and precompiled contract to validate msgs.
