@@ -628,10 +628,11 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64) (proofs []Proof) {
 		// raise an accusation, since we cannot be sure that these prevotes
 		// don't exist
 		prevotes := fd.msgStore.Get(height, func(m *tdm.Message) bool {
-			return m.Type() == algo.Prevote && m.R() == validRound
+			// since equivocation msgs are stored, we have to query those preVotes which has same value as the proposal.
+			return m.Type() == algo.Prevote && m.R() == validRound && m.V() == proposal.V()
 		})
 
-		if powerOfVotes(deEquivocatedMsgs(prevotes), lastHeader) < quorum {
+		if powerOfVotes(prevotes, lastHeader) < quorum {
 			accusation := Proof{
 				Type:    Accusation,
 				Rule:    PO,
@@ -795,14 +796,17 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64) (proofs []Proof) {
 			return m.Type() == algo.Prevote && m.V() == precommit.V() && m.R() == precommit.R() // nolint: scopelint
 		})
 
-		// todo: since we store equivocation msgs, this misbehaviour of C is not 100% provable anymore.
-		if powerOfVotes(prevotesForNotV, lastHeader) >= quorum {
+		// even if we have equivocated preVotes for not V, we still assume that there are less f+1 malicious node in the
+		// network, so the powerOfVotes of preVotesForNotV which was deEquivocated is still valid to prove that the
+		// preCommit is a misbehaviour of rule C.
+		deEquivocatedPreVotesForNotV := deEquivocatedMsgs(prevotesForNotV)
+		if powerOfVotes(deEquivocatedPreVotesForNotV, lastHeader) >= quorum {
 			// In this case there cannot be enough remaining prevotes
 			// to justify a precommit for V.
 			proof := Proof{
 				Type:     Misbehaviour,
 				Rule:     C,
-				Evidence: deEquivocatedMsgs(prevotesForNotV),
+				Evidence: deEquivocatedPreVotesForNotV,
 				Message:  precommit,
 			}
 			proofs = append(proofs, proof)
@@ -836,8 +840,6 @@ func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
 }
 
 func (fd *FaultDetector) sentProofs() {
-	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
-	//  consider to break down into multiples if it cannot fit in.
 	if len(fd.bufferedProofs) != 0 {
 		copyProofs := make([]autonity.OnChainProof, len(fd.bufferedProofs))
 		copy(copyProofs, fd.bufferedProofs)

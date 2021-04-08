@@ -347,18 +347,20 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 
 		// simulate malicious proposal at r: 1, vith v2 which was not locked at all.
-		// simulate a init proposal at r: 0, with v1.
 		maliciousProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		_, err = fd.msgStore.Save(maliciousProposal)
 		assert.NoError(t, err)
 
 		// run rule engine.
 		onChainProofs := fd.runRulesOverHeight(height)
-		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, 2, len(onChainProofs))
 		assert.Equal(t, Misbehaviour, onChainProofs[0].Type)
+		assert.Equal(t, Accusation, onChainProofs[1].Type)
 		assert.Equal(t, PO, onChainProofs[0].Rule)
+		assert.Equal(t, PO, onChainProofs[1].Rule)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
+		assert.Equal(t, maliciousProposal.Signature, onChainProofs[1].Message.Signature)
 	})
 
 	t.Run("RunRule address the misbehaviour of PO rule, the valid round proposed is not correct", func(t *testing.T) {
