@@ -86,11 +86,11 @@ func (ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 }
 
 // get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(height uint64, query func(*core.Message) bool) []core.Message {
+func (ms *MsgStore) Get(height uint64, query func(*core.Message) bool) []*core.Message {
 	ms.RLock()
 	defer ms.RUnlock()
 
-	var result []core.Message
+	var result []*core.Message
 	roundMap, ok := ms.messages[height]
 	if !ok {
 		return result
@@ -101,7 +101,7 @@ func (ms *MsgStore) Get(height uint64, query func(*core.Message) bool) []core.Me
 			for _, msgs := range addressMap {
 				for i := 0; i < len(msgs); i++ {
 					if query(msgs[i]) {
-						result = append(result, *msgs[i])
+						result = append(result, msgs[i])
 					}
 				}
 			}

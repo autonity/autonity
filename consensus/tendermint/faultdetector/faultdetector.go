@@ -241,7 +241,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []
 }
 
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
-func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs []tendermintCore.Message, rule Rule, t ProofType) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) generateOnChainProof(m *tendermintCore.Message, proofs []*tendermintCore.Message, rule Rule, t ProofType) (autonity.OnChainProof, error) {
 	var proof autonity.OnChainProof
 	proof.Sender = m.Address
 	proof.Msghash = types.RLPHash(m.Payload())
@@ -298,7 +298,7 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (autonity.OnChainProof, e
 		// time window for proof ends.
 		return proof, errNoEvidenceForC
 	}
-	p, err := fd.generateOnChainProof(&preCommit, proposals, c.Rule, Innocence)
+	p, err := fd.generateOnChainProof(preCommit, proposals, c.Rule, Innocence)
 	if err != nil {
 		return p, err
 	}
@@ -322,7 +322,7 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 		return proof, errNoEvidenceForC1
 	}
 
-	p, err := fd.generateOnChainProof(&preCommit, prevotesForV, c.Rule, Innocence)
+	p, err := fd.generateOnChainProof(preCommit, prevotesForV, c.Rule, Innocence)
 	if err != nil {
 		return p, err
 	}
@@ -350,7 +350,7 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 		return proof, errNoEvidenceForPO
 	}
 
-	p, err := fd.generateOnChainProof(&proposal, prevotes, c.Rule, Innocence)
+	p, err := fd.generateOnChainProof(proposal, prevotes, c.Rule, Innocence)
 	if err != nil {
 		return p, err
 	}
@@ -376,7 +376,7 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 		return proof, errNoEvidenceForPVN
 	}
 
-	p, err := fd.generateOnChainProof(&prevote, correspondingProposals, c.Rule, Innocence)
+	p, err := fd.generateOnChainProof(prevote, correspondingProposals, c.Rule, Innocence)
 	if err != nil {
 		return p, nil
 	}
@@ -450,7 +450,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 		if err == errFutureMsg {
 			fd.bufferMsg(m)
 		} else {
-			proofs := []tendermintCore.Message{*m}
+			proofs := []*tendermintCore.Message{m}
 			fd.submitMisbehavior(m, proofs, err)
 			return err
 		}
@@ -459,9 +459,9 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
 	msgs, err := fd.msgStore.Save(m)
 	if err == errEquivocation && msgs != nil {
-		var proofs []tendermintCore.Message
+		var proofs []*tendermintCore.Message
 		for i := 0; i < len(msgs); i++ {
-			proofs = append(proofs, *msgs[i])
+			proofs = append(proofs, msgs[i])
 		}
 		fd.submitMisbehavior(m, proofs, err)
 		return err
@@ -489,7 +489,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []autonity.OnChainProof {
 		proofs := fd.runRulesOverHeight(lastDeltaHeight, quorum)
 		if len(proofs) > 0 {
 			for i := 0; i < len(proofs); i++ {
-				p, err := fd.generateOnChainProof(&proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
+				p, err := fd.generateOnChainProof(proofs[i].Message, proofs[i].Evidence, proofs[i].Rule, proofs[i].Type)
 				if err != nil {
 					fd.logger.Warn("convert proof to on-chain proof", "faultdetector", err)
 					continue
@@ -817,7 +817,7 @@ func (fd *FaultDetector) sentProofs() {
 
 // submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
 // send the proof of misbehavior to event channel.
-func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []tendermintCore.Message, err error) {
+func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []*tendermintCore.Message, err error) {
 	rule, e := errorToRule(err)
 	if e != nil {
 		fd.logger.Warn("error to rule", "faultdetector", e)
@@ -849,7 +849,7 @@ func checkAutoIncriminatingMsg(chain *core.BlockChain, m *tendermintCore.Message
 	return errors.New("unknown consensus msg")
 }
 
-func checkEquivocation(chain *core.BlockChain, m *tendermintCore.Message, proof []tendermintCore.Message) error {
+func checkEquivocation(chain *core.BlockChain, m *tendermintCore.Message, proof []*tendermintCore.Message) error {
 	// decode msgs
 	err := checkAutoIncriminatingMsg(chain, m)
 	if err != nil {
@@ -857,13 +857,13 @@ func checkEquivocation(chain *core.BlockChain, m *tendermintCore.Message, proof 
 	}
 
 	for i := 0; i < len(proof); i++ {
-		err := checkAutoIncriminatingMsg(chain, &proof[i])
+		err := checkAutoIncriminatingMsg(chain, proof[i])
 		if err != nil {
 			return err
 		}
 	}
 	// check equivocations.
-	if !sameVote(m, &proof[0]) {
+	if !sameVote(m, proof[0]) {
 		return errEquivocation
 	}
 	return nil
@@ -931,7 +931,7 @@ func decodeVote(m *tendermintCore.Message) error {
 	return nil
 }
 
-func deEquivocatedMsgs(msgs []tendermintCore.Message) (deEquivocated []tendermintCore.Message) {
+func deEquivocatedMsgs(msgs []*tendermintCore.Message) (deEquivocated []*tendermintCore.Message) {
 	presented := make(map[common.Address]struct{})
 	for _, v := range msgs {
 		if _, ok := presented[v.Address]; ok {
@@ -993,7 +993,7 @@ func isProposerMsg(chain *core.BlockChain, m *tendermintCore.Message, proposerGe
 	return m.Address == proposer
 }
 
-func powerOfVotes(votes []tendermintCore.Message) uint64 {
+func powerOfVotes(votes []*tendermintCore.Message) uint64 {
 	counted := make(map[common.Address]struct{})
 	power := uint64(0)
 	for i := 0; i < len(votes); i++ {

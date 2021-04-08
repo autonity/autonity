@@ -126,19 +126,19 @@ func TestAccusationVerifier(t *testing.T) {
 		av := AccusationVerifier{chain: nil}
 		proof.Rule = PO
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, proposal.Value(), committee)
-		proof.Message = *preVote
+		proof.Message = preVote
 		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
 
 		proof.Rule = PVN
-		proof.Message = *proposal
+		proof.Message = proposal
 		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
 
 		proof.Rule = C
-		proof.Message = *proposal
+		proof.Message = proposal
 		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
 
 		proof.Rule = C1
-		proof.Message = *proposal
+		proof.Message = proposal
 		assert.Equal(t, failure96Byte, av.validateAccusation(&proof, getHeader))
 	})
 
@@ -147,7 +147,7 @@ func TestAccusationVerifier(t *testing.T) {
 		proof.Rule = PO
 		invalidCommittee, keys := generateCommittee(5)
 		newProposal := newProposalMessage(height, 1, 0, keys[invalidCommittee[0].Address], invalidCommittee, nil)
-		proof.Message = *newProposal
+		proof.Message = newProposal
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -164,7 +164,7 @@ func TestAccusationVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PO
 		newProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		proof.Message = *newProposal
+		proof.Message = newProposal
 		lastHeader := newBlockHeader(height-1, committee)
 
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -212,7 +212,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		invalidCommittee, iKeys := generateCommittee(5)
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
 
-		proof.Message = *invalidProposal
+		proof.Message = invalidProposal
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -233,9 +233,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = PO
 		invalidCommittee, ikeys := generateCommittee(5)
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 		invalidPreCommit := newVoteMsg(height, 1, msgPrecommit, ikeys[invalidCommittee[0].Address], proposal.Value(), invalidCommittee)
-		proof.Evidence = append(proof.Evidence, *invalidPreCommit)
+		proof.Evidence = append(proof.Evidence, invalidPreCommit)
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -257,10 +257,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PN
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Evidence = append(proof.Evidence, preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 
 		ret := mv.validProof(&proof)
@@ -272,10 +272,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PN
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Evidence = append(proof.Evidence, preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 
 		ret := mv.validProof(&proof)
@@ -286,7 +286,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PN
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
@@ -300,8 +300,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = PO
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *proposal
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Message = proposal
+		proof.Evidence = append(proof.Evidence, preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
 		assert.Equal(t, true, ret)
@@ -314,8 +314,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = PO
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *proposal
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Message = proposal
+		proof.Evidence = append(proof.Evidence, preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
 		assert.Equal(t, true, ret)
@@ -325,7 +325,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PO
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
@@ -336,8 +336,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = PO
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *proposal
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Message = proposal
+		proof.Evidence = append(proof.Evidence, preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
@@ -354,8 +354,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		// node preVote for V2 at round 3
 		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, proposal.Value(), committee)
-		proof.Message = *preVote
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Message = preVote
+		proof.Evidence = append(proof.Evidence, preCommit)
 
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
@@ -368,7 +368,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		// node preVote for V2 at round 3
 		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, proposal.Value(), committee)
-		proof.Message = *preVote
+		proof.Message = preVote
 
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
@@ -380,9 +380,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = PVN
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		// set a wrong type of msg.
-		proof.Message = *proposal
+		proof.Message = proposal
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Evidence = append(proof.Evidence, preCommit)
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
 		assert.Equal(t, false, ret)
@@ -395,8 +395,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		// node preVote for V2 at round 3, with nil value, not provable.
 		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, nilValue, committee)
-		proof.Message = *preVote
-		proof.Evidence = append(proof.Evidence, *preCommit)
+		proof.Message = preVote
+		proof.Evidence = append(proof.Evidence, preCommit)
 
 		mv := MisbehaviourVerifier{chain: nil}
 		ret := mv.validProof(&proof)
@@ -409,10 +409,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = C
 		// Node preCommit for V at round R.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], nilValue, committee)
-			proof.Evidence = append(proof.Evidence, *preVote)
+			proof.Evidence = append(proof.Evidence, preVote)
 		}
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -429,7 +429,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = C
 		// Node preCommit for V at round R.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
 			return lastHeader
@@ -445,10 +445,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = C
 		// Node preCommit for nil at round R, not provable
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, nilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
-			proof.Evidence = append(proof.Evidence, *preVote)
+			proof.Evidence = append(proof.Evidence, preVote)
 		}
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -465,10 +465,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = C
 
 		wrongMsg := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], nilValue, committee)
-			proof.Evidence = append(proof.Evidence, *preVote)
+			proof.Evidence = append(proof.Evidence, preVote)
 		}
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -486,11 +486,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = C
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		// quorum preVotes of same value, this shouldn't be a valid evidence.
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
-			proof.Evidence = append(proof.Evidence, *preVote)
+			proof.Evidence = append(proof.Evidence, preVote)
 		}
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -508,11 +508,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = C
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		// duplicated preVotes msg in evidence, should be addressed.
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, nilValue, committee)
-			proof.Evidence = append(proof.Evidence, *preVote)
+			proof.Evidence = append(proof.Evidence, preVote)
 		}
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -529,11 +529,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof.Rule = C
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 
 		// no quorum preVotes msg in evidence, should be addressed.
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, nilValue, committee)
-		proof.Evidence = append(proof.Evidence, *preVote)
+		proof.Evidence = append(proof.Evidence, preVote)
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -569,7 +569,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		proof.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
-		proof.Message = *invalidProposal
+		proof.Message = invalidProposal
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -586,9 +586,9 @@ func TestInnocenceVerifier(t *testing.T) {
 		proof.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 		invalidPreVote := newVoteMsg(height, 1, msgPrevote, iKeys[invalidCommittee[0].Address], proposal.Value(), invalidCommittee)
-		proof.Evidence = append(proof.Evidence, *invalidPreVote)
+		proof.Evidence = append(proof.Evidence, invalidPreVote)
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -604,7 +604,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PO
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfPO(&proof, nil)
 		assert.Equal(t, false, ret)
@@ -614,10 +614,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 		// have preVote at different value than proposal
 		invalidPreVote := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Evidence = append(proof.Evidence, *invalidPreVote)
+		proof.Evidence = append(proof.Evidence, invalidPreVote)
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -633,10 +633,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, proposal.Value(), committee)
-		proof.Evidence = append(proof.Evidence, *preVote)
+		proof.Evidence = append(proof.Evidence, preVote)
 		// make redundant msg hack.
 		proof.Evidence = append(proof.Evidence, proof.Evidence...)
 
@@ -654,10 +654,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		proof.Message = *proposal
+		proof.Message = proposal
 
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, proposal.Value(), committee)
-		proof.Evidence = append(proof.Evidence, *preVote)
+		proof.Evidence = append(proof.Evidence, preVote)
 
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -673,7 +673,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PVN
 		wrongMsg := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfPVN(&proof)
 		assert.Equal(t, false, ret)
@@ -683,7 +683,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PVN
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, nilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfPVN(&proof)
 		assert.Equal(t, false, ret)
@@ -693,7 +693,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = PVN
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfPVN(&proof)
 		assert.Equal(t, false, ret)
@@ -704,8 +704,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		proof.Rule = PVN
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
 		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, proposal.Value(), committee)
-		proof.Message = *preVote
-		proof.Evidence = append(proof.Evidence, *proposal)
+		proof.Message = preVote
+		proof.Evidence = append(proof.Evidence, proposal)
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfPVN(&proof)
 		assert.Equal(t, true, ret)
@@ -715,7 +715,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfC(&proof)
 		assert.Equal(t, false, ret)
@@ -725,7 +725,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C
 		wrongMsg := newVoteMsg(height, 1, msgPrecommit, proposerKey, nilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfC(&proof)
 		assert.Equal(t, false, ret)
@@ -735,7 +735,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfC(&proof)
 		assert.Equal(t, false, ret)
@@ -746,8 +746,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		proof.Rule = C
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, proposal.Value(), committee)
-		proof.Message = *preCommit
-		proof.Evidence = append(proof.Evidence, *proposal)
+		proof.Message = preCommit
+		proof.Evidence = append(proof.Evidence, proposal)
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfC(&proof)
 		assert.Equal(t, true, ret)
@@ -757,7 +757,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C1
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfC1(&proof, nil)
 		assert.Equal(t, false, ret)
@@ -767,7 +767,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C1
 		wrongMsg := newVoteMsg(height, 1, msgPrecommit, proposerKey, nilValue, committee)
-		proof.Message = *wrongMsg
+		proof.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
 		ret := iv.validInnocenceProofOfC1(&proof, nil)
 		assert.Equal(t, false, ret)
@@ -777,10 +777,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		// evidence contains a preVote of a different round
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Evidence = append(proof.Evidence, *preVote)
+		proof.Evidence = append(proof.Evidence, preVote)
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
 			return lastHeader
@@ -794,10 +794,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 
 		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Evidence = append(proof.Evidence, *preVote)
+		proof.Evidence = append(proof.Evidence, preVote)
 		proof.Evidence = append(proof.Evidence, proof.Evidence...)
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
@@ -812,10 +812,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 
 		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
-		proof.Evidence = append(proof.Evidence, *preVote)
+		proof.Evidence = append(proof.Evidence, preVote)
 		lastHeader := newBlockHeader(height-1, committee)
 		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
 			return lastHeader
@@ -829,10 +829,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var proof Proof
 		proof.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
-		proof.Message = *preCommit
+		proof.Message = preCommit
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, 1, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
-			proof.Evidence = append(proof.Evidence, *preVote)
+			proof.Evidence = append(proof.Evidence, preVote)
 		}
 
 		lastHeader := newBlockHeader(height-1, committee)

@@ -181,7 +181,7 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
 
 	// check if suspicious message is from correct committee member.
-	err := checkMsgSignature(c.chain, &p.Message, getHeader, currentHeader)
+	err := checkMsgSignature(c.chain, p.Message, getHeader, currentHeader)
 	if err != nil {
 		return failure96Byte
 	}
@@ -223,13 +223,13 @@ func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 	case C:
 		return c.validMisbehaviourOfC(p, getHeader)
 	case GarbageMessage:
-		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errGarbageMsg
+		return checkAutoIncriminatingMsg(c.chain, p.Message) == errGarbageMsg
 	case InvalidProposal:
-		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errProposal
+		return checkAutoIncriminatingMsg(c.chain, p.Message) == errProposal
 	case InvalidProposer:
-		return checkAutoIncriminatingMsg(c.chain, &p.Message) == errProposer
+		return checkAutoIncriminatingMsg(c.chain, p.Message) == errProposer
 	case Equivocation:
-		return checkEquivocation(c.chain, &p.Message, p.Evidence) == errEquivocation
+		return checkEquivocation(c.chain, p.Message, p.Evidence) == errEquivocation
 	default:
 		return false
 	}
@@ -505,7 +505,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof, getHeader HeaderGe
 	return true
 }
 
-func haveRedundantVotes(votes []tendermintCore.Message) bool {
+func haveRedundantVotes(votes []*tendermintCore.Message) bool {
 	voteMap := make(map[common.Address]struct{})
 	for _, vote := range votes {
 		_, ok := voteMap[vote.Address]
@@ -535,14 +535,14 @@ func decodeProof(proof []byte) (*Proof, error) {
 	if err := msg.FromPayload(p.Message); err != nil {
 		return nil, err
 	}
-	decodedP.Message = *msg
+	decodedP.Message = msg
 
 	for i := 0; i < len(p.Evidence); i++ {
 		m := new(tendermintCore.Message)
 		if err := m.FromPayload(p.Evidence[i]); err != nil {
 			return nil, fmt.Errorf("msg cannot be decoded")
 		}
-		decodedP.Evidence = append(decodedP.Evidence, *m)
+		decodedP.Evidence = append(decodedP.Evidence, m)
 	}
 	return decodedP, nil
 }

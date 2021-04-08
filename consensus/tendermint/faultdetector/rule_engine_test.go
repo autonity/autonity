@@ -24,10 +24,10 @@ func TestRuleEngine(t *testing.T) {
 	noneNilValue := common.Hash{0x1}
 
 	t.Run("Test de-Equivocated msg", func(t *testing.T) {
-		inputMsgs := make([]core.Message, 2)
+		inputMsgs := make([]*core.Message, 2)
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
-		inputMsgs[0] = *proposal
-		inputMsgs[1] = *proposal
+		inputMsgs[0] = proposal
+		inputMsgs[1] = proposal
 		assert.Equal(t, 1, len(deEquivocatedMsgs(inputMsgs)))
 	})
 
@@ -63,7 +63,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    PO,
-			Message: *proposal,
+			Message: proposal,
 		}
 
 		proof, err := fd.getInnocentProofOfPO(&accusation)
@@ -93,7 +93,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    PO,
-			Message: *proposal,
+			Message: proposal,
 		}
 
 		_, err = fd.getInnocentProofOfPO(&accusation)
@@ -117,7 +117,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    PVN,
-			Message: *preVote,
+			Message: preVote,
 		}
 
 		proof, err := fd.getInnocentProofOfPVN(&accusation)
@@ -139,7 +139,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    PVN,
-			Message: *preVote,
+			Message: preVote,
 		}
 
 		_, err = fd.getInnocentProofOfPVN(&accusation)
@@ -163,7 +163,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    C,
-			Message: *preCommit,
+			Message: preCommit,
 		}
 
 		proof, err := fd.getInnocentProofOfC(&accusation)
@@ -186,7 +186,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    C,
-			Message: *preCommit,
+			Message: preCommit,
 		}
 
 		_, err = fd.getInnocentProofOfC(&accusation)
@@ -214,7 +214,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    C1,
-			Message: *preCommit,
+			Message: preCommit,
 		}
 
 		proof, err := fd.getInnocentProofOfC1(&accusation)
@@ -238,7 +238,7 @@ func TestRuleEngine(t *testing.T) {
 		var accusation = Proof{
 			Type:    Accusation,
 			Rule:    C1,
-			Message: *preCommit,
+			Message: preCommit,
 		}
 
 		_, err = fd.getInnocentProofOfC1(&accusation)
@@ -267,10 +267,10 @@ func TestRuleEngine(t *testing.T) {
 	})
 
 	t.Run("Test calculate power of votes", func(t *testing.T) {
-		var preVotes []core.Message
+		var preVotes []*core.Message
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, round, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
-			preVotes = append(preVotes, *preVote)
+			preVotes = append(preVotes, preVote)
 		}
 
 		// let duplicated msg happens, the counting should skip duplicated ones.
