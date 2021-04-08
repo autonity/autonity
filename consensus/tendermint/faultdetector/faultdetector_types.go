@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	msgProposal uint64 = iota
+	msgProposal uint8 = iota
 	msgPrevote
 	msgPrecommit
 )

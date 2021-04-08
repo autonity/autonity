@@ -601,7 +601,7 @@ func TestRuleEngine(t *testing.T) {
 		for _, m := range onChainProofs[0].Evidence {
 			assert.Equal(t, height, m.H())
 			assert.Equal(t, int64(0), m.R())
-			assert.Equal(t, msgPrevote, m.Code)
+			assert.Equal(t, msgPrevote, uint8(m.Code))
 			assert.Equal(t, nilValue, m.Value())
 		}
 	})

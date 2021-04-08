@@ -5,7 +5,7 @@ import (
 	"math/big"
 )
 
-type ProofType uint64
+type ProofType uint8
 
 const (
 	Misbehaviour ProofType = iota
