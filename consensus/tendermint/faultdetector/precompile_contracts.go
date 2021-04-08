@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
-	core2 "github.com/clearmatics/autonity/consensus/tendermint/core"
+	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
@@ -505,7 +505,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof, getHeader HeaderGe
 	return true
 }
 
-func haveRedundantVotes(votes []core2.Message) bool {
+func haveRedundantVotes(votes []tendermintCore.Message) bool {
 	voteMap := make(map[common.Address]struct{})
 	for _, vote := range votes {
 		_, ok := voteMap[vote.Address]
@@ -531,14 +531,14 @@ func decodeProof(proof []byte) (*Proof, error) {
 	decodedP.Rule = p.Rule
 
 	// decode consensus message which is rlp encoded.
-	msg := new(core2.Message)
+	msg := new(tendermintCore.Message)
 	if err := msg.FromPayload(p.Message); err != nil {
 		return nil, err
 	}
 	decodedP.Message = *msg
 
 	for i := 0; i < len(p.Evidence); i++ {
-		m := new(core2.Message)
+		m := new(tendermintCore.Message)
 		if err := m.FromPayload(p.Evidence[i]); err != nil {
 			return nil, fmt.Errorf("msg cannot be decoded")
 		}
