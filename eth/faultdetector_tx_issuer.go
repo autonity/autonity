@@ -11,7 +11,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 )
 
-var(
+var (
 	errOverSizedEvent = errors.New("oversized accountability event")
 )
 
@@ -53,7 +53,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, proofs []autonity.On
 
 		// try to pack as much events as possible until TX exceed 512 KB.
 		start := 0
-		for i:=1; i<=len(proofs) && start < len(proofs); i++ {
+		for i := 1; i <= len(proofs) && start < len(proofs); i++ {
 			tx, err := s.genAccountabilityEvent(nonce, method, proofs[start:i])
 			// exceed 512 KB, try to break it into pieces.
 			if err == errOverSizedEvent {
@@ -67,7 +67,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, proofs []autonity.On
 				// break sub piece of events
 				p, err := s.genAccountabilityEvent(nonce, method, proofs[start:i-1])
 				if err == nil {
-					start = i-1
+					start = i - 1
 					i = start
 					nonce++
 					txs = append(txs, p)
@@ -75,7 +75,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, proofs []autonity.On
 			}
 
 			// append the last piece of events
-			if err == nil && i == len(proofs){
+			if err == nil && i == len(proofs) {
 				txs = append(txs, tx)
 			}
 		}
