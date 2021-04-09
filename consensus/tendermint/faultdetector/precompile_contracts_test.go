@@ -58,11 +58,11 @@ func TestDecodeProof(t *testing.T) {
 	preCommit := newVoteMsg(height, 3, msgPrecommit, proposerKey, proposal.Value(), committee)
 
 	t.Run("decode with accusation", func(t *testing.T) {
-		var rawProof RawProof
-		rawProof.Rule = autonity.PO
-		rawProof.Message = proposal.Payload()
+		var proof Proof
+		proof.Rule = autonity.PO
+		proof.Message = proposal
 
-		rp, err := rlp.EncodeToBytes(&rawProof)
+		rp, err := rlp.EncodeToBytes(&proof)
 		assert.NoError(t, err)
 
 		decodeProof, err := decodeProof(rp)
@@ -72,12 +72,12 @@ func TestDecodeProof(t *testing.T) {
 	})
 
 	t.Run("decode with evidence", func(t *testing.T) {
-		var rawProof RawProof
-		rawProof.Rule = autonity.PO
-		rawProof.Message = proposal.Payload()
-		rawProof.Evidence = append(rawProof.Evidence, preCommit.Payload())
+		var proof Proof
+		proof.Rule = autonity.PO
+		proof.Message = proposal
+		proof.Evidence = append(proof.Evidence, preCommit)
 
-		rp, err := rlp.EncodeToBytes(&rawProof)
+		rp, err := rlp.EncodeToBytes(&proof)
 		assert.NoError(t, err)
 
 		decodeProof, err := decodeProof(rp)

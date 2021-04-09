@@ -69,9 +69,9 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfPO(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(autonity.Innocence), proof.Type.Uint64())
+		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(proposal.Payload()), proof.Msghash)
+		assert.Equal(t, types.RLPHash(proposal), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfPO no quorum preVotes", func(t *testing.T) {
@@ -123,9 +123,9 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfPVN(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(autonity.Innocence), proof.Type.Uint64())
+		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(preVote.Payload()), proof.Msghash)
+		assert.Equal(t, types.RLPHash(preVote), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfPVN have no corresponding proposal", func(t *testing.T) {
@@ -169,9 +169,9 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfC(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(autonity.Innocence), proof.Type.Uint64())
+		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(preCommit.Payload()), proof.Msghash)
+		assert.Equal(t, types.RLPHash(preCommit), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfC have no corresponding proposal", func(t *testing.T) {
@@ -220,9 +220,9 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfC1(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(autonity.Innocence), proof.Type.Uint64())
+		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(preCommit.Payload()), proof.Msghash)
+		assert.Equal(t, types.RLPHash(preCommit), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfC1 have no quorum preVotes", func(t *testing.T) {

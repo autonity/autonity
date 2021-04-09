@@ -16,11 +16,17 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"math/big"
+
 	"math/rand"
 	"sort"
 	"sync"
 	"time"
+)
+
+const (
+	msgProposal uint8 = iota
+	msgPrevote
+	msgPrecommit
 )
 
 var (
@@ -43,6 +49,19 @@ var (
 	nilValue          = common.Hash{}
 	randomDelayWindow = 1000 * 5 // (0, 5] seconds random time window
 )
+
+// Proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
+type Proof struct {
+	Type     autonity.ProofType // Misbehaviour, Accusation, Innocence.
+	Rule     autonity.Rule
+	Message  *tendermintCore.Message   // the msg to be considered as suspicious or misbehaved one
+	Evidence []*tendermintCore.Message // the proofs of innocence or misbehaviour.
+}
+
+// event to submit proofs via standard transaction.
+type AccountabilityEvent struct {
+	Proofs []*autonity.OnChainProof
+}
 
 // wrap chain context calls to make unit test easier
 type ProposerGetter func(chain *core.BlockChain, h uint64, r int64) (common.Address, error)
@@ -69,8 +88,8 @@ type FaultDetector struct {
 	futureHeightMsg map[uint64][]*tendermintCore.Message // map[blockHeight][]*tendermintMessages
 
 	// todo: this buffer may not be required, for testing use mocks through interfaces.
-	blocksTotalVotingPower map[uint64]uint64       // buffer for block's total voting power for quorum calculations.
-	proofsBuffer           []autonity.OnChainProof // buffer proofs to aggregate them into single TX.
+	blocksTotalVotingPower map[uint64]uint64        // buffer for block's total voting power for quorum calculations.
+	proofsBuffer           []*autonity.OnChainProof // buffer proofs to aggregate them into single TX.
 
 	logger log.Logger
 }
@@ -204,9 +223,9 @@ func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
 	fd.futureHeightMsg[h.Uint64()] = append(fd.futureHeightMsg[h.Uint64()], m)
 }
 
-func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []autonity.OnChainProof {
+func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []*autonity.OnChainProof {
 	// get latest chain state.
-	var result []autonity.OnChainProof
+	var result []*autonity.OnChainProof
 	state, err := fd.blockchain.State()
 	if err != nil {
 		return nil
@@ -216,24 +235,24 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []
 	presentedAccusation := fd.blockchain.GetAutonityContract().GetAccusations(header, state)
 	presentedMisbehavior := fd.blockchain.GetAutonityContract().GetMisBehaviours(header, state)
 
-	for i := 0; i < len(*proofs); i++ {
+	for i := 0; i < len(proofs); i++ {
 		present := false
 		for j := 0; j < len(presentedAccusation); j++ {
-			if (*proofs)[i].Msghash == presentedAccusation[j].Msghash &&
-				(*proofs)[i].Type.Cmp(new(big.Int).SetUint64(uint64(autonity.Accusation))) == 0 {
+			if proofs[i].Msghash == presentedAccusation[j].Msghash &&
+				proofs[i].Type == autonity.Accusation {
 				present = true
 			}
 		}
 
 		for j := 0; j < len(presentedMisbehavior); j++ {
-			if (*proofs)[i].Msghash == presentedMisbehavior[j].Msghash &&
-				(*proofs)[i].Type.Cmp(new(big.Int).SetUint64(uint64(autonity.Misbehaviour))) == 0 {
+			if proofs[i].Msghash == presentedMisbehavior[j].Msghash &&
+				proofs[i].Type == autonity.Misbehaviour {
 				present = true
 			}
 		}
 
 		if !present {
-			result = append(result, (*proofs)[i])
+			result = append(result, proofs[i])
 		}
 	}
 
@@ -241,33 +260,24 @@ func (fd *FaultDetector) filterPresentedOnes(proofs *[]autonity.OnChainProof) []
 }
 
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
-func (fd *FaultDetector) generateOnChainProof(p *Proof) (autonity.OnChainProof, error) {
-	var proof autonity.OnChainProof
-	proof.Sender = p.Message.Address
-	proof.Msghash = types.RLPHash(p.Message.Payload())
-	proof.Type = new(big.Int).SetUint64(uint64(p.Type))
-
-	var rawProof RawProof
-	rawProof.Rule = p.Rule
-	// generate raw bytes encoded in rlp, it is by passed into precompiled contracts.
-	rawProof.Message = p.Message.Payload()
-	for i := 0; i < len(p.Evidence); i++ {
-		rawProof.Evidence = append(rawProof.Evidence, p.Evidence[i].Payload())
+func (fd *FaultDetector) generateOnChainProof(p *Proof) (*autonity.OnChainProof, error) {
+	var onChainProof = &autonity.OnChainProof{
+		Type:    p.Type,
+		Sender:  p.Message.Address,
+		Msghash: types.RLPHash(p.Message),
 	}
 
-	rp, err := rlp.EncodeToBytes(&rawProof)
+	rproof, err := rlp.EncodeToBytes(p)
 	if err != nil {
-		fd.logger.Warn("fail to rlp encode raw proof", "faultdetector", err)
-		return proof, err
+		return nil, err
 	}
-
-	proof.Rawproof = rp
-	return proof, nil
+	onChainProof.Rawproof = rproof
+	return onChainProof, nil
 }
 
 // getInnocentProof called by client who is on challenge to get proof of innocent from msg store.
-func (fd *FaultDetector) getInnocentProof(c *Proof) (autonity.OnChainProof, error) {
-	var proof autonity.OnChainProof
+func (fd *FaultDetector) getInnocentProof(c *Proof) (*autonity.OnChainProof, error) {
+	var proof *autonity.OnChainProof
 	// rule engine have below provable accusation for the time being:
 	switch c.Rule {
 	case autonity.PO:
@@ -284,8 +294,8 @@ func (fd *FaultDetector) getInnocentProof(c *Proof) (autonity.OnChainProof, erro
 }
 
 // get proof of innocent of C from msg store.
-func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (autonity.OnChainProof, error) {
-	var proof autonity.OnChainProof
+func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, error) {
+	var proof *autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
 
@@ -311,8 +321,8 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (autonity.OnChainProof, e
 }
 
 // get proof of innocent of C1 from msg store.
-func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (autonity.OnChainProof, error) {
-	var proof autonity.OnChainProof
+func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof, error) {
+	var proof *autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
 	quorum := fd.quorum(height - 1)
@@ -341,10 +351,10 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 }
 
 // get proof of innocent of PO from msg store.
-func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof, error) {
 	// PO: node propose an old value with an validRound, innocent proof of it should be:
 	// there are quorum num of prevote for that value at the validRound.
-	var proof autonity.OnChainProof
+	var proof *autonity.OnChainProof
 	proposal := c.Message
 	height := proposal.H()
 	validRound := proposal.ValidRound()
@@ -374,10 +384,10 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 }
 
 // get proof of innocent of PVN from msg store.
-func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof, error) {
 	// get innocent proofs for PVN, for a prevote that vote for a new value,
 	// then there must be a proposal for this new value.
-	var proof autonity.OnChainProof
+	var proof *autonity.OnChainProof
 	prevote := c.Message
 	height := prevote.H()
 
@@ -405,8 +415,8 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 }
 
 // get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
-func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]autonity.OnChainProof, error) {
-	var innocentProofs []autonity.OnChainProof
+func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]*autonity.OnChainProof, error) {
+	var innocentProofs []*autonity.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
 	if err != nil || state == nil {
 		fd.logger.Error("handleAccusation", "faultdetector", err)
@@ -499,8 +509,8 @@ func (fd *FaultDetector) quorum(h uint64) uint64 {
 }
 
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
-func (fd *FaultDetector) runRuleEngine(height uint64) []autonity.OnChainProof {
-	var onChainProofs []autonity.OnChainProof
+func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.OnChainProof {
+	var onChainProofs []*autonity.OnChainProof
 	// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
 	if height > uint64(deltaToWaitForAccountability) {
 		// run rule engine over the previous delta offset height.
@@ -813,12 +823,12 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 }
 
 // send proofs via event which will handled by ethereum object to signed the TX to send proof.
-func (fd *FaultDetector) sendProofs(proofs []autonity.OnChainProof) {
+func (fd *FaultDetector) sendProofs(proofs []*autonity.OnChainProof) {
 	fd.proofWG.Add(1)
 	go func() {
 		defer fd.proofWG.Done()
 		randomDelay()
-		unPresented := fd.filterPresentedOnes(&proofs)
+		unPresented := fd.filterPresentedOnes(proofs)
 		if len(unPresented) != 0 {
 			fd.faultDetectorFeed.Send(AccountabilityEvent{Proofs: unPresented})
 		}
@@ -832,7 +842,7 @@ func (fd *FaultDetector) sentProofs() {
 	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
 	//  consider to break down into multiples if it cannot fit in.
 	if len(fd.proofsBuffer) != 0 {
-		copyProofs := make([]autonity.OnChainProof, len(fd.proofsBuffer))
+		copyProofs := make([]*autonity.OnChainProof, len(fd.proofsBuffer))
 		copy(copyProofs, fd.proofsBuffer)
 		fd.sendProofs(copyProofs)
 		// release items from buffer

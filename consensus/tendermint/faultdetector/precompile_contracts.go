@@ -1,7 +1,6 @@
 package faultdetector
 
 import (
-	"fmt"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
@@ -522,28 +521,10 @@ func haveRedundantVotes(votes []*tendermintCore.Message) bool {
 
 // decode proof convert proof from rlp encoded bytes into object Proof.
 func decodeProof(proof []byte) (*Proof, error) {
-	p := new(RawProof)
+	p := new(Proof)
 	err := rlp.DecodeBytes(proof, p)
 	if err != nil {
 		return nil, err
 	}
-
-	decodedP := new(Proof)
-	decodedP.Rule = p.Rule
-
-	// decode consensus message which is rlp encoded.
-	msg := new(tendermintCore.Message)
-	if err := msg.FromPayload(p.Message); err != nil {
-		return nil, err
-	}
-	decodedP.Message = msg
-
-	for i := 0; i < len(p.Evidence); i++ {
-		m := new(tendermintCore.Message)
-		if err := m.FromPayload(p.Evidence[i]); err != nil {
-			return nil, fmt.Errorf("msg cannot be decoded")
-		}
-		decodedP.Evidence = append(decodedP.Evidence, m)
-	}
-	return decodedP, nil
+	return p, nil
 }

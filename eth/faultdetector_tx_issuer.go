@@ -36,7 +36,7 @@ func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.Accountabilit
 // generate on-chain events for accountability, it take the proofs and pack them into the accountability contract
 // interface, since max transaction size was limited into 512 KB, so we need to estimate the size of the event, and
 // consider to break them into pieces once the proofs exceed 512 KB.
-func (s *Ethereum) generateAccountabilityTXs(method string, proofs []autonity.OnChainProof) (txs []*types.Transaction, e error) {
+func (s *Ethereum) generateAccountabilityTXs(method string, proofs []*autonity.OnChainProof) (txs []*types.Transaction, e error) {
 	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.nodeKey.PublicKey))
 	// try to generate a single event to contain all the proofs.
 	tx, err := s.genAccountabilityEvent(nonce, method, proofs)
@@ -86,7 +86,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, proofs []autonity.On
 	return nil, err
 }
 
-func (s *Ethereum) genAccountabilityEvent(nonce uint64, method string, proofs []autonity.OnChainProof) (*types.Transaction, error) {
+func (s *Ethereum) genAccountabilityEvent(nonce uint64, method string, proofs []*autonity.OnChainProof) (*types.Transaction, error) {
 	to := s.BlockChain().GetAutonityContract().Address()
 	abi := s.BlockChain().GetAutonityContract().ABI()
 	packedData, err := abi.Pack(method, proofs)
