@@ -1,7 +1,6 @@
 package faultdetector
 
 import (
-	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
@@ -111,19 +110,19 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 func (a *AccusationVerifier) validateAccusation(in *Proof, getHeader HeaderGetter) []byte {
 	// we have only 4 types of rule on accusation.
 	switch in.Rule {
-	case autonity.PO:
+	case PO:
 		if in.Message.Code != msgProposal {
 			return failure96Byte
 		}
-	case autonity.PVN:
+	case PVN:
 		if in.Message.Code != msgPrevote {
 			return failure96Byte
 		}
-	case autonity.C:
+	case C:
 		if in.Message.Code != msgPrecommit {
 			return failure96Byte
 		}
-	case autonity.C1:
+	case C1:
 		if in.Message.Code != msgPrecommit {
 			return failure96Byte
 		}
@@ -214,21 +213,21 @@ func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, c
 // check if the evidence of the misbehaviour is valid or not.
 func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 	switch p.Rule {
-	case autonity.PN:
+	case PN:
 		return c.validMisbehaviourOfPN(p)
-	case autonity.PO:
+	case PO:
 		return c.validMisbehaviourOfPO(p)
-	case autonity.PVN:
+	case PVN:
 		return c.validMisbehaviourOfPVN(p)
-	case autonity.C:
+	case C:
 		return c.validMisbehaviourOfC(p, getHeader)
-	case autonity.GarbageMessage:
+	case GarbageMessage:
 		return checkAutoIncriminatingMsg(c.chain, p.Message) == errGarbageMsg
-	case autonity.InvalidProposal:
+	case InvalidProposal:
 		return checkAutoIncriminatingMsg(c.chain, p.Message) == errProposal
-	case autonity.InvalidProposer:
+	case InvalidProposer:
 		return checkAutoIncriminatingMsg(c.chain, p.Message) == errProposer
-	case autonity.Equivocation:
+	case Equivocation:
 		return checkEquivocation(c.chain, p.Message, p.Evidence) == errEquivocation
 	default:
 		return false
@@ -400,13 +399,13 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *Proof, getHeader HeaderGe
 func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
-	case autonity.PO:
+	case PO:
 		return c.validInnocenceProofOfPO(p, getHeader)
-	case autonity.PVN:
+	case PVN:
 		return c.validInnocenceProofOfPVN(p)
-	case autonity.C:
+	case C:
 		return c.validInnocenceProofOfC(p)
-	case autonity.C1:
+	case C1:
 		return c.validInnocenceProofOfC1(p, getHeader)
 	default:
 		return false

@@ -35,7 +35,7 @@ func TestRuleEngine(t *testing.T) {
 	t.Run("getInnocentProof with unprovable rule id", func(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		var input = Proof{
-			Rule: autonity.PVO,
+			Rule: PVO,
 		}
 
 		_, err := fd.getInnocentProof(&input)
@@ -63,7 +63,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.PO,
+			Rule:    PO,
 			Message: proposal,
 		}
 
@@ -93,7 +93,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.PO,
+			Rule:    PO,
 			Message: proposal,
 		}
 
@@ -117,7 +117,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.PVN,
+			Rule:    PVN,
 			Message: preVote,
 		}
 
@@ -139,7 +139,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.PVN,
+			Rule:    PVN,
 			Message: preVote,
 		}
 
@@ -163,7 +163,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.C,
+			Rule:    C,
 			Message: preCommit,
 		}
 
@@ -186,7 +186,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.C,
+			Rule:    C,
 			Message: preCommit,
 		}
 
@@ -214,7 +214,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.C1,
+			Rule:    C1,
 			Message: preCommit,
 		}
 
@@ -238,7 +238,7 @@ func TestRuleEngine(t *testing.T) {
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
-			Rule:    autonity.C1,
+			Rule:    C1,
 			Message: preCommit,
 		}
 
@@ -249,19 +249,19 @@ func TestRuleEngine(t *testing.T) {
 	t.Run("Test error to rule mapping", func(t *testing.T) {
 		rule, err := errorToRule(errEquivocation)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.Equivocation, rule)
+		assert.Equal(t, Equivocation, rule)
 
 		rule, err = errorToRule(errProposer)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.InvalidProposer, rule)
+		assert.Equal(t, InvalidProposer, rule)
 
 		rule, err = errorToRule(errProposal)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.InvalidProposal, rule)
+		assert.Equal(t, InvalidProposal, rule)
 
 		rule, err = errorToRule(errGarbageMsg)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.GarbageMessage, rule)
+		assert.Equal(t, GarbageMessage, rule)
 
 		_, err = errorToRule(fmt.Errorf("unknown err"))
 		assert.Error(t, err)
@@ -313,7 +313,7 @@ func TestRuleEngine(t *testing.T) {
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PN, onChainProofs[0].Rule)
+		assert.Equal(t, PN, onChainProofs[0].Rule)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
@@ -361,8 +361,8 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, 2, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
 		assert.Equal(t, autonity.Accusation, onChainProofs[1].Type)
-		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
-		assert.Equal(t, autonity.PO, onChainProofs[1].Rule)
+		assert.Equal(t, PO, onChainProofs[0].Rule)
+		assert.Equal(t, PO, onChainProofs[1].Rule)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[1].Message.Signature)
@@ -431,7 +431,7 @@ func TestRuleEngine(t *testing.T) {
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
+		assert.Equal(t, PO, onChainProofs[0].Rule)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
@@ -461,7 +461,7 @@ func TestRuleEngine(t *testing.T) {
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
+		assert.Equal(t, PO, onChainProofs[0].Rule)
 		assert.Equal(t, oldProposal.Signature, onChainProofs[0].Message.Signature)
 	})
 
@@ -482,7 +482,7 @@ func TestRuleEngine(t *testing.T) {
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PVN, onChainProofs[0].Rule)
+		assert.Equal(t, PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
 	})
 
@@ -535,7 +535,7 @@ func TestRuleEngine(t *testing.T) {
 
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PVN, onChainProofs[0].Rule)
+		assert.Equal(t, PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
@@ -558,7 +558,7 @@ func TestRuleEngine(t *testing.T) {
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.C, onChainProofs[0].Rule)
+		assert.Equal(t, C, onChainProofs[0].Rule)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Message.Signature)
 	})
 
@@ -596,7 +596,7 @@ func TestRuleEngine(t *testing.T) {
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.C, onChainProofs[0].Rule)
+		assert.Equal(t, C, onChainProofs[0].Rule)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Message.Signature)
 
 		// validate if there is enough preVotes for not v.
@@ -637,7 +637,7 @@ func TestRuleEngine(t *testing.T) {
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.C1, onChainProofs[0].Rule)
+		assert.Equal(t, C1, onChainProofs[0].Rule)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Message.Signature)
 	})
 }
