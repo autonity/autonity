@@ -223,21 +223,21 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 }
 
 func (ac *Contract) callGetMisBehaviours(state *state.StateDB, header *types.Header) []*OnChainProof {
-	var proofs []*OnChainProof
-	err := ac.AutonityContractCall(state, header, "getMisbehaviours", &proofs)
+	var onChainProofs []*OnChainProof
+	err := ac.AutonityContractCall(state, header, "getMisbehaviours", &onChainProofs)
 
 	if err != nil {
 		log.Error("get mis-behaviours failed from contract.", "error", err)
 	}
-	return proofs
+	return onChainProofs
 }
 
 func (ac *Contract) callGetAccusations(state *state.StateDB, header *types.Header) []*OnChainProof {
-	var proofs []*OnChainProof
-	err := ac.AutonityContractCall(state, header, "getAccusations", &proofs)
+	var onChainProofs []*OnChainProof
+	err := ac.AutonityContractCall(state, header, "getAccusations", &onChainProofs)
 
 	if err != nil {
 		log.Error("get accusations failed from contract.", "error", err)
 	}
-	return proofs
+	return onChainProofs
 }

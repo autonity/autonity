@@ -17,7 +17,7 @@ var (
 
 func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.AccountabilityEvent) {
 
-	txs, err := s.generateAccountabilityTXs("handleProofs", ev.Proofs)
+	txs, err := s.generateAccountabilityTXs("handleProofs", ev.OnChainProofs)
 	if err != nil {
 		log.Error("Could not generate accountability transaction", "err", err)
 		return
@@ -36,28 +36,28 @@ func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.Accountabilit
 // generate on-chain events for accountability, it take the proofs and pack them into the accountability contract
 // interface, since max transaction size was limited into 512 KB, so we need to estimate the size of the event, and
 // consider to break them into pieces once the proofs exceed 512 KB.
-func (s *Ethereum) generateAccountabilityTXs(method string, proofs []*autonity.OnChainProof) (txs []*types.Transaction, e error) {
+func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*autonity.OnChainProof) (txs []*types.Transaction, e error) {
 	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.nodeKey.PublicKey))
-	// try to generate a single event to contain all the proofs.
-	tx, err := s.genAccountabilityEvent(nonce, method, proofs)
+	// try to generate a single event to contain all the onChainProofs.
+	tx, err := s.genAccountabilityEvent(nonce, method, onChainProofs)
 	if err == nil {
 		return append(txs, tx), nil
 	}
 
 	// accountability events exceed 512 KB, break the events into pieces.
 	if err == errOverSizedEvent {
-		if len(proofs) == 1 {
+		if len(onChainProofs) == 1 {
 			log.Error("over-sized accountability event", "err", "cannot pack over-sized proof")
 			return nil, errOverSizedEvent
 		}
 
 		// try to pack as much events as possible until TX exceed 512 KB.
 		start := 0
-		for i := 1; i <= len(proofs) && start < len(proofs); i++ {
-			tx, err := s.genAccountabilityEvent(nonce, method, proofs[start:i])
+		for i := 1; i <= len(onChainProofs) && start < len(onChainProofs); i++ {
+			tx, err := s.genAccountabilityEvent(nonce, method, onChainProofs[start:i])
 			// exceed 512 KB, try to break it into pieces.
 			if err == errOverSizedEvent {
-				if len(proofs[start:i]) == 1 {
+				if len(onChainProofs[start:i]) == 1 {
 					//single event exceed 512 KB, skip it.
 					start++
 					log.Error("skip over-sized accountability event", "err")
@@ -65,7 +65,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, proofs []*autonity.O
 				}
 
 				// break sub piece of events
-				p, err := s.genAccountabilityEvent(nonce, method, proofs[start:i-1])
+				p, err := s.genAccountabilityEvent(nonce, method, onChainProofs[start:i-1])
 				if err == nil {
 					start = i - 1
 					i = start
@@ -75,7 +75,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, proofs []*autonity.O
 			}
 
 			// append the last piece of events
-			if err == nil && i == len(proofs) {
+			if err == nil && i == len(onChainProofs) {
 				txs = append(txs, tx)
 			}
 		}
@@ -86,10 +86,10 @@ func (s *Ethereum) generateAccountabilityTXs(method string, proofs []*autonity.O
 	return nil, err
 }
 
-func (s *Ethereum) genAccountabilityEvent(nonce uint64, method string, proofs []*autonity.OnChainProof) (*types.Transaction, error) {
+func (s *Ethereum) genAccountabilityEvent(nonce uint64, method string, onChainProofs []*autonity.OnChainProof) (*types.Transaction, error) {
 	to := s.BlockChain().GetAutonityContract().Address()
 	abi := s.BlockChain().GetAutonityContract().ABI()
-	packedData, err := abi.Pack(method, proofs)
+	packedData, err := abi.Pack(method, onChainProofs)
 	if err != nil {
 		log.Error("Cannot pack accountability transaction", "err", err)
 		return nil, err

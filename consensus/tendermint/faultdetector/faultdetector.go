@@ -77,7 +77,7 @@ type Proof struct {
 
 // event to submit proofs via standard transaction.
 type AccountabilityEvent struct {
-	Proofs []*autonity.OnChainProof
+	OnChainProofs []*autonity.OnChainProof
 }
 
 // wrap chain context calls to make unit test easier
@@ -106,7 +106,7 @@ type FaultDetector struct {
 
 	// todo: this buffer may not be required, for testing use mocks through interfaces.
 	blocksTotalVotingPower map[uint64]uint64        // buffer for block's total voting power for quorum calculations.
-	proofsBuffer           []*autonity.OnChainProof // buffer proofs to aggregate them into single TX.
+	onChainProofsBuffer    []*autonity.OnChainProof // buffer proofs to aggregate them into single TX.
 
 	logger log.Logger
 }
@@ -186,7 +186,7 @@ func (fd *FaultDetector) blockEventLoop() {
 			innocenceProofs, _ := fd.handleAccusations(ev.Block, ev.Block.Root())
 			if innocenceProofs != nil {
 				fd.Lock()
-				fd.proofsBuffer = append(fd.proofsBuffer, innocenceProofs...)
+				fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, innocenceProofs...)
 				fd.Unlock()
 			}
 
@@ -194,7 +194,7 @@ func (fd *FaultDetector) blockEventLoop() {
 			proofs := fd.runRuleEngine(ev.Block.NumberU64())
 			if proofs != nil {
 				fd.Lock()
-				fd.proofsBuffer = append(fd.proofsBuffer, proofs...)
+				fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, proofs...)
 				fd.Unlock()
 			}
 
@@ -294,7 +294,7 @@ func (fd *FaultDetector) generateOnChainProof(p *Proof) (*autonity.OnChainProof,
 
 // getInnocentProof called by client who is on challenge to get proof of innocent from msg store.
 func (fd *FaultDetector) getInnocentProof(c *Proof) (*autonity.OnChainProof, error) {
-	var proof *autonity.OnChainProof
+	var onChainProof *autonity.OnChainProof
 	// rule engine have below provable accusation for the time being:
 	switch c.Rule {
 	case PO:
@@ -306,13 +306,13 @@ func (fd *FaultDetector) getInnocentProof(c *Proof) (*autonity.OnChainProof, err
 	case C1:
 		return fd.getInnocentProofOfC1(c)
 	default:
-		return proof, fmt.Errorf("not provable rule")
+		return onChainProof, fmt.Errorf("not provable rule")
 	}
 }
 
 // get proof of innocent of C from msg store.
 func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, error) {
-	var proof *autonity.OnChainProof
+	var onChainProof *autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
 
@@ -321,9 +321,9 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, 
 	})
 
 	if len(proposals) == 0 {
-		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
-		// time window for proof ends.
-		return proof, errNoEvidenceForC
+		// cannot onChainProof its innocent for PVN, the on-chain contract will fine it latter once the
+		// time window for onChainProof ends.
+		return onChainProof, errNoEvidenceForC
 	}
 	p, err := fd.generateOnChainProof(&Proof{
 		Type:     autonity.Innocence,
@@ -339,7 +339,7 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, 
 
 // get proof of innocent of C1 from msg store.
 func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof, error) {
-	var proof *autonity.OnChainProof
+	var onChainProof *autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
 	quorum := fd.quorum(height - 1)
@@ -349,9 +349,9 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof,
 	})
 
 	if powerOfVotes(prevotesForV) < quorum {
-		// cannot proof its innocent for PO for now, the on-chain contract will fine it latter once the
-		// time window for proof ends.
-		return proof, errNoEvidenceForC1
+		// cannot onChainProof its innocent for PO for now, the on-chain contract will fine it latter once the
+		// time window for onChainProof ends.
+		return onChainProof, errNoEvidenceForC1
 	}
 
 	p, err := fd.generateOnChainProof(&Proof{
@@ -369,9 +369,9 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof,
 
 // get proof of innocent of PO from msg store.
 func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof, error) {
-	// PO: node propose an old value with an validRound, innocent proof of it should be:
+	// PO: node propose an old value with an validRound, innocent onChainProof of it should be:
 	// there are quorum num of prevote for that value at the validRound.
-	var proof *autonity.OnChainProof
+	var onChainProof *autonity.OnChainProof
 	proposal := c.Message
 	height := proposal.H()
 	validRound := proposal.ValidRound()
@@ -382,9 +382,9 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof,
 	})
 
 	if powerOfVotes(prevotes) < quorum {
-		// cannot proof its innocent for PO, the on-chain contract will fine it latter once the
-		// time window for proof ends.
-		return proof, errNoEvidenceForPO
+		// cannot onChainProof its innocent for PO, the on-chain contract will fine it latter once the
+		// time window for onChainProof ends.
+		return onChainProof, errNoEvidenceForPO
 	}
 
 	p, err := fd.generateOnChainProof(&Proof{
@@ -404,7 +404,7 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof,
 func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof, error) {
 	// get innocent proofs for PVN, for a prevote that vote for a new value,
 	// then there must be a proposal for this new value.
-	var proof *autonity.OnChainProof
+	var onChainProof *autonity.OnChainProof
 	prevote := c.Message
 	height := prevote.H()
 
@@ -413,9 +413,9 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof
 	})
 
 	if len(correspondingProposals) == 0 {
-		// cannot proof its innocent for PVN, the on-chain contract will fine it latter once the
-		// time window for proof ends.
-		return proof, errNoEvidenceForPVN
+		// cannot onChainProof its innocent for PVN, the on-chain contract will fine it latter once the
+		// time window for onChainProof ends.
+		return onChainProof, errNoEvidenceForPVN
 	}
 
 	p, err := fd.generateOnChainProof(&Proof{
@@ -433,7 +433,7 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof
 
 // get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.
 func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash) ([]*autonity.OnChainProof, error) {
-	var innocentProofs []*autonity.OnChainProof
+	var innocentOnChainProofs []*autonity.OnChainProof
 	state, err := fd.blockchain.StateAt(hash)
 	if err != nil || state == nil {
 		fd.logger.Error("handleAccusation", "faultdetector", err)
@@ -457,11 +457,11 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 			if err != nil {
 				continue
 			}
-			innocentProofs = append(innocentProofs, p)
+			innocentOnChainProofs = append(innocentOnChainProofs, p)
 		}
 	}
 
-	return innocentProofs, nil
+	return innocentOnChainProofs, nil
 }
 
 // processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
@@ -847,7 +847,7 @@ func (fd *FaultDetector) sendProofs(proofs []*autonity.OnChainProof) {
 		randomDelay()
 		unPresented := fd.filterPresentedOnes(proofs)
 		if len(unPresented) != 0 {
-			fd.faultDetectorFeed.Send(AccountabilityEvent{Proofs: unPresented})
+			fd.faultDetectorFeed.Send(AccountabilityEvent{OnChainProofs: unPresented})
 		}
 	}()
 }
@@ -858,12 +858,12 @@ func (fd *FaultDetector) sentProofs() {
 
 	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
 	//  consider to break down into multiples if it cannot fit in.
-	if len(fd.proofsBuffer) != 0 {
-		copyProofs := make([]*autonity.OnChainProof, len(fd.proofsBuffer))
-		copy(copyProofs, fd.proofsBuffer)
-		fd.sendProofs(copyProofs)
+	if len(fd.onChainProofsBuffer) != 0 {
+		copyOnChainProofs := make([]*autonity.OnChainProof, len(fd.onChainProofsBuffer))
+		copy(copyOnChainProofs, fd.onChainProofsBuffer)
+		fd.sendProofs(copyOnChainProofs)
 		// release items from buffer
-		fd.proofsBuffer = fd.proofsBuffer[:0]
+		fd.onChainProofsBuffer = fd.onChainProofsBuffer[:0]
 	}
 }
 
@@ -888,7 +888,7 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []*
 	// submit misbehavior proof to buffer, it will be sent once aggregated.
 	fd.Lock()
 	defer fd.Unlock()
-	fd.proofsBuffer = append(fd.proofsBuffer, proof)
+	fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, proof)
 }
 
 /////// common helper functions shared between faultdetector and precompiled contract to validate msgs.
