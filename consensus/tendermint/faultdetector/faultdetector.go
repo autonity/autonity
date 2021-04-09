@@ -67,8 +67,8 @@ var (
 	randomDelayWindow = 1000 * 5 // (0, 5] seconds random time window
 )
 
-// Proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
-type Proof struct {
+// proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
+type proof struct {
 	Type     autonity.ProofType // Misbehaviour, Accusation, Innocence.
 	Rule     Rule
 	Message  *tendermintCore.Message   // the msg to be considered as suspicious or misbehaved one
@@ -277,7 +277,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 }
 
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
-func (fd *FaultDetector) generateOnChainProof(p *Proof) (*autonity.OnChainProof, error) {
+func (fd *FaultDetector) generateOnChainProof(p *proof) (*autonity.OnChainProof, error) {
 	var onChainProof = &autonity.OnChainProof{
 		Type:    p.Type,
 		Sender:  p.Message.Address,
@@ -293,7 +293,7 @@ func (fd *FaultDetector) generateOnChainProof(p *Proof) (*autonity.OnChainProof,
 }
 
 // getInnocentProof called by client who is on challenge to get proof of innocent from msg store.
-func (fd *FaultDetector) getInnocentProof(c *Proof) (*autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProof(c *proof) (*autonity.OnChainProof, error) {
 	var onChainProof *autonity.OnChainProof
 	// rule engine have below provable accusation for the time being:
 	switch c.Rule {
@@ -311,7 +311,7 @@ func (fd *FaultDetector) getInnocentProof(c *Proof) (*autonity.OnChainProof, err
 }
 
 // get proof of innocent of C from msg store.
-func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfC(c *proof) (*autonity.OnChainProof, error) {
 	var onChainProof *autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
@@ -325,7 +325,7 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, 
 		// time window for onChainProof ends.
 		return onChainProof, errNoEvidenceForC
 	}
-	p, err := fd.generateOnChainProof(&Proof{
+	p, err := fd.generateOnChainProof(&proof{
 		Type:     autonity.Innocence,
 		Rule:     c.Rule,
 		Message:  preCommit,
@@ -338,7 +338,7 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, 
 }
 
 // get proof of innocent of C1 from msg store.
-func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfC1(c *proof) (*autonity.OnChainProof, error) {
 	var onChainProof *autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
@@ -354,7 +354,7 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof,
 		return onChainProof, errNoEvidenceForC1
 	}
 
-	p, err := fd.generateOnChainProof(&Proof{
+	p, err := fd.generateOnChainProof(&proof{
 		Type:     autonity.Innocence,
 		Rule:     c.Rule,
 		Message:  preCommit,
@@ -368,7 +368,7 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof,
 }
 
 // get proof of innocent of PO from msg store.
-func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfPO(c *proof) (*autonity.OnChainProof, error) {
 	// PO: node propose an old value with an validRound, innocent onChainProof of it should be:
 	// there are quorum num of prevote for that value at the validRound.
 	var onChainProof *autonity.OnChainProof
@@ -387,7 +387,7 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof,
 		return onChainProof, errNoEvidenceForPO
 	}
 
-	p, err := fd.generateOnChainProof(&Proof{
+	p, err := fd.generateOnChainProof(&proof{
 		Type:     autonity.Innocence,
 		Rule:     c.Rule,
 		Message:  proposal,
@@ -401,7 +401,7 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof,
 }
 
 // get proof of innocent of PVN from msg store.
-func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof, error) {
+func (fd *FaultDetector) getInnocentProofOfPVN(c *proof) (*autonity.OnChainProof, error) {
 	// get innocent proofs for PVN, for a prevote that vote for a new value,
 	// then there must be a proposal for this new value.
 	var onChainProof *autonity.OnChainProof
@@ -418,7 +418,7 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof
 		return onChainProof, errNoEvidenceForPVN
 	}
 
-	p, err := fd.generateOnChainProof(&Proof{
+	p, err := fd.generateOnChainProof(&proof{
 		Type:     autonity.Innocence,
 		Rule:     c.Rule,
 		Message:  prevote,
@@ -448,7 +448,7 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	accusations := contract.GetAccusations(block.Header(), state)
 	for i := 0; i < len(accusations); i++ {
 		if accusations[i].Sender == fd.address {
-			c, err := decodeProof(accusations[i].Rawproof)
+			c, err := decodeRawProof(accusations[i].Rawproof)
 			if err != nil {
 				continue
 			}
@@ -548,7 +548,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.OnChainProof {
 	return onChainProofs
 }
 
-func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proofs []*Proof) {
+func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proofs []*proof) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evealuated such that we check all paossible instances and if
@@ -577,7 +577,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			return m.Sender() == proposal.Sender() && m.Type() == msgPrecommit && m.R() < proposal.R() && m.Value() != nilValue // nolint: scopelint
 		})
 		if len(precommits) != 0 {
-			proof := &Proof{
+			proof := &proof{
 				Type:     autonity.Misbehaviour,
 				Rule:     PN,
 				Evidence: precommits,
@@ -610,7 +610,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				m.Sender() == proposal.Sender() && m.Value() != nilValue && m.Value() != proposal.Value() // nolint: scopelint
 		})
 		if len(precommits) > 0 {
-			proof := &Proof{
+			proof := &proof{
 				Type:     autonity.Misbehaviour,
 				Rule:     PO,
 				Evidence: precommits,
@@ -628,7 +628,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				m.R() > validRound && m.R() < proposal.R() && m.Sender() == proposal.Sender() && m.Value() != nilValue // nolint: scopelint
 		})
 		if len(precommits) > 0 {
-			proof := &Proof{
+			proof := &proof{
 				Type:     autonity.Misbehaviour,
 				Rule:     PO,
 				Evidence: precommits,
@@ -646,7 +646,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		})
 
 		if powerOfVotes(deEquivocatedMsgs(prevotes)) < quorum {
-			accusation := &Proof{
+			accusation := &proof{
 				Type:    autonity.Accusation,
 				Rule:    PO,
 				Message: proposal,
@@ -667,7 +667,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		})
 
 		if len(correspondingProposals) == 0 {
-			accusation := &Proof{
+			accusation := &proof{
 				Type: autonity.Accusation,
 				Rule: PVN, //This could be PVO as well, however, we can't decide since there are no corresponding
 				// proposal
@@ -707,7 +707,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				})
 
 				if len(precommits) > 0 {
-					proof := &Proof{
+					proof := &proof{
 						Type:     autonity.Misbehaviour,
 						Rule:     PVN,
 						Evidence: precommits,
@@ -793,7 +793,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		})
 
 		if len(proposals) == 0 {
-			accusation := &Proof{
+			accusation := &proof{
 				Type:    autonity.Accusation,
 				Rule:    C,
 				Message: precommit,
@@ -816,7 +816,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		if powerOfVotes(deEquivocatedPreVotesForNotV) >= quorum {
 			// In this case there cannot be enough remaining prevotes
 			// to justify a precommit for V.
-			proof := &Proof{
+			proof := &proof{
 				Type:     autonity.Misbehaviour,
 				Rule:     C,
 				Evidence: deEquivocatedPreVotesForNotV,
@@ -827,7 +827,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		} else if powerOfVotes(prevotesForV) < quorum {
 			// In this case we simply don't see enough prevotes to
 			// justify the precommit.
-			accusation := &Proof{
+			accusation := &proof{
 				Type:    autonity.Accusation,
 				Rule:    C1,
 				Message: precommit,
@@ -874,7 +874,7 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []*
 	if e != nil {
 		fd.logger.Warn("error to rule", "faultdetector", e)
 	}
-	proof, err := fd.generateOnChainProof(&Proof{
+	proof, err := fd.generateOnChainProof(&proof{
 		Type:     autonity.Misbehaviour,
 		Rule:     rule,
 		Message:  m,

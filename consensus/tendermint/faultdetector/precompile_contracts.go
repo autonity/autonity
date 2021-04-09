@@ -98,7 +98,7 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 	}
 
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
-	p, err := decodeProof(input[32:])
+	p, err := decodeRawProof(input[32:])
 	if err != nil {
 		return failure96Byte, nil
 	}
@@ -107,7 +107,7 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 }
 
 // validate if the accusation is valid.
-func (a *AccusationVerifier) validateAccusation(in *Proof, getHeader HeaderGetter) []byte {
+func (a *AccusationVerifier) validateAccusation(in *proof, getHeader HeaderGetter) []byte {
 	// we have only 4 types of rule on accusation.
 	switch in.Rule {
 	case PO:
@@ -167,7 +167,7 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 	}
 
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
-	p, err := decodeProof(input[32:])
+	p, err := decodeRawProof(input[32:])
 	if err != nil {
 		return failure96Byte, nil
 	}
@@ -177,7 +177,7 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 
 // validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for proof management.
-func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
+func (c *MisbehaviourVerifier) validateProof(p *proof, getHeader HeaderGetter, currentHeader CurrentHeaderGetter) []byte {
 
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, p.Message, getHeader, currentHeader)
@@ -211,7 +211,7 @@ func (c *MisbehaviourVerifier) validateProof(p *Proof, getHeader HeaderGetter, c
 }
 
 // check if the evidence of the misbehaviour is valid or not.
-func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
+func (c *MisbehaviourVerifier) validProof(p *proof) bool {
 	switch p.Rule {
 	case PN:
 		return c.validMisbehaviourOfPN(p)
@@ -236,7 +236,7 @@ func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 
 // check if the proof of challenge of PN is valid,
 // node propose a new value when there is a proof that it precommit at a different value at previous round.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -259,7 +259,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 }
 
 // check if the proof of challenge of PO is valid
-func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -286,7 +286,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 }
 
 // check if the proof of challenge of PVN is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -307,7 +307,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 }
 
 // check if the proof of challenge of C is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, getHeader HeaderGetter) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *proof, getHeader HeaderGetter) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -354,7 +354,7 @@ func (c *InnocenceVerifier) Run(input []byte) ([]byte, error) {
 	}
 
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
-	p, err := decodeProof(input[32:])
+	p, err := decodeRawProof(input[32:])
 	if err != nil {
 		return failure96Byte, nil
 	}
@@ -363,7 +363,7 @@ func (c *InnocenceVerifier) Run(input []byte) ([]byte, error) {
 }
 
 // validate if the innocence proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocenceVerifier) validateInnocenceProof(in *Proof, getHeader HeaderGetter) []byte {
+func (c *InnocenceVerifier) validateInnocenceProof(in *proof, getHeader HeaderGetter) []byte {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
@@ -396,7 +396,7 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *Proof, getHeader HeaderGe
 	return append(append(sender, msgHash...), validProofByte...)
 }
 
-func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProof(p *proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
 	case PO:
@@ -413,7 +413,7 @@ func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
 }
 
 // check if the proof of innocent of PO is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof, getHeader HeaderGetter) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfPO(p *proof, getHeader HeaderGetter) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
 	if proposal.Type() != msgProposal {
@@ -443,7 +443,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof, getHeader HeaderGe
 }
 
 // check if the proof of innocent of PVN is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
 	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
@@ -460,7 +460,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfC(p *Proof) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfC(p *proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -476,7 +476,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfC(p *Proof) bool {
 }
 
 // check if the proof of innocent of C is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof, getHeader HeaderGetter) bool {
+func (c *InnocenceVerifier) validInnocenceProofOfC1(p *proof, getHeader HeaderGetter) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -518,10 +518,10 @@ func haveRedundantVotes(votes []*tendermintCore.Message) bool {
 	return false
 }
 
-// decode proof convert proof from rlp encoded bytes into object Proof.
-func decodeProof(proof []byte) (*Proof, error) {
-	p := new(Proof)
-	err := rlp.DecodeBytes(proof, p)
+// decode proof convert proof from rlp encoded bytes into object proof.
+func decodeRawProof(b []byte) (*proof, error) {
+	p := new(proof)
+	err := rlp.DecodeBytes(b, p)
 	if err != nil {
 		return nil, err
 	}

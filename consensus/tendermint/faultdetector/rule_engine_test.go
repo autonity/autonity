@@ -34,7 +34,7 @@ func TestRuleEngine(t *testing.T) {
 
 	t.Run("getInnocentProof with unprovable rule id", func(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		var input = Proof{
+		var input = proof{
 			Rule: PVO,
 		}
 
@@ -61,7 +61,7 @@ func TestRuleEngine(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    PO,
 			Message: proposal,
@@ -91,7 +91,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    PO,
 			Message: proposal,
@@ -115,7 +115,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    PVN,
 			Message: preVote,
@@ -137,7 +137,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    PVN,
 			Message: preVote,
@@ -161,7 +161,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    C,
 			Message: preCommit,
@@ -184,7 +184,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    C,
 			Message: preCommit,
@@ -212,7 +212,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    C1,
 			Message: preCommit,
@@ -236,7 +236,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = Proof{
+		var accusation = proof{
 			Type:    autonity.Accusation,
 			Rule:    C1,
 			Message: preCommit,
