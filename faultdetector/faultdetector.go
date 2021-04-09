@@ -629,7 +629,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64) (proofs []Proof) {
 		// don't exist
 		prevotes := fd.msgStore.Get(height, func(m *tdm.Message) bool {
 			// since equivocation msgs are stored, we have to query those preVotes which has same value as the proposal.
-			return m.Type() == algo.Prevote && m.R() == validRound && m.V() == proposal.V()
+			return m.Type() == algo.Prevote && m.R() == validRound && m.V() == proposal.V() // nolint: scopelint
 		})
 
 		if powerOfVotes(prevotes, lastHeader) < quorum {
