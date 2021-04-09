@@ -614,7 +614,8 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		// raise an accusation, since we cannot be sure that these prevotes
 		// don't exist
 		prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return uint8(m.Type()) == msgPrevote && m.R() == validRound
+			// since equivocation msgs are stored, we have to query those preVotes which has same value as the proposal.
+			return uint8(m.Type()) == msgPrevote && m.R() == validRound && m.Value() == proposal.Value() // nolints: scopelint
 		})
 
 		if powerOfVotes(deEquivocatedMsgs(prevotes)) < quorum {
@@ -781,13 +782,17 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			return uint8(m.Type()) == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
 		})
 
-		if powerOfVotes(prevotesForNotV) >= quorum {
+		// even if we have equivocated preVotes for not V, we still assume that there are less f+1 malicious node in the
+		// network, so the powerOfVotes of preVotesForNotV which was deEquivocated is still valid to prove that the
+		// preCommit is a misbehaviour of rule C.
+		deEquivocatedPreVotesForNotV := deEquivocatedMsgs(prevotesForNotV)
+		if powerOfVotes(deEquivocatedPreVotesForNotV) >= quorum {
 			// In this case there cannot be enough remaining prevotes
 			// to justify a precommit for V.
 			proof := &Proof{
 				Type:     autonity.Misbehaviour,
 				Rule:     autonity.C,
-				Evidence: deEquivocatedMsgs(prevotesForNotV),
+				Evidence: deEquivocatedPreVotesForNotV,
 				Message:  precommit,
 			}
 			proofs = append(proofs, proof)

@@ -358,11 +358,14 @@ func TestRuleEngine(t *testing.T) {
 
 		// run rule engine.
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
+		assert.Equal(t, 2, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
+		assert.Equal(t, autonity.Accusation, onChainProofs[1].Type)
 		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
+		assert.Equal(t, autonity.PO, onChainProofs[1].Rule)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
+		assert.Equal(t, maliciousProposal.Signature, onChainProofs[1].Message.Signature)
 	})
 
 	t.Run("RunRule address the misbehaviour of PO rule, the valid round proposed is not correct", func(t *testing.T) {
