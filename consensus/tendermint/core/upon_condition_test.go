@@ -1250,8 +1250,8 @@ func TestFutureRoundChange(t *testing.T) {
 		}
 		currentStep := Step(rand.Intn(3))
 		// create random prevote or precommit from 2 different
-		msg1, _, _ := prepareVote(t, uint64(rand.Intn(2)+1), currentRound+1, currentHeight, common.Hash{}, sender1.Address, privateKeys[sender1.Address])
-		msg2, _, _ := prepareVote(t, uint64(rand.Intn(2)+1), currentRound+1, currentHeight, common.Hash{}, sender2.Address, privateKeys[sender2.Address])
+		msg1, _, _ := prepareVote(t, uint8(rand.Intn(2)+1), currentRound+1, currentHeight, common.Hash{}, sender1.Address, privateKeys[sender1.Address])
+		msg2, _, _ := prepareVote(t, uint8(rand.Intn(2)+1), currentRound+1, currentHeight, common.Hash{}, sender2.Address, privateKeys[sender2.Address])
 		msg1.power = roundChangeThreshold - 1
 		msg2.power = roundChangeThreshold - 1
 
@@ -1335,7 +1335,7 @@ func TestHandleMessage(t *testing.T) {
 		prevBlock := generateBlock(prevHeight)
 
 		// Prepare message
-		msg := &Message{Address: key2PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message1")}
+		msg := &Message{Address: key2PubAddr, Code: uint8(rand.Intn(3)), Msg: []byte("random message1")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
 		assert.NoError(t, err)
@@ -1360,7 +1360,7 @@ func TestHandleMessage(t *testing.T) {
 	t.Run("message sender is not the message signer", func(t *testing.T) {
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		prevBlock := generateBlock(prevHeight)
-		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2")}
+		msg := &Message{Address: key1PubAddr, Code: uint8(rand.Intn(3)), Msg: []byte("random message2")}
 
 		msgRlpNoSig, err := msg.PayloadNoSig()
 		assert.NoError(t, err)
@@ -1388,7 +1388,7 @@ func TestHandleMessage(t *testing.T) {
 		sig, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), key1)
 		assert.NoError(t, err)
 
-		msg := &Message{Address: key1PubAddr, Code: uint64(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
+		msg := &Message{Address: key1PubAddr, Code: uint8(rand.Intn(3)), Msg: []byte("random message2"), Signature: sig}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -1422,7 +1422,7 @@ func prepareProposal(t *testing.T, currentRound int64, proposalHeight *big.Int, 
 	return proposalMsg, proposalMsgRLPNoSig, proposalMsgRLPWithSig
 }
 
-func prepareVote(t *testing.T, step uint64, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
+func prepareVote(t *testing.T, step uint8, round int64, height *big.Int, blockHash common.Hash, clientAddr common.Address, privateKey *ecdsa.PrivateKey) (*Message, []byte, []byte) {
 	// prepare the proposal message
 	voteRLP, err := Encode(&Vote{Round: round, Height: height, ProposedBlockHash: blockHash})
 	assert.NoError(t, err)

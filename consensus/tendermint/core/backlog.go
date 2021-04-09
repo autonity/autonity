@@ -26,7 +26,7 @@ const MaxSizeBacklogUnchecked = 1000
 var (
 	// msgPriority is defined for calculating processing priority to speedup consensus
 	// msgProposal > msgPrecommit > msgPrevote
-	msgPriority = map[uint64]int{
+	msgPriority = map[uint8]int{
 		msgProposal:  1,
 		msgPrecommit: 2,
 		msgPrevote:   3,

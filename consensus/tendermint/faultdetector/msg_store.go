@@ -10,13 +10,13 @@ import (
 type MsgStore struct {
 	sync.RWMutex
 	// map[Height]map[Round]map[MsgType]map[common.address][]*Message
-	messages map[uint64]map[int64]map[uint64]map[common.Address][]*core.Message
+	messages map[uint64]map[int64]map[uint8]map[common.Address][]*core.Message
 }
 
 func newMsgStore() *MsgStore {
 	return &MsgStore{
 		RWMutex:  sync.RWMutex{},
-		messages: make(map[uint64]map[int64]map[uint64]map[common.Address][]*core.Message)}
+		messages: make(map[uint64]map[int64]map[uint8]map[common.Address][]*core.Message)}
 }
 
 // store msg into msg store, it returns msgs that is equivocation than the input msg, and an errEquivocation.
@@ -28,14 +28,14 @@ func (ms *MsgStore) Save(m *core.Message) ([]*core.Message, error) {
 	height, _ := m.Height()
 	roundMap, ok := ms.messages[height.Uint64()]
 	if !ok {
-		roundMap = make(map[int64]map[uint64]map[common.Address][]*core.Message)
+		roundMap = make(map[int64]map[uint8]map[common.Address][]*core.Message)
 		ms.messages[height.Uint64()] = roundMap
 	}
 
 	round, _ := m.Round()
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
-		msgTypeMap = make(map[uint64]map[common.Address][]*core.Message)
+		msgTypeMap = make(map[uint8]map[common.Address][]*core.Message)
 		roundMap[round] = msgTypeMap
 	}
 

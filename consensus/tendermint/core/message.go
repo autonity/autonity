@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	msgProposal uint64 = iota
+	msgProposal uint8 = iota
 	msgPrevote
 	msgPrecommit
 )
@@ -40,7 +40,7 @@ var (
 )
 
 type Message struct {
-	Code          uint64
+	Code          uint8
 	Msg           []byte
 	Address       common.Address
 	Signature     []byte
@@ -60,7 +60,7 @@ func (m *Message) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
 }
 
-func (m *Message) GetCode() uint64 {
+func (m *Message) GetCode() uint8 {
 	return m.Code
 }
 
@@ -71,7 +71,7 @@ func (m *Message) GetSignature() []byte {
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (m *Message) DecodeRLP(s *rlp.Stream) error {
 	var msg struct {
-		Code          uint64
+		Code          uint8
 		Msg           []byte
 		Address       common.Address
 		Signature     []byte
@@ -262,7 +262,7 @@ func (m *Message) Sender() common.Address {
 	return m.Address
 }
 
-func (m *Message) Type() uint64 {
+func (m *Message) Type() uint8 {
 	return m.Code
 }
 

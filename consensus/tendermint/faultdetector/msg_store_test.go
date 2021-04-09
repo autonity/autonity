@@ -107,7 +107,7 @@ func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []by
 
 func createMsg(rlpBytes []byte, code uint8, senderKey *ecdsa.PrivateKey) *core.Message {
 	var msg = core.Message{
-		Code:          uint64(code),
+		Code:          code,
 		Msg:           rlpBytes,
 		Address:       crypto.PubkeyToAddress(senderKey.PublicKey),
 		CommittedSeal: []byte{},
@@ -156,7 +156,7 @@ func TestMsgStore(t *testing.T) {
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := newMsgStore()
 		proposals := ms.Get(height, func(m *core.Message) bool {
-			return uint8(m.Type()) == msgProposal
+			return m.Type() == msgProposal
 		})
 		assert.Equal(t, 0, len(proposals))
 	})
@@ -177,10 +177,10 @@ func TestMsgStore(t *testing.T) {
 		assert.Equal(t, addrAlice, equivocatedMsgs[0].Sender())
 		assert.Equal(t, height, equivocatedMsgs[0].H())
 		assert.Equal(t, round, equivocatedMsgs[0].R())
-		assert.Equal(t, msgPrevote, uint8(equivocatedMsgs[0].Type()))
+		assert.Equal(t, msgPrevote, equivocatedMsgs[0].Type())
 		// check equivocated msg is also stored at msg store.
 		votes := ms.Get(height, func(m *core.Message) bool {
-			return uint8(m.Type()) == msgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
+			return m.Type() == msgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
 		})
 		assert.Equal(t, 2, len(votes))
 	})
@@ -194,12 +194,12 @@ func TestMsgStore(t *testing.T) {
 		}
 
 		votes := ms.Get(height, func(m *core.Message) bool {
-			return uint8(m.Type()) == msgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
+			return m.Type() == msgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
 				m.Value() == nilValue
 		})
 
 		assert.Equal(t, 1, len(votes))
-		assert.Equal(t, msgPrevote, uint8(votes[0].Type()))
+		assert.Equal(t, msgPrevote, votes[0].Type())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, addrAlice, votes[0].Sender())
@@ -221,12 +221,12 @@ func TestMsgStore(t *testing.T) {
 		}
 
 		votes := ms.Get(height, func(m *core.Message) bool {
-			return uint8(m.Type()) == msgPrevote && m.H() == height && m.R() == round
+			return m.Type() == msgPrevote && m.H() == height && m.R() == round
 		})
 
 		assert.Equal(t, 2, len(votes))
-		assert.Equal(t, msgPrevote, uint8(votes[0].Type()))
-		assert.Equal(t, msgPrevote, uint8(votes[1].Type()))
+		assert.Equal(t, msgPrevote, votes[0].Type())
+		assert.Equal(t, msgPrevote, votes[1].Type())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, height, votes[1].H())

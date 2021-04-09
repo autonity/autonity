@@ -113,19 +113,19 @@ func (a *AccusationVerifier) validateAccusation(in *Proof, getHeader HeaderGette
 	// we have only 4 types of rule on accusation.
 	switch in.Rule {
 	case autonity.PO:
-		if uint8(in.Message.Code) != msgProposal {
+		if in.Message.Code != msgProposal {
 			return failure96Byte
 		}
 	case autonity.PVN:
-		if uint8(in.Message.Code) != msgPrevote {
+		if in.Message.Code != msgPrevote {
 			return failure96Byte
 		}
 	case autonity.C:
-		if uint8(in.Message.Code) != msgPrecommit {
+		if in.Message.Code != msgPrecommit {
 			return failure96Byte
 		}
 	case autonity.C1:
-		if uint8(in.Message.Code) != msgPrecommit {
+		if in.Message.Code != msgPrecommit {
 			return failure96Byte
 		}
 	default:
@@ -246,13 +246,13 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 	// should be a new proposal
 	proposal := p.Message
 
-	if uint8(proposal.Code) != msgProposal || proposal.ValidRound() != -1 {
+	if proposal.Code != msgProposal || proposal.ValidRound() != -1 {
 		return false
 	}
 
 	preCommit := p.Evidence[0]
 	if preCommit.Sender() == proposal.Sender() &&
-		uint8(preCommit.Type()) == msgPrecommit &&
+		preCommit.Type() == msgPrecommit &&
 		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
 		return true
 	}
@@ -267,18 +267,18 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 	}
 	proposal := p.Message
 	// should be an old proposal
-	if uint8(proposal.Type()) != msgProposal || proposal.ValidRound() == -1 {
+	if proposal.Type() != msgProposal || proposal.ValidRound() == -1 {
 		return false
 	}
 	preCommit := p.Evidence[0]
 
-	if uint8(preCommit.Type()) == msgPrecommit && preCommit.R() == proposal.ValidRound() &&
+	if preCommit.Type() == msgPrecommit && preCommit.R() == proposal.ValidRound() &&
 		preCommit.Sender() == proposal.Sender() && preCommit.Value() != nilValue &&
 		preCommit.Value() != proposal.Value() {
 		return true
 	}
 
-	if uint8(preCommit.Type()) == msgPrecommit &&
+	if preCommit.Type() == msgPrecommit &&
 		preCommit.R() > proposal.ValidRound() && preCommit.R() < proposal.R() &&
 		preCommit.Sender() == proposal.Sender() &&
 		preCommit.Value() != nilValue {
@@ -293,13 +293,13 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 		return false
 	}
 	prevote := p.Message
-	if uint8(prevote.Type()) != msgPrevote || prevote.Value() == nilValue {
+	if prevote.Type() != msgPrevote || prevote.Value() == nilValue {
 		return false
 	}
 
 	// validate precommit.
 	preCommit := p.Evidence[0]
-	if uint8(preCommit.Type()) == msgPrecommit && preCommit.Value() != nilValue &&
+	if preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue &&
 		preCommit.Value() != prevote.Value() && prevote.Sender() == preCommit.Sender() &&
 		preCommit.R() < prevote.R() {
 		return true
@@ -314,13 +314,13 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, getHeader HeaderGe
 		return false
 	}
 	preCommit := p.Message
-	if uint8(preCommit.Type()) != msgPrecommit || preCommit.Value() == nilValue {
+	if preCommit.Type() != msgPrecommit || preCommit.Value() == nilValue {
 		return false
 	}
 
 	// check preVotes for not the same V compares to preCommit.
 	for i := 0; i < len(p.Evidence); i++ {
-		if !(uint8(p.Evidence[i].Type()) == msgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() != preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
 		}
@@ -418,7 +418,7 @@ func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
 func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof, getHeader HeaderGetter) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
-	if uint8(proposal.Type()) != msgProposal {
+	if proposal.Type() != msgProposal {
 		return false
 	}
 
@@ -427,7 +427,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof, getHeader HeaderGe
 
 	// check quorum prevotes for V at validRound.
 	for i := 0; i < len(p.Evidence); i++ {
-		if !(uint8(p.Evidence[i].Type()) == msgPrevote && p.Evidence[i].Value() == proposal.Value() &&
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() == proposal.Value() &&
 			p.Evidence[i].R() == proposal.ValidRound()) {
 			return false
 		}
@@ -448,7 +448,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof, getHeader HeaderGe
 func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
-	if !(uint8(preVote.Type()) == msgPrevote && preVote.Value() != nilValue) {
+	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
 		return false
 	}
 
@@ -457,14 +457,14 @@ func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
 	}
 
 	proposal := p.Evidence[0]
-	return uint8(proposal.Type()) == msgProposal && proposal.Value() == preVote.Value() &&
+	return proposal.Type() == msgProposal && proposal.Value() == preVote.Value() &&
 		proposal.R() == preVote.R()
 }
 
 // check if the proof of innocent of C is valid.
 func (c *InnocenceVerifier) validInnocenceProofOfC(p *Proof) bool {
 	preCommit := p.Message
-	if !(uint8(preCommit.Type()) == msgPrecommit && preCommit.Value() != nilValue) {
+	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
 	}
 
@@ -473,14 +473,14 @@ func (c *InnocenceVerifier) validInnocenceProofOfC(p *Proof) bool {
 	}
 
 	proposal := p.Evidence[0]
-	return uint8(proposal.Type()) == msgProposal && proposal.Value() == preCommit.Value() &&
+	return proposal.Type() == msgProposal && proposal.Value() == preCommit.Value() &&
 		proposal.R() == preCommit.R()
 }
 
 // check if the proof of innocent of C is valid.
 func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof, getHeader HeaderGetter) bool {
 	preCommit := p.Message
-	if !(uint8(preCommit.Type()) == msgPrecommit && preCommit.Value() != nilValue) {
+	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
 	}
 
@@ -489,7 +489,7 @@ func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof, getHeader HeaderGe
 
 	// check quorum prevotes for V at the same round.
 	for i := 0; i < len(p.Evidence); i++ {
-		if !(uint8(p.Evidence[i].Type()) == msgPrevote && p.Evidence[i].Value() == preCommit.Value() &&
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() == preCommit.Value() &&
 			p.Evidence[i].R() == preCommit.R()) {
 			return false
 		}

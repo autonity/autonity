@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"sync"
 	"time"
-
 )
 
 const (
@@ -22,7 +21,7 @@ type TimeoutEvent struct {
 	roundWhenCalled  int64
 	heightWhenCalled *big.Int
 	// message type: msgProposal msgPrevote	msgPrecommit
-	step uint64
+	step uint8
 }
 
 type timeout struct {
@@ -106,7 +105,7 @@ func (t *timeout) reset(s Step) {
 }
 
 /////////////// On Timeout Functions ///////////////
-func (c *core) measureMetricsOnTimeOut(step uint64, r int64) {
+func (c *core) measureMetricsOnTimeOut(step uint8, r int64) {
 	switch step {
 	case msgProposal:
 		duration := c.timeoutPropose(r)

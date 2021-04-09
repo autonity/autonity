@@ -290,7 +290,7 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (autonity.OnChainProof, e
 	height := preCommit.H()
 
 	proposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgProposal && m.Value() == preCommit.Value() && m.R() == preCommit.R()
+		return m.Type() == msgProposal && m.Value() == preCommit.Value() && m.R() == preCommit.R()
 	})
 
 	if len(proposals) == 0 {
@@ -318,7 +318,7 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (autonity.OnChainProof, 
 	quorum := fd.quorum(height - 1)
 
 	prevotesForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
+		return m.Type() == msgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
 	})
 
 	if powerOfVotes(prevotesForV) < quorum {
@@ -351,7 +351,7 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (autonity.OnChainProof, 
 	quorum := fd.quorum(height - 1)
 
 	prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgPrevote && m.R() == validRound && m.Value() == proposal.Value()
+		return m.Type() == msgPrevote && m.R() == validRound && m.Value() == proposal.Value()
 	})
 
 	if powerOfVotes(prevotes) < quorum {
@@ -382,7 +382,7 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (autonity.OnChainProof,
 	height := prevote.H()
 
 	correspondingProposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
+		return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
 	})
 
 	if len(correspondingProposals) == 0 {
@@ -541,13 +541,13 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 	// PN1: [nil ∨ ⊥] <--- [V]
 
 	proposalsNew := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgProposal && m.ValidRound() == -1
+		return m.Type() == msgProposal && m.ValidRound() == -1
 	})
 
 	for _, proposal := range proposalsNew {
 		//check all precommits for previous rounds from this sender are nil
 		precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return m.Sender() == proposal.Sender() && uint8(m.Type()) == msgPrecommit && m.R() < proposal.R() && m.Value() != nilValue // nolint: scopelint
+			return m.Sender() == proposal.Sender() && m.Type() == msgPrecommit && m.R() < proposal.R() && m.Value() != nilValue // nolint: scopelint
 		})
 		if len(precommits) != 0 {
 			proof := &Proof{
@@ -565,7 +565,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 	// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
 
 	proposalsOld := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgProposal && m.ValidRound() > -1
+		return m.Type() == msgProposal && m.ValidRound() > -1
 	})
 
 	for _, proposal := range proposalsOld {
@@ -579,7 +579,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		// has proposed a value for which it is not locked on, thus a proof of
 		// misbehaviour can be generated.
 		precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return uint8(m.Type()) == msgPrecommit && m.R() == validRound &&
+			return m.Type() == msgPrecommit && m.R() == validRound &&
 				m.Sender() == proposal.Sender() && m.Value() != nilValue && m.Value() != proposal.Value() // nolint: scopelint
 		})
 		if len(precommits) > 0 {
@@ -597,7 +597,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		// then that implies the proposer saw 2f+1 prevotes in that round and
 		// hence it should have set that round as the valid round.
 		precommits = fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return uint8(m.Type()) == msgPrecommit &&
+			return m.Type() == msgPrecommit &&
 				m.R() > validRound && m.R() < proposal.R() && m.Sender() == proposal.Sender() && m.Value() != nilValue // nolint: scopelint
 		})
 		if len(precommits) > 0 {
@@ -615,7 +615,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		// don't exist
 		prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			// since equivocation msgs are stored, we have to query those preVotes which has same value as the proposal.
-			return uint8(m.Type()) == msgPrevote && m.R() == validRound && m.Value() == proposal.Value() // nolints: scopelint
+			return m.Type() == msgPrevote && m.R() == validRound && m.Value() == proposal.Value() // nolints: scopelint
 		})
 
 		if powerOfVotes(deEquivocatedMsgs(prevotes)) < quorum {
@@ -631,12 +631,12 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 	// ------------New and Old Prevotes------------
 
 	prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgPrevote && m.Value() != nilValue
+		return m.Type() == msgPrevote && m.Value() != nilValue
 	})
 
 	for _, prevote := range prevotes {
 		correspondingProposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return uint8(m.Type()) == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R() // nolint: scopelint
+			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R() // nolint: scopelint
 		})
 
 		if len(correspondingProposals) == 0 {
@@ -675,7 +675,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				// pi is the proposal and you require the proposal before you
 				// can even attempt to apply the rule.
 				precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					return uint8(m.Type()) == msgPrecommit && m.Value() != nilValue &&
+					return m.Type() == msgPrecommit && m.Value() != nilValue &&
 						m.Value() != prevote.Value() && prevote.Sender() == m.Sender() && m.R() < prevote.R() // nolint: scopelint
 				})
 
@@ -757,12 +757,12 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
 	precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-		return uint8(m.Type()) == msgPrecommit && m.Value() != nilValue
+		return m.Type() == msgPrecommit && m.Value() != nilValue
 	})
 
 	for _, precommit := range precommits {
 		proposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return uint8(m.Type()) == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
+			return m.Type() == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
 		})
 
 		if len(proposals) == 0 {
@@ -776,10 +776,10 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		}
 
 		prevotesForNotV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return uint8(m.Type()) == msgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R() // nolint: scopelint
+			return m.Type() == msgPrevote && m.Value() != precommit.Value() && m.R() == precommit.R() // nolint: scopelint
 		})
 		prevotesForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return uint8(m.Type()) == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
+			return m.Type() == msgPrevote && m.Value() == precommit.Value() && m.R() == precommit.R() // nolint: scopelint
 		})
 
 		// even if we have equivocated preVotes for not V, we still assume that there are less f+1 malicious node in the
@@ -868,11 +868,11 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []*
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
 func checkAutoIncriminatingMsg(chain *core.BlockChain, m *tendermintCore.Message) error {
-	if uint8(m.Code) == msgProposal {
+	if m.Code == msgProposal {
 		return checkProposal(chain, m, verifyProposal)
 	}
 
-	if uint8(m.Code) == msgPrevote || uint8(m.Code) == msgPrecommit {
+	if m.Code == msgPrevote || m.Code == msgPrecommit {
 		return decodeVote(m)
 	}
 
@@ -1027,7 +1027,7 @@ func powerOfVotes(votes []*tendermintCore.Message) uint64 {
 	counted := make(map[common.Address]struct{})
 	power := uint64(0)
 	for i := 0; i < len(votes); i++ {
-		if uint8(votes[i].Type()) == msgProposal {
+		if votes[i].Type() == msgProposal {
 			continue
 		}
 
