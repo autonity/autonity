@@ -27,7 +27,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		//we generate a bunch of messages overflowing max capacity
 		for i := int64(0); i < 2*ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(TendermintMsg, append(counter, []byte("data")...))
+			msg := makeMsg(tendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if _, err := backend.HandleMsg(addr, msg); err != nil {
 				t.Fatalf("handleMsg should have been successful")
@@ -42,7 +42,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 			addr := savedMsg.(UnhandledMsg).addr
 			expectedAddr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if savedMsg.(UnhandledMsg).msg.Code != TendermintMsg {
+			if savedMsg.(UnhandledMsg).msg.Code != tendermintMsg {
 				t.Fatalf("wrong msg code")
 			}
 			var payload []byte
@@ -73,7 +73,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		}
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(TendermintMsg, append(counter, []byte("data")...))
+			msg := makeMsg(tendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if _, err := backend.HandleMsg(addr, msg); err != nil {
 				t.Fatalf("handleMsg should have been successful")
