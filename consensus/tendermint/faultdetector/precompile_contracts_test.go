@@ -2,11 +2,11 @@ package faultdetector
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -89,18 +89,19 @@ func TestDecodeProof(t *testing.T) {
 
 func TestAccusationVerifier(t *testing.T) {
 	height := uint64(100)
+	lastHeight := height - 1
 	committee, keys := generateCommittee(5)
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 
 	t.Run("Test accusation verifier required gas", func(t *testing.T) {
-		av := AccusationVerifier{chain: nil}
+		av := AccusationVerifier{}
 		assert.Equal(t, params.AutonityPrecompiledContractGas, av.RequiredGas(nil))
 	})
 
 	t.Run("Test accusation verifier run with nil bytes", func(t *testing.T) {
-		av := AccusationVerifier{chain: nil}
+		av := AccusationVerifier{}
 		ret, err := av.Run(nil)
 		assert.Equal(t, failure96Byte, ret)
 		assert.Nil(t, err)
@@ -108,7 +109,7 @@ func TestAccusationVerifier(t *testing.T) {
 
 	t.Run("Test accusation verifier run with invalid rlp bytes", func(t *testing.T) {
 		wrongBytes := failure96Byte
-		av := AccusationVerifier{chain: nil}
+		av := AccusationVerifier{}
 		ret, err := av.Run(wrongBytes)
 		assert.Equal(t, failure96Byte, ret)
 		assert.Nil(t, err)
@@ -117,61 +118,63 @@ func TestAccusationVerifier(t *testing.T) {
 	t.Run("Test validate accusation, with wrong rule ID", func(t *testing.T) {
 		var p proof
 		p.Rule = UnknownRule
-		av := AccusationVerifier{chain: nil}
-		assert.Equal(t, failure96Byte, av.validateAccusation(&p, getHeader))
+		av := AccusationVerifier{}
+		assert.Equal(t, failure96Byte, av.validateAccusation(&p))
 	})
 
 	t.Run("Test validate accusation, with wrong accusation msg", func(t *testing.T) {
 		var p proof
-		av := AccusationVerifier{chain: nil}
+		av := AccusationVerifier{}
 		p.Rule = PO
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, proposal.Value(), committee)
 		p.Message = preVote
-		assert.Equal(t, failure96Byte, av.validateAccusation(&p, getHeader))
+		assert.Equal(t, failure96Byte, av.validateAccusation(&p))
 
 		p.Rule = PVN
 		p.Message = proposal
-		assert.Equal(t, failure96Byte, av.validateAccusation(&p, getHeader))
+		assert.Equal(t, failure96Byte, av.validateAccusation(&p))
 
 		p.Rule = C
 		p.Message = proposal
-		assert.Equal(t, failure96Byte, av.validateAccusation(&p, getHeader))
+		assert.Equal(t, failure96Byte, av.validateAccusation(&p))
 
 		p.Rule = C1
 		p.Message = proposal
-		assert.Equal(t, failure96Byte, av.validateAccusation(&p, getHeader))
+		assert.Equal(t, failure96Byte, av.validateAccusation(&p))
 	})
 
 	t.Run("Test validate accusation, with invalid signature of msg", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
 		var p proof
 		p.Rule = PO
 		invalidCommittee, keys := generateCommittee(5)
 		newProposal := newProposalMessage(height, 1, 0, keys[invalidCommittee[0].Address], invalidCommittee, nil)
 		p.Message = newProposal
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		av := AccusationVerifier{chain: chainMock}
 
-		av := AccusationVerifier{chain: nil}
-		ret := av.validateAccusation(&p, mockGetHeader)
+		ret := av.validateAccusation(&p)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
 	t.Run("Test validate accusation, with correct accusation msg", func(t *testing.T) {
-		av := AccusationVerifier{chain: nil}
 		var p proof
 		p.Rule = PO
 		newProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = newProposal
-		lastHeader := newBlockHeader(height-1, committee)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
 
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-
-		ret := av.validateAccusation(&p, mockGetHeader)
+		av := AccusationVerifier{chain: chainMock}
+		ret := av.validateAccusation(&p)
 		assert.NotEqual(t, failure96Byte, ret)
 		assert.Equal(t, common.LeftPadBytes(proposer.Bytes(), 32), ret[0:32])
 		assert.Equal(t, types.RLPHash(newProposal.Payload()).Bytes(), ret[32:64])
@@ -181,18 +184,19 @@ func TestAccusationVerifier(t *testing.T) {
 
 func TestMisbehaviourVerifier(t *testing.T) {
 	height := uint64(100)
+	lastHeight := height - 1
 	committee, keys := generateCommittee(5)
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	noneNilValue := common.Hash{0x1}
 
 	t.Run("Test misbehaviour verifier required gas", func(t *testing.T) {
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		assert.Equal(t, params.AutonityPrecompiledContractGas, mv.RequiredGas(nil))
 	})
 
 	t.Run("Test misbehaviour verifier run with nil bytes", func(t *testing.T) {
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret, err := mv.Run(nil)
 		assert.Equal(t, failure96Byte, ret)
 		assert.Nil(t, err)
@@ -200,35 +204,35 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	t.Run("Test misbehaviour verifier run with invalid rlp bytes", func(t *testing.T) {
 		wrongBytes := failure96Byte
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret, err := mv.Run(wrongBytes)
 		assert.Equal(t, failure96Byte, ret)
 		assert.Nil(t, err)
 	})
 
 	t.Run("Test validate misbehaviour proof, with invalid signature of misbehaved msg", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
-
 		p.Message = invalidProposal
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
+		lastHeader := newBlockHeader(lastHeight, committee)
 		currentHeader := newBlockHeader(height, committee)
-		mockCurrentHeader := func(_ *core.BlockChain) *types.Header {
-			return currentHeader
-		}
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		chainMock.EXPECT().CurrentHeader().Return(currentHeader)
+		mv := MisbehaviourVerifier{chain: chainMock}
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validateProof(&p, mockGetHeader, mockCurrentHeader)
+		ret := mv.validateProof(&p)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
 	t.Run("Test validate misbehaviour proof, with invalid signature of evidence msgs", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
 		invalidCommittee, ikeys := generateCommittee(5)
@@ -237,17 +241,13 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		invalidPreCommit := newVoteMsg(height, 1, msgPrecommit, ikeys[invalidCommittee[0].Address], proposal.Value(), invalidCommittee)
 		p.Evidence = append(p.Evidence, invalidPreCommit)
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
+		lastHeader := newBlockHeader(lastHeight, committee)
 		currentHeader := newBlockHeader(height, committee)
-		mockCurrentHeader := func(_ *core.BlockChain) *types.Header {
-			return currentHeader
-		}
-
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validateProof(&p, mockGetHeader, mockCurrentHeader)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
+		chainMock.EXPECT().CurrentHeader().Return(currentHeader)
+		mv := MisbehaviourVerifier{chain: chainMock}
+		ret := mv.validateProof(&p)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
@@ -261,7 +261,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Evidence = append(p.Evidence, preCommit)
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 
 		ret := mv.validProof(&p)
 		assert.Equal(t, true, ret)
@@ -276,7 +276,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Evidence = append(p.Evidence, preCommit)
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
@@ -288,7 +288,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
 		p.Message = proposal
 
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
 	})
@@ -302,7 +302,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = proposal
 		p.Evidence = append(p.Evidence, preCommit)
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, true, ret)
 	})
@@ -316,7 +316,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = proposal
 		p.Evidence = append(p.Evidence, preCommit)
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, true, ret)
 	})
@@ -326,7 +326,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = PO
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		p.Message = proposal
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
 	})
@@ -338,7 +338,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = proposal
 		p.Evidence = append(p.Evidence, preCommit)
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
 	})
@@ -357,7 +357,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidence = append(p.Evidence, preCommit)
 
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, true, ret)
 	})
@@ -370,7 +370,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, proposal.Value(), committee)
 		p.Message = preVote
 
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
 	})
@@ -383,7 +383,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = proposal
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Evidence = append(p.Evidence, preCommit)
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
 	})
@@ -398,13 +398,15 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidence = append(p.Evidence, preCommit)
 
-		mv := MisbehaviourVerifier{chain: nil}
+		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate misbehaviour proof of C rule, with correct proof", func(t *testing.T) {
 		// Node preCommit for a V at round R, but in that round, there were quorum PreVotes for notV at that round.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = C
 		// Node preCommit for V at round R.
@@ -414,13 +416,12 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], nilValue, committee)
 			p.Evidence = append(p.Evidence, preVote)
 		}
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
+		lastHeader := newBlockHeader(lastHeight, committee)
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validMisbehaviourOfC(&p, mockGetHeader)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		mv := MisbehaviourVerifier{chain: chainMock}
+		ret := mv.validMisbehaviourOfC(&p)
 		assert.Equal(t, true, ret)
 	})
 
@@ -430,33 +431,25 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// Node preCommit for V at round R.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = preCommit
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validMisbehaviourOfC(&p, mockGetHeader)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validMisbehaviourOfC(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate misbehaviour proof of C rule, with wrong preCommit msg", func(t *testing.T) {
+		// Node preCommit for nil at round R, not provable
 		var p proof
 		p.Rule = C
-		// Node preCommit for nil at round R, not provable
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, nilValue, committee)
 		p.Message = preCommit
 		for i := 0; i < len(committee); i++ {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
 			p.Evidence = append(p.Evidence, preVote)
 		}
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validMisbehaviourOfC(&p, mockGetHeader)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validMisbehaviourOfC(&p)
 		assert.Equal(t, false, ret)
 	})
 
@@ -470,13 +463,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], nilValue, committee)
 			p.Evidence = append(p.Evidence, preVote)
 		}
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validMisbehaviourOfC(&p, mockGetHeader)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validMisbehaviourOfC(&p)
 		assert.Equal(t, false, ret)
 	})
 
@@ -492,13 +481,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
 			p.Evidence = append(p.Evidence, preVote)
 		}
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validMisbehaviourOfC(&p, mockGetHeader)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validMisbehaviourOfC(&p)
 		assert.Equal(t, false, ret)
 	})
 
@@ -514,17 +499,15 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, nilValue, committee)
 			p.Evidence = append(p.Evidence, preVote)
 		}
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validMisbehaviourOfC(&p, mockGetHeader)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validMisbehaviourOfC(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate misbehaviour proof of C rule, with invalid evidence: no quorum preVotes", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = C
 
@@ -534,20 +517,20 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// no quorum preVotes msg in evidence, should be addressed.
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, nilValue, committee)
 		p.Evidence = append(p.Evidence, preVote)
+		lastHeader := newBlockHeader(lastHeight, committee)
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
 
-		mv := MisbehaviourVerifier{chain: nil}
-		ret := mv.validMisbehaviourOfC(&p, mockGetHeader)
+		mv := MisbehaviourVerifier{chain: chainMock}
+		ret := mv.validMisbehaviourOfC(&p)
 		assert.Equal(t, false, ret)
 	})
 }
 
 func TestInnocenceVerifier(t *testing.T) {
 	height := uint64(100)
+	lastHeight := height - 1
 	committee, keys := generateCommittee(5)
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
@@ -565,23 +548,25 @@ func TestInnocenceVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate innocence proof with invalid signature of message", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
 		p.Message = invalidProposal
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validateInnocenceProof(&p, mockGetHeader)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validateInnocenceProof(&p)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
 	t.Run("Test validate innocence proof, with invalid signature of evidence msgs", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
@@ -590,13 +575,11 @@ func TestInnocenceVerifier(t *testing.T) {
 		invalidPreVote := newVoteMsg(height, 1, msgPrevote, iKeys[invalidCommittee[0].Address], proposal.Value(), invalidCommittee)
 		p.Evidence = append(p.Evidence, invalidPreVote)
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validateInnocenceProof(&p, mockGetHeader)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validateInnocenceProof(&p)
 		assert.Equal(t, failure96Byte, ret)
 	})
 
@@ -606,11 +589,13 @@ func TestInnocenceVerifier(t *testing.T) {
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfPO(&p, nil)
+		ret := iv.validInnocenceProofOfPO(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate innocence proof of PO rule, with invalid evidence", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
@@ -618,18 +603,18 @@ func TestInnocenceVerifier(t *testing.T) {
 		// have preVote at different value than proposal
 		invalidPreVote := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Evidence = append(p.Evidence, invalidPreVote)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfPO(&p, mockGetHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfPO(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate innocence proof of PO rule, with redundant vote msg", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
@@ -640,17 +625,18 @@ func TestInnocenceVerifier(t *testing.T) {
 		// make redundant msg hack.
 		p.Evidence = append(p.Evidence, p.Evidence...)
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
+		lastHeader := newBlockHeader(lastHeight, committee)
 
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfPO(&p, mockGetHeader)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfPO(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate innocence proof of PO rule, with not quorum vote msg", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
@@ -659,13 +645,12 @@ func TestInnocenceVerifier(t *testing.T) {
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, proposal.Value(), committee)
 		p.Evidence = append(p.Evidence, preVote)
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
 
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfPO(&p, mockGetHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfPO(&p)
 		assert.Equal(t, false, ret)
 	})
 
@@ -759,7 +744,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfC1(&p, nil)
+		ret := iv.validInnocenceProofOfC1(&p)
 		assert.Equal(t, false, ret)
 	})
 
@@ -769,11 +754,13 @@ func TestInnocenceVerifier(t *testing.T) {
 		wrongMsg := newVoteMsg(height, 1, msgPrecommit, proposerKey, nilValue, committee)
 		p.Message = wrongMsg
 		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfC1(&p, nil)
+		ret := iv.validInnocenceProofOfC1(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate innocence proof of C1 rule, with a wrong evidence", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -781,16 +768,17 @@ func TestInnocenceVerifier(t *testing.T) {
 		// evidence contains a preVote of a different round
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Evidence = append(p.Evidence, preVote)
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfC1(&p, mockGetHeader)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfC1(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate innocence proof of C1 rule, with redundant msgs in evidence ", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -799,16 +787,17 @@ func TestInnocenceVerifier(t *testing.T) {
 		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Evidence = append(p.Evidence, preVote)
 		p.Evidence = append(p.Evidence, p.Evidence...)
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfC1(&p, mockGetHeader)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfC1(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate innocence proof of C1 rule, with no quorum votes of evidence ", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -816,16 +805,17 @@ func TestInnocenceVerifier(t *testing.T) {
 
 		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Evidence = append(p.Evidence, preVote)
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfC1(&p, mockGetHeader)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfC1(&p)
 		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate innocence proof of C1 rule, with correct evidence ", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 		var p proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -835,12 +825,11 @@ func TestInnocenceVerifier(t *testing.T) {
 			p.Evidence = append(p.Evidence, preVote)
 		}
 
-		lastHeader := newBlockHeader(height-1, committee)
-		mockGetHeader := func(_ *core.BlockChain, _ uint64) *types.Header {
-			return lastHeader
-		}
-		iv := InnocenceVerifier{chain: nil}
-		ret := iv.validInnocenceProofOfC1(&p, mockGetHeader)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfC1(&p)
 		assert.Equal(t, true, ret)
 	})
 }

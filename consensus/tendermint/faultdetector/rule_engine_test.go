@@ -9,7 +9,9 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"math/big"
 	"testing"
 )
 
@@ -23,6 +25,7 @@ func TestRuleEngine(t *testing.T) {
 	validRound := int64(1)
 	totalPower := uint64(len(committee))
 	noneNilValue := common.Hash{0x1}
+	lastHeader := &types.Header{Number: new(big.Int).SetUint64(lastHeight), Committee: committee}
 
 	t.Run("Test de-Equivocated msg", func(t *testing.T) {
 		inputMsgs := make([]*core.Message, 2)
@@ -46,9 +49,12 @@ func TestRuleEngine(t *testing.T) {
 
 		// PO: node propose an old value with an validRound, innocent proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
 
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.blocksTotalVotingPower[lastHeight] = totalPower
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
@@ -71,16 +77,18 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(proposal), proof.Msghash)
+		assert.Equal(t, types.RLPHash(proposal.Payload()), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfPO no quorum preVotes", func(t *testing.T) {
 
 		// PO: node propose an old value with an validRound, innocent proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
-
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.blocksTotalVotingPower[lastHeight] = totalPower
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
@@ -125,7 +133,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(preVote), proof.Msghash)
+		assert.Equal(t, types.RLPHash(preVote.Payload()), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfPVN have no corresponding proposal", func(t *testing.T) {
@@ -171,7 +179,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(preCommit), proof.Msghash)
+		assert.Equal(t, types.RLPHash(preCommit.Payload()), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfC have no corresponding proposal", func(t *testing.T) {
@@ -195,11 +203,12 @@ func TestRuleEngine(t *testing.T) {
 	})
 
 	t.Run("getInnocentProofOfC1 have quorum preVotes", func(t *testing.T) {
-
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
-
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.blocksTotalVotingPower[lastHeight] = totalPower
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
 		for i := 0; i < len(committee); i++ {
@@ -222,15 +231,17 @@ func TestRuleEngine(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, autonity.Innocence, proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
-		assert.Equal(t, types.RLPHash(preCommit), proof.Msghash)
+		assert.Equal(t, types.RLPHash(preCommit.Payload()), proof.Msghash)
 	})
 
 	t.Run("getInnocentProofOfC1 have no quorum preVotes", func(t *testing.T) {
 
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
-
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		fd.blocksTotalVotingPower[lastHeight] = totalPower
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 
 		preCommit := newVoteMsg(height, round, msgPrecommit, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preCommit)
