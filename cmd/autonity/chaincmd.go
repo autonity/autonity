@@ -44,7 +44,6 @@ import (
 )
 
 var (
-
 	importCommand = cli.Command{
 		Action:    utils.MigrateFlags(importChain),
 		Name:      "import",

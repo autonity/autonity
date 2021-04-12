@@ -124,7 +124,7 @@ func (t *BlockTest) Run(snapshotter bool) error {
 		cache.SnapshotLimit = 1
 		cache.SnapshotWait = true
 	}
-	chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil,  &core.TxSenderCacher{}, nil)
+	chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	if err != nil {
 		return err
 	}
