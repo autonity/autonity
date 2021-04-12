@@ -386,10 +386,10 @@ func (mr *MockHandlerMockRecorder) NewChainHead() *gomock.Call {
 }
 
 // HandleMsg mocks base method
-func (m *MockHandler) HandleMsg(address common.Address, data p2p.Msg) ([]byte, error) {
+func (m *MockHandler) HandleMsg(address common.Address, data p2p.Msg) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleMsg", address, data)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
