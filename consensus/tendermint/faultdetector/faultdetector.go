@@ -281,7 +281,7 @@ func (fd *FaultDetector) generateOnChainProof(p *proof) (*autonity.OnChainProof,
 	var onChainProof = &autonity.OnChainProof{
 		Type:    p.Type,
 		Sender:  p.Message.Address,
-		Msghash: types.RLPHash(p.Message),
+		Msghash: types.RLPHash(p.Message.Payload()),
 	}
 
 	rproof, err := rlp.EncodeToBytes(p)
@@ -856,8 +856,6 @@ func (fd *FaultDetector) sentProofs() {
 	fd.Lock()
 	defer fd.Unlock()
 
-	// todo: weight proofs before deliver it to pool since the max size of a TX is limited to 512 KB.
-	//  consider to break down into multiples if it cannot fit in.
 	if len(fd.onChainProofsBuffer) != 0 {
 		copyOnChainProofs := make([]*autonity.OnChainProof, len(fd.onChainProofsBuffer))
 		copy(copyOnChainProofs, fd.onChainProofsBuffer)
