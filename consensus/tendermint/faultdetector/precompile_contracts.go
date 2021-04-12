@@ -131,7 +131,7 @@ func (a *AccusationVerifier) validateAccusation(in *proof) []byte {
 		return failure96Byte
 	}
 
-	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
+	msgHash := types.RLPHash(in.Message).Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
 	return append(append(sender, msgHash...), validProofByte...)
 }
@@ -190,7 +190,7 @@ func (c *MisbehaviourVerifier) validateProof(p *proof) []byte {
 	}
 
 	if c.validProof(p) {
-		msgHash := types.RLPHash(p.Message.Payload()).Bytes()
+		msgHash := types.RLPHash(p.Message).Bytes()
 		sender := common.LeftPadBytes(p.Message.Address.Bytes(), 32)
 		return append(append(sender, msgHash...), validProofByte...)
 	}
@@ -378,7 +378,7 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *proof) []byte {
 		return failure96Byte
 	}
 
-	msgHash := types.RLPHash(in.Message.Payload()).Bytes()
+	msgHash := types.RLPHash(in.Message).Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
 	return append(append(sender, msgHash...), validProofByte...)
 }

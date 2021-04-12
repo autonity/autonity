@@ -177,7 +177,7 @@ func TestAccusationVerifier(t *testing.T) {
 		ret := av.validateAccusation(&p)
 		assert.NotEqual(t, failure96Byte, ret)
 		assert.Equal(t, common.LeftPadBytes(proposer.Bytes(), 32), ret[0:32])
-		assert.Equal(t, types.RLPHash(newProposal.Payload()).Bytes(), ret[32:64])
+		assert.Equal(t, types.RLPHash(newProposal).Bytes(), ret[32:64])
 		assert.Equal(t, validProofByte, ret[64:96])
 	})
 }

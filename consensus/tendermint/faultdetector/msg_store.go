@@ -54,7 +54,7 @@ func (ms *MsgStore) Save(m *core.Message) ([]*core.Message, error) {
 
 	presented := false
 	for i := 0; i < len(msgs); i++ {
-		if types.RLPHash(msgs[i].Payload()) == types.RLPHash(m.Payload()) {
+		if types.RLPHash(msgs[i]) == types.RLPHash(m) {
 			presented = true
 		}
 	}
@@ -74,7 +74,7 @@ func (ms *MsgStore) DeleteMsgsAtHeight(height uint64) {
 	// Remove all messgages at this height
 	for round, roundMsgMap := range ms.messages[height] {
 		for code, typeMsgMap := range roundMsgMap {
-			for addr, _ := range typeMsgMap { // nolint
+			for addr := range typeMsgMap { // nolint
 				delete(ms.messages[height][round][code], addr)
 			}
 			delete(ms.messages[height][round], code)
