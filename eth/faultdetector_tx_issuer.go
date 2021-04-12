@@ -89,7 +89,13 @@ func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*aut
 func (s *Ethereum) genAccountabilityEvent(nonce uint64, method string, onChainProofs []*autonity.OnChainProof) (*types.Transaction, error) {
 	to := s.BlockChain().GetAutonityContract().Address()
 	abi := s.BlockChain().GetAutonityContract().ABI()
-	packedData, err := abi.Pack(method, onChainProofs)
+
+	var proofs = make([]autonity.OnChainProof, len(onChainProofs))
+	for i, p := range onChainProofs {
+		proofs[i] = *p
+	}
+
+	packedData, err := abi.Pack(method, proofs)
 	if err != nil {
 		log.Error("Cannot pack accountability transaction", "err", err)
 		return nil, err
