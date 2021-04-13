@@ -31,9 +31,9 @@ contract Autonity is IERC20 {
         uint256 stakesupply;
     }
 
-    enum ProofType { Misbehavior, Accusation, Innocence}
+    enum ProofType {Misbehaviour, Accusation, Innocence}
     struct Proof {
-        uint8 t;      // proof type: Misbehavior, Accusation, Innocence
+        uint8 t;      // proof type: Misbehaviour, Accusation, Innocence
         address sender;
         bytes32 msghash;
         bytes rawproof; // the rlp encoded Proof. Please check faultdetector_types.go type RaWProof struct.
@@ -156,13 +156,18 @@ contract Autonity is IERC20 {
     * @notice handle accountability proofs in the Autonity Contract with the specified role. Restricted to the validator account.
     */
     function handleProofs(Proof[] memory Proofs) public onlyValidator(msg.sender) {
+        address misbehaviourPrecompiledContractAddress = address(0xfe);
+        address accusationPrecompiledContractAddress = address(0xfc);
+        address innocencePrecompiledContractAddress = address(0xfd);
+
         for (uint256 i = 0; i < Proofs.length; i++) {
-            if (ProofType(Proofs[i].t) == ProofType.Misbehavior) {
+            if (ProofType(Proofs[i].t) == ProofType.Misbehaviour) {
                 if (_isMisBehaviourExists(Proofs[i]) == true) {
                     continue;
                 }
 
-                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkMisbehaviour(Proofs[i].rawproof);
+                // Validate proof of misbehaviour
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccountability(misbehaviourPrecompiledContractAddress, Proofs[i].rawproof);
                 if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
                     // todo: take governance action that msg.sender sent faulty proof of misbehaviour.
                     continue;
@@ -178,7 +183,8 @@ contract Autonity is IERC20 {
                     continue;
                 }
 
-                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccusation(Proofs[i].rawproof);
+                // Validate the accusation
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccountability(accusationPrecompiledContractAddress, Proofs[i].rawproof);
                 if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
                     // todo: take governance action that msg.sender sent faulty accusation.
                     continue;
@@ -192,7 +198,8 @@ contract Autonity is IERC20 {
                     continue;
                 }
 
-                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkInnocence(Proofs[i].rawproof);
+                // Validate the proof of innocence
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccountability(innocencePrecompiledContractAddress,Proofs[i].rawproof);
                 if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
                     // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
                     continue;
