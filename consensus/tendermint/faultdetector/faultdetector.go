@@ -195,7 +195,7 @@ func (fd *FaultDetector) blockEventLoop() {
 
 			// run rule engine over a specific height.
 			proofs := fd.runRuleEngine(ev.Block.NumberU64())
-			if proofs != nil {
+			if len(proofs) > 0 {
 				fd.Lock()
 				fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, proofs...)
 				fd.Unlock()
@@ -341,7 +341,7 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *proof) (*autonity.OnChainProof,
 	var onChainProof *autonity.OnChainProof
 	preCommit := c.Message
 	height := preCommit.H()
-	quorum := fd.quorum(height - 1)
+	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
 	prevotesForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 		return m.Type() == msgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
@@ -374,7 +374,7 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *proof) (*autonity.OnChainProof,
 	proposal := c.Message
 	height := proposal.H()
 	validRound := proposal.ValidRound()
-	quorum := fd.quorum(height - 1)
+	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
 
 	prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 		return m.Type() == msgPrevote && m.R() == validRound && m.Value() == proposal.Value()
@@ -475,6 +475,8 @@ func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 					continue
 				}
 			}
+			// once message processed, release it from buffer.
+			delete(fd.futureHeightMsg, h)
 		}
 	}
 }
@@ -504,7 +506,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 
 	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
 	msgs, err := fd.msgStore.Save(m)
-	if err == errEquivocation && msgs != nil {
+	if err == errEquivocation && len(msgs) > 0 {
 		var proofs []*tendermintCore.Message
 		for i := 0; i < len(msgs); i++ {
 			proofs = append(proofs, msgs[i])
@@ -515,10 +517,6 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	return nil
 }
 
-func (fd *FaultDetector) quorum(h uint64) uint64 {
-	return bft.Quorum(fd.blockchain.GetHeaderByNumber(h).TotalVotingPower())
-}
-
 // run rule engine over latest msg store, if the return proofs is not empty, then rise challenge.
 func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.OnChainProof {
 	var onChainProofs []*autonity.OnChainProof
@@ -526,7 +524,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.OnChainProof {
 	if height > uint64(deltaToWaitForAccountability) {
 		// run rule engine over the previous delta offset height.
 		checkPointHeight := height - uint64(deltaToWaitForAccountability)
-		quorum := fd.quorum(checkPointHeight - 1)
+		quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(checkPointHeight - 1).TotalVotingPower())
 		proofs := fd.runRulesOverHeight(checkPointHeight, quorum)
 		if len(proofs) > 0 {
 			for i := 0; i < len(proofs); i++ {
@@ -953,9 +951,9 @@ func checkProposal(chain BlockChainContext, m *tendermintCore.Message) error {
 	}
 
 	err = verifyProposal(chain, *proposal.ProposalBlock)
-	// due to network delay or timing issue, when Fault Detector validate a proposal, that proposal could already be
-	// committed on the chain view.
-	// since the msg sender were checked with correct proposer, so we consider to take it as a valid proposal.
+	// due to timing issue, when Fault Detector validate a proposal, that proposal could already be
+	// committed on the chain view. Since the msg sender were checked as the correct proposer, so we
+	// consider this proposal as a valid proposal.
 	if err == core.ErrKnownBlock {
 		return nil
 	}
@@ -1061,7 +1059,6 @@ func powerOfVotes(votes []*tendermintCore.Message) uint64 {
 }
 
 func randomDelay() {
-	// wait for random milliseconds (under the range of 10 seconds) to check if need to rise challenge.
 	rand.Seed(time.Now().UnixNano())
 	n := rand.Intn(randomDelayWindow)
 	time.Sleep(time.Duration(n) * time.Millisecond)
