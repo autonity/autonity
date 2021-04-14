@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/faultdetector"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -15,9 +14,9 @@ var (
 	errOverSizedEvent = errors.New("oversized accountability event")
 )
 
-func (s *Ethereum) sendAccountabilityTransaction(ev *faultdetector.AccountabilityEvent) {
+func (s *Ethereum) sendAccountabilityTransaction(onChainProofs []*autonity.OnChainProof) {
 
-	txs, err := s.generateAccountabilityTXs("handleProofs", ev.OnChainProofs)
+	txs, err := s.generateAccountabilityTXs("handleProofs", onChainProofs)
 	if err != nil {
 		log.Error("Could not generate accountability transaction", "err", err)
 		return
@@ -116,8 +115,8 @@ func (s *Ethereum) faultDetectorTXEventLoop() {
 	go func() {
 		for {
 			select {
-			case event := <-s.faultDetectorCh:
-				s.sendAccountabilityTransaction(&event)
+			case onChainProofs := <-s.faultDetectorCh:
+				s.sendAccountabilityTransaction(onChainProofs)
 			// Err() channel will be closed when unsubscribing.
 			case <-s.faultDetectorSub.Err():
 				return

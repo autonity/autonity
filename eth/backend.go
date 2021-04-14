@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"math/big"
 	"runtime"
@@ -95,7 +96,7 @@ type Ethereum struct {
 	glienickeCh  chan core.WhitelistEvent
 	glienickeSub event.Subscription
 
-	faultDetectorCh  chan faultdetector.AccountabilityEvent
+	faultDetectorCh  chan []*autonity.OnChainProof
 	faultDetectorSub event.Subscription
 	faultDetector    *faultdetector.FaultDetector
 	nodeKey          *ecdsa.PrivateKey // the private key of etherbase address to sign accountability TXs.
@@ -175,7 +176,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		glienickeCh:       make(chan core.WhitelistEvent),
-		faultDetectorCh:   make(chan faultdetector.AccountabilityEvent),
+		faultDetectorCh:   make(chan []*autonity.OnChainProof),
 		p2pServer:         stack.Server(),
 	}
 

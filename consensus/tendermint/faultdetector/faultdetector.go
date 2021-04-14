@@ -86,11 +86,6 @@ type proof struct {
 	Evidence []*tendermintCore.Message // the proofs of innocence or misbehaviour.
 }
 
-// event to submit proofs via standard transaction.
-type AccountabilityEvent struct {
-	OnChainProofs []*autonity.OnChainProof
-}
-
 // FaultDetector it subscribe chain event to trigger rule engine to apply patterns over
 // msg store, it send proof of challenge if it detects any potential misbehavior, either it
 // read state db on each new height to get latest challenges from autonity contract's view,
@@ -222,7 +217,7 @@ func (fd *FaultDetector) Stop() {
 }
 
 // call by ethereum object to subscribe proofs Events.
-func (fd *FaultDetector) SubscribeFaultDetectorEvents(ch chan<- AccountabilityEvent) event.Subscription {
+func (fd *FaultDetector) SubscribeFaultDetectorEvents(ch chan<- []*autonity.OnChainProof) event.Subscription {
 	return fd.faultDetectorFeed.Subscribe(ch)
 }
 
@@ -838,7 +833,7 @@ func (fd *FaultDetector) sendProofs(proofs []*autonity.OnChainProof) {
 		randomDelay()
 		unPresented := fd.filterPresentedOnes(proofs)
 		if len(unPresented) != 0 {
-			fd.faultDetectorFeed.Send(AccountabilityEvent{OnChainProofs: unPresented})
+			fd.faultDetectorFeed.Send(unPresented)
 		}
 	}()
 }
