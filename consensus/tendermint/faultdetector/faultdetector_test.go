@@ -147,7 +147,7 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	require.Equal(t, 1, len(fd.onChainProofsBuffer))
 	require.Equal(t, autonity.Misbehaviour, fd.onChainProofsBuffer[0].Type)
 	require.Equal(t, proposer, fd.onChainProofsBuffer[0].Sender)
-	require.Equal(t, types.RLPHash(proposal), fd.onChainProofsBuffer[0].Msghash)
+	require.Equal(t, proposal.MsgHash(), fd.onChainProofsBuffer[0].Msghash)
 }
 
 func TestRunRuleEngine(t *testing.T) {
@@ -197,7 +197,7 @@ func TestRunRuleEngine(t *testing.T) {
 		require.Equal(t, 1, len(onChainProofs))
 		require.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
 		require.Equal(t, proposer, onChainProofs[0].Sender)
-		require.Equal(t, types.RLPHash(maliciousProposal), onChainProofs[0].Msghash)
+		require.Equal(t, maliciousProposal.MsgHash(), onChainProofs[0].Msghash)
 	})
 }
 
@@ -250,7 +250,7 @@ func TestProcessMsg(t *testing.T) {
 		require.Equal(t, 1, len(fd.onChainProofsBuffer))
 		require.Equal(t, autonity.Misbehaviour, fd.onChainProofsBuffer[0].Type)
 		require.Equal(t, proposer, fd.onChainProofsBuffer[0].Sender)
-		require.Equal(t, types.RLPHash(equivocatedVote), fd.onChainProofsBuffer[0].Msghash)
+		require.Equal(t, equivocatedVote.MsgHash(), fd.onChainProofsBuffer[0].Msghash)
 	})
 
 	t.Run("test process buffered msg, msg should be removed from buffer and stored at msg store once verified", func(t *testing.T) {
@@ -296,13 +296,11 @@ func TestGenerateOnChainProof(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, autonity.Misbehaviour, onChainProof.Type)
 	require.Equal(t, proposer, onChainProof.Sender)
-	require.Equal(t, types.RLPHash(proposal), onChainProof.Msghash)
+	require.Equal(t, proposal.MsgHash(), onChainProof.Msghash)
 
 	decodedProof, err := decodeRawProof(onChainProof.Rawproof)
 	require.NoError(t, err)
 	require.Equal(t, proof.Type, decodedProof.Type)
 	require.Equal(t, proof.Rule, decodedProof.Rule)
-
-	// todo: fix this the rlp encode message does not match the raw msg since decodedMsg and Payload of msg was not encoded at all.
-	// require.Equal(t, *proof.Message, *decodedProof.Message)
+	require.Equal(t, proof.Message.MsgHash(), decodedProof.Message.MsgHash())
 }

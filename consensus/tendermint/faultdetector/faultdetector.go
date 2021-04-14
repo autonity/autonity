@@ -280,7 +280,7 @@ func (fd *FaultDetector) generateOnChainProof(p *proof) (*autonity.OnChainProof,
 	var onChainProof = &autonity.OnChainProof{
 		Type:    p.Type,
 		Sender:  p.Message.Address,
-		Msghash: types.RLPHash(p.Message),
+		Msghash: p.Message.MsgHash(),
 	}
 
 	rproof, err := rlp.EncodeToBytes(p)
@@ -1069,8 +1069,8 @@ func sameVote(a *tendermintCore.Message, b *tendermintCore.Message) bool {
 	ar, _ := a.Round()
 	bh, _ := b.Height()
 	br, _ := b.Round()
-	aHash := types.RLPHash(a)
-	bHash := types.RLPHash(b)
+	aHash := a.MsgHash()
+	bHash := b.MsgHash()
 
 	if ah == bh && ar == br && a.Code == b.Code && a.Address == b.Address && aHash == bHash {
 		return true

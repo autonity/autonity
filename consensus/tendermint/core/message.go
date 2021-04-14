@@ -60,6 +60,19 @@ func (m *Message) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
 }
 
+// Unified the hash calculation of msg since RLPHash(msg) not only calculate public fields but also private fields:
+// power, decodedMsg and payload while for the rlp.EncodeToBytes(proof), it calls interface EncodeRLP() that implemented
+// by Message for only public fields, it make in-consistent between fault detector and precompiled contract side.
+func (m *Message) MsgHash() common.Hash {
+	return types.RLPHash(&Message{
+		Code:          m.Code,
+		Msg:           m.Msg,
+		Address:       m.Address,
+		Signature:     m.Signature,
+		CommittedSeal: m.CommittedSeal,
+	})
+}
+
 func (m *Message) GetCode() uint8 {
 	return m.Code
 }

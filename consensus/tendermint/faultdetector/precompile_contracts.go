@@ -5,7 +5,6 @@ import (
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
@@ -131,7 +130,7 @@ func (a *AccusationVerifier) validateAccusation(in *proof) []byte {
 		return failure96Byte
 	}
 
-	msgHash := types.RLPHash(in.Message).Bytes()
+	msgHash := in.Message.MsgHash().Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
 	return append(append(sender, msgHash...), validProofByte...)
 }
@@ -190,7 +189,7 @@ func (c *MisbehaviourVerifier) validateProof(p *proof) []byte {
 	}
 
 	if c.validProof(p) {
-		msgHash := types.RLPHash(p.Message).Bytes()
+		msgHash := p.Message.MsgHash().Bytes()
 		sender := common.LeftPadBytes(p.Message.Address.Bytes(), 32)
 		return append(append(sender, msgHash...), validProofByte...)
 	}
@@ -378,7 +377,7 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *proof) []byte {
 		return failure96Byte
 	}
 
-	msgHash := types.RLPHash(in.Message).Bytes()
+	msgHash := in.Message.MsgHash().Bytes()
 	sender := common.LeftPadBytes(in.Message.Address.Bytes(), 32)
 	return append(append(sender, msgHash...), validProofByte...)
 }

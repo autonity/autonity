@@ -3,7 +3,6 @@ package faultdetector
 import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
-	"github.com/clearmatics/autonity/core/types"
 	"sync"
 )
 
@@ -54,7 +53,7 @@ func (ms *MsgStore) Save(m *core.Message) ([]*core.Message, error) {
 
 	presented := false
 	for i := 0; i < len(msgs); i++ {
-		if types.RLPHash(msgs[i]) == types.RLPHash(m) {
+		if msgs[i].MsgHash() == m.MsgHash() {
 			presented = true
 		}
 	}
