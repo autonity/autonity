@@ -318,7 +318,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 		require.Equal(t, equivocatedProposal.R(), decodedProof.Evidence[0].R())
 	})
 
-	t.Run("Test abi packing and Unpacking of onChainProof", func(t *testing.T) {
+	t.Run("Test abi packing of onChainProof", func(t *testing.T) {
 		defaultABI, err := abi.JSON(strings.NewReader(generated.Abi))
 		methodName := "handleProofs"
 		require.NoError(t, err)
