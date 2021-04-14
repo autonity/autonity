@@ -17,8 +17,6 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"math/big"
-
 	"math/rand"
 	"sort"
 	"sync"
@@ -256,14 +254,14 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 		present := false
 		for j := 0; j < len(presentedAccusation); j++ {
 			if proofs[i].Msghash == presentedAccusation[j].Msghash &&
-				proofs[i].Type.Cmp(new(big.Int).SetUint64(uint64(autonity.Accusation))) == 0 {
+				proofs[i].Type == autonity.Accusation {
 				present = true
 			}
 		}
 
 		for j := 0; j < len(presentedMisbehavior); j++ {
 			if proofs[i].Msghash == presentedMisbehavior[j].Msghash &&
-				proofs[i].Type.Cmp(new(big.Int).SetUint64(uint64(autonity.Misbehaviour))) == 0 {
+				proofs[i].Type == autonity.Misbehaviour {
 				present = true
 			}
 		}
@@ -279,7 +277,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
 func (fd *FaultDetector) generateOnChainProof(p *proof) (*autonity.OnChainProof, error) {
 	var onChainProof = &autonity.OnChainProof{
-		Type:    new(big.Int).SetUint64(uint64(p.Type)),
+		Type:    p.Type,
 		Sender:  p.Message.Address,
 		Msghash: p.Message.MsgHash(),
 	}
