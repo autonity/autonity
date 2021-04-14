@@ -307,6 +307,10 @@ func TestGenerateOnChainProof(t *testing.T) {
 	require.Equal(t, p.Type, decodedProof.Type)
 	require.Equal(t, p.Rule, decodedProof.Rule)
 	require.Equal(t, p.Message.MsgHash(), decodedProof.Message.MsgHash())
+	require.Equal(t, proposal.H(), decodedProof.Message.H())
+	require.Equal(t, proposal.R(), decodedProof.Message.R())
+	require.Equal(t, equivocatedProposal.H(), decodedProof.Evidence[0].H())
+	require.Equal(t, equivocatedProposal.R(), decodedProof.Evidence[0].R())
 }
 
 func TestRuleEngine(t *testing.T) {
