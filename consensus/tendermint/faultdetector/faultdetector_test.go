@@ -112,7 +112,6 @@ func TestCheckEquivocation(t *testing.T) {
 	committee, keys := generateCommittee(5)
 
 	t.Run("check equivocation with valid proof of equivocation", func(t *testing.T) {
-		nilValue := common.Hash{}
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 		vote1 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], proposal.Value(), committee)
 		vote2 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], nilValue, committee)
@@ -283,7 +282,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 	var evidence []*core.Message
 	evidence = append(evidence, equivocatedProposal)
 
-	proof := proof{
+	p := proof{
 		Type:     autonity.Misbehaviour,
 		Rule:     Equivocation,
 		Message:  proposal,
@@ -292,7 +291,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 
 	fd := NewFaultDetector(nil, proposer, nil)
 
-	onChainProof, err := fd.generateOnChainProof(&proof)
+	onChainProof, err := fd.generateOnChainProof(&p)
 	require.NoError(t, err)
 	require.Equal(t, autonity.Misbehaviour, onChainProof.Type)
 	require.Equal(t, proposer, onChainProof.Sender)
@@ -300,7 +299,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 
 	decodedProof, err := decodeRawProof(onChainProof.Rawproof)
 	require.NoError(t, err)
-	require.Equal(t, proof.Type, decodedProof.Type)
-	require.Equal(t, proof.Rule, decodedProof.Rule)
-	require.Equal(t, proof.Message.MsgHash(), decodedProof.Message.MsgHash())
+	require.Equal(t, p.Type, decodedProof.Type)
+	require.Equal(t, p.Rule, decodedProof.Rule)
+	require.Equal(t, p.Message.MsgHash(), decodedProof.Message.MsgHash())
 }
