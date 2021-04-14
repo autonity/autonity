@@ -2,8 +2,10 @@ package faultdetector
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/acdefault/generated"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
 	"github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -297,20 +300,32 @@ func TestGenerateOnChainProof(t *testing.T) {
 	fd := NewFaultDetector(nil, proposer, nil)
 
 	onChainProof, err := fd.generateOnChainProof(&p)
-	require.NoError(t, err)
-	require.Equal(t, autonity.Misbehaviour, onChainProof.Type)
-	require.Equal(t, proposer, onChainProof.Sender)
-	require.Equal(t, proposal.MsgHash(), onChainProof.Msghash)
 
-	decodedProof, err := decodeRawProof(onChainProof.Rawproof)
-	require.NoError(t, err)
-	require.Equal(t, p.Type, decodedProof.Type)
-	require.Equal(t, p.Rule, decodedProof.Rule)
-	require.Equal(t, p.Message.MsgHash(), decodedProof.Message.MsgHash())
-	require.Equal(t, proposal.H(), decodedProof.Message.H())
-	require.Equal(t, proposal.R(), decodedProof.Message.R())
-	require.Equal(t, equivocatedProposal.H(), decodedProof.Evidence[0].H())
-	require.Equal(t, equivocatedProposal.R(), decodedProof.Evidence[0].R())
+	t.Run("Test onChainProof is generated", func(t *testing.T) {
+		require.NoError(t, err)
+		require.Equal(t, autonity.Misbehaviour, onChainProof.Type)
+		require.Equal(t, proposer, onChainProof.Sender)
+		require.Equal(t, proposal.MsgHash(), onChainProof.Msghash)
+
+		decodedProof, err := decodeRawProof(onChainProof.Rawproof)
+		require.NoError(t, err)
+		require.Equal(t, p.Type, decodedProof.Type)
+		require.Equal(t, p.Rule, decodedProof.Rule)
+		require.Equal(t, p.Message.MsgHash(), decodedProof.Message.MsgHash())
+		require.Equal(t, proposal.H(), decodedProof.Message.H())
+		require.Equal(t, proposal.R(), decodedProof.Message.R())
+		require.Equal(t, equivocatedProposal.H(), decodedProof.Evidence[0].H())
+		require.Equal(t, equivocatedProposal.R(), decodedProof.Evidence[0].R())
+	})
+
+	t.Run("Test abi packing and Unpacking of onChainProof", func(t *testing.T) {
+		defaultABI, err := abi.JSON(strings.NewReader(generated.Abi))
+		methodName := "handleProofs"
+		require.NoError(t, err)
+
+		_, err = defaultABI.Pack(methodName, []autonity.OnChainProof{*onChainProof})
+		require.NoError(t, err)
+	})
 }
 
 func TestRuleEngine(t *testing.T) {
