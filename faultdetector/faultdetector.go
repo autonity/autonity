@@ -139,7 +139,7 @@ eventLoop:
 
 			// run rule engine over a specific height.
 			proofs := fd.runRuleEngine(ev.Block.NumberU64())
-			if proofs != nil {
+			if len(proofs) > 0 {
 				fd.bufferedProofs = append(fd.bufferedProofs, proofs...)
 			}
 
@@ -459,6 +459,8 @@ func (fd *FaultDetector) processBufferedMsgs(height uint64) {
 					continue
 				}
 			}
+			// release msg once they are processed.
+			delete(fd.futureMsgs, h)
 		}
 	}
 }
@@ -491,7 +493,7 @@ func (fd *FaultDetector) processMsg(m *tdm.Message) error {
 
 	// store msg, if there is equivocation, msg store would then rise errEquivocation and proofs.
 	msgs, err := fd.msgStore.Save(m)
-	if err == errEquivocation && msgs != nil {
+	if err == errEquivocation && len(msgs) > 0 {
 		var proofs []tdm.Message
 		for i := 0; i < len(msgs); i++ {
 			proofs = append(proofs, *msgs[i])
