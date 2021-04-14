@@ -61,7 +61,7 @@ type BlockChainContext interface {
 
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	deltaToWaitForAccountability = 5                                // Wait until the GST + delta (30 blocks) to start rule scan.
+	deltaToWaitForAccountability = 30                                // Wait until the GST + delta (30 blocks) to start rule scan.
 	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
 
 	errEquivocation    = errors.New("equivocation happens")
