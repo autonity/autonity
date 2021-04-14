@@ -19,9 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/metrics"
-	"github.com/davecgh/go-spew/spew"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -184,75 +182,6 @@ Use "ethereum dump 0" to dump the genesis block.`,
 		Category: "BLOCKCHAIN COMMANDS",
 	}
 )
-
-// initGenesis will initialise the given JSON format genesis file and writes it as
-// the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
-func initGenesis(ctx *cli.Context) error {
-	// Make sure we have a valid genesis JSON
-	genesisPath := ctx.Args().First()
-	if len(genesisPath) == 0 {
-		utils.Fatalf("Must supply path to genesis JSON file")
-	}
-	file, err := os.Open(genesisPath)
-	if err != nil {
-		utils.Fatalf("Failed to read genesis file: %v", err)
-	}
-	defer file.Close()
-
-	genesis := new(core.Genesis)
-	if err := json.NewDecoder(file).Decode(genesis); err != nil {
-		utils.Fatalf("invalid genesis file: %v", err)
-	}
-	// Make AutonityContract and Tendermint consensus mandatory for the time being.
-	if genesis.Config == nil {
-		utils.Fatalf("No Autonity Contract and Tendermint configs section in genesis")
-	}
-	if genesis.Config.AutonityContractConfig == nil {
-		utils.Fatalf("No Autonity Contract config section in genesis")
-	}
-	if genesis.Config.Tendermint == nil {
-		utils.Fatalf("No Tendermint config section in genesis")
-	}
-
-	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
-		spew.Dump(genesis.Config.AutonityContractConfig)
-		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
-	}
-
-	setupDefaults(genesis)
-
-	// Open an initialise both full and light databases
-	stack, _ := makeConfigNode(ctx)
-	defer stack.Close()
-
-	for _, name := range []string{"chaindata", "lightchaindata"} {
-		chaindb, err := stack.OpenDatabase(name, 0, 0, "")
-		if err != nil {
-			utils.Fatalf("Failed to open database: %v", err)
-		}
-		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
-		if err != nil {
-			utils.Fatalf("Failed to write genesis block: %v", err)
-		}
-		chaindb.Close()
-		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
-	}
-	return nil
-}
-
-func setupDefaults(genesis *core.Genesis) {
-	if genesis == nil || genesis.Config == nil {
-		return
-	}
-
-	defaultConfig := config.DefaultConfig()
-
-	if genesis.Config.Tendermint != nil {
-		if genesis.Config.Tendermint.BlockPeriod == 0 {
-			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
-		}
-	}
-}
 
 func importChain(ctx *cli.Context) error {
 	if len(ctx.Args()) < 1 {
