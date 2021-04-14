@@ -511,5 +511,32 @@ func decodeRawProof(b []byte) (*proof, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// decode the msg.
+	err = decodeMessage(p.Message)
+	if err != nil {
+		return nil, err
+	}
+
+	// decode the evidence.
+	for _, m := range p.Evidence {
+		err = decodeMessage(m)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return p, nil
+}
+
+func decodeMessage(m *tendermintCore.Message) error {
+	switch m.Code {
+	case msgProposal:
+		var proposal tendermintCore.Proposal
+		return m.Decode(&proposal)
+	case msgPrevote, msgPrecommit:
+		var vote tendermintCore.Vote
+		return m.Decode(&vote)
+	default:
+		return errGarbageMsg
+	}
 }

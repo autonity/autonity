@@ -17,6 +17,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"math/big"
 
 	"math/rand"
 	"sort"
@@ -60,7 +61,7 @@ type BlockChainContext interface {
 
 var (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	deltaToWaitForAccountability = 30                                // Wait until the GST + delta (30 blocks) to start rule scan.
+	deltaToWaitForAccountability = 5                                // Wait until the GST + delta (30 blocks) to start rule scan.
 	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
 
 	errEquivocation    = errors.New("equivocation happens")
@@ -255,14 +256,14 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 		present := false
 		for j := 0; j < len(presentedAccusation); j++ {
 			if proofs[i].Msghash == presentedAccusation[j].Msghash &&
-				proofs[i].Type == autonity.Accusation {
+				proofs[i].Type.Cmp(new(big.Int).SetUint64(uint64(autonity.Accusation))) == 0 {
 				present = true
 			}
 		}
 
 		for j := 0; j < len(presentedMisbehavior); j++ {
 			if proofs[i].Msghash == presentedMisbehavior[j].Msghash &&
-				proofs[i].Type == autonity.Misbehaviour {
+				proofs[i].Type.Cmp(new(big.Int).SetUint64(uint64(autonity.Misbehaviour))) == 0 {
 				present = true
 			}
 		}
@@ -278,7 +279,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 // convert the raw proofs into on-chain proof which contains raw bytes of messages.
 func (fd *FaultDetector) generateOnChainProof(p *proof) (*autonity.OnChainProof, error) {
 	var onChainProof = &autonity.OnChainProof{
-		Type:    p.Type,
+		Type:    new(big.Int).SetUint64(uint64(p.Type)),
 		Sender:  p.Message.Address,
 		Msghash: p.Message.MsgHash(),
 	}
@@ -1065,17 +1066,7 @@ func randomDelay() {
 }
 
 func sameVote(a *tendermintCore.Message, b *tendermintCore.Message) bool {
-	ah, _ := a.Height()
-	ar, _ := a.Round()
-	bh, _ := b.Height()
-	br, _ := b.Round()
-	aHash := a.MsgHash()
-	bHash := b.MsgHash()
-
-	if ah == bh && ar == br && a.Code == b.Code && a.Address == b.Address && aHash == bHash {
-		return true
-	}
-	return false
+	return a.MsgHash() == b.MsgHash()
 }
 
 func verifyProposal(chain BlockChainContext, proposal types.Block) error {

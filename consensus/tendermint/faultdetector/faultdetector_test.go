@@ -149,7 +149,7 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	fd.submitMisbehavior(proposal, proofs, errEquivocation)
 
 	require.Equal(t, 1, len(fd.onChainProofsBuffer))
-	require.Equal(t, autonity.Misbehaviour, fd.onChainProofsBuffer[0].Type)
+	require.Equal(t, new(big.Int).SetUint64(uint64(autonity.Misbehaviour)), fd.onChainProofsBuffer[0].Type)
 	require.Equal(t, proposer, fd.onChainProofsBuffer[0].Sender)
 	require.Equal(t, proposal.MsgHash(), fd.onChainProofsBuffer[0].Msghash)
 }
@@ -199,7 +199,7 @@ func TestRunRuleEngine(t *testing.T) {
 		// Run rule engine over msg store on current height.
 		onChainProofs := fd.runRuleEngine(chainHead)
 		require.Equal(t, 1, len(onChainProofs))
-		require.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
+		require.Equal(t, new(big.Int).SetUint64(uint64(autonity.Misbehaviour)), onChainProofs[0].Type)
 		require.Equal(t, proposer, onChainProofs[0].Sender)
 		require.Equal(t, maliciousProposal.MsgHash(), onChainProofs[0].Msghash)
 	})
@@ -252,7 +252,7 @@ func TestProcessMsg(t *testing.T) {
 		require.Equal(t, nil, fd.processMsg(vote))
 		require.Equal(t, errEquivocation, fd.processMsg(equivocatedVote))
 		require.Equal(t, 1, len(fd.onChainProofsBuffer))
-		require.Equal(t, autonity.Misbehaviour, fd.onChainProofsBuffer[0].Type)
+		require.Equal(t, new(big.Int).SetUint64(uint64(autonity.Misbehaviour)), fd.onChainProofsBuffer[0].Type)
 		require.Equal(t, proposer, fd.onChainProofsBuffer[0].Sender)
 		require.Equal(t, equivocatedVote.MsgHash(), fd.onChainProofsBuffer[0].Msghash)
 	})
@@ -298,7 +298,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 
 	onChainProof, err := fd.generateOnChainProof(&p)
 	require.NoError(t, err)
-	require.Equal(t, autonity.Misbehaviour, onChainProof.Type)
+	require.Equal(t, new(big.Int).SetUint64(uint64(autonity.Misbehaviour)), onChainProof.Type)
 	require.Equal(t, proposer, onChainProof.Sender)
 	require.Equal(t, proposal.MsgHash(), onChainProof.Msghash)
 
@@ -369,7 +369,7 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfPO(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.Innocence, proof.Type)
+		assert.Equal(t, new(big.Int).SetUint64(uint64(autonity.Innocence)), proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, proposal.MsgHash(), proof.Msghash)
 	})
@@ -425,7 +425,7 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfPVN(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.Innocence, proof.Type)
+		assert.Equal(t, new(big.Int).SetUint64(uint64(autonity.Innocence)), proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, preVote.MsgHash(), proof.Msghash)
 	})
@@ -471,7 +471,7 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfC(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.Innocence, proof.Type)
+		assert.Equal(t, new(big.Int).SetUint64(uint64(autonity.Innocence)), proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, preCommit.MsgHash(), proof.Msghash)
 	})
@@ -523,7 +523,7 @@ func TestRuleEngine(t *testing.T) {
 
 		proof, err := fd.getInnocentProofOfC1(&accusation)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.Innocence, proof.Type)
+		assert.Equal(t, new(big.Int).SetUint64(uint64(autonity.Innocence)), proof.Type)
 		assert.Equal(t, proposer, proof.Sender)
 		assert.Equal(t, preCommit.MsgHash(), proof.Msghash)
 	})
