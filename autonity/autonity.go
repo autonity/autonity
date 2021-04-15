@@ -287,6 +287,6 @@ func (ac *Contract) GetAccusations(header *types.Header, db *state.StateDB) []*O
 	return ac.callGetAccusations(db, header)
 }
 
-func (ac *Contract) GetMisBehaviours(header *types.Header, db *state.StateDB) []*OnChainProof {
-	return ac.callGetMisBehaviours(db, header)
+func (ac *Contract) GetMisbehaviours(header *types.Header, db *state.StateDB) []*OnChainProof {
+	return ac.callGetMisbehaviours(db, header)
 }

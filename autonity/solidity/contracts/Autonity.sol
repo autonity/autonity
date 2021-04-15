@@ -40,7 +40,7 @@ contract Autonity is IERC20 {
     }
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
-    Proof[] private misBehaviours;
+    Proof[] private misbehaviours;
     Proof[] private accusations;
     address[] private usersList;
     string[] private enodesWhitelist;
@@ -162,7 +162,7 @@ contract Autonity is IERC20 {
 
         for (uint256 i = 0; i < Proofs.length; i++) {
             if (AccountabilityType(Proofs[i].t) == AccountabilityType.Misbehaviour) {
-                if (_misBehaviourExists(Proofs[i]) == true) {
+                if (_misbehaviourExists(Proofs[i]) == true) {
                     continue;
                 }
 
@@ -173,7 +173,7 @@ contract Autonity is IERC20 {
                     continue;
                 }
                 // misbehaviour proof is validated
-                misBehaviours.push(Proofs[i]);
+                misbehaviours.push(Proofs[i]);
                 emit MisbehaviourAdded(Proofs[i]);
                 // todo: add slashing logic once misbehaviour is valid.
             }
@@ -364,7 +364,7 @@ contract Autonity is IERC20 {
     * @dev Dump the on-chain misbehaviour. Called by the faultdetector fault detector to get latest on-chain misbehaviour.
     */
     function getMisbehaviours() external view returns (Proof[] memory) {
-        return misBehaviours;
+        return misbehaviours;
     }
 
     /**
@@ -716,9 +716,9 @@ contract Autonity is IERC20 {
         emit ChangedUserType(u.addr , u.userType , newUserType);
     }
 
-    function _misBehaviourExists(Proof memory proof) internal view returns (bool) {
-        for (uint256 i = 0; i < misBehaviours.length; i++) {
-            if (misBehaviours[i].msghash == proof.msghash) {
+    function _misbehaviourExists(Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < misbehaviours.length; i++) {
+            if (misbehaviours[i].msghash == proof.msghash) {
                 return true;
             }
         }
