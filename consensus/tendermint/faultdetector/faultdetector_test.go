@@ -163,14 +163,14 @@ func TestRunRuleEngine(t *testing.T) {
 	proposerKey := keys[proposer]
 	round := int64(3)
 	t.Run("test run rules with chain height less than delta height", func(t *testing.T) {
-		height := uint64(deltaToWaitForAccountability - 1)
+		height := uint64(deltaBlocks - 1)
 		fd := NewFaultDetector(nil, common.Address{}, nil)
 		require.Equal(t, 0, len(fd.runRuleEngine(height)))
 	})
 
 	t.Run("test run rules with malicious behaviour should be detected", func(t *testing.T) {
 		chainHead := uint64(100)
-		checkPointHeight := chainHead - uint64(deltaToWaitForAccountability)
+		checkPointHeight := chainHead - uint64(deltaBlocks)
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(checkPointHeight - 1), Committee: committee}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -225,7 +225,7 @@ func TestProcessMsg(t *testing.T) {
 
 		fd := NewFaultDetector(chainMock, proposer, nil)
 		require.Equal(t, errFutureMsg, fd.processMsg(proposal))
-		require.Equal(t, proposal, fd.futureHeightMsg[futureHeight][0])
+		require.Equal(t, proposal, fd.futureHeightMsgBuffer[futureHeight][0])
 	})
 
 	t.Run("test process msg, msg should be stored at msg store once verified", func(t *testing.T) {
@@ -271,9 +271,9 @@ func TestProcessMsg(t *testing.T) {
 
 		fd := NewFaultDetector(chainMock, proposer, nil)
 		// buffer the vote msg at afd.
-		fd.futureHeightMsg[height] = append(fd.futureHeightMsg[height], vote)
-		fd.processBufferedMsgs(height)
-		require.Nil(t, fd.futureHeightMsg[height])
+		fd.futureHeightMsgBuffer[height] = append(fd.futureHeightMsgBuffer[height], vote)
+		fd.processFutureHeightBufferedMsgs(height)
+		require.Nil(t, fd.futureHeightMsgBuffer[height])
 		require.Equal(t, vote, fd.msgStore.messages[height][round][msgPrevote][proposer][0])
 	})
 }

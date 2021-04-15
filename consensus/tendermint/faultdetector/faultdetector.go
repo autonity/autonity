@@ -57,11 +57,14 @@ type BlockChainContext interface {
 	Validator() core.Validator
 }
 
-var (
+const (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	deltaToWaitForAccountability = 30                                // Wait until the GST + delta (30 blocks) to start rule scan.
-	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
+	deltaBlocks          = 30                       // Wait until the GST + delta (30 blocks) to start rule scan.
+	randomDelayRange     = 5000                     // (0, 5] seconds random delay range
+	msgHeightBufferRange = uint64(deltaBlocks + 60) // buffer such range of msgs in height at msg store.
+)
 
+var (
 	errEquivocation    = errors.New("equivocation happens")
 	errFutureMsg       = errors.New("future height msg")
 	errGarbageMsg      = errors.New("garbage msg")
@@ -74,8 +77,7 @@ var (
 	errNoEvidenceForC   = errors.New("no evidence for innocence of rule C")
 	errNoEvidenceForC1  = errors.New("no evidence for innocence of rule C1")
 
-	nilValue          = common.Hash{}
-	randomDelayWindow = 1000 * 5 // (0, 5] seconds random time window
+	nilValue = common.Hash{}
 )
 
 // proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
@@ -102,11 +104,11 @@ type FaultDetector struct {
 
 	blockchain BlockChainContext
 
-	address         common.Address
-	msgStore        *MsgStore
-	futureHeightMsg map[uint64][]*tendermintCore.Message // map[blockHeight][]*tendermintMessages
+	address  common.Address
+	msgStore *MsgStore
 
-	onChainProofsBuffer []*autonity.OnChainProof // buffer proofs to aggregate them into single TX.
+	futureHeightMsgBuffer map[uint64][]*tendermintCore.Message // map[blockHeight][]*tendermintMessages
+	onChainProofsBuffer   []*autonity.OnChainProof             // buffer proofs to aggregate them into single TX.
 
 	logger log.Logger
 }
@@ -114,14 +116,14 @@ type FaultDetector struct {
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain BlockChainContext, nodeAddress common.Address, sub *event.TypeMuxSubscription) *FaultDetector {
 	fd := &FaultDetector{
-		RWMutex:          sync.RWMutex{},
-		address:          nodeAddress,
-		blockChan:        make(chan core.ChainEvent, 300),
-		blockchain:       chain,
-		msgStore:         newMsgStore(),
-		logger:           log.New("FaultDetector", nodeAddress),
-		tendermintMsgSub: sub,
-		futureHeightMsg:  make(map[uint64][]*tendermintCore.Message),
+		RWMutex:               sync.RWMutex{},
+		address:               nodeAddress,
+		blockChan:             make(chan core.ChainEvent, 300),
+		blockchain:            chain,
+		msgStore:              newMsgStore(),
+		logger:                log.New("FaultDetector", nodeAddress),
+		tendermintMsgSub:      sub,
+		futureHeightMsgBuffer: make(map[uint64][]*tendermintCore.Message),
 	}
 
 	// register faultdetector contracts on evm's precompiled contract set.
@@ -151,19 +153,19 @@ func (fd *FaultDetector) tendermintMsgEventLoop() {
 
 		msg := new(tendermintCore.Message)
 		if err := msg.FromPayload(mv.Payload); err != nil {
-			fd.logger.Error("invalid payload", "faultdetector", err)
+			fd.logger.Error("fault detector: error while retrieving  payload", "err", err)
 			continue
 		}
 
 		// discard too old messages which is out of accountability buffering window.
 		head := fd.blockchain.CurrentHeader().Number.Uint64()
-		if head > uint64(msgBufferInHeight) && msg.H() < head-uint64(msgBufferInHeight) {
-			fd.logger.Info("discard too old message for accountability", "faultdetector", msg.Sender())
+		if head > msgHeightBufferRange && msg.H() < head-msgHeightBufferRange {
+			fd.logger.Info("fault detector: discarding too old message", "sender", msg.Sender())
 			continue
 		}
 
 		if err := fd.processMsg(msg); err != nil {
-			fd.logger.Warn("process consensus msg", "faultdetector", err)
+			fd.logger.Error("fault detector: error while processing consensus msg", "err", err)
 			continue
 		}
 	}
@@ -177,7 +179,7 @@ func (fd *FaultDetector) blockEventLoop() {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
 		case ev := <-fd.blockChan:
 			// before run rule engine over msg store, process any buffered msg.
-			fd.processBufferedMsgs(ev.Block.NumberU64())
+			fd.processFutureHeightBufferedMsgs(ev.Block.NumberU64())
 
 			// handle accusations and provide innocence proof if there were any for a node.
 			innocenceProofs, _ := fd.handleAccusations(ev.Block, ev.Block.Root())
@@ -199,7 +201,7 @@ func (fd *FaultDetector) blockEventLoop() {
 			fd.sentProofs()
 
 			// msg store delete msgs out of buffering window.
-			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
+			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgHeightBufferRange))
 		case err, ok := <-fd.blockSub.Err():
 			if ok {
 				fd.logger.Crit("block subscription error", err.Error())
@@ -222,15 +224,10 @@ func (fd *FaultDetector) SubscribeFaultDetectorEvents(ch chan<- []*autonity.OnCh
 }
 
 // buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
-func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
-	h, err := m.Height()
-	if err != nil {
-		return
-	}
-
+func (fd *FaultDetector) bufferFutureHeightMsg(m *tendermintCore.Message) {
 	fd.Lock()
 	defer fd.Unlock()
-	fd.futureHeightMsg[h.Uint64()] = append(fd.futureHeightMsg[h.Uint64()], m)
+	fd.futureHeightMsgBuffer[m.H()] = append(fd.futureHeightMsgBuffer[m.H()], m)
 }
 
 func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []*autonity.OnChainProof {
@@ -457,20 +454,19 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	return innocentOnChainProofs, nil
 }
 
-// processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
-func (fd *FaultDetector) processBufferedMsgs(height uint64) {
+// processFutureHeightBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
+func (fd *FaultDetector) processFutureHeightBufferedMsgs(height uint64) {
 	fd.RLock()
 	defer fd.RUnlock()
-	for h, msgs := range fd.futureHeightMsg {
+	for h, msgs := range fd.futureHeightMsgBuffer {
 		if h <= height {
-			for i := 0; i < len(msgs); i++ {
-				if err := fd.processMsg(msgs[i]); err != nil {
-					fd.logger.Warn("process consensus msg", "faultdetector", err)
-					continue
+			for _, m := range msgs {
+				if err := fd.processMsg(m); err != nil {
+					fd.logger.Error("process consensus msg", "faultdetector", err)
 				}
 			}
-			// once message processed, release it from buffer.
-			delete(fd.futureHeightMsg, h)
+			// once messages are processed, delete it from buffer.
+			delete(fd.futureHeightMsgBuffer, h)
 		}
 	}
 }
@@ -481,7 +477,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	err := checkMsgSignature(fd.blockchain, m)
 	if err != nil {
 		if err == errFutureMsg {
-			fd.bufferMsg(m)
+			fd.bufferFutureHeightMsg(m)
 		}
 		return err
 	}
@@ -490,7 +486,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	err = checkAutoIncriminatingMsg(fd.blockchain, m)
 	if err != nil {
 		if err == errFutureMsg {
-			fd.bufferMsg(m)
+			fd.bufferFutureHeightMsg(m)
 		} else {
 			proofs := []*tendermintCore.Message{m}
 			fd.submitMisbehavior(m, proofs, err)
@@ -515,9 +511,9 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.OnChainProof {
 	var onChainProofs []*autonity.OnChainProof
 	// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
-	if height > uint64(deltaToWaitForAccountability) {
+	if height > uint64(deltaBlocks) {
 		// run rule engine over the previous delta offset height.
-		checkPointHeight := height - uint64(deltaToWaitForAccountability)
+		checkPointHeight := height - uint64(deltaBlocks)
 		quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(checkPointHeight - 1).TotalVotingPower())
 		proofs := fd.runRulesOverHeight(checkPointHeight, quorum)
 		if len(proofs) > 0 {
@@ -912,22 +908,17 @@ func checkEquivocation(chain BlockChainContext, m *tendermintCore.Message, proof
 
 //checkMsgSignature, it check if msg is from valid member of the committee.
 func checkMsgSignature(chain BlockChainContext, m *tendermintCore.Message) error {
-	msgHeight, err := m.Height()
-	if err != nil {
-		return err
-	}
-
 	header := chain.CurrentHeader()
-	if msgHeight.Uint64() > header.Number.Uint64()+1 {
+	if m.H() > header.Number.Uint64()+1 {
 		return errFutureMsg
 	}
 
-	lastHeader := chain.GetHeaderByNumber(msgHeight.Uint64() - 1)
+	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}
 
-	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if _, err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return errNotCommitteeMsg
 	}
 	return nil
@@ -1023,10 +1014,7 @@ func getProposer(chain BlockChainContext, h uint64, r int64) (common.Address, er
 }
 
 func isProposerMsg(chain BlockChainContext, m *tendermintCore.Message) bool {
-	h, _ := m.Height()
-	r, _ := m.Round()
-
-	proposer, err := getProposer(chain, h.Uint64(), r)
+	proposer, err := getProposer(chain, m.H(), m.R())
 	if err != nil {
 		return false
 	}
@@ -1054,7 +1042,7 @@ func powerOfVotes(votes []*tendermintCore.Message) uint64 {
 
 func randomDelay() {
 	rand.Seed(time.Now().UnixNano())
-	n := rand.Intn(randomDelayWindow)
+	n := rand.Intn(randomDelayRange)
 	time.Sleep(time.Duration(n) * time.Millisecond)
 }
 
