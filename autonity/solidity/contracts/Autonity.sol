@@ -162,7 +162,7 @@ contract Autonity is IERC20 {
 
         for (uint256 i = 0; i < Proofs.length; i++) {
             if (AccountabilityType(Proofs[i].t) == AccountabilityType.Misbehaviour) {
-                if (_isMisBehaviourExists(Proofs[i]) == true) {
+                if (_misBehaviourExists(Proofs[i]) == true) {
                     continue;
                 }
 
@@ -175,11 +175,11 @@ contract Autonity is IERC20 {
                 // misbehaviour proof is validated
                 misBehaviours.push(Proofs[i]);
                 emit MisbehaviourAdded(Proofs[i]);
-                // todo: add slashing logic once challenge is valid.
+                // todo: add slashing logic once misbehaviour is valid.
             }
 
             if (AccountabilityType(Proofs[i].t) == AccountabilityType.Accusation) {
-                if (_isAccusationExists(Proofs[i]) == true) {
+                if (_accusationExists(Proofs[i]) == true) {
                     continue;
                 }
 
@@ -194,7 +194,7 @@ contract Autonity is IERC20 {
             }
 
             if (AccountabilityType(Proofs[i].t) == AccountabilityType.Innocence) {
-                if (_isAccusationExists(Proofs[i]) == false) {
+                if (_accusationExists(Proofs[i]) == false) {
                     continue;
                 }
 
@@ -716,7 +716,7 @@ contract Autonity is IERC20 {
         emit ChangedUserType(u.addr , u.userType , newUserType);
     }
 
-    function _isMisBehaviourExists(Proof memory proof) internal view returns (bool) {
+    function _misBehaviourExists(Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < misBehaviours.length; i++) {
             if (misBehaviours[i].msghash == proof.msghash) {
                 return true;
@@ -725,7 +725,7 @@ contract Autonity is IERC20 {
         return false;
     }
 
-    function _isAccusationExists(Proof memory proof) internal view returns (bool) {
+    function _accusationExists(Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < accusations.length; i++) {
             if (accusations[i].msghash == proof.msghash) {
                 return true;
