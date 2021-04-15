@@ -88,7 +88,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*aut
 }
 
 func (s *Ethereum) generateAccountabilityTX(nonce uint64, method string, onChainProofs []*autonity.OnChainProof) (*types.Transaction, error) {
-	to := s.BlockChain().GetAutonityContract().Address()
+	to := autonity.ContractAddress
 	abi := s.BlockChain().GetAutonityContract().ABI()
 
 	var proofs = make([]autonity.OnChainProof, len(onChainProofs))

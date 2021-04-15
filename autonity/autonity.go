@@ -283,11 +283,6 @@ func (ac *Contract) ABI() *abi.ABI {
 	return ac.contractABI
 }
 
-// Address return the current autonity contract address
-func (ac *Contract) Address() common.Address {
-	return ContractAddress
-}
-
 func (ac *Contract) GetAccusations(header *types.Header, db *state.StateDB) []*OnChainProof {
 	return ac.callGetAccusations(db, header)
 }
