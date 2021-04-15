@@ -4,18 +4,18 @@ import (
 	"github.com/clearmatics/autonity/common"
 )
 
-type ProofType uint8
+type AccountabilityType uint8
 
 const (
-	Misbehaviour ProofType = iota
+	Misbehaviour AccountabilityType = iota
 	Accusation
 	Innocence
 )
 
 // OnChainProof to be stored by autonity contract for on-chain proof management.
 type OnChainProof struct {
-	Type     ProofType      `abi:"t"` // Misbehaviour, Accusation, Innocence to dispatch proof to precompiled contract.
-	Sender   common.Address `abi:"sender"`
-	Msghash  common.Hash    `abi:"msghash"`
-	Rawproof []byte         `abi:"rawproof"` // rlp encoded bytes for struct Proof object.
+	Type     AccountabilityType `abi:"t"` // Misbehaviour, Accusation, Innocence to dispatch proof to precompiled contract.
+	Sender   common.Address     `abi:"sender"`
+	Msghash  common.Hash        `abi:"msghash"`
+	Rawproof []byte             `abi:"rawproof"` // rlp encoded bytes for struct Proof object.
 }
