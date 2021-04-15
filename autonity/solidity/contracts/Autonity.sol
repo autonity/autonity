@@ -31,7 +31,7 @@ contract Autonity is IERC20 {
         uint256 stakesupply;
     }
 
-    enum ProofType {Misbehaviour, Accusation, Innocence}
+    enum AccountabilityType {Misbehaviour, Accusation, Innocence}
     struct Proof {
         uint8 t;      // proof type: Misbehaviour, Accusation, Innocence
         address sender;
@@ -161,7 +161,7 @@ contract Autonity is IERC20 {
         address innocencePrecompiledContractAddress = address(0xfd);
 
         for (uint256 i = 0; i < Proofs.length; i++) {
-            if (ProofType(Proofs[i].t) == ProofType.Misbehaviour) {
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Misbehaviour) {
                 if (_isMisBehaviourExists(Proofs[i]) == true) {
                     continue;
                 }
@@ -178,7 +178,7 @@ contract Autonity is IERC20 {
                 // todo: add slashing logic once challenge is valid.
             }
 
-            if (ProofType(Proofs[i].t) == ProofType.Accusation) {
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Accusation) {
                 if (_isAccusationExists(Proofs[i]) == true) {
                     continue;
                 }
@@ -193,7 +193,7 @@ contract Autonity is IERC20 {
                 emit AccusationAdded(Proofs[i]);
             }
 
-            if (ProofType(Proofs[i].t) == ProofType.Innocence) {
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Innocence) {
                 if (_isAccusationExists(Proofs[i]) == false) {
                     continue;
                 }
