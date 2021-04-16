@@ -28,8 +28,14 @@ const (
 )
 
 type Config struct {
-	BlockPeriod    uint64         `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
-	ProposerPolicy ProposerPolicy `toml:",omitempty" json:"policy"`       // The policy for proposer selection
+	BlockPeriod        uint64         `toml:",omitempty" json:"block-period"` // Default minimum difference between two consecutive block's timestamps in second
+	ProposerPolicy     ProposerPolicy `toml:",omitempty" json:"policy"`       // The policy for proposer selection
+	MisbehaviourConfig *MisbehaviourConfig
+}
+
+type MisbehaviourConfig struct {
+	MisbehaviourRuleID uint8
+	AccusationRuleID   uint8
 }
 
 func (c *Config) String() string {

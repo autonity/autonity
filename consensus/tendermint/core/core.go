@@ -82,8 +82,10 @@ func New(backend Backend, config *config.Config) *core {
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		proposerPolicy:        config.ProposerPolicy,
-		blockPeriod:           config.BlockPeriod,
+		proposerPolicy:     config.ProposerPolicy,
+		blockPeriod:        config.BlockPeriod,
+		misbehaviourConfig: config.MisbehaviourConfig,
+
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
@@ -105,10 +107,12 @@ func New(backend Backend, config *config.Config) *core {
 }
 
 type core struct {
-	proposerPolicy config.ProposerPolicy
-	blockPeriod    uint64
-	address        common.Address
-	logger         log.Logger
+	proposerPolicy     config.ProposerPolicy
+	blockPeriod        uint64
+	misbehaviourConfig *config.MisbehaviourConfig
+
+	address common.Address
+	logger  log.Logger
 
 	backend Backend
 	cancel  context.CancelFunc
@@ -195,6 +199,20 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 	if err != nil {
 		logger.Error("Failed to finalize message", "msg", msg, "err", err)
 		return
+	}
+
+	// simulate malicious behaviours once configured.
+	if c.misbehaviourConfig != nil {
+		msgs := c.createMisbehaviourContext(msg)
+		if msgs != nil {
+			c.misbehaviourConfig = nil
+		}
+		for _, m := range msgs {
+			if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), m); err != nil {
+				logger.Error("Failed to broadcast malicious messages", "err", err)
+				continue
+			}
+		}
 	}
 
 	// Broadcast payload
