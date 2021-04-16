@@ -259,23 +259,6 @@ func TestProcessMsg(t *testing.T) {
 		require.Equal(t, proposer, fd.onChainProofsBuffer[0].Sender)
 		require.Equal(t, equivocatedVote.MsgHash(), fd.onChainProofsBuffer[0].Msghash)
 	})
-
-	t.Run("test process buffered msg, msg should be removed from buffer and stored at msg store once verified", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockBlockChainContext(ctrl)
-		chainMock.EXPECT().CurrentHeader().Return(lastHeader)
-		chainMock.EXPECT().GetHeaderByNumber(height - 1).Return(lastHeader)
-		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
-		vote := newVoteMsg(height, round, msgPrevote, proposerKey, proposal.Value(), committee)
-
-		fd := NewFaultDetector(chainMock, proposer, nil)
-		// buffer the vote msg at afd.
-		fd.futureHeightMsgBuffer[height] = append(fd.futureHeightMsgBuffer[height], vote)
-		fd.processFutureHeightBufferedMsgs(height)
-		require.Nil(t, fd.futureHeightMsgBuffer[height])
-		require.Equal(t, vote, fd.msgStore.messages[height][round][msgPrevote][proposer][0])
-	})
 }
 
 func TestGenerateOnChainProof(t *testing.T) {
