@@ -201,10 +201,15 @@ func (fd *FaultDetector) tendermintMsgEventLoop() {
 func (fd *FaultDetector) blockEventLoop() {
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockCh)
 
+blockChainLoop:
 	for {
 		select {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
-		case ev := <-fd.blockCh:
+		case ev, ok := <-fd.blockCh:
+			if !ok {
+				break blockChainLoop
+			}
+
 			// before run rule engine over msg store, process any buffered msg.
 			fd.processFutureHeightMsgCh <- ev.Block.NumberU64()
 
@@ -233,15 +238,15 @@ func (fd *FaultDetector) blockEventLoop() {
 			if ok {
 				fd.logger.Crit("block subscription error", err.Error())
 			}
-			return
+			break blockChainLoop
 		}
 	}
+	close(fd.processFutureHeightMsgCh)
 }
 
 func (fd *FaultDetector) Stop() {
 	fd.blockSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
-	close(fd.processFutureHeightMsgCh)
 	fd.proofWG.Wait()
 	unRegisterFaultDetectorContracts()
 }
