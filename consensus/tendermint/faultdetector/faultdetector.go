@@ -233,7 +233,7 @@ blockChainLoop:
 			fd.sentProofs()
 
 			// msg store delete msgs out of buffering window.
-			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgHeightBufferRange))
+			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - msgHeightBufferRange)
 		case err, ok := <-fd.blockSub.Err():
 			if ok {
 				fd.logger.Crit("block subscription error", err.Error())
