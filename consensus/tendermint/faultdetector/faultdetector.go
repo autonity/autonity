@@ -83,7 +83,7 @@ var (
 
 // proof is what to prove that one is misbehaving, one should be slashed when a valid proof is rise.
 type proof struct {
-	Type     autonity.AccountabilityType // Misbehaviour, Accusation, Innocence.
+	Type     uint8 // Misbehaviour, Accusation, Innocence.
 	Rule     Rule
 	Message  *tendermintCore.Message   // the msg to be considered as suspicious or misbehaved one
 	Evidence []*tendermintCore.Message // the proofs of innocence or misbehaviour.
@@ -736,17 +736,17 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 					if len(precommitsForV) == 0 {
 						/*
-						// node locked on a value distinct to V ar previous rounds, check if the locked round
-						// is <= valid round, otherwise rise a challenge.
-						if sortedPreCommits[len(sortedPreCommits)-1].R() > correspondingProposal.ValidRound() {
-							proof := &proof{
-								Type:     autonity.Misbehaviour,
-								Rule:     PVO1,
-								Evidence: sortedPreCommits, // it contains the distinct value locked at previous rounds.
-								Message:  prevote,
+							// node locked on a value distinct to V ar previous rounds, check if the locked round
+							// is <= valid round, otherwise rise a challenge.
+							if sortedPreCommits[len(sortedPreCommits)-1].R() > correspondingProposal.ValidRound() {
+								proof := &proof{
+									Type:     autonity.Misbehaviour,
+									Rule:     PVO1,
+									Evidence: sortedPreCommits, // it contains the distinct value locked at previous rounds.
+									Message:  prevote,
+								}
+								proofs = append(proofs, proof)
 							}
-							proofs = append(proofs, proof)
-						}
 						*/
 					} else {
 						// get the preCommit of r′ (last preCommit) of V from preCommits, then check if we have preCommit for not V
@@ -775,9 +775,9 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 							if powerOfVotes(deEquivocatedMsgs(preVotesAtVR)) < quorum {
 								proof := &proof{
-									Type:     autonity.Accusation,
-									Rule:     PVO1,
-									Message:  prevote,
+									Type:    autonity.Accusation,
+									Rule:    PVO1,
+									Message: prevote,
 								}
 								proofs = append(proofs, proof)
 							}
@@ -800,9 +800,9 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 					if powerOfVotes(deEquivocatedMsgs(preVotesAtVR)) < quorum {
 						proof := &proof{
-							Type:     autonity.Accusation,
-							Rule:     PVO2,
-							Message:  prevote,
+							Type:    autonity.Accusation,
+							Rule:    PVO2,
+							Message: prevote,
 						}
 						proofs = append(proofs, proof)
 					}

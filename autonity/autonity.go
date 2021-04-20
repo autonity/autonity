@@ -283,10 +283,10 @@ func (ac *Contract) ABI() *abi.ABI {
 	return ac.contractABI
 }
 
-func (ac *Contract) GetAccusations(header *types.Header, db *state.StateDB) []*OnChainProof {
+func (ac *Contract) GetAccusations(header *types.Header, db *state.StateDB) []OnChainProof {
 	return ac.callGetAccusations(db, header)
 }
 
-func (ac *Contract) GetMisbehaviours(header *types.Header, db *state.StateDB) []*OnChainProof {
+func (ac *Contract) GetMisbehaviours(header *types.Header, db *state.StateDB) []OnChainProof {
 	return ac.callGetMisbehaviours(db, header)
 }

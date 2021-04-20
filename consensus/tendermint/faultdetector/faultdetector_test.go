@@ -334,7 +334,7 @@ func TestRuleEngine(t *testing.T) {
 	t.Run("getInnocentProof with unprovable rule id", func(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		var input = proof{
-			Rule: PVO,
+			Rule: PVO1,
 		}
 
 		_, err := fd.getInnocentProof(&input)
