@@ -653,7 +653,8 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		return m.Type() == msgPrevote && m.Value() != nilValue
 	})
 
-	for _, prevote := range prevotes {
+	for _, p := range prevotes {
+		prevote := p
 		correspondingProposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R() // nolint: scopelint
 		})
@@ -673,7 +674,8 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		// with the same value but different valid rounds to different nodes. We can't penalise the sender of prevote
 		// since we can't tell which proposal they received. We just want to find a set of message which fit the rule.
 
-		for _, correspondingProposal := range correspondingProposals {
+		for _, cp := range correspondingProposals {
+			correspondingProposal := cp
 			if correspondingProposal.ValidRound() == -1 {
 				// New Proposal, apply PVN rules
 
