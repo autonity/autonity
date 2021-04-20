@@ -288,10 +288,10 @@ func (ac *Contract) Address() common.Address {
 	return ContractAddress
 }
 
-func (ac *Contract) GetAccusations(header *types.Header, db *state.StateDB) []*OnChainProof {
+func (ac *Contract) GetAccusations(header *types.Header, db *state.StateDB) []OnChainProof {
 	return ac.callGetAccusations(db, header)
 }
 
-func (ac *Contract) GetMisBehaviours(header *types.Header, db *state.StateDB) []*OnChainProof {
+func (ac *Contract) GetMisBehaviours(header *types.Header, db *state.StateDB) []OnChainProof {
 	return ac.callGetMisBehaviours(db, header)
 }

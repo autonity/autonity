@@ -80,7 +80,7 @@ var (
 
 // Proof is what to prove that one is misbehaving, one should be slashed when a valid Proof is rise.
 type Proof struct {
-	Type     autonity.ProofType // Misbehaviour, Accusation, Innocence.
+	Type     uint8 // Misbehaviour, Accusation, Innocence.
 	Rule     Rule
 	Message  *tendermintCore.Message   // the msg to be considered as suspicious or misbehaved one
 	Evidence []*tendermintCore.Message // the proofs of innocence or misbehaviour.

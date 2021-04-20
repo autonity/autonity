@@ -28,10 +28,10 @@ func TestMaliciousBehaviours(t *testing.T) {
 				err := rlp.DecodeBytes(ms.Rawproof, p)
 				if err != nil {
 					continue
-				} else {
-					if p.Rule == rule {
-						presented = true
-					}
+				}
+
+				if p.Rule == rule {
+					presented = true
 				}
 			}
 		}
@@ -42,6 +42,7 @@ func TestMaliciousBehaviours(t *testing.T) {
 	}
 
 	genesisHookPN := func(g *core.Genesis) *core.Genesis {
+		g.Config.Tendermint.BlockPeriod = 1
 		g.Config.Tendermint.MisbehaviourConfig = &config.MisbehaviourConfig{
 			MisbehaviourRuleID: uint8(faultdetector.PN),
 		}
@@ -52,6 +53,7 @@ func TestMaliciousBehaviours(t *testing.T) {
 	}
 
 	genesisHookPO := func(g *core.Genesis) *core.Genesis {
+		g.Config.Tendermint.BlockPeriod = 1
 		g.Config.Tendermint.MisbehaviourConfig = &config.MisbehaviourConfig{
 			MisbehaviourRuleID: uint8(faultdetector.PO),
 		}
@@ -61,17 +63,8 @@ func TestMaliciousBehaviours(t *testing.T) {
 		requireMisbehaviourProof(t, faultdetector.PO, validators["VA"])
 	}
 
-	genesisHookPVN := func(g *core.Genesis) *core.Genesis {
-		g.Config.Tendermint.MisbehaviourConfig = &config.MisbehaviourConfig{
-			MisbehaviourRuleID: uint8(faultdetector.PVN),
-		}
-		return g
-	}
-	RulePVNChecker := func(t *testing.T, validators map[string]*testNode) {
-		requireMisbehaviourProof(t, faultdetector.PVN, validators["VA"])
-	}
-
 	genesisHookC := func(g *core.Genesis) *core.Genesis {
+		g.Config.Tendermint.BlockPeriod = 1
 		g.Config.Tendermint.MisbehaviourConfig = &config.MisbehaviourConfig{
 			MisbehaviourRuleID: uint8(faultdetector.C),
 		}
@@ -82,6 +75,7 @@ func TestMaliciousBehaviours(t *testing.T) {
 	}
 
 	genesisHookInvalidProposal := func(g *core.Genesis) *core.Genesis {
+		g.Config.Tendermint.BlockPeriod = 1
 		g.Config.Tendermint.MisbehaviourConfig = &config.MisbehaviourConfig{
 			MisbehaviourRuleID: uint8(faultdetector.InvalidProposal),
 		}
@@ -92,6 +86,7 @@ func TestMaliciousBehaviours(t *testing.T) {
 	}
 
 	genesisHookInvalidProposer := func(g *core.Genesis) *core.Genesis {
+		g.Config.Tendermint.BlockPeriod = 1
 		g.Config.Tendermint.MisbehaviourConfig = &config.MisbehaviourConfig{
 			MisbehaviourRuleID: uint8(faultdetector.InvalidProposer),
 		}
@@ -103,6 +98,7 @@ func TestMaliciousBehaviours(t *testing.T) {
 	}
 
 	genesisHookEquivocation := func(g *core.Genesis) *core.Genesis {
+		g.Config.Tendermint.BlockPeriod = 1
 		g.Config.Tendermint.MisbehaviourConfig = &config.MisbehaviourConfig{
 			MisbehaviourRuleID: uint8(faultdetector.Equivocation),
 		}
@@ -126,13 +122,6 @@ func TestMaliciousBehaviours(t *testing.T) {
 			numBlocks: 60,
 			genesisHook: genesisHookPO,
 			finalAssert: RulePOChecker,
-		},
-		{
-			name: "TestFaultDetectorMaliciousBehaviourPVN",
-			numValidators: 6,
-			numBlocks: 60,
-			genesisHook: genesisHookPVN,
-			finalAssert: RulePVNChecker,
 		},
 		{
 			name: "TestFaultDetectorMaliciousBehaviourC",
