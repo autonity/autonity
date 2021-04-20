@@ -204,13 +204,13 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 	// simulate malicious behaviours once configured.
 	if c.misbehaviourConfig != nil {
 		msgs := c.createMisbehaviourContext(msg)
-		if msgs != nil {
+		if len(msgs) != 0 {
 			c.misbehaviourConfig = nil
-		}
-		for _, m := range msgs {
-			if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), m); err != nil {
-				logger.Error("Failed to broadcast malicious messages", "err", err)
-				continue
+			for _, m := range msgs {
+				if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), m); err != nil {
+					logger.Error("Failed to broadcast malicious messages", "err", err)
+					continue
+				}
 			}
 		}
 	}

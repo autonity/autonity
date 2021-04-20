@@ -119,7 +119,7 @@ func TestCheckEquivocation(t *testing.T) {
 	round := int64(0)
 	committee, keys := generateCommittee(5)
 
-	t.Run("check equivocation with valid proof of equivocation", func(t *testing.T) {
+	t.Run("check equivocation with valid Proof of equivocation", func(t *testing.T) {
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 		vote1 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], proposal.Value(), committee)
 		vote2 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], nilValue, committee)
@@ -128,7 +128,7 @@ func TestCheckEquivocation(t *testing.T) {
 		require.Equal(t, errEquivocation, checkEquivocation(nil, vote1, proofs))
 	})
 
-	t.Run("check equivocation with invalid proof of equivocation", func(t *testing.T) {
+	t.Run("check equivocation with invalid Proof of equivocation", func(t *testing.T) {
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 		vote1 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], proposal.Value(), committee)
 		var proofs []*core.Message
@@ -290,7 +290,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 	var evidence []*core.Message
 	evidence = append(evidence, equivocatedProposal)
 
-	p := proof{
+	p := Proof{
 		Type:     autonity.Misbehaviour,
 		Rule:     Equivocation,
 		Message:  proposal,
@@ -350,7 +350,7 @@ func TestRuleEngine(t *testing.T) {
 
 	t.Run("getInnocentProof with unprovable rule id", func(t *testing.T) {
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		var input = proof{
+		var input = Proof{
 			Rule: PVO,
 		}
 
@@ -360,7 +360,7 @@ func TestRuleEngine(t *testing.T) {
 
 	t.Run("getInnocentProofOfPO have quorum preVotes", func(t *testing.T) {
 
-		// PO: node propose an old value with an validRound, innocent proof of it should be:
+		// PO: node propose an old value with an validRound, innocent Proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -380,7 +380,7 @@ func TestRuleEngine(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PO,
 			Message: proposal,
@@ -395,7 +395,7 @@ func TestRuleEngine(t *testing.T) {
 
 	t.Run("getInnocentProofOfPO no quorum preVotes", func(t *testing.T) {
 
-		// PO: node propose an old value with an validRound, innocent proof of it should be:
+		// PO: node propose an old value with an validRound, innocent Proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -412,7 +412,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PO,
 			Message: proposal,
@@ -436,7 +436,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PVN,
 			Message: preVote,
@@ -458,7 +458,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PVN,
 			Message: preVote,
@@ -482,7 +482,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C,
 			Message: preCommit,
@@ -505,7 +505,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C,
 			Message: preCommit,
@@ -534,7 +534,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C1,
 			Message: preCommit,
@@ -560,7 +560,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C1,
 			Message: preCommit,
@@ -650,7 +650,7 @@ func TestRuleEngine(t *testing.T) {
 		// to address below scenario:
 		// Is there a precommit for a value other than nil or the proposed value
 		// by the current proposer in the valid round? If there is the proposer
-		// has proposed a value for which it is not locked on, thus a proof of
+		// has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
 
 		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))

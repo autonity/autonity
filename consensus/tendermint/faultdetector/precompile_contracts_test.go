@@ -57,7 +57,7 @@ func TestDecodeProof(t *testing.T) {
 	preCommit := newVoteMsg(height, 3, msgPrecommit, proposerKey, proposal.Value(), committee)
 
 	t.Run("decode with accusation", func(t *testing.T) {
-		var p proof
+		var p Proof
 		p.Rule = PO
 		p.Message = proposal
 
@@ -71,7 +71,7 @@ func TestDecodeProof(t *testing.T) {
 	})
 
 	t.Run("decode with evidence", func(t *testing.T) {
-		var p proof
+		var p Proof
 		p.Rule = PO
 		p.Message = proposal
 		p.Evidence = append(p.Evidence, preCommit)
@@ -116,14 +116,14 @@ func TestAccusationVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate accusation, with wrong rule ID", func(t *testing.T) {
-		var p proof
+		var p Proof
 		p.Rule = UnknownRule
 		av := AccusationVerifier{}
 		assert.Equal(t, failure96Byte, av.validateAccusation(&p))
 	})
 
 	t.Run("Test validate accusation, with wrong accusation msg", func(t *testing.T) {
-		var p proof
+		var p Proof
 		av := AccusationVerifier{}
 		p.Rule = PO
 		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, proposal.Value(), committee)
@@ -147,7 +147,7 @@ func TestAccusationVerifier(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		var p proof
+		var p Proof
 		p.Rule = PO
 		invalidCommittee, keys := generateCommittee(5)
 		newProposal := newProposalMessage(height, 1, 0, keys[invalidCommittee[0].Address], invalidCommittee, nil)
@@ -163,7 +163,7 @@ func TestAccusationVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate accusation, with correct accusation msg", func(t *testing.T) {
-		var p proof
+		var p Proof
 		p.Rule = PO
 		newProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = newProposal
@@ -210,10 +210,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	t.Run("Test validate misbehaviour proof, with invalid signature of misbehaved msg", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof, with invalid signature of misbehaved msg", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
@@ -230,10 +230,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, failure96Byte, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof, with invalid signature of evidence msgs", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof, with invalid signature of evidence msgs", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = PO
 		invalidCommittee, ikeys := generateCommittee(5)
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
@@ -251,10 +251,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, failure96Byte, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PN rule with correct proof", func(t *testing.T) {
-		// prepare a proof that node propose for a new value, but he preCommitted a non nil value
-		// at previous rounds, such proof should be valid.
-		var p proof
+	t.Run("Test validate misbehaviour Proof of PN rule with correct Proof", func(t *testing.T) {
+		// prepare a Proof that node propose for a new value, but he preCommitted a non nil value
+		// at previous rounds, such Proof should be valid.
+		var p Proof
 		p.Rule = PN
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
 		p.Message = proposal
@@ -267,9 +267,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PN rule with incorrect proposal of proof", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of PN rule with incorrect proposal of Proof", func(t *testing.T) {
 		// prepare a p that node propose for an old value.
-		var p proof
+		var p Proof
 		p.Rule = PN
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = proposal
@@ -282,8 +282,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PN rule with no evidence of proof", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of PN rule with no evidence of Proof", func(t *testing.T) {
+		var p Proof
 		p.Rule = PN
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
 		p.Message = proposal
@@ -293,10 +293,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PO, propose a v rather than the locked one", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of PO, propose a v rather than the locked one", func(t *testing.T) {
 		// simulate a p of misbehaviour of PO, with the proposer proposed a old value that was not
 		// the one he locked at previous round, the validation of this p should return true.
-		var p proof
+		var p Proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -307,10 +307,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PO, propose a valid round rather than the locked one", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of PO, propose a valid round rather than the locked one", func(t *testing.T) {
 		// simulate a p of misbehaviour of PO, with the proposer proposed a valid round that was not
 		// the one he locked at previous round, the validation of this p should return true.
-		var p proof
+		var p Proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -321,8 +321,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PO, with no evidence", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of PO, with no evidence", func(t *testing.T) {
+		var p Proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		p.Message = proposal
@@ -331,8 +331,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PO, with a proposal of new value", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of PO, with a proposal of new value", func(t *testing.T) {
+		var p Proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -343,11 +343,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PVN rule, with correct proof", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of PVN rule, with correct Proof", func(t *testing.T) {
 		// simulate a p of misbehaviour of PVN, with the node preVote for V1, but he preCommit
 		// at a different value V2 at previous round. The validation of the misbehaviour p should
 		// return ture.
-		var p proof
+		var p Proof
 		p.Rule = PVN
 		// node locked at V1 at round 0.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -362,8 +362,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PVN rule, with no evidence", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of PVN rule, with no evidence", func(t *testing.T) {
+		var p Proof
 		p.Rule = PVN
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		// node preVote for V2 at round 3
@@ -375,8 +375,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PVN rule, with wrong msg", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of PVN rule, with wrong msg", func(t *testing.T) {
+		var p Proof
 		p.Rule = PVN
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		// set a wrong type of msg.
@@ -388,8 +388,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of PVN rule, with wrong preVote value", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of PVN rule, with wrong preVote value", func(t *testing.T) {
+		var p Proof
 		p.Rule = PVN
 		// node locked at V1 at round 0.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -403,11 +403,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule, with correct proof", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of C rule, with correct Proof", func(t *testing.T) {
 		// Node preCommit for a V at round R, but in that round, there were quorum PreVotes for notV at that round.
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = C
 		// Node preCommit for V at round R.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -425,8 +425,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule, with no Evidence", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of C rule, with no Evidence", func(t *testing.T) {
+		var p Proof
 		p.Rule = C
 		// Node preCommit for V at round R.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -437,9 +437,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule, with wrong preCommit msg", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of C rule, with wrong preCommit msg", func(t *testing.T) {
 		// Node preCommit for nil at round R, not provable
-		var p proof
+		var p Proof
 		p.Rule = C
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, nilValue, committee)
 		p.Message = preCommit
@@ -453,8 +453,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule, with wrong msg", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate misbehaviour Proof of C rule, with wrong msg", func(t *testing.T) {
+		var p Proof
 		p.Rule = C
 
 		wrongMsg := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
@@ -469,9 +469,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule, with invalid evidence", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of C rule, with invalid evidence", func(t *testing.T) {
 		// the evidence contains same value of preCommit that node preVoted for.
-		var p proof
+		var p Proof
 		p.Rule = C
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -487,9 +487,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule, with invalid evidence: duplicated msg in evidence", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of C rule, with invalid evidence: duplicated msg in evidence", func(t *testing.T) {
 		// the evidence contains same value of preCommit that node preVoted for.
-		var p proof
+		var p Proof
 		p.Rule = C
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -505,10 +505,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate misbehaviour proof of C rule, with invalid evidence: no quorum preVotes", func(t *testing.T) {
+	t.Run("Test validate misbehaviour Proof of C rule, with invalid evidence: no quorum preVotes", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = C
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -547,10 +547,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	t.Run("Test validate innocence proof with invalid signature of message", func(t *testing.T) {
+	t.Run("Test validate innocence Proof with invalid signature of message", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
@@ -564,10 +564,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, failure96Byte, ret)
 	})
 
-	t.Run("Test validate innocence proof, with invalid signature of evidence msgs", func(t *testing.T) {
+	t.Run("Test validate innocence Proof, with invalid signature of evidence msgs", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = PO
 		invalidCommittee, iKeys := generateCommittee(5)
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
@@ -583,8 +583,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, failure96Byte, ret)
 	})
 
-	t.Run("Test validate innocence proof of PO rule, with wrong msg", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of PO rule, with wrong msg", func(t *testing.T) {
+		var p Proof
 		p.Rule = PO
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Message = wrongMsg
@@ -593,10 +593,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of PO rule, with invalid evidence", func(t *testing.T) {
+	t.Run("Test validate innocence Proof of PO rule, with invalid evidence", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = proposal
@@ -612,10 +612,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of PO rule, with redundant vote msg", func(t *testing.T) {
+	t.Run("Test validate innocence Proof of PO rule, with redundant vote msg", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = proposal
@@ -634,10 +634,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of PO rule, with not quorum vote msg", func(t *testing.T) {
+	t.Run("Test validate innocence Proof of PO rule, with not quorum vote msg", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = PO
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = proposal
@@ -654,8 +654,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of PVN rule, with wrong msg", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of PVN rule, with wrong msg", func(t *testing.T) {
+		var p Proof
 		p.Rule = PVN
 		wrongMsg := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = wrongMsg
@@ -664,8 +664,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of PVN rule, with a wrong preVote for nil", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of PVN rule, with a wrong preVote for nil", func(t *testing.T) {
+		var p Proof
 		p.Rule = PVN
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, nilValue, committee)
 		p.Message = wrongMsg
@@ -674,8 +674,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of PVN rule, with no evidence", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of PVN rule, with no evidence", func(t *testing.T) {
+		var p Proof
 		p.Rule = PVN
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Message = wrongMsg
@@ -684,8 +684,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of PVN rule, with correct proof", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of PVN rule, with correct Proof", func(t *testing.T) {
+		var p Proof
 		p.Rule = PVN
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
 		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, proposal.Value(), committee)
@@ -696,8 +696,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
-	t.Run("Test validate innocence proof of C rule, with wrong msg", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of C rule, with wrong msg", func(t *testing.T) {
+		var p Proof
 		p.Rule = C
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Message = wrongMsg
@@ -706,8 +706,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C rule, with a wrong preCommit for nil", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of C rule, with a wrong preCommit for nil", func(t *testing.T) {
+		var p Proof
 		p.Rule = C
 		wrongMsg := newVoteMsg(height, 1, msgPrecommit, proposerKey, nilValue, committee)
 		p.Message = wrongMsg
@@ -716,8 +716,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C rule, with no evidence", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of C rule, with no evidence", func(t *testing.T) {
+		var p Proof
 		p.Rule = C
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = preCommit
@@ -726,8 +726,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C rule, with correct proof", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of C rule, with correct Proof", func(t *testing.T) {
+		var p Proof
 		p.Rule = C
 		proposal := newProposalMessage(height, 1, -1, proposerKey, committee, nil)
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, proposal.Value(), committee)
@@ -738,8 +738,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
-	t.Run("Test validate innocence proof of C1 rule, with wrong msg", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of C1 rule, with wrong msg", func(t *testing.T) {
+		var p Proof
 		p.Rule = C1
 		wrongMsg := newVoteMsg(height, 1, msgPrevote, proposerKey, noneNilValue, committee)
 		p.Message = wrongMsg
@@ -748,8 +748,8 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C1 rule, with a wrong preCommit for nil", func(t *testing.T) {
-		var p proof
+	t.Run("Test validate innocence Proof of C1 rule, with a wrong preCommit for nil", func(t *testing.T) {
+		var p Proof
 		p.Rule = C1
 		wrongMsg := newVoteMsg(height, 1, msgPrecommit, proposerKey, nilValue, committee)
 		p.Message = wrongMsg
@@ -758,10 +758,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C1 rule, with a wrong evidence", func(t *testing.T) {
+	t.Run("Test validate innocence Proof of C1 rule, with a wrong evidence", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = preCommit
@@ -776,10 +776,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C1 rule, with redundant msgs in evidence ", func(t *testing.T) {
+	t.Run("Test validate innocence Proof of C1 rule, with redundant msgs in evidence ", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = preCommit
@@ -795,10 +795,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C1 rule, with no quorum votes of evidence ", func(t *testing.T) {
+	t.Run("Test validate innocence Proof of C1 rule, with no quorum votes of evidence ", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = preCommit
@@ -813,10 +813,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
-	t.Run("Test validate innocence proof of C1 rule, with correct evidence ", func(t *testing.T) {
+	t.Run("Test validate innocence Proof of C1 rule, with correct evidence ", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		var p proof
+		var p Proof
 		p.Rule = C1
 		preCommit := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
 		p.Message = preCommit
