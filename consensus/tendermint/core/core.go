@@ -203,11 +203,15 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 
 	// simulate malicious behaviours once configured.
 	if c.misbehaviourConfig != nil {
-		msgs := c.createMisbehaviourContext(msg)
+		m := new(Message)
+		if err := m.FromPayload(payload); err != nil {
+			c.logger.Error("consensus message invalid payload", "err", err)
+		}
+		msgs := c.createMisbehaviourContext(m)
 		if len(msgs) != 0 {
 			c.misbehaviourConfig = nil
-			for _, m := range msgs {
-				if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), m); err != nil {
+			for _, mm := range msgs {
+				if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), mm); err != nil {
 					logger.Error("Failed to broadcast malicious messages", "err", err)
 					continue
 				}

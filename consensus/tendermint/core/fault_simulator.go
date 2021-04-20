@@ -32,7 +32,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			ProposedBlockHash: v,
 		}
 
-		encodedVote, err := Encode(preVote)
+		encodedVote, err := Encode(&preVote)
 		if err != nil {
 			return nil
 		}
