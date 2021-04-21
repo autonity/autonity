@@ -120,7 +120,6 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// propose   (h, r+1, v2)
 	// preVote   (h, r+1, v2)
 	maliciousContextPVN := func() [][]byte {
-		/* //todo: simulate a proposal with different values.
 		// find a next proposing round.
 		nPR, err := nextProposeRound(innocentMsg.R())
 		if err != nil {
@@ -133,21 +132,25 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		if err != nil {
 			return nil
 		}
+
+		var p Proposal
+		err = innocentMsg.Decode(&p)
+		if err != nil {
+			return nil
+		}
 		// simulate a proposal at round r+1, for value v2.
-		msgProposal := msg(algorithm.Propose, innocentMsg.Height, nPR, innocentMsg.Value, -1)
-		mP, err := EncodeSignedMessage(msgProposal, b.key, b.msgStore.value(common.Hash(innocentMsg.Value)))
+		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, -1)
+		mP, err := c.finalizeMessage(msgProposal)
 		if err != nil {
 			return nil
 		}
 		// simulate a preVote at round r+1, for value v2, this preVote for new value break PVN.
-		msgPVN := msg(algorithm.Prevote, innocentMsg.Height, nPR, innocentMsg.Value, 0)
-		mPVN, err := EncodeSignedMessage(msgPVN, b.key, nil)
+		msgPVN := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
+		mPVN, err := c.finalizeMessage(msgPVN)
 		if err != nil {
 			return nil
 		}
 		return append(msgs, mE, mP, mPVN)
-		*/
-		return nil
 	}
 
 	// simulate a context of msgs that node preCommit at a value V of the round where exist quorum preVotes
@@ -226,7 +229,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		return maliciousContextPO()
 	}
 
-	if r == PVN && innocentMsg.Code == msgPrevote {
+	if r == PVN && innocentMsg.Code == msgProposal {
 		return maliciousContextPVN()
 	}
 
