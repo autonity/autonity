@@ -101,7 +101,7 @@ func NewCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "gengen",
 		Short:   gengenDescription,
-		Example: `./gengen --min-gas-price 10 --user 1e12,v,1,:6789 --user 1e12,v,1,:6799 --user-keys userkeys`,
+		Example: `./gengen --min-gas-price 10 --user 1e12,v,1,:6789,path-to-key-file1 --user 1e12,v,1,:6799,path-to-key-file1`,
 		RunE:    generateGenesis,
 	}
 
