@@ -76,7 +76,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		}
 
 		// simulate a proposal that propose a new value with -1 as the valid round.
-		msgPN := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, 1)
+		msgPN := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, -1)
 		mPN, err := c.finalizeMessage(msgPN)
 		if err != nil {
 			return nil
