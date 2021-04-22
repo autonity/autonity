@@ -16,7 +16,8 @@ import (
 
 type addressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-func generateCommittee(n int) (types.Committee, addressKeyMap) { // nolint: unparam
+func generateCommittee() (types.Committee, addressKeyMap) {
+	n := 5
 	vals := make(types.Committee, 0)
 	keymap := make(addressKeyMap)
 	for i := 0; i < n; i++ {
@@ -144,7 +145,7 @@ func TestMsgStore(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
 
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 

@@ -22,7 +22,7 @@ import (
 
 func TestSameVote(t *testing.T) {
 	height := uint64(100)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	r1 := int64(0)
@@ -39,7 +39,7 @@ func TestIsProposerMsg(t *testing.T) {
 	height := uint64(1)
 	lastHeight := height - 1
 	round := int64(0)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	parentHeader := newBlockHeader(lastHeight, committee)
 
 	ctrl := gomock.NewController(t)
@@ -56,7 +56,7 @@ func TestIsProposerMsg(t *testing.T) {
 func TestDeCodeVote(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 	vote := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], proposal.Value(), committee)
 	require.NoError(t, decodeVote(vote))
@@ -66,7 +66,7 @@ func TestCheckMsgSignature(t *testing.T) {
 	height := uint64(100)
 	lastHeight := height - 1
 	round := int64(0)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 
 	t.Run("normal case, proposal msg is checked correctly", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -104,7 +104,7 @@ func TestCheckMsgSignature(t *testing.T) {
 	t.Run("abnormal case, msg is not signed by committee", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		wrongCommitte, ks := generateCommittee(5)
+		wrongCommitte, ks := generateCommittee()
 		currentHeader := newBlockHeader(lastHeight, committee)
 		proposal := newProposalMessage(height, round, -1, ks[wrongCommitte[0].Address], wrongCommitte, nil)
 		chainMock := NewMockBlockChainContext(ctrl)
@@ -117,7 +117,7 @@ func TestCheckMsgSignature(t *testing.T) {
 func TestCheckEquivocation(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 
 	t.Run("check equivocation with valid proof of equivocation", func(t *testing.T) {
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
@@ -140,7 +140,7 @@ func TestCheckEquivocation(t *testing.T) {
 func TestSubmitMisbehaviour(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	// submit a equivocation proofs.
 	proposal := newProposalMessage(height, round, -1, keys[proposer], committee, nil)
@@ -158,7 +158,7 @@ func TestSubmitMisbehaviour(t *testing.T) {
 }
 
 func TestRunRuleEngine(t *testing.T) {
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	round := int64(3)
@@ -211,7 +211,7 @@ func TestRunRuleEngine(t *testing.T) {
 func TestProcessMsg(t *testing.T) {
 	height := uint64(100)
 	futureHeight := uint64(110)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	round := int64(3)
@@ -263,7 +263,7 @@ func TestProcessMsg(t *testing.T) {
 
 func TestGenerateOnChainProof(t *testing.T) {
 	height := uint64(100)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	round := int64(3)
@@ -314,7 +314,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 func TestRuleEngine(t *testing.T) {
 	height := uint64(100)
 	lastHeight := height - 1
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	round := int64(3)

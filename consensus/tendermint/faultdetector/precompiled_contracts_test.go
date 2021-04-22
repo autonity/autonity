@@ -50,7 +50,7 @@ func TestContractsManagement(t *testing.T) {
 
 func TestDecodeProof(t *testing.T) {
 	height := uint64(100)
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
@@ -90,7 +90,7 @@ func TestDecodeProof(t *testing.T) {
 func TestAccusationVerifier(t *testing.T) {
 	height := uint64(100)
 	lastHeight := height - 1
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
@@ -149,7 +149,7 @@ func TestAccusationVerifier(t *testing.T) {
 
 		var p proof
 		p.Rule = PO
-		invalidCommittee, keys := generateCommittee(5)
+		invalidCommittee, keys := generateCommittee()
 		newProposal := newProposalMessage(height, 1, 0, keys[invalidCommittee[0].Address], invalidCommittee, nil)
 		p.Message = newProposal
 
@@ -185,7 +185,7 @@ func TestAccusationVerifier(t *testing.T) {
 func TestMisbehaviourVerifier(t *testing.T) {
 	height := uint64(100)
 	lastHeight := height - 1
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	noneNilValue := common.Hash{0x1}
@@ -215,7 +215,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
-		invalidCommittee, iKeys := generateCommittee(5)
+		invalidCommittee, iKeys := generateCommittee()
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
 		p.Message = invalidProposal
 
@@ -235,7 +235,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
-		invalidCommittee, ikeys := generateCommittee(5)
+		invalidCommittee, ikeys := generateCommittee()
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = proposal
 		invalidPreCommit := newVoteMsg(height, 1, msgPrecommit, ikeys[invalidCommittee[0].Address], proposal.Value(), invalidCommittee)
@@ -531,7 +531,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 func TestInnocenceVerifier(t *testing.T) {
 	height := uint64(100)
 	lastHeight := height - 1
-	committee, keys := generateCommittee(5)
+	committee, keys := generateCommittee()
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 	noneNilValue := common.Hash{0x1}
@@ -552,7 +552,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
-		invalidCommittee, iKeys := generateCommittee(5)
+		invalidCommittee, iKeys := generateCommittee()
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
 		p.Message = invalidProposal
 
@@ -569,7 +569,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		defer ctrl.Finish()
 		var p proof
 		p.Rule = PO
-		invalidCommittee, iKeys := generateCommittee(5)
+		invalidCommittee, iKeys := generateCommittee()
 		proposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
 		p.Message = proposal
 		invalidPreVote := newVoteMsg(height, 1, msgPrevote, iKeys[invalidCommittee[0].Address], proposal.Value(), invalidCommittee)
