@@ -149,12 +149,12 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	proofs = append(proofs, proposal2)
 
 	fd := NewFaultDetector(nil, proposer, nil)
-	fd.submitMisbehavior(proposal, proofs, errEquivocation)
+	fd.submitMisbehavior(proposal, proofs, errEquivocation, fd.misbehaviourProofsCh)
+	p := <-fd.misbehaviourProofsCh
 
-	require.Equal(t, 1, len(fd.onChainProofsBuffer))
-	require.Equal(t, autonity.Misbehaviour, fd.onChainProofsBuffer[0].Type)
-	require.Equal(t, proposer, fd.onChainProofsBuffer[0].Sender)
-	require.Equal(t, proposal.MsgHash(), fd.onChainProofsBuffer[0].Msghash)
+	require.Equal(t, autonity.Misbehaviour, p.Type)
+	require.Equal(t, proposer, p.Sender)
+	require.Equal(t, proposal.MsgHash(), p.Msghash)
 }
 
 func TestRunRuleEngine(t *testing.T) {
@@ -245,19 +245,22 @@ func TestProcessMsg(t *testing.T) {
 	t.Run("test process msg, msg should be stored at msg store once verified", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().CurrentHeader().AnyTimes().Return(lastHeader)
 		chainMock.EXPECT().GetHeaderByNumber(height - 1).AnyTimes().Return(lastHeader)
+
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		vote := newVoteMsg(height, round, msgPrevote, proposerKey, proposal.Value(), committee)
 		equivocatedVote := newVoteMsg(height, round, msgPrevote, proposerKey, common.Hash{}, committee)
 		fd := NewFaultDetector(chainMock, proposer, nil)
+
 		require.Equal(t, nil, fd.processMsg(vote))
 		require.Equal(t, errEquivocation, fd.processMsg(equivocatedVote))
-		require.Equal(t, 1, len(fd.onChainProofsBuffer))
-		require.Equal(t, autonity.Misbehaviour, fd.onChainProofsBuffer[0].Type)
-		require.Equal(t, proposer, fd.onChainProofsBuffer[0].Sender)
-		require.Equal(t, equivocatedVote.MsgHash(), fd.onChainProofsBuffer[0].Msghash)
+		m := <-fd.misbehaviourProofsCh
+		require.Equal(t, autonity.Misbehaviour, m.Type)
+		require.Equal(t, proposer, m.Sender)
+		require.Equal(t, equivocatedVote.MsgHash(), m.Msghash)
 	})
 }
 

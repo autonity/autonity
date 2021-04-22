@@ -94,8 +94,6 @@ type proof struct {
 // read state db on each new height to get latest challenges from autonity contract's view,
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
-	sync.RWMutex
-
 	proofWG           sync.WaitGroup
 	faultDetectorFeed event.Feed
 
@@ -109,6 +107,7 @@ type FaultDetector struct {
 	msgStore *MsgStore
 
 	processFutureHeightMsgCh chan uint64
+	misbehaviourProofsCh     chan *autonity.OnChainProof
 	futureHeightMsgBuffer    map[uint64][]*tendermintCore.Message // map[blockHeight][]*tendermintMessages
 	onChainProofsBuffer      []*autonity.OnChainProof             // buffer proofs to aggregate them into single TX.
 
@@ -118,13 +117,13 @@ type FaultDetector struct {
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain BlockChainContext, nodeAddress common.Address, sub *event.TypeMuxSubscription) *FaultDetector {
 	fd := &FaultDetector{
-		RWMutex:                  sync.RWMutex{},
 		tendermintMsgSub:         sub,
 		blockCh:                  make(chan core.ChainEvent, 300),
 		blockchain:               chain,
 		address:                  nodeAddress,
 		msgStore:                 newMsgStore(),
 		processFutureHeightMsgCh: make(chan uint64, deltaBlocks),
+		misbehaviourProofsCh:     make(chan *autonity.OnChainProof, 100),
 		futureHeightMsgBuffer:    make(map[uint64][]*tendermintCore.Message),
 		logger:                   log.New("FaultDetector", nodeAddress),
 	}
@@ -142,46 +141,47 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 }
 
 func (fd *FaultDetector) tendermintMsgEventLoop() {
+tendermintMsgLoop:
 	for {
 		curHeight := fd.blockchain.CurrentHeader().Number.Uint64()
 
 		select {
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {
-				return
+				break tendermintMsgLoop
 			}
 
 			mv, ok := ev.Data.(events.MessageEvent)
 			if !ok {
 				fd.logger.Crit("programming error", "cannot cast message event to events.MessageEvent instead received ", ev.Data)
-				return
+				break tendermintMsgLoop
 			}
 
 			msg := new(tendermintCore.Message)
 			if err := msg.FromPayload(mv.Payload); err != nil {
 				fd.logger.Error("fault detector: error while retrieving  payload", "err", err)
-				continue
+				continue tendermintMsgLoop
 			}
 
 			if curHeight > msgHeightBufferRange && msg.H() < curHeight-msgHeightBufferRange {
 				fd.logger.Info("fault detector: discarding old message", "sender", msg.Sender())
-				continue
+				continue tendermintMsgLoop
 			}
 
 			if err := fd.processMsg(msg); err != nil {
 				fd.logger.Error("fault detector: error while processing consensus msg", "err", err)
-				continue
+				continue tendermintMsgLoop
 			}
 
 		case height, ok := <-fd.processFutureHeightMsgCh:
 			if !ok {
-				return
+				break tendermintMsgLoop
 			}
 
 			if curHeight > msgHeightBufferRange && height < curHeight-msgHeightBufferRange {
 				fd.logger.Info("fault detector: discarding old height messages", "height", height)
 				delete(fd.futureHeightMsgBuffer, height)
-				continue
+				continue tendermintMsgLoop
 			}
 
 			for h, msgs := range fd.futureHeightMsgBuffer {
@@ -197,6 +197,7 @@ func (fd *FaultDetector) tendermintMsgEventLoop() {
 			}
 		}
 	}
+	close(fd.misbehaviourProofsCh)
 }
 
 func (fd *FaultDetector) blockEventLoop() {
@@ -217,21 +218,23 @@ blockChainLoop:
 			// handle accusations and provide innocence proof if there were any for a node.
 			innocenceProofs, _ := fd.handleAccusations(ev.Block, ev.Block.Root())
 			if innocenceProofs != nil {
-				fd.Lock()
 				fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, innocenceProofs...)
-				fd.Unlock()
 			}
 
 			// run rule engine over a specific height.
 			proofs := fd.runRuleEngine(ev.Block.NumberU64())
 			if len(proofs) > 0 {
-				fd.Lock()
 				fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, proofs...)
-				fd.Unlock()
 			}
 
 			// aggregate buffered proofs into single TX and send.
-			fd.sentProofs()
+			if len(fd.onChainProofsBuffer) != 0 {
+				copyOnChainProofs := make([]*autonity.OnChainProof, len(fd.onChainProofsBuffer))
+				copy(copyOnChainProofs, fd.onChainProofsBuffer)
+				fd.sendProofs(copyOnChainProofs)
+				// release items from buffer
+				fd.onChainProofsBuffer = fd.onChainProofsBuffer[:0]
+			}
 
 			// msg store delete msgs out of buffering window.
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - msgHeightBufferRange)
@@ -240,6 +243,11 @@ blockChainLoop:
 				fd.logger.Crit("block subscription error", err.Error())
 			}
 			break blockChainLoop
+		case m, ok := <-fd.misbehaviourProofsCh:
+			if !ok {
+				break blockChainLoop
+			}
+			fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, m)
 		}
 	}
 	close(fd.processFutureHeightMsgCh)
@@ -499,7 +507,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 			fd.futureHeightMsgBuffer[m.H()] = append(fd.futureHeightMsgBuffer[m.H()], m)
 		} else {
 			proofs := []*tendermintCore.Message{m}
-			fd.submitMisbehavior(m, proofs, err)
+			fd.submitMisbehavior(m, proofs, err, fd.misbehaviourProofsCh)
 			return err
 		}
 	}
@@ -511,7 +519,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 		for i := 0; i < len(msgs); i++ {
 			proofs = append(proofs, msgs[i])
 		}
-		fd.submitMisbehavior(m, proofs, err)
+		fd.submitMisbehavior(m, proofs, err, fd.misbehaviourProofsCh)
 		return err
 	}
 	return nil
@@ -889,22 +897,9 @@ func (fd *FaultDetector) sendProofs(proofs []*autonity.OnChainProof) {
 	}()
 }
 
-func (fd *FaultDetector) sentProofs() {
-	fd.Lock()
-	defer fd.Unlock()
-
-	if len(fd.onChainProofsBuffer) != 0 {
-		copyOnChainProofs := make([]*autonity.OnChainProof, len(fd.onChainProofsBuffer))
-		copy(copyOnChainProofs, fd.onChainProofsBuffer)
-		fd.sendProofs(copyOnChainProofs)
-		// release items from buffer
-		fd.onChainProofsBuffer = fd.onChainProofsBuffer[:0]
-	}
-}
-
 // submitMisbehavior takes proofs of misbehavior msg, and error id to form the on-chain proof, and
 // send the proof of misbehavior to event channel.
-func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []*tendermintCore.Message, err error) {
+func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, evidence []*tendermintCore.Message, err error, submitCh chan<- *autonity.OnChainProof) {
 	rule, e := errorToRule(err)
 	if e != nil {
 		fd.logger.Warn("error to rule", "faultdetector", e)
@@ -913,7 +908,7 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []*
 		Type:     autonity.Misbehaviour,
 		Rule:     rule,
 		Message:  m,
-		Evidence: proofs,
+		Evidence: evidence,
 	})
 	if err != nil {
 		fd.logger.Warn("generate misbehavior proof", "faultdetector", err)
@@ -921,9 +916,7 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, proofs []*
 	}
 
 	// submit misbehavior proof to buffer, it will be sent once aggregated.
-	fd.Lock()
-	defer fd.Unlock()
-	fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, proof)
+	submitCh <- proof
 }
 
 /////// common helper functions shared between faultdetector and precompiled contract to validate msgs.
