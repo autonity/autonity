@@ -34,8 +34,8 @@ type Config struct {
 }
 
 type MisbehaviourConfig struct {
-	MisbehaviourRuleID uint8
-	AccusationRuleID   uint8
+	MisbehaviourRuleID *uint8
+	AccusationRuleID   *uint8
 }
 
 func (c *Config) String() string {

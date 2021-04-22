@@ -205,6 +205,76 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		return nil
 	}
 
+	// simulate an old proposal which refer to less quorum preVotes to trigger the accusation of rule PO
+	accusationContextPO := func() [][]byte {
+		// find a next proposing round.
+		nPR, err := nextProposeRound(innocentMsg.R())
+		if err != nil {
+			return nil
+		}
+
+		vR := nPR - 1
+		var p Proposal
+		err = innocentMsg.Decode(&p)
+		if err != nil {
+			return nil
+		}
+
+		invalidProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, vR)
+		mP, err := c.finalizeMessage(invalidProposal)
+		if err != nil {
+			return nil
+		}
+		return append(msgs, mP)
+	}
+
+	// simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
+	accusationContextPVN := func() [][]byte {
+		preVote := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
+		m, err := c.finalizeMessage(preVote)
+		if err != nil {
+			return nil
+		}
+		return append(msgs, m)
+	}
+
+	// simulate an accusation context that node preCommit for a value that the corresponding proposal is missing.
+	accusationContextC := func() [][]byte {
+		preCommit := msgVote(msgPrecommit, innocentMsg.H(), innocentMsg.R(), nonNilValue)
+		m, err := c.finalizeMessage(preCommit)
+		if err != nil {
+			return nil
+		}
+		return append(msgs, m)
+	}
+
+	// simulate an accusation context that node preCommit for a value that have less quorum of preVote for the value.
+	accusationContextC1 := func() [][]byte {
+		// find a next proposing round.
+		nPR, err := nextProposeRound(innocentMsg.R())
+		if err != nil {
+			return nil
+		}
+
+		var p Proposal
+		err = innocentMsg.Decode(&p)
+		if err != nil {
+			return nil
+		}
+		invalidProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, -1)
+		mP, err := c.finalizeMessage(invalidProposal)
+
+		if c.isProposer() {
+			preCommit := msgVote(msgPrecommit, innocentMsg.H(), nPR, p.GetValue())
+			m, err := c.finalizeMessage(preCommit)
+			if err != nil {
+				return nil
+			}
+			return append(msgs, mP, m)
+		}
+		return append(msgs)
+	}
+
 	type Rule uint8
 	const (
 		PN Rule = iota
@@ -219,35 +289,54 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		Equivocation    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
 		UnknownRule
 	)
+	if c.misbehaviourConfig.MisbehaviourRuleID != nil {
+		r := Rule(*c.misbehaviourConfig.MisbehaviourRuleID)
+		if r == PN && innocentMsg.Code == msgProposal {
+			return maliciousContextPN()
+		}
 
-	r := Rule(c.misbehaviourConfig.MisbehaviourRuleID)
-	if r == PN && innocentMsg.Code == msgProposal {
-		return maliciousContextPN()
+		if r == PO && innocentMsg.Code == msgProposal {
+			return maliciousContextPO()
+		}
+
+		if r == PVN && innocentMsg.Code == msgProposal {
+			return maliciousContextPVN()
+		}
+
+		if r == C && innocentMsg.Code == msgPrecommit {
+			return maliciousContextC()
+		}
+
+		if r == InvalidProposal && innocentMsg.Code == msgProposal {
+			return invalidProposal()
+		}
+
+		if r == InvalidProposer && c.committeeSet().GetProposer(innocentMsg.R()).Address != c.address {
+			return invalidProposer()
+		}
+
+		if r == Equivocation {
+			return equivocation()
+		}
 	}
 
-	if r == PO && innocentMsg.Code == msgProposal {
-		return maliciousContextPO()
-	}
+	if c.misbehaviourConfig.AccusationRuleID != nil {
+		r := Rule(*c.misbehaviourConfig.AccusationRuleID)
+		if r == PO && innocentMsg.Code == msgProposal {
+			return accusationContextPO()
+		}
 
-	if r == PVN && innocentMsg.Code == msgProposal {
-		return maliciousContextPVN()
-	}
+		if r == PVN && innocentMsg.Code == msgPrevote {
+			return accusationContextPVN()
+		}
 
-	if r == C && innocentMsg.Code == msgPrecommit {
-		return maliciousContextC()
-	}
+		if r == C && innocentMsg.Code == msgPrecommit {
+			return accusationContextC()
+		}
 
-	if r == InvalidProposal && innocentMsg.Code == msgProposal {
-		return invalidProposal()
+		if r == C1 && innocentMsg.Code == msgProposal {
+			return accusationContextC1()
+		}
 	}
-
-	if r == InvalidProposer && c.committeeSet().GetProposer(innocentMsg.R()).Address != c.address {
-		return invalidProposer()
-	}
-
-	if r == Equivocation {
-		return equivocation()
-	}
-
 	return msgs
 }
