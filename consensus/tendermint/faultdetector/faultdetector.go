@@ -136,17 +136,17 @@ func NewFaultDetector(chain BlockChainContext, nodeAddress common.Address, sub *
 // listen for new block events from block-chain, do the tasks like take challenge and provide proof for innocent, the
 // Fault Detector rule engine could also triggered from here to scan those msgs of msg store by applying rules.
 func (fd *FaultDetector) FaultDetectorEventLoop() {
-	go fd.blockEventLoop()
-	go fd.tendermintMsgEventLoop()
+	go fd.blockEventLoop(fd.blockCh, fd.misbehaviourProofsCh, fd.blockSub.Err())
+	go fd.tendermintMsgEventLoop(fd.tendermintMsgSub.Chan(), fd.processFutureHeightMsgCh)
 }
 
-func (fd *FaultDetector) tendermintMsgEventLoop() {
+func (fd *FaultDetector) tendermintMsgEventLoop(tendermintMsgCh <-chan *event.TypeMuxEvent, futureHeightMsgsCh <-chan uint64) {
 tendermintMsgLoop:
 	for {
 		curHeight := fd.blockchain.CurrentHeader().Number.Uint64()
 
 		select {
-		case ev, ok := <-fd.tendermintMsgSub.Chan():
+		case ev, ok := <-tendermintMsgCh:
 			if !ok {
 				break tendermintMsgLoop
 			}
@@ -173,7 +173,7 @@ tendermintMsgLoop:
 				continue tendermintMsgLoop
 			}
 
-		case height, ok := <-fd.processFutureHeightMsgCh:
+		case height, ok := <-futureHeightMsgsCh:
 			if !ok {
 				break tendermintMsgLoop
 			}
@@ -200,14 +200,14 @@ tendermintMsgLoop:
 	close(fd.misbehaviourProofsCh)
 }
 
-func (fd *FaultDetector) blockEventLoop() {
+func (fd *FaultDetector) blockEventLoop(blockCh <-chan core.ChainEvent, misbehaviourCh <-chan *autonity.OnChainProof, errCh <-chan error) {
 	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockCh)
 
 blockChainLoop:
 	for {
 		select {
 		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
-		case ev, ok := <-fd.blockCh:
+		case ev, ok := <-blockCh:
 			if !ok {
 				break blockChainLoop
 			}
@@ -238,16 +238,17 @@ blockChainLoop:
 
 			// msg store delete msgs out of buffering window.
 			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - msgHeightBufferRange)
-		case err, ok := <-fd.blockSub.Err():
-			if ok {
-				fd.logger.Crit("block subscription error", err.Error())
-			}
-			break blockChainLoop
-		case m, ok := <-fd.misbehaviourProofsCh:
+		case m, ok := <-misbehaviourCh:
 			if !ok {
 				break blockChainLoop
 			}
 			fd.onChainProofsBuffer = append(fd.onChainProofsBuffer, m)
+		case err, ok := <-errCh:
+			if ok {
+				fd.logger.Crit("block subscription error", err.Error())
+			}
+			break blockChainLoop
+
 		}
 	}
 	close(fd.processFutureHeightMsgCh)
