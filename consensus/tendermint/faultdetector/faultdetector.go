@@ -128,6 +128,7 @@ func NewFaultDetector(chain BlockChainContext, nodeAddress common.Address, sub *
 		logger:                   log.New("FaultDetector", nodeAddress),
 	}
 
+	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockCh)
 	// register faultdetector contracts on evm's precompiled contract set.
 	registerFaultDetectorContracts(chain)
 	return fd
@@ -201,8 +202,6 @@ tendermintMsgLoop:
 }
 
 func (fd *FaultDetector) blockEventLoop(blockCh <-chan core.ChainEvent, misbehaviourCh <-chan *autonity.OnChainProof, errCh <-chan error) {
-	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockCh)
-
 blockChainLoop:
 	for {
 		select {
@@ -670,6 +669,8 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
 		})
 
+		//Todo: decide how to process PVN/PVO accusation since we cannot know which one it is unless we have the
+		// corresponding proposal
 		if len(correspondingProposals) == 0 {
 			accusation := &proof{
 				Type: autonity.Accusation,
