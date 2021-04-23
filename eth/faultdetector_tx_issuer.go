@@ -2,6 +2,8 @@ package eth
 
 import (
 	"errors"
+	"fmt"
+
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
@@ -14,7 +16,7 @@ var (
 	errOverSizedEvent = errors.New("oversized accountability event")
 )
 
-func (s *Ethereum) sendAccountabilityTransaction(onChainProofs []*autonity.OnChainProof) {
+func (s *Ethereum) sendAccountabilityTXs(onChainProofs []*autonity.OnChainProof) {
 
 	txs, err := s.generateAccountabilityTXs("handleProofs", onChainProofs)
 	if err != nil {
@@ -38,7 +40,7 @@ func (s *Ethereum) sendAccountabilityTransaction(onChainProofs []*autonity.OnCha
 func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*autonity.OnChainProof) (txs []*types.Transaction, e error) {
 	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.nodeKey.PublicKey))
 	// try to generate a single event to contain all the onChainProofs.
-	tx, err := s.genAccountabilityEvent(nonce, method, onChainProofs)
+	tx, err := s.generateAccountabilityTX(nonce, method, onChainProofs)
 	if err == nil {
 		return append(txs, tx), nil
 	}
@@ -53,7 +55,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*aut
 		// try to pack as much events as possible until TX exceed 512 KB.
 		start := 0
 		for i := 1; i <= len(onChainProofs) && start < len(onChainProofs); i++ {
-			tx, err := s.genAccountabilityEvent(nonce, method, onChainProofs[start:i])
+			tx, err := s.generateAccountabilityTX(nonce, method, onChainProofs[start:i])
 			// exceed 512 KB, try to break it into pieces.
 			if err == errOverSizedEvent {
 				if len(onChainProofs[start:i]) == 1 {
@@ -64,7 +66,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*aut
 				}
 
 				// break sub piece of events
-				p, err := s.genAccountabilityEvent(nonce, method, onChainProofs[start:i-1])
+				p, err := s.generateAccountabilityTX(nonce, method, onChainProofs[start:i-1])
 				if err == nil {
 					start = i - 1
 					i = start
@@ -85,8 +87,8 @@ func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*aut
 	return nil, err
 }
 
-func (s *Ethereum) genAccountabilityEvent(nonce uint64, method string, onChainProofs []*autonity.OnChainProof) (*types.Transaction, error) {
-	to := s.BlockChain().GetAutonityContract().Address()
+func (s *Ethereum) generateAccountabilityTX(nonce uint64, method string, onChainProofs []*autonity.OnChainProof) (*types.Transaction, error) {
+	to := autonity.ContractAddress
 	abi := s.BlockChain().GetAutonityContract().ABI()
 
 	var proofs = make([]autonity.OnChainProof, len(onChainProofs))
@@ -116,9 +118,11 @@ func (s *Ethereum) faultDetectorTXEventLoop() {
 		for {
 			select {
 			case onChainProofs := <-s.faultDetectorCh:
-				s.sendAccountabilityTransaction(onChainProofs)
-			// Err() channel will be closed when unsubscribing.
-			case <-s.faultDetectorSub.Err():
+				s.sendAccountabilityTXs(onChainProofs)
+			case err, ok := <-s.faultDetectorSub.Err():
+				if ok {
+					panic(fmt.Sprintf("faultDetectorSub error: %v", err.Error()))
+				}
 				return
 			}
 		}

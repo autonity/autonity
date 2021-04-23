@@ -35,7 +35,8 @@ const (
 	PN Rule = iota
 	PO
 	PVN
-	PVO
+	PVO1
+	PVO2
 	C
 	C1
 
@@ -57,11 +58,14 @@ type BlockChainContext interface {
 	Validator() core.Validator
 }
 
-var (
+const (
 	// todo: refine the window and buffer range in contract which can be tuned during run time.
-	deltaToWaitForAccountability = 30                                // Wait until the GST + delta (30 blocks) to start rule scan.
-	msgBufferInHeight            = deltaToWaitForAccountability + 60 // buffer such range of msgs in height at msg store.
+	deltaBlocks          = 30                       // Wait until the GST + delta (30 blocks) to start rule scan.
+	randomDelayRange     = 5000                     // (0, 5] seconds random delay range
+	msgHeightBufferRange = uint64(deltaBlocks + 60) // buffer such range of msgs in height at msg store.
+)
 
+var (
 	errEquivocation    = errors.New("equivocation happens")
 	errFutureMsg       = errors.New("future height msg")
 	errGarbageMsg      = errors.New("garbage msg")
@@ -74,8 +78,7 @@ var (
 	errNoEvidenceForC   = errors.New("no evidence for innocence of rule C")
 	errNoEvidenceForC1  = errors.New("no evidence for innocence of rule C1")
 
-	nilValue          = common.Hash{}
-	randomDelayWindow = 1000 * 5 // (0, 5] seconds random time window
+	nilValue = common.Hash{}
 )
 
 // Proof is what to prove that one is misbehaving, one should be slashed when a valid Proof is rise.
@@ -97,16 +100,17 @@ type FaultDetector struct {
 	faultDetectorFeed event.Feed
 
 	tendermintMsgSub *event.TypeMuxSubscription
-	blockChan        chan core.ChainEvent
+	blockCh          chan core.ChainEvent
 	blockSub         event.Subscription
 
 	blockchain BlockChainContext
 
-	address         common.Address
-	msgStore        *MsgStore
-	futureHeightMsg map[uint64][]*tendermintCore.Message // map[blockHeight][]*tendermintMessages
+	address  common.Address
+	msgStore *MsgStore
 
-	onChainProofsBuffer []*autonity.OnChainProof // buffer proofs to aggregate them into single TX.
+	processFutureHeightMsgCh chan uint64
+	futureHeightMsgBuffer    map[uint64][]*tendermintCore.Message // map[blockHeight][]*tendermintMessages
+	onChainProofsBuffer      []*autonity.OnChainProof             // buffer proofs to aggregate them into single TX.
 
 	logger log.Logger
 }
@@ -114,14 +118,15 @@ type FaultDetector struct {
 // call by ethereum object to create fd instance.
 func NewFaultDetector(chain BlockChainContext, nodeAddress common.Address, sub *event.TypeMuxSubscription) *FaultDetector {
 	fd := &FaultDetector{
-		RWMutex:          sync.RWMutex{},
-		address:          nodeAddress,
-		blockChan:        make(chan core.ChainEvent, 300),
-		blockchain:       chain,
-		msgStore:         newMsgStore(),
-		logger:           log.New("FaultDetector", nodeAddress),
-		tendermintMsgSub: sub,
-		futureHeightMsg:  make(map[uint64][]*tendermintCore.Message),
+		RWMutex:                  sync.RWMutex{},
+		tendermintMsgSub:         sub,
+		blockCh:                  make(chan core.ChainEvent, 300),
+		blockchain:               chain,
+		address:                  nodeAddress,
+		msgStore:                 newMsgStore(),
+		processFutureHeightMsgCh: make(chan uint64, deltaBlocks),
+		futureHeightMsgBuffer:    make(map[uint64][]*tendermintCore.Message),
+		logger:                   log.New("FaultDetector", nodeAddress),
 	}
 
 	// register faultdetector contracts on evm's precompiled contract set.
@@ -138,46 +143,75 @@ func (fd *FaultDetector) FaultDetectorEventLoop() {
 
 func (fd *FaultDetector) tendermintMsgEventLoop() {
 	for {
-		ev, ok := <-fd.tendermintMsgSub.Chan()
-		if !ok {
-			return
-		}
+		curHeight := fd.blockchain.CurrentHeader().Number.Uint64()
 
-		mv, ok := ev.Data.(events.MessageEvent)
-		if !ok {
-			fd.logger.Crit("programming error", "cannot cast message event to events.MessageEvent instead received ", ev.Data)
-			return
-		}
+		select {
+		case ev, ok := <-fd.tendermintMsgSub.Chan():
+			if !ok {
+				return
+			}
 
-		msg := new(tendermintCore.Message)
-		if err := msg.FromPayload(mv.Payload); err != nil {
-			fd.logger.Error("invalid payload", "faultdetector", err)
-			continue
-		}
+			mv, ok := ev.Data.(events.MessageEvent)
+			if !ok {
+				fd.logger.Crit("programming error", "cannot cast message event to events.MessageEvent instead received ", ev.Data)
+				return
+			}
 
-		// discard too old messages which is out of accountability buffering window.
-		head := fd.blockchain.CurrentHeader().Number.Uint64()
-		if head > uint64(msgBufferInHeight) && msg.H() < head-uint64(msgBufferInHeight) {
-			fd.logger.Info("discard too old message for accountability", "faultdetector", msg.Sender())
-			continue
-		}
+			msg := new(tendermintCore.Message)
+			if err := msg.FromPayload(mv.Payload); err != nil {
+				fd.logger.Error("fault detector: error while retrieving  payload", "err", err)
+				continue
+			}
 
-		if err := fd.processMsg(msg); err != nil {
-			fd.logger.Warn("process consensus msg", "faultdetector", err)
-			continue
+			if curHeight > msgHeightBufferRange && msg.H() < curHeight-msgHeightBufferRange {
+				fd.logger.Info("fault detector: discarding old message", "sender", msg.Sender())
+				continue
+			}
+
+			if err := fd.processMsg(msg); err != nil {
+				fd.logger.Error("fault detector: error while processing consensus msg", "err", err)
+				continue
+			}
+
+		case height, ok := <-fd.processFutureHeightMsgCh:
+			if !ok {
+				return
+			}
+
+			if curHeight > msgHeightBufferRange && height < curHeight-msgHeightBufferRange {
+				fd.logger.Info("fault detector: discarding old height messages", "height", height)
+				delete(fd.futureHeightMsgBuffer, height)
+				continue
+			}
+
+			for h, msgs := range fd.futureHeightMsgBuffer {
+				if h <= curHeight {
+					for _, m := range msgs {
+						if err := fd.processMsg(m); err != nil {
+							fd.logger.Error("fault detector: error while processing consensus msg", "err", err)
+						}
+					}
+					// once messages are processed, delete it from buffer.
+					delete(fd.futureHeightMsgBuffer, h)
+				}
+			}
 		}
 	}
 }
 
 func (fd *FaultDetector) blockEventLoop() {
-	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockChan)
+	fd.blockSub = fd.blockchain.SubscribeChainEvent(fd.blockCh)
 
+blockChainLoop:
 	for {
 		select {
-		// chain event update, provide Proof of innocent if one is on challenge, rule engine scanning is triggered also.
-		case ev := <-fd.blockChan:
+		// chain event update, provide proof of innocent if one is on challenge, rule engine scanning is triggered also.
+		case ev, ok := <-fd.blockCh:
+			if !ok {
+				break blockChainLoop
+			}
 			// before run rule engine over msg store, process any buffered msg.
-			fd.processBufferedMsgs(ev.Block.NumberU64())
+			fd.processFutureHeightMsgCh <- ev.Block.NumberU64()
 
 			// handle accusations and provide innocence Proof if there were any for a node.
 			innocenceProofs, _ := fd.handleAccusations(ev.Block, ev.Block.Root())
@@ -199,14 +233,15 @@ func (fd *FaultDetector) blockEventLoop() {
 			fd.sentProofs()
 
 			// msg store delete msgs out of buffering window.
-			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - uint64(msgBufferInHeight))
+			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - msgHeightBufferRange)
 		case err, ok := <-fd.blockSub.Err():
 			if ok {
 				fd.logger.Crit("block subscription error", err.Error())
 			}
-			return
+			break blockChainLoop
 		}
 	}
+	close(fd.processFutureHeightMsgCh)
 }
 
 func (fd *FaultDetector) Stop() {
@@ -219,18 +254,6 @@ func (fd *FaultDetector) Stop() {
 // call by ethereum object to subscribe proofs Events.
 func (fd *FaultDetector) SubscribeFaultDetectorEvents(ch chan<- []*autonity.OnChainProof) event.Subscription {
 	return fd.faultDetectorFeed.Subscribe(ch)
-}
-
-// buffer Msg since local chain may not synced yet to verify if msg is from correct committee.
-func (fd *FaultDetector) bufferMsg(m *tendermintCore.Message) {
-	h, err := m.Height()
-	if err != nil {
-		return
-	}
-
-	fd.Lock()
-	defer fd.Unlock()
-	fd.futureHeightMsg[h.Uint64()] = append(fd.futureHeightMsg[h.Uint64()], m)
 }
 
 func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []*autonity.OnChainProof {
@@ -457,31 +480,13 @@ func (fd *FaultDetector) handleAccusations(block *types.Block, hash common.Hash)
 	return innocentOnChainProofs, nil
 }
 
-// processBufferedMsgs, called on chain event update, it process msgs from the latest height buffered before.
-func (fd *FaultDetector) processBufferedMsgs(height uint64) {
-	fd.RLock()
-	defer fd.RUnlock()
-	for h, msgs := range fd.futureHeightMsg {
-		if h <= height {
-			for i := 0; i < len(msgs); i++ {
-				if err := fd.processMsg(msgs[i]); err != nil {
-					fd.logger.Warn("process consensus msg", "faultdetector", err)
-					continue
-				}
-			}
-			// once message processed, release it from buffer.
-			delete(fd.futureHeightMsg, h)
-		}
-	}
-}
-
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg into msg store.
 func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	// pre-check if msg is from valid committee member
 	err := checkMsgSignature(fd.blockchain, m)
 	if err != nil {
 		if err == errFutureMsg {
-			fd.bufferMsg(m)
+			fd.futureHeightMsgBuffer[m.H()] = append(fd.futureHeightMsgBuffer[m.H()], m)
 		}
 		return err
 	}
@@ -490,7 +495,7 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 	err = checkAutoIncriminatingMsg(fd.blockchain, m)
 	if err != nil {
 		if err == errFutureMsg {
-			fd.bufferMsg(m)
+			fd.futureHeightMsgBuffer[m.H()] = append(fd.futureHeightMsgBuffer[m.H()], m)
 		} else {
 			proofs := []*tendermintCore.Message{m}
 			fd.submitMisbehavior(m, proofs, err)
@@ -515,9 +520,9 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.OnChainProof {
 	var onChainProofs []*autonity.OnChainProof
 	// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
-	if height > uint64(deltaToWaitForAccountability) {
+	if height > uint64(deltaBlocks) {
 		// run rule engine over the previous delta offset height.
-		checkPointHeight := height - uint64(deltaToWaitForAccountability)
+		checkPointHeight := height - uint64(deltaBlocks)
 		quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(checkPointHeight - 1).TotalVotingPower())
 		proofs := fd.runRulesOverHeight(checkPointHeight, quorum)
 		if len(proofs) > 0 {
@@ -703,65 +708,104 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					break
 				}
 
-			} /*else {
-				todo: missing PVO rules from D3
-				// PVO:   (Mr′<r,PC|pi) ∧ (Mr′≤r′′′<r,PV) ∧ (Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
+			} else {
+				// PVO: (Mr′′′<r,PV) ∧ (Mr′′′≤r′<r,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ∧ (Mr, P|proposer(r)) ⇐= (Mr,PV|pi)
 
-				// PVO1A: [V] ∧ [∗] ∧ [nil v ⊥] ∧ [V] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil <-- broken we need to see the prevotes for valid round
+				// PVO1: [#(V)≥2f+ 1] ∧ [V] ∧ [V ∨ nil ∨ ⊥] ∧ [ V: validRound(V) = r′′′] ⇐= [V]
+				// if V is the proposed value at round r and pi did already precommit on V at round r′< r(it locked on it)
+				// and did not precommit for other values in any round between r′and r then in round r either pi prevotes
+				// for V or nil(in case of a timeout), Moreover, we expect to find 2f+ 1 prevotes for V issued at
+				// round r′′′=validRound(V).
 
-				// PVO2: [*] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1
-
-				// If pi previously precommitted for V and between this precommit and
-				// the proposal precommitted for a different value V', then the prevote
-				// is considered invalid.
-
-				precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					uint8()(return m.Type()) == msgPrecommit && prevote.Sender() == m.Sender() &&
-						m.R() < prevote.R() && m.Value() != nilValue
+				// get all non nil preCommits at previous rounds [0, r).
+				preCommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+					return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() && m.Value() != nilValue &&
+						m.R() < prevote.R()
 				})
-				//check most recent precommit if == V -> pass else --> fail
+				sortedPreCommits := sortPreCommits(preCommits)
 
-				// 2f+1 PV(V) round 2
+				// node do preCommitted at a none nil value before current round, check PVO1 rule.
+				if len(sortedPreCommits) > 0 {
+					// get all preCommits for V sent by node from range [0, r), then
+					precommitsForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+						return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() &&
+							m.R() < prevote.R() && m.Value() == prevote.Value()
+					})
 
-				// round 4 p_i receiveds 2f+1 PV(V') Sends PC(V') and it sets its locked value and locked round=4
+					if len(precommitsForV) == 0 {
+						/*
+							// node locked on a value distinct to V ar previous rounds, check if the locked round
+							// is <= valid round, otherwise rise a challenge.
+							if sortedPreCommits[len(sortedPreCommits)-1].R() > correspondingProposal.ValidRound() {
+								proof := &proof{
+									Type:     autonity.Misbehaviour,
+									Rule:     PVO1,
+									Evidence: sortedPreCommits, // it contains the distinct value locked at previous rounds.
+									Message:  prevote,
+								}
+								proofs = append(proofs, proof)
+							}
+						*/
+					} else {
+						// get the preCommit of r′ (last preCommit) of V from preCommits, then check if we have preCommit for not V
+						// between round range (r′, r), if we do have such preCommit for none V during the range, then PVO1 is broken.
+						latestPrecommit := latestPreCommit(precommitsForV)
+						preCommitsForNotV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+							return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() &&
+								latestPrecommit.R() < m.R() && m.R() < prevote.R() && m.Value() != nilValue &&
+								m.Value() != prevote.Value()
+						})
 
-				// round 5 proposer proposes P(V, VR=2), so this would mean that p_i prevote nil even though there are 2f+1 prevotes for V in round 2
+						if len(preCommitsForNotV) != 0 {
+							proof := &Proof{
+								Type:     autonity.Misbehaviour,
+								Rule:     PVO1,
+								Evidence: append(preCommitsForNotV, latestPrecommit),
+								Message:  prevote,
+							}
+							proofs = append(proofs, proof)
+						} else {
+							// we expect to find 2f+ 1 preVotes for V issued at valid round, otherwise an accusation is raise.
+							preVotesAtVR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+								return m.Type() == msgPrevote && m.R() == correspondingProposal.ValidRound() &&
+									m.Value() == correspondingProposal.Value()
+							})
 
-				// Aneeque's initials thoughts on PVO
-				if len(precommits) > 0 {
-					// PVO1a
-
-					// sort according to round
-					//sort.Sort(precommits)
-
-					// Proof of misbehaviour:
-
-					// Get the lastest precommit
-					// Check the precommit value
-					// if it precommit.Value() != prevote.Value
-					// 		check all round from precommit to current round for 2f+1 prevotes
-					// 		if even a single round doesn't have 2f+1 prevotes, raise an accusation
-					//		else we have Proof of misbehaviour if non of the 2f+1 prevotes are for precommit.Value()
-
-					// if it precommit.Value() == prevote.Value
-					// 		Check that if we 2f+1 prevotes for all rounds since precommit.Round() till current round,
-					//      if yes, than non of them can be for value other than prevote.Value, otherwise we have Proof of misbehaviour
-					// 		if there are gaps then the condition passes
-
+							if powerOfVotes(deEquivocatedMsgs(preVotesAtVR)) < quorum {
+								proof := &Proof{
+									Type:    autonity.Accusation,
+									Rule:    PVO1,
+									Message: prevote,
+								}
+								proofs = append(proofs, proof)
+							}
+						}
+					}
 				} else {
-					// PVO2
+					// Node never locked at value yet.
 
-					// We don't have a precommit from the p_i
-					// check that in valid round we have 2f+1 prevotes for V rule passes, otherwise raise an accustion
+					// PVO2:  [#(V)≥2f+ 1] ∧ [V ∨ nil ∨ ⊥] ∧ [V: validRound(V) =r′] ⇐= [V]
+					// if V is the proposed value at round r with validRound(V) =r′ then there must be 2f+ 1 prevotes
+					// for V issued at round r′. If moreover, pi did not precommit for other values in any round
+					// between r′and r(thus it can be either locked on some values or not) then in round r pi prevotes
+					// for V.
+
+					// we expect to find 2f+ 1 preVotes for V issued at valid round, otherwise an accusation is raise.
+					preVotesAtVR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+						return m.Type() == msgPrevote && m.R() == correspondingProposal.ValidRound() &&
+							m.Value() == correspondingProposal.Value()
+					})
+
+					if powerOfVotes(deEquivocatedMsgs(preVotesAtVR)) < quorum {
+						proof := &Proof{
+							Type:    autonity.Accusation,
+							Rule:    PVO2,
+							Message: prevote,
+						}
+						proofs = append(proofs, proof)
+					}
 				}
-
-				// PVO1B: [∗] ∧ [∗] ∧ [V:r′′=r−1] ∧ [V] <--- [V] -- not needed as it is a special case of PVO1A
-
-				// PVO2: [*] ∧ [#(V) ≥ 2f+1] ∧ [nil v ⊥] ∧ [V:validRound(V)=r′′′] <--- [V]:∀r′<r′′<r,Mr′′,PC|pi=nil ∧ ∃r′′′∈[r′,r−1],#(Mr′′′,PV|V) ≥ 2f+ 1
-				// If we can see an old proposal for V with valid round vr and
-				// 2f+1 prevotes for the V in round vr, then pi could have also
-				// seen them and hence be able to prevote for the old proposal.
-			} */
+			}
 		}
 	}
 
@@ -912,22 +956,17 @@ func checkEquivocation(chain BlockChainContext, m *tendermintCore.Message, proof
 
 //checkMsgSignature, it check if msg is from valid member of the committee.
 func checkMsgSignature(chain BlockChainContext, m *tendermintCore.Message) error {
-	msgHeight, err := m.Height()
-	if err != nil {
-		return err
-	}
-
 	header := chain.CurrentHeader()
-	if msgHeight.Uint64() > header.Number.Uint64()+1 {
+	if m.H() > header.Number.Uint64()+1 {
 		return errFutureMsg
 	}
 
-	lastHeader := chain.GetHeaderByNumber(msgHeight.Uint64() - 1)
+	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}
 
-	if _, err = m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if _, err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return errNotCommitteeMsg
 	}
 	return nil
@@ -1023,10 +1062,7 @@ func getProposer(chain BlockChainContext, h uint64, r int64) (common.Address, er
 }
 
 func isProposerMsg(chain BlockChainContext, m *tendermintCore.Message) bool {
-	h, _ := m.Height()
-	r, _ := m.Round()
-
-	proposer, err := getProposer(chain, h.Uint64(), r)
+	proposer, err := getProposer(chain, m.H(), m.R())
 	if err != nil {
 		return false
 	}
@@ -1054,7 +1090,7 @@ func powerOfVotes(votes []*tendermintCore.Message) uint64 {
 
 func randomDelay() {
 	rand.Seed(time.Now().UnixNano())
-	n := rand.Intn(randomDelayWindow)
+	n := rand.Intn(randomDelayRange)
 	time.Sleep(time.Duration(n) * time.Millisecond)
 }
 
@@ -1131,4 +1167,25 @@ func verifyProposal(chain BlockChainContext, proposal types.Block) error {
 		return nil
 	}
 	return err
+}
+
+// loop the preCommits msg array, and get the latest round of preCommit msg.
+func latestPreCommit(preCommits []*tendermintCore.Message) *tendermintCore.Message {
+	if len(preCommits) == 1 {
+		return preCommits[0]
+	}
+
+	latest := preCommits[0]
+	for _, pc := range preCommits {
+		if pc.R() > latest.R() {
+			latest = pc
+		}
+	}
+
+	return latest
+}
+
+// todo: sort precommits by round from low to high.
+func sortPreCommits(preCommits []*tendermintCore.Message) []*tendermintCore.Message {
+	return nil
 }

@@ -31,7 +31,7 @@ contract Autonity is IERC20 {
         uint256 stakesupply;
     }
 
-    enum ProofType {Misbehaviour, Accusation, Innocence}
+    enum AccountabilityType {Misbehaviour, Accusation, Innocence}
     struct Proof {
         uint8 t;      // proof type: Misbehaviour, Accusation, Innocence
         address sender;
@@ -40,7 +40,7 @@ contract Autonity is IERC20 {
     }
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
-    Proof[] private misBehaviours;
+    Proof[] private misbehaviours;
     Proof[] private accusations;
     address[] private usersList;
     string[] private enodesWhitelist;
@@ -161,8 +161,8 @@ contract Autonity is IERC20 {
         address innocencePrecompiledContractAddress = address(0xfd);
 
         for (uint256 i = 0; i < Proofs.length; i++) {
-            if (ProofType(Proofs[i].t) == ProofType.Misbehaviour) {
-                if (_isMisBehaviourExists(Proofs[i]) == true) {
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Misbehaviour) {
+                if (_misbehaviourExists(Proofs[i]) == true) {
                     continue;
                 }
 
@@ -173,13 +173,13 @@ contract Autonity is IERC20 {
                     continue;
                 }
                 // misbehaviour proof is validated
-                misBehaviours.push(Proofs[i]);
+                misbehaviours.push(Proofs[i]);
                 emit MisbehaviourAdded(Proofs[i]);
-                // todo: add slashing logic once challenge is valid.
+                // todo: add slashing logic once misbehaviour is valid.
             }
 
-            if (ProofType(Proofs[i].t) == ProofType.Accusation) {
-                if (_isAccusationExists(Proofs[i]) == true) {
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Accusation) {
+                if (_accusationExists(Proofs[i]) == true) {
                     continue;
                 }
 
@@ -193,8 +193,8 @@ contract Autonity is IERC20 {
                 emit AccusationAdded(Proofs[i]);
             }
 
-            if (ProofType(Proofs[i].t) == ProofType.Innocence) {
-                if (_isAccusationExists(Proofs[i]) == false) {
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Innocence) {
+                if (_accusationExists(Proofs[i]) == false) {
                     continue;
                 }
 
@@ -364,7 +364,7 @@ contract Autonity is IERC20 {
     * @dev Dump the on-chain misbehaviour. Called by the faultdetector fault detector to get latest on-chain misbehaviour.
     */
     function getMisbehaviours() external view returns (Proof[] memory) {
-        return misBehaviours;
+        return misbehaviours;
     }
 
     /**
@@ -716,16 +716,16 @@ contract Autonity is IERC20 {
         emit ChangedUserType(u.addr , u.userType , newUserType);
     }
 
-    function _isMisBehaviourExists(Proof memory proof) internal view returns (bool) {
-        for (uint256 i = 0; i < misBehaviours.length; i++) {
-            if (misBehaviours[i].msghash == proof.msghash) {
+    function _misbehaviourExists(Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < misbehaviours.length; i++) {
+            if (misbehaviours[i].msghash == proof.msghash) {
                 return true;
             }
         }
         return false;
     }
 
-    function _isAccusationExists(Proof memory proof) internal view returns (bool) {
+    function _accusationExists(Proof memory proof) internal view returns (bool) {
         for (uint256 i = 0; i < accusations.length; i++) {
             if (accusations[i].msghash == proof.msghash) {
                 return true;

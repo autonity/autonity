@@ -21,8 +21,8 @@ var (
 
 // init the instances of Fault Detector contracts, and register thems into evm's context
 func registerFaultDetectorContracts(chain BlockChainContext) {
-	vm.PrecompileContractRWMutex.Lock()
-	defer vm.PrecompileContractRWMutex.Unlock()
+	vm.PrecompiledContractRWMutex.Lock()
+	defer vm.PrecompiledContractRWMutex.Unlock()
 	pv := InnocenceVerifier{chain: chain}
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
@@ -46,8 +46,8 @@ func registerFaultDetectorContracts(chain BlockChainContext) {
 
 // unregister Faul Detector contracts from evm's context.
 func unRegisterFaultDetectorContracts() {
-	vm.PrecompileContractRWMutex.Lock()
-	defer vm.PrecompileContractRWMutex.Unlock()
+	vm.PrecompiledContractRWMutex.Lock()
+	defer vm.PrecompiledContractRWMutex.Unlock()
 
 	delete(vm.PrecompiledContractsByzantium, checkInnocenceAddress)
 	delete(vm.PrecompiledContractsByzantium, checkMisbehaviourAddress)

@@ -230,7 +230,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
 	accusationContextPVN := func() [][]byte {
-		preVote := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
+		preVote := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R()+1, nonNilValue)
 		m, err := c.finalizeMessage(preVote)
 		if err != nil {
 			return nil
@@ -280,7 +280,8 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		PN Rule = iota
 		PO
 		PVN
-		PVO
+		PVO1
+		PVO2
 		C
 		C1
 		GarbageMessage  // message was signed by valid member, but it cannot be decoded.
