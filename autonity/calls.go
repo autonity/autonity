@@ -222,7 +222,7 @@ func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.H
 	return nil
 }
 
-func (ac *Contract) callGetMisbehaviours(state *state.StateDB, header *types.Header) []OnChainProof {
+func (ac *Contract) callGetMisBehaviours(state *state.StateDB, header *types.Header) []OnChainProof {
 	var onChainProofs []OnChainProof
 	err := ac.AutonityContractCall(state, header, "getMisbehaviours", &onChainProofs)
 

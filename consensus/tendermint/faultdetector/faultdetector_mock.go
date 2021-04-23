@@ -148,7 +148,15 @@ func (mr *MockBlockChainContextMockRecorder) CurrentBlock() *gomock.Call {
 }
 
 func (m *MockBlockChainContext) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
-	panic("implement me")
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeChainEvent")
+	ret0, _ := ret[0].(event.Subscription)
+	return ret0
+}
+
+func (mr *MockBlockChainContextMockRecorder) SubscribeChainEvent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeChainEvent", reflect.TypeOf((*MockBlockChainContext)(nil).SubscribeChainEvent))
 }
 
 func (m *MockBlockChainContext) State() (*state.StateDB, error) {

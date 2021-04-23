@@ -119,7 +119,7 @@ func TestCheckEquivocation(t *testing.T) {
 	round := int64(0)
 	committee, keys := generateCommittee()
 
-	t.Run("check equivocation with valid proof of equivocation", func(t *testing.T) {
+	t.Run("check equivocation with valid Proof of equivocation", func(t *testing.T) {
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 		vote1 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], proposal.Value(), committee)
 		vote2 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], nilValue, committee)
@@ -128,7 +128,7 @@ func TestCheckEquivocation(t *testing.T) {
 		require.Equal(t, errEquivocation, checkEquivocation(nil, vote1, proofs))
 	})
 
-	t.Run("check equivocation with invalid proof of equivocation", func(t *testing.T) {
+	t.Run("check equivocation with invalid Proof of equivocation", func(t *testing.T) {
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 		vote1 := newVoteMsg(height, round, msgPrevote, keys[committee[0].Address], proposal.Value(), committee)
 		var proofs []*core.Message
@@ -148,7 +148,10 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	var proofs []*core.Message
 	proofs = append(proofs, proposal2)
 
-	fd := NewFaultDetector(nil, proposer, nil)
+	fd := &FaultDetector{
+		misbehaviourProofsCh: make(chan *autonity.OnChainProof, 100),
+	}
+
 	fd.submitMisbehavior(proposal, proofs, errEquivocation, fd.misbehaviourProofsCh)
 	p := <-fd.misbehaviourProofsCh
 
@@ -164,7 +167,7 @@ func TestRunRuleEngine(t *testing.T) {
 	round := int64(3)
 	t.Run("test run rules with chain height less than delta height", func(t *testing.T) {
 		height := uint64(deltaBlocks - 1)
-		fd := NewFaultDetector(nil, common.Address{}, nil)
+		fd := &FaultDetector{}
 		require.Equal(t, 0, len(fd.runRuleEngine(height)))
 	})
 
@@ -176,6 +179,8 @@ func TestRunRuleEngine(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(checkPointHeight - 1).Return(lastHeader)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, nil)
 
 		// simulate there was a maliciousProposal at init round 0, and save to msg store.
@@ -222,7 +227,8 @@ func TestProcessMsg(t *testing.T) {
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().CurrentHeader().Return(lastHeader)
 		proposal := newProposalMessage(futureHeight, round, -1, proposerKey, committee, nil)
-
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, nil)
 		require.Equal(t, errFutureMsg, fd.processMsg(proposal))
 		require.Equal(t, proposal, fd.futureHeightMsgBuffer[futureHeight][0])
@@ -236,7 +242,8 @@ func TestProcessMsg(t *testing.T) {
 		chainMock.EXPECT().GetHeaderByNumber(height - 1).Return(lastHeader)
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		vote := newVoteMsg(height, round, msgPrevote, proposerKey, proposal.Value(), committee)
-
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, nil)
 		require.Equal(t, nil, fd.processMsg(vote))
 		require.Equal(t, vote, fd.msgStore.messages[height][round][msgPrevote][proposer][0])
@@ -249,7 +256,8 @@ func TestProcessMsg(t *testing.T) {
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().CurrentHeader().AnyTimes().Return(lastHeader)
 		chainMock.EXPECT().GetHeaderByNumber(height - 1).AnyTimes().Return(lastHeader)
-
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		vote := newVoteMsg(height, round, msgPrevote, proposerKey, proposal.Value(), committee)
 		equivocatedVote := newVoteMsg(height, round, msgPrevote, proposerKey, common.Hash{}, committee)
@@ -276,14 +284,16 @@ func TestGenerateOnChainProof(t *testing.T) {
 	var evidence []*core.Message
 	evidence = append(evidence, equivocatedProposal)
 
-	p := proof{
+	p := Proof{
 		Type:     autonity.Misbehaviour,
 		Rule:     Equivocation,
 		Message:  proposal,
 		Evidence: evidence,
 	}
 
-	fd := NewFaultDetector(nil, proposer, nil)
+	fd := FaultDetector{
+		address: proposer,
+	}
 
 	onChainProof, err := fd.generateOnChainProof(&p)
 
@@ -335,8 +345,8 @@ func TestRuleEngine(t *testing.T) {
 	})
 
 	t.Run("getInnocentProof with unprovable rule id", func(t *testing.T) {
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
-		var input = proof{
+		fd := FaultDetector{}
+		var input = Proof{
 			Rule: PVO1,
 		}
 
@@ -346,13 +356,14 @@ func TestRuleEngine(t *testing.T) {
 
 	t.Run("getInnocentProofOfPO have quorum preVotes", func(t *testing.T) {
 
-		// PO: node propose an old value with an validRound, innocent proof of it should be:
+		// PO: node propose an old value with an validRound, innocent Proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
-
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
@@ -366,7 +377,7 @@ func TestRuleEngine(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PO,
 			Message: proposal,
@@ -381,12 +392,14 @@ func TestRuleEngine(t *testing.T) {
 
 	t.Run("getInnocentProofOfPO no quorum preVotes", func(t *testing.T) {
 
-		// PO: node propose an old value with an validRound, innocent proof of it should be:
+		// PO: node propose an old value with an validRound, innocent Proof of it should be:
 		// there were quorum num of preVote for that value at the validRound.
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, proposerKey, committee, nil)
@@ -398,7 +411,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PO,
 			Message: proposal,
@@ -412,7 +425,10 @@ func TestRuleEngine(t *testing.T) {
 
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
 
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		fd := FaultDetector{
+			address:  proposer,
+			msgStore: newMsgStore(),
+		}
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
@@ -422,7 +438,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PVN,
 			Message: preVote,
@@ -438,13 +454,13 @@ func TestRuleEngine(t *testing.T) {
 	t.Run("getInnocentProofOfPVN have no corresponding proposal", func(t *testing.T) {
 
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		fd := FaultDetector{address: proposer, msgStore: newMsgStore()}
 
 		preVote := newVoteMsg(height, round, msgPrevote, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preVote)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    PVN,
 			Message: preVote,
@@ -458,7 +474,7 @@ func TestRuleEngine(t *testing.T) {
 
 		// C: node preCommit at a none nil value, there must be a corresponding proposal.
 
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		fd := FaultDetector{address: proposer, msgStore: newMsgStore()}
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 		_, err := fd.msgStore.Save(proposal)
@@ -468,7 +484,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C,
 			Message: preCommit,
@@ -485,13 +501,13 @@ func TestRuleEngine(t *testing.T) {
 
 		// C: node preCommit at a none nil value, there must be a corresponding proposal.
 
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		fd := FaultDetector{address: proposer, msgStore: newMsgStore()}
 
 		preCommit := newVoteMsg(height, round, msgPrecommit, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C,
 			Message: preCommit,
@@ -506,6 +522,8 @@ func TestRuleEngine(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 
@@ -520,7 +538,7 @@ func TestRuleEngine(t *testing.T) {
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C1,
 			Message: preCommit,
@@ -540,13 +558,15 @@ func TestRuleEngine(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 
 		preCommit := newVoteMsg(height, round, msgPrecommit, proposerKey, noneNilValue, committee)
 		_, err := fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
-		var accusation = proof{
+		var accusation = Proof{
 			Type:    autonity.Accusation,
 			Rule:    C1,
 			Message: preCommit,
@@ -594,8 +614,12 @@ func TestRuleEngine(t *testing.T) {
 		// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 		// PN1: [nil ∨ ⊥] <--- [V]
 		// If one send a maliciousProposal for a new V, then all preCommits for previous rounds from this sender are nil.
-
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 
 		// simulate there was a maliciousProposal at init round 0, and save to msg store.
@@ -636,10 +660,14 @@ func TestRuleEngine(t *testing.T) {
 		// to address below scenario:
 		// Is there a precommit for a value other than nil or the proposed value
 		// by the current proposer in the valid round? If there is the proposer
-		// has proposed a value for which it is not locked on, thus a proof of
+		// has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
-
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 
 		// simulate a init proposal at r: 0, with v1.
@@ -689,7 +717,12 @@ func TestRuleEngine(t *testing.T) {
 		// then that implies the proposer saw 2f+1 prevotes in that round and
 		// hence it should have set that round as the valid round.
 
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 		proposer1 := keys[committee[1].Address]
 		maliciousProposer := keys[committee[2].Address]
@@ -756,7 +789,12 @@ func TestRuleEngine(t *testing.T) {
 		// Do we see a quorum of preVotes in the valid round, if not we can raise an accusation, since we cannot be sure
 		// that these preVotes don't exist
 
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 
 		header := newBlockHeader(height, committee)
@@ -780,7 +818,12 @@ func TestRuleEngine(t *testing.T) {
 		// To address below accusation scenario:
 		// If there an proVote for a non nil value, then there must be a corresponding proposal at the same round,
 		// otherwise an accusation of PVN should be rise.
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 
 		// simulate a preVote for v at round, let's the corresponding proposal missing.
@@ -805,8 +848,12 @@ func TestRuleEngine(t *testing.T) {
 
 		// To address below misbehaviour scenario:
 		// Node preCommitted at v1 at R_x, while it preVote for v2 at R_x + n.
-
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 		maliciousNode := keys[committee[1].Address]
 		newProposer := keys[committee[2].Address]
@@ -858,7 +905,12 @@ func TestRuleEngine(t *testing.T) {
 		// Node preCommit for a V at round R, but we cannot see the corresponding proposal that propose the value at
 		// the same round of that preCommit msg.
 
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
@@ -879,7 +931,12 @@ func TestRuleEngine(t *testing.T) {
 
 		// To address below misbehaviour scenario:
 		// Node preCommit for a value V1, but there was more than quorum preVotes for not V1 at the same round.
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 		maliciousNode := keys[committee[1].Address]
 
@@ -927,7 +984,12 @@ func TestRuleEngine(t *testing.T) {
 		// To address below accusation scenario:
 		// Node preCommit for a value V, but observer haven't seen quorum preVotes for V at the round, an accusation shall
 		// be rise.
-		fd := NewFaultDetector(nil, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
 		quorum := bft.Quorum(totalPower)
 		maliciousNode := keys[committee[1].Address]
 

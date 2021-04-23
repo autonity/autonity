@@ -14,7 +14,7 @@ var (
 	checkAccusationAddress   = common.BytesToAddress([]byte{252})
 	checkInnocenceAddress    = common.BytesToAddress([]byte{253})
 	checkMisbehaviourAddress = common.BytesToAddress([]byte{254})
-	// error codes of the execution of precompiled contract to verify the input proof.
+	// error codes of the execution of precompiled contract to verify the input Proof.
 	validProofByte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 	failure96Byte  = make([]byte, 96)
 )
@@ -76,7 +76,7 @@ func (a *AccusationVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityPrecompiledContractGas
 }
 
-// take the rlp encoded proof of accusation in byte array, decode it and validate it, if the proof is validate, then
+// take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is validate, then
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) <= 32 {
@@ -93,7 +93,7 @@ func (a *AccusationVerifier) Run(input []byte) ([]byte, error) {
 }
 
 // validate if the accusation is valid.
-func (a *AccusationVerifier) validateAccusation(in *proof) []byte {
+func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
 	// we have only 4 types of rule on accusation.
 	switch in.Rule {
 	case PO:
@@ -145,8 +145,8 @@ func (c *MisbehaviourVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityPrecompiledContractGas
 }
 
-// take the rlp encoded proof of challenge in byte array, decode it and validate it, if the proof is validate, then
-// the rlp hash of the msg payload and the msg sender is returned as the valid identity for proof management.
+// take the rlp encoded Proof of challenge in byte array, decode it and validate it, if the Proof is validate, then
+// the rlp hash of the msg payload and the msg sender is returned as the valid identity for Proof management.
 func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 	if len(input) <= 32 {
 		return failure96Byte, nil
@@ -161,9 +161,9 @@ func (c *MisbehaviourVerifier) Run(input []byte) ([]byte, error) {
 	return c.validateProof(p), nil
 }
 
-// validate the proof, if the proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
-// returned as the valid identity for proof management.
-func (c *MisbehaviourVerifier) validateProof(p *proof) []byte {
+// validate the Proof, if the Proof is validate, then the rlp hash of the msg payload and rlp hash of msg sender is
+// returned as the valid identity for Proof management.
+func (c *MisbehaviourVerifier) validateProof(p *Proof) []byte {
 
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, p.Message)
@@ -197,7 +197,7 @@ func (c *MisbehaviourVerifier) validateProof(p *proof) []byte {
 }
 
 // check if the evidence of the misbehaviour is valid or not.
-func (c *MisbehaviourVerifier) validProof(p *proof) bool {
+func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 	switch p.Rule {
 	case PN:
 		return c.validMisbehaviourOfPN(p)
@@ -220,9 +220,9 @@ func (c *MisbehaviourVerifier) validProof(p *proof) bool {
 	}
 }
 
-// check if the proof of challenge of PN is valid,
-// node propose a new value when there is a proof that it precommit at a different value at previous round.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *proof) bool {
+// check if the Proof of challenge of PN is valid,
+// node propose a new value when there is a Proof that it precommit at a different value at previous round.
+func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -244,8 +244,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *proof) bool {
 	return false
 }
 
-// check if the proof of challenge of PO is valid
-func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *proof) bool {
+// check if the Proof of challenge of PO is valid
+func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -271,8 +271,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *proof) bool {
 	return false
 }
 
-// check if the proof of challenge of PVN is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *proof) bool {
+// check if the Proof of challenge of PVN is valid.
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -292,8 +292,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *proof) bool {
 	return false
 }
 
-// check if the proof of challenge of C is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *proof) bool {
+// check if the Proof of challenge of C is valid.
+func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof) bool {
 	if len(p.Evidence) == 0 {
 		return false
 	}
@@ -320,21 +320,21 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *proof) bool {
 	return powerOfVotes(p.Evidence) >= quorum
 }
 
-// InnocenceVerifier implemented as a native contract to validate an innocence proof.
+// InnocenceVerifier implemented as a native contract to validate an innocence Proof.
 type InnocenceVerifier struct {
 	chain BlockChainContext
 }
 
-// the gas cost to execute this proof validator contract.
+// the gas cost to execute this Proof validator contract.
 func (c *InnocenceVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityPrecompiledContractGas
 }
 
-// InnocenceVerifier, take the rlp encoded proof of innocence, decode it and validate it, if the proof is valid, then
+// InnocenceVerifier, take the rlp encoded Proof of innocence, decode it and validate it, if the Proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
 func (c *InnocenceVerifier) Run(input []byte) ([]byte, error) {
-	// take an on-chain innocent proof, tell the results of the checking
+	// take an on-chain innocent Proof, tell the results of the checking
 	if len(input) <= 32 {
 		return failure96Byte, nil
 	}
@@ -348,8 +348,8 @@ func (c *InnocenceVerifier) Run(input []byte) ([]byte, error) {
 	return c.validateInnocenceProof(p), nil
 }
 
-// validate if the innocence proof is valid, it returns sender address and msg hash in byte array when proof is valid.
-func (c *InnocenceVerifier) validateInnocenceProof(in *proof) []byte {
+// validate if the innocence Proof is valid, it returns sender address and msg hash in byte array when Proof is valid.
+func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
 	// check if evidence msgs are from committee members of that height.
 	h, err := in.Message.Height()
 	if err != nil {
@@ -382,7 +382,7 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *proof) []byte {
 	return append(append(sender, msgHash...), validProofByte...)
 }
 
-func (c *InnocenceVerifier) validInnocenceProof(p *proof) bool {
+func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
 	// rule engine only have 3 kind of provable accusation for the time being.
 	switch p.Rule {
 	case PO:
@@ -398,8 +398,8 @@ func (c *InnocenceVerifier) validInnocenceProof(p *proof) bool {
 	}
 }
 
-// check if the proof of innocent of PO is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfPO(p *proof) bool {
+// check if the Proof of innocent of PO is valid.
+func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
 	if proposal.Type() != msgProposal {
@@ -428,8 +428,8 @@ func (c *InnocenceVerifier) validInnocenceProofOfPO(p *proof) bool {
 	return true
 }
 
-// check if the proof of innocent of PVN is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *proof) bool {
+// check if the Proof of innocent of PVN is valid.
+func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
 	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
@@ -445,8 +445,8 @@ func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *proof) bool {
 		proposal.R() == preVote.R()
 }
 
-// check if the proof of innocent of C is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfC(p *proof) bool {
+// check if the Proof of innocent of C is valid.
+func (c *InnocenceVerifier) validInnocenceProofOfC(p *Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -461,8 +461,8 @@ func (c *InnocenceVerifier) validInnocenceProofOfC(p *proof) bool {
 		proposal.R() == preCommit.R()
 }
 
-// check if the proof of innocent of C is valid.
-func (c *InnocenceVerifier) validInnocenceProofOfC1(p *proof) bool {
+// check if the Proof of innocent of C is valid.
+func (c *InnocenceVerifier) validInnocenceProofOfC1(p *Proof) bool {
 	preCommit := p.Message
 	if !(preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue) {
 		return false
@@ -504,9 +504,9 @@ func haveRedundantVotes(votes []*tendermintCore.Message) bool {
 	return false
 }
 
-// decode proof convert proof from rlp encoded bytes into object proof.
-func decodeRawProof(b []byte) (*proof, error) {
-	p := new(proof)
+// decode Proof convert Proof from rlp encoded bytes into object Proof.
+func decodeRawProof(b []byte) (*Proof, error) {
+	p := new(Proof)
 	err := rlp.DecodeBytes(b, p)
 	if err != nil {
 		return nil, err
