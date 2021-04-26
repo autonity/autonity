@@ -897,6 +897,50 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
 
+	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		quorum := bft.Quorum(totalPower)
+		maliciousNode := keys[committee[1].Address]
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a proposal at r: 3, and vr: 1, with v.
+		oldProposal := newProposalMessage(height, 3, 1, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(oldProposal)
+		assert.NoError(t, err)
+
+		// simulate a preVote at r: 3 for value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, maliciousNode, oldProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preVote)
+		assert.NoError(t, err)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+
+		assert.Equal(t, 2, len(onChainProofs))
+		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
+		assert.Equal(t, PO, onChainProofs[0].Rule)
+		assert.Equal(t, oldProposal.Signature, onChainProofs[0].Message.Signature)
+
+		assert.Equal(t, autonity.Accusation, onChainProofs[1].Type)
+		assert.Equal(t, PVO, onChainProofs[1].Rule)
+		assert.Equal(t, preVote.Signature, onChainProofs[1].Message.Signature)
+	})
+
+	t.Run("RunRule to address misbehaviour of rule PVO1, node last precommited at a value of not v", func(t *testing.T) {
+
+	})
+
+	t.Run("RunRule to address misbehaviour of rule PVO2, node did precommited at a value of not v between valid "+
+		"round and current round", func(t *testing.T) {
+
+	})
+
 	t.Run("RunRule address Accusation of rule C, no corresponding proposal for a preCommit msg", func(t *testing.T) {
 		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]

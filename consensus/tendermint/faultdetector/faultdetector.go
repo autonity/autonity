@@ -35,6 +35,7 @@ const (
 	PN Rule = iota
 	PO
 	PVN
+	PVO
 	PVO1
 	PVO2
 	C
@@ -743,7 +744,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				if powerOfVotes(deEquivocatedMsgs(preVotesAtVR)) < quorum {
 					proof := &Proof{
 						Type:    autonity.Accusation,
-						Rule:    PVO1,
+						Rule:    PVO,
 						Message: prevote,
 					}
 					proofs = append(proofs, proof)

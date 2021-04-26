@@ -280,6 +280,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		PN Rule = iota
 		PO
 		PVN
+		PVO
 		PVO1
 		PVO2
 		C
