@@ -765,56 +765,77 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					proofs = append(proofs, proof)
 				}
 
-				// get all non nil preCommits from rounds range: [r''' (validRound), r)
-				preCommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() && m.Value() != nilValue &&
-						m.R() >= validRound && m.R() < currentR
+				preCommitsForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+					return m.Type() == msgPrecommit && m.Value() == prevote.Value() && m.R() >= validRound
 				})
 
-				// pi did precommitted a value after valid round, and we have all the preCommits presented from valid round.
-				if len(preCommits) == int(currentR - validRound) {
-					// PVO1: [#(V)≥2f+ 1] ∧ [V] ∧ [V ∨ nil ∨ ⊥] ∧ [ V: validRound(V) = r′′′] ⇐= [V]
-					// if V is the proposed value at round r and pi did already precommit on V at round r′< r(it locked on it)
-					// and did not precommit for other values in any round between r′and r then in round r either pi prevotes
-					// for V or nil(in case of a timeout), Moreover, we expect to find 2f+ 1 prevotes for V issued at
-					// round r′′′=validRound(V).
+				preCommitsForNV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+					return m.Type() == msgPrecommit && m.Value() != prevote.Value() && m.Value() != nilValue &&
+						m.R() >= validRound
+				})
 
-					preCommitsForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-						return m.Type() == msgPrecommit && m.Value() == prevote.Value() && m.R() >= validRound
+				preCommitsForNil := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+					return m.Type() == msgPrecommit && m.Value() == nilValue && m.R() >= validRound
+				})
+
+				if len(preCommitsForV) > 0 {
+					sort.SliceStable(preCommitsForV, func(i, j int) bool {
+						return preCommitsForV[i].R() < preCommitsForV[j].R()
 					})
+				}
 
-					preCommitsForNV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-						return m.Type() == msgPrecommit && m.Value() != prevote.Value() && m.Value() != nilValue &&
-							m.R() >= validRound
+				if len(preCommitsForNV) > 0 {
+					sort.SliceStable(preCommitsForNV, func(i, j int) bool {
+						return preCommitsForNV[i].R() < preCommitsForNV[j].R()
 					})
+				}
 
-					if len(preCommitsForNV) != 0 {
-						sort.SliceStable(preCommitsForNV, func(i, j int) bool {
-							return preCommitsForNV[i].R() < preCommitsForNV[j].R()
-						})
+				// We cannot raise any more accusation for PVO rules, therefore in order to detect misbehaviour we require all the messages to be present in our message store
+				totalPiPrecommits := len(preCommitsForV) + len(preCommitsForNV) + len(preCommitsForNil)
 
-						if len(preCommitsForV) != 0 {
-							sort.SliceStable(preCommitsForV, func(i, j int) bool {
-								return preCommitsForV[i].R() < preCommitsForV[j].R()
-							})
-
-							lastPrecommitForV := preCommitsForV[len(preCommitsForV)-1]
-							lastPrecommitForNV := preCommitsForNV[len(preCommitsForNV)-1]
-
-							if lastPrecommitForNV.R() > lastPrecommitForV.R() {
-								proof := &Proof{
-									Type:     autonity.Misbehaviour,
-									Rule:     PVO1,
-									Message:  prevote,
-								}
-								proof.Evidence = append(proof.Evidence, lastPrecommitForV, lastPrecommitForNV)
-								proofs = append(proofs, proof)
-							}
-						}
+				// pi precommitted for a value after valid round, and we have all the preCommits presented from valid round.
+				if totalPiPrecommits >= int(currentR-validRound) {
+					if totalPiPrecommits > int(currentR-validRound) {
+						// Todo: There are equivocated messages in the message store, thus we need to pick one message per round before proceeding
 					}
-				} else {
-					// PVO2:
-					// nothing can be checked since the rule allowed for values to be absent.
+
+					// We have both precommits for V and V', so we need to ensure that the latest precommit is for V
+					if len(preCommitsForNV) > 0 && len(preCommitsForV) > 0 {
+						// PVO1: [#(V)≥2f+ 1] ∧ [V] ∧ [V ∨ nil ∨ ⊥] ∧ [ V: validRound(V) = r′′′] ⇐= [V]
+						// if V is the proposed value at round r and pi did already precommit on V at round r′< r(it locked on it)
+						// and did not precommit for other values in any round between r′and r then in round r either pi prevotes
+						// for V or nil(in case of a timeout), Moreover, we expect to find 2f+ 1 prevotes for V issued at
+						// round r′′′=validRound(V).
+						lastPrecommitForV := preCommitsForV[len(preCommitsForV)-1]
+						lastPrecommitForNV := preCommitsForNV[len(preCommitsForNV)-1]
+
+						if lastPrecommitForNV.R() > lastPrecommitForV.R() {
+							proof := &Proof{
+								Type:    autonity.Misbehaviour,
+								Rule:    PVO1,
+								Message: prevote,
+							}
+							proof.Evidence = append(proof.Evidence, preCommitsForV...)
+							proof.Evidence = append(proof.Evidence, preCommitsForNil...)
+							proof.Evidence = append(proof.Evidence, preCommitsForNV...)
+							proofs = append(proofs, proof)
+						}
+					} else if len(preCommitsForNV) > 0 && len(preCommitsForV) == 0 {
+						// PVO2: [#(V)≥2f+ 1] ∧ [V ∨ nil ∨⊥] ∧ [V:validRound(V) =r′] ⇐= [V];
+						// if V is the proposed value at round r with validRound(V) =r′ then there must be 2f+ 1
+						// prevotes for V issued at round r′. If moreover, pi did not precommit for other values
+						// in any round between r′and r(thus it can be either locked on some values or not) then
+						// in round r pi prevotes for V.
+						proof := &Proof{
+							Type:    autonity.Misbehaviour,
+							Rule:    PVO2,
+							Message: prevote,
+						}
+						proof.Evidence = append(proof.Evidence, preCommitsForV...)
+						proof.Evidence = append(proof.Evidence, preCommitsForNil...)
+						proof.Evidence = append(proof.Evidence, preCommitsForNV...)
+						proofs = append(proofs, proof)
+					}
 				}
 			}
 		}
