@@ -747,6 +747,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 						Rule:    PVO,
 						Message: prevote,
 					}
+					proof.Evidence = append(proof.Evidence, correspondingProposal)
 					proofs = append(proofs, proof)
 				}
 

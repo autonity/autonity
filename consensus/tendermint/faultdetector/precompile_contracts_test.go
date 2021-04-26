@@ -2,7 +2,6 @@ package faultdetector
 
 import (
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
@@ -177,8 +176,47 @@ func TestAccusationVerifier(t *testing.T) {
 		ret := av.validateAccusation(&p)
 		assert.NotEqual(t, failure96Byte, ret)
 		assert.Equal(t, common.LeftPadBytes(proposer.Bytes(), 32), ret[0:32])
-		assert.Equal(t, types.RLPHash(newProposal).Bytes(), ret[32:64])
+		assert.Equal(t, newProposal.MsgHash().Bytes(), ret[32:64])
 		assert.Equal(t, validProofByte, ret[64:96])
+	})
+
+	t.Run("Test validate accusation, with PVO accusation msgs", func(t *testing.T) {
+		var p Proof
+		p.Rule = PVO
+		oldProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, oldProposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, oldProposal)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+
+		av := AccusationVerifier{chain: chainMock}
+		ret := av.validateAccusation(&p)
+		assert.NotEqual(t, failure96Byte, ret)
+		assert.Equal(t, common.LeftPadBytes(proposer.Bytes(), 32), ret[0:32])
+		assert.Equal(t, preVote.MsgHash().Bytes(), ret[32:64])
+		assert.Equal(t, validProofByte, ret[64:96])
+	})
+
+	t.Run("Test validate accusation, with invalid PVO accusation proof", func(t *testing.T) {
+		var p Proof
+		p.Rule = PVO
+		oldProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 2, msgPrevote, proposerKey, oldProposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, oldProposal)
+		lastHeader := newBlockHeader(lastHeight, committee)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+
+		av := AccusationVerifier{chain: chainMock}
+		ret := av.validateAccusation(&p)
+		assert.Equal(t, failure96Byte, ret)
 	})
 }
 

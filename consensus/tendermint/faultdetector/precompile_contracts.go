@@ -104,6 +104,10 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
 		if in.Message.Code != msgPrevote {
 			return failure96Byte
 		}
+	case PVO:
+		if in.Message.Code != msgPrevote {
+			return failure96Byte
+		}
 	case C:
 		if in.Message.Code != msgPrecommit {
 			return failure96Byte
@@ -128,6 +132,23 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
 	}
 	if _, err = in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return failure96Byte
+	}
+
+	// in case of PVO accusation, we need to check corresponding old proposal of this preVote.
+	if in.Rule == PVO {
+		if len(in.Evidence) == 0 {
+			return failure96Byte
+		}
+
+		oldProposal := in.Evidence[0]
+		if _, err = oldProposal.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+			return failure96Byte
+		}
+
+		if oldProposal.Code != msgProposal || oldProposal.R() != in.Message.R() ||
+			oldProposal.Value() != in.Message.Value() || oldProposal.ValidRound() == -1 {
+			return failure96Byte
+		}
 	}
 
 	msgHash := in.Message.MsgHash().Bytes()
