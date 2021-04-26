@@ -734,6 +734,113 @@ func TestInnocenceVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
+	t.Run("Test validate innocence proof of PVO rule, with correct Proof", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		var p Proof
+		p.Rule = PVO
+		vr := int64(0)
+		proposal := newProposalMessage(height, 1, vr, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, proposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, proposal)
+		// prepare quorum prevotes at valid round.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, vr, msgPrevote, keys[committee[i].Address], proposal.Value(), committee)
+			p.Evidence = append(p.Evidence, preVote)
+		}
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfPVO(&p)
+		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate innocence proof of PVO rule, with incorrect proposal", func(t *testing.T) {
+		var p Proof
+		p.Rule = PVO
+		vr := int64(0)
+		// with wrong round in proposal.
+		proposal := newProposalMessage(height, 2, vr, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, proposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, proposal)
+		// prepare quorum prevotes at valid round.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, vr, msgPrevote, keys[committee[i].Address], proposal.Value(), committee)
+			p.Evidence = append(p.Evidence, preVote)
+		}
+		iv := InnocenceVerifier{chain: nil}
+		ret := iv.validInnocenceProofOfPVO(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate innocence proof of PVO rule, with incorrect preVotes", func(t *testing.T) {
+		var p Proof
+		p.Rule = PVO
+		vr := int64(0)
+		// with wrong round in proposal.
+		proposal := newProposalMessage(height, 2, vr, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, proposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, proposal)
+		// prepare quorum prevotes at wrong round.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 1, msgPrevote, keys[committee[i].Address], proposal.Value(), committee)
+			p.Evidence = append(p.Evidence, preVote)
+		}
+		iv := InnocenceVerifier{chain: nil}
+		ret := iv.validInnocenceProofOfPVO(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate innocence proof of PVO rule, with less than quorum preVotes", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		var p Proof
+		p.Rule = PVO
+		vr := int64(0)
+		proposal := newProposalMessage(height, 2, vr, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 2, msgPrevote, proposerKey, proposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, proposal)
+		// prepare only one prevotes at valid round.
+		v := newVoteMsg(height, vr, msgPrevote, proposerKey, proposal.Value(), committee)
+		p.Evidence = append(p.Evidence, v)
+
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfPVO(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate innocence proof of PVO rule, with preVote for not V", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		var p Proof
+		p.Rule = PVO
+		vr := int64(0)
+		proposal := newProposalMessage(height, 2, vr, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 2, msgPrevote, proposerKey, proposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, proposal)
+		// prepare only one prevotes at valid round.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, vr, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			p.Evidence = append(p.Evidence, preVote)
+		}
+
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		iv := InnocenceVerifier{chain: chainMock}
+		ret := iv.validInnocenceProofOfPVO(&p)
+		assert.Equal(t, false, ret)
+	})
+
 	t.Run("Test validate innocence Proof of C rule, with wrong msg", func(t *testing.T) {
 		var p Proof
 		p.Rule = C

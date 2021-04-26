@@ -410,6 +410,8 @@ func (c *InnocenceVerifier) validInnocenceProof(p *Proof) bool {
 		return c.validInnocenceProofOfPO(p)
 	case PVN:
 		return c.validInnocenceProofOfPVN(p)
+	case PVO:
+		return c.validInnocenceProofOfPVO(p)
 	case C:
 		return c.validInnocenceProofOfC(p)
 	case C1:
@@ -451,7 +453,6 @@ func (c *InnocenceVerifier) validInnocenceProofOfPO(p *Proof) bool {
 
 // check if the Proof of innocent of PVN is valid.
 func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
-	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
 	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
 		return false
@@ -464,6 +465,48 @@ func (c *InnocenceVerifier) validInnocenceProofOfPVN(p *Proof) bool {
 	proposal := p.Evidence[0]
 	return proposal.Type() == msgProposal && proposal.Value() == preVote.Value() &&
 		proposal.R() == preVote.R()
+}
+
+// check if the Proof of innocent of PVO is valid.
+func (c *InnocenceVerifier) validInnocenceProofOfPVO(p *Proof) bool {
+	// check if there is quorum number of prevote at the same value on the same valid round
+	preVote := p.Message
+	if !(preVote.Type() == msgPrevote && preVote.Value() != nilValue) {
+		return false
+	}
+
+	if len(p.Evidence) <= 1 {
+		return false
+	}
+
+	proposal := p.Evidence[0]
+	if proposal.Type() != msgProposal || proposal.Value() != preVote.Value() ||
+		proposal.R() != preVote.R() || proposal.ValidRound() == -1 {
+		return false
+	}
+
+	// check quorum prevotes at valid round.
+	vr := proposal.ValidRound()
+	height := preVote.H()
+	quorum := bft.Quorum(c.chain.GetHeaderByNumber(height - 1).TotalVotingPower())
+
+	// check prevotes for V at the valid round.
+	for i := 1; i < len(p.Evidence); i++ {
+		if !(p.Evidence[i].Type() == msgPrevote && p.Evidence[i].Value() == proposal.Value() &&
+			p.Evidence[i].R() == vr) {
+			return false
+		}
+	}
+
+	// check no redundant vote msg in evidence in case of hacking.
+	if haveRedundantVotes(p.Evidence[1:]) {
+		return false
+	}
+
+	if powerOfVotes(p.Evidence[1:]) < quorum {
+		return false
+	}
+	return true
 }
 
 // check if the Proof of innocent of C is valid.
