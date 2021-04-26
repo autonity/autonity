@@ -76,6 +76,7 @@ var (
 
 	errNoEvidenceForPO  = errors.New("no evidence for innocence of rule PO")
 	errNoEvidenceForPVN = errors.New("no evidence for innocence of rule PVN")
+	errNoEvidenceForPVO = errors.New("no evidence for innocence of rule PVO")
 	errNoEvidenceForC   = errors.New("no evidence for innocence of rule C")
 	errNoEvidenceForC1  = errors.New("no evidence for innocence of rule C1")
 
@@ -326,6 +327,8 @@ func (fd *FaultDetector) getInnocentProof(c *Proof) (*autonity.OnChainProof, err
 		return fd.getInnocentProofOfPO(c)
 	case PVN:
 		return fd.getInnocentProofOfPVN(c)
+	case PVO:
+		return fd.getInnocentProofOfPVO(c)
 	case C:
 		return fd.getInnocentProofOfC(c)
 	case C1:
@@ -356,10 +359,7 @@ func (fd *FaultDetector) getInnocentProofOfC(c *Proof) (*autonity.OnChainProof, 
 		Message:  preCommit,
 		Evidence: proposals,
 	})
-	if err != nil {
-		return p, err
-	}
-	return p, nil
+	return p, err
 }
 
 // get Proof of innocent of C1 from msg store.
@@ -385,11 +385,7 @@ func (fd *FaultDetector) getInnocentProofOfC1(c *Proof) (*autonity.OnChainProof,
 		Message:  preCommit,
 		Evidence: prevotesForV,
 	})
-	if err != nil {
-		return p, err
-	}
-
-	return p, nil
+	return p, err
 }
 
 // get Proof of innocent of PO from msg store.
@@ -418,11 +414,7 @@ func (fd *FaultDetector) getInnocentProofOfPO(c *Proof) (*autonity.OnChainProof,
 		Message:  proposal,
 		Evidence: prevotes,
 	})
-	if err != nil {
-		return p, err
-	}
-
-	return p, nil
+	return p, err
 }
 
 // get Proof of innocent of PVN from msg store.
@@ -438,7 +430,7 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof
 	})
 
 	if len(correspondingProposals) == 0 {
-		// cannot onChainProof its innocent for PVN, the on-chain contract will fine it latter once the
+		// cannot provide onChainProof for innocent of PVN, the on-chain contract will fine it latter once the
 		// time window for onChainProof ends.
 		return onChainProof, errNoEvidenceForPVN
 	}
@@ -449,11 +441,40 @@ func (fd *FaultDetector) getInnocentProofOfPVN(c *Proof) (*autonity.OnChainProof
 		Message:  prevote,
 		Evidence: correspondingProposals,
 	})
-	if err != nil {
-		return p, nil
+
+	return p, err
+}
+
+// get Proof of innocent of PVO from msg store, it collects quorum preVotes for the value voted at a valid round.
+func (fd *FaultDetector) getInnocentProofOfPVO(c *Proof) (*autonity.OnChainProof, error) {
+	// get innocent proofs for PVO, collect quorum preVotes at the valid round of the old proposal.
+	var onChainProof *autonity.OnChainProof
+	oldProposal := c.Evidence[0]
+	height := oldProposal.H()
+	validRound := oldProposal.ValidRound()
+	quorum := bft.Quorum(fd.blockchain.GetHeaderByNumber(height - 1).TotalVotingPower())
+
+	preVotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+		return m.Type() == msgPrevote && m.Value() == oldProposal.Value() && m.R() == validRound
+	})
+
+	if len(preVotes) == 0 {
+		// cannot provide on-chain proof for accusation of PVO.
+		return onChainProof, errNoEvidenceForPVO
 	}
 
-	return p, nil
+	votes := deEquivocatedMsgs(preVotes)
+	if powerOfVotes(votes) < quorum {
+		return onChainProof, errNoEvidenceForPVO
+	}
+
+	p, err := fd.generateOnChainProof(&Proof{
+		Type:     autonity.Innocence,
+		Rule:     c.Rule,
+		Message:  c.Message,
+		Evidence: append(c.Evidence, votes...),
+	})
+	return p, err
 }
 
 // get accusations from chain via autonityContract calls, and provide innocent proofs if there were any challenge on node.

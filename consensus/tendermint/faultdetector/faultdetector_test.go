@@ -470,6 +470,58 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, errNoEvidenceForPVN, err)
 	})
 
+	t.Run("getInnocentProofofPVO have no quorum preVotes", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+
+		var p Proof
+		p.Rule = PVO
+		oldProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, oldProposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, oldProposal)
+
+		_, err := fd.getInnocentProofOfPVO(&p)
+		assert.Equal(t, err, errNoEvidenceForPVO)
+	})
+
+	t.Run("getInnocentProofofPVO have quorum preVotes", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		var p Proof
+		p.Rule = PVO
+		validRound := int64(0)
+		oldProposal := newProposalMessage(height, 1, validRound, proposerKey, committee, nil)
+		preVote := newVoteMsg(height, 1, msgPrevote, proposerKey, oldProposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, oldProposal)
+
+		// prepare quorum preVotes at msg store.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, validRound, msgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
+			_, err := fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		onChainProof, err := fd.getInnocentProofOfPVO(&p)
+		assert.NoError(t, err)
+		assert.Equal(t, autonity.Innocence, onChainProof.Type)
+		assert.Equal(t, proposer, onChainProof.Sender)
+		assert.Equal(t, preVote.MsgHash(), onChainProof.Msghash)
+	})
+
 	t.Run("getInnocentProofOfC have corresponding proposal", func(t *testing.T) {
 
 		// C: node preCommit at a none nil value, there must be a corresponding proposal.
