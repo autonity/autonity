@@ -796,6 +796,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				totalPiPrecommits := len(preCommitsForV) + len(preCommitsForNV) + len(preCommitsForNil)
 
 				// pi precommitted for a value after valid round, and we have all the preCommits presented from valid round.
+				// todo: think about this condition is necessary or not, we don't need to check totalPiPreCommits >= the round range.
 				if totalPiPrecommits >= int(currentR-validRound) {
 					if totalPiPrecommits > int(currentR-validRound) {
 						// Todo: There are equivocated messages in the message store, thus we need to pick one message per round before proceeding

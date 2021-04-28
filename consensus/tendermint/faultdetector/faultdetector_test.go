@@ -1043,7 +1043,60 @@ func TestRuleEngine(t *testing.T) {
 
 	t.Run("RunRule to address misbehaviour of rule PVO2, node did precommited at a value of not v between valid "+
 		"round and current round", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		quorum := bft.Quorum(totalPower)
+		maliciousNode := keys[committee[1].Address]
 
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a proposal at r: 3, and vr: 0, with v.
+		oldProposal := newProposalMessage(height, 3, 0, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(oldProposal)
+		assert.NoError(t, err)
+
+		// simulate quorum prevotes for v at vr.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		// simulate a precommit at r: 0 with value not v.
+		pcValidRound := newVoteMsg(height, 0, msgPrecommit, maliciousNode, noneNilValue, committee)
+		_, err = fd.msgStore.Save(pcValidRound)
+		assert.NoError(t, err)
+
+		// simulate a precommit at r: 1 with value not v.
+		preCommitForV := newVoteMsg(height, 1, msgPrecommit, maliciousNode, noneNilValue, committee)
+		_, err = fd.msgStore.Save(preCommitForV)
+		assert.NoError(t, err)
+
+		// simulate a precommit at r: 2 with value not v.
+		preCommitForNotV := newVoteMsg(height, 2, msgPrecommit, maliciousNode, noneNilValue, committee)
+		_, err = fd.msgStore.Save(preCommitForNotV)
+		assert.NoError(t, err)
+
+		// simulate a preVote at r: 3 for value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, maliciousNode, oldProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preVote)
+		assert.NoError(t, err)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		presentPVO1 := false
+		for _, p := range onChainProofs {
+			if p.Type == autonity.Misbehaviour && p.Rule == PVO2 {
+				presentPVO1 = true
+				assert.Equal(t, msgPrevote, p.Message.Type())
+				assert.Equal(t, preVote.Signature, p.Message.Signature)
+			}
+		}
+		assert.Equal(t, true, presentPVO1)
 	})
 
 	t.Run("RunRule address Accusation of rule C, no corresponding proposal for a preCommit msg", func(t *testing.T) {
