@@ -226,6 +226,10 @@ func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 		return c.validMisbehaviourOfPO(p)
 	case PVN:
 		return c.validMisbehaviourOfPVN(p)
+	case PVO1:
+		return c.validMisbehaviourOfPVO1(p)
+	case PVO2:
+		return c.validMisbehaviourOfPVO2(p)
 	case C:
 		return c.validMisbehaviourOfC(p)
 	case GarbageMessage:
@@ -310,6 +314,109 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 		return true
 	}
 
+	return false
+}
+
+// check if the Proof of challenge of PVO1 is valid.
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVO1(p *Proof) bool {
+	if len(p.Evidence) <= 1 {
+		return false
+	}
+	prevote := p.Message
+	if prevote.Type() != msgPrevote || prevote.Value() == nilValue {
+		return false
+	}
+
+	// check if the corresponding proposal of preVote.
+	correspondingProposal := p.Evidence[0]
+	if correspondingProposal.H() != prevote.H() || correspondingProposal.R() != prevote.R() ||
+		correspondingProposal.Value() != prevote.Value() || correspondingProposal.ValidRound() == -1 {
+		return false
+	}
+
+	currentRound := correspondingProposal.R()
+	validRound := correspondingProposal.ValidRound()
+	allPreCommits := p.Evidence[1:]
+	// check if there are any msg out of range [validRound, currentRound)
+	for _, pc := range allPreCommits {
+		if pc.R() < validRound || pc.R() >= currentRound {
+			return false
+		}
+	}
+
+	if len(allPreCommits) < int(currentRound-validRound) {
+		return false
+	}
+
+	// check if pi precommit for notV after it precommit V during the round range: [validRound, currentRound)
+	lastRoundForV := int64(-1)
+	lastRoundForNotV := int64(-1)
+	for _, pc := range allPreCommits {
+		if pc.Value() == prevote.Value() && pc.R() > lastRoundForV {
+			lastRoundForV = pc.R()
+		}
+
+		if pc.Value() != prevote.Value() && pc.Value() != nilValue && pc.R() > lastRoundForNotV {
+			lastRoundForNotV = pc.R()
+		}
+	}
+
+	// this is a valid proof of misbehaviour of PVO1.
+	if lastRoundForNotV > lastRoundForV {
+		return true
+	}
+
+	return false
+}
+
+// check if the Proof of challenge of PVO2 is valid.
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVO2(p *Proof) bool {
+	if len(p.Evidence) <= 1 {
+		return false
+	}
+	prevote := p.Message
+	if prevote.Type() != msgPrevote || prevote.Value() == nilValue {
+		return false
+	}
+
+	// check if the corresponding proposal of preVote.
+	correspondingProposal := p.Evidence[0]
+	if correspondingProposal.H() != prevote.H() || correspondingProposal.R() != prevote.R() ||
+		correspondingProposal.Value() != prevote.Value() || correspondingProposal.ValidRound() == -1 {
+		return false
+	}
+
+	currentRound := correspondingProposal.R()
+	validRound := correspondingProposal.ValidRound()
+	allPreCommits := p.Evidence[1:]
+	// check if there are any msg out of range [validRound, currentRound)
+	for _, pc := range allPreCommits {
+		if pc.R() < validRound || pc.R() >= currentRound {
+			return false
+		}
+	}
+
+	if len(allPreCommits) < int(currentRound-validRound) {
+		return false
+	}
+
+	// check if pi precommit for notV after it precommit V during the round range: [validRound, currentRound)
+	lastRoundForNotV := int64(-1)
+	for _, pc := range allPreCommits {
+		// there shouldn't be any precommit for V.
+		if pc.Value() == prevote.Value() {
+			return false
+		}
+
+		if pc.Value() != prevote.Value() && pc.Value() != nilValue && pc.R() > lastRoundForNotV {
+			lastRoundForNotV = pc.R()
+		}
+	}
+
+	// this is a valid proof of misbehaviour of PVO1.
+	if lastRoundForNotV > int64(-1) {
+		return true
+	}
 	return false
 }
 

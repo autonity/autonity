@@ -766,16 +766,18 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				}
 
 				preCommitsForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					return m.Type() == msgPrecommit && m.Value() == prevote.Value() && m.R() >= validRound
+					return m.Type() == msgPrecommit && m.Value() == prevote.Value() && m.R() >= validRound &&
+						m.R() < currentR
 				})
 
 				preCommitsForNV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 					return m.Type() == msgPrecommit && m.Value() != prevote.Value() && m.Value() != nilValue &&
-						m.R() >= validRound
+						m.R() >= validRound && m.R() < currentR
 				})
 
 				preCommitsForNil := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					return m.Type() == msgPrecommit && m.Value() == nilValue && m.R() >= validRound
+					return m.Type() == msgPrecommit && m.Value() == nilValue && m.R() >= validRound &&
+						m.R() < currentR
 				})
 
 				if len(preCommitsForV) > 0 {
@@ -815,6 +817,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 								Rule:    PVO1,
 								Message: prevote,
 							}
+							proof.Evidence = append(proof.Evidence, correspondingProposal)
 							proof.Evidence = append(proof.Evidence, preCommitsForV...)
 							proof.Evidence = append(proof.Evidence, preCommitsForNil...)
 							proof.Evidence = append(proof.Evidence, preCommitsForNV...)
@@ -831,7 +834,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 							Rule:    PVO2,
 							Message: prevote,
 						}
-						proof.Evidence = append(proof.Evidence, preCommitsForV...)
+						proof.Evidence = append(proof.Evidence, correspondingProposal)
 						proof.Evidence = append(proof.Evidence, preCommitsForNil...)
 						proof.Evidence = append(proof.Evidence, preCommitsForNV...)
 						proofs = append(proofs, proof)
@@ -936,8 +939,6 @@ func (fd *FaultDetector) submitMisbehavior(m *tendermintCore.Message, evidence [
 	// submit misbehavior proof to buffer, it will be sent once aggregated.
 	submitCh <- proof
 }
-
-/////// common helper functions shared between faultdetector and precompiled contract to validate msgs.
 
 // decode consensus msgs, address garbage msg and invalid proposal by returning error.
 func checkAutoIncriminatingMsg(chain BlockChainContext, m *tendermintCore.Message) error {
@@ -1189,20 +1190,4 @@ func verifyProposal(chain BlockChainContext, proposal types.Block) error {
 		return nil
 	}
 	return err
-}
-
-// loop the preCommits msg array, and get the latest round of preCommit msg.
-func latestPreCommit(preCommits []*tendermintCore.Message) *tendermintCore.Message {
-	if len(preCommits) == 1 {
-		return preCommits[0]
-	}
-
-	latest := preCommits[0]
-	for _, pc := range preCommits {
-		if pc.R() > latest.R() {
-			latest = pc
-		}
-	}
-
-	return latest
 }
