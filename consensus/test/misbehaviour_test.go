@@ -84,6 +84,56 @@ func TestMaliciousBehaviourPVN(t *testing.T) {
 	})
 }
 
+func TestMaliciousBehaviourPVO1(t *testing.T) {
+	genesisHookPVO1 := func(g *core.Genesis) *core.Genesis {
+		var c config.MisbehaviourConfig
+		c.MisbehaviourRuleID = new(uint8)
+		*c.MisbehaviourRuleID = uint8(faultdetector.PVO1)
+		g.Config.Tendermint.BlockPeriod = 1
+		g.Config.Tendermint.MisbehaviourConfig = &c
+		return g
+	}
+	RulePVO1Checker := func(t *testing.T, validators map[string]*testNode) {
+		requireOnChainProof(t, faultdetector.PVO1, autonity.Misbehaviour, validators["VA"])
+	}
+
+	tc := testCase{
+		name:          "TestFaultDetectorMaliciousBehaviourPVO1",
+		numValidators: 6,
+		numBlocks:     60,
+		genesisHook:   genesisHookPVO1,
+		finalAssert:   RulePVO1Checker,
+	}
+	t.Run(fmt.Sprintf("test case %s", tc.name), func(t *testing.T) {
+		runTest(t, &tc)
+	})
+}
+
+func TestMaliciousBehaviourPVO2(t *testing.T) {
+	genesisHookPVO2 := func(g *core.Genesis) *core.Genesis {
+		var c config.MisbehaviourConfig
+		c.MisbehaviourRuleID = new(uint8)
+		*c.MisbehaviourRuleID = uint8(faultdetector.PVO2)
+		g.Config.Tendermint.BlockPeriod = 1
+		g.Config.Tendermint.MisbehaviourConfig = &c
+		return g
+	}
+	RulePVO2Checker := func(t *testing.T, validators map[string]*testNode) {
+		requireOnChainProof(t, faultdetector.PVO2, autonity.Misbehaviour, validators["VA"])
+	}
+
+	tc := testCase{
+		name:          "TestFaultDetectorMaliciousBehaviourPVO2",
+		numValidators: 6,
+		numBlocks:     60,
+		genesisHook:   genesisHookPVO2,
+		finalAssert:   RulePVO2Checker,
+	}
+	t.Run(fmt.Sprintf("test case %s", tc.name), func(t *testing.T) {
+		runTest(t, &tc)
+	})
+}
+
 func TestMaliciousBehaviourC(t *testing.T) {
 	genesisHookC := func(g *core.Genesis) *core.Genesis {
 		var c config.MisbehaviourConfig
@@ -228,6 +278,31 @@ func TestAccusationRulePVN(t *testing.T) {
 		numBlocks:     60,
 		genesisHook:   genesisHookAccusationPVN,
 		finalAssert:   RuleAccusationPVNChecker,
+	}
+	t.Run(fmt.Sprintf("test case %s", tc.name), func(t *testing.T) {
+		runTest(t, &tc)
+	})
+}
+
+func TestAccusationRulePVO(t *testing.T) {
+	genesisHookAccusationPVO := func(g *core.Genesis) *core.Genesis {
+		var c config.MisbehaviourConfig
+		c.AccusationRuleID = new(uint8)
+		*c.AccusationRuleID = uint8(faultdetector.PVO)
+		g.Config.Tendermint.BlockPeriod = 1
+		g.Config.Tendermint.MisbehaviourConfig = &c
+		return g
+	}
+	RuleAccusationPVOChecker := func(t *testing.T, validators map[string]*testNode) {
+		requireOnChainProof(t, faultdetector.PVO, autonity.Accusation, validators["VA"])
+	}
+
+	tc := testCase{
+		name:          "TestFaultDetectorAccusationPVO",
+		numValidators: 6,
+		numBlocks:     60,
+		genesisHook:   genesisHookAccusationPVO,
+		finalAssert:   RuleAccusationPVOChecker,
 	}
 	t.Run(fmt.Sprintf("test case %s", tc.name), func(t *testing.T) {
 		runTest(t, &tc)

@@ -153,6 +153,137 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		return append(msgs, mE, mP, mPVN)
 	}
 
+	// simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
+	// create a proposal: (h, r:3, vr: 0, with v.)
+	// preCommit (h, r:0, v)
+	// proCommit (h, r:1, v)
+	// preCommit (h, r:2, not v)
+	// preVote   (h, r:3, v)
+	maliciousContextPVO1 := func() [][]byte {
+		// find a next proposing round.
+		nPR, err := nextProposeRound(innocentMsg.R())
+		if err != nil {
+			return nil
+		}
+
+		// set a valid round.
+		currentRound := nPR
+		validRound := nPR - 2
+		if validRound < 0 {
+			nPR, err = nextProposeRound(nPR)
+			if err != nil {
+				return nil
+			}
+			currentRound = nPR
+			validRound = nPR - 2
+		}
+
+		// simulate a proposal at round: nPR, and with a valid round: nPR-2
+		var p Proposal
+		err = innocentMsg.Decode(&p)
+		if err != nil {
+			return nil
+		}
+
+		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, validRound)
+		mP, err := c.finalizeMessage(msgProposal)
+		if err != nil {
+			return nil
+		}
+
+		msgs = append(msgs, mP)
+
+		// simulate preCommits at each round between [validRound, current)
+		var messages [][]byte
+		for i:= validRound; i < currentRound; i++ {
+			if i == currentRound - 1 {
+				msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, nonNilValue)
+				mPC, err := c.finalizeMessage(msgPC)
+				if err != nil {
+					return nil
+				}
+				messages = append(messages, mPC)
+			} else {
+				msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, p.GetValue())
+				mPC, err := c.finalizeMessage(msgPC)
+				if err != nil {
+					return nil
+				}
+				messages = append(messages, mPC)
+			}
+		}
+
+		// simulate a preVote at round 3, for value v, this preVote for new value break PVO1.
+		msgPVO1 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
+		mPVO1, err := c.finalizeMessage(msgPVO1)
+		if err != nil {
+			return nil
+		}
+
+		return append(append(msgs, messages...), mPVO1)
+	}
+
+	// simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
+	// create a proposal: (h, r:3, vr: 0, with v.)
+	// preCommit (h, r:0, not v)
+	// proCommit (h, r:1, not v)
+	// preCommit (h, r:2, not v)
+	// preVote   (h, r:3, v)
+	maliciousContextPVO2 := func() [][]byte {
+		// find a next proposing round.
+		nPR, err := nextProposeRound(innocentMsg.R())
+		if err != nil {
+			return nil
+		}
+
+		// set a valid round.
+		currentRound := nPR
+		validRound := nPR - 2
+		if validRound < 0 {
+			nPR, err = nextProposeRound(nPR)
+			if err != nil {
+				return nil
+			}
+			currentRound = nPR
+			validRound = nPR - 2
+		}
+
+		// simulate a proposal at round: nPR, and with a valid round: nPR-2
+		var p Proposal
+		err = innocentMsg.Decode(&p)
+		if err != nil {
+			return nil
+		}
+
+		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, validRound)
+		mP, err := c.finalizeMessage(msgProposal)
+		if err != nil {
+			return nil
+		}
+
+		msgs = append(msgs, mP)
+
+		// simulate preCommits of not V at each round between [validRound, current)
+		var messages [][]byte
+		for i:= validRound; i < currentRound; i++ {
+			msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, nonNilValue)
+			mPC, err := c.finalizeMessage(msgPC)
+			if err != nil {
+				return nil
+			}
+			messages = append(messages, mPC)
+		}
+
+		// simulate a preVote at round 3, for value v, this preVote for new value break PVO2.
+		msgPVO2 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
+		mPVO2, err := c.finalizeMessage(msgPVO2)
+		if err != nil {
+			return nil
+		}
+
+		return append(append(msgs, messages...), mPVO2)
+	}
+
 	// simulate a context of msgs that node preCommit at a value V of the round where exist quorum preVotes
 	// for not V, in this case, we simulate quorum prevotes for not V, to trigger the fault of breaking of C.
 	maliciousContextC := func() [][]byte {
@@ -238,6 +369,47 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		return append(msgs, m)
 	}
 
+	// simulate an accusation context that an old proposal have less quorum preVotes for the value at the valid round.
+	accusationContextPVO := func() [][]byte {
+		// find a next proposing round.
+		nPR, err := nextProposeRound(innocentMsg.R())
+		if err != nil {
+			return nil
+		}
+
+		// set a valid round.
+		validRound := nPR - 2
+		if validRound < 0 {
+			nPR, err = nextProposeRound(nPR)
+			if err != nil {
+				return nil
+			}
+			validRound = nPR - 2
+		}
+
+		// simulate a proposal at round: nPR, and with a valid round: nPR-2
+		var p Proposal
+		err = innocentMsg.Decode(&p)
+		if err != nil {
+			return nil
+		}
+
+		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, validRound)
+		mP, err := c.finalizeMessage(msgProposal)
+		if err != nil {
+			return nil
+		}
+
+		// simulate a preVote at round 3, for value v, this preVote for new value break PVO1.
+		msgPVO1 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
+		mPVO1, err := c.finalizeMessage(msgPVO1)
+		if err != nil {
+			return nil
+		}
+
+		return append(msgs, mP, mPVO1)
+	}
+
 	// simulate an accusation context that node preCommit for a value that the corresponding proposal is missing.
 	accusationContextC := func() [][]byte {
 		preCommit := msgVote(msgPrecommit, innocentMsg.H(), innocentMsg.R(), nonNilValue)
@@ -305,6 +477,14 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			return maliciousContextPVN()
 		}
 
+		if r == PVO1 && innocentMsg.Code == msgProposal {
+			return maliciousContextPVO1()
+		}
+
+		if r == PVO2 && innocentMsg.Code == msgProposal {
+			return maliciousContextPVO2()
+		}
+
 		if r == C && innocentMsg.Code == msgPrecommit {
 			return maliciousContextC()
 		}
@@ -330,6 +510,10 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 		if r == PVN && innocentMsg.Code == msgPrevote {
 			return accusationContextPVN()
+		}
+
+		if r == PVO && innocentMsg.Code == msgProposal {
+			return accusationContextPVO()
 		}
 
 		if r == C && innocentMsg.Code == msgPrecommit {
