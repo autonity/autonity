@@ -1,6 +1,7 @@
 package faultdetector
 
 import (
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/params"
@@ -436,6 +437,217 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidence = append(p.Evidence, preCommit)
 
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO1 rule, with correct proof", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value v.
+		pcValidRound := newVoteMsg(height, 0, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 1, with value v.
+		pcForV := newVoteMsg(height, 1, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 2, with value not v.
+		pcForNotV := newVoteMsg(height, 2, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO1
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, correspondingProposal, pcValidRound, pcForV, pcForNotV)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO1 rule, with on evidence", func(t *testing.T) {
+		// a prevote at round 3, with value v.
+		var p Proof
+		p.Rule = PVO1
+		p.Type = autonity.Misbehaviour
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO1 rule, with wrong msg", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value v.
+		pcValidRound := newVoteMsg(height, 0, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 1, with value v.
+		pcForV := newVoteMsg(height, 1, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 2, with value not v.
+		pcForNotV := newVoteMsg(height, 2, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		var p Proof
+		p.Rule = PVO1
+		p.Type = autonity.Misbehaviour
+		p.Message = correspondingProposal
+		p.Evidence = append(p.Evidence, correspondingProposal, pcValidRound, pcForV, pcForNotV)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO1 rule, with in-corresponding proposal", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 2, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value v.
+		pcValidRound := newVoteMsg(height, 0, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 1, with value v.
+		pcForV := newVoteMsg(height, 1, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 2, with value not v.
+		pcForNotV := newVoteMsg(height, 2, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO1
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, correspondingProposal, pcValidRound, pcForV, pcForNotV)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO1 rule, with precommits out of round range", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value v.
+		pcValidRound := newVoteMsg(height, 0, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 1, with value v.
+		pcForV := newVoteMsg(height, 1, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+
+		// a precommit at round 4, with value not v.
+		pcForNotV := newVoteMsg(height, 4, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO1
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, correspondingProposal, pcValidRound, pcForV, pcForNotV)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO2 rule, with correct proof", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value not v.
+		pcVR := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 1, with value not v.
+		pcR1 := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 2, with value not v.
+		pcR2 := newVoteMsg(height, 2, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO2
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, correspondingProposal, pcVR, pcR1, pcR2)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO2 rule, with no evidence", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO2
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO2 rule, with wrong msg", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value not v.
+		pcVR := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 1, with value not v.
+		pcR1 := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 2, with value not v.
+		pcR2 := newVoteMsg(height, 2, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		var p Proof
+		p.Rule = PVO2
+		p.Type = autonity.Misbehaviour
+		// set proposal on challenge.
+		p.Message = correspondingProposal
+		p.Evidence = append(p.Evidence, correspondingProposal, pcVR, pcR1, pcR2)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO2 rule, with no corresponding proposal", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 4, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value not v.
+		pcVR := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 1, with value not v.
+		pcR1 := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 2, with value not v.
+		pcR2 := newVoteMsg(height, 2, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO2
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, correspondingProposal, pcVR, pcR1, pcR2)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO2 rule, with precommits out of round range", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value not v.
+		pcVR := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 1, with value not v.
+		pcR1 := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 4, with value not v.
+		pcR2 := newVoteMsg(height, 4, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO2
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, correspondingProposal, pcVR, pcR1, pcR2)
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO2 rule, with precommits of V", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		// a precommit at round 0, with value not v.
+		pcVR := newVoteMsg(height, 0, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
+		// a precommit at round 1, with value not v.
+		pcR1 := newVoteMsg(height, 1, msgPrecommit, proposerKey, noneNilValue, committee)
+		// a precommit at round 2, with value not v.
+		pcR2 := newVoteMsg(height, 2, msgPrecommit, proposerKey, noneNilValue, committee)
+
+		// a prevote at round 3, with value v.
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO2
+		p.Type = autonity.Misbehaviour
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, correspondingProposal, pcVR, pcR1, pcR2)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, false, ret)
