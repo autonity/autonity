@@ -444,8 +444,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	t.Run("Test validate misbehaviour proof of PVO1 rule, with correct proof", func(t *testing.T) {
 		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
-		// a precommit at round 0, with value v.
-		pcValidRound := newVoteMsg(height, 0, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
 		// a precommit at round 1, with value v.
 		pcForV := newVoteMsg(height, 1, msgPrecommit, proposerKey, correspondingProposal.Value(), committee)
 		// a precommit at round 2, with value not v.
@@ -457,7 +455,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = PVO1
 		p.Type = autonity.Misbehaviour
 		p.Message = preVote
-		p.Evidence = append(p.Evidence, correspondingProposal, pcValidRound, pcForV, pcForNotV)
+		p.Evidence = append(p.Evidence, correspondingProposal, pcForV, pcForNotV)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, true, ret)

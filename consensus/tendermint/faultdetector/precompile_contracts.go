@@ -327,31 +327,38 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO1(p *Proof) bool {
 		return false
 	}
 
-	// check if the corresponding proposal of preVote.
+	// check if the corresponding proposal of preVote is presented.
 	correspondingProposal := p.Evidence[0]
 	if correspondingProposal.H() != prevote.H() || correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() || correspondingProposal.ValidRound() == -1 {
 		return false
 	}
-
 	currentRound := correspondingProposal.R()
-	validRound := correspondingProposal.ValidRound()
-	allPreCommits := p.Evidence[1:]
-	// check if there are any msg out of range [validRound, currentRound)
-	for _, pc := range allPreCommits {
-		if pc.R() < validRound || pc.R() >= currentRound {
+	latestPrecommitForV := p.Evidence[1]
+	roundRange := currentRound - latestPrecommitForV.R()
+
+	// check if all the precommits are from same node at same height and at the correct range.
+	// and check if all the precommits of range [RoundLastPrecommitForV, currentRound) are presented.
+	presentedRounds := make(map[int64]struct{})
+	for _, m := range p.Evidence[1:] {
+		if m.Type() != msgPrecommit || m.Sender() != prevote.Sender() || m.H() != prevote.H() ||
+			m.R() < latestPrecommitForV.R() || m.R() >= currentRound {
 			return false
 		}
+		if _, ok := presentedRounds[m.R()]; ok {
+			continue
+		}
+		presentedRounds[m.R()] = struct{}{}
 	}
 
-	if len(allPreCommits) < int(currentRound-validRound) {
+	if len(presentedRounds) < int(roundRange) {
 		return false
 	}
 
-	// check if pi precommit for notV after it precommit V during the round range: [validRound, currentRound)
+	// check if pi precommit for notV after it precommit V during the round range: [RoundLastPrecommitForV, currentRound)
 	lastRoundForV := int64(-1)
 	lastRoundForNotV := int64(-1)
-	for _, pc := range allPreCommits {
+	for _, pc := range p.Evidence[1:] {
 		if pc.Value() == prevote.Value() && pc.R() > lastRoundForV {
 			lastRoundForV = pc.R()
 		}
@@ -389,18 +396,25 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO2(p *Proof) bool {
 	currentRound := correspondingProposal.R()
 	validRound := correspondingProposal.ValidRound()
 	allPreCommits := p.Evidence[1:]
-	// check if there are any msg out of range [validRound, currentRound)
+	// check if there are any msg out of range [validRound, currentRound), and with correct address, height and code.
+	// check if all precommits between range (validRound, currentRound) are presented.
+	presentedRounds := make(map[int64]struct{})
 	for _, pc := range allPreCommits {
-		if pc.R() < validRound || pc.R() >= currentRound {
+		if pc.R() < validRound || pc.R() >= currentRound || pc.Type() != msgPrecommit || pc.Sender() != prevote.Sender() ||
+			pc.H() != prevote.H() {
 			return false
 		}
+		if _, ok := presentedRounds[pc.R()]; ok {
+			continue
+		}
+		presentedRounds[pc.R()] = struct{}{}
 	}
 
-	if len(allPreCommits) < int(currentRound-validRound) {
+	if len(presentedRounds) < int(currentRound-validRound) {
 		return false
 	}
 
-	// check if pi precommit for notV after it precommit V during the round range: [validRound, currentRound)
+	// check if pi precommit for notV at the round range: [validRound, currentRound)
 	lastRoundForNotV := int64(-1)
 	for _, pc := range allPreCommits {
 		// there shouldn't be any precommit for V.

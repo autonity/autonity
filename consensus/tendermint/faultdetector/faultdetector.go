@@ -787,14 +787,14 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					latestPrecommitForV := preCommitsForV[len(preCommitsForV)-1]
 					vRound := latestPrecommitForV.R()
 					// current round must be greater than latestPrecommitRound
-					roundsRange := currentR - vRound
+					roundsRange := currentR - vRound // roundRange: (vRound, currentR), open interval between them.
 
 					preCommitsAfterLatestPrecommitForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 						return m.Type() == msgPrecommit && m.R() > vRound && m.R() < currentR
 					})
 
-					if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange) {
-						if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange) {
+					if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange-1) {
+						if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange-1) {
 							// Todo: There are equivocated messages in the message store, thus we need to pick one message per round before proceeding
 						}
 						for _, v := range preCommitsAfterLatestPrecommitForV {
@@ -839,7 +839,6 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 									Message: prevote,
 								}
 								proof.Evidence = append(proof.Evidence, correspondingProposal)
-								proof.Evidence = append(proof.Evidence, v)
 								proof.Evidence = append(proof.Evidence, precommitsFromPi...)
 								proofs = append(proofs, proof)
 							}
