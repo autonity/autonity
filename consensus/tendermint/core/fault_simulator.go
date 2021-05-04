@@ -44,7 +44,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		}
 	}
 
-	nextProposeRound := func(currentRound int64) (int64, error) {
+	nextProposeRound := func(currentRound int64) int64 {
 		r := currentRound + 1
 		for ; ; r++ {
 			p := c.committeeSet().GetProposer(r)
@@ -52,16 +52,13 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 				break
 			}
 		}
-		return r, nil
+		return r
 	}
 
 	// simulate a context of msgs that node propose a new proposal rather than the one it locked at previous round.
 	maliciousContextPN := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
+		nPR := nextProposeRound(innocentMsg.R())
 		// simulate a preCommit msg that locked a value at previous round than next proposing round.
 		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), nPR-1, nonNilValue)
 		mE, err := c.finalizeMessage(msgEvidence)
@@ -88,10 +85,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// locked on.
 	maliciousContextPO := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
+		nPR := nextProposeRound(innocentMsg.R())
 		vR := nPR - 1
 		// simulate a preCommit msg that locked a value at vR.
 		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), vR, nonNilValue)
@@ -121,10 +115,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// preVote   (h, r+1, v2)
 	maliciousContextPVN := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
+		nPR := nextProposeRound(innocentMsg.R())
 		r := nPR - 1
 		// simulate a preCommit at round r, for value v1.
 		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), r, nonNilValue)
@@ -161,26 +152,19 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// preVote   (h, r:3, v)
 	maliciousContextPVO1 := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
-
+		nPR := nextProposeRound(innocentMsg.R())
 		// set a valid round.
 		currentRound := nPR
 		validRound := nPR - 2
 		if validRound < 0 {
-			nPR, err = nextProposeRound(nPR)
-			if err != nil {
-				return nil
-			}
+			nPR = nextProposeRound(nPR)
 			currentRound = nPR
 			validRound = nPR - 2
 		}
 
 		// simulate a proposal at round: nPR, and with a valid round: nPR-2
 		var p Proposal
-		err = innocentMsg.Decode(&p)
+		err := innocentMsg.Decode(&p)
 		if err != nil {
 			return nil
 		}
@@ -231,26 +215,20 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// preVote   (h, r:3, v)
 	maliciousContextPVO2 := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
+		nPR := nextProposeRound(innocentMsg.R())
 
 		// set a valid round.
 		currentRound := nPR
 		validRound := nPR - 2
 		if validRound < 0 {
-			nPR, err = nextProposeRound(nPR)
-			if err != nil {
-				return nil
-			}
+			nPR = nextProposeRound(nPR)
 			currentRound = nPR
 			validRound = nPR - 2
 		}
 
 		// simulate a proposal at round: nPR, and with a valid round: nPR-2
 		var p Proposal
-		err = innocentMsg.Decode(&p)
+		err := innocentMsg.Decode(&p)
 		if err != nil {
 			return nil
 		}
@@ -339,14 +317,10 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// simulate an old proposal which refer to less quorum preVotes to trigger the accusation of rule PO
 	accusationContextPO := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
-
+		nPR := nextProposeRound(innocentMsg.R())
 		vR := nPR - 1
 		var p Proposal
-		err = innocentMsg.Decode(&p)
+		err := innocentMsg.Decode(&p)
 		if err != nil {
 			return nil
 		}
@@ -372,24 +346,17 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// simulate an accusation context that an old proposal have less quorum preVotes for the value at the valid round.
 	accusationContextPVO := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
-
+		nPR := nextProposeRound(innocentMsg.R())
 		// set a valid round.
 		validRound := nPR - 2
 		if validRound < 0 {
-			nPR, err = nextProposeRound(nPR)
-			if err != nil {
-				return nil
-			}
+			nPR = nextProposeRound(nPR)
 			validRound = nPR - 2
 		}
 
 		// simulate a proposal at round: nPR, and with a valid round: nPR-2
 		var p Proposal
-		err = innocentMsg.Decode(&p)
+		err := innocentMsg.Decode(&p)
 		if err != nil {
 			return nil
 		}
@@ -423,13 +390,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// simulate an accusation context that node preCommit for a value that have less quorum of preVote for the value.
 	accusationContextC1 := func() [][]byte {
 		// find a next proposing round.
-		nPR, err := nextProposeRound(innocentMsg.R())
-		if err != nil {
-			return nil
-		}
-
+		nPR := nextProposeRound(innocentMsg.R())
 		var p Proposal
-		err = innocentMsg.Decode(&p)
+		err := innocentMsg.Decode(&p)
 		if err != nil {
 			return nil
 		}
