@@ -879,10 +879,9 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// We must account here for the block period in case of Tendermint consensus.
 	// Another strategy would have been to sleep before submitting a new work request
 	// within the newWorkLoop's commit closure.
-	if w.chainConfig.Tendermint != nil {
-		if parent.Time()+w.chainConfig.Tendermint.BlockPeriod >= uint64(timestamp) {
-			timestamp = int64(parent.Time() + w.chainConfig.Tendermint.BlockPeriod)
-		}
+
+	if parent.Time()+1 >= uint64(timestamp) {
+		timestamp = int64(parent.Time() + 1) // todo: retrieve block period from contract
 	}
 
 	// this will ensure we're not going off too far in the future
@@ -936,36 +935,6 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	if w.chainConfig.DAOForkSupport && w.chainConfig.DAOForkBlock != nil && w.chainConfig.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(env.state)
 	}
-	// Accumulate the uncles for the current block
-	uncles := make([]*types.Header, 0, 2)
-	commitUncles := func(blocks map[common.Hash]*types.Block) {
-		// Clean up stale uncle blocks first
-		for hash, uncle := range blocks {
-			if uncle.NumberU64()+staleThreshold <= header.Number.Uint64() {
-				delete(blocks, hash)
-			}
-		}
-		for hash, uncle := range blocks {
-			if len(uncles) == 2 {
-				break
-			}
-			if err := w.commitUncle(env, uncle.Header()); err != nil {
-				log.Trace("Possible uncle rejected", "hash", hash, "reason", err)
-			} else {
-				log.Debug("Committing new uncle to block", "hash", hash)
-				uncles = append(uncles, uncle.Header())
-			}
-		}
-	}
-	// Prefer to locally generated uncle
-	commitUncles(w.localUncles)
-	commitUncles(w.remoteUncles)
-
-	if !noempty && w.chainConfig.Tendermint == nil && atomic.LoadUint32(&w.noempty) == 0 {
-		// Create an empty block based on temporary copied state for sealing in advance without waiting block
-		// execution finished.
-		w.commit(uncles, nil, false, tstart)
-	}
 
 	// Fill the block with all available pending transactions.
 	pending, err := w.eth.TxPool().Pending()
@@ -973,11 +942,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return
 	}
-	// Short circuit if there is no available pending transactions
-	if len(pending) == 0 && w.chainConfig.Tendermint == nil && atomic.LoadUint32(&w.noempty) == 0 {
-		w.updateSnapshot()
-		return
-	}
+
 	// Split the pending transactions into locals and remotes
 	localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
 	for _, account := range w.eth.TxPool().Locals() {
@@ -998,7 +963,8 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 			return
 		}
 	}
-	w.commit(uncles, w.fullTaskHook, true, tstart)
+
+	w.commit(make([]*types.Header, 0), w.fullTaskHook, true, tstart)
 }
 
 // commit runs any post-transaction state modifications, assembles the final block

@@ -3,6 +3,7 @@ package params
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/clearmatics/autonity/crypto"
@@ -13,44 +14,21 @@ import (
 	"github.com/clearmatics/autonity/p2p/enode"
 )
 
-const (
-	//participant: Authorized to operate a full node, is able to join the network, is not authorized to own stake.
-	UserParticipant = "participant"
-	//member: Authorized to operate a full node, is able to join the network, authorized to own stake.
-	UserStakeHolder = "stakeholder"
-	//validator: Authorized to operate a full node, is able to join the network, authorized to own stake, participate in consensus.
-	UserValidator = "validator"
-)
-
-var userTypeID = map[UserType]int{
-	UserParticipant: 0,
-	UserStakeHolder: 1,
-	UserValidator:   2,
-}
-
-type UserType string
-
-func (ut UserType) IsValid() bool {
-	if ut == UserStakeHolder || ut == UserValidator || ut == UserParticipant {
-		return true
-	}
-	return false
-}
-
-func (ut UserType) GetID() int {
-	return userTypeID[ut]
-}
-
 // Autonity contract config. It'is used for deployment.
 type AutonityContractGenesis struct {
 	// Bytecode of validators contract
 	// would like this type to be []byte but the unmarshalling is not working
 	Bytecode string `json:"bytecode,omitempty" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI         string         `json:"abi,omitempty" toml:",omitempty"`
-	MinGasPrice uint64         `json:"minGasPrice" toml:",omitempty"`
-	Operator    common.Address `json:"operator" toml:",omitempty"`
-	Users       []User         `json:"users" toml:",omitempty"`
+	ABI             string         `json:"abi,omitempty" toml:",omitempty"`
+	MinGasPrice     uint64         `json:"minGasPrice"`
+	EpochPeriod     uint64         `json:"epochPeriod"`
+	UnbondingPeriod uint64         `json:"unbondingPeriod"`
+	BlockPeriod     uint64         `json:"blockPeriod"`
+	Operator        common.Address `json:"operator"`
+	Treasury        common.Address `json:"treasury"`
+	TreasuryFee     uint64         `json:"treasuryFee"`
+	Validators      []*Validator   `json:"validators"`
 }
 
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.
@@ -63,46 +41,44 @@ func (ac *AutonityContractGenesis) Prepare() error {
 	}
 
 	if len(ac.Bytecode) == 0 && len(ac.ABI) == 0 {
-		log.Info("Default Validator smart contract set")
+		log.Info("Network economics: Autonity Delegated Proof-of-Stake protocol")
 		ac.ABI = acdefault.ABI()
 		ac.Bytecode = acdefault.Bytecode()
 	} else {
-		log.Info("User specified Validator smart contract set")
+		log.Info("Network economics: Custom protocol contract")
 	}
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
 		ac.Operator = acdefault.Governance()
 	}
-
-	for i := range ac.Users {
-		if ac.Users[i].Address == nil {
-			addr, err := ac.Users[i].getAddressFromEnode()
-			if err != nil {
-				return fmt.Errorf("error parsing enode %q, err: %v", ac.Users[i].Enode, err)
-			}
-			ac.Users[i].Address = &addr
-			err = ac.Users[i].Validate()
-			if err != nil {
-				return err
-			}
-		}
+	if len(ac.GetValidators()) == 0 {
+		return errors.New("no initial validators")
 	}
 
-	if len(ac.GetValidatorUsers()) == 0 {
-		return errors.New("validators list is empty")
+	for i, v := range ac.Validators {
+		if err := v.Validate(); err != nil {
+			return fmt.Errorf("error parsing validator %d, err: %v", i+1, err)
+		}
 	}
 	return nil
 }
 
 //User - is used to put predefined accounts to genesis
-type User struct {
-	Address *common.Address `json:"address,omitempty"`
-	Enode   string          `json:"enode"`
-	Type    UserType        `json:"type"`
-	Stake   uint64          `json:"stake"`
+type Validator struct {
+	Treasury          *common.Address `abi:"treasury"`
+	Address           *common.Address `abi:"addr"`
+	Enode             string          `abi:"enode"`
+	CommissionRate    *big.Int        `abi:"commissionRate"`
+	BondedStake       *big.Int        `abi:"bondedStake"`
+	TotalSlashed      *big.Int        `abi:"totalSlashed"`
+	LiquidContract    *common.Address `abi:"liquidContract"`
+	LiquidSupply      *big.Int        `abi:"liquidSupply"`
+	Extra             *string         `abi:"extra"`
+	RegistrationBlock *big.Int        `abi:"registrationBlock"`
+	State             *uint8          `abi:"state"`
 }
 
 // getAddressFromEnode gets the account address from the user enode.
-func (u *User) getAddressFromEnode() (common.Address, error) {
+func (u *Validator) getAddressFromEnode() (common.Address, error) {
 	n, err := enode.ParseV4(u.Enode)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to parse enode %q, error:%v", u.Enode, err)
@@ -110,51 +86,54 @@ func (u *User) getAddressFromEnode() (common.Address, error) {
 	return crypto.PubkeyToAddress(*n.Pubkey()), nil
 }
 
-func (u *User) Validate() error {
-	switch {
-	case !u.Type.IsValid():
-		return errors.New("incorrect user type")
-
-	case u.Type == UserParticipant && u.Stake > 0:
-		return errors.New("user.stake must be nil or equal to 0 for users of type participant")
-
-	case u.Type == UserValidator && len(u.Enode) == 0:
-		return errors.New("if user.type is validator then user.enode must be defined")
-
-	case u.Address == nil && len(u.Enode) == 0:
-		return errors.New("user.enode or user.address must be defined")
-
-	case len(u.Enode) > 0:
-		a, err := u.getAddressFromEnode()
-		if err != nil {
-			return err
-		}
-		// If address is set check it matches the address from the enode
-		if u.Address != nil && *u.Address != a {
-			return fmt.Errorf("mismatching address %q and address from enode %q", u.Address.String(), a.String())
-		}
+func (u *Validator) Validate() error {
+	if len(u.Enode) == 0 {
+		return errors.New("enode must be specified")
+	}
+	if u.Treasury == nil {
+		return errors.New("treasury account must be specified")
+	}
+	if u.BondedStake == nil || u.BondedStake.Cmp(new(big.Int)) == 0 {
+		return errors.New("bonded stake must be specified")
+	}
+	a, err := u.getAddressFromEnode()
+	if err != nil {
+		return err
+	}
+	// If address is set check it matches the address from the enode
+	if u.Address != nil && *u.Address != a {
+		return fmt.Errorf("mismatching address %q and address from enode %q", u.Address.String(), a.String())
+	}
+	u.Address = &a
+	if u.TotalSlashed == nil {
+		u.TotalSlashed = new(big.Int)
+	}
+	if u.LiquidSupply == nil {
+		u.LiquidSupply = new(big.Int)
+	}
+	if u.Extra == nil {
+		u.Extra = new(string)
+	}
+	if u.RegistrationBlock == nil {
+		u.RegistrationBlock = new(big.Int)
+	}
+	if u.LiquidContract == nil {
+		u.LiquidContract = new(common.Address)
+	}
+	if u.State == nil {
+		u.State = new(uint8)
 	}
 	return nil
 }
 
-//GetValidatorUsers - returns list of validators
-func (ac *AutonityContractGenesis) GetValidatorUsers() []User {
-	var users []User
-	for i := range ac.Users {
-		if ac.Users[i].Type == UserValidator {
-			users = append(users, ac.Users[i])
-		}
-	}
-	return users
+func (ac *AutonityContractGenesis) GetValidators() []*Validator {
+	return ac.Validators
 }
 
-//GetStakeHolderUsers - returns list of stakeholders
-func (ac *AutonityContractGenesis) GetStakeHolderUsers() []User {
-	var users []User
-	for i := range ac.Users {
-		if ac.Users[i].Type == UserStakeHolder { //TODO: Validators are also stakeholders -> Fix this!
-			users = append(users, ac.Users[i])
-		}
+func (ac *AutonityContractGenesis) GetValidatorsCopy() []Validator {
+	validators := make([]Validator, len(ac.Validators))
+	for i := range ac.Validators {
+		validators[i] = *ac.Validators[i]
 	}
-	return users
+	return validators
 }

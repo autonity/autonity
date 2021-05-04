@@ -384,7 +384,7 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 
 // UpdateWhitelist updates the whitelist using static peers logic
 // This function can be heavily optimized if needed
-func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
+func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 
 	// Check for peers that needs to be disconnected
 	for _, connectedPeer := range src.Peers() {

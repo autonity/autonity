@@ -88,7 +88,6 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 	genesis.Mixhash = types.BFTDigest
 
 	genesis.Config = params.TestChainConfig
-	genesis.Config.Tendermint = config.DefaultConfig()
 	genesis.Config.Ethash = nil
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
@@ -197,7 +196,6 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		DatabaseCache:   256,
 		DatabaseHandles: 256,
 		TxPool:          core.DefaultTxPoolConfig,
-		Tendermint:      *genesis.Config.Tendermint,
 	}
 	return configNode, ethConfig
 }

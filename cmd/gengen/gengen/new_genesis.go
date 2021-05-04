@@ -89,13 +89,10 @@ func NewGenesis(minGasPrice uint64, users []*User) (*core.Genesis, error) {
 			ConstantinopleBlock: big.NewInt(0),
 			PetersburgBlock:     big.NewInt(0),
 			IstanbulBlock:       big.NewInt(0),
-			Tendermint: &config.Config{
-				BlockPeriod: 1,
-			},
 			AutonityContractConfig: &params.AutonityContractGenesis{
 				MinGasPrice: minGasPrice,
 				Operator:    *operatorAddress,
-				Users:       genesisUsers,
+				Validators:  genesisUsers,
 			},
 		},
 	}

@@ -192,12 +192,12 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	var committee types.Committee
 	if config.AutonityContractConfig != nil {
-		validators := config.AutonityContractConfig.GetValidatorUsers()
+		validators := config.AutonityContractConfig.GetValidators()
 		committee = make(types.Committee, len(validators))
 		for i, val := range validators {
 			committee[i] = types.CommitteeMember{
 				Address:     *val.Address,
-				VotingPower: new(big.Int).SetUint64(val.Stake),
+				VotingPower: val.BondedStake,
 			}
 		}
 	}

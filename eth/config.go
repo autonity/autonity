@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"os"
 	"os/user"
@@ -156,9 +155,6 @@ type Config struct {
 
 	// Ethash options
 	Ethash ethash.Config
-
-	// Tendermint options
-	Tendermint config.Config
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig

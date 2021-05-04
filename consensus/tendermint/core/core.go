@@ -21,14 +21,12 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
@@ -76,14 +74,13 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config) *core {
+func New(backend Backend) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		proposerPolicy:        config.ProposerPolicy,
-		blockPeriod:           config.BlockPeriod,
+		blockPeriod:           1, // todo: retrieve it from contract
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
@@ -105,10 +102,9 @@ func New(backend Backend, config *config.Config) *core {
 }
 
 type core struct {
-	proposerPolicy config.ProposerPolicy
-	blockPeriod    uint64
-	address        common.Address
-	logger         log.Logger
+	blockPeriod uint64
+	address     common.Address
+	logger      log.Logger
 
 	backend Backend
 	cancel  context.CancelFunc
@@ -301,30 +297,8 @@ func (c *core) setInitialState(r int64) {
 	if r == 0 {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-
 		lastHeader := lastBlockMined.Header()
-		var committeeSet committee
-		var err error
-		var lastProposer common.Address
-		switch c.proposerPolicy {
-		case config.RoundRobin:
-			if !lastHeader.IsGenesis() {
-				var err error
-				lastProposer, err = types.Ecrecover(lastHeader)
-				if err != nil {
-					panic(fmt.Sprintf("unable to recover proposer address from header %q: %v", lastHeader, err))
-				}
-			}
-			committeeSet, err = newRoundRobinSet(lastHeader.Committee, lastProposer)
-			if err != nil {
-				panic(fmt.Sprintf("failed to construct committee %v", err))
-			}
-		case config.WeightedRandomSampling:
-			committeeSet = newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
-		default:
-			panic(fmt.Sprintf("unrecognised proposer policy %q", c.proposerPolicy))
-		}
-
+		committeeSet := newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
 		c.lastHeader = lastHeader
 		c.setCommitteeSet(committeeSet)
 		c.lockedRound = -1

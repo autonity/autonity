@@ -982,13 +982,19 @@ func (c checkEnode) Run(input []byte) ([]byte, error) {
 	}
 	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
 	nodeStr := string(input)
-
+	out := make([]byte, 64)
 	resolveFunc := func(host string) ([]net.IP, error) {
 		return []net.IP{{127, 0, 0, 1}}, nil
 	}
 
-	if _, err := enode.ParseV4CustomResolve(nodeStr, resolveFunc); err != nil {
-		return false32Byte, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
+	node, err := enode.ParseV4CustomResolve(nodeStr, resolveFunc)
+	if err != nil {
+		copy(out[32:], true32Byte)
+		return out, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
 	}
-	return true32Byte, nil
+
+	address := crypto.PubkeyToAddress(*node.Pubkey())
+	copy(out, address.Bytes())
+	copy(out[32:], false32Byte)
+	return out, nil
 }

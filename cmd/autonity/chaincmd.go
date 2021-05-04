@@ -19,7 +19,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/metrics"
 	"github.com/davecgh/go-spew/spew"
 	"os"
@@ -44,7 +43,6 @@ import (
 )
 
 var (
-
 	importCommand = cli.Command{
 		Action:    utils.MigrateFlags(importChain),
 		Name:      "import",
@@ -206,21 +204,16 @@ func initGenesis(ctx *cli.Context) error {
 	}
 	// Make AutonityContract and Tendermint consensus mandatory for the time being.
 	if genesis.Config == nil {
-		utils.Fatalf("No Autonity Contract and Tendermint configs section in genesis")
+		utils.Fatalf("No config section in genesis.json")
 	}
 	if genesis.Config.AutonityContractConfig == nil {
-		utils.Fatalf("No Autonity Contract config section in genesis")
-	}
-	if genesis.Config.Tendermint == nil {
-		utils.Fatalf("No Tendermint config section in genesis")
+		utils.Fatalf("No Autonity Contract config section in genesis.json")
 	}
 
 	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
 		spew.Dump(genesis.Config.AutonityContractConfig)
-		return fmt.Errorf("autonity contract section is invalid. error:%v", err.Error())
+		utils.Fatalf("autonity contract section is invalid. error:%v", err.Error())
 	}
-
-	setupDefaults(genesis)
 
 	// Open an initialise both full and light databases
 	stack, _ := makeConfigNode(ctx)
@@ -239,20 +232,6 @@ func initGenesis(ctx *cli.Context) error {
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
 	}
 	return nil
-}
-
-func setupDefaults(genesis *core.Genesis) {
-	if genesis == nil || genesis.Config == nil {
-		return
-	}
-
-	defaultConfig := config.DefaultConfig()
-
-	if genesis.Config.Tendermint != nil {
-		if genesis.Config.Tendermint.BlockPeriod == 0 {
-			genesis.Config.Tendermint.BlockPeriod = defaultConfig.BlockPeriod
-		}
-	}
 }
 
 func importChain(ctx *cli.Context) error {

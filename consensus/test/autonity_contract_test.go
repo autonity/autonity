@@ -161,7 +161,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 			return g
 		},
 		finalAssert: func(t *testing.T, validators map[string]*testNode) {
-			validatorUsers := validators["VE"].service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+			validatorUsers := validators["VE"].service.BlockChain().Config().AutonityContractConfig.GetValidators()
 			validatorsListGenesis := []string{}
 			for i := range validatorUsers {
 				validatorsListGenesis = append(validatorsListGenesis, validatorUsers[i].Address.String())
@@ -226,7 +226,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 				errOuter = err
 				return
 			}
-			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidators()
 			_, err = instance.RemoveUser(auth, *validatorsList[0].Address)
 			if err != nil {
 				errOuter = err

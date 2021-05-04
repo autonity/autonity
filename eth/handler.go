@@ -374,12 +374,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 
-	err := pm.IsInWhitelist(p.Node().ID(), p.td.Uint64(), p.Log())
-	if err != nil {
-		return err
-	}
-	// Todo : pause relaying if not whitelisted until full sync
-
 	// Register the peer locally
 	if err := pm.peers.Register(p, pm.removePeer); err != nil {
 		p.Log().Error("Ethereum peer registration failed", "err", err)
@@ -397,11 +391,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
 
-	if pm.blockchain.Config().Tendermint != nil {
-		syncer := pm.blockchain.Engine().(consensus.Syncer)
-		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
-		syncer.ResetPeerCache(address)
-	}
+	syncer := pm.blockchain.Engine().(consensus.Syncer)
+	address := crypto.PubkeyToAddress(*p.Node().Pubkey())
+	syncer.ResetPeerCache(address)
 
 	// If we have a trusted CHT, reject all peers below that (avoid fast sync eclipse)
 	if pm.checkpointHash != (common.Hash{}) {
@@ -435,40 +427,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			return err
 		}
 	}
-}
-
-func (pm *ProtocolManager) IsInWhitelist(id enode.ID, td uint64, logger log.Logger) error {
-	head := pm.blockchain.CurrentHeader()
-
-	whitelisted := false
-	pm.enodesWhitelistLock.RLock()
-	for _, enode := range pm.enodesWhitelist {
-		if id == enode.ID() {
-			whitelisted = true
-			break
-		}
-	}
-	pm.enodesWhitelistLock.RUnlock()
-
-	if !whitelisted && td <= head.Number.Uint64()+1 {
-		if logger != nil {
-			logger.Info("dropping unauthorized peer with old TD",
-				"whitelisted", whitelisted,
-				"enode", id,
-				"peersTD", td,
-				"currentTD", head.Number.Uint64()+1,
-			)
-		}
-
-		return errUnauthaurizedPeer
-	}
-
-	return nil
-}
-
-func (pm *ProtocolManager) IsSelfInWhitelist() error {
-	td := pm.blockchain.CurrentHeader().Number.Uint64() + 1
-	return pm.IsInWhitelist(enode.PubkeyToIDV4(pm.pub), td, nil)
 }
 
 // handleMsg is invoked whenever an inbound message is received from a remote

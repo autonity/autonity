@@ -157,19 +157,19 @@ func TestRewardDistribution(t *testing.T) {
 	}
 	// mint stake hook
 	mintStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidators()
 		index := validator.lastBlock % uint64(len(validatorsList))
 		return true, nil, interact(validator.rpcPort).tx(operatorKey).mintStake(*validatorsList[index].Address, new(big.Int).SetUint64(100))
 	}
 	// send stake hook
 	transferStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidators()
 		to := validator.lastBlock % uint64(len(validatorsList))
 		return true, nil, interact(validator.rpcPort).tx(validator.privateKey).sendStake(*validatorsList[to].Address, new(big.Int).SetUint64(1))
 	}
 	// redeem stake hook
 	redeemStakeHook := func(validator *testNode, _ common.Address, _ common.Address) (bool, *types.Transaction, error) { //nolint
-		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidatorUsers()
+		validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidators()
 		from := validator.lastBlock % uint64(len(validatorsList))
 		return true, nil, interact(validator.rpcPort).tx(operatorKey).redeemStake(*validatorsList[from].Address, new(big.Int).SetUint64(1))
 	}

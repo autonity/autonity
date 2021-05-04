@@ -146,7 +146,7 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 		return consensus.ErrUnknownAncestor
 	}
 	// Ensure that the block's timestamp isn't too close to it's parent
-	if parent.Time+sb.config.BlockPeriod > header.Time {
+	if parent.Time+1 > header.Time { // Todo : fetch block period from contract
 		return errInvalidTimestamp
 	}
 	if err := sb.verifySigner(header, parent); err != nil {
@@ -307,7 +307,8 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	header.Difficulty = defaultDifficulty
 
 	// set header's timestamp
-	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(sb.config.BlockPeriod)).Uint64()
+	// todo: block period from contract
+	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(1)).Uint64()
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())
 	}

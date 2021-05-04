@@ -263,7 +263,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	st.refundGas()
 	address := st.evm.Coinbase
 
-	if st.evm.ChainConfig().AutonityContractConfig != nil && st.evm.ChainConfig().Tendermint != nil {
+	if st.evm.ChainConfig().AutonityContractConfig != nil {
 		address = autonity.ContractAddress
 	}
 	st.state.AddBalance(address, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))

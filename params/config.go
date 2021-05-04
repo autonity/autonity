@@ -22,7 +22,6 @@ import (
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
-	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/crypto"
 )
 
@@ -228,9 +227,9 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil, nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
 
 	// Basic configuration for Tendermint, the Autonity Contract config needs still to be properly initialized.
 	AutonityTestChainConfig = &ChainConfig{ChainID: big.NewInt(1),
@@ -242,7 +241,7 @@ var (
 		ConstantinopleBlock: big.NewInt(0),
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(0),
-		Tendermint:          tendermint.DefaultConfig()}
+	}
 
 	TestRules = TestChainConfig.Rules(new(big.Int))
 )
@@ -320,7 +319,6 @@ type ChainConfig struct {
 
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
-	Tendermint             *tendermint.Config       `json:"tendermint,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonityContract,omitempty"`
 }
 
@@ -338,10 +336,8 @@ func (c *ChainConfig) String() string {
 	switch {
 	case c.Ethash != nil:
 		engine = c.Ethash
-	case c.Tendermint != nil:
-		engine = c.Tendermint
 	default:
-		engine = "unknown"
+		engine = "Tendermint"
 	}
 	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, YOLO v1: %v, Engine: %v}",
 		c.ChainID,
@@ -542,8 +538,8 @@ func (c *ChainConfig) Copy() *ChainConfig {
 	if c.Ethash != nil {
 		cfg.Ethash = &(*c.Ethash)
 	}
-	if c.Tendermint != nil {
-		cfg.Tendermint = &(*c.Tendermint)
+	if c.AutonityContractConfig != nil {
+		cfg.AutonityContractConfig = &(*c.AutonityContractConfig)
 	}
 	if c.ChainID != nil {
 		cfg.ChainID = big.NewInt(0).Set(c.ChainID)

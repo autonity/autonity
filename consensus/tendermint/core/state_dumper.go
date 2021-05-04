@@ -92,7 +92,6 @@ func (c *core) CoreState() TendermintState {
 func (c *core) handleStateDump(e coreStateRequestEvent) {
 	state := TendermintState{
 		Client:            c.address,
-		ProposerPolicy:    uint64(c.proposerPolicy),
 		BlockPeriod:       c.blockPeriod,
 		CurHeightMessages: msgForDump(c.GetCurrentHeightMessages()),
 		BacklogMessages:   getBacklogMsgs(c),

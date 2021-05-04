@@ -319,10 +319,6 @@ func (b *EthAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 	}
 }
 
-func (b *EthAPIBackend) IsSelfInWhitelist() error {
-	return b.eth.protocolManager.IsSelfInWhitelist()
-}
-
 func (b *EthAPIBackend) Engine() consensus.Engine {
 	return b.eth.engine
 }

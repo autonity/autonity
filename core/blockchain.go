@@ -298,33 +298,31 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 			return nil, err
 		}
 	}
-	if chainConfig.Tendermint != nil {
 
-		if chainConfig.AutonityContractConfig == nil {
-			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
-		}
-
-		acConfig := bc.Config().AutonityContractConfig
-
-		var JSONString = acConfig.ABI
-		bytes, err := bc.GetKeyValue([]byte(autonity.ABISPEC))
-		if err == nil || bytes != nil {
-			JSONString = string(bytes)
-		}
-		contract, err := autonity.NewAutonityContract(
-			bc,
-			acConfig.Operator,
-			acConfig.MinGasPrice,
-			JSONString,
-			&defaultEVMProvider{bc},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		bc.autonityContract = contract
-		bc.processor.SetAutonityContract(bc.autonityContract)
+	if chainConfig.AutonityContractConfig == nil {
+		return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
 	}
+
+	acConfig := bc.Config().AutonityContractConfig
+
+	var JSONString = acConfig.ABI
+	bytes, err := bc.GetKeyValue([]byte(autonity.ABISPEC))
+	if err == nil || bytes != nil {
+		JSONString = string(bytes)
+	}
+	contract, err := autonity.NewAutonityContract(
+		bc,
+		acConfig.Operator,
+		acConfig.MinGasPrice,
+		JSONString,
+		&defaultEVMProvider{bc},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	bc.autonityContract = contract
+	bc.processor.SetAutonityContract(bc.autonityContract)
 
 	// Ensure that a previous crash in SetHead doesn't leave extra ancients
 	if frozen, err := bc.db.Ancients(); err == nil && frozen > 0 {
@@ -1492,18 +1490,10 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
-	if bc.chainConfig.Tendermint != nil {
-		// Call network permissioning logic before committing the state
-		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
-		if err != nil && err != autonity.ErrAutonityContract {
-			return NonStatTy, err
-		}
-
-		// Measure network economic metrics.
-		err := bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
-		if err != nil {
-			panic(err)
-		}
+	// Call network permissioning logic before committing the state
+	err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
+	if err != nil && err != autonity.ErrAutonityContract {
+		return NonStatTy, err
 	}
 
 	// Irrelevant of the canonical status, write the block itself to the database.

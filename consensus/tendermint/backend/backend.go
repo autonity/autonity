@@ -26,7 +26,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/tendermint/bft"
-	tendermintConfig "github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/events"
 	"github.com/clearmatics/autonity/core"
@@ -57,10 +56,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
-	if chainConfig.Tendermint.BlockPeriod != 0 {
-		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
-	}
+func New(privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -69,10 +65,8 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
 	logger := log.New("addr", pub)
 
-	logger.Warn("new backend with public key")
-
 	backend := &Backend{
-		config:         config,
+
 		eventMux:       event.NewTypeMuxSilent(logger),
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
@@ -86,14 +80,13 @@ func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermintCore.New(backend, config)
+	backend.core = tendermintCore.New(backend)
 	return backend
 }
 
 // ----------------------------------------------------------------------------
 
 type Backend struct {
-	config       *tendermintConfig.Config
 	eventMux     *event.TypeMuxSilent
 	privateKey   *ecdsa.PrivateKey
 	address      common.Address
