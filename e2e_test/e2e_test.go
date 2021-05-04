@@ -202,13 +202,13 @@ func TestStopAndStartNodeWithLiveness(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
-	for i:= 0; i<100; i++ {
+	for i := 0; i < 100; i++ {
 
-		time.Sleep(30*time.Second)
+		time.Sleep(30 * time.Second)
 		// Stop node 1.
 		err = network[1].Close()
 		require.NoError(t, err)
-		time.Sleep(30*time.Second)
+		time.Sleep(30 * time.Second)
 		// Start node 1.
 		err = network[1].Start()
 		require.NoError(t, err)
@@ -220,8 +220,8 @@ func TestStopAndStartNodeWithoutLiveness(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
-	for i:= 0; i<100; i++ {
-		time.Sleep(30*time.Second)
+	for i := 0; i < 100; i++ {
+		time.Sleep(30 * time.Second)
 
 		// Stop node 1.
 		err = network[1].Close()
@@ -230,7 +230,7 @@ func TestStopAndStartNodeWithoutLiveness(t *testing.T) {
 		err = network[2].Close()
 		require.NoError(t, err)
 
-		time.Sleep(30*time.Second)
+		time.Sleep(30 * time.Second)
 
 		// Start node 2.
 		err = network[2].Start()
