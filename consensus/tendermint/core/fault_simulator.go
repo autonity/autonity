@@ -195,8 +195,8 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 		// simulate preCommits at each round between [validRound, current)
 		var messages [][]byte
-		for i:= validRound; i < currentRound; i++ {
-			if i == currentRound - 1 {
+		for i := validRound; i < currentRound; i++ {
+			if i == currentRound-1 {
 				msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, nonNilValue)
 				mPC, err := c.finalizeMessage(msgPC)
 				if err != nil {
@@ -265,7 +265,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 		// simulate preCommits of not V at each round between [validRound, current)
 		var messages [][]byte
-		for i:= validRound; i < currentRound; i++ {
+		for i := validRound; i < currentRound; i++ {
 			msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, nonNilValue)
 			mPC, err := c.finalizeMessage(msgPC)
 			if err != nil {
