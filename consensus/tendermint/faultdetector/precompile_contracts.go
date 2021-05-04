@@ -369,11 +369,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO1(p *Proof) bool {
 	}
 
 	// this is a valid proof of misbehaviour of PVO1.
-	if lastRoundForNotV > lastRoundForV {
-		return true
-	}
-
-	return false
+	return lastRoundForNotV > lastRoundForV
 }
 
 // check if the Proof of challenge of PVO2 is valid.
@@ -428,10 +424,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO2(p *Proof) bool {
 	}
 
 	// this is a valid proof of misbehaviour of PVO1.
-	if lastRoundForNotV > int64(-1) {
-		return true
-	}
-	return false
+	return lastRoundForNotV > int64(-1)
 }
 
 // check if the Proof of challenge of C is valid.

@@ -510,8 +510,8 @@ func TestRuleEngine(t *testing.T) {
 
 		// prepare quorum preVotes at msg store.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, validRound, msgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
-			_, err := fd.msgStore.Save(preVote)
+			pv := newVoteMsg(height, validRound, msgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
+			_, err := fd.msgStore.Save(pv)
 			assert.NoError(t, err)
 		}
 

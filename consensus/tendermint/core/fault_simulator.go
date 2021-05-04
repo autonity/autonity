@@ -435,6 +435,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		}
 		invalidProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, -1)
 		mP, err := c.finalizeMessage(invalidProposal)
+		if err != nil {
+			return nil
+		}
 
 		if c.isProposer() {
 			preCommit := msgVote(msgPrecommit, innocentMsg.H(), nPR, p.GetValue())
@@ -444,7 +447,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			}
 			return append(msgs, mP, m)
 		}
-		return append(msgs)
+		return msgs
 	}
 
 	type Rule uint8

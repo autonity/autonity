@@ -794,7 +794,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					})
 
 					if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange-1) {
-						if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange-1) {
+						if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange-1) { // nolint
 							// Todo: There are equivocated messages in the message store, thus we need to pick one message per round before proceeding
 						}
 						for _, v := range preCommitsAfterLatestPrecommitForV {
@@ -824,7 +824,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					// need to check for precommits for V, since the PVO1 block takes the latest V.
 					roundsRange := currentR - validRound
 					if len(precommitsFromPi) >= int(roundsRange) {
-						if len(precommitsFromPi) > int(roundsRange) {
+						if len(precommitsFromPi) > int(roundsRange) { // nolint
 							// Todo: There are equivocated messages in the message store, thus we need to pick one message per round before proceeding
 						}
 						sort.SliceStable(precommitsFromPi, func(i, j int) bool {
