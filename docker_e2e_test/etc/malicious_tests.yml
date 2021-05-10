@@ -1,0 +1,32 @@
+engineVersion: 3.0.1
+playbook:
+  name: "Autonity malicious behaviour test cases"
+  testcases:
+    - name: "Misbehaviour of PN rule"
+      misbehaviourRuleID: 0
+    - name: "Misbehaviour of PO rule"
+      misbehaviourRuleID: 1
+    - name: "Misbehaviour of PVN rule"
+      misbehaviourRuleID: 2
+    - name: "Misbehaviour of PVO1 rule"
+      misbehaviourRuleID: 4
+    - name: "Misbehaviour of PVO2 rule"
+      misbehaviourRuleID: 5
+    - name: "Misbehaviour of C rule"
+      misbehaviourRuleID: 6
+    - name: "Misbehaviour of invalid proposal rule"
+      misbehaviourRuleID: 9
+    - name: "Misbehaviour of invalid proposer rule"
+      misbehaviourRuleID: 10
+    - name: "Misbehaviour of equivocation rule"
+      misbehaviourRuleID: 11
+    - name: "Accusation of PO rule"
+      accusationRuleID: 1
+    - name: "Accusation of PVN rule"
+      accusationRuleID: 2
+    - name: "Accusation of PVO rule"
+      accusationRuleID: 3
+    - name: "Accusation of C rule"
+      accusationRuleID: 6
+    - name: "Accusation of C1 rule"
+      accusationRuleID: 7
