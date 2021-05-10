@@ -122,6 +122,45 @@ class Client(object):
         self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
         return self.e_node
 
+    def generate_system_service_file_with_fault_simulator(self, flag, rule_id):
+        template_remote = "[Unit]\n" \
+                   "Description=Clearmatics Autonity Client server\n" \
+                   "After=syslog.target network.target\n" \
+                   "[Service]\n" \
+                   "Type=simple\n" \
+                   "ExecStart={} --genesis {} --{} {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
+                   "--http.port {} --http --http.addr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
+                   "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                   "--gasprice '0' --allow-insecure-unlock --graphql " \
+                   "--unlock 0x{} --password {} " \
+                   "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
+                   "KillMode=process\n" \
+                   "KillSignal=SIGINT\n" \
+                   "TimeoutStopSec=1\n" \
+                   "Restart=on-failure\n" \
+                   "RestartSec=1s\n" \
+                   "[Install]\n" \
+                   "Alias=autonity.service\n"\
+                   "WantedBy=multi-user.target"
+
+        folder = self.host
+
+        print("prepare autonity systemd service file for node: %s", self.host)
+        bin_path = AUTONITY_PATH.format(self.ssh_user)
+        genesis_path = GENESIS_PATH.format(self.ssh_user)
+        data_dir = CHAIN_DATA_DIR.format(self.ssh_user, folder)
+        boot_key_file = BOOT_KEY_FILE.format(self.ssh_user, folder)
+        p2p_port = self.p2p_port
+        rpc_port = self.rpc_port
+        ws_port = self.ws_port
+        coin_base = self.coin_base
+        password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
+
+        content = template_remote.format(bin_path, genesis_path, flag, rule_id, data_dir, boot_key_file, p2p_port, rpc_port, ws_port,
+                                         coin_base, password_file, coin_base)
+        with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
+            out.write(content)
+
     def generate_system_service_file(self):
         template_remote = "[Unit]\n" \
                    "Description=Clearmatics Autonity Client server\n" \
