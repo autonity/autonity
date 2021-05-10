@@ -74,7 +74,7 @@ def get_client_ips():
     try:
         validator_file = CONF["validator_ip_file"]
         participant_file = CONF["participant_ip_file"]
-        return parse_public_ip_from_text(validator_file), parse_public_ip_from_text(participant_file)
+        return parse_ip_from_text(validator_file), parse_ip_from_text(participant_file)
     except Exception as e:
         LOGGER.error("cannot read validator ips. %s", e)
         return None
@@ -101,7 +101,7 @@ def load_conf(file):
         return None
 
 
-def parse_public_ip_from_text(file):
+def parse_ip_from_text(file):
     """
     get public ip list from text.
     :param file:
