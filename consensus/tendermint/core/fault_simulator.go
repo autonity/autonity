@@ -1,10 +1,30 @@
 package core
 
 import (
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
 )
+
+type FaultSimulatorConfig struct {
+	MisbehaviourRuleID *uint8
+	AccusationRuleID   *uint8
+}
+
+var FaultSimulatorConfigs *FaultSimulatorConfig
+
+func SetFaultSimulatorConfig(t uint8, rule uint8) {
+	FaultSimulatorConfigs = new(FaultSimulatorConfig)
+	if t == autonity.Misbehaviour {
+		FaultSimulatorConfigs.MisbehaviourRuleID = new(uint8)
+		*FaultSimulatorConfigs.MisbehaviourRuleID = rule
+	}
+	if t == autonity.Accusation {
+		FaultSimulatorConfigs.AccusationRuleID = new(uint8)
+		*FaultSimulatorConfigs.AccusationRuleID = rule
+	}
+}
 
 // createMisbehaviourContext create misbehaviour context of msgs by according to the configuration and innocent msg.
 func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
@@ -429,8 +449,8 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		Equivocation    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
 		UnknownRule
 	)
-	if c.misbehaviourConfig.MisbehaviourRuleID != nil {
-		r := Rule(*c.misbehaviourConfig.MisbehaviourRuleID)
+	if FaultSimulatorConfigs.MisbehaviourRuleID != nil {
+		r := Rule(*FaultSimulatorConfigs.MisbehaviourRuleID)
 		if r == PN && innocentMsg.Code == msgProposal {
 			return maliciousContextPN()
 		}
@@ -468,8 +488,8 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		}
 	}
 
-	if c.misbehaviourConfig.AccusationRuleID != nil {
-		r := Rule(*c.misbehaviourConfig.AccusationRuleID)
+	if FaultSimulatorConfigs.AccusationRuleID != nil {
+		r := Rule(*FaultSimulatorConfigs.AccusationRuleID)
 		if r == PO && innocentMsg.Code == msgProposal {
 			return accusationContextPO()
 		}

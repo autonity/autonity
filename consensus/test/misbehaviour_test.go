@@ -3,7 +3,7 @@ package test
 import (
 	"fmt"
 	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	tdmCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/consensus/tendermint/faultdetector"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/rlp"
@@ -12,13 +12,11 @@ import (
 
 func TestMaliciousBehaviourPN(t *testing.T) {
 	genesisHookPN := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.PN)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.PN))
 	RulePNChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PN, autonity.Misbehaviour, validators["VA"])
 	}
@@ -37,13 +35,11 @@ func TestMaliciousBehaviourPN(t *testing.T) {
 
 func TestMaliciousBehaviourPO(t *testing.T) {
 	genesisHookPO := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.PO)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.PO))
+
 	RulePOChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PO, autonity.Misbehaviour, validators["VA"])
 	}
@@ -61,13 +57,10 @@ func TestMaliciousBehaviourPO(t *testing.T) {
 
 func TestMaliciousBehaviourPVN(t *testing.T) {
 	genesisHookPVN := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.PVN)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.PVN))
 	RulePVNChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PVN, autonity.Misbehaviour, validators["VA"])
 	}
@@ -86,13 +79,10 @@ func TestMaliciousBehaviourPVN(t *testing.T) {
 
 func TestMaliciousBehaviourPVO1(t *testing.T) {
 	genesisHookPVO1 := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.PVO1)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.PVO1))
 	RulePVO1Checker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PVO1, autonity.Misbehaviour, validators["VA"])
 	}
@@ -111,13 +101,11 @@ func TestMaliciousBehaviourPVO1(t *testing.T) {
 
 func TestMaliciousBehaviourPVO2(t *testing.T) {
 	genesisHookPVO2 := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.PVO2)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.PVO2))
+
 	RulePVO2Checker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PVO2, autonity.Misbehaviour, validators["VA"])
 	}
@@ -136,13 +124,10 @@ func TestMaliciousBehaviourPVO2(t *testing.T) {
 
 func TestMaliciousBehaviourC(t *testing.T) {
 	genesisHookC := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.C)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.C))
 	RuleCChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.C, autonity.Misbehaviour, validators["VA"])
 	}
@@ -161,13 +146,10 @@ func TestMaliciousBehaviourC(t *testing.T) {
 
 func TestMaliciousBehaviourInvalidProposal(t *testing.T) {
 	genesisHookInvalidProposal := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.InvalidProposal)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.InvalidProposal))
 	RuleInvalidProposalChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.InvalidProposal, autonity.Misbehaviour, validators["VA"])
 	}
@@ -186,13 +168,10 @@ func TestMaliciousBehaviourInvalidProposal(t *testing.T) {
 
 func TestMaliciousBehaviourInvalidProposer(t *testing.T) {
 	genesisHookInvalidProposer := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.InvalidProposer)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.InvalidProposer))
 	RuleInvalidProposerChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.InvalidProposer, autonity.Misbehaviour, validators["VA"])
 	}
@@ -211,19 +190,16 @@ func TestMaliciousBehaviourInvalidProposer(t *testing.T) {
 
 func TestMaliciousBehaviourEquivocation(t *testing.T) {
 	genesisHookEquivocation := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.MisbehaviourRuleID = new(uint8)
-		*c.MisbehaviourRuleID = uint8(faultdetector.Equivocation)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.Equivocation))
 	RuleEquivocationChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.Equivocation, autonity.Misbehaviour, validators["VA"])
 	}
 
 	tc := testCase{
-		name:          "TestFaultDetectorMaliciousBehaviourInvalidProposer",
+		name:          "TestFaultDetectorMaliciousBehaviourEquivocation",
 		numValidators: 6,
 		numBlocks:     60,
 		genesisHook:   genesisHookEquivocation,
@@ -236,13 +212,10 @@ func TestMaliciousBehaviourEquivocation(t *testing.T) {
 
 func TestAccusationRulePO(t *testing.T) {
 	genesisHookAccusationPO := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.AccusationRuleID = new(uint8)
-		*c.AccusationRuleID = uint8(faultdetector.PO)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Accusation, uint8(faultdetector.PO))
 	RuleAccusationPOChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PO, autonity.Accusation, validators["VA"])
 	}
@@ -261,13 +234,11 @@ func TestAccusationRulePO(t *testing.T) {
 
 func TestAccusationRulePVN(t *testing.T) {
 	genesisHookAccusationPVN := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.AccusationRuleID = new(uint8)
-		*c.AccusationRuleID = uint8(faultdetector.PVN)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Accusation, uint8(faultdetector.PVN))
+
 	RuleAccusationPVNChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PVN, autonity.Accusation, validators["VA"])
 	}
@@ -286,13 +257,10 @@ func TestAccusationRulePVN(t *testing.T) {
 
 func TestAccusationRulePVO(t *testing.T) {
 	genesisHookAccusationPVO := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.AccusationRuleID = new(uint8)
-		*c.AccusationRuleID = uint8(faultdetector.PVO)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Accusation, uint8(faultdetector.PVO))
 	RuleAccusationPVOChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.PVO, autonity.Accusation, validators["VA"])
 	}
@@ -311,13 +279,10 @@ func TestAccusationRulePVO(t *testing.T) {
 
 func TestAccusationRuleC(t *testing.T) {
 	genesisHookAccusationC := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.AccusationRuleID = new(uint8)
-		*c.AccusationRuleID = uint8(faultdetector.C)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Accusation, uint8(faultdetector.C))
 	RuleAccusationCChecker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.C, autonity.Accusation, validators["VA"])
 	}
@@ -336,13 +301,10 @@ func TestAccusationRuleC(t *testing.T) {
 
 func TestAccusationRuleC1(t *testing.T) {
 	genesisHookAccusationC1 := func(g *core.Genesis) *core.Genesis {
-		var c config.MisbehaviourConfig
-		c.AccusationRuleID = new(uint8)
-		*c.AccusationRuleID = uint8(faultdetector.C1)
 		g.Config.Tendermint.BlockPeriod = 1
-		g.Config.Tendermint.MisbehaviourConfig = &c
 		return g
 	}
+	tdmCore.SetFaultSimulatorConfig(autonity.Accusation, uint8(faultdetector.C1))
 	RuleAccusationC1Checker := func(t *testing.T, validators map[string]*testNode) {
 		requireOnChainProof(t, faultdetector.C1, autonity.Accusation, validators["VA"])
 	}

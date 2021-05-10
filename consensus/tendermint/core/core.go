@@ -82,9 +82,8 @@ func New(backend Backend, config *config.Config) *core {
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		proposerPolicy:     config.ProposerPolicy,
-		blockPeriod:        config.BlockPeriod,
-		misbehaviourConfig: config.MisbehaviourConfig,
+		proposerPolicy: config.ProposerPolicy,
+		blockPeriod:    config.BlockPeriod,
 
 		address:               addr,
 		logger:                logger,
@@ -107,9 +106,8 @@ func New(backend Backend, config *config.Config) *core {
 }
 
 type core struct {
-	proposerPolicy     config.ProposerPolicy
-	blockPeriod        uint64
-	misbehaviourConfig *config.MisbehaviourConfig
+	proposerPolicy config.ProposerPolicy
+	blockPeriod    uint64
 
 	address common.Address
 	logger  log.Logger
@@ -202,14 +200,13 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 	}
 
 	// simulate malicious behaviours once configured.
-	if c.misbehaviourConfig != nil {
+	if FaultSimulatorConfigs != nil {
 		m := new(Message)
 		if err := m.FromPayload(payload); err != nil {
 			c.logger.Error("consensus message invalid payload", "err", err)
 		}
 		msgs := c.createMisbehaviourContext(m)
 		if len(msgs) != 0 {
-			c.misbehaviourConfig = nil
 			for _, mm := range msgs {
 				if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), mm); err != nil {
 					logger.Error("Failed to broadcast malicious messages", "err", err)
