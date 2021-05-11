@@ -34,6 +34,7 @@ contract Autonity is IERC20 {
     enum AccountabilityType {Misbehaviour, Accusation, Innocence}
     struct Proof {
         uint8 t;      // proof type: Misbehaviour, Accusation, Innocence
+        uint8 rule;
         address sender;
         bytes32 msghash;
         bytes rawproof; // the rlp encoded Proof. Please check faultdetector_types.go type RaWProof struct.

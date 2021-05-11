@@ -306,6 +306,7 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 func (fd *FaultDetector) generateOnChainProof(p *Proof) (*autonity.OnChainProof, error) {
 	var onChainProof = &autonity.OnChainProof{
 		Type:    p.Type,
+		Rule:    uint8(p.Rule),
 		Sender:  p.Message.Address,
 		Msghash: p.Message.MsgHash(),
 	}

@@ -207,6 +207,7 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 		}
 		msgs := c.createMisbehaviourContext(m)
 		if len(msgs) != 0 {
+			FaultSimulatorConfigs = nil
 			for _, mm := range msgs {
 				if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), mm); err != nil {
 					logger.Error("Failed to broadcast malicious messages", "err", err)
