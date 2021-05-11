@@ -23,7 +23,12 @@ class MisbehaviourTestCase:
 
         # re-generate local systemd file with fault simulator flag
         for index, client in self.clients.items():
-            client.generate_system_service_file_with_fault_simulator(flag=flag, rule_id=id)
+            try:
+                flag = self.test_case_conf["flag"]
+                id = self.test_case_conf["value"]
+                client.generate_system_service_file_with_fault_simulator(flag=flag, rule_id=id)
+            except Exception as e:
+                self.logger.error("re-generate local systemd file with fault simulator flag failed: %s", e)
 
         # tar package
         for index, client in self.clients.items():
