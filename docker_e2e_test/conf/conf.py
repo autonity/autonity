@@ -38,8 +38,23 @@ def get_test_case_conf_file_name():
         return None
 
 
+def get_misbehaviour_test_case_conf_file_name():
+    try:
+        return CONF["generate_misbehaviour_testcase_conf_at"]
+    except KeyError as e:
+        LOGGER.error("wrong config for misbehaviour testcase conf file.", e)
+        return None
+
+
 def get_test_case_conf():
     file = get_test_case_conf_file_name()
+    if file is None:
+        return None
+    return load_conf(file)
+
+
+def get_misbehaviour_test_case_conf():
+    file = get_misbehaviour_test_case_conf_file_name()
     if file is None:
         return None
     return load_conf(file)

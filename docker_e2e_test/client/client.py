@@ -124,16 +124,25 @@ class Client(object):
         return self.e_node
 
     def is_proof_presented(self, flag, rule_id):
-        return True
-        """
+        method = ""
+        if flag == "faultdetector.misbehaviour.rule":
+            method = "aut_getMisbehaviours"
+        if flag == "faultdetector.accusation.rule":
+            method = "aut_getAccusations"
+
         session = requests.Session()
-        method = 'aut_getAccusations'
-        method2 = 'aut_getMisbehaviours'
-        payload = {"jsonrpc":"2.0", "method":method, "params":[],"id":1}
+        payload = {"jsonrpc": "2.0", "method": method, "params": [], "id": 1}
         headers = {'Content-type': 'application/json'}
-        response = session.post('', json=payload, headers=headers)
-        self.logger.info('raw json response: {}'.format(response.json()))
-        """
+        response = session.post('http://{}:{}'.format(self.host, self.rpc_port), json=payload, headers=headers)
+        try:
+            proofs = response.json()['result']
+            for p in proofs:
+                if p['rule'] == rule_id:
+                    return True
+        except Exception e:
+            self.logger.error("cannot get correct rpc response.")
+            return False
+        return False
 
     def generate_system_service_file_with_fault_simulator(self, flag, rule_id):
         template_remote = "[Unit]\n" \

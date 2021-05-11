@@ -3,6 +3,7 @@ validator_ip_file: "./etc/validator.ip"
 participant_ip_file: "./etc/participant.ip"
 generate_testbed_conf_at: "./etc/testbedconf.yml"
 generate_testcase_conf_at: "./etc/testcaseconf.yml"
+generate_misbehaviour_testcase_conf_at: "./etc/malicious_tests.yml"
 network_data_dir: "./network-data"
 default_scalability: 6  # default number of validators for local e2e testing.
 local_mode: false # setup test network within local host with 6 validators.
