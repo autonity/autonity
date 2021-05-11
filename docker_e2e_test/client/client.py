@@ -7,6 +7,7 @@ from web3.auto import w3
 from fabric import Connection
 from eth_rpc_client import Client as RpcClient
 from invoke import Responder
+import requests
 
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
@@ -121,6 +122,18 @@ class Client(object):
                             format(self.bootnode_path, folder))[0].rstrip()
         self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
         return self.e_node
+
+    def is_proof_presented(self, flag, rule_id):
+        return True
+        """
+        session = requests.Session()
+        method = 'aut_getAccusations'
+        method2 = 'aut_getMisbehaviours'
+        payload = {"jsonrpc":"2.0", "method":method, "params":[],"id":1}
+        headers = {'Content-type': 'application/json'}
+        response = session.post('', json=payload, headers=headers)
+        self.logger.info('raw json response: {}'.format(response.json()))
+        """
 
     def generate_system_service_file_with_fault_simulator(self, flag, rule_id):
         template_remote = "[Unit]\n" \

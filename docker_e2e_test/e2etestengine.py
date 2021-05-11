@@ -4,6 +4,7 @@ import argparse
 import log
 from conf import conf
 from testcase.testcase import TestCase
+from testcase.misbehaviour_testcase import MisbehaviourTestCase
 from planner.networkplanner import NetworkPlanner
 from client.client import Client
 import time
@@ -72,6 +73,33 @@ if __name__ == '__main__':
                     LG.info("Playbook is stopped by user configuration: testcaseconf.yml/playbook/stop: true.")
                     break
                 test = TestCase(test_case, clients)
+                LG.debug("")
+                LG.debug("")
+                LG.info("start test case: %s", test_case)
+                LG.debug("")
+                LG.debug("")
+                result = test.start_test()
+                if result is True:
+                    LG.info('TEST CASE PASSED: %s', test_case)
+                    passed_testcases.append(test_case)
+                if result is False:
+                    LG.error('TEST CASE FAILED: %s', test_case)
+                    failed_testcases.append(test_case)
+
+        except (KeyError, TypeError) as e:
+            LG.error("Wrong configuration. %s", e)
+            exit_code = 1
+        except Exception as e:
+            LG.error("Get error: %s", e)
+            exit_code = 1
+
+        # run misbehaviour test cases
+        try:
+            # load test case view, and start testing one by one.
+            test_set = conf.get_misbehaviour_test_case_conf()
+            num_of_cases += len(test_set["playbook"]["testcases"])
+            for test_case in test_set["playbook"]["testcases"]:
+                test = MisbehaviourTestCase(test_case, clients)
                 LG.debug("")
                 LG.debug("")
                 LG.info("start test case: %s", test_case)
