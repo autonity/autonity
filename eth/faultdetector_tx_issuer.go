@@ -27,7 +27,7 @@ func (s *Ethereum) sendAccountabilityTXs(onChainProofs []*autonity.OnChainProof)
 	for _, tx := range txs {
 		e := s.TxPool().AddLocal(tx)
 		if e != nil {
-			log.Error("Cound not add TX into TX pool", "err", e)
+			log.Error("Could not add TX into TX pool", "err", e)
 			continue
 		}
 		log.Info("Generate accountability transaction", "hash", tx.Hash())
@@ -39,35 +39,39 @@ func (s *Ethereum) sendAccountabilityTXs(onChainProofs []*autonity.OnChainProof)
 // consider to break them into pieces once the proofs exceed 512 KB.
 func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*autonity.OnChainProof) (txs []*types.Transaction, e error) {
 	nonce := s.TxPool().Nonce(crypto.PubkeyToAddress(s.nodeKey.PublicKey))
-	// try to generate a single event to contain all the onChainProofs.
+	// try to generate a single TX to contain all the onChainProofs.
 	tx, err := s.generateAccountabilityTX(nonce, method, onChainProofs)
 	if err == nil {
 		return append(txs, tx), nil
 	}
 
-	// accountability events exceed 512 KB, break the events into pieces.
+	// otherwise if single TX exceed 512 KB, try to break the batch of proofs into pieces with each piece under 512 KB.
+	// for any single proof that exceed 512 KB will be skipped due to the ETH protocol limits.
 	if err == errOverSizedEvent {
+		// if the proof cannot be split, then skip it and return.
 		if len(onChainProofs) == 1 {
 			log.Error("over-sized accountability event", "err", "cannot pack over-sized proof")
 			return nil, errOverSizedEvent
 		}
 
-		// try to pack as much events as possible until TX exceed 512 KB.
+		// otherwise, try to pack proofs into separate TX util each TX exceed 512 KB, then start another packing.
 		start := 0
 		for i := 1; i <= len(onChainProofs) && start < len(onChainProofs); i++ {
+			// pack proofs by increasing one by one into single TX until TX exceed 512 KB.
 			tx, err := s.generateAccountabilityTX(nonce, method, onChainProofs[start:i])
-			// exceed 512 KB, try to break it into pieces.
+			// exceed 512 KB, form the TX with proofs under 512 KB, and append TX.
 			if err == errOverSizedEvent {
+				//single proof exceed 512 KB, skip it.
 				if len(onChainProofs[start:i]) == 1 {
-					//single event exceed 512 KB, skip it.
 					start++
-					log.Error("skip over-sized accountability event", "err")
+					log.Error("skip over-sized accountability event", "err", "single proof exceed 512KB")
 					continue
 				}
 
-				// break sub piece of events
+				// form the TX with proofs under 512 KB, and append it.
 				p, err := s.generateAccountabilityTX(nonce, method, onChainProofs[start:i-1])
 				if err == nil {
+					// set the new start index for next TX packing with next proofs with new nonce.
 					start = i - 1
 					i = start
 					nonce++
@@ -75,7 +79,7 @@ func (s *Ethereum) generateAccountabilityTXs(method string, onChainProofs []*aut
 				}
 			}
 
-			// append the last piece of events
+			// append the last piece of TX.
 			if err == nil && i == len(onChainProofs) {
 				txs = append(txs, tx)
 			}
