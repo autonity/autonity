@@ -139,8 +139,8 @@ class Client(object):
             for p in proofs:
                 if p['rule'] == rule_id:
                     return True
-        except Exception e:
-            self.logger.error("cannot get correct rpc response.")
+        except Exception as e:
+            self.logger.error("cannot get correct rpc response.", e)
             return False
         return False
 
