@@ -3,6 +3,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
@@ -106,7 +107,18 @@ func (s *Ethereum) generateAccountabilityTX(nonce uint64, method string, onChain
 		return nil, err
 	}
 
-	tx, err := types.SignTx(types.NewTransaction(nonce, to, common.Big0, 210000000, s.gasPrice, packedData), types.HomesteadSigner{}, s.nodeKey)
+	currentState, err := s.BlockChain().State()
+	if err != nil {
+		return nil, err
+	}
+
+	gp, err := s.BlockChain().GetAutonityContract().GetMinimumGasPrice(s.BlockChain().CurrentBlock(), currentState)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := types.SignTx(types.NewTransaction(nonce, to, common.Big0, 210000000, new(big.Int).SetUint64(gp),
+		packedData), types.HomesteadSigner{}, s.nodeKey)
 	if err != nil {
 		return nil, err
 	}
