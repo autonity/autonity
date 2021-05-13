@@ -94,7 +94,7 @@ class Client(object):
         folder = self.host
         utility.execute("echo 123 > ./network-data/{}/pass.txt".format(folder))
         output = utility.execute(
-            '{} --datadir "./network-data/{}/data" --password "./network-data/{}/pass.txt" account new'
+            '{} --datadir ./network-data/{}/data --password ./network-data/{}/pass.txt account new'
             .format(self.autonity_path, folder, folder)
         )
         self.logger.debug(output)
