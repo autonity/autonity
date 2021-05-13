@@ -619,7 +619,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	}
 
 	n.rpcPort = rpcPort
-
+	log.Error("rpc endpoint: ", "host", "127.0.0.1", "port", rpcPort)
 	if n.port == 0 || n.rpcPort == 0 {
 		return netNode{}, fmt.Errorf("on node %s port equals 0", addr)
 	}
