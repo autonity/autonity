@@ -607,6 +607,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message:  proposal,
 			}
 			proofs = append(proofs, proof)
+			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePN", PN, "sender", proposal.Sender())
 		}
 	}
 
@@ -641,6 +642,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message:  proposal,
 			}
 			proofs = append(proofs, proof)
+			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePO", PO, "sender", proposal.Sender())
 		}
 
 		// Is there a precommit for anything other than nil from the proposer
@@ -659,6 +661,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message:  proposal,
 			}
 			proofs = append(proofs, proof)
+			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePO", PO, "sender", proposal.Sender())
 		}
 
 		// Do we see a quorum of prevotes in the valid round, if not we can
@@ -676,6 +679,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message: proposal,
 			}
 			proofs = append(proofs, accusation)
+			fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePO", PO, "sender", proposal.Sender())
 		}
 	}
 
@@ -701,6 +705,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message: prevote,
 			}
 			proofs = append(proofs, accusation)
+			fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePVN", PVN, "sender", prevote.Sender())
 		}
 
 		// We need to ensure that we keep all proposals in the message store, so that we have the maximum chance of
@@ -742,6 +747,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 						Message:  prevote,
 					}
 					proofs = append(proofs, proof)
+					fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVN", PVN, "sender", prevote.Sender())
 					break
 				}
 
@@ -764,6 +770,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					}
 					proof.Evidence = append(proof.Evidence, correspondingProposal)
 					proofs = append(proofs, proof)
+					fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePVO", PVO, "sender", prevote.Sender())
 				}
 
 				precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
@@ -809,6 +816,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 								proof.Evidence = append(proof.Evidence, latestPrecommitForV)
 								proof.Evidence = append(proof.Evidence, preCommitsAfterLatestPrecommitForV...)
 								proofs = append(proofs, proof)
+								fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO1", PVO1, "sender", prevote.Sender())
 							}
 						}
 
@@ -842,6 +850,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 								proof.Evidence = append(proof.Evidence, correspondingProposal)
 								proof.Evidence = append(proof.Evidence, precommitsFromPi...)
 								proofs = append(proofs, proof)
+								fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO2", PVO2, "sender", prevote.Sender())
 							}
 						}
 					}
@@ -871,6 +880,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message: precommit,
 			}
 			proofs = append(proofs, accusation)
+			fd.logger.Info("Accusation detected", "faultdetector", fd.address, "ruleC", C, "sender", precommit.Sender())
 			continue
 		}
 
@@ -895,7 +905,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message:  precommit,
 			}
 			proofs = append(proofs, proof)
-
+			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "ruleC", C, "sender", precommit.Sender())
 		} else if powerOfVotes(prevotesForV) < quorum {
 			// In this case we simply don't see enough prevotes to
 			// justify the precommit.
@@ -905,6 +915,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 				Message: precommit,
 			}
 			proofs = append(proofs, accusation)
+			fd.logger.Info("Accusation detected", "faultdetector", fd.address, "ruleC1", C1, "sender", precommit.Sender())
 		}
 	}
 
