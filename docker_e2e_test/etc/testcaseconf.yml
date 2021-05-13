@@ -1,7 +1,7 @@
 engineVersion: 3.0.1
 playbook:
   name: "Example playbook of E2E testing of Autonity consensus."
-  stop: true  # true to stop this playbook, false to keep this playbook be run by test engine.
+  stop: false  # true to stop this playbook, false to keep this playbook be run by test engine.
   testcases:
     - name: "TC-1: Happy case, send 10 token per TX last for 1 minutes."
       condition:
