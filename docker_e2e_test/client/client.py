@@ -130,11 +130,12 @@ class Client(object):
         if flag == "faultdetector.accusation.rule":
             method = "aut_getAccusations"
 
-        session = requests.Session()
-        payload = {"jsonrpc": "2.0", "method": method, "params": [], "id": 1}
-        headers = {'Content-type': 'application/json'}
-        response = session.post('http://{}:{}'.format(self.host, self.rpc_port), json=payload, headers=headers)
         try:
+            session = requests.Session()
+            payload = {"jsonrpc": "2.0", "method": method, "params": [], "id": 1}
+            headers = {'Content-type': 'application/json'}
+            response = session.post('http://{}:{}'.format(self.host, self.rpc_port), json=payload, headers=headers)
+            self.logger.info(response.json())
             proofs = response.json()['result']
             for p in proofs:
                 if p['rule'] == rule_id:
@@ -152,7 +153,7 @@ class Client(object):
                    "Type=simple\n" \
                    "ExecStart={} --genesis {} --{} {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
                    "--http.port {} --http --http.addr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
-                   "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                   "--rpcapi 'personal,debug,db,eth,aut,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                    "--gasprice '0' --allow-insecure-unlock --graphql " \
                    "--unlock 0x{} --password {} " \
                    "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
@@ -191,7 +192,7 @@ class Client(object):
                    "Type=simple\n" \
                    "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
                    "--http.port {} --http --http.addr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
-                   "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                   "--rpcapi 'personal,debug,db,eth,aut,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                    "--gasprice '0' --allow-insecure-unlock --graphql " \
                    "--unlock 0x{} --password {} " \
                    "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \

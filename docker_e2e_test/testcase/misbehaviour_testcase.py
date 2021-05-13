@@ -5,7 +5,7 @@ from client.client import Client
 import time
 from timeit import default_timer as timer
 
-TIME_OUT = 60 * 3 # 3 minutes
+TIME_OUT = 60 * 5 # 5 minutes
 SYSTEM_LOG_DIR = './system_log/'
 TEST_CASE_SYSTEM_LOG_DIR = './system_log/{}'
 
