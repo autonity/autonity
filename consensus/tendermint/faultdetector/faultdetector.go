@@ -1100,9 +1100,9 @@ func getProposer(chain BlockChainContext, h uint64, r int64) (common.Address, er
 func isProposerMsg(chain BlockChainContext, m *tendermintCore.Message) bool {
 	proposer, err := getProposer(chain, m.H(), m.R())
 	if err != nil {
+		log.Error("get proposer err", err)
 		return false
 	}
-
 	return m.Address == proposer
 }
 

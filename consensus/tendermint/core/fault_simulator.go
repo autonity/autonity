@@ -83,21 +83,22 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), nPR-1, nonNilValue)
 		mE, err := c.finalizeMessage(msgEvidence)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		var proposal Proposal
 		err = innocentMsg.Decode(&proposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		// simulate a proposal that propose a new value with -1 as the valid round.
 		msgPN := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, -1)
 		mPN, err := c.finalizeMessage(msgPN)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Misbehaviour of PN rule is simulated.")
 		return append(msgs, mE, mPN)
 	}
 
@@ -111,21 +112,22 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), vR, nonNilValue)
 		mE, err := c.finalizeMessage(msgEvidence)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		var proposal Proposal
 		err = innocentMsg.Decode(&proposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		// simulate a proposal that node propose for an old value which it is not the one it locked.
 		msgPO := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, vR)
 		mPO, err := c.finalizeMessage(msgPO)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Misbehaviour of PO rule is simulated.")
 		return append(msgs, mE, mPO)
 	}
 
@@ -141,26 +143,27 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), r, nonNilValue)
 		mE, err := c.finalizeMessage(msgEvidence)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		var p Proposal
 		err = innocentMsg.Decode(&p)
 		if err != nil {
-			return nil
+			return msgs
 		}
 		// simulate a proposal at round r+1, for value v2.
 		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, -1)
 		mP, err := c.finalizeMessage(msgProposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
 		// simulate a preVote at round r+1, for value v2, this preVote for new value break PVN.
 		msgPVN := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
 		mPVN, err := c.finalizeMessage(msgPVN)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Misbehaviour of PVN rule is simulated.")
 		return append(msgs, mE, mP, mPVN)
 	}
 
@@ -186,16 +189,14 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		var p Proposal
 		err := innocentMsg.Decode(&p)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, validRound)
 		mP, err := c.finalizeMessage(msgProposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
-
-		msgs = append(msgs, mP)
 
 		// simulate preCommits at each round between [validRound, current)
 		var messages [][]byte
@@ -204,14 +205,14 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 				msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, nonNilValue)
 				mPC, err := c.finalizeMessage(msgPC)
 				if err != nil {
-					return nil
+					return msgs
 				}
 				messages = append(messages, mPC)
 			} else {
 				msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, p.GetValue())
 				mPC, err := c.finalizeMessage(msgPC)
 				if err != nil {
-					return nil
+					return msgs
 				}
 				messages = append(messages, mPC)
 			}
@@ -221,10 +222,10 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		msgPVO1 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
 		mPVO1, err := c.finalizeMessage(msgPVO1)
 		if err != nil {
-			return nil
+			return msgs
 		}
-
-		return append(append(msgs, messages...), mPVO1)
+		c.logger.Info("Misbehaviour of PVO1 rule is simulated.")
+		return append(append(msgs, mP, mPVO1), messages...)
 	}
 
 	// simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
@@ -250,16 +251,14 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		var p Proposal
 		err := innocentMsg.Decode(&p)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, validRound)
 		mP, err := c.finalizeMessage(msgProposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
-
-		msgs = append(msgs, mP)
 
 		// simulate preCommits of not V at each round between [validRound, current)
 		var messages [][]byte
@@ -267,7 +266,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, nonNilValue)
 			mPC, err := c.finalizeMessage(msgPC)
 			if err != nil {
-				return nil
+				return msgs
 			}
 			messages = append(messages, mPC)
 		}
@@ -276,10 +275,11 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		msgPVO2 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
 		mPVO2, err := c.finalizeMessage(msgPVO2)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
-		return append(append(msgs, messages...), mPVO2)
+		c.logger.Info("Misbehaviour of PVO2 rule is simulated.")
+		return append(append(msgs, messages...), mP, mPVO2)
 	}
 
 	// simulate a context of msgs that node preCommit at a value V of the round where exist quorum preVotes
@@ -289,9 +289,10 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			msgPV := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
 			mPV, err := c.finalizeMessage(msgPV)
 			if err != nil {
-				return nil
+				return msgs
 			}
 
+			c.logger.Info("Misbehaviour of C rule is simulated.")
 			return append(msgs, mPV)
 		}
 		return msgs
@@ -304,8 +305,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		msgP := msgPropose(block, innocentMsg.H(), innocentMsg.R(), innocentMsg.ValidRound())
 		mP, err := c.finalizeMessage(msgP)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Misbehaviour of invalid proposal rule is simulated.")
 		return append(msgs, mP)
 	}
 
@@ -316,8 +318,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		msgP := msgPropose(block, innocentMsg.H(), innocentMsg.R(), -1)
 		mP, err := c.finalizeMessage(msgP)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Misbehaviour of invalid proposer rule is simulated.")
 		return append(msgs, mP)
 	}
 
@@ -327,8 +330,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			msgEq := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
 			mE, err := c.finalizeMessage(msgEq)
 			if err != nil {
-				return nil
+				return msgs
 			}
+			c.logger.Info("Misbehaviour of equivocation rule is simulated.")
 			return append(msgs, mE)
 		}
 		return nil
@@ -342,14 +346,15 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		var p Proposal
 		err := innocentMsg.Decode(&p)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		invalidProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, vR)
 		mP, err := c.finalizeMessage(invalidProposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Accusation of PO rule is simulated.")
 		return append(msgs, mP)
 	}
 
@@ -358,8 +363,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		preVote := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R()+1, nonNilValue)
 		m, err := c.finalizeMessage(preVote)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Accusation of PVN rule is simulated.")
 		return append(msgs, m)
 	}
 
@@ -378,22 +384,23 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		var p Proposal
 		err := innocentMsg.Decode(&p)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, validRound)
 		mP, err := c.finalizeMessage(msgProposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		// simulate a preVote at round 3, for value v, this preVote for new value break PVO1.
 		msgPVO1 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
 		mPVO1, err := c.finalizeMessage(msgPVO1)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
+		c.logger.Info("Accusation of PVO rule is simulated.")
 		return append(msgs, mP, mPVO1)
 	}
 
@@ -402,8 +409,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		preCommit := msgVote(msgPrecommit, innocentMsg.H(), innocentMsg.R(), nonNilValue)
 		m, err := c.finalizeMessage(preCommit)
 		if err != nil {
-			return nil
+			return msgs
 		}
+		c.logger.Info("Accusation of C rule is simulated.")
 		return append(msgs, m)
 	}
 
@@ -414,20 +422,21 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		var p Proposal
 		err := innocentMsg.Decode(&p)
 		if err != nil {
-			return nil
+			return msgs
 		}
 		invalidProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, -1)
 		mP, err := c.finalizeMessage(invalidProposal)
 		if err != nil {
-			return nil
+			return msgs
 		}
 
 		if c.isProposer() {
 			preCommit := msgVote(msgPrecommit, innocentMsg.H(), nPR, p.GetValue())
 			m, err := c.finalizeMessage(preCommit)
 			if err != nil {
-				return nil
+				return msgs
 			}
+			c.logger.Info("Accusation of C1 rule is simulated.")
 			return append(msgs, mP, m)
 		}
 		return msgs

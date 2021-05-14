@@ -76,14 +76,14 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config) *core {
+func New(backend Backend, c *config.Config) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		proposerPolicy: config.ProposerPolicy,
-		blockPeriod:    config.BlockPeriod,
+		proposerPolicy: config.WeightedRandomSampling,
+		blockPeriod:    c.BlockPeriod,
 
 		address:               addr,
 		logger:                logger,
@@ -207,7 +207,6 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 		}
 		msgs := c.createMisbehaviourContext(m)
 		if len(msgs) != 0 {
-			FaultSimulatorConfigs = nil
 			for _, mm := range msgs {
 				if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), mm); err != nil {
 					logger.Error("Failed to broadcast malicious messages", "err", err)
