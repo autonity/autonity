@@ -135,13 +135,12 @@ class Client(object):
             payload = {"jsonrpc": "2.0", "method": method, "params": [], "id": 1}
             headers = {'Content-type': 'application/json'}
             response = session.post('http://{}:{}'.format(self.host, self.rpc_port), json=payload, headers=headers)
-            self.logger.info(response.json())
             proofs = response.json()['result']
             for p in proofs:
                 if p['rule'] == rule_id:
                     return True
         except Exception as e:
-            self.logger.error("cannot get correct rpc response.", e)
+            self.logger.error("cannot get correct rpc response. %s", e)
             return False
         return False
 
