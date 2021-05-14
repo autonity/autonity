@@ -105,14 +105,13 @@ if __name__ == '__main__':
                 LG.info("start test case: %s", test_case)
                 LG.debug("")
                 LG.debug("")
-                result = test.start_test()
+                result = test.run()
                 if result is True:
                     LG.info('TEST CASE PASSED: %s', test_case)
                     passed_testcases.append(test_case)
                 if result is False:
                     LG.error('TEST CASE FAILED: %s', test_case)
                     failed_testcases.append(test_case)
-
         except (KeyError, TypeError) as e:
             LG.error("Wrong configuration. %s", e)
             exit_code = 1
