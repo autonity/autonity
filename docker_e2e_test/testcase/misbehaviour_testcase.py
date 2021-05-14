@@ -5,9 +5,10 @@ from client.client import Client
 import time
 from timeit import default_timer as timer
 
-TIME_OUT = 60 * 5 # 5 minutes
+TIME_OUT = 60 * 3  # 3 minutes
 SYSTEM_LOG_DIR = './system_log/'
 TEST_CASE_SYSTEM_LOG_DIR = './system_log/{}'
+
 
 class MisbehaviourTestCase:
     def __init__(self, test_case_conf, clients: List[Client]):
@@ -22,7 +23,7 @@ class MisbehaviourTestCase:
         try:
             name = self.test_case_conf["name"]
             flag = self.test_case_conf["flag"]
-            id = self.test_case_conf["value"]
+            rule_id = self.test_case_conf["value"]
         except Exception as e:
             self.logger.error("re-generate local systemd file with fault simulator flag failed: %s", e)
             return False
@@ -39,7 +40,7 @@ class MisbehaviourTestCase:
 
         # re-generate local systemd file with fault simulator flag
         for index, client in self.clients.items():
-            client.generate_system_service_file_with_fault_simulator(flag=flag, rule_id=id)
+            client.generate_system_service_file_with_fault_simulator(flag=flag, rule_id=rule_id)
 
         # tar package
         for index, client in self.clients.items():
