@@ -82,7 +82,7 @@ func New(backend Backend, c *config.Config) *core {
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		proposerPolicy: config.WeightedRandomSampling,
+		proposerPolicy: c.ProposerPolicy,
 		blockPeriod:    c.BlockPeriod,
 
 		address:               addr,

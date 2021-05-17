@@ -59,9 +59,11 @@ var (
 // New creates an Ethereum Backend for BFT core engine.
 func New(config *tendermintConfig.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database,
 	chainConfig *params.ChainConfig, vmConfig *vm.Config, evMux *event.TypeMux) *Backend {
-	if chainConfig.Tendermint.BlockPeriod != 0 {
-		config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
-	}
+	// tendermint config are set in genesis, the config of ether did not set it at all, so we set it if tendermint
+	// config is presented on chainConfig, todo: move this config into autonity contract side would be better otherwise
+	// the chain config and the config of Eth confuse here.
+	config.BlockPeriod = chainConfig.Tendermint.BlockPeriod
+	config.ProposerPolicy = chainConfig.Tendermint.ProposerPolicy
 
 	logger := log.New("addr", crypto.PubkeyToAddress(privateKey.PublicKey).String())
 
