@@ -326,7 +326,8 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an equivocation over preVote.
 	equivocation := func() [][]byte {
-		if innocentMsg.Code == msgPrevote {
+		// let equivocation happens only on height 5.
+		if innocentMsg.Code == msgPrevote && innocentMsg.H() == uint64(5) {
 			msgEq := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
 			mE, err := c.finalizeMessage(msgEq)
 			if err != nil {
