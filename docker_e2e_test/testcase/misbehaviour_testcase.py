@@ -51,6 +51,10 @@ class MisbehaviourTestCase:
             if client.deliver_package() is not True:
                 return False
 
+        # load autonity systemd service file
+        for index, client in self.clients.items():
+            client.load_systemd_file()
+
         # run network
         for index, client in self.clients.items():
             if client.start_client() is not True:
