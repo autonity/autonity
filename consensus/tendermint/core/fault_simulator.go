@@ -5,6 +5,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
+	"math/rand"
 )
 
 type FaultSimulatorConfig struct {
@@ -326,8 +327,9 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an equivocation over preVote.
 	equivocation := func() [][]byte {
-		// let equivocation happens only on height 5.
-		if innocentMsg.Code == msgPrevote && innocentMsg.H() == uint64(5) {
+		// let equivocation happens seeded by a random value.
+		randHeight := rand.Uint64() % 4
+		if innocentMsg.Code == msgPrevote && randHeight == uint64(3) {
 			msgEq := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
 			mE, err := c.finalizeMessage(msgEq)
 			if err != nil {
