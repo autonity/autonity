@@ -64,6 +64,7 @@ const (
 	deltaBlocks          = 30                       // Wait until the GST + delta (30 blocks) to start rule scan.
 	randomDelayRange     = 5000                     // (0, 5] seconds random delay range
 	msgHeightBufferRange = uint64(deltaBlocks + 60) // buffer such range of msgs in height at msg store.
+	tooFutureHeightRange = uint64(90)               // skip messages with height that is higher than current head over this value.
 )
 
 var (
@@ -168,6 +169,11 @@ tendermintMsgLoop:
 
 			if curHeight > msgHeightBufferRange && msg.H() < curHeight-msgHeightBufferRange {
 				fd.logger.Info("fault detector: discarding old message", "sender", msg.Sender())
+				continue tendermintMsgLoop
+			}
+
+			if msg.H() > curHeight && msg.H()-curHeight > tooFutureHeightRange {
+				fd.logger.Info("fault detector: discarding too future message", "sender", msg.Sender())
 				continue tendermintMsgLoop
 			}
 
