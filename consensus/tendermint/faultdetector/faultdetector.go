@@ -68,6 +68,7 @@ const (
 )
 
 var (
+	errDuplicatedMsg   = errors.New("duplicated msg")
 	errEquivocation    = errors.New("equivocation happens")
 	errFutureMsg       = errors.New("future height msg")
 	errGarbageMsg      = errors.New("garbage msg")
@@ -549,6 +550,12 @@ func (fd *FaultDetector) processMsg(m *tendermintCore.Message) error {
 		}
 		fd.submitMisbehavior(m, proofs, err, fd.misbehaviourProofsCh)
 		return err
+	}
+
+	if err == errDuplicatedMsg {
+		fd.logger.Warn("Consensus msg already processed by fault detector before", "msg sender", m.Sender())
+		// todo: think about network layer's reputation slashing, when it exceed a threshold freeze the remote peer
+		//  for period of time in case of DoS attack.
 	}
 	return nil
 }

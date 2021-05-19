@@ -63,6 +63,10 @@ func (ms *MsgStore) Save(m *core.Message) ([]*core.Message, error) {
 		return msgs, errEquivocation
 	}
 
+	if presented {
+		return nil, errDuplicatedMsg
+	}
+
 	return nil, nil
 }
 
