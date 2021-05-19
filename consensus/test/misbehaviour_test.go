@@ -24,7 +24,7 @@ func TestMaliciousBehaviourPN(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourPN",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookPN,
 		finalAssert:   RulePNChecker,
 	}
@@ -46,7 +46,7 @@ func TestMaliciousBehaviourPO(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourPO",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookPO,
 		finalAssert:   RulePOChecker,
 	}
@@ -68,7 +68,7 @@ func TestMaliciousBehaviourPVN(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourPVN",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookPVN,
 		finalAssert:   RulePVNChecker,
 	}
@@ -90,7 +90,7 @@ func TestMaliciousBehaviourPVO1(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourPVO1",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookPVO1,
 		finalAssert:   RulePVO1Checker,
 	}
@@ -113,7 +113,7 @@ func TestMaliciousBehaviourPVO2(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourPVO2",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookPVO2,
 		finalAssert:   RulePVO2Checker,
 	}
@@ -135,7 +135,7 @@ func TestMaliciousBehaviourC(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourC",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookC,
 		finalAssert:   RuleCChecker,
 	}
@@ -157,7 +157,7 @@ func TestMaliciousBehaviourInvalidProposal(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourInvalidProposal",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     15,
 		genesisHook:   genesisHookInvalidProposal,
 		finalAssert:   RuleInvalidProposalChecker,
 	}
@@ -179,7 +179,7 @@ func TestMaliciousBehaviourInvalidProposer(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourInvalidProposer",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     15,
 		genesisHook:   genesisHookInvalidProposer,
 		finalAssert:   RuleInvalidProposerChecker,
 	}
@@ -201,7 +201,7 @@ func TestMaliciousBehaviourEquivocation(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorMaliciousBehaviourEquivocation",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     15,
 		genesisHook:   genesisHookEquivocation,
 		finalAssert:   RuleEquivocationChecker,
 	}
@@ -223,7 +223,7 @@ func TestAccusationRulePO(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorAccusationPO",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookAccusationPO,
 		finalAssert:   RuleAccusationPOChecker,
 	}
@@ -246,7 +246,7 @@ func TestAccusationRulePVN(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorAccusationPVN",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookAccusationPVN,
 		finalAssert:   RuleAccusationPVNChecker,
 	}
@@ -268,7 +268,7 @@ func TestAccusationRulePVO(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorAccusationPVO",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookAccusationPVO,
 		finalAssert:   RuleAccusationPVOChecker,
 	}
@@ -290,7 +290,7 @@ func TestAccusationRuleC(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorAccusationC",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookAccusationC,
 		finalAssert:   RuleAccusationCChecker,
 	}
@@ -312,7 +312,7 @@ func TestAccusationRuleC1(t *testing.T) {
 	tc := testCase{
 		name:          "TestFaultDetectorAccusationC1",
 		numValidators: 6,
-		numBlocks:     60,
+		numBlocks:     45,
 		genesisHook:   genesisHookAccusationC1,
 		finalAssert:   RuleAccusationC1Checker,
 	}

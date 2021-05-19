@@ -5,7 +5,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
-	"math/rand"
 )
 
 type FaultSimulatorConfig struct {
@@ -301,15 +300,20 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an invalid proposal.
 	invalidProposal := func() [][]byte {
-		header := &types.Header{Number: new(big.Int).SetUint64(innocentMsg.H())}
-		block := types.NewBlockWithHeader(header)
-		msgP := msgPropose(block, innocentMsg.H(), innocentMsg.R(), innocentMsg.ValidRound())
-		mP, err := c.finalizeMessage(msgP)
-		if err != nil {
-			return msgs
+		// send an invalid proposal happens at height 3.
+		if innocentMsg.H() == uint64(3) {
+			nextPR := nextProposeRound(innocentMsg.R())
+			header := &types.Header{Number: new(big.Int).SetUint64(innocentMsg.H())}
+			block := types.NewBlockWithHeader(header)
+			msgP := msgPropose(block, innocentMsg.H(), nextPR, innocentMsg.ValidRound())
+			mP, err := c.finalizeMessage(msgP)
+			if err != nil {
+				return msgs
+			}
+			c.logger.Info("Misbehaviour of invalid proposal rule is simulated.")
+			return append(msgs, mP)
 		}
-		c.logger.Info("Misbehaviour of invalid proposal rule is simulated.")
-		return append(msgs, mP)
+		return msgs
 	}
 
 	// simulate a non proposer node proposing a proposal.
@@ -327,9 +331,8 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an equivocation over preVote.
 	equivocation := func() [][]byte {
-		// let equivocation happens seeded by a random value.
-		randHeight := rand.Uint64() % 4
-		if innocentMsg.Code == msgPrevote && randHeight == uint64(3) {
+		// let proposer of the round send equivocated preVote.
+		if innocentMsg.Code == msgPrevote && c.isProposer() {
 			msgEq := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
 			mE, err := c.finalizeMessage(msgEq)
 			if err != nil {
@@ -363,13 +366,17 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
 	accusationContextPVN := func() [][]byte {
-		preVote := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R()+1, nonNilValue)
-		m, err := c.finalizeMessage(preVote)
-		if err != nil {
-			return msgs
+		// let the proposer at height 3, send the preVote for a value that the corresponding proposal is missing.
+		if c.isProposer() && innocentMsg.H() == uint64(3) {
+			preVote := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R()+1, nonNilValue)
+			m, err := c.finalizeMessage(preVote)
+			if err != nil {
+				return msgs
+			}
+			c.logger.Info("Accusation of PVN rule is simulated.")
+			return append(msgs, m)
 		}
-		c.logger.Info("Accusation of PVN rule is simulated.")
-		return append(msgs, m)
+		return msgs
 	}
 
 	// simulate an accusation context that an old proposal have less quorum preVotes for the value at the valid round.
