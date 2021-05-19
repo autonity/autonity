@@ -5,6 +5,7 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
+	"sort"
 )
 
 type FaultSimulatorConfig struct {
@@ -77,29 +78,34 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate a context of msgs that node propose a new proposal rather than the one it locked at previous round.
 	maliciousContextPN := func() [][]byte {
-		// find a next proposing round.
-		nPR := nextProposeRound(innocentMsg.R())
-		// simulate a preCommit msg that locked a value at previous round than next proposing round.
-		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), nPR-1, nonNilValue)
-		mE, err := c.finalizeMessage(msgEvidence)
-		if err != nil {
-			return msgs
-		}
+		committee := c.committee.Committee()
+		sort.Sort(committee)
+		if c.address == committee[0].Address {
+			// find a next proposing round.
+			nPR := nextProposeRound(innocentMsg.R())
+			// simulate a preCommit msg that locked a value at previous round than next proposing round.
+			msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), nPR-1, nonNilValue)
+			mE, err := c.finalizeMessage(msgEvidence)
+			if err != nil {
+				return msgs
+			}
 
-		var proposal Proposal
-		err = innocentMsg.Decode(&proposal)
-		if err != nil {
-			return msgs
-		}
+			var proposal Proposal
+			err = innocentMsg.Decode(&proposal)
+			if err != nil {
+				return msgs
+			}
 
-		// simulate a proposal that propose a new value with -1 as the valid round.
-		msgPN := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, -1)
-		mPN, err := c.finalizeMessage(msgPN)
-		if err != nil {
-			return msgs
+			// simulate a proposal that propose a new value with -1 as the valid round.
+			msgPN := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, -1)
+			mPN, err := c.finalizeMessage(msgPN)
+			if err != nil {
+				return msgs
+			}
+			c.logger.Info("Misbehaviour of PN rule is simulated.")
+			return append(msgs, mE, mPN)
 		}
-		c.logger.Info("Misbehaviour of PN rule is simulated.")
-		return append(msgs, mE, mPN)
+		return msgs
 	}
 
 	// simulate a context of msgs that node propose a proposal that proposed a value for which it is not the one it
