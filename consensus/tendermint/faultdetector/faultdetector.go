@@ -282,28 +282,29 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 	}
 	header := fd.blockchain.CurrentBlock().Header()
 
-	presentedAccusation := fd.blockchain.GetAutonityContract().GetAccusations(header, state)
-	presentedMisbehavior := fd.blockchain.GetAutonityContract().GetMisBehaviours(header, state)
+	proofsMap := make(map[common.Hash]*autonity.OnChainProof)
+	for _, p := range proofs {
+		proofsMap[p.Msghash] = p
+	}
 
-	for i := 0; i < len(proofs); i++ {
-		present := false
-		for j := 0; j < len(presentedAccusation); j++ {
-			if proofs[i].Msghash == presentedAccusation[j].Msghash &&
-				proofs[i].Type == autonity.Accusation {
-				present = true
-			}
-		}
+	contract := fd.blockchain.GetAutonityContract()
+	presentedAccusation := contract.GetAccusations(header, state)
+	presentedMisbehavior := contract.GetMisBehaviours(header, state)
 
-		for j := 0; j < len(presentedMisbehavior); j++ {
-			if proofs[i].Msghash == presentedMisbehavior[j].Msghash &&
-				proofs[i].Type == autonity.Misbehaviour {
-				present = true
-			}
+	for _, p := range presentedAccusation {
+		if _, ok := proofsMap[p.Msghash]; ok {
+			delete(proofsMap, p.Msghash)
 		}
+	}
 
-		if !present {
-			result = append(result, proofs[i])
+	for _, p := range presentedMisbehavior {
+		if _, ok := proofsMap[p.Msghash]; ok {
+			delete(proofsMap, p.Msghash)
 		}
+	}
+
+	for _, p := range proofsMap {
+		result = append(result, p)
 	}
 
 	return result
