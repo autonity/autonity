@@ -162,6 +162,17 @@ func TestMsgStore(t *testing.T) {
 		assert.Equal(t, 0, len(proposals))
 	})
 
+	t.Run("save duplicated msgs in msg store", func(t *testing.T) {
+		ms := newMsgStore()
+		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
+		_, err := ms.Save(preVoteNil)
+		if err != nil {
+			assert.Error(t, err)
+		}
+		_, err = ms.Save(preVoteNil)
+		assert.Equal(t, err, errDuplicatedMsg)
+	})
+
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := newMsgStore()
 		preVoteNil := newVoteMsg(height, round, msgPrevote, proposerKey, nilValue, committee)
