@@ -292,15 +292,11 @@ func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []
 	presentedMisbehavior := contract.GetMisBehaviours(header, state)
 
 	for _, p := range presentedAccusation {
-		if _, ok := proofsMap[p.Msghash]; ok {
-			delete(proofsMap, p.Msghash)
-		}
+		delete(proofsMap, p.Msghash)
 	}
 
 	for _, p := range presentedMisbehavior {
-		if _, ok := proofsMap[p.Msghash]; ok {
-			delete(proofsMap, p.Msghash)
-		}
+		delete(proofsMap, p.Msghash)
 	}
 
 	for _, p := range proofsMap {
