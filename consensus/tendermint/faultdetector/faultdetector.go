@@ -273,9 +273,8 @@ func (fd *FaultDetector) SubscribeFaultDetectorEvents(ch chan<- []*autonity.OnCh
 	return fd.faultDetectorFeed.Subscribe(ch)
 }
 
-func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) []*autonity.OnChainProof {
+func (fd *FaultDetector) filterPresentedOnes(proofs []*autonity.OnChainProof) (result []*autonity.OnChainProof) {
 	// get latest chain state.
-	result := make([]*autonity.OnChainProof, len(proofs))
 	state, err := fd.blockchain.State()
 	if err != nil {
 		return nil
