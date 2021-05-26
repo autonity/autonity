@@ -17,6 +17,7 @@ import (
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -582,11 +583,10 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.OnChainProof {
 func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proofs []*Proof) {
 	// Rules read right to left (find  the right and look for the left)
 	//
-	// Rules should be evealuated such that we check all paossible instances and if
-	// we can't find a single instance that passes then we consider the rule
-	// failed.
+	// Rules should be evaluated such that we check all possible instances and if we can't find a single instance that
+	// passes then we consider the rule failed.
 	//
-	// There are 2 types of provable misbehaviors.
+	// There are 2 types of provable misbehaviour.
 	// 1. Conflicting messages from a single participant
 	// 2. A message that conflicts with a quorum of prevotes.
 	// (precommit for differing value in same round as the prevotes or proposal for an
@@ -594,9 +594,21 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 	// We should be here at time t = timestamp(h+1) + delta
 
+	proofs = fd.newProposalsAccountabilityCheck(height, proofs)
+	proofs = fd.oldProposalsAccountabilityCheck(height, quorum, proofs)
+	proofs = fd.prevotesAccountabilityCheck(height, quorum, proofs)
+	proofs = fd.precommitsAccountabilityCheck(height, quorum, proofs)
+	return proofs
+}
+
+func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64, proofs []*Proof) []*Proof {
 	// ------------New Proposal------------
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
+	//
+	// Since the message pattern for PN includes only messages sent by pi, we cannot raise an accusation. We can only
+	// raise a misbehaviour. To raise a misbehaviour for PN1 we need to have received all the precommits from pi for all
+	// r' < r. If any of the precommits is for a non-nil value then we have proof of misbehaviour.
 
 	proposalsNew := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 		return m.Type() == msgProposal && m.ValidRound() == -1
@@ -619,7 +631,10 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePN", PN, "sender", proposal.Sender())
 		}
 	}
+	return proofs
+}
 
+func (fd *FaultDetector) oldProposalsAccountabilityCheck(height uint64, quorum uint64, proofs []*Proof) []*Proof {
 	// ------------Old Proposal------------
 	// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
@@ -628,20 +643,22 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 		return m.Type() == msgProposal && m.ValidRound() > -1
 	})
 
+oldProposalLoop:
 	for _, p := range proposalsOld {
+		//Todo: decide whether we can raise multiple misbehaviour or accusation for the same message type
+
 		proposal := p
-		// Check that in the valid round we see a quorum of prevotes and that
-		// there is no precommit at all or a precommit for v or nil.
+		// Check that in the valid round we see a quorum of prevotes and that there is no precommit at all or a
+		// precommit for v or nil.
 
 		validRound := proposal.ValidRound()
 
-		// Is there a precommit for a value other than nil or the proposed value
-		// by the current proposer in the valid round? If there is the proposer
-		// has proposed a value for which it is not locked on, thus a Proof of
+		// Is there a precommit for a value other than nil or the proposed value by the current proposer in the valid
+		// round? If there is, the proposer has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
 		precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return m.Type() == msgPrecommit && m.R() == validRound &&
-				m.Sender() == proposal.Sender() && m.Value() != nilValue && m.Value() != proposal.Value()
+			return m.Type() == msgPrecommit && m.R() == validRound && m.Sender() == proposal.Sender() &&
+				m.Value() != nilValue && m.Value() != proposal.Value()
 		})
 		if len(precommits) > 0 {
 			proof := &Proof{
@@ -652,15 +669,15 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			}
 			proofs = append(proofs, proof)
 			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePO", PO, "sender", proposal.Sender())
+			continue oldProposalLoop
 		}
 
-		// Is there a precommit for anything other than nil from the proposer
-		// between the valid round and the round of the proposal? If there is
-		// then that implies the proposer saw 2f+1 prevotes in that round and
-		// hence it should have set that round as the valid round.
+		// Is there a precommit for anything other than nil from the proposer between the valid round and the round of
+		// the proposal? If there is then that implies the proposer saw 2f+1 prevotes in that round and hence it should
+		// have set that round as the valid round.
 		precommits = fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return m.Type() == msgPrecommit &&
-				m.R() > validRound && m.R() < proposal.R() && m.Sender() == proposal.Sender() && m.Value() != nilValue
+			return m.Type() == msgPrecommit && m.R() > validRound && m.R() < proposal.R() &&
+				m.Sender() == proposal.Sender() && m.Value() != nilValue
 		})
 		if len(precommits) > 0 {
 			proof := &Proof{
@@ -671,11 +688,37 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			}
 			proofs = append(proofs, proof)
 			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePO", PO, "sender", proposal.Sender())
+			continue oldProposalLoop
 		}
 
-		// Do we see a quorum of prevotes in the valid round, if not we can
-		// raise an accusation, since we cannot be sure that these prevotes
-		// don't exist
+		// Do we see a quorum for a value other than the proposed value? If so, we have proof of misbehaviour
+		allPrevotesForValidRound := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+			return m.Type() == msgPrevote && m.R() == validRound && m.Value() != nilValue && m.Value() != proposal.Value()
+		})
+
+		prevotesMap := make(map[common.Hash][]*tendermintCore.Message)
+		for _, p := range allPrevotesForValidRound {
+			prevotesMap[p.Value()] = append(prevotesMap[p.Value()], p)
+		}
+
+		for _, preVotes := range prevotesMap {
+			// Here the assumption is that in a single round it is not possible to have 2 value which quorum votes,
+			// this would imply at least quorum nodes are malicious which is much higher than our assumption.
+			if powerOfVotes(deEquivocatedMsgs(preVotes)) >= quorum {
+				proof := &Proof{
+					Type:     autonity.Misbehaviour,
+					Rule:     PO,
+					Evidence: preVotes,
+					Message:  proposal,
+				}
+				proofs = append(proofs, proof)
+				fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePO", PO, "sender", proposal.Sender())
+				continue oldProposalLoop
+			}
+		}
+
+		// Do we see a quorum of prevotes in the valid round, if not we can raise an accusation, since we cannot be sure
+		// that these prevotes don't exist
 		prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			// since equivocation msgs are stored, we have to query those preVotes which has same value as the proposal.
 			return m.Type() == msgPrevote && m.R() == validRound && m.Value() == proposal.Value()
@@ -690,8 +733,12 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			proofs = append(proofs, accusation)
 			fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePO", PO, "sender", proposal.Sender())
 		}
+		continue oldProposalLoop
 	}
+	return proofs
+}
 
+func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint64, proofs []*Proof) []*Proof {
 	// ------------New and Old Prevotes------------
 
 	prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
@@ -700,6 +747,9 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 	for _, p := range prevotes {
 		prevote := p
+
+		// We need to check that we have corresponding proposal which the prevote is referrring to, otherwise, we cannot
+		// say anything about the prevote, since we may not have received the proposal.
 		correspondingProposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
 		})
@@ -731,35 +781,116 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 				// PVN2: [nil ∨ ⊥] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]: r′= 0,∀r′′< r:Mr′′,PC|pi=nil
 
-				// PVN2, If there is a valid proposal V at round r, and pi never
-				// ever precommit(locked a value) before, then pi should prevote
-				// for V or a nil in case of timeout at this round.
+				// PVN2, If there is a valid proposal V at round r, and pi never ever precommit(locked a value) before,
+				// then pi should prevote for V or a nil in case of timeout at this round.
 
 				// PVN3: [V] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]:∀r′< r′′<r,Mr′′,PC|pi=nil
 
-				// We can check both PVN2 and PVN3 by simply searching for a
-				// precommit for a value other than V or nil. This is a Proof of
-				// misbehaviour. There is no scope to raise an accusation for
-				// these rules since the only message in PVN that is not sent by
-				// pi is the proposal and you require the proposal before you
-				// can even attempt to apply the rule.
-				precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					return m.Type() == msgPrecommit && m.Value() != nilValue &&
-						m.Value() != prevote.Value() && prevote.Sender() == m.Sender() && m.R() < prevote.R()
+				// There is no scope to raise an accusation for these rules since the only message in PVN that is not
+				// sent by pi is the proposal and you require the proposal before you can even attempt to apply the
+				// rule.
+
+				// Since we cannot raise an accusation we can only create a proof of misbehaviour. To create a proof of
+				// misbehaviour we need to have all the messages in the message pattern, otherwise, we cannot make any
+				// statement about the message. We may not have enough information and we don't want to accuse someone
+				// unnecessarily. To show a proof of misbehaviour for PVN2 and PVN3 we need to collect all the
+				// precommits from pi and set the latest precommit round as r' and we need to have all the precommit
+				// messages from r' to r for pi to be able to check for misbehaviour. If the latest precommit is not for
+				// V and we have all the precommits from r' to r which are nil, then we have proof of misbehaviour.
+				precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+					return m.Type() == msgPrecommit && m.Value() != nilValue && prevote.Sender() == m.Sender() && m.R() < prevote.R()
 				})
 
-				if len(precommits) > 0 {
-					proof := &Proof{
-						Type:     autonity.Misbehaviour,
-						Rule:     PVN,
-						Evidence: precommits,
-						Message:  prevote,
-					}
-					proofs = append(proofs, proof)
-					fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVN", PVN, "sender", prevote.Sender())
-					break
-				}
+				// Check for missing messages.
+				// If there are gaps those missing message could be the one that proves pi acted correctly however since
+				// we don't have information and enough time has passed we are just going to ignore and move to the next
+				// prevote.
+				if len(precommitsFromPi) > 0 {
+					sort.SliceStable(precommitsFromPi, func(i, j int) bool {
+						return precommitsFromPi[i].R() < precommitsFromPi[j].R()
+					})
 
+					var lastPrecommitFromPi *tendermintCore.Message
+					var lastPrecommitFromPiIndex int
+					var curR, lastR int64
+					var gap bool
+
+					lastIndex := len(precommitsFromPi) - 1
+					lastR = precommitsFromPi[lastIndex].R()
+
+					for i := lastIndex; i >= 0; i-- {
+						pc := precommitsFromPi[i]
+						curR = pc.R()
+
+						// Check if the difference between the previous round and current round is more than 1
+						if math.Abs(float64(curR)-float64(lastR)) > 1 {
+							// We have missing precommits so we cannot make any statement on the correctness of the
+							// current prevote
+							gap = true
+							break
+						}
+
+						if pc.Value() != nilValue {
+							// We don't have any missing messages
+							lastPrecommitFromPi = pc
+							lastPrecommitFromPiIndex = i
+							break
+						}
+
+						lastR = curR
+					}
+
+					if !gap {
+						// We don't have gaps therefore we can be sure that if the last precommit is not for V, then it
+						// is a proof of misbehaviour
+						if lastPrecommitFromPiIndex > 0 {
+							// Check for equivocation, it is possible there are multiple precommit from pi for the same
+							// round.
+							// todo: decide what to do if we have multiple equivocated messages. This is not
+							//  straightforward because we have mostly likely already punished pi for sending
+							//  equivocated messages when they were first received. So should be punish the person
+							//  twice? // Possible suggestion: since pi, most likely, have already being punished for
+							//  equivocation, we don't do anything.
+
+							equivocatedMsgFromPi := []*tendermintCore.Message{lastPrecommitFromPi}
+							// Check for equivocated messages with the same round before the latestPrecommitFromPiIndex.
+							// These could be for nil or non nil.
+							for i := lastPrecommitFromPiIndex - 1; i >= 0; i-- {
+								equivPreC := precommitsFromPi[i]
+								if equivPreC.R() != lastPrecommitFromPi.R() {
+									break
+								}
+								equivocatedMsgFromPi = append(equivocatedMsgFromPi, equivPreC)
+							}
+
+							// Check for equivocated messages with the same round after the latestPrecommitFromPiIndex.
+							// These messages could only be for nil
+							for i := lastPrecommitFromPiIndex + 1; i < lastIndex; i++ {
+								equivPreC := precommitsFromPi[i]
+								if equivPreC.R() != lastPrecommitFromPi.R() {
+									break
+								}
+								equivocatedMsgFromPi = append(equivocatedMsgFromPi, equivPreC)
+							}
+
+							if len(equivocatedMsgFromPi) == 1 {
+								// there is no equivocation
+								if equivocatedMsgFromPi[0].Value() != prevote.Value() {
+									proof := &Proof{
+										Type:     autonity.Misbehaviour,
+										Rule:     PVN,
+										Evidence: precommitsFromPi[lastPrecommitFromPiIndex:lastIndex],
+										Message:  prevote,
+									}
+									proofs = append(proofs, proof)
+									fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVN", PVN, "sender", prevote.Sender())
+									break
+								}
+							}
+						}
+
+					}
+				}
 			} else {
 				// PVO: (Mr′′′<r,PV) ∧ (Mr′′′≤r′<r,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ∧ (Mr, P|proposer(r)) ⇐= (Mr,PV|pi)
 				currentR := correspondingProposal.R()
@@ -791,12 +922,13 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 						m.R() < currentR
 				})
 
-				// PVO1: [#(V)≥2f+ 1] ∧ [V] ∧ [V ∨ nil ∨ ⊥] ∧ [ V: validRound(V) = r′′′] ⇐= [V]
-				// if V is the proposed value at round r and pi did already precommit on V at round r′< r(it locked on it)
-				// and did not precommit for other values in any round between r′and r then in round r either pi prevotes
-				// for V or nil(in case of a timeout), Moreover, we expect to find 2f+ 1 prevotes for V issued at
-				// round r′′′=validRound(V).
 				if len(preCommitsForV) > 0 {
+					// PVO1: [#(V)≥2f+ 1] ∧ [V] ∧ [V ∨ nil ∨ ⊥] ∧ [ V: validRound(V) = r′′′] ⇐= [V]
+					// if V is the proposed value at round r and pi did already precommit on V at round r′< r(it locked
+					// on it) and did not precommit for other values in any round between r′and r then in round r either
+					// pi prevotes for V or nil(in case of a timeout), Moreover, we expect to find 2f+ 1 prevotes for V
+					// issued at round r′′′=validRound(V).
+
 					sort.SliceStable(preCommitsForV, func(i, j int) bool {
 						return preCommitsForV[i].R() < preCommitsForV[j].R()
 					})
@@ -832,10 +964,9 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 					}
 				} else {
 					// PVO2: [#(V)≥2f+ 1] ∧ [V ∨ nil ∨⊥] ∧ [V:validRound(V) =r′] ⇐= [V];
-					// if V is the proposed value at round r with validRound(V) =r′ then there must be 2f+ 1
-					// prevotes for V issued at round r′. If moreover, pi did not precommit for other values
-					// in any round between r′and r(thus it can be either locked on some values or not) then
-					// in round r pi prevotes for V.
+					// if V is the proposed value at round r with validRound(V) =r′ then there must be 2f+ 1 prevotes
+					// for V issued at round r′. If moreover, pi did not precommit for other values in any round between
+					// r′and r(thus it can be either locked on some values or not) then in round r pi prevotes for V.
 
 					// We need to ensure that there are no precommits for V'. Since we already check for precommits for
 					// V in the PVO1 rule we only need make sure that all the precommits are nil. Therefore, we don't
@@ -867,7 +998,10 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			}
 		}
 	}
+	return proofs
+}
 
+func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uint64, proofs []*Proof) []*Proof {
 	// ------------Precommits------------
 	// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
@@ -927,7 +1061,6 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 			fd.logger.Info("Accusation detected", "faultdetector", fd.address, "ruleC1", C1, "sender", precommit.Sender())
 		}
 	}
-
 	return proofs
 }
 
