@@ -7,7 +7,7 @@ from conf import conf
 
 
 class NetworkPlanner(object):
-    def __init__(self, autonity_path):
+    def __init__(self, autonity_path=None):
         self.logger = log.get_logger()
         self.autonity_path = autonity_path
         path_list = autonity_path.split("/")
@@ -33,6 +33,7 @@ class NetworkPlanner(object):
             self.validator_ip_list, self.participant_ip_list = conf.get_client_ips()
 
     def prepare_client_instances(self):
+        self.logger.info("prepare client instance in network planner.")
         for index, ip in enumerate(self.validator_ip_list):
             self.clients.append(Client(ip, role="validator", autonity_path=self.autonity_path,
                                        bootnode_path=self.bootnode_path, index=index))

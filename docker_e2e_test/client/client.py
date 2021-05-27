@@ -62,10 +62,11 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 class Client(object):
     def __init__(self, host=None, p2p_port=None, rpc_port=None, ws_port=None, net_interface=None,
                  coin_base=None, ssh_user=None, ssh_pass=None, ssh_key=None, sudo_pass=None, autonity_path=None,
-                 bootnode_path=None, role=None, index=None, e_node=None):
+                 bootnode_path=None, role=None, index=None, e_node=None, hostname=None):
         self.autonity_path = autonity_path
         self.bootnode_path = bootnode_path
         self.host = host
+        self.hostname = hostname
         self.p2p_port = p2p_port
         self.rpc_port = rpc_port
         self.ws_port = ws_port
@@ -91,6 +92,7 @@ class Client(object):
         utility.create_dir(work_dir)
 
     def generate_new_account(self):
+        self.logger.info("generate new account in client.")
         folder = self.host
         utility.execute("echo 123 > ./network-data/{}/pass.txt".format(folder))
         output = utility.execute(
@@ -107,8 +109,11 @@ class Client(object):
             return self.coin_base
 
     def generate_enode(self):
-        folder = self.host
+        endpoint = self.host
+        if self.hostname is not None:
+            endpoint = self.hostname
 
+        folder = self.host
         keystores_dir = "./network-data/{}/data/keystore".format(folder)
         keystore_file_path = keystores_dir + "/" + os.listdir(keystores_dir)[0]
         with open(keystore_file_path) as keyfile:
@@ -120,7 +125,7 @@ class Client(object):
         pub_key = \
             utility.execute("{} -writeaddress -nodekey ./network-data/{}/boot.key".
                             format(self.bootnode_path, folder))[0].rstrip()
-        self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
+        self.e_node = "enode://{}@{}:{}".format(pub_key, endpoint, self.p2p_port)
         return self.e_node
 
     def is_proof_presented(self, flag, rule_id):

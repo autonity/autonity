@@ -1,7 +1,10 @@
 engineVersion: 3.0.1
 playbook:
   name: "Autonity malicious behaviour test cases"
-  testcases:
+  malicious_tests:
+    - name: "Misbehaviour of C rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 6
     - name: "Misbehaviour of PN rule"
       flag: "faultdetector.misbehaviour.rule"
       value: 0
@@ -17,9 +20,6 @@ playbook:
     - name: "Misbehaviour of PVO2 rule"
       flag: "faultdetector.misbehaviour.rule"
       value: 5
-    - name: "Misbehaviour of C rule"
-      flag: "faultdetector.misbehaviour.rule"
-      value: 6
     - name: "Misbehaviour of invalid proposal rule"
       flag: "faultdetector.misbehaviour.rule"
       value: 9
@@ -42,5 +42,45 @@ playbook:
       flag: "faultdetector.accusation.rule"
       value: 6
     - name: "Accusation of C1 rule"
+      flag: "faultdetector.accusation.rule"
+      value: 7
+  twins_tests:
+    - name: "Misbehaviour of PN rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 0
+    - name: "Misbehaviour of PO rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 1
+    - name: "Misbehaviour of PVN rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 2
+    - name: "Misbehaviour of PVO1 rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 4
+    - name: "Misbehaviour of PVO2 rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 5
+    - name: "Misbehaviour of invalid proposal rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 9
+    - name: "Misbehaviour of invalid proposer rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 10
+    - name: "Misbehaviour of equivocation rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 11
+    - name: "Accusation of PO rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 1
+    - name: "Accusation of PVN rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 2
+    - name: "Accusation of PVO rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 3
+    - name: "Accusation of C rule"
+      flag: "faultdetector.accusation.rule in twins test"
+      value: 6
+    - name: "Accusation of C1 rule in twins test"
       flag: "faultdetector.accusation.rule"
       value: 7
