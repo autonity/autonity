@@ -5,7 +5,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
 	"math/big"
-	"sort"
 )
 
 type FaultSimulatorConfig struct {
@@ -78,34 +77,28 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate a context of msgs that node propose a new proposal rather than the one it locked at previous round.
 	maliciousContextPN := func() [][]byte {
-		committee := c.committee.Committee()
-		sort.Sort(committee)
-		if c.address == committee[0].Address {
-			// find a next proposing round.
-			nPR := nextProposeRound(innocentMsg.R())
-			// simulate a preCommit msg that locked a value at previous round than next proposing round.
-			msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), nPR-1, nonNilValue)
-			mE, err := c.finalizeMessage(msgEvidence)
-			if err != nil {
-				return msgs
-			}
-
-			var proposal Proposal
-			err = innocentMsg.Decode(&proposal)
-			if err != nil {
-				return msgs
-			}
-
-			// simulate a proposal that propose a new value with -1 as the valid round.
-			msgPN := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, -1)
-			mPN, err := c.finalizeMessage(msgPN)
-			if err != nil {
-				return msgs
-			}
-			c.logger.Info("Misbehaviour of PN rule is simulated.")
-			return append(msgs, mE, mPN)
+		nPR := nextProposeRound(innocentMsg.R())
+		// simulate a preCommit msg that locked a value at previous round than next proposing round.
+		msgEvidence := msgVote(msgPrecommit, innocentMsg.H(), nPR-1, nonNilValue)
+		mE, err := c.finalizeMessage(msgEvidence)
+		if err != nil {
+			return msgs
 		}
-		return msgs
+
+		var proposal Proposal
+		err = innocentMsg.Decode(&proposal)
+		if err != nil {
+			return msgs
+		}
+
+		// simulate a proposal that propose a new value with -1 as the valid round.
+		msgPN := msgPropose(proposal.ProposalBlock, innocentMsg.H(), nPR, -1)
+		mPN, err := c.finalizeMessage(msgPN)
+		if err != nil {
+			return msgs
+		}
+		c.logger.Info("Misbehaviour of PN rule is simulated.")
+		return append(msgs, mE, mPN)
 	}
 
 	// simulate a context of msgs that node propose a proposal that proposed a value for which it is not the one it
@@ -291,7 +284,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 	// simulate a context of msgs that node preCommit at a value V of the round where exist quorum preVotes
 	// for not V, in this case, we simulate quorum prevotes for not V, to trigger the fault of breaking of C.
 	maliciousContextC := func() [][]byte {
-		if innocentMsg.H() == uint64(5) && innocentMsg.R() == 0 {
+		if innocentMsg.H() <= uint64(360) && innocentMsg.R() == 0 {
 			msgPV := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R(), nonNilValue)
 			mPV, err := c.finalizeMessage(msgPV)
 			if err != nil {
@@ -306,20 +299,16 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an invalid proposal.
 	invalidProposal := func() [][]byte {
-		// send an invalid proposal happens at height 3.
-		if innocentMsg.H() == uint64(3) {
-			nextPR := nextProposeRound(innocentMsg.R())
-			header := &types.Header{Number: new(big.Int).SetUint64(innocentMsg.H())}
-			block := types.NewBlockWithHeader(header)
-			msgP := msgPropose(block, innocentMsg.H(), nextPR, innocentMsg.ValidRound())
-			mP, err := c.finalizeMessage(msgP)
-			if err != nil {
-				return msgs
-			}
-			c.logger.Info("Misbehaviour of invalid proposal rule is simulated.")
-			return append(msgs, mP)
+		nextPR := nextProposeRound(innocentMsg.R())
+		header := &types.Header{Number: new(big.Int).SetUint64(innocentMsg.H())}
+		block := types.NewBlockWithHeader(header)
+		msgP := msgPropose(block, innocentMsg.H(), nextPR, innocentMsg.ValidRound())
+		mP, err := c.finalizeMessage(msgP)
+		if err != nil {
+			return msgs
 		}
-		return msgs
+		c.logger.Info("Misbehaviour of invalid proposal rule is simulated.")
+		return append(msgs, mP)
 	}
 
 	// simulate a non proposer node proposing a proposal.
@@ -372,8 +361,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
 	accusationContextPVN := func() [][]byte {
-		// let the proposer at height 3, send the preVote for a value that the corresponding proposal is missing.
-		if c.isProposer() && innocentMsg.H() == uint64(3) {
+		if c.isProposer() {
 			preVote := msgVote(msgPrevote, innocentMsg.H(), innocentMsg.R()+1, nonNilValue)
 			m, err := c.finalizeMessage(preVote)
 			if err != nil {
@@ -409,7 +397,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			return msgs
 		}
 
-		// simulate a preVote at round 3, for value v, this preVote for new value break PVO1.
+		// simulate a preVote at round nPR, for value v, this preVote for new value break PVO1.
 		msgPVO1 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
 		mPVO1, err := c.finalizeMessage(msgPVO1)
 		if err != nil {
