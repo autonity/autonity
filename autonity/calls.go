@@ -129,9 +129,9 @@ func (ac *Contract) CallContractFunc(statedb *state.StateDB, header *types.Heade
 	return packedResult, err
 }
 
-func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+func (ac *Contract) callGetCommitteeEnodes(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	var returnedEnodes []string
-	err := ac.AutonityContractCall(state, header, "getWhitelist", &returnedEnodes)
+	err := ac.AutonityContractCall(state, header, "getCommitteeEnodes", &returnedEnodes)
 	if err != nil {
 		return nil, err
 	}

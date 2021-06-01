@@ -31,7 +31,6 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth/downloader"
@@ -102,11 +101,6 @@ type ProtocolManager struct {
 	// Test fields or hooks
 	broadcastTxAnnouncesOnly bool // Testing field, disable transaction propagation
 
-	whitelistCh         chan core.WhitelistEvent
-	whitelistSub        event.Subscription
-	enodesWhitelist     []*enode.Node
-	enodesWhitelistLock sync.RWMutex
-
 	engine consensus.Engine
 	pub    *ecdsa.PublicKey
 }
@@ -116,19 +110,17 @@ type ProtocolManager struct {
 func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, pub *ecdsa.PublicKey) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:   networkID,
-		forkFilter:  forkid.NewFilter(blockchain),
-		eventMux:    mux,
-		txpool:      txpool,
-		blockchain:  blockchain,
-		chaindb:     chaindb,
-		peers:       newPeerSet(),
-		engine:      engine,
-		whitelist:   whitelist,
-		whitelistCh: make(chan core.WhitelistEvent, 64),
-		txsyncCh:    make(chan *txsync),
-		quitSync:    make(chan struct{}),
-		pub:         pub,
+		networkID:  networkID,
+		forkFilter: forkid.NewFilter(blockchain),
+		eventMux:   mux,
+		txpool:     txpool,
+		blockchain: blockchain,
+		chaindb:    chaindb,
+		peers:      newPeerSet(),
+		engine:     engine,
+		txsyncCh:   make(chan *txsync),
+		quitSync:   make(chan struct{}),
+		pub:        pub,
 	}
 	if handler, ok := manager.engine.(consensus.Handler); ok {
 		handler.SetBroadcaster(manager)
@@ -217,7 +209,6 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	manager.txFetcher = fetcher.NewTxFetcher(txpool.Has, txpool.AddRemotes, fetchTx)
 
 	manager.chainSync = newChainSyncer(manager)
-	manager.enodesWhitelist = rawdb.ReadEnodeWhitelist(chaindb).List
 	return manager, nil
 }
 
@@ -288,11 +279,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
 
-	// update peers whitelist
-	pm.wg.Add(1)
-	pm.whitelistSub = pm.blockchain.SubscribeAutonityEvents(pm.whitelistCh)
-	go pm.glienickeEventLoop()
-
 	// start sync handlers
 	pm.wg.Add(2)
 	go pm.chainSync.loop()
@@ -304,7 +290,6 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
-	pm.whitelistSub.Unsubscribe()  // quits glienickeEventLoop
 
 	// Quit chainSync and txsync64.
 	// After this is done, no new peers will be accepted.
@@ -334,21 +319,6 @@ func (pm *ProtocolManager) runPeer(p *peer) error {
 	return pm.handle(p)
 	// Whitelist updating loop.
 
-}
-
-func (pm *ProtocolManager) glienickeEventLoop() {
-	defer pm.wg.Done()
-	for {
-		select {
-		case event := <-pm.whitelistCh:
-			pm.enodesWhitelistLock.Lock()
-			pm.enodesWhitelist = event.Whitelist
-			pm.enodesWhitelistLock.Unlock()
-		// Err() channel will be closed when unsubscribing.
-		case <-pm.whitelistSub.Err():
-			return
-		}
-	}
 }
 
 // handle is the callback invoked to manage the life cycle of an eth peer. When

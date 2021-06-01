@@ -428,16 +428,16 @@ func (sb *Backend) CoreState() tendermintCore.TendermintState {
 }
 
 // Whitelist for the current block
-func (sb *Backend) WhiteList() []string {
+func (sb *Backend) CommitteeEnodes() []string {
 	db, err := sb.blockchain.State()
 	if err != nil {
-		sb.logger.Error("Failed to get block white list", "err", err)
+		sb.logger.Error("Failed to get state", "err", err)
 		return nil
 	}
 
-	enodes, err := sb.blockchain.GetAutonityContract().GetWhitelist(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.GetAutonityContract().GetCommitteeEnodes(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
-		sb.logger.Error("Failed to get block white list", "err", err)
+		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil
 	}
 

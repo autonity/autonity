@@ -69,8 +69,8 @@ func (api *API) GetContractABI() string {
 }
 
 // Get current white list
-func (api *API) GetWhitelist() []string {
-	return api.tendermint.WhiteList()
+func (api *API) GetCommitteeEnodes() []string {
+	return api.tendermint.CommitteeEnodes()
 }
 
 // Get current tendermint's core state

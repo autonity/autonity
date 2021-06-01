@@ -387,18 +387,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	if g.Config.AutonityContractConfig != nil {
-		validators := g.Config.AutonityContractConfig.GetValidators()
-		enodes := make([]string, 0, len(validators))
-		for _, v := range validators {
-			if v.Enode == "" {
-				log.Crit("Missing enode information for a validator at genesis")
-			}
-			enodes = append(enodes, v.Enode)
-		}
-
-		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes))
-	}
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }

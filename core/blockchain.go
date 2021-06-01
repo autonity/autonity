@@ -183,8 +183,6 @@ type BlockChain struct {
 	chainHeadFeed event.Feed
 	logsFeed      event.Feed
 	blockProcFeed event.Feed
-	glienickeFeed event.Feed
-	autonityFeed  event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
 
@@ -1490,12 +1488,6 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
-	// Call network permissioning logic before committing the state
-	err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
-	if err != nil && err != autonity.ErrAutonityContract {
-		return NonStatTy, err
-	}
-
 	// Irrelevant of the canonical status, write the block itself to the database.
 	//
 	// Note all the components of block(td, hash->number map, header, body, receipts)
@@ -2546,23 +2538,6 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 // block processing has started while false means it has stopped.
 func (bc *BlockChain) SubscribeBlockProcessingEvent(ch chan<- bool) event.Subscription {
 	return bc.scope.Track(bc.blockProcFeed.Subscribe(ch))
-}
-
-func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Subscription {
-	return bc.scope.Track(bc.autonityFeed.Subscribe(ch))
-}
-
-func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
-	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	bc.wg.Add(1)
-	go func() {
-		defer bc.wg.Done()
-		bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
-	}()
-}
-
-func (bc *BlockChain) ReadEnodeWhitelist() *types.Nodes {
-	return rawdb.ReadEnodeWhitelist(bc.db)
 }
 
 func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {

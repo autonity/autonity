@@ -88,9 +88,6 @@ type Ethereum struct {
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
-	glienickeCh  chan core.WhitelistEvent
-	glienickeSub event.Subscription
-
 	chainHeadSub event.Subscription
 	chainHeadCh  chan core.ChainHeadEvent
 }
@@ -165,8 +162,8 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		etherbase:         config.Miner.Etherbase,
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
-		glienickeCh:       make(chan core.WhitelistEvent),
 		p2pServer:         stack.Server(),
+		chainHeadCh:       make(chan core.ChainHeadEvent),
 	}
 
 	eth.etherbase = crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey)
@@ -500,8 +497,6 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
-	s.glienickeSub = s.blockchain.SubscribeAutonityEvents(s.glienickeCh)
-	go s.glienickeEventLoop(s.p2pServer)
 
 	s.chainHeadSub = s.blockchain.SubscribeChainHeadEvent(s.chainHeadCh)
 	go s.chainHeadEventLoop(s.p2pServer)
@@ -525,47 +520,6 @@ func (s *Ethereum) Start() error {
 	return nil
 }
 
-// Whitelist updating loop. Act as a relay between state processing logic and DevP2P
-// for updating the list of authorized enodes
-func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
-
-	savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
-	log.Info("Reading Whitelist", "list", savedList.StrList)
-	server.UpdateWhitelist(savedList.List)
-
-	for {
-		select {
-		case event := <-s.glienickeCh:
-			whitelist := append([]*enode.Node{}, event.Whitelist...)
-			// Filter the list of need to be dropped peers depending on TD.
-			for _, connectedPeer := range s.protocolManager.peers.Peers() {
-				found := false
-				connectedEnode := connectedPeer.Node()
-				for _, whitelistedEnode := range whitelist {
-					if connectedEnode.ID() == whitelistedEnode.ID() {
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					// this node is no longer in the whitelist
-					peerID := fmt.Sprintf("%x", connectedEnode.ID().Bytes()[:8])
-					peer := s.protocolManager.peers.Peer(peerID)
-					localTd := s.blockchain.CurrentHeader().Number.Uint64() + 1
-					if peer != nil && peer.td.Uint64() > localTd {
-						whitelist = append(whitelist, connectedEnode)
-					}
-				}
-			}
-			server.UpdateWhitelist(whitelist)
-		// Err() channel will be closed when unsubscribing.
-		case <-s.glienickeSub.Err():
-			return
-		}
-	}
-}
-
 /* This routine is responsible to takes some various actions
 depending if the local node is part of the consensus committee or not.
 */
@@ -578,7 +532,7 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 			log.Error("could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := s.blockchain.GetAutonityContract().GetWhitelist(block, state)
+		enodesList, err := s.blockchain.GetAutonityContract().GetCommitteeEnodes(block, state)
 		if err != nil {
 			log.Error("could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -591,6 +545,7 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 	if currentBlock.Header().CommitteeMember(localAddress) != nil {
 		updateConsensusEnodes(currentBlock)
 		s.miner.Start(common.Address{})
+		log.Info("Starting node as validator")
 		wasValidating = true
 	}
 
@@ -605,6 +560,7 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 				// consensus engine enabled.
 				if wasValidating {
 					server.UpdateConsensusEnodes(nil)
+					log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
 					wasValidating = false
 				}
@@ -613,6 +569,7 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 			updateConsensusEnodes(event.Block)
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
+				log.Info("Local node detected part of the consensus committee, mining started")
 				s.miner.Start(common.Address{})
 			}
 			wasValidating = true
@@ -628,7 +585,7 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
-	s.glienickeSub.Unsubscribe()
+	s.chainHeadSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
