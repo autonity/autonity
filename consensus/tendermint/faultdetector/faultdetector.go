@@ -902,7 +902,8 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 				}
 
 				precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					return m.Type() == msgPrecommit && m.R() >= validRound && m.R() < currentR
+					return m.Type() == msgPrecommit && m.R() >= validRound && m.R() < currentR &&
+						m.Sender() == prevote.Sender()
 				})
 
 				preCommitsForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
