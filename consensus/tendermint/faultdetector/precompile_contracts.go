@@ -293,6 +293,22 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 		preCommit.Value() != nilValue {
 		return true
 	}
+
+	// check if there are quorum prevotes for other value than the proposed value at valid round.
+	preVote := p.Evidence[0]
+	if preVote.Type() == msgPrevote {
+		// validate evidences
+		for _, pv := range p.Evidence {
+			if pv.Type() != msgPrevote || pv.R() != proposal.ValidRound() || pv.Value() == nilValue || pv.Value() == proposal.Value() {
+				return false
+			}
+		}
+
+		// check if preVotes for not V reaches to quorum.
+		quorum := bft.Quorum(c.chain.GetHeaderByNumber(p.Message.H() - 1).TotalVotingPower())
+		return powerOfVotes(deEquivocatedMsgs(p.Evidence)) >= quorum
+	}
+
 	return false
 }
 

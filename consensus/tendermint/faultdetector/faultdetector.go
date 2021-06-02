@@ -691,7 +691,7 @@ oldProposalLoop:
 			continue oldProposalLoop
 		}
 
-		// Do we see a quorum for a value other than the proposed value? If so, we have proof of misbehaviour
+		// Do we see a quorum for a value other than the proposed value? If so, we have proof of misbehaviour.
 		allPrevotesForValidRound := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgPrevote && m.R() == validRound && m.Value() != nilValue && m.Value() != proposal.Value()
 		})
