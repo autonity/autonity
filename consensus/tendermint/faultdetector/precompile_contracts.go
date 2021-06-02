@@ -322,12 +322,36 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 		return false
 	}
 
-	// validate precommit.
-	preCommit := p.Evidence[0]
-	if preCommit.Type() == msgPrecommit && preCommit.Value() != nilValue &&
-		preCommit.Value() != prevote.Value() && prevote.Sender() == preCommit.Sender() &&
-		preCommit.R() < prevote.R() {
-		return true
+	// validate preCommits from round R' to R, make sure there is no gap, and the value preCommitted at R'
+	// is different than the value preVoted, and the other ones are preCommits of nil.
+	lastIndex := len(p.Evidence) - 1
+
+	for i, pc := range p.Evidence {
+		if pc.Type() != msgPrecommit || pc.Sender() != prevote.Sender() || pc.R() >= prevote.R() {
+			return false
+		}
+
+		// preCommit at R'
+		if i == 0 {
+			if pc.Value() == nilValue || pc.Value() == prevote.Value() {
+				return false
+			}
+		} else {
+			// preCommits at between R' and R-1, they should be nil.
+			if pc.Value() != nilValue {
+				return false
+			}
+		}
+
+		// check if there is round gaps between R' and R-1.
+		if i < lastIndex && p.Evidence[i+1].R()-pc.R() > 1 {
+			return false
+		}
+
+		// check round gap for preCommit at R-1 and R.
+		if i == lastIndex {
+			return pc.R()+1 == prevote.R()
+		}
 	}
 
 	return false
