@@ -645,8 +645,6 @@ func (fd *FaultDetector) oldProposalsAccountabilityCheck(height uint64, quorum u
 
 oldProposalLoop:
 	for _, p := range proposalsOld {
-		//Todo: decide whether we can raise multiple misbehaviour or accusation for the same message type
-
 		proposal := p
 		// Check that in the valid round we see a quorum of prevotes and that there is no precommit at all or a
 		// precommit for v or nil.
@@ -656,15 +654,15 @@ oldProposalLoop:
 		// Is there a precommit for a value other than nil or the proposed value by the current proposer in the valid
 		// round? If there is, the proposer has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
-		precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+		precommitsFromPiInVR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgPrecommit && m.R() == validRound && m.Sender() == proposal.Sender() &&
 				m.Value() != nilValue && m.Value() != proposal.Value()
 		})
-		if len(precommits) > 0 {
+		if len(precommitsFromPiInVR) > 0 {
 			proof := &Proof{
 				Type:     autonity.Misbehaviour,
 				Rule:     PO,
-				Evidence: precommits,
+				Evidence: precommitsFromPiInVR,
 				Message:  proposal,
 			}
 			proofs = append(proofs, proof)
@@ -675,15 +673,15 @@ oldProposalLoop:
 		// Is there a precommit for anything other than nil from the proposer between the valid round and the round of
 		// the proposal? If there is then that implies the proposer saw 2f+1 prevotes in that round and hence it should
 		// have set that round as the valid round.
-		precommits = fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+		preommitsFromPiAfterVR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgPrecommit && m.R() > validRound && m.R() < proposal.R() &&
 				m.Sender() == proposal.Sender() && m.Value() != nilValue
 		})
-		if len(precommits) > 0 {
+		if len(preommitsFromPiAfterVR) > 0 {
 			proof := &Proof{
 				Type:     autonity.Misbehaviour,
 				Rule:     PO,
-				Evidence: precommits,
+				Evidence: preommitsFromPiAfterVR,
 				Message:  proposal,
 			}
 			proofs = append(proofs, proof)
