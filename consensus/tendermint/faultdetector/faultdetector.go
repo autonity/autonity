@@ -812,6 +812,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 
 					var lastPrecommitFromPi *tendermintCore.Message
 					var lastPrecommitFromPiIndex int
+					lastPrecommitFromPiIndex = -1
 					var curR, lastR int64
 					var gap bool
 
@@ -843,7 +844,8 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 					if !gap {
 						// We don't have gaps therefore we can be sure that if the last precommit is not for V, then it
 						// is a proof of misbehaviour
-						if lastPrecommitFromPiIndex > 0 {
+
+						if lastPrecommitFromPiIndex >= 0 {
 							// Check for equivocation, it is possible there are multiple precommit from pi for the same
 							// round.
 							// todo: decide what to do if we have multiple equivocated messages. This is not
@@ -852,30 +854,14 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 							//  twice? // Possible suggestion: since pi, most likely, have already being punished for
 							//  equivocation, we don't do anything.
 
-							equivocatedMsgFromPi := []*tendermintCore.Message{lastPrecommitFromPi}
-							// Check for equivocated messages with the same round before the latestPrecommitFromPiIndex.
-							// These could be for nil or non nil.
-							for i := lastPrecommitFromPiIndex - 1; i >= 0; i-- {
-								equivPreC := precommitsFromPi[i]
-								if equivPreC.R() != lastPrecommitFromPi.R() {
-									break
-								}
-								equivocatedMsgFromPi = append(equivocatedMsgFromPi, equivPreC)
-							}
+							// get all preCommits at round R' sent by pi, it includes those equivocated ones at that round.
+							precommitsAtRPrime := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+								return m.Type() == msgPrecommit && lastPrecommitFromPi.Sender() == m.Sender() && m.R() == lastPrecommitFromPi.R()
+							})
 
-							// Check for equivocated messages with the same round after the latestPrecommitFromPiIndex.
-							// These messages could only be for nil
-							for i := lastPrecommitFromPiIndex + 1; i < lastIndex; i++ {
-								equivPreC := precommitsFromPi[i]
-								if equivPreC.R() != lastPrecommitFromPi.R() {
-									break
-								}
-								equivocatedMsgFromPi = append(equivocatedMsgFromPi, equivPreC)
-							}
-
-							if len(equivocatedMsgFromPi) == 1 {
+							if len(precommitsAtRPrime) == 1 {
 								// there is no equivocation
-								if equivocatedMsgFromPi[0].Value() != prevote.Value() {
+								if precommitsAtRPrime[0].Value() != prevote.Value() {
 									proof := &Proof{
 										Type:     autonity.Misbehaviour,
 										Rule:     PVN,
