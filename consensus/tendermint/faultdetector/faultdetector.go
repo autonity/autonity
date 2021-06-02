@@ -594,14 +594,14 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum uint64) (proof
 
 	// We should be here at time t = timestamp(h+1) + delta
 
-	proofs = fd.newProposalsAccountabilityCheck(height, proofs)
-	proofs = fd.oldProposalsAccountabilityCheck(height, quorum, proofs)
-	proofs = fd.prevotesAccountabilityCheck(height, quorum, proofs)
-	proofs = fd.precommitsAccountabilityCheck(height, quorum, proofs)
+	proofs = append(proofs, fd.newProposalsAccountabilityCheck(height)...)
+	proofs = append(proofs, fd.oldProposalsAccountabilityCheck(height, quorum)...)
+	proofs = append(proofs, fd.prevotesAccountabilityCheck(height, quorum)...)
+	proofs = append(proofs, fd.precommitsAccountabilityCheck(height, quorum)...)
 	return proofs
 }
 
-func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64, proofs []*Proof) []*Proof {
+func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs []*Proof) {
 	// ------------New Proposal------------
 	// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PN1: [nil ∨ ⊥] <--- [V]
@@ -634,7 +634,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64, proofs [
 	return proofs
 }
 
-func (fd *FaultDetector) oldProposalsAccountabilityCheck(height uint64, quorum uint64, proofs []*Proof) []*Proof {
+func (fd *FaultDetector) oldProposalsAccountabilityCheck(height uint64, quorum uint64) (proofs []*Proof) {
 	// ------------Old Proposal------------
 	// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
@@ -736,7 +736,7 @@ oldProposalLoop:
 	return proofs
 }
 
-func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint64, proofs []*Proof) []*Proof {
+func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint64) (proofs []*Proof) {
 	// ------------New and Old Prevotes------------
 
 	prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
@@ -746,7 +746,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 	for _, p := range prevotes {
 		prevote := p
 
-		// We need to check that we have corresponding proposal which the prevote is referrring to, otherwise, we cannot
+		// We need to check that we have corresponding proposal which the prevote is referring to, otherwise, we cannot
 		// say anything about the prevote, since we may not have received the proposal.
 		correspondingProposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
@@ -769,6 +769,8 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 		// finding justification for prevotes. This is to account for equivocation where the proposer send 2 proposals
 		// with the same value but different valid rounds to different nodes. We can't penalise the sender of prevote
 		// since we can't tell which proposal they received. We just want to find a set of message which fit the rule.
+		// Therefore, we need to check all of the proposals to find a single one which shows the prevote sent was
+		// correct.
 
 		for _, cp := range correspondingProposals {
 			correspondingProposal := cp
@@ -990,7 +992,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 	return proofs
 }
 
-func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uint64, proofs []*Proof) []*Proof {
+func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uint64) (proofs []*Proof) {
 	// ------------Precommits------------
 	// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
