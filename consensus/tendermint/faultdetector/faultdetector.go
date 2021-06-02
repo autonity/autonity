@@ -832,6 +832,11 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 						}
 
 						if pc.Value() != nilValue {
+							// at last, check the upper bound round (R-1) of preCommits is not missing comparing to R.
+							if precommitsFromPi[len(precommitsFromPi)-1].R()+1 != prevote.R() {
+								gap = true
+								break
+							}
 							// We don't have any missing messages
 							lastPrecommitFromPi = pc
 							lastPrecommitFromPiIndex = i
@@ -874,7 +879,6 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 								}
 							}
 						}
-
 					}
 				}
 			} else {
