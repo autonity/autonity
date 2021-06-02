@@ -798,7 +798,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 				// messages from r' to r for pi to be able to check for misbehaviour. If the latest precommit is not for
 				// V and we have all the precommits from r' to r which are nil, then we have proof of misbehaviour.
 				precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-					return m.Type() == msgPrecommit && m.Value() != nilValue && prevote.Sender() == m.Sender() && m.R() < prevote.R()
+					return m.Type() == msgPrecommit && prevote.Sender() == m.Sender() && m.R() < prevote.R()
 				})
 
 				// Check for missing messages.
