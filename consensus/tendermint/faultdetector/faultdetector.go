@@ -739,10 +739,14 @@ oldProposalLoop:
 func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint64) (proofs []*Proof) {
 	// ------------New and Old Prevotes------------
 
+	//Todo: you will have to add labels to the code to make sure only one proof is raised per message
+	// - Check the gap between the r and the last round in the precommits arrary
+
 	prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 		return m.Type() == msgPrevote && m.Value() != nilValue
 	})
 
+prevotesLoop:
 	for _, p := range prevotes {
 		prevote := p
 
@@ -753,7 +757,12 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 		})
 
 		//Todo: decide how to process PVN/PVO accusation since we cannot know which one it is unless we have the
-		// corresponding proposal
+		// corresponding proposal. We need to consider what to do when the prevote sender is also the proposer of the
+		// the current round, we need to get the information on the proposer of the current round before we can create
+		// an accusation. We can only create accusation on message pattern which involve messages from other users as
+		// their signatures cannot be forged. However, in this case there is a caveat about what to do when the proposer
+		// is also the sender of the prevote, do we raise an accusation? In such a case I don't think it would be wise
+		// to create an accusation since they may just lie at the time of providing the proof.
 		if len(correspondingProposals) == 0 {
 			accusation := &Proof{
 				Type: autonity.Accusation,
@@ -763,29 +772,55 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 			}
 			proofs = append(proofs, accusation)
 			fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePVN", PVN, "sender", prevote.Sender())
+			continue prevotesLoop
 		}
 
 		// We need to ensure that we keep all proposals in the message store, so that we have the maximum chance of
 		// finding justification for prevotes. This is to account for equivocation where the proposer send 2 proposals
 		// with the same value but different valid rounds to different nodes. We can't penalise the sender of prevote
 		// since we can't tell which proposal they received. We just want to find a set of message which fit the rule.
-		// Therefore, we need to check all of the proposals to find a single one which shows the prevote sent was
-		// correct.
-		var newPrevotesProofs, oldPrevotesProofs []*Proof
-
+		// Therefore, we need to check all of the proposals to find a single one which shows the current prevote is
+		// valid.
+		var prevotesProofs []*Proof
 		for _, cp := range correspondingProposals {
 			correspondingProposal := cp
 			if correspondingProposal.ValidRound() == -1 {
-				newPrevotesProofs = append(newPrevotesProofs, fd.newPrevotesAccountabilityCheck(height, prevote)...)
+				prevotesProofs = append(prevotesProofs, fd.newPrevotesAccountabilityCheck(height, prevote))
 			} else {
-				oldPrevotesProofs = append(oldPrevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote)...)
+				prevotesProofs = append(prevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote))
 			}
 		}
+
+		// The current prevote is valid
+		if len(prevotesProofs) == 0 {
+			continue prevotesLoop
+		}
+
+		for _, proof := range prevotesProofs {
+			// If there is any corresponding proposal for which no proof was returned then we know the current prevote
+			// is valid.
+			if proof == nil {
+				continue prevotesLoop
+			}
+		}
+
+		// There are no corresponding proposal for which the current prevote is valid. We prioritise misbehaviours over
+		// accusation since they can be easily proved.
+		for _, proof := range prevotesProofs {
+			if proof.Type == autonity.Misbehaviour {
+				proofs = append(proofs, proof)
+				continue prevotesLoop
+			}
+		}
+
+		// There were no misbehaviours for the current prevote, therefore, pick the first accusation
+		proofs = append(proofs, prevotesProofs[0])
+		continue prevotesLoop
 	}
 	return proofs
 }
 
-func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *tendermintCore.Message) (proofs []*Proof) {
+func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *tendermintCore.Message) (proof *Proof) {
 	// New Proposal, apply PVN rules
 
 	// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
@@ -876,25 +911,27 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *
 				})
 
 				if len(precommitsAtRPrime) == 1 {
+					//Todo: We need to add more rules to distinguish between pvn accusations/misbehaviours from pvo
+					// accusations/misbehaviours
+
 					// there is no equivocation
 					if precommitsAtRPrime[0].Value() != prevote.Value() {
-						proof := &Proof{
+						fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVN", PVN, "sender", prevote.Sender())
+						return &Proof{
 							Type:     autonity.Misbehaviour,
 							Rule:     PVN,
 							Evidence: precommitsFromPi[lastPrecommitFromPiIndex:lastIndex],
 							Message:  prevote,
 						}
-						proofs = append(proofs, proof)
-						fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVN", PVN, "sender", prevote.Sender())
 					}
 				}
 			}
 		}
 	}
-	return proofs
+	return nil
 }
 
-func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum uint64, correspondingProposal *tendermintCore.Message, prevote *tendermintCore.Message) (proofs []*Proof) {
+func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum uint64, correspondingProposal *tendermintCore.Message, prevote *tendermintCore.Message) (proof *Proof) {
 	// PVO: (Mr′′′<r,PV) ∧ (Mr′′′≤r′<r,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ∧ (Mr, P|proposer(r)) ⇐= (Mr,PV|pi)
 	currentR := correspondingProposal.R()
 	validRound := correspondingProposal.ValidRound()
@@ -912,8 +949,8 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 			Message: prevote,
 		}
 		proof.Evidence = append(proof.Evidence, correspondingProposal)
-		proofs = append(proofs, proof)
 		fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePVO", PVO, "sender", prevote.Sender())
+		return proof
 	}
 
 	precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
@@ -960,8 +997,8 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 					proof.Evidence = append(proof.Evidence, correspondingProposal)
 					proof.Evidence = append(proof.Evidence, latestPrecommitForV)
 					proof.Evidence = append(proof.Evidence, preCommitsAfterLatestPrecommitForV...)
-					proofs = append(proofs, proof)
 					fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO1", PVO1, "sender", prevote.Sender())
+					return proof
 				}
 			}
 
@@ -993,13 +1030,13 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 					}
 					proof.Evidence = append(proof.Evidence, correspondingProposal)
 					proof.Evidence = append(proof.Evidence, precommitsFromPi...)
-					proofs = append(proofs, proof)
+					return proof
 					fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO2", PVO2, "sender", prevote.Sender())
 				}
 			}
 		}
 	}
-	return proofs
+	return nil
 }
 
 func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uint64) (proofs []*Proof) {
