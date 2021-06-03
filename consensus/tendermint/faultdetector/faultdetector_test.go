@@ -949,6 +949,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
 		assert.Equal(t, PVN, onChainProofs[0].Rule)
+		assert.Equal(t, 3, len(onChainProofs[0].Evidence))
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
 	})
