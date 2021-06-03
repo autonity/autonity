@@ -787,7 +787,7 @@ prevotesLoop:
 			if correspondingProposal.ValidRound() == -1 {
 				prevotesProofs = append(prevotesProofs, fd.newPrevotesAccountabilityCheck(height, prevote))
 			} else {
-				prevotesProofs = append(prevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote))
+				prevotesProofs = append(prevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote)...)
 			}
 		}
 
@@ -931,7 +931,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *
 	return nil
 }
 
-func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum uint64, correspondingProposal *tendermintCore.Message, prevote *tendermintCore.Message) (proof *Proof) {
+func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum uint64, correspondingProposal *tendermintCore.Message, prevote *tendermintCore.Message) (proofs []*Proof) {
 	// PVO: (Mr′′′<r,PV) ∧ (Mr′′′≤r′<r,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ∧ (Mr, P|proposer(r)) ⇐= (Mr,PV|pi)
 	currentR := correspondingProposal.R()
 	validRound := correspondingProposal.ValidRound()
@@ -950,7 +950,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 		}
 		proof.Evidence = append(proof.Evidence, correspondingProposal)
 		fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePVO", PVO, "sender", prevote.Sender())
-		return proof
+		proofs = append(proofs, proof)
 	}
 
 	precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
@@ -998,7 +998,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 					proof.Evidence = append(proof.Evidence, latestPrecommitForV)
 					proof.Evidence = append(proof.Evidence, preCommitsAfterLatestPrecommitForV...)
 					fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO1", PVO1, "sender", prevote.Sender())
-					return proof
+					proofs = append(proofs, proof)
 				}
 			}
 
@@ -1030,13 +1030,13 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 					}
 					proof.Evidence = append(proof.Evidence, correspondingProposal)
 					proof.Evidence = append(proof.Evidence, precommitsFromPi...)
-					return proof
+					proofs = append(proofs, proof)
 					fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO2", PVO2, "sender", prevote.Sender())
 				}
 			}
 		}
 	}
-	return nil
+	return proofs
 }
 
 func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uint64) (proofs []*Proof) {
