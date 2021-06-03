@@ -748,14 +748,11 @@ func TestRuleEngine(t *testing.T) {
 
 		// run rule engine.
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 2, len(onChainProofs))
+		assert.Equal(t, 1, len(onChainProofs))
 		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.Accusation, onChainProofs[1].Type)
 		assert.Equal(t, PO, onChainProofs[0].Rule)
-		assert.Equal(t, PO, onChainProofs[1].Rule)
 		assert.Equal(t, maliciousProposal.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
-		assert.Equal(t, maliciousProposal.Signature, onChainProofs[1].Message.Signature)
 	})
 
 	t.Run("RunRule address the misbehaviour of PO rule, the valid round proposed is not correct", func(t *testing.T) {
@@ -930,6 +927,13 @@ func TestRuleEngine(t *testing.T) {
 		_, err = fd.msgStore.Save(preCommit)
 		assert.NoError(t, err)
 
+		// the malicious node did preCommit for nil at round 1, and round 2 to fill the round gaps.
+		for i := 1; i < 3; i++ {
+			preCommit := newVoteMsg(height, int64(i), msgPrecommit, maliciousNode, nilValue, committee)
+			_, err = fd.msgStore.Save(preCommit)
+			assert.NoError(t, err)
+		}
+
 		// assume round changes, some one propose V2 at round 3, and malicious Node now it preVote for this V2.
 		newProposal := newProposalMessage(height, 3, -1, newProposer, committee, nil)
 		_, err = fd.msgStore.Save(newProposal)
@@ -947,6 +951,65 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature, onChainProofs[0].Message.Signature)
 		assert.Equal(t, preCommit.Signature, onChainProofs[0].Evidence[0].Signature)
+	})
+
+	t.Run("RunRule address the misbehaviour of PVN, with gaps of preCommits, the PVN is not provable", func(t *testing.T) {
+		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
+		// PVN2: [nil ∨ ⊥] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]: r′= 0,∀r′′< r:Mr′′,PC|pi=nil
+		// PVN2, If there is a valid proposal V at round r, and pi never
+		// ever precommit(locked a value) before, then pi should prevote
+		// for V or a nil in case of timeout at this round.
+
+		// To address below misbehaviour scenario:
+		// Node preCommitted at v1 at R_x, while it preVote for v2 at R_x + n.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		quorum := bft.Quorum(totalPower)
+		maliciousNode := keys[committee[1].Address]
+		newProposer := keys[committee[2].Address]
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a init proposal at r: 0, with v.
+		initProposal := newProposalMessage(height, 0, -1, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(initProposal)
+		assert.NoError(t, err)
+
+		// simulate quorum preVotes for init proposal
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+
+		// the malicious node did preCommit for v1 on round 0
+		preCommit := newVoteMsg(height, 0, msgPrecommit, maliciousNode, initProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preCommit)
+		assert.NoError(t, err)
+
+		// the malicious node did preCommit for nil at round 1, let no preCommit at round 2 to form the gap.
+		preCommitR1 := newVoteMsg(height, int64(1), msgPrecommit, maliciousNode, nilValue, committee)
+		_, err = fd.msgStore.Save(preCommitR1)
+		assert.NoError(t, err)
+
+		// assume round changes, some one propose V2 at round 3, and malicious Node now it preVote for this V2.
+		newProposal := newProposalMessage(height, 3, -1, newProposer, committee, nil)
+		_, err = fd.msgStore.Save(newProposal)
+		assert.NoError(t, err)
+
+		// now the malicious node preVote for a new value V2 at higher round 3.
+		preVote := newVoteMsg(height, 3, msgPrevote, maliciousNode, newProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preVote)
+		assert.NoError(t, err)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+
+		assert.Equal(t, 0, len(onChainProofs))
 	})
 
 	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round", func(t *testing.T) {

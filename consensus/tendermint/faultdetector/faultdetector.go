@@ -740,7 +740,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 	// ------------New and Old Prevotes------------
 
 	//Todo: you will have to add labels to the code to make sure only one proof is raised per message
-	// - Check the gap between the r and the last round in the precommits arrary
+	// - Check the gap between the r and the last round in the preCommits array
 
 	prevotes := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 		return m.Type() == msgPrevote && m.Value() != nilValue

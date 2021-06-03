@@ -360,6 +360,28 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, true, ret)
 	})
 
+	t.Run("Test validate misbehaviour Proof of PO, propose a different value rather than the one that have quorum "+
+		"preVotes at valid round.", func(t *testing.T) {
+		// simulate a p of misbehaviour of PO, with the proposer proposed a valid round that was not
+		// the one he locked at previous round, the validation of this p should return true.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		var p Proof
+		p.Rule = PO
+		proposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		p.Message = proposal
+		for i := 0; i < len(committee); i++ {
+			preVotes := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			p.Evidence = append(p.Evidence, preVotes)
+		}
+		lastHeader := newBlockHeader(lastHeight, committee)
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		mv := MisbehaviourVerifier{chain: chainMock}
+		ret := mv.validProof(&p)
+		assert.Equal(t, true, ret)
+	})
+
 	t.Run("Test validate misbehaviour Proof of PO, with no evidence", func(t *testing.T) {
 		var p Proof
 		p.Rule = PO
@@ -390,15 +412,37 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = PVN
 		// node locked at V1 at round 0.
 		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		preCommitR1 := newVoteMsg(height, 1, msgPrecommit, proposerKey, nilValue, committee)
+		preCommitR2 := newVoteMsg(height, 2, msgPrecommit, proposerKey, nilValue, committee)
 		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
 		// node preVote for V2 at round 3
 		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, proposal.Value(), committee)
 		p.Message = preVote
-		p.Evidence = append(p.Evidence, preCommit)
+		p.Evidence = append(p.Evidence, preCommit, preCommitR1, preCommitR2)
 
 		mv := MisbehaviourVerifier{}
 		ret := mv.validProof(&p)
 		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate misbehaviour Proof of PVN rule, with gaps in preCommits", func(t *testing.T) {
+		// simulate a p of misbehaviour of PVN, with the node preVote for V1, but he preCommit
+		// at a different value V2 at previous round. The validation of the misbehaviour p should
+		// return ture.
+		var p Proof
+		p.Rule = PVN
+		// node locked at V1 at round 0.
+		preCommit := newVoteMsg(height, 0, msgPrecommit, proposerKey, noneNilValue, committee)
+		preCommitR1 := newVoteMsg(height, 1, msgPrecommit, proposerKey, nilValue, committee)
+		proposal := newProposalMessage(height, 3, -1, proposerKey, committee, nil)
+		// node preVote for V2 at round 3
+		preVote := newVoteMsg(height, 3, msgPrevote, proposerKey, proposal.Value(), committee)
+		p.Message = preVote
+		p.Evidence = append(p.Evidence, preCommit, preCommitR1)
+
+		mv := MisbehaviourVerifier{}
+		ret := mv.validProof(&p)
+		assert.Equal(t, false, ret)
 	})
 
 	t.Run("Test validate misbehaviour Proof of PVN rule, with no evidence", func(t *testing.T) {
