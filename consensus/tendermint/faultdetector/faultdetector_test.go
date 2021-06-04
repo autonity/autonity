@@ -929,8 +929,8 @@ func TestRuleEngine(t *testing.T) {
 
 		// the malicious node did preCommit for nil at round 1, and round 2 to fill the round gaps.
 		for i := 1; i < 3; i++ {
-			preCommit := newVoteMsg(height, int64(i), msgPrecommit, maliciousNode, nilValue, committee)
-			_, err = fd.msgStore.Save(preCommit)
+			pc := newVoteMsg(height, int64(i), msgPrecommit, maliciousNode, nilValue, committee)
+			_, err = fd.msgStore.Save(pc)
 			assert.NoError(t, err)
 		}
 
