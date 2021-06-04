@@ -4,8 +4,9 @@ import ipaddress
 import argparse
 import threading
 import signal
-import time
 import os
+import string
+import random
 
 TEST_ENGINE_IMAGE_NAME = "enginehost{}/ubuntu"
 TEST_ENGINE_DOCKER_FILE = "./Dockerfile"
@@ -15,7 +16,7 @@ CLIENT_DOCKER_FILE = "./clientDockerFile"
 BUILDER_IMAGE_NAME = "go-builder/ubuntu"
 BUILDER_DOCKER_FILE = "./builderDockerfile"
 NUM_OF_CLIENT = 6
-NODE_NAME = "Node{}_{}"
+NODE_NAME = "N{}.{}"
 ENGINE_NAME = "Engine{}"
 VALIDATOR_IP_LIST_FILE = "./etc/validator.ip"
 COMMAND_START_TEST = "python3 e2etestengine.py ./bin/autonity"
@@ -104,19 +105,19 @@ def create_image(tag, docker_file):
 
 
 def create_test_bed(job_id):
-    ip_set = set()
+    hosts = set()
     try:
         client = docker.from_env()
+        # create customized network bridge for DNS service finding, the default one does not support DNS finding.
+        network = client.networks.create(job_id, driver="bridge")
+
+        print("new network created: ", network)
+
         for i in range(0, NUM_OF_CLIENT):
             node_name = NODE_NAME.format(job_id, i)
-            # todo: remove the hard coding twins pair.
-            hostname = "client{}".format(i)
-            if i == 3:
-                hostname = "client{}".format(0)
 
-            container = client.containers.run(CLIENT_IMAGE_NAME, name=node_name, hostname=hostname,
-                                              detach=True, privileged=True,
-                                              volumes={"/sys/fs/cgroup": {"bind": "/sys/fs/cgroup", "mode": "ro"}})
+            container = client.containers.run(CLIENT_IMAGE_NAME, name=node_name, network=job_id, detach=True,
+                                              privileged=True, volumes={"/sys/fs/cgroup": {"bind": "/sys/fs/cgroup", "mode": "ro"}})
             print("create new container: ", container.id)
             container.logs()
             result = utility.execute("sudo docker inspect -f \'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}\' " + node_name)
@@ -132,12 +133,12 @@ def create_test_bed(job_id):
                     pass
                 else:
                     if a.is_private:
-                        ip_set.add(str(a.network_address))
+                        hosts.add(str(a.network_address) + " " + str(node_name))
     except Exception as e:
         print("create container failed: ", e)
     finally:
-        print("test bed was created: ", ip_set)
-        return sorted(ip_set)
+        print("test bed was created: ", sorted(hosts))
+        return sorted(hosts)
 
 
 def prune_unused_images():
@@ -205,7 +206,8 @@ def create_test_engine_image_per_run(job_id):
     create_image(TEST_ENGINE_IMAGE_NAME.format(job_id), TEST_ENGINE_DOCKER_FILE)
 
 
-def dump_ips_to_engine_conf(ips):
+# dump IP address and hostname of container into configuration file.
+def dump_hosts_to_engine_conf(ips):
     try:
         with open(VALIDATOR_IP_LIST_FILE, 'w+') as f:
             for ip in ips:
@@ -221,7 +223,7 @@ def start_test_engine_container(job_id):
         print("test engine is going to start:")
         client = docker.from_env()
         container = client.containers.run(TEST_ENGINE_IMAGE_NAME.format(job_id), command=COMMAND_START_TEST,
-                                          name=ENGINE_NAME.format(job_id), detach=True, privileged=True)
+                                          name=ENGINE_NAME.format(job_id), network=job_id, detach=True, privileged=True)
         print("test engine is started.")
         return container
     except Exception as e:
@@ -262,7 +264,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help="Autonity WorkDir Path")
     args = parser.parse_args()
-    job_id = str(time.time())
+
+    job_id = random.choice(string.ascii_letters) + random.choice(string.ascii_letters)
     JOB_ID = job_id
     autonity_path = os.path.abspath(args.autonity)
     bootnode_bin= os.path.join(autonity_path,"build/bin/bootnode")
@@ -296,10 +299,10 @@ if __name__ == "__main__":
         check_to_build_client_images()
 
         # create test bed for the latter deployment.
-        ips = create_test_bed(job_id)
+        hosts = create_test_bed(job_id)
 
         # prepare test engine image.
-        dump_ips_to_engine_conf(ips)
+        dump_hosts_to_engine_conf(hosts)
         create_test_engine_image_per_run(job_id)
 
         # start the e2e testing.

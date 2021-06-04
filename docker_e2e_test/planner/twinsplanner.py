@@ -2,6 +2,7 @@ import json
 from planner.networkplanner import NetworkPlanner
 from client.client import Client
 from client.twins_client import TwinsClient
+from conf import conf
 
 """
     Twins network planer, it takes autonity binary path, and the list of node index which is set as twins for each other.
@@ -36,12 +37,16 @@ class TwinsNetworkPlanner(NetworkPlanner):
     def prepare_client_instances(self):
         self.logger.info("Prepare client instance in Twins network planner")
         for index, ip in enumerate(self.validator_ip_list):
+            hostname = conf.get_validator_host_name_by_ip(ip)
+            if hostname is None:
+                self.logger.error("Cannot get host name from configuration file for validator")
+
             ref = self.refer_to(index)
             if ref is None:
-                client = Client(host=ip, role="validator", autonity_path=self.autonity_path, bootnode_path=self.bootnode_path, index=index, hostname="client{}".format(index))
+                client = Client(host=ip, role="validator", autonity_path=self.autonity_path, bootnode_path=self.bootnode_path, index=index, hostname=hostname)
                 self.clients.append(client)
             else:
-                twins_client = TwinsClient(host=ip, role="validator", autonity_path=self.autonity_path, bootnode_path=self.bootnode_path, index=index, hostname="client{}".format(index), twins_client=self.clients[ref])
+                twins_client = TwinsClient(host=ip, role="validator", autonity_path=self.autonity_path, bootnode_path=self.bootnode_path, index=index, hostname=hostname, twins_client=self.clients[ref])
                 self.clients.append(twins_client)
 
     def generate_genesis(self):

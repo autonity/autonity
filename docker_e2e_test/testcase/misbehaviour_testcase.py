@@ -73,6 +73,9 @@ class MisbehaviourTestCase:
         start = timer()
         while (timer() - start) < TIME_OUT:
             for index, client in self.clients.items():
+                height = client.get_chain_height()
+                if height is not None:
+                    self.logger.debug("chain height: %d, node: %s", height, client.host)
                 if client.is_proof_presented(flag, rule_id) is True:
                     self.logger.info("misbehaviour test case passed: %s", name)
                     return True

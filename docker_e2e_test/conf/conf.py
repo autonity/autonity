@@ -82,6 +82,19 @@ def dump_test_bed_conf(data):
     return None
 
 
+def get_validator_host_name_by_ip(ip):
+    try:
+        validator_file = CONF["validator_ip_file"]
+        with open(validator_file) as f:
+            for line in f.readlines():
+                parts = line.split(" ")
+                if parts[0] == ip:
+                    return parts[1][:-1]
+    except Exception as e:
+        LOGGER.error('Cannot parse validator host name from input file. %s', e)
+        return None
+
+
 def get_client_ips():
     """
     :return: ip list of validator, ip list of participant.
