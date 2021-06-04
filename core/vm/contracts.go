@@ -983,6 +983,11 @@ func (c *checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid enode - empty"))
 	}
+	// todo: get raw url length from 1st 32 bytes by according to solidity packing rules, and then get the accurate
+	//  enode urls by such length of bytes, but using TrimPrefixAndSuffix to cut by the Suffix pattern'\x00'
+	//  would introduce a bug, for example, taking "hostname9900" as a host name, the trim hostname would be: hostname99,
+	//  which is not resolvable from DNS service.
+
 	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
 	nodeStr := string(input)
 
