@@ -920,7 +920,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *
 						return &Proof{
 							Type:     autonity.Misbehaviour,
 							Rule:     PVN,
-							Evidence: precommitsFromPi[lastPrecommitFromPiIndex:lastIndex+1],
+							Evidence: precommitsFromPi[lastPrecommitFromPiIndex : lastIndex+1],
 							Message:  prevote,
 						}
 					}
