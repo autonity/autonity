@@ -78,8 +78,8 @@ playbook:
     - name: "Accusation of PVO rule in twins test"
       flag: "faultdetector.accusation.rule"
       value: 3
-    - name: "Accusation of C rule"
-      flag: "faultdetector.accusation.rule in twins test"
+    - name: "Accusation of C rule in twins test"
+      flag: "faultdetector.accusation.rule"
       value: 6
     - name: "Accusation of C1 rule in twins test"
       flag: "faultdetector.accusation.rule"

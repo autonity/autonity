@@ -3,7 +3,7 @@ import os
 import time
 from timeit import default_timer as timer
 
-TIME_OUT = 60 * 10  # 10 minutes
+TIME_OUT = 60 * 30  # 30 minutes
 SYSTEM_LOG_DIR = './system_log/'
 TEST_CASE_SYSTEM_LOG_DIR = './system_log/{}'
 
