@@ -928,28 +928,32 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 	// Check whether we have a quorum for v, if not raise an accusation
 	if powerOfVotes(deEquivocatedMsgs(prevotesForVFromValidRound)) >= quorum {
 		precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+			return m.Type() == msgPrecommit && m.R() >= validRound && m.R() < currentR && m.Sender() == prevote.Sender()
+		})
+
+		preCommitsForVFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgPrecommit && m.R() >= validRound && m.R() < currentR &&
-				m.Sender() == prevote.Sender()
+				m.Sender() == prevote.Sender() && m.Value() == prevote.Value()
 		})
 
-		preCommitsForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return m.Type() == msgPrecommit && m.Value() == prevote.Value() && m.R() >= validRound &&
-				m.R() < currentR
-		})
-
-		if len(preCommitsForV) > 0 {
+		if len(preCommitsForVFromPi) > 0 {
 			// PVO: (Mr′′′<r,PV) ∧ (Mr′′′≤r′<r,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ∧ (Mr, P|proposer(r)) ⇐= (Mr,PV|pi)
 			// PVO1: [#(V)≥2f+ 1] ∧ [V] ∧ [V ∨ nil ∨ ⊥] ∧ [ V: validRound(V) = r′′′] ⇐= [V]
-			// if V is the proposed value at round r and pi did already precommit on V at round r′< r(it locked
-			// on it) and did not precommit for other values in any round between r′and r then in round r either
-			// pi prevotes for V or nil(in case of a timeout), Moreover, we expect to find 2f+ 1 prevotes for V
-			// issued at round r′′′=validRound(V).
 
-			sort.SliceStable(preCommitsForV, func(i, j int) bool {
-				return preCommitsForV[i].R() < preCommitsForV[j].R()
+			// if V is the proposed value at round r and pi did already precommit on V at round r′< r (it locked on it)
+			// and did not precommit for other values in any round between r′and r then in round r either pi prevotes
+			// for V or nil (in case of a timeout), Moreover, we expect to find 2f+ 1 prevotes for V issued at round
+			// r′′′=validRound(V). Notice that, we can have other rounds in which there are 2f+ 1 prevotes for V, but it
+			// must be the case at least for this round (as required by line 28).  Indeed, if pi precommitted for V a
+			// round r′ != r′′′ then also at round r′we must have 2f+ 1 prevotes for V(will be checked by the precommit
+			// rule C1). It follows that there is not relationship between the round r′′′ and r′,which must be set to
+			// the last round (if multiple ones) in which pi precommitted for V.
+
+			sort.SliceStable(preCommitsForVFromPi, func(i, j int) bool {
+				return preCommitsForVFromPi[i].R() < preCommitsForVFromPi[j].R()
 			})
 			// Get the round of the latest precommit for V from pi
-			latestPrecommitForV := preCommitsForV[len(preCommitsForV)-1]
+			latestPrecommitForV := preCommitsForVFromPi[len(preCommitsForVFromPi)-1]
 			vRound := latestPrecommitForV.R()
 			// current round must be greater than latestPrecommitRound
 			roundsRange := currentR - vRound // roundRange: (vRound, currentR), open interval between them.
