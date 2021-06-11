@@ -1048,6 +1048,46 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, preVote.Signature, onChainProofs[1].Message.Signature)
 	})
 
+	t.Run("RunRule to address misbehaviour of rule PVO, there were quorum prevote for not V at valid round", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockBlockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent().Return(blockSub)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}))
+		quorum := bft.Quorum(totalPower)
+		maliciousNode := keys[committee[1].Address]
+
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+
+		// simulate a proposal at r: 3, and vr: 0, with v.
+		oldProposal := newProposalMessage(height, 3, 0, proposerKey, committee, block)
+		_, err := fd.msgStore.Save(oldProposal)
+		assert.NoError(t, err)
+
+		// simulate quorum prevotes for not v at vr.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			_, err = fd.msgStore.Save(preVote)
+			assert.NoError(t, err)
+		}
+		// simulate a preVote at r: 3 for value v, thus it is a misbehaviour.
+		preVote := newVoteMsg(height, 3, msgPrevote, maliciousNode, oldProposal.Value(), committee)
+		_, err = fd.msgStore.Save(preVote)
+		assert.NoError(t, err)
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		presentPVO := false
+		for _, p := range onChainProofs {
+			if p.Type == autonity.Misbehaviour && p.Rule == PVO {
+				presentPVO = true
+				assert.Equal(t, msgPrevote, p.Message.Type())
+				assert.Equal(t, preVote.Signature, p.Message.Signature)
+			}
+		}
+		assert.Equal(t, true, presentPVO)
+	})
+
 	t.Run("RunRule to address misbehaviour of rule PVO1, node last precommited at a value of not v", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()

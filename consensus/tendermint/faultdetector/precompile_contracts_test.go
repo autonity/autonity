@@ -674,6 +674,68 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, false, ret)
 	})
 
+	t.Run("Test validate misbehaviour proof of PVO rule, with correct proof", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		maliciousPreVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO
+		p.Message = maliciousPreVote
+		p.Evidence = append(p.Evidence, correspondingProposal)
+		// simulate quorum prevote for not v at valid round.
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 0, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			p.Evidence = append(p.Evidence, preVote)
+		}
+		lastHeader := newBlockHeader(lastHeight, committee)
+
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		mv := MisbehaviourVerifier{chain: chainMock}
+		ret := mv.validMisbehaviourOfPVO(&p)
+		assert.Equal(t, true, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO rule, with less quorum preVote for not v", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		maliciousPreVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO
+		p.Message = maliciousPreVote
+		p.Evidence = append(p.Evidence, correspondingProposal)
+		// simulate only one prevote for not v at valid round.
+		preVote := newVoteMsg(height, 0, msgPrevote, proposerKey, noneNilValue, committee)
+		p.Evidence = append(p.Evidence, preVote)
+		lastHeader := newBlockHeader(lastHeight, committee)
+
+		chainMock := NewMockBlockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		mv := MisbehaviourVerifier{chain: chainMock}
+		ret := mv.validMisbehaviourOfPVO(&p)
+		assert.Equal(t, false, ret)
+	})
+
+	t.Run("Test validate misbehaviour proof of PVO rule, with preVotes at wrong valid round", func(t *testing.T) {
+		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
+		maliciousPreVote := newVoteMsg(height, 3, msgPrevote, proposerKey, correspondingProposal.Value(), committee)
+		var p Proof
+		p.Rule = PVO
+		p.Message = maliciousPreVote
+		p.Evidence = append(p.Evidence, correspondingProposal)
+		// simulate quorum prevote for not v at a round rather than valid round
+		for i := 0; i < len(committee); i++ {
+			preVote := newVoteMsg(height, 1, msgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			p.Evidence = append(p.Evidence, preVote)
+		}
+
+		mv := MisbehaviourVerifier{chain: nil}
+		ret := mv.validMisbehaviourOfPVO(&p)
+		assert.Equal(t, false, ret)
+	})
+
 	t.Run("Test validate misbehaviour proof of PVO2 rule, with precommits of V", func(t *testing.T) {
 		correspondingProposal := newProposalMessage(height, 3, 0, proposerKey, committee, nil)
 		// a precommit at round 0, with value not v.

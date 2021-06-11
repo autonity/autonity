@@ -226,6 +226,8 @@ func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 		return c.validMisbehaviourOfPO(p)
 	case PVN:
 		return c.validMisbehaviourOfPVN(p)
+	case PVO:
+		return c.validMisbehaviourOfPVO(p)
 	case PVO1:
 		return c.validMisbehaviourOfPVO1(p)
 	case PVO2:
@@ -355,6 +357,37 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	}
 
 	return false
+}
+
+// check if the proof of challenge of PVO is valid.
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof) bool {
+	if len(p.Evidence) <= 1 {
+		return false
+	}
+	prevote := p.Message
+	if prevote.Type() != msgPrevote || prevote.Value() == nilValue {
+		return false
+	}
+	// check if the corresponding proposal of preVote is presented.
+	correspondingProposal := p.Evidence[0]
+	if correspondingProposal.Type() != msgProposal || correspondingProposal.H() != prevote.H() || correspondingProposal.R() != prevote.R() ||
+		correspondingProposal.Value() != prevote.Value() || correspondingProposal.ValidRound() == -1 {
+		return false
+	}
+
+	validRound := correspondingProposal.ValidRound()
+	votedVatVR := p.Evidence[1].Value()
+
+	// check preVotes at evidence.
+	for _, pv := range p.Evidence[1:] {
+		if pv.Type() != msgPrevote || pv.R() != validRound || pv.Value() == nilValue ||
+			pv.Value() == correspondingProposal.Value() || pv.Value() != votedVatVR {
+			return false
+		}
+	}
+	// check if quorum prevote for a different value than V at valid round.
+	quorum := bft.Quorum(c.chain.GetHeaderByNumber(p.Message.H() - 1).TotalVotingPower())
+	return powerOfVotes(deEquivocatedMsgs(p.Evidence[1:])) >= quorum
 }
 
 // check if the Proof of challenge of PVO1 is valid.

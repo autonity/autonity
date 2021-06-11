@@ -912,12 +912,14 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 		// this would imply at least quorum nodes are malicious which is much higher than our assumption.
 		if powerOfVotes(deEquivocatedMsgs(preVotes)) >= quorum {
 			fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO", PVO, "sender", prevote.Sender())
-			return &Proof{
-				Type:     autonity.Misbehaviour,
-				Rule:     PVO,
-				Evidence: preVotes,
-				Message:  prevote,
+			proof := &Proof{
+				Type:    autonity.Misbehaviour,
+				Rule:    PVO,
+				Message: prevote,
 			}
+			proof.Evidence = append(proof.Evidence, correspondingProposal)
+			proof.Evidence = append(proof.Evidence, preVotes...)
+			return proof
 		}
 	}
 
