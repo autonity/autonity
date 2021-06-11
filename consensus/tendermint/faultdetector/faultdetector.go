@@ -961,7 +961,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 			roundsRange := currentR - vRound // roundRange: (vRound, currentR), open interval between them.
 
 			preCommitsAfterLatestPrecommitForV := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-				return m.Type() == msgPrecommit && m.R() > vRound && m.R() < currentR
+				return m.Type() == msgPrecommit && m.R() > vRound && m.R() < currentR && m.Sender() == prevote.Sender()
 			})
 
 			if len(preCommitsAfterLatestPrecommitForV) >= int(roundsRange-1) {
