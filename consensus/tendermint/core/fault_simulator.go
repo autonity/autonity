@@ -227,60 +227,6 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 		return append(append(msgs, mP, mPVO1), messages...)
 	}
 
-	// simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
-	// create a proposal: (h, r:3, vr: 0, with v.)
-	// preCommit (h, r:0, not v)
-	// proCommit (h, r:1, not v)
-	// preCommit (h, r:2, not v)
-	// preVote   (h, r:3, v)
-	maliciousContextPVO2 := func() [][]byte {
-		// find a next proposing round.
-		nPR := nextProposeRound(innocentMsg.R())
-
-		// set a valid round.
-		currentRound := nPR
-		validRound := nPR - 2
-		if validRound < 0 {
-			nPR = nextProposeRound(nPR)
-			currentRound = nPR
-			validRound = nPR - 2
-		}
-
-		// simulate a proposal at round: nPR, and with a valid round: nPR-2
-		var p Proposal
-		err := innocentMsg.Decode(&p)
-		if err != nil {
-			return msgs
-		}
-
-		msgProposal := msgPropose(p.ProposalBlock, innocentMsg.H(), nPR, validRound)
-		mP, err := c.finalizeMessage(msgProposal)
-		if err != nil {
-			return msgs
-		}
-
-		// simulate preCommits of not V at each round between [validRound, current)
-		var messages [][]byte
-		for i := validRound; i < currentRound; i++ {
-			msgPC := msgVote(msgPrecommit, innocentMsg.H(), i, nonNilValue)
-			mPC, err := c.finalizeMessage(msgPC)
-			if err != nil {
-				return msgs
-			}
-			messages = append(messages, mPC)
-		}
-
-		// simulate a preVote at round 3, for value v, this preVote for new value break PVO2.
-		msgPVO2 := msgVote(msgPrevote, innocentMsg.H(), nPR, p.GetValue())
-		mPVO2, err := c.finalizeMessage(msgPVO2)
-		if err != nil {
-			return msgs
-		}
-
-		c.logger.Info("Misbehaviour of PVO2 rule is simulated.")
-		return append(append(msgs, messages...), mP, mPVO2)
-	}
-
 	// simulate a context of msgs that node preCommit at a value V of the round where exist quorum preVotes
 	// for not V, in this case, we simulate quorum prevotes for not V, to trigger the fault of breaking of C.
 	maliciousContextC := func() [][]byte {
@@ -478,10 +424,6 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 		if r == PVO1 && innocentMsg.Code == msgProposal {
 			return maliciousContextPVO1()
-		}
-
-		if r == PVO2 && innocentMsg.Code == msgProposal {
-			return maliciousContextPVO2()
 		}
 
 		if r == C && innocentMsg.Code == msgPrecommit {

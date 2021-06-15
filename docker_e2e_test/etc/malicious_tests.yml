@@ -17,9 +17,6 @@ playbook:
     - name: "Misbehaviour of PVO1 rule"
       flag: "faultdetector.misbehaviour.rule"
       value: 4
-    - name: "Misbehaviour of PVO2 rule"
-      flag: "faultdetector.misbehaviour.rule"
-      value: 5
     - name: "Misbehaviour of invalid proposal rule"
       flag: "faultdetector.misbehaviour.rule"
       value: 9
@@ -57,9 +54,6 @@ playbook:
     - name: "Misbehaviour of PVO1 rule in twins test"
       flag: "faultdetector.misbehaviour.rule"
       value: 4
-    - name: "Misbehaviour of PVO2 rule in twins test"
-      flag: "faultdetector.misbehaviour.rule"
-      value: 5
     - name: "Misbehaviour of invalid proposal rule in twins test"
       flag: "faultdetector.misbehaviour.rule"
       value: 9

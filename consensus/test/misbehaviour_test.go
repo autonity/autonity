@@ -99,29 +99,6 @@ func TestMaliciousBehaviourPVO1(t *testing.T) {
 	})
 }
 
-func TestMaliciousBehaviourPVO2(t *testing.T) {
-	genesisHookPVO2 := func(g *core.Genesis) *core.Genesis {
-		g.Config.Tendermint.BlockPeriod = 1
-		return g
-	}
-	tdmCore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(faultdetector.PVO2))
-
-	RulePVO2Checker := func(t *testing.T, validators map[string]*testNode) {
-		requireOnChainProof(t, faultdetector.PVO2, autonity.Misbehaviour, validators["VA"])
-	}
-
-	tc := testCase{
-		name:          "TestFaultDetectorMaliciousBehaviourPVO2",
-		numValidators: 6,
-		numBlocks:     45,
-		genesisHook:   genesisHookPVO2,
-		finalAssert:   RulePVO2Checker,
-	}
-	t.Run(fmt.Sprintf("test case %s", tc.name), func(t *testing.T) {
-		runTest(t, &tc)
-	})
-}
-
 func TestMaliciousBehaviourC(t *testing.T) {
 	genesisHookC := func(g *core.Genesis) *core.Genesis {
 		g.Config.Tendermint.BlockPeriod = 1
