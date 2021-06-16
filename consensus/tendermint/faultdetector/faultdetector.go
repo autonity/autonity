@@ -929,10 +929,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 
 	// Check whether we have a quorum for v, if not raise an accusation
 	if powerOfVotes(deEquivocatedMsgs(prevotesForVFromValidRound)) >= quorum {
-		precommitsFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return m.Type() == msgPrecommit && m.R() >= validRound && m.R() < currentR && m.Sender() == prevote.Sender()
-		})
-
 		preCommitsForVFromPi := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgPrecommit && m.R() >= validRound && m.R() < currentR &&
 				m.Sender() == prevote.Sender() && m.Value() == prevote.Value()
@@ -1000,26 +996,18 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 			// V in the PVO1 rule we only need make sure that all the precommits are nil. Therefore, we don't
 			// need to check for precommits for V, since the PVO1 block takes the latest V.
 
-			if len(precommitsFromPi) > 0 {
-				sort.SliceStable(precommitsFromPi, func(i, j int) bool {
-					return precommitsFromPi[i].R() < precommitsFromPi[j].R()
+			precommitsFromPiAfterVR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+				return m.Type() == msgPrecommit && m.R() > validRound && m.R() < currentR && m.Sender() == prevote.Sender()
+			})
+
+			if len(precommitsFromPiAfterVR) > 0 {
+				sort.SliceStable(precommitsFromPiAfterVR, func(i, j int) bool {
+					return precommitsFromPiAfterVR[i].R() < precommitsFromPiAfterVR[j].R()
 				})
 
-				// The precommit from pi for valid round is not included in the message pattern there for we need to
-				// check whether the initial messages (could be multiple due to equivocation) from the list with valid
-				// round and remove them.
-				index := 0
-				for i, pc := range precommitsFromPi {
-					if pc.R() > validRound {
-						index = i
-						break
-					}
-				}
-				precommitsFromPi = precommitsFromPi[index:]
-
 				// Ensure there are no gaps
-				for i := 1; i < len(precommitsFromPi); i++ {
-					prev, cur := precommitsFromPi[i-1].R(), precommitsFromPi[i].R()
+				for i := 1; i < len(precommitsFromPiAfterVR); i++ {
+					prev, cur := precommitsFromPiAfterVR[i-1].R(), precommitsFromPiAfterVR[i].R()
 					diff := math.Abs(float64(cur) - float64(prev))
 					if diff > 1 {
 						// at least one round's precommit is missing
@@ -1029,7 +1017,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 
 				// We have precommits from all the round between valid round and current round. Thus, we can check for
 				// misbehaviour.
-				for _, v := range precommitsFromPi {
+				for _, v := range precommitsFromPiAfterVR {
 					if v.Value() != nilValue {
 						fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO2", PVO2, "sender", prevote.Sender())
 						proof := &Proof{
@@ -1038,7 +1026,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 							Message: prevote,
 						}
 						proof.Evidence = append(proof.Evidence, correspondingProposal)
-						proof.Evidence = append(proof.Evidence, precommitsFromPi...)
+						proof.Evidence = append(proof.Evidence, precommitsFromPiAfterVR...)
 						return proof
 					}
 				}
