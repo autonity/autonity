@@ -1016,7 +1016,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 						break
 					}
 				}
-				precommitsFromPi = precommitsFromPi[index:0]
+				precommitsFromPi = precommitsFromPi[index:]
 
 				// Ensure there are no gaps
 				for i := 1; i < len(precommitsFromPi); i++ {
