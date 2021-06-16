@@ -989,7 +989,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 					return proof
 				}
 			}
-			return nil
 		} else {
 			// PVO’:(Mr′<r, PV) ∧ (Mr′<r′′<r, PC|pi)∗ ∧ (Mr,P|proposer(r)) ⇐= (Mr,P V|pi)
 			// PVO2: [#(V)≥2f+ 1] ∧ [V ∨ nil ∨⊥] ∧ [V:validRound(V) =r′] ⇐= [V];
@@ -1047,8 +1046,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 			}
 
 		}
-		return nil
-
 	} else {
 		// raise an accusation
 		fd.logger.Info("Accusation detected", "faultdetector", fd.address, "rulePVO", PVO, "sender", prevote.Sender())
@@ -1061,6 +1058,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 			Evidence: []*tendermintCore.Message{correspondingProposal},
 		}
 	}
+	return nil
 }
 
 func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uint64) (proofs []*Proof) {
