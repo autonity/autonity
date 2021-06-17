@@ -35,6 +35,7 @@ type Rule uint8
 const (
 	PN Rule = iota
 	PO
+	PV
 	PVN
 	PVO
 	PVO1
@@ -750,10 +751,9 @@ prevotesLoop:
 	for _, p := range prevotes {
 		prevote := p
 
-		// We need to check that we have corresponding proposal which the prevote is referring to, otherwise, we cannot
-		// say anything about the prevote, since we may not have received the proposal.
+		// We need to check whether we have proposals from the prevote's round
 		correspondingProposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
-			return m.Type() == msgProposal && m.Value() == prevote.Value() && m.R() == prevote.R()
+			return m.Type() == msgProposal && m.R() == prevote.R()
 		})
 
 		//Todo: decide how to process PVN/PVO accusation since we cannot know which one it is unless we have the
@@ -784,38 +784,45 @@ prevotesLoop:
 		var prevotesProofs []*Proof
 		for _, cp := range correspondingProposals {
 			correspondingProposal := cp
-			if correspondingProposal.ValidRound() == -1 {
-				prevotesProofs = append(prevotesProofs, fd.newPrevotesAccountabilityCheck(height, prevote))
+			if cp.Value() != prevote.Value() {
+				misbehaviour := &Proof{
+					Type:     autonity.Misbehaviour,
+					Rule:     PV,
+					Evidence: []*tendermintCore.Message{cp, prevote},
+					Message:  prevote,
+				}
+				prevotesProofs = append(prevotesProofs, misbehaviour)
 			} else {
-				prevotesProofs = append(prevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote))
+				if correspondingProposal.ValidRound() == -1 {
+					prevotesProofs = append(prevotesProofs, fd.newPrevotesAccountabilityCheck(height, prevote))
+				} else {
+					prevotesProofs = append(prevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote))
+				}
 			}
 		}
 
 		// The current prevote is valid
-		if len(prevotesProofs) == 0 {
-			continue prevotesLoop
-		}
-
-		for _, proof := range prevotesProofs {
-			// If there is any corresponding proposal for which no proof was returned then we know the current prevote
-			// is valid.
-			if proof == nil {
-				continue prevotesLoop
+		if len(prevotesProofs) > 0 {
+			for _, proof := range prevotesProofs {
+				// If there is any corresponding proposal for which no proof was returned then we know the current prevote
+				// is valid.
+				if proof == nil {
+					continue prevotesLoop
+				}
 			}
-		}
 
-		// There are no corresponding proposal for which the current prevote is valid. We prioritise misbehaviours over
-		// accusation since they can be easily proved.
-		for _, proof := range prevotesProofs {
-			if proof.Type == autonity.Misbehaviour {
-				proofs = append(proofs, proof)
-				continue prevotesLoop
+			// There are no corresponding proposal for which the current prevote is valid. We prioritise misbehaviours over
+			// accusation since they can be easily proved.
+			for _, proof := range prevotesProofs {
+				if proof.Type == autonity.Misbehaviour {
+					proofs = append(proofs, proof)
+					continue prevotesLoop
+				}
 			}
-		}
 
-		// There were no misbehaviours for the current prevote, therefore, pick the first accusation
-		proofs = append(proofs, prevotesProofs[0])
-		continue prevotesLoop
+			// There were no misbehaviours for the current prevote, therefore, pick the first accusation
+			proofs = append(proofs, prevotesProofs[0])
+		}
 	}
 	return proofs
 }
