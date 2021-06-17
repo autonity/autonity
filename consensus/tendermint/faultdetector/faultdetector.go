@@ -617,6 +617,17 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 
 	for _, p := range proposalsNew {
 		proposal := p
+
+		// Skip if proposal is equivocated
+		proposalsForR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+			return m.Sender() == proposal.Sender() && m.Type() == msgProposal && m.R() == proposal.R()
+
+		})
+		// Due to the for loop there must be at least one proposal
+		if len(proposalsForR) > 1 {
+			continue
+		}
+
 		//check all precommits for previous rounds from this sender are nil
 		precommits := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Sender() == proposal.Sender() && m.Type() == msgPrecommit && m.R() < proposal.R() && m.Value() != nilValue
@@ -649,6 +660,16 @@ oldProposalLoop:
 		proposal := p
 		// Check that in the valid round we see a quorum of prevotes and that there is no precommit at all or a
 		// precommit for v or nil.
+
+		// Skip if proposal is equivocated
+		proposalsForR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+			return m.Sender() == proposal.Sender() && m.Type() == msgProposal && m.R() == proposal.R()
+
+		})
+		// Due to the for loop there must be at least one proposal
+		if len(proposalsForR) > 1 {
+			continue oldProposalLoop
+		}
 
 		validRound := proposal.ValidRound()
 
@@ -750,6 +771,16 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum uint6
 prevotesLoop:
 	for _, p := range prevotes {
 		prevote := p
+
+		// Skip if prevote is equivocated
+		prevotesForR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+			return m.Sender() == prevote.Sender() && m.Type() == msgPrevote && m.R() == prevote.R()
+
+		})
+		// Due to the for loop there must be at least one proposal
+		if len(prevotesForR) > 1 {
+			continue prevotesLoop
+		}
 
 		// We need to check whether we have proposals from the prevote's round
 		correspondingProposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
@@ -1067,6 +1098,17 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uin
 
 	for _, preC := range precommits {
 		precommit := preC
+
+		// Skip if prevote is equivocated
+		precommitsForR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
+			return m.Sender() == precommit.Sender() && m.Type() == msgPrecommit && m.R() == precommit.R()
+
+		})
+		// Due to the for loop there must be at least one proposal
+		if len(precommitsForR) > 1 {
+			continue
+		}
+
 		proposals := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Type() == msgProposal && m.Value() == precommit.Value() && m.R() == precommit.R()
 		})
