@@ -972,7 +972,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum ui
 			// We have precommits from all the round between latest round for V and current round. Thus, we can check
 			// for misbehaviour.
 			for _, v := range preCommitsAfterLatestPrecommitForV {
-				if v.Value() != prevote.Value() {
+				if v.Value() != nilValue && v.Value() != prevote.Value() {
 					fd.logger.Info("Misbehaviour detected", "faultdetector", fd.address, "rulePVO1", PVO1, "sender", prevote.Sender())
 					proof := &Proof{
 						Type:    autonity.Misbehaviour,
