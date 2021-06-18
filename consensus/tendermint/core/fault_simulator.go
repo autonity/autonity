@@ -356,7 +356,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 
 	// simulate an accusation context that node preCommit for a value that the corresponding proposal is missing.
 	accusationContextC := func() [][]byte {
-		preCommit := msgVote(msgPrecommit, innocentMsg.H(), innocentMsg.R(), nonNilValue)
+		preCommit := msgVote(msgPrecommit, innocentMsg.H(), innocentMsg.R()+1, nonNilValue)
 		m, err := c.finalizeMessage(preCommit)
 		if err != nil {
 			return msgs
@@ -457,7 +457,7 @@ func (c *core) createMisbehaviourContext(innocentMsg *Message) (msgs [][]byte) {
 			return accusationContextPVO()
 		}
 
-		if r == C && innocentMsg.Code == msgPrecommit {
+		if r == C && innocentMsg.Code == msgProposal {
 			return accusationContextC()
 		}
 

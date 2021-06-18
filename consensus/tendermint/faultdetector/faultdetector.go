@@ -35,7 +35,6 @@ type Rule uint8
 const (
 	PN Rule = iota
 	PO
-	PV
 	PVN
 	PVO
 	PVO1
@@ -777,7 +776,7 @@ prevotesLoop:
 			return m.Sender() == prevote.Sender() && m.Type() == msgPrevote && m.R() == prevote.R()
 
 		})
-		// Due to the for loop there must be at least one proposal
+		// Due to the for loop there must be at least one preVote.
 		if len(prevotesForR) > 1 {
 			continue prevotesLoop
 		}
@@ -815,20 +814,10 @@ prevotesLoop:
 		var prevotesProofs []*Proof
 		for _, cp := range correspondingProposals {
 			correspondingProposal := cp
-			if cp.Value() != prevote.Value() {
-				misbehaviour := &Proof{
-					Type:     autonity.Misbehaviour,
-					Rule:     PV,
-					Evidence: []*tendermintCore.Message{cp, prevote},
-					Message:  prevote,
-				}
-				prevotesProofs = append(prevotesProofs, misbehaviour)
+			if correspondingProposal.ValidRound() == -1 {
+				prevotesProofs = append(prevotesProofs, fd.newPrevotesAccountabilityCheck(height, prevote))
 			} else {
-				if correspondingProposal.ValidRound() == -1 {
-					prevotesProofs = append(prevotesProofs, fd.newPrevotesAccountabilityCheck(height, prevote))
-				} else {
-					prevotesProofs = append(prevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote))
-				}
+				prevotesProofs = append(prevotesProofs, fd.oldPrevotesAccountabilityCheck(height, quorum, correspondingProposal, prevote))
 			}
 		}
 
@@ -1099,12 +1088,12 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum uin
 	for _, preC := range precommits {
 		precommit := preC
 
-		// Skip if prevote is equivocated
+		// Skip if preCommit is equivocated
 		precommitsForR := fd.msgStore.Get(height, func(m *tendermintCore.Message) bool {
 			return m.Sender() == precommit.Sender() && m.Type() == msgPrecommit && m.R() == precommit.R()
 
 		})
-		// Due to the for loop there must be at least one proposal
+		// Due to the for loop there must be at least one preCommit.
 		if len(precommitsForR) > 1 {
 			continue
 		}
