@@ -4,8 +4,8 @@ In distributed computing world, the testing of BFT consensus is an interesting t
 the testing boundary for it? 
 
 In our vision, a consensus algorithm should provide safety and liveness in any kind of execution context which include: disasters of infrastructure,
-network partitioning, network delays, software crash, omission faults, malicious behaviours to break the decision. So we create this distributed test
-framework to simulate massive execution conditions for the consensus engine.
+network partitioning, network delays, software crash, omission faults, malicious behaviours. So we create this distributed test
+framework to simulate massive execution environments for the consensus engine we built to make sure the safety and liveness are expected.
 
 To create an isolated execution environment for the validators of Autonity test network, we build the infrastructure via docker. The framework first try to
 bring up a docker environment, then it create networks and ubuntu containers for the test engine and Autonity clients. By deploying Test Engine in one 
@@ -17,7 +17,7 @@ For the time being, we have 2 playbooks, the first one: ./etc/testcaseconf.yml c
 The second one contains: malicious behaviour use cases, and also twins setup use cases for consensus participants, that is saved at: ./etc/malicious_tests.yml.
 
 Since the CI integration of this framework, on each merge on "develop" branch, CI will trigger these tests.
-You can also run it on top of your branch my running CMD: make docker-e2e-tests under ./docker_e2e_test folder.
+You can also run it on top of your branch by running CMD: make docker-e2e-tests under ./docker_e2e_test folder.
 
 ## [required] docker
 If your linux is on ubuntu-18.04, the script will auto install it for you.
