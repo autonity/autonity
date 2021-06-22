@@ -134,13 +134,15 @@ func (a *AccusationVerifier) validateAccusation(in *Proof) []byte {
 		return failure96Byte
 	}
 
-	// todo: prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
-	//  corresponding to an very old height, while at each Pi, they only buffer 90 heights of message in msg store, so
-	//  in this case, Pi can never provide a valid proof of innocence anymore, make the malicious accusation be valid
-	//  for slashing. Checking the height with buffering windows here does not work, it may introduce safety issue since
-	//  the view of latest height might be slightly different throughout the validators, causing the broken of
-	//  deterministic execution of pre-compiled contract, that break the global consistence of the state DB. For the
-	//  time being, we can lower the weight of slashing for accusations, or to slashing on Pi's reputation value.
+	// prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
+	// corresponding to a very old height, while at each Pi, they only buffer 90 heights of message in msg store, thus
+	// Pi can never provide a valid proof of innocence anymore, make the malicious accusation be valid for slashing.
+	currentHeight := a.chain.CurrentHeader().Number.Uint64()
+	msgHeight := h.Uint64()
+	// rising an accusation over a msg which is out of buffering window is considered to be invalid accusation.
+	if currentHeight > msgHeight && (currentHeight-msgHeight) >= msgHeightBufferRange {
+		return failure96Byte
+	}
 
 	// in case of PVO accusation, we need to check corresponding old proposal of this preVote.
 	if in.Rule == PVO {

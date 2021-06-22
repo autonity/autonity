@@ -245,7 +245,9 @@ blockChainLoop:
 			}
 
 			// msg store delete msgs out of buffering window.
-			fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - msgHeightBufferRange)
+			if ev.Block.NumberU64() >= msgHeightBufferRange {
+				fd.msgStore.DeleteMsgsAtHeight(ev.Block.NumberU64() - msgHeightBufferRange)
+			}
 		case m, ok := <-misbehaviourCh:
 			if !ok {
 				break blockChainLoop

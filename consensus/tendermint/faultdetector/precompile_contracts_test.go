@@ -172,6 +172,7 @@ func TestAccusationVerifier(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		chainMock.EXPECT().CurrentHeader().Return(lastHeader)
 
 		av := AccusationVerifier{chain: chainMock}
 		ret := av.validateAccusation(&p)
@@ -193,6 +194,7 @@ func TestAccusationVerifier(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		chainMock.EXPECT().CurrentHeader().Return(lastHeader)
 
 		av := AccusationVerifier{chain: chainMock}
 		ret := av.validateAccusation(&p)
@@ -214,6 +216,7 @@ func TestAccusationVerifier(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockBlockChainContext(ctrl)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		chainMock.EXPECT().CurrentHeader().Return(lastHeader)
 
 		av := AccusationVerifier{chain: chainMock}
 		ret := av.validateAccusation(&p)
