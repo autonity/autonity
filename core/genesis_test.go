@@ -34,6 +34,7 @@ import (
 )
 
 func TestDefaultGenesisBlock(t *testing.T) {
+	t.Skip("unsupported because of autonity contract")
 	block, err := DefaultGenesisBlock().ToBlock(nil)
 	assert.NoError(t, err)
 	if block.Hash() != params.MainnetGenesisHash {

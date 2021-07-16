@@ -252,7 +252,7 @@ func makeExtraData(extra []byte) []byte {
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
-	return tendermintBackend.New(ctx.Config().NodeKey(), db, chainConfig, vmConfig)
+	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig)
 }
 
 // APIs return the collection of RPC services the ethereum package offers.

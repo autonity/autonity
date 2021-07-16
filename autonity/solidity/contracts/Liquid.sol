@@ -20,13 +20,14 @@ contract Liquid is IERC20 {
     mapping (address  => mapping (address => uint256)) private allowances;
 
 
-    constructor (address _validator, address payable _treasury) {
+    constructor (address _validator, address payable _treasury, uint256 _commissionRate) {
         validator = _validator;
         treasury = _treasury;
+        commissionRate = _commissionRate;
         autonityContract = msg.sender;
     }
 
-    function mint(address payable _recipient, uint256 _amount) onlyAutonity public {
+    function mint(address payable _recipient, uint256 _amount) public onlyAutonity {
         require(_amount > 0, "amount must be strictly positive");
         if(accounts[_recipient].balance == 0) {
             accountList.push(_recipient);
@@ -37,7 +38,7 @@ contract Liquid is IERC20 {
         supply += _amount;
     }
 
-    function burn(address payable _addr, uint256 _amount) public onlyAutonity{
+    function burn(address payable _addr, uint256 _amount) public onlyAutonity {
         require(accounts[_addr].balance >= _amount, "address balance not sufficient");
         accounts[_addr].balance -= _amount; // test to make sure SafeMath not needed here
         supply -= _amount;
@@ -53,7 +54,7 @@ contract Liquid is IERC20 {
 
     function redistribute() public payable onlyAutonity  {
         uint256 _totalFees = msg.value;
-        uint256 _validatorFees = (_totalFees  * commissionRate) / 100;
+        uint256 _validatorFees = (_totalFees  * commissionRate) / 100000;
         treasury.transfer(_validatorFees);
         _totalFees -= _validatorFees;
         for (uint256 i=0; i < accountList.length; i++) {

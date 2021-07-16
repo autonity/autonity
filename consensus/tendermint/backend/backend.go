@@ -32,10 +32,8 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
 	lru "github.com/hashicorp/golang-lru"
 	ring "github.com/zfjagann/golang-ring"
 )
@@ -56,7 +54,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.ChainConfig, vmConfig *vm.Config) *Backend {
+func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config) *Backend {
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -71,7 +69,6 @@ func New(privateKey *ecdsa.PrivateKey, db ethdb.Database, chainConfig *params.Ch
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         logger,
-		db:             db,
 		recents:        recents,
 		coreStarted:    false,
 		recentMessages: recentMessages,
@@ -91,7 +88,6 @@ type Backend struct {
 	privateKey   *ecdsa.PrivateKey
 	address      common.Address
 	logger       log.Logger
-	db           ethdb.Database
 	blockchain   *core.BlockChain
 	currentBlock func() *types.Block
 	hasBadBlock  func(hash common.Hash) bool

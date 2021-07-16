@@ -84,9 +84,17 @@ func newTester() *downloadTester {
 		ancientReceipts: map[common.Hash]types.Receipts{testGenesis.Hash(): nil},
 		ancientChainTd:  map[common.Hash]*big.Int{testGenesis.Hash(): testGenesis.Difficulty()},
 	}
+
 	tester.stateDb = rawdb.NewMemoryDatabase()
 	tester.stateDb.Put(testGenesis.Root().Bytes(), []byte{0x00})
 
+	//root := tester.peerDb.Get()
+	/*
+		it := tester.peerDb.NewIterator(hexutils.HexToBytes("50"),nil)
+		for it.Next() {
+			fmt.Println(common.BytesToHash(it.Key()).String(), "- ", it.Value())
+		}
+	*/
 	tester.downloader = New(0, tester.stateDb, trie.NewSyncBloom(1, tester.stateDb), new(event.TypeMux), tester, nil, tester.dropPeer)
 	return tester
 }
@@ -471,7 +479,11 @@ func (dlp *downloadTesterPeer) RequestNodeData(hashes []common.Hash) error {
 			if !dlp.missingStates[hash] {
 				results = append(results, data)
 			}
-		}
+		} else {
+			data = rawdb.ReadCodeWithPrefix(dlp.dl.peerDb, hash)
+			results = append(results, data)
+		} // else we should try to retrieve via
+
 	}
 	go dlp.dl.downloader.DeliverNodeData(dlp.id, results)
 	return nil

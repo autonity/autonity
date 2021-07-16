@@ -10,7 +10,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -20,11 +19,9 @@ import (
 
 // User holds the parameters that constitute a participant's initial state in
 // the genesis file.
-type User struct {
+type Validator struct {
 	// InitialEth defines the starting eth in wei (1 ETH is 10^18 wei).
 	InitialEth *big.Int
-	// UserType is one of participant, stakeholder or validator.
-	UserType params.UserType
 	// Stake defines the amount of Stake token a user has in the system.
 	Stake uint64
 	// NodeIP is the ip that this user's node can be reached at.
@@ -43,12 +40,12 @@ type User struct {
 // generated keys will be returned. See gengen command help for a description
 // of userStrings and userKeys, userKeys must either have a key for each user
 // or be nil.
-func NewGenesis(minGasPrice uint64, users []*User) (*core.Genesis, error) {
-	if len(users) < 1 {
+func NewGenesis(minGasPrice uint64, validators []*Validator) (*core.Genesis, error) {
+	if len(validators) < 1 {
 		return nil, fmt.Errorf("at least one user must be specified")
 	}
 
-	operatorAddress, genesisUsers, genesisAlloc, err := generateUserState(users)
+	operatorAddress, genesisValidators, genesisAlloc, err := generateValidatorState(validators)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct initial user state: %v", err)
 	}
@@ -92,7 +89,7 @@ func NewGenesis(minGasPrice uint64, users []*User) (*core.Genesis, error) {
 			AutonityContractConfig: &params.AutonityContractGenesis{
 				MinGasPrice: minGasPrice,
 				Operator:    *operatorAddress,
-				Validators:  genesisUsers,
+				Validators:  genesisValidators,
 			},
 		},
 	}
@@ -131,15 +128,15 @@ func ParseUint(str string) (*big.Int, error) {
 // Generates a slice of params.User along with a corresponding
 // core.GenesisAlloc. Also returns the address of the first user in users as
 // the operatorAddress.
-func generateUserState(users []*User) (
+func generateValidatorState(validators []*Validator) (
 	operatorAddress *common.Address,
-	genesisUsers []params.User,
+	genesisValidators []*params.Validator,
 	genesisAlloc core.GenesisAlloc,
 	err error,
 ) {
-	genesisUsers = make([]params.User, len(users))
-	genesisAlloc = make(core.GenesisAlloc, len(users))
-	for i, u := range users {
+	genesisValidators = make([]*params.Validator, len(validators))
+	genesisAlloc = make(core.GenesisAlloc, len(validators))
+	for i, u := range validators {
 		var pk *ecdsa.PublicKey
 		switch k := u.Key.(type) {
 		case *ecdsa.PublicKey:
@@ -150,16 +147,17 @@ func generateUserState(users []*User) (
 			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
 		}
 		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
-		gu := params.User{
-			Enode: e.String(),
-			Type:  u.UserType,
-			Stake: u.Stake,
+		gu := params.Validator{
+			Enode:          e.String(),
+			Treasury:       new(common.Address),
+			CommissionRate: new(big.Int).SetUint64(10000),
+			BondedStake:    new(big.Int).SetUint64(u.Stake),
 		}
 		err := gu.Validate()
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid user: %v", err)
 		}
-		genesisUsers[i] = gu
+		genesisValidators[i] = &gu
 
 		userAddress := crypto.PubkeyToAddress(*pk)
 		if i == 0 {
@@ -170,5 +168,5 @@ func generateUserState(users []*User) (
 		}
 	}
 
-	return operatorAddress, genesisUsers, genesisAlloc, nil
+	return operatorAddress, genesisValidators, genesisAlloc, nil
 }

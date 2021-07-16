@@ -38,7 +38,7 @@ import (
 
 func TestPrepare(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	header := makeHeader(chain.Genesis(), engine.config)
+	header := makeHeader(chain.Genesis())
 	err := engine.Prepare(chain, header)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)

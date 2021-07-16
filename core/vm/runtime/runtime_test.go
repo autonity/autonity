@@ -366,7 +366,7 @@ func TestJumpSub1024Limit(t *testing.T) {
 	// Enable 2315
 	_, _, err := Call(address, nil, &Config{State: state,
 		GasLimit:    20000,
-		ChainConfig: params.AllEthashProtocolChanges,
+		ChainConfig: params.AllEthashProtocolChangesWithAutonity,
 		EVMConfig: vm.Config{
 			ExtraEips: []int{2315},
 			Debug:     true,
@@ -401,7 +401,7 @@ func TestReturnSubShallow(t *testing.T) {
 	// Enable 2315
 	_, _, err := Call(address, nil, &Config{State: state,
 		GasLimit:    10000,
-		ChainConfig: params.AllEthashProtocolChanges,
+		ChainConfig: params.AllEthashProtocolChangesWithAutonity,
 		EVMConfig: vm.Config{
 			ExtraEips: []int{2315},
 			Debug:     true,

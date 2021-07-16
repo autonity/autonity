@@ -18,17 +18,16 @@ package gasprice
 
 import (
 	"context"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"math"
 	"math/big"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rpc"
 )
@@ -57,31 +56,32 @@ func (b *testBackend) ChainConfig() *params.ChainConfig {
 
 func newTestBackend(t *testing.T) *testBackend {
 	var (
-		key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr   = crypto.PubkeyToAddress(key.PublicKey)
-		gspec  = &core.Genesis{
-			Config: params.TestChainConfig,
-			Alloc:  core.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
+		gspec = &core.Genesis{
+			Config:     params.AutonityTestChainConfig,
+			Difficulty: big.NewInt(1),
+			Alloc:      core.GenesisAlloc{params.ValidatorAddress: {Balance: big.NewInt(math.MaxInt64)}},
 		}
 		signer = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
-	engine := ethash.NewFaker()
+
+	diskdb := rawdb.NewMemoryDatabase()
+	engine := tendermintBackend.New(params.ValidatorKey, &vm.Config{})
 	db := rawdb.NewMemoryDatabase()
 	genesis, _ := gspec.Commit(db)
 
 	// Generate testing blocks
-	blocks, _ := core.GenerateChain(params.TestChainConfig, genesis, engine, db, 32, func(i int, b *core.BlockGen) {
+	blocks, _ := core.GenerateChain(params.AutonityTestChainConfig, genesis, engine, db, 32, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{1})
-		tx, err := types.SignTx(types.NewTransaction(b.TxNonce(addr), common.HexToAddress("deadbeef"), big.NewInt(100), 21000, big.NewInt(int64(i+1)*params.GWei), nil), signer, key)
+		tx, err := types.SignTx(types.NewTransaction(b.TxNonce(params.ValidatorAddress), common.HexToAddress("deadbeef"), big.NewInt(100), 21000, big.NewInt(int64(i+1)*params.GWei), nil), signer, params.ValidatorKey)
 		if err != nil {
 			t.Fatalf("failed to create tx: %v", err)
 		}
 		b.AddTx(tx)
 	})
 	// Construct testing chain
-	diskdb := rawdb.NewMemoryDatabase()
+
 	gspec.Commit(diskdb)
-	chain, err := core.NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
+	chain, err := core.NewBlockChain(diskdb, nil, params.AutonityTestChainConfig, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	if err != nil {
 		t.Fatalf("Failed to create local chain, %v", err)
 	}

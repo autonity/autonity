@@ -62,7 +62,6 @@ func CopyBytes(b []byte) (copiedBytes []byte) {
 	}
 	copiedBytes = make([]byte, len(b))
 	copy(copiedBytes, b)
-
 	return
 }
 

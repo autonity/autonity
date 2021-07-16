@@ -298,7 +298,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 
 	if chainConfig.AutonityContractConfig == nil {
-		return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
+		return nil, errors.New("Autonity contract config section missing from genesis config")
 	}
 
 	acConfig := bc.Config().AutonityContractConfig

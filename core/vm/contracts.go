@@ -990,7 +990,7 @@ func (c checkEnode) Run(input []byte) ([]byte, error) {
 	node, err := enode.ParseV4CustomResolve(nodeStr, resolveFunc)
 	if err != nil {
 		copy(out[32:], true32Byte)
-		return out, fmt.Errorf("invalid enode %q: %v", nodeStr, err)
+		return out, nil
 	}
 
 	address := crypto.PubkeyToAddress(*node.Pubkey())

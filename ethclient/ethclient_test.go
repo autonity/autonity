@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/core/vm"
 	"math/big"
 	"reflect"
 	"testing"
@@ -27,7 +29,6 @@ import (
 
 	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/types"
@@ -194,7 +195,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	}
 	// Create Ethereum Service
 	config := &eth.Config{Genesis: genesis}
-	config.Ethash.PowMode = ethash.ModeFake
+
 	ethservice, err := eth.New(n, config, nil)
 	if err != nil {
 		t.Fatalf("can't create new ethereum service: %v", err)
@@ -211,7 +212,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 
 func generateTestChain() (*core.Genesis, []*types.Block) {
 	db := rawdb.NewMemoryDatabase()
-	config := params.AllEthashProtocolChanges
+	config := params.AutonityTestChainConfig
 	genesis := &core.Genesis{
 		Config:    config,
 		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
@@ -226,7 +227,9 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 	if err != nil {
 		panic("cant generate genesis block")
 	}
-	engine := ethash.NewFaker()
+
+	engine := tendermintBackend.New(key, &vm.Config{})
+
 	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)
 	return genesis, blocks

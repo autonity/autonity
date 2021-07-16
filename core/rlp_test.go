@@ -42,14 +42,14 @@ func getBlock(transactions int, uncles int, dataSize int) *types.Block {
 		address = crypto.PubkeyToAddress(key.PublicKey)
 		funds   = big.NewInt(1000000000)
 		gspec   = &Genesis{
-			Config: params.TestChainConfig,
+			Config: params.AutonityTestChainConfig,
 			Alloc:  GenesisAlloc{address: {Balance: funds}},
 		}
 		genesis = gspec.MustCommit(db)
 	)
 
 	// We need to generate as many blocks +1 as uncles
-	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, uncles+1,
+	blocks, _ := GenerateChain(params.AutonityTestChainConfig, genesis, engine, db, uncles+1,
 		func(n int, b *BlockGen) {
 			if n == uncles {
 				// Add transactions and stuff on the last block

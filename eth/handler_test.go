@@ -477,17 +477,13 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 	// Initialize a chain and generate a fake CHT if checkpointing is enabled
 	var (
 		db     = rawdb.NewMemoryDatabase()
-		config = params.TestChainConfig
+		config = params.AutonityTestChainConfig
 	)
 	p2pPeer := newTestP2PPeer("peer")
-	config.AutonityContractConfig = &params.AutonityContractGenesis{
-		Users: []params.User{
-			{
-				Enode: p2pPeer.Info().Enode,
-				Type:  params.UserValidator,
-				Stake: 1,
-			},
-		},
+	config.AutonityContractConfig.Validators[0] = &params.Validator{
+		Enode:       p2pPeer.Info().Enode,
+		BondedStake: big.NewInt(1),
+		Treasury:    &common.Address{},
 	}
 
 	if err := config.AutonityContractConfig.Prepare(); err != nil {
@@ -596,20 +592,20 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		evmux  = new(event.TypeMux)
 		pow    = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
-		config = params.TestChainConfig
+		config = params.AutonityTestChainConfig
 		gspec  = &core.Genesis{Config: config}
 	)
-	config.AutonityContractConfig = &params.AutonityContractGenesis{}
+	config.AutonityContractConfig.Validators = nil
 
 	p2pPeers := make([]*p2p.Peer, totalPeers)
 	for i := 0; i < totalPeers; i++ {
 		p2pPeers[i] = newTestP2PPeer(fmt.Sprintf("peer %d", i))
-		config.AutonityContractConfig.Users = append(
-			config.AutonityContractConfig.Users,
-			params.User{
-				Enode: p2pPeers[i].Info().Enode,
-				Type:  params.UserValidator,
-				Stake: 100,
+		config.AutonityContractConfig.Validators = append(
+			config.AutonityContractConfig.Validators,
+			&params.Validator{
+				Enode:       p2pPeers[i].Info().Enode,
+				BondedStake: big.NewInt(100),
+				Treasury:    &common.Address{},
 			},
 		)
 	}
@@ -687,20 +683,20 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 	var (
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
-		config = params.TestChainConfig
+		config = params.AutonityTestChainConfig
 		gspec  = &core.Genesis{Config: config}
 	)
 	config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	sourcePeer := newTestP2PPeer("source")
 	sinkPeer := newTestP2PPeer("sink")
-	config.AutonityContractConfig.Users = []params.User{{
-		Enode: sourcePeer.Info().Enode,
-		Type:  params.UserValidator,
-		Stake: 1,
+	config.AutonityContractConfig.Validators = []*params.Validator{{
+		Enode:       sourcePeer.Info().Enode,
+		BondedStake: big.NewInt(100),
+		Treasury:    &common.Address{},
 	}, {
-		Enode: sinkPeer.Info().Enode,
-		Type:  params.UserValidator,
-		Stake: 1,
+		Enode:       sinkPeer.Info().Enode,
+		BondedStake: big.NewInt(100),
+		Treasury:    &common.Address{},
 	}}
 
 	if err := config.AutonityContractConfig.Prepare(); err != nil {

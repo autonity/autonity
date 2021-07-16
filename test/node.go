@@ -72,7 +72,7 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
+func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 
 	k := u.Key.(*ecdsa.PrivateKey)
 	address := crypto.PubkeyToAddress(k.PublicKey)
@@ -355,12 +355,12 @@ func ValueTransferTransaction(client *ethclient.Client, senderKey *ecdsa.Private
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
 // E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s'.
-func Users(count int, formatString string, startingPort int) ([]*gengen.User, error) {
-	var users []*gengen.User
+func Users(count int, formatString string, startingPort int) ([]*gengen.Validator, error) {
+	var users []*gengen.Validator
 	for i := startingPort; i < startingPort+count; i++ {
 
 		portString := strconv.Itoa(i)
-		u, err := gengen.ParseUser(fmt.Sprintf(formatString, portString, "key"+portString))
+		u, err := gengen.ParseValidator(fmt.Sprintf(formatString, portString, "key"+portString))
 		if err != nil {
 			return nil, err
 		}
@@ -370,13 +370,13 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 }
 
 // Genesis creates a genesis instance from the provided users.
-func Genesis(users []*gengen.User) (*core.Genesis, error) {
+func Genesis(users []*gengen.Validator) (*core.Genesis, error) {
 	g, err := gengen.NewGenesis(1, users)
 	if err != nil {
 		return nil, err
 	}
 	// Make the tests fast
-	g.Config.Tendermint.BlockPeriod = 0
+	g.Config.AutonityContractConfig.BlockPeriod = 0
 	return g, nil
 }
 

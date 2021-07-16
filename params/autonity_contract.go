@@ -69,6 +69,7 @@ type Validator struct {
 	Enode             string          `abi:"enode"`
 	CommissionRate    *big.Int        `abi:"commissionRate"`
 	BondedStake       *big.Int        `abi:"bondedStake"`
+	SelfBondedStake   *big.Int        `abi:"selfBondedStake"`
 	TotalSlashed      *big.Int        `abi:"totalSlashed"`
 	LiquidContract    *common.Address `abi:"liquidContract"`
 	LiquidSupply      *big.Int        `abi:"liquidSupply"`
@@ -96,6 +97,9 @@ func (u *Validator) Validate() error {
 	if u.BondedStake == nil || u.BondedStake.Cmp(new(big.Int)) == 0 {
 		return errors.New("bonded stake must be specified")
 	}
+	if u.SelfBondedStake == nil {
+		u.SelfBondedStake = new(big.Int)
+	}
 	a, err := u.getAddressFromEnode()
 	if err != nil {
 		return err
@@ -110,6 +114,9 @@ func (u *Validator) Validate() error {
 	}
 	if u.LiquidSupply == nil {
 		u.LiquidSupply = new(big.Int)
+	}
+	if u.CommissionRate == nil {
+		u.CommissionRate = new(big.Int)
 	}
 	if u.Extra == nil {
 		u.Extra = new(string)

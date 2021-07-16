@@ -14,7 +14,8 @@ contract Autonity is IERC20 {
         address addr;
         string enode; // //addr must match provided enode
         uint256 commissionRate;
-        uint256 bondedStake; // not sure if necessary
+        uint256 bondedStake;
+        uint256 selfBondedStake;
         uint256 totalSlashed;
         Liquid liquidContract;
         uint256 liquidSupply;
@@ -29,9 +30,11 @@ contract Autonity is IERC20 {
         uint256 votingPower;
     }
 
-    struct UnbondingStake {
+    /* Used for epoched staking */
+
+    struct Staking {
         address payable delegator;
-        address payable delegatee;
+        address delegatee;
         uint256 amount;
         uint256 startBlock;
     }
@@ -39,7 +42,6 @@ contract Autonity is IERC20 {
     /* State data that needs to be dumped in-case of a contract upgrade. */
 
     address[] private validatorList;
-    address[] private accountList; // only for dumping purposes, not sure if its any good.
     address public operatorAccount;
     address payable public treasuryAccount;
     uint256 public treasuryFee;
@@ -55,8 +57,21 @@ contract Autonity is IERC20 {
     uint256 public unbondingPeriod;
     uint256 public blockPeriod;
     CommitteeMember[] private committee;
+    uint256 public totalRedistributed;
+    uint256 public epochReward;
     string[] private committeeNodes;
     mapping (address => mapping (address => uint256)) private allowances;
+
+    /*
+    Keep track of bonding and unbonding requests.
+    Absolutely unsure if this is the most efficient way to do it...
+    */
+    mapping (uint256 => Staking) private bondingMap;
+    uint256 public tailBondingID;
+    uint256 public headBondingID;// not needed
+    mapping (uint256 => Staking) private unbondingMap;
+    uint256 public tailUnbondingID;
+    uint256 public headUnbondingID;
 
     /* State data that will be recomputed during a contract upgrade. */
     mapping (address => uint256) private accounts;
@@ -146,6 +161,7 @@ contract Autonity is IERC20 {
             epochTotalBondedStake += _bondedStake;
             _bond(_validators[i].addr, _bondedStake, payable(_validators[i].treasury));
         }
+        _stakingTransitions();
         computeCommittee();
     }
 
@@ -185,6 +201,7 @@ contract Autonity is IERC20 {
             _enode, // enode
             _commissionRate, // validator commission rate
             0, // bonded stake
+            0, // self bonded stake
             0,  // total slashed
             Liquid(address(0)), // liquid token contract
             0, // liquid token supply
@@ -197,14 +214,14 @@ contract Autonity is IERC20 {
         emit RegisteredValidator(msg.sender, _val.addr, _enode, address(_val.liquidContract));
     }
 
-    // we need to create an event queue
+
     function bond(address payable _validator, uint256 _amount) public {
         _bond(_validator, _amount, payable(msg.sender));
     }
-    /*
-    function unbond(// liquid stake) public {
 
-    }*/
+    function unbond(address payable _validator, uint256 _amount) public {
+        _unbond(_validator, _amount, payable(msg.sender));
+    }
 
     /**
     * @notice Remove the validator account from the contract.
@@ -338,32 +355,81 @@ contract Autonity is IERC20 {
     */
     function finalize(uint256 amount) external onlyProtocol
         returns(bool , CommitteeMember[] memory) {
-
-        _performRedistribution(amount);
         bool _updateAvailable = bytes(bytecode).length != 0;
+        epochReward += amount;
         if (lastEpochBlock + epochPeriod == block.number) {
-            // todo : perform epoch state transition
+            // - slashing should come here first -
+            _performRedistribution(epochReward);
+            epochReward = 0;
+            _stakingTransitions();
             computeCommittee();
             lastEpochBlock = block.number;
         }
         return (_updateAvailable, committee);
     }
 
-    /**
-    * @dev Dump the current internal state key elements. Called by the protocol during a contract upgrade.
-    * The returned data will be passed directly to the constructor of the new contract at deployment.
-    */
-    function getState() external view returns(
-        address _operatorAccount,
-        uint256 _minGasPrice,
-        uint256 _committeeSize,
-        string memory _contractVersion) {
 
-        _operatorAccount = operatorAccount;
-        _minGasPrice = minGasPrice;
-        _committeeSize = committeeSize;
-        _contractVersion = contractVersion;
+    /**
+    * @notice update the current committee by selecting top staking validators.
+    * Restricted to the protocol.
+    */
+    function computeCommittee() public onlyProtocol {
+        // Left public for testing purposes.
+        require(validatorList.length > 0, "There must be validators");
+        /*
+         As opposed to storage arrays, it is not possible to resize memory arrays
+         have to calculate the required size in advance
+        */
+        uint _len = 0;
+        for (uint256 i = 0;i < validatorList.length; i++) {
+            if (validators[validatorList[i]].state == ValidatorState.enabled &&
+                validators[validatorList[i]].bondedStake > 0) {
+                _len++;
+            }
+        }
+
+        uint256 _committeeLength = committeeSize;
+        if (_committeeLength >= _len) {_committeeLength = _len;}
+
+        Validator[] memory _validatorList = new Validator[](_len);
+        Validator[] memory _committeeList = new Validator[](_committeeLength);
+
+        for (uint256 i = 0;i < validatorList.length; i++) {
+            if (validators[validatorList[i]].state == ValidatorState.enabled &&
+                validators[validatorList[i]].bondedStake > 0) {
+                // Perform a copy of the validator object
+                Validator memory _user = validators[validatorList[i]];
+                _validatorList[i] =_user;
+            }
+        }
+
+        // If there are more validators than seats in the committee
+        if (_validatorList.length > committeeSize) {
+            // sort validators by stake in ascending order
+            _sortByStake(_validatorList);
+            // choose the top-N (with N=maxCommitteeSize)
+            // Todo: (optimisation) just pop()
+            for (uint256 _j = 0; _j < committeeSize; _j++) {
+                _committeeList[_j] = _validatorList[_j];
+            }
+        }
+        // If all the validators fit in the committee
+        else {
+            _committeeList = _validatorList;
+        }
+
+        // Update committee in persistent storage
+        delete committee;
+        delete committeeNodes;
+        epochTotalBondedStake =0;
+        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
+            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].bondedStake);
+            committee.push(_member);
+            committeeNodes.push(_committeeList[_k].enode);
+            epochTotalBondedStake += _committeeList[_k].bondedStake;
+        }
     }
+
 
     /*
     ============================================================
@@ -474,49 +540,36 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @notice update the current committee by selecting top staking validators.
-    * Restricted to the protocol.
+    * @dev Dump the current internal state key elements. Called by the protocol during a contract upgrade.
+    * The returned data will be passed directly to the constructor of the new contract at deployment.
     */
-    function computeCommittee() public onlyProtocol {
-        // Left public for testing purposes.
-        require(validatorList.length > 0, "There must be validators");
-        uint _len = validatorList.length;
-        uint256 _committeeLength = committeeSize;
-        if (_committeeLength >= _len) {_committeeLength = _len;}
+    function getState() external view returns(
+        address _operatorAccount,
+        uint256 _minGasPrice,
+        uint256 _committeeSize,
+        string memory _contractVersion) {
 
-        Validator[] memory _validatorList = new Validator[](_len);
-        Validator[] memory _committeeList = new Validator[](_committeeLength);
-
-        for (uint256 i = 0;i < validatorList.length; i++) {
-            Validator memory _user = validators[validatorList[i]];
-            _validatorList[i] =_user;
-        }
-
-        // If there are more validators than seats in the committee
-        if (_validatorList.length > committeeSize) {
-            // sort validators by stake in ascending order
-            _sortByStake(_validatorList);
-            // choose the top-N (with N=maxCommitteeSize)
-            for (uint256 _j = 0; _j < committeeSize; _j++) {
-                _committeeList[_j] = _validatorList[_j];
-            }
-        }
-        // If all the validators fit in the committee
-        else {
-            _committeeList = _validatorList;
-        }
-
-        // Update committee in persistent storage
-        delete committee;
-        delete committeeNodes;
-        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
-            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].bondedStake);
-            committee.push(_member);
-            committeeNodes.push(_committeeList[_k].enode);
-        }
-
+        _operatorAccount = operatorAccount;
+        _minGasPrice = minGasPrice;
+        _committeeSize = committeeSize;
+        _contractVersion = contractVersion;
     }
 
+    // lastId not included
+    function getBondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
+        Staking[] memory _results = new Staking[](lastId - startId);
+        for(uint256 i = 0; i< lastId - startId ; i++){
+            _results[i] = bondingMap[startId +i];
+        }
+        return _results;
+    }
+    function getUnbondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
+        Staking[] memory _results = new Staking[](lastId - startId);
+        for(uint256 i = 0; i< lastId - startId ; i++){
+            _results[i] = unbondingMap[startId +i];
+        }
+        return _results;
+    }
     /*
     ============================================================
 
@@ -568,6 +621,7 @@ contract Autonity is IERC20 {
             treasuryAccount.transfer(_treasuryReward);
             _amount -= _treasuryReward;
         }
+        totalRedistributed += _amount;
         for (uint256 i = 0; i < committee.length; i++) {
             Validator storage _val = validators[committee[i].addr];
             uint256 _reward = (_val.bondedStake * _amount) / epochTotalBondedStake;
@@ -576,7 +630,6 @@ contract Autonity is IERC20 {
             }
             emit Rewarded(_val.addr, _reward);
         }
-
     }
 
     function _transfer(address _sender, address _recipient, uint256 _amount) internal {
@@ -612,12 +665,15 @@ contract Autonity is IERC20 {
 
         // step 2: deploy liquid stake contract
         if (address(_validator.liquidContract) == address(0)){
-            _validator.liquidContract = new Liquid(_validator.addr, _validator.treasury);
+            _validator.liquidContract = new Liquid(_validator.addr,
+                _validator.treasury,
+                _validator.commissionRate);
         }
         validatorList.push(_validator.addr);
         validators[_validator.addr] = _validator;
     }
 
+    /* Todo : Need to start unbonding */
     function _removeValidator(address _address) internal {
         require(validators[_address].addr == _address, "validator must be registered");
         Validator storage u = validators[_address];
@@ -630,26 +686,82 @@ contract Autonity is IERC20 {
     }
 
 
-    function _bond(address _validator, uint256 _amount, address payable _recipient) internal{
-
+    function _bond(address _validator, uint256 _amount, address payable _recipient) internal {
         require(validators[_validator].addr == _validator, "validator not registered");
+        require(_amount > 0, "amount need to be strictly positive");
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
-        Validator storage validator = validators[_validator];
+        accounts[_recipient] -= _amount;
+        Staking memory _bonding = Staking( _recipient, _validator, _amount, block.number);
+        bondingMap[headBondingID] = _bonding;
+        headBondingID++;
+
+    }
+
+    function _applyBonding(uint256 id) internal {
+        Staking storage _bonding = bondingMap[id];
+        Validator storage _validator = validators[_bonding.delegatee];
 
         /* The conversion rate is equal to the ratio of issued liquid tokens
-           over the total amount of bonded staked tokens. */
-        uint256 liquidAmount;
-        if (validator.bondedStake == 0 ) {
-            liquidAmount =  _amount;
+             over the total amount of bonded staked tokens. */
+        uint256 _liquidAmount;
+        if (_validator.bondedStake == 0 ) {
+            _liquidAmount =  _bonding.amount;
         } else {
-            liquidAmount = (validator.liquidSupply * _amount) / validator.bondedStake;
+            _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _validator.bondedStake;
         }
 
-        validator.liquidContract.mint(_recipient, liquidAmount);
-        validator.bondedStake += _amount; // TODO: epoch based
-        validator.liquidSupply += liquidAmount;
-        accounts[_recipient] -= _amount;
+        _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
+        _validator.bondedStake += _bonding.amount;
+        if(_bonding.delegator == _validator.treasury) {
+            _validator.selfBondedStake += _bonding.amount;
+        }
+        _validator.liquidSupply += _liquidAmount;
+    }
+
+    function _unbond(address _validator, uint256 _amount, address payable _recipient) internal {
+        require(validators[_validator].addr == _validator, "validator not registered");
+
+        uint256 liqBalance = validators[_validator].liquidContract.balanceOf(_recipient);
+        require(liqBalance >= _amount, "insufficient Liquid Newton balance");
+
+        validators[_validator].liquidContract.burn(_recipient, _amount);
+        Staking memory _unbonding = Staking( _recipient, _validator, _amount, block.number);
+        unbondingMap[headUnbondingID] = _unbonding;
+        headUnbondingID++;
+    }
+
+    function _applyUnbonding(uint256 id) internal {
+        Staking storage _unbonding = unbondingMap[id];
+        Validator storage validator = validators[_unbonding.delegatee];
+        /* validator.liquidSupply must not be equal to zero here */
+        uint256 _newtonAmount = (_unbonding.amount * validator.bondedStake) / validator.liquidSupply;
+
+        validator.bondedStake -= _newtonAmount;
+        if(_unbonding.delegator == validator.treasury) {
+            validator.selfBondedStake -= _newtonAmount;
+        }
+        validator.liquidSupply -= _unbonding.amount;
+        accounts[_unbonding.delegator] += _newtonAmount;
+    }
+
+    /* Should be called at every epoch */
+    function _stakingTransitions() internal {
+        for(uint256 i = tailBondingID; i < headBondingID; i++){
+            _applyBonding(i);
+        }
+        tailBondingID = headBondingID;
+
+        uint256 _processedId = tailUnbondingID;
+        for(uint256 i = tailUnbondingID; i < headUnbondingID; i++){
+            if(unbondingMap[i].startBlock + unbondingPeriod <= block.number){
+                _applyUnbonding(i);
+                _processedId += 1;
+            } else {
+                break;
+            }
+        }
+        tailUnbondingID = _processedId;
     }
 
     /**

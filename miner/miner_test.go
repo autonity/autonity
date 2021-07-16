@@ -271,7 +271,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
 
-	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, senderCacher)
+	pool := core.NewTxPool(testTxPoolConfig, params.AutonityTestChainConfig, blockchain, senderCacher)
 	backend := NewMockBackend(bc, pool)
 	// Create Miner
 	return New(backend, &config, chainConfig, mux, engine, isLocalBlock), mux

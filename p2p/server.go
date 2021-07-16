@@ -533,12 +533,9 @@ func (srv *Server) Start() (err error) {
 		}
 	}
 
-	// Discovery protocol is disabled for consortium chains.
-	// Bootnodes are disabled.
-	// Static nodes logic is used to handle returned Whitelist and will be populated via the eth service.
-	log.Info("Private-network mode enabled.")
-	srv.NoDiscovery = true
-
+	if err := srv.setupDiscovery(); err != nil {
+		return err
+	}
 	srv.setupDialScheduler()
 
 	srv.loopWG.Add(1)

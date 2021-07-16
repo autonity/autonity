@@ -52,9 +52,9 @@ func TestSimulatedBackend(t *testing.T) {
 
 	if isPending {
 		t.Fatal("transaction should not be pending")
-	}
-	if err != ethereum.NotFound {
-		t.Fatalf("err should be `ethereum.NotFound` but received %v", err)
+		if err != ethereum.NotFound {
+			t.Fatalf("err should be `ethereum.NotFound` but received %v", err)
+		}
 	}
 
 	// generate a transaction and confirm you can retrieve it
@@ -121,12 +121,12 @@ func TestNewSimulatedBackend(t *testing.T) {
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 
-	if sim.config != params.AllEthashProtocolChanges {
-		t.Errorf("expected sim config to equal params.AllEthashProtocolChanges, got %v", sim.config)
+	if sim.config != params.AllEthashProtocolChangesWithAutonity {
+		t.Errorf("expected sim config to equal params.AllEthashProtocolChangesWithAutonity, got %v", sim.config)
 	}
 
-	if sim.blockchain.Config() != params.AllEthashProtocolChanges {
-		t.Errorf("expected sim blockchain config to equal params.AllEthashProtocolChanges, got %v", sim.config)
+	if sim.blockchain.Config() != params.AllEthashProtocolChangesWithAutonity {
+		t.Errorf("expected sim blockchain config to equal params.AllEthashProtocolChangesWithAutonity, got %v", sim.config)
 	}
 
 	stateDB, _ := sim.blockchain.State()

@@ -361,10 +361,10 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
 
-	syncer := pm.blockchain.Engine().(consensus.Syncer)
-	address := crypto.PubkeyToAddress(*p.Node().Pubkey())
-	syncer.ResetPeerCache(address)
-
+	if syncer, ok := pm.blockchain.Engine().(consensus.Syncer); ok {
+		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
+		syncer.ResetPeerCache(address)
+	}
 	// If we have a trusted CHT, reject all peers below that (avoid fast sync eclipse)
 	if pm.checkpointHash != (common.Hash{}) {
 		// Request the peer's checkpoint header for chain height/weight validation

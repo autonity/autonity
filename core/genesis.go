@@ -22,13 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"sort"
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
@@ -267,15 +267,25 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	var committee types.Committee
-	if g.Config.AutonityContractConfig != nil {
-		if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
-			return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
-		}
-		var err error
-		committee, err = extractCommittee(g.Config.AutonityContractConfig.GetValidators())
-		if err != nil {
-			return nil, err
-		}
+	if g.Config.AutonityContractConfig == nil {
+		return nil, fmt.Errorf("autonity contract config section missing in genesis")
+	}
+	g.mu.RLock()
+	diff := big.NewInt(0)
+	if g.Difficulty == nil {
+		diff.Set(params.GenesisDifficulty)
+	} else {
+		diff.Set(g.Difficulty)
+	}
+	g.mu.RUnlock()
+
+	if diff.Cmp(big.NewInt(1)) != 0 {
+		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
+	}
+	var err error
+	committee, err = extractCommittee(g.Config.AutonityContractConfig.GetValidators())
+	if err != nil {
+		return nil, err
 	}
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
@@ -290,30 +300,18 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		}
 	}
 
-	if g.Config.AutonityContractConfig != nil {
-		evm := genesisEVM(g, statedb)
+	evm := genesisEVM(g, statedb)
 
-		abi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
-		if err != nil {
-			return nil, err
-		}
-
-		err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
-		if err != nil {
-			return nil, err
-		}
+	abi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
+	if err != nil {
+		return nil, err
 	}
 
+	err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
+	if err != nil {
+		return nil, err
+	}
 	root := statedb.IntermediateRoot(false)
-
-	g.mu.RLock()
-	diff := big.NewInt(0)
-	if g.Difficulty == nil {
-		diff.Set(params.GenesisDifficulty)
-	} else {
-		diff.Set(g.Difficulty)
-	}
-	g.mu.RUnlock()
 
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
@@ -361,7 +359,7 @@ func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if g.Config == nil {
-		g.Config = params.AllEthashProtocolChanges
+		g.Config = params.AllEthashProtocolChangesWithAutonity
 	}
 
 	if err := g.Config.CheckConfigForkOrder(); err != nil {
@@ -439,18 +437,19 @@ func (g *Genesis) SetExtraData(extraData []byte) {
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{Alloc: GenesisAlloc{addr: {Balance: balance}}}
+	g := Genesis{Alloc: GenesisAlloc{addr: {Balance: balance}}, Config: params.AutonityTestChainConfig}
 	return g.MustCommit(db)
 }
 
-// DefaultGenesisBlock returns the Ethereum main net genesis block.
+// DefaultGenesisBlock returns the Autonity main net genesis block.
+// todo : fill
 func DefaultGenesisBlock() *Genesis {
 	return &Genesis{
-		Config:     params.MainnetChainConfig,
+		Config:     params.AutonityTestChainConfig,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"),
 		GasLimit:   5000,
-		Difficulty: big.NewInt(17179869184),
+		Difficulty: big.NewInt(1),
 		Alloc:      decodePrealloc(mainnetAllocData),
 	}
 }

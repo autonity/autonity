@@ -59,7 +59,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		engine = ethash.NewFaker()
 		db     = rawdb.NewMemoryDatabase()
 		gspec  = &core.Genesis{
-			Config: params.TestChainConfig,
+			Config: params.AutonityTestChainConfig,
 			Alloc:  core.GenesisAlloc{testBank: {Balance: big.NewInt(1000000)}},
 		}
 	)
@@ -86,15 +86,15 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 
 // helper that add some required fields in the genesis to bootstrap an Autonity Protocol Manager
 func setupAutonityContract(gspec *core.Genesis, peers []string) *core.Genesis {
-	gspec.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
-
+	gspec.Config.AutonityContractConfig = &params.TestAutonityContractConfig
+	gspec.Config.AutonityContractConfig.Validators = nil
 	for i := range peers {
-		gspec.Config.AutonityContractConfig.Users = append(
-			gspec.Config.AutonityContractConfig.Users,
-			params.User{
-				Enode: peers[i],
-				Type:  params.UserValidator,
-				Stake: 100,
+		gspec.Config.AutonityContractConfig.Validators = append(
+			gspec.Config.AutonityContractConfig.Validators,
+			&params.Validator{
+				Enode:       peers[i],
+				Treasury:    &common.Address{},
+				BondedStake: big.NewInt(100),
 			},
 		)
 	}

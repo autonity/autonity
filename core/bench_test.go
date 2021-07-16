@@ -167,7 +167,7 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 	// Generate a chain of b.N blocks using the supplied block
 	// generator function.
 	gspec := Genesis{
-		Config: params.TestChainConfig,
+		Config: params.AutonityTestChainConfig,
 		Alloc:  GenesisAlloc{benchRootAddr: {Balance: benchRootFunds}},
 	}
 	genesis := gspec.MustCommit(db)
@@ -287,7 +287,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 		if err != nil {
 			b.Fatalf("error opening database at %v: %v", dir, err)
 		}
-		chain, err := NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil)
+		chain, err := NewBlockChain(db, nil, params.AutonityTestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil)
 		if err != nil {
 			b.Fatalf("error creating chain: %v", err)
 		}

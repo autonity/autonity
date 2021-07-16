@@ -19,6 +19,7 @@ package graphql
 import (
 	"fmt"
 	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/params"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -114,6 +115,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 	// create backend
 	chainConf := eth.DefaultConfig
 	chainConf.Genesis = new(core.Genesis)
+	chainConf.Genesis.Config = params.AllEthashProtocolChangesWithAutonity
 	ethBackend, err := eth.New(stack, &chainConf, nil)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)

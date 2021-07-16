@@ -19,7 +19,9 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
+	"net"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
@@ -229,22 +231,64 @@ var (
 	// adding flags to the config to also have to set these fields.
 	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil}
 
+	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
+	ValidatorEnode             = enode.NewV4(&ValidatorKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	TestAutonityContractConfig = AutonityContractGenesis{
+		Bytecode:        "",
+		ABI:             "",
+		MinGasPrice:     0,
+		EpochPeriod:     0,
+		UnbondingPeriod: 0,
+		BlockPeriod:     0,
+		Operator:        common.Address{},
+		Treasury:        common.Address{},
+		TreasuryFee:     0,
+		Validators: []*Validator{
+			{
+				Treasury:       &common.Address{},
+				Address:        &ValidatorAddress,
+				Enode:          ValidatorEnode.URLv4(),
+				CommissionRate: new(big.Int).SetUint64(0),
+				BondedStake:    new(big.Int).SetUint64(1),
+			},
+		},
+	}
+
+	AllEthashProtocolChangesWithAutonity = &ChainConfig{ChainID: big.NewInt(1337),
+		HomesteadBlock:         big.NewInt(0),
+		EIP150Block:            big.NewInt(0),
+		EIP155Block:            big.NewInt(0),
+		EIP158Block:            big.NewInt(0),
+		ByzantiumBlock:         big.NewInt(0),
+		ConstantinopleBlock:    big.NewInt(0),
+		PetersburgBlock:        big.NewInt(0),
+		IstanbulBlock:          big.NewInt(0),
+		Ethash:                 new(EthashConfig),
+		AutonityContractConfig: &TestAutonityContractConfig,
+	}
+
 	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
 
 	// Basic configuration for Tendermint, the Autonity Contract config needs still to be properly initialized.
 	AutonityTestChainConfig = &ChainConfig{ChainID: big.NewInt(1),
-		HomesteadBlock:      big.NewInt(0),
-		EIP150Block:         big.NewInt(0),
-		EIP155Block:         big.NewInt(0),
-		EIP158Block:         big.NewInt(0),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: big.NewInt(0),
-		PetersburgBlock:     big.NewInt(0),
-		IstanbulBlock:       big.NewInt(0),
+		HomesteadBlock:         big.NewInt(0),
+		EIP150Block:            big.NewInt(0),
+		EIP155Block:            big.NewInt(0),
+		EIP158Block:            big.NewInt(0),
+		ByzantiumBlock:         big.NewInt(0),
+		ConstantinopleBlock:    big.NewInt(0),
+		PetersburgBlock:        big.NewInt(0),
+		IstanbulBlock:          big.NewInt(0),
+		AutonityContractConfig: &TestAutonityContractConfig,
 	}
 
 	TestRules = TestChainConfig.Rules(new(big.Int))
 )
+
+func init() {
+	TestAutonityContractConfig.Prepare()
+}
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
 // BloomTrie) associated with the appropriate section index and head hash. It is
