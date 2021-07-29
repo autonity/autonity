@@ -7,6 +7,7 @@ from web3.auto import w3
 from fabric import Connection
 from eth_rpc_client import Client as RpcClient
 from invoke import Responder
+import requests
 
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
@@ -61,10 +62,11 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 class Client(object):
     def __init__(self, host=None, p2p_port=None, rpc_port=None, ws_port=None, net_interface=None,
                  coin_base=None, ssh_user=None, ssh_pass=None, ssh_key=None, sudo_pass=None, autonity_path=None,
-                 bootnode_path=None, role=None, index=None, e_node=None):
+                 bootnode_path=None, role=None, index=None, e_node=None, hostname=None):
         self.autonity_path = autonity_path
         self.bootnode_path = bootnode_path
         self.host = host
+        self.hostname = hostname
         self.p2p_port = p2p_port
         self.rpc_port = rpc_port
         self.ws_port = ws_port
@@ -90,10 +92,11 @@ class Client(object):
         utility.create_dir(work_dir)
 
     def generate_new_account(self):
+        self.logger.info("generate new account in client.")
         folder = self.host
         utility.execute("echo 123 > ./network-data/{}/pass.txt".format(folder))
         output = utility.execute(
-            '{} --datadir "./network-data/{}/data" --password "./network-data/{}/pass.txt" account new'
+            '{} --datadir ./network-data/{}/data --password ./network-data/{}/pass.txt account new'
             .format(self.autonity_path, folder, folder)
         )
         self.logger.debug(output)
@@ -106,8 +109,11 @@ class Client(object):
             return self.coin_base
 
     def generate_enode(self):
-        folder = self.host
+        endpoint = self.host
+        if self.hostname is not None:
+            endpoint = self.hostname
 
+        folder = self.host
         keystores_dir = "./network-data/{}/data/keystore".format(folder)
         keystore_file_path = keystores_dir + "/" + os.listdir(keystores_dir)[0]
         with open(keystore_file_path) as keyfile:
@@ -119,8 +125,68 @@ class Client(object):
         pub_key = \
             utility.execute("{} -writeaddress -nodekey ./network-data/{}/boot.key".
                             format(self.bootnode_path, folder))[0].rstrip()
-        self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
+        self.e_node = "enode://{}@{}:{}".format(pub_key, endpoint, self.p2p_port)
         return self.e_node
+
+    def is_proof_presented(self, flag, rule_id):
+        method = ""
+        if flag == "faultdetector.misbehaviour.rule":
+            method = "aut_getMisbehaviours"
+        if flag == "faultdetector.accusation.rule":
+            method = "aut_getAccusations"
+
+        try:
+            session = requests.Session()
+            payload = {"jsonrpc": "2.0", "method": method, "params": [], "id": 1}
+            headers = {'Content-type': 'application/json'}
+            response = session.post('http://{}:{}'.format(self.host, self.rpc_port), json=payload, headers=headers)
+            proofs = response.json()['result']
+            for p in proofs:
+                if p['rule'] == rule_id:
+                    return True
+        except Exception as e:
+            self.logger.error("cannot get correct rpc response. %s", e)
+            return False
+        return False
+
+    def generate_system_service_file_with_fault_simulator(self, flag, rule_id):
+        template_remote = "[Unit]\n" \
+                   "Description=Clearmatics Autonity Client server\n" \
+                   "After=syslog.target network.target\n" \
+                   "[Service]\n" \
+                   "Type=simple\n" \
+                   "ExecStart={} --genesis {} --{} {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
+                   "--http.port {} --http --http.addr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
+                   "--rpcapi 'personal,debug,db,eth,aut,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                   "--gasprice '0' --allow-insecure-unlock --graphql " \
+                   "--unlock 0x{} --password {} " \
+                   "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
+                   "KillMode=process\n" \
+                   "KillSignal=SIGINT\n" \
+                   "TimeoutStopSec=1\n" \
+                   "Restart=on-failure\n" \
+                   "RestartSec=1s\n" \
+                   "[Install]\n" \
+                   "Alias=autonity.service\n"\
+                   "WantedBy=multi-user.target"
+
+        folder = self.host
+
+        print("prepare autonity systemd service file for node: %s", self.host)
+        bin_path = AUTONITY_PATH.format(self.ssh_user)
+        genesis_path = GENESIS_PATH.format(self.ssh_user)
+        data_dir = CHAIN_DATA_DIR.format(self.ssh_user, folder)
+        boot_key_file = BOOT_KEY_FILE.format(self.ssh_user, folder)
+        p2p_port = self.p2p_port
+        rpc_port = self.rpc_port
+        ws_port = self.ws_port
+        coin_base = self.coin_base
+        password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
+
+        content = template_remote.format(bin_path, genesis_path, flag, rule_id, data_dir, boot_key_file, p2p_port, rpc_port, ws_port,
+                                         coin_base, password_file, coin_base)
+        with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
+            out.write(content)
 
     def generate_system_service_file(self):
         template_remote = "[Unit]\n" \
@@ -130,7 +196,7 @@ class Client(object):
                    "Type=simple\n" \
                    "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
                    "--http.port {} --http --http.addr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
-                   "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                   "--rpcapi 'personal,debug,db,eth,aut,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                    "--gasprice '0' --allow-insecure-unlock --graphql " \
                    "--unlock 0x{} --password {} " \
                    "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \

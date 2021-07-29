@@ -1,22 +1,23 @@
 # Autonity e2e test framework 
-It automatically bootstrap an autonity network with 6 validators by default. And run those test cases on the playbook to 
-simulate those disasters like: node crash, redeployment, network traffic control, delay and network partitioning ..., 
-on each test case, after the disaster event are scheduled, framework will check if autontiy consensus's state is 
-expected otherwise it would collect the test report and system logs per test case from all clients for a debugging 
-purpose.
+Autonity is an Ethereum protocol based open block chain network, we extends it with instant block finality by using Tendermint BFT algorithm.
+In distributed computing world, the testing of BFT consensus is an interesting topics, since any kind of fault could be BFT faults. So what is 
+the testing boundary for it? 
 
-# Dependencies
-Run install_dep.sh to install all the dependencies. Or you can install them manually as below steps tells:
-In most linux distribution, python3 and pip3 are included, follow below guide in case your linux need them:
-## update repo source
-`sudo apt-get update`
-## Python3
-`sudo apt-get install python3`
-## pip3
-`sudo apt-get install python3-pip`
+In our vision, a consensus algorithm should provide safety and liveness in any kind of execution context which include: disasters of infrastructure,
+network partitioning, network delays, software crash, omission faults, malicious behaviours. So we create this distributed test
+framework to simulate massive execution environments for the consensus engine we built to make sure the safety and liveness are expected.
 
-## [required] 3rd party python libs
-`pip3 install -r requirements_docker_test.txt`
+To create an isolated execution environment for the validators of Autonity test network, we build the infrastructure via docker. The framework first try to
+bring up a docker environment, then it create networks and ubuntu containers for the test engine and Autonity clients. By deploying Test Engine in one 
+of the container, test engine will work as a controller that it load the play books which contain the test cases defined in YAML, plan the setup of the network,
+and simulate those events pre-defined at test case, then it verify the consensus output or state from end to end point of view. In case of failure of testcase,
+The framework collects system logs from the test network, and collect the test reports for investigation.
+
+For the time being, we have 2 playbooks, the first one: ./etc/testcaseconf.yml contains disaster, network partitioning, delays, software crash use cases.
+The second one contains: malicious behaviour use cases, and also twins setup use cases for consensus participants, that is saved at: ./etc/malicious_tests.yml.
+
+Since the CI integration of this framework, on each merge on "develop" branch, CI will trigger these tests.
+You can also run it on top of your branch by running CMD: make docker-e2e-tests under ./docker_e2e_test folder.
 
 ## [required] docker
 If your linux is on ubuntu-18.04, the script will auto install it for you.
@@ -27,28 +28,13 @@ If your linux is on ubuntu-18.04, the script will auto install it for you.
 In the docker_e2e_test/planner/networkplanner.py + line: 122, there are default genesis configuration, update it on your demand.
 
 ## run it
-Run test cases of the playbook: ./etc/testcase.conf.yml by:
-
-`make docker-e2e-test`
-
-or run the script with 1 parameter, the path of autonity work dir.
-For example:
-`sudo python3 test_via_docker.py  ~/your_path_to/autonity`
+`make docker-e2e-tests`
 
 # Outputs and reports.
 The console will collect test report and it collects system logs of each autontiy client for per failed testcase.
 The log will be compress in local dir name with: JOB_<job_id>.tar
 
-# Node IP list.
-You can config validator IP address in ./etc/validator.ip or ./etc/participant.ip for participant node if you run it 
-without docker as the infrastructure. In docker base test, those IP will be auto-generated.
-
-# PlayBook example and explains
-Test case will be scheduled one by one by the test framework, each test case contains sub-events to be scheduled as to 
-trigger some disaster behaviors like: connect peer, disconnect peer, stop or start node, traffic control by delay or 
-un-delay a node's traffic stream. Those IP are represented by alias ID which refer to a auto-generated testbed file under
- ./etc/, each event will be scheduled on a specific time point align to the start of its test case.
-
+# PlayBook example and explains.
 ```yaml
 engineVersion: 3.0.1
 playbook:
@@ -669,4 +655,87 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
+```
+
+```yaml
+engineVersion: 3.0.1
+playbook:
+  name: "Autonity malicious behaviour test cases"
+  malicious_tests:
+    - name: "Misbehaviour of C rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 6
+    - name: "Misbehaviour of PN rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 0
+    - name: "Misbehaviour of PO rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 1
+    - name: "Misbehaviour of PVN rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 2
+    - name: "Misbehaviour of PVO1 rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 4
+    - name: "Misbehaviour of invalid proposal rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 9
+    - name: "Misbehaviour of invalid proposer rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 10
+    - name: "Misbehaviour of equivocation rule"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 11
+    - name: "Accusation of PO rule"
+      flag: "faultdetector.accusation.rule"
+      value: 1
+    - name: "Accusation of PVN rule"
+      flag: "faultdetector.accusation.rule"
+      value: 2
+    - name: "Accusation of PVO rule"
+      flag: "faultdetector.accusation.rule"
+      value: 3
+    - name: "Accusation of C rule"
+      flag: "faultdetector.accusation.rule"
+      value: 6
+    - name: "Accusation of C1 rule"
+      flag: "faultdetector.accusation.rule"
+      value: 7
+  twins_tests:
+    - name: "Misbehaviour of PN rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 0
+    - name: "Misbehaviour of PO rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 1
+    - name: "Misbehaviour of PVN rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 2
+    - name: "Misbehaviour of PVO1 rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 4
+    - name: "Misbehaviour of invalid proposal rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 9
+    - name: "Misbehaviour of invalid proposer rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 10
+    - name: "Misbehaviour of equivocation rule in twins test"
+      flag: "faultdetector.misbehaviour.rule"
+      value: 11
+    - name: "Accusation of PO rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 1
+    - name: "Accusation of PVN rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 2
+    - name: "Accusation of PVO rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 3
+    - name: "Accusation of C rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 6
+    - name: "Accusation of C1 rule in twins test"
+      flag: "faultdetector.accusation.rule"
+      value: 7
 ```

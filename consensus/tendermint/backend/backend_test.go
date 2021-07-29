@@ -41,6 +41,7 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
@@ -570,7 +571,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
 	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{}, new(event.TypeMux))
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)

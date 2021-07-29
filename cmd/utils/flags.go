@@ -20,6 +20,8 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/autonity"
+	tdmcore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/internal/flags"
 	"github.com/clearmatics/autonity/metrics/exp"
@@ -114,6 +116,16 @@ var (
 	update the configuration that controls client behaviour. This is the
 	mechanism is used for handling forks.`,
 		Value: "",
+	}
+	MisbehaviourFlag = cli.IntFlag{
+		Name:  "faultdetector.misbehaviour.rule",
+		Usage: "This flag is used by BFT accountability testing only, do not set it at production network.",
+		Value: -1,
+	}
+	AccusationFlag = cli.IntFlag{
+		Name:  "faultdetector.accusation.rule",
+		Usage: "This flag is used by BFT accountability testing only, do not set it at production network.",
+		Value: -1,
 	}
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
@@ -1106,7 +1118,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(ExternalSignerFlag.Name) {
 		cfg.ExternalSigner = ctx.GlobalString(ExternalSignerFlag.Name)
 	}
-
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}
@@ -1118,6 +1129,13 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 	if ctx.GlobalIsSet(InsecureUnlockAllowedFlag.Name) {
 		cfg.InsecureUnlockAllowed = ctx.GlobalBool(InsecureUnlockAllowedFlag.Name)
+	}
+	// apply fault simulator configs for accountability e2e test.
+	if ctx.GlobalIsSet(MisbehaviourFlag.Name) {
+		tdmcore.SetFaultSimulatorConfig(autonity.Misbehaviour, uint8(ctx.GlobalUint(MisbehaviourFlag.Name)))
+	}
+	if ctx.GlobalIsSet(AccusationFlag.Name) {
+		tdmcore.SetFaultSimulatorConfig(autonity.Accusation, uint8(ctx.GlobalUint(AccusationFlag.Name)))
 	}
 }
 

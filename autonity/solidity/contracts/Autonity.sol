@@ -31,7 +31,18 @@ contract Autonity is IERC20 {
         uint256 stakesupply;
     }
 
+    enum AccountabilityType {Misbehaviour, Accusation, Innocence}
+    struct Proof {
+        uint8 t;      // proof type: Misbehaviour, Accusation, Innocence
+        uint8 rule;
+        address sender;
+        bytes32 msghash;
+        bytes rawproof; // the rlp encoded Proof. Please check faultdetector_types.go type RaWProof struct.
+    }
+
     /* State data that needs to be dumped in-case of a contract upgrade. */
+    Proof[] private misbehaviours;
+    Proof[] private accusations;
     address[] private usersList;
     string[] private enodesWhitelist;
     mapping (address => User) private users;
@@ -71,6 +82,9 @@ contract Autonity is IERC20 {
     event MintedStake(address _address, uint256 _amount);
     event BurnedStake(address _address, uint256 _amount);
     event Rewarded(address _address, uint256 _amount);
+    event MisbehaviourAdded(Proof proof);
+    event AccusationAdded(Proof proof);
+    event AccusationRemoved(Proof proof);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -137,6 +151,64 @@ contract Autonity is IERC20 {
     */
     function symbol() external pure returns (string memory) {
         return "NEW";
+    }
+
+    /**
+    * @notice handle accountability proofs in the Autonity Contract with the specified role. Restricted to the validator account.
+    */
+    function handleProofs(Proof[] memory Proofs) public onlyValidator(msg.sender) {
+        address misbehaviourPrecompiledContractAddress = address(0xfe);
+        address accusationPrecompiledContractAddress = address(0xfc);
+        address innocencePrecompiledContractAddress = address(0xfd);
+
+        for (uint256 i = 0; i < Proofs.length; i++) {
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Misbehaviour) {
+                if (_misbehaviourExists(Proofs[i]) == true) {
+                    continue;
+                }
+
+                // Validate proof of misbehaviour
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccountability(misbehaviourPrecompiledContractAddress, Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
+                    // todo: take governance action that msg.sender sent faulty proof of misbehaviour.
+                    continue;
+                }
+                // misbehaviour proof is validated
+                misbehaviours.push(Proofs[i]);
+                emit MisbehaviourAdded(Proofs[i]);
+                // todo: add slashing logic once misbehaviour is valid.
+            }
+
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Accusation) {
+                if (_accusationExists(Proofs[i]) == true) {
+                    continue;
+                }
+
+                // Validate the accusation
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccountability(accusationPrecompiledContractAddress, Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
+                    // todo: take governance action that msg.sender sent faulty accusation.
+                    continue;
+                }
+                accusations.push(Proofs[i]);
+                emit AccusationAdded(Proofs[i]);
+            }
+
+            if (AccountabilityType(Proofs[i].t) == AccountabilityType.Innocence) {
+                if (_accusationExists(Proofs[i]) == false) {
+                    continue;
+                }
+
+                // Validate the proof of innocence
+                (address addr, bytes32 msgHash, uint256 retCode) = Precompiled.checkAccountability(innocencePrecompiledContractAddress,Proofs[i].rawproof);
+                if (msgHash != Proofs[i].msghash || addr != Proofs[i].sender || retCode == 0) {
+                    // todo: node provides an invalid proof of innocent. should take governance action to msg.sender.
+                    continue;
+                }
+                _removeAccusation(Proofs[i]);
+                emit AccusationRemoved(Proofs[i]);
+            }
+        }
     }
 
     /**
@@ -287,6 +359,20 @@ contract Autonity is IERC20 {
         bool _updateAvailable = bytes(bytecode).length != 0;
         computeCommittee();
         return (_updateAvailable, committee);
+    }
+
+    /**
+    * @dev Dump the on-chain misbehaviour. Called by the faultdetector fault detector to get latest on-chain misbehaviour.
+    */
+    function getMisbehaviours() external view returns (Proof[] memory) {
+        return misbehaviours;
+    }
+
+    /**
+    * @dev Dump the on-chain accusations. Called by the faultdetector fault detector to get latest on-chain accusation.
+    */
+    function getAccusations() external view returns (Proof[] memory) {
+        return accusations;
     }
 
     /**
@@ -525,6 +611,16 @@ contract Autonity is IERC20 {
     }
 
     /**
+    * @dev Modifier that checks if the caller is a validator.
+    * Only the validator can invoke such API.
+    */
+    modifier onlyValidator(address _caller) {
+        require(users[_caller].userType == UserType.Validator);
+        _;
+    }
+
+
+    /**
     * @dev Modifier that checks if the adress is authorized to own stake.
     */
     modifier canUseStake(address _address) {
@@ -619,6 +715,36 @@ contract Autonity is IERC20 {
         _createUser(u.addr, u.enode, newUserType, u.stake);
 
         emit ChangedUserType(u.addr , u.userType , newUserType);
+    }
+
+    function _misbehaviourExists(Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < misbehaviours.length; i++) {
+            if (misbehaviours[i].msghash == proof.msghash) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _accusationExists(Proof memory proof) internal view returns (bool) {
+        for (uint256 i = 0; i < accusations.length; i++) {
+            if (accusations[i].msghash == proof.msghash) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _removeAccusation(Proof memory proof) internal {
+        require(accusations.length > 0);
+
+        for (uint256 i = 0; i < accusations.length; i++) {
+            if (accusations[i].msghash == proof.msghash) {
+                accusations[i] = accusations[accusations.length - 1];
+                accusations.pop();
+                break;
+            }
+        }
     }
 
     function _removeUser(address _address) internal {
@@ -731,6 +857,4 @@ contract Autonity is IERC20 {
             }
         }
     }
-
-
 }

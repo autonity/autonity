@@ -274,7 +274,7 @@ func (c *core) handleFutureRoundMsg(ctx context.Context, msg *Message, sender co
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
 		c.futureRoundChange[msgRound] = make(map[common.Address]uint64)
 	}
-	c.futureRoundChange[msgRound][sender] = msg.power
+	c.futureRoundChange[msgRound][sender] = msg.GetPower()
 
 	var totalFutureRoundMessagesPower uint64
 	for _, power := range c.futureRoundChange[msgRound] {

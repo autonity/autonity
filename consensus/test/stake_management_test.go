@@ -150,7 +150,7 @@ func TestStakeManagement(t *testing.T) {
 		{
 			name:          "stake management test mint stake",
 			numValidators: 6,
-			numBlocks:     20,
+			numBlocks:     100,
 			txPerPeer:     1,
 			sendTransactionHooks: map[string]sendTransactionHook{
 				"VA": mintStakeHook,

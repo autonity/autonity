@@ -76,14 +76,15 @@ const (
 )
 
 // New creates an Tendermint consensus core
-func New(backend Backend, config *config.Config) *core {
+func New(backend Backend, c *config.Config) *core {
 	addr := backend.Address()
 	logger := log.New("addr", addr.String())
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		proposerPolicy:        config.ProposerPolicy,
-		blockPeriod:           config.BlockPeriod,
+		proposerPolicy: c.ProposerPolicy,
+		blockPeriod:    c.BlockPeriod,
+
 		address:               addr,
 		logger:                logger,
 		backend:               backend,
@@ -107,8 +108,9 @@ func New(backend Backend, config *config.Config) *core {
 type core struct {
 	proposerPolicy config.ProposerPolicy
 	blockPeriod    uint64
-	address        common.Address
-	logger         log.Logger
+
+	address common.Address
+	logger  log.Logger
 
 	backend Backend
 	cancel  context.CancelFunc
@@ -195,6 +197,23 @@ func (c *core) broadcast(ctx context.Context, msg *Message) {
 	if err != nil {
 		logger.Error("Failed to finalize message", "msg", msg, "err", err)
 		return
+	}
+
+	// simulate malicious behaviours once configured.
+	if FaultSimulatorConfigs != nil {
+		m := new(Message)
+		if err := m.FromPayload(payload); err != nil {
+			c.logger.Error("consensus message invalid payload", "err", err)
+		}
+		msgs := c.createMisbehaviourContext(m)
+		if len(msgs) != 0 {
+			for _, mm := range msgs {
+				if err = c.backend.Broadcast(ctx, c.committeeSet().Committee(), mm); err != nil {
+					logger.Error("Failed to broadcast malicious messages", "err", err)
+					continue
+				}
+			}
+		}
 	}
 
 	// Broadcast payload

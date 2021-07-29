@@ -160,7 +160,7 @@ func msgForDump(msgs []*Message) []*MsgForDump {
 		msg := new(MsgForDump)
 		msg.Message = *m
 		msg.Power = m.GetPower()
-		msg.Hash = types.RLPHash(m.payload)
+		msg.Hash = types.RLPHash(m.Payload())
 
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1

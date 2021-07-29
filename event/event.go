@@ -20,7 +20,6 @@ package event
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/log"
 	"reflect"
 	"sync"
 	"time"
@@ -124,22 +123,6 @@ func (mux *TypeMux) del(s *TypeMuxSubscription) {
 				mux.subm[typ] = posdelete(subs, pos)
 			}
 		}
-	}
-}
-
-type TypeMuxSilent struct {
-	*TypeMux
-	logger log.Logger
-}
-
-func NewTypeMuxSilent(l log.Logger) *TypeMuxSilent {
-	return &TypeMuxSilent{new(TypeMux), l}
-}
-
-func (mux *TypeMuxSilent) Post(ev interface{}) {
-	err := mux.TypeMux.Post(ev)
-	if err != nil {
-		mux.logger.Error("mux error while posting message", "err", err)
 	}
 }
 

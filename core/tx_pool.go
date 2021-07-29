@@ -45,11 +45,11 @@ const (
 	// O(maxslots), where max slots are 4 currently).
 	txSlotSize = 32 * 1024
 
-	// txMaxSize is the maximum size a single transaction can have. This field has
+	// TxMaxSize is the maximum size a single transaction can have. This field has
 	// non-trivial consequences: larger transactions are significantly harder and
 	// more expensive to propagate; larger transactions also take more resources
 	// to validate whether they fit into the pool or not.
-	txMaxSize = 16 * txSlotSize // 512 KB
+	TxMaxSize = 16 * txSlotSize // 512 KB
 )
 
 var (
@@ -525,8 +525,12 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
+	// todo: think about shall we keep this tx size limitation?
+	//  since the proof of an invalid proposal might contain a entire block which exceed such tx size
+	//  limitation, it would not possible to submit an on-chain proof for such case. We might need to
+	//  take another way to make accountability over such case.
 	// Reject transactions over defined size to prevent DOS attacks
-	if uint64(tx.Size()) > txMaxSize {
+	if uint64(tx.Size()) > TxMaxSize {
 		return ErrOversizedData
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded

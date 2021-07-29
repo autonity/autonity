@@ -43,6 +43,8 @@ type (
 )
 
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
+	PrecompiledContractRWMutex.RLock()
+	defer PrecompiledContractRWMutex.RUnlock()
 	var precompiles map[common.Address]PrecompiledContract
 	switch {
 	case evm.chainRules.IsYoloV1:

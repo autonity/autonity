@@ -38,8 +38,23 @@ def get_test_case_conf_file_name():
         return None
 
 
+def get_misbehaviour_test_case_conf_file_name():
+    try:
+        return CONF["generate_misbehaviour_testcase_conf_at"]
+    except KeyError as e:
+        LOGGER.error("wrong config for misbehaviour testcase conf file.", e)
+        return None
+
+
 def get_test_case_conf():
     file = get_test_case_conf_file_name()
+    if file is None:
+        return None
+    return load_conf(file)
+
+
+def get_misbehaviour_test_case_conf():
+    file = get_misbehaviour_test_case_conf_file_name()
     if file is None:
         return None
     return load_conf(file)
@@ -67,6 +82,19 @@ def dump_test_bed_conf(data):
     return None
 
 
+def get_validator_host_name_by_ip(ip):
+    try:
+        validator_file = CONF["validator_ip_file"]
+        with open(validator_file) as f:
+            for line in f.readlines():
+                parts = line.split(" ")
+                if parts[0] == ip:
+                    return parts[1][:-1]
+    except Exception as e:
+        LOGGER.error('Cannot parse validator host name from input file. %s', e)
+        return None
+
+
 def get_client_ips():
     """
     :return: ip list of validator, ip list of participant.
@@ -74,7 +102,7 @@ def get_client_ips():
     try:
         validator_file = CONF["validator_ip_file"]
         participant_file = CONF["participant_ip_file"]
-        return parse_public_ip_from_text(validator_file), parse_public_ip_from_text(participant_file)
+        return parse_ip_from_text(validator_file), parse_ip_from_text(participant_file)
     except Exception as e:
         LOGGER.error("cannot read validator ips. %s", e)
         return None
@@ -101,7 +129,7 @@ def load_conf(file):
         return None
 
 
-def parse_public_ip_from_text(file):
+def parse_ip_from_text(file):
     """
     get public ip list from text.
     :param file:

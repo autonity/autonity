@@ -23,16 +23,6 @@ import (
 
 const MaxSizeBacklogUnchecked = 1000
 
-var (
-	// msgPriority is defined for calculating processing priority to speedup consensus
-	// msgProposal > msgPrecommit > msgPrevote
-	msgPriority = map[uint64]int{
-		msgProposal:  1,
-		msgPrecommit: 2,
-		msgPrevote:   3,
-	}
-)
-
 type backlogEvent struct {
 	msg *Message
 }

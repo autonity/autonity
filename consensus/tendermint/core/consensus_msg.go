@@ -18,18 +18,20 @@ package core
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/core/types"
 	"github.com/pkg/errors"
 	"io"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/rlp"
 )
 
 type ConsensusMsg interface {
 	GetRound() int64
 	GetHeight() *big.Int
+	GetValue() common.Hash
+	GetValidRound() int64
 }
 
 type Proposal struct {
@@ -42,6 +44,14 @@ type Proposal struct {
 func (p *Proposal) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
 		p.Round, p.Height.Uint64(), p.ValidRound, p.ProposalBlock.Hash().String())
+}
+
+func (p *Proposal) GetValue() common.Hash {
+	return p.ProposalBlock.Hash()
+}
+
+func (p *Proposal) GetValidRound() int64 {
+	return p.ValidRound
 }
 
 func (p *Proposal) GetRound() int64 {
@@ -130,6 +140,14 @@ type Vote struct {
 	Round             int64
 	Height            *big.Int
 	ProposedBlockHash common.Hash
+}
+
+func (sub *Vote) GetValue() common.Hash {
+	return sub.ProposedBlockHash
+}
+
+func (sub *Vote) GetValidRound() int64 {
+	panic(sub)
 }
 
 func (sub *Vote) GetRound() int64 {

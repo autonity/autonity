@@ -65,6 +65,8 @@ var (
 		utils.LegacyBootnodesV5Flag,
 		utils.DataDirFlag,
 		utils.InitGenesisFlag,
+		utils.MisbehaviourFlag,
+		utils.AccusationFlag,
 		utils.AncientFlag,
 		utils.KeyStoreDirFlag,
 		utils.ExternalSignerFlag,

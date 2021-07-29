@@ -3,6 +3,8 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"reflect"
 	"testing"
@@ -125,37 +127,24 @@ func TestMessageValidate(t *testing.T) {
 		}
 	})
 
-	t.Run("incorrect previous block given, panic", func(t *testing.T) {
-		count := 0
-		for i := uint64(0); i < 50; i++ {
-			if i == 23 {
-				continue
-			}
-			member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
+	t.Run("incorrect previous block given, should return error", func(t *testing.T) {
+		member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
+		height := uint64(24)
+		wrongPreviousHeight := uint64(22)
+		msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(height), member)
+		payload := msg.Payload()
 
-			msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(24), member)
-			payload := msg.Payload()
-
-			validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) {
-				return member.Address, nil
-			}
-			lastHeader := &types.Header{Number: new(big.Int).SetUint64(i), Committee: []types.CommitteeMember{member}}
-			decMsg := &Message{}
-			if err := decMsg.FromPayload(payload); err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						count++
-					}
-				}()
-				_, _ = decMsg.Validate(validateFn, lastHeader)
-			}()
+		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) {
+			return member.Address, nil
 		}
-		if count != 49 {
-			t.Fatal("panic was expected")
+		lastHeader := &types.Header{Number: new(big.Int).SetUint64(wrongPreviousHeight), Committee: []types.CommitteeMember{member}}
+		decMsg := &Message{}
+		if err := decMsg.FromPayload(payload); err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
+		_, err := decMsg.Validate(validateFn, lastHeader)
+		assert.Error(t, err)
+		assert.Equal(t, fmt.Errorf("inconsistent message verification"), err)
 	})
 }
 

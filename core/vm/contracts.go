@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -36,6 +37,8 @@ import (
 	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
 )
+
+var PrecompiledContractRWMutex = sync.RWMutex{}
 
 // PrecompiledContract is the basic interface for native Go contracts. The implementation
 // requires a deterministic gas count based on the input size of the Run method of the
@@ -517,7 +520,7 @@ func (c *blake2F) Run(input []byte) ([]byte, error) {
 	// Parse the input into the Blake2b call parameters
 	var (
 		rounds = binary.BigEndian.Uint32(input[0:4])
-		final  = (input[212] == blake2FFinalBlockBytes)
+		final  = input[212] == blake2FFinalBlockBytes
 
 		h [8]uint64
 		m [16]uint64
@@ -973,13 +976,18 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 // checkEnode implemented as a native contract.
 type checkEnode struct{}
 
-func (c checkEnode) RequiredGas(_ []byte) uint64 {
-	return params.EnodeCheckGas
+func (c *checkEnode) RequiredGas(_ []byte) uint64 {
+	return params.AutonityPrecompiledContractGas
 }
-func (c checkEnode) Run(input []byte) ([]byte, error) {
+func (c *checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		panic(fmt.Errorf("invalid enode - empty"))
 	}
+	// todo: get raw url length from 1st 32 bytes by according to solidity packing rules, and then get the accurate
+	//  enode urls by such length of bytes, but using TrimPrefixAndSuffix to cut by the Suffix pattern'\x00'
+	//  would introduce a bug, for example, taking "hostname9900" as a host name, the trim hostname would be: hostname99,
+	//  which is not resolvable from DNS service.
+
 	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
 	nodeStr := string(input)
 

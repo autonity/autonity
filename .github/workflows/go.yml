@@ -74,7 +74,7 @@ jobs:
                 # These tests do not seem to work when run with other tests.
                 [problematic-tests, -p 1 ./p2p/simulations/... ./core],
                 [tendermint-tests, ./consensus/tendermint/... -timeout 5m -race],
-                [e2e-tests, ./consensus/test/... -v],
+                [e2e-tests, ./consensus/test/... -timeout 30m -v],
                 [new-e2e-tests, ./e2e_test -v -race]]
 
     name: ${{ matrix.tests[0] }}
@@ -218,7 +218,7 @@ jobs:
   docker-e2e-tests:
     needs: prepare-cache
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' # CI experience for accountability e2e test.
     steps:
       - uses: actions/setup-go@v1
         with:

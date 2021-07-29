@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	msgProposal uint64 = iota
+	msgProposal uint8 = iota
 	msgPrevote
 	msgPrecommit
 )
@@ -40,7 +40,7 @@ var (
 )
 
 type Message struct {
-	Code          uint64
+	Code          uint8
 	Msg           []byte
 	Address       common.Address
 	Signature     []byte
@@ -60,7 +60,20 @@ func (m *Message) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, []interface{}{m.Code, m.Msg, m.Address, m.Signature, m.CommittedSeal})
 }
 
-func (m *Message) GetCode() uint64 {
+// Unified the hash calculation of msg since RLPHash(msg) not only calculate public fields but also private fields:
+// power, decodedMsg and payload while for the rlp.EncodeToBytes(proof), it calls interface EncodeRLP() that implemented
+// by Message for only public fields, it make in-consistent between fault detector and precompiled contract side.
+func (m *Message) MsgHash() common.Hash {
+	return types.RLPHash(&Message{
+		Code:          m.Code,
+		Msg:           m.Msg,
+		Address:       m.Address,
+		Signature:     m.Signature,
+		CommittedSeal: m.CommittedSeal,
+	})
+}
+
+func (m *Message) GetCode() uint8 {
 	return m.Code
 }
 
@@ -71,7 +84,7 @@ func (m *Message) GetSignature() []byte {
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
 func (m *Message) DecodeRLP(s *rlp.Stream) error {
 	var msg struct {
-		Code          uint64
+		Code          uint8
 		Msg           []byte
 		Address       common.Address
 		Signature     []byte
@@ -115,8 +128,9 @@ func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (commo
 	if err != nil {
 		return nil, err
 	}
+	// since Accountability Precompiled contract validate message too, in case of not to panic EVM, let's return err.
 	if previousHeader.Number.Uint64()+1 != msgHeight.Uint64() {
-		panic("inconsistent message verification")
+		return nil, fmt.Errorf("inconsistent message verification")
 	}
 
 	// Still return the message even the err is not nil
@@ -222,7 +236,7 @@ func (m *Message) String() string {
 		}
 		msg = vote.String()
 	}
-	return fmt.Sprintf("{sender: %v, power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
+	return fmt.Sprintf("{sender: %v, Power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
 }
 
 func (m *Message) Round() (int64, error) {
@@ -237,6 +251,40 @@ func (m *Message) Height() (*big.Int, error) {
 		return nil, errMsgPayloadNotDecoded
 	}
 	return m.decodedMsg.GetHeight(), nil
+}
+
+// used by faultdetector for decoded msgs
+func (m *Message) R() int64 {
+	r, err := m.Round()
+	// msg should be decoded, it shouldn't be an error.
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+func (m *Message) H() uint64 {
+	h, err := m.Height()
+	if err != nil {
+		panic(err)
+	}
+	return h.Uint64()
+}
+
+func (m *Message) Sender() common.Address {
+	return m.Address
+}
+
+func (m *Message) Type() uint8 {
+	return m.Code
+}
+
+func (m *Message) Value() common.Hash {
+	return m.decodedMsg.GetValue()
+}
+
+func (m *Message) ValidRound() int64 {
+	return m.decodedMsg.GetValidRound()
 }
 
 // ==============================================

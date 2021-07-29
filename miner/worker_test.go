@@ -208,7 +208,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	)
 	if isTendermint {
 		chainConfig = tendermintChainConfig
-		engine = tendermintBackend.New(chainConfig.Tendermint, testUserKey, db, chainConfig, &vm.Config{})
+		engine = tendermintBackend.New(chainConfig.Tendermint, testUserKey, db, chainConfig, &vm.Config{}, new(event.TypeMux))
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
 		engine = ethash.NewFaker()
@@ -260,7 +260,7 @@ func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 func TestEmptyWorkTendermint(t *testing.T) {
-	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
+	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(tendermintChainConfig.Tendermint, testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config), new(event.TypeMux)), true)
 }
 
 func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -377,7 +377,7 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockTendermint(t *testing.T) {
-	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)), true)
+	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config), new(event.TypeMux)), true)
 }
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -446,7 +446,7 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config)))
+	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(tendermint.DefaultConfig(), testUserKey, rawdb.NewMemoryDatabase(), tendermintChainConfig, new(vm.Config), new(event.TypeMux)))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
