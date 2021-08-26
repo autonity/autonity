@@ -47,7 +47,7 @@ contract Liquid is IERC20 {
         }
     }
 
-    function redeem(uint256 _amount) public  view{
+    function redeem(uint256 _amount) public view {
         require(accounts[msg.sender].balance >= _amount, "sender's balance has to be greater than the specified amount");
         // call the autonity Contract redeem function
     }

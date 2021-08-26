@@ -15,23 +15,6 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-/*
- * ContractState is a unified structure to represent the autonity contract state.
- * By using a unified structure, the new state meta introduced in the Autonity.sol
- * should be synced with this structure.
- */
-type ContractState struct {
-	Users           []common.Address `abi:"users"`
-	Enodes          []string         `abi:"enodes"`
-	Types           []*big.Int       `abi:"types"`
-	Stakes          []*big.Int       `abi:"stakes"`
-	CommissionRates []*big.Int       `abi:"commisionrates"`
-	Operator        common.Address   `abi:"operator"`
-	Deployer        common.Address   `abi:"deployer"`
-	MinGasPrice     *big.Int         `abi:"mingasprice"`
-	BondingPeriod   *big.Int         `abi:"bondingperiod"`
-}
-
 type raw []byte
 
 func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis, evm *vm.EVM) error {

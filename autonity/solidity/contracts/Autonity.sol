@@ -214,12 +214,15 @@ contract Autonity is IERC20 {
         emit RegisteredValidator(msg.sender, _val.addr, _enode, address(_val.liquidContract));
     }
 
-
-    function bond(address payable _validator, uint256 _amount) public {
+    function bond(address _validator, uint256 _amount) public {
+        require(validators[_validator].addr == _validator, "validator not registered");
+        require(validators[_validator].state == ValidatorState.enabled, "validator need to be enabled");
         _bond(_validator, _amount, payable(msg.sender));
     }
 
-    function unbond(address payable _validator, uint256 _amount) public {
+    function unbond(address _validator, uint256 _amount) public {
+        require(validators[_validator].addr == _validator, "validator not registered");
+        require(validators[_validator].state == ValidatorState.enabled, "validator need to be enabled");
         _unbond(_validator, _amount, payable(msg.sender));
     }
 
@@ -232,7 +235,9 @@ contract Autonity is IERC20 {
         // Q: Should we keep it in state memory or not ?
         require(validators[_address].addr == _address, "validator must be registered");
         require(validators[_address].treasury == msg.sender, "require caller to be validator admin account");
-        _removeValidator(_address);
+        require(validators[_address].state == ValidatorState.enabled, "validator must be enabled");
+
+        _disableValidator(_address);
     }
 
     /**
@@ -673,21 +678,28 @@ contract Autonity is IERC20 {
         validators[_validator.addr] = _validator;
     }
 
-    /* Todo : Need to start unbonding */
-    function _removeValidator(address _address) internal {
-        require(validators[_address].addr == _address, "validator must be registered");
-        Validator storage u = validators[_address];
-        stakeSupply -= u.bondedStake;
+    /* Todo : Finish */
+    function _disableValidator(address _address) internal {
+        Validator storage val = validators[_address];
 
-        _removeFromArray(u.addr, validatorList);
-        delete validators[_address];
+        val.state = ValidatorState.disabling;
         // TODO: We should start unbonding and destroy stake token
+        // retrieving the list of account holders here might be too expensive.
+        // Need to be extra careful..
+
+        //stakeSupply -= val.bondedStake;
+
         emit RemovedValidator(_address);
     }
 
-
+    /**
+     * @dev Create a bonding object of `amount` stake token with the `_recipient` address.
+     * This object will be processed
+     *
+     * This function assume that `_validator` is a valid validator address.
+     */
     function _bond(address _validator, uint256 _amount, address payable _recipient) internal {
-        require(validators[_validator].addr == _validator, "validator not registered");
+
         require(_amount > 0, "amount need to be strictly positive");
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
@@ -695,7 +707,6 @@ contract Autonity is IERC20 {
         Staking memory _bonding = Staking( _recipient, _validator, _amount, block.number);
         bondingMap[headBondingID] = _bonding;
         headBondingID++;
-
     }
 
     function _applyBonding(uint256 id) internal {
@@ -720,8 +731,6 @@ contract Autonity is IERC20 {
     }
 
     function _unbond(address _validator, uint256 _amount, address payable _recipient) internal {
-        require(validators[_validator].addr == _validator, "validator not registered");
-
         uint256 liqBalance = validators[_validator].liquidContract.balanceOf(_recipient);
         require(liqBalance >= _amount, "insufficient Liquid Newton balance");
 

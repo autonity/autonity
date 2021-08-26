@@ -18,7 +18,7 @@ package gasprice
 
 import (
 	"context"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/consensus/ethash"
 	"math"
 	"math/big"
 	"testing"
@@ -65,7 +65,7 @@ func newTestBackend(t *testing.T) *testBackend {
 	)
 
 	diskdb := rawdb.NewMemoryDatabase()
-	engine := tendermintBackend.New(params.ValidatorKey, &vm.Config{})
+	engine := ethash.NewFaker()
 	db := rawdb.NewMemoryDatabase()
 	genesis, _ := gspec.Commit(db)
 

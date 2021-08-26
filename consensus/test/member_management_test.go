@@ -1,20 +1,6 @@
 package test
 
-import (
-	"fmt"
-	"math/big"
-	"testing"
-
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/params"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
+// Need to be rewritten with PoS
 /*
   In this file, it create 4 test cases which have similar work flow base on the local e2e test framework's main flow.
 
@@ -28,7 +14,6 @@ import (
 
   for the other cases in the file: add stake_holder, participants, or remove user, they follow the same work flow and
   some rules to check the outputs.
-*/
 
 func TestMemberManagement(t *testing.T) {
 	if testing.Short() {
@@ -44,10 +29,6 @@ func TestMemberManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
-
-	validatorRole := uint8(2)
-	stakeHolderRole := uint8(1)
-	participantRole := uint8(0)
 
 	newValidatorNodeKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -82,12 +63,12 @@ func TestMemberManagement(t *testing.T) {
 		}
 
 		// the user to be removed.
-		user := &params.Validator{
+		validator := &params.Validator{
 			Address:     &addressToRemove,
 			Enode:       eNodeToRemove,
-			BondedStake: 0,
+			BondedStake: big.NewInt(1),
 		}
-		g.Config.AutonityContractConfig.Users = append(g.Config.AutonityContractConfig.Users, *user)
+		g.Config.AutonityContractConfig.Validators = append(g.Config.AutonityContractConfig.Validators, validator)
 		return g
 	}
 
@@ -95,17 +76,17 @@ func TestMemberManagement(t *testing.T) {
 		if validator.lastBlock == startHeight {
 			port := validator.rpcPort
 
-			err := interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newValidatorPubKey), validatorStake, newValidatorENode, validatorRole)
+			err := interact(port).tx(operatorKey).registerValidator( newValidatorENode, validatorRole)
 			if err != nil {
 				return false, nil, err
 			}
 
-			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newStakeholderPubKey), stakeHolderStake, newStakeholderEnode, stakeHolderRole)
+			err = interact(port).tx(operatorKey).registerValidator(crypto.PubkeyToAddress(newStakeholderPubKey), stakeHolderStake, newStakeholderEnode, stakeHolderRole)
 			if err != nil {
 				return false, nil, err
 			}
 
-			err = interact(port).tx(operatorKey).addUser(crypto.PubkeyToAddress(newParticipantPubKey), participantStake, newParticipantEnode, participantRole)
+			err = interact(port).tx(operatorKey).registerValidator(crypto.PubkeyToAddress(newParticipantPubKey), participantStake, newParticipantEnode, participantRole)
 			if err != nil {
 				return false, nil, err
 			}
@@ -216,3 +197,4 @@ func TestMemberManagement(t *testing.T) {
 		})
 	}
 }
+*/

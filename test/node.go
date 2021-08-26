@@ -90,7 +90,7 @@ func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
 	// Set rpc ports
-	userCount := len(genesis.Config.AutonityContractConfig.Users)
+	userCount := len(genesis.Config.AutonityContractConfig.Validators)
 	c.HTTPPort = u.NodePort + userCount
 	c.WSPort = u.NodePort + userCount*2
 
@@ -113,7 +113,6 @@ func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 	ec.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinGasPrice)
 	ec.Genesis = genesis
 	ec.NetworkId = genesis.Config.ChainID.Uint64()
-	ec.Tendermint = *genesis.Config.Tendermint
 
 	node := &Node{
 		Config:    c,
@@ -265,7 +264,7 @@ type Network []*Node
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromUsers(users []*gengen.User) (Network, error) {
+func NewNetworkFromUsers(users []*gengen.Validator) (Network, error) {
 	g, err := Genesis(users)
 	if err != nil {
 		return nil, err

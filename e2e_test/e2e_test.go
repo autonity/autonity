@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/test"
 	"github.com/stretchr/testify/require"
 )
@@ -78,7 +77,7 @@ func TestFeeRedistributionValidatorsAndStakeholders(t *testing.T) {
 	// stake.
 	users, err := test.Users(3, "10e18,v,1,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
-	users[2].UserType = params.UserStakeHolder
+
 	users[2].Stake = 2
 
 	network, err := test.NewNetworkFromUsers(users)

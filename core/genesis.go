@@ -270,16 +270,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if g.Config.AutonityContractConfig == nil {
 		return nil, fmt.Errorf("autonity contract config section missing in genesis")
 	}
-	g.mu.RLock()
-	diff := big.NewInt(0)
+	g.mu.Lock()
 	if g.Difficulty == nil {
-		diff.Set(params.GenesisDifficulty)
-	} else {
-		diff.Set(g.Difficulty)
+		g.Difficulty = params.GenesisDifficulty
 	}
-	g.mu.RUnlock()
+	g.mu.Unlock()
 
-	if diff.Cmp(big.NewInt(1)) != 0 {
+	if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
 		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
 	}
 	var err error
@@ -321,7 +318,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Extra:      g.GetExtraData(),
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
-		Difficulty: diff,
+		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,

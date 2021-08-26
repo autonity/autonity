@@ -227,7 +227,7 @@ func TestRemoveFromValidatorsList(t *testing.T) {
 				return
 			}
 			validatorsList := validator.service.BlockChain().Config().AutonityContractConfig.GetValidators()
-			_, err = instance.RemoveUser(auth, *validatorsList[0].Address)
+			_, err = instance.DisableValidator(auth, *validatorsList[0].Address)
 			if err != nil {
 				errOuter = err
 				return
@@ -575,7 +575,7 @@ func addStakeholder(en string, stakeholderKey, operatorKey *ecdsa.PrivateKey) se
 				errOuter = err
 				return
 			}
-			_, err = instance.AddUser(auth, crypto.PubkeyToAddress(stakeholderKey.PublicKey), new(big.Int), en, uint8(1))
+			_, err = instance.RegisterValidator(auth, en, big.NewInt(0), "")
 			if err != nil {
 				errOuter = err
 				return

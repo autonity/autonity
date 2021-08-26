@@ -202,6 +202,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 	}
 
+	// This interface is not enough to support tendermint consensus engine.
 	chainreader := &fakeChainReader{
 		config:    config,
 		committee: committee,

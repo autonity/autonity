@@ -298,9 +298,8 @@ func (c *core) setInitialState(r int64) {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
-		committeeSet := newWeightedRandomSamplingCommittee(lastBlockMined, c.autonityContract, c.backend.BlockChain())
+		c.committee.SetLastBlock(lastBlockMined)
 		c.lastHeader = lastHeader
-		c.setCommitteeSet(committeeSet)
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1

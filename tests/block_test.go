@@ -22,7 +22,7 @@ import (
 
 func TestBlockchain(t *testing.T) {
 	t.Parallel()
-
+	t.Skip("unsupported with autonity")
 	bt := new(testMatcher)
 	// General state tests are 'exported' as blockchain tests, but we can run them natively.
 	bt.skipLoad(`^GeneralStateTests/`)

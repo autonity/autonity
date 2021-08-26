@@ -24,6 +24,8 @@ type committee interface {
 	GetByAddress(addr common.Address) (int, types.CommitteeMember, error)
 	// Get the round proposer
 	GetProposer(round int64) types.CommitteeMember
+	// Update with lastest block
+	SetLastBlock(block *types.Block)
 	// Get the optimal quorum size
 	Quorum() uint64
 	// Get the maximum number of faulty nodes
@@ -109,6 +111,10 @@ func (set *roundRobinCommittee) GetProposer(round int64) types.CommitteeMember {
 	return v
 }
 
+func (set *roundRobinCommittee) SetLastBlock(block *types.Block) {
+	return
+}
+
 func (set *roundRobinCommittee) Quorum() uint64 {
 	return bft.Quorum(set.totalPower)
 }
@@ -138,7 +144,7 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 
 type weightedRandomSamplingCommittee struct {
 	previousHeader         *types.Header
-	bc                     *ethcore.BlockChain
+	bc                     *ethcore.BlockChain // Todo : remove this dependency
 	autonityContract       *autonity.Contract
 	previousBlockStateRoot common.Hash
 }
@@ -155,6 +161,11 @@ func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityCont
 // Return the underlying types.Committee
 func (w *weightedRandomSamplingCommittee) Committee() types.Committee {
 	return w.previousHeader.Committee
+}
+
+func (w *weightedRandomSamplingCommittee) SetLastBlock(block *types.Block) {
+	w.previousHeader = block.Header()
+	w.previousBlockStateRoot = block.Root()
 }
 
 // Get validator by index
@@ -187,7 +198,7 @@ func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 		sort.Sort(w.previousHeader.Committee)
 		return w.previousHeader.Committee[round%int64(len(w.previousHeader.Committee))]
 	}
-	// state.New has started takig a snapshot.Tree but it seems to be only for
+	// state.New has started taking a snapshot.Tree but it seems to be only for
 	// performance, see - https://github.com/ethereum/go-ethereum/pull/20152
 	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache(), nil)
 	if err != nil {
