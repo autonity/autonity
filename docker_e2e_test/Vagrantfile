@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
     # Use the same specs that GitHub runners do
     # http://docs.github.com/en/actions/reference/specifications-for-github-hosted-runners
     vb.memory = "7168"
-    vb.cpus = 2
+    vb.cpus = 4
   end
 
   config.vm.provision "shell", inline: <<-SHELL
