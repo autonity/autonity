@@ -89,7 +89,7 @@ def test__eth_getCode(web3):
     assert result == "0x"
 
 
-def _validate_block(result):
+def _validate_block_object_fields(result):
     validators.Object({
         "number": validators.HexString(),
         "hash": validators.HexString(32),
@@ -118,7 +118,7 @@ def test_eth_getBlockByNumber__transaction_hashes(web3, tx_receipt):
     """https://eth.wiki/json-rpc/API#eth_getblockbynumber"""
     result = web3.request(
         "eth_getBlockByNumber", [tx_receipt["blockNumber"], False])
-    _validate_block(result)
+    _validate_block_object_fields(result)
 
 
 def test_eth_getBlockByNumber__no_such_block(web3):
@@ -130,7 +130,7 @@ def test_eth_getBlockByNumber__no_such_block(web3):
 def test_eth_getBlockByHash__transaction_hashes(web3, tx_receipt):
     result = web3.request(
         "eth_getBlockByHash", [tx_receipt["blockHash"], False])
-    _validate_block(result)
+    _validate_block_object_fields(result)
 
 
 def test_eth_getBlockByHash__no_such_hash(web3):

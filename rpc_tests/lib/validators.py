@@ -1,3 +1,6 @@
+"""Validators that ensure that fields in a JSON-RPC response are in the right
+format."""
+
 from typing import Any, Dict, Optional
 
 import eth_utils

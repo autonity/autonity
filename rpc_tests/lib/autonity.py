@@ -1,3 +1,5 @@
+"""Module for launching an Autonity node."""
+
 import atexit
 import json
 import logging

@@ -1,3 +1,5 @@
+"""Simple JSON-RPC client."""
+
 from typing import List, Any
 
 import requests
