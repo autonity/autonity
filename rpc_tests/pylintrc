@@ -1,0 +1,9 @@
+[MESSAGES CONTROL]
+disable =
+    invalid-name,
+    missing-class-docstring,
+    missing-function-docstring,
+    missing-module-docstring,
+    redefined-outer-name,
+    too-few-public-methods,
+    unsubscriptable-object,
