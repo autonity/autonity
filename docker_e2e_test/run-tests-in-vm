@@ -1,0 +1,19 @@
+#!/bin/bash -u
+
+# Run Autonity E2E tests locally.
+# Dependencies: vagrant, virtualbox
+
+readonly CMD="$(cat <<-EOF
+	cd /autonity &&
+	make all &&
+	cd docker_e2e_test &&
+	make docker-e2e-tests
+	EOF
+)"
+readonly LOGFILE="testrun-$(date -Iseconds).log"
+
+cd "$(dirname "$0")" &&
+vagrant up --provider virtualbox &&
+trap 'vagrant suspend' EXIT &&
+vagrant ssh -c "bash -i -c '${CMD}'" 2>&1 | tee "${LOGFILE}"
+exit ${PIPESTATUS[0]}
