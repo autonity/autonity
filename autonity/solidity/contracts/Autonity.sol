@@ -230,7 +230,7 @@ contract Autonity is IERC20 {
     * @notice Remove the validator account from the contract.
     * @param _address address to be removed.
     * @dev emit a {RemovedValidator} event.
-    */
+
     function disableValidator(address _address) public {
         // Q: Should we keep it in state memory or not ?
         require(validators[_address].addr == _address, "validator must be registered");
@@ -239,6 +239,7 @@ contract Autonity is IERC20 {
 
         _disableValidator(_address);
     }
+    */
 
     /**
     * @notice Set the minimum gas price. Restricted to the operator account.
@@ -254,8 +255,32 @@ contract Autonity is IERC20 {
     * @notice Set the maximum size of the consensus committee. Restricted to the Operator account.
     *
     */
-    function setCommitteeSize(uint256 size) public onlyOperator {
-        committeeSize = size;
+    function setCommitteeSize(uint256 _size) public onlyOperator {
+        committeeSize = _size;
+    }
+
+    function setUnbondingPeriod(uint256 _period) public onlyOperator {
+        unbondingPeriod = _period;
+    }
+
+    function setEpochPeriod(uint256 _period) public onlyOperator {
+        epochPeriod = _period;
+    }
+
+    function setOperatorAccount(address _account) public onlyOperator {
+        operatorAccount = _account;
+    }
+
+    function setBlockPeriod(uint256 _period) public onlyOperator {
+        blockPeriod = _period;
+    }
+
+    function setTreasuryAccount(address payable _account) public onlyOperator {
+        treasuryAccount = _account;
+    }
+
+    function setTreasuryFee(uint256 _treasuryFee) public onlyOperator {
+        treasuryFee = _treasuryFee;
     }
 
     /*
@@ -340,14 +365,7 @@ contract Autonity is IERC20 {
         return true;
     }
 
-    /**
-    * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.
-    * @return `bytecode` the new contract bytecode.
-    * @return `contractAbi` the new contract ABI.
-    */
-    function getNewContract() external view returns(string memory, string memory) {
-        return (bytecode, contractAbi);
-    }
+
 
 
     /** @dev finalize is the block state finalisation function. It is called
@@ -510,6 +528,16 @@ contract Autonity is IERC20 {
         return minGasPrice;
     }
 
+
+    /**
+     * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.
+     * @return `bytecode` the new contract bytecode.
+     * @return `contractAbi` the new contract ABI.
+     */
+    function getNewContract() external view returns(string memory, string memory) {
+        return (bytecode, contractAbi);
+    }
+
     /**
     * @notice getProposer returns the address of the proposer for the given height and
     * round. The proposer is selected from the committee via weighted random
@@ -547,6 +575,7 @@ contract Autonity is IERC20 {
     /**
     * @dev Dump the current internal state key elements. Called by the protocol during a contract upgrade.
     * The returned data will be passed directly to the constructor of the new contract at deployment.
+    * THIS WILL BE DEPRECIATED WITH NEW PROXY-LIKE UPGRADE MECHANISM.
     */
     function getState() external view returns(
         address _operatorAccount,
@@ -667,6 +696,7 @@ contract Autonity is IERC20 {
         (_validator.addr, _err) = Precompiled.enodeCheck(_validator.enode);
         require( _err == 0, "enode error");
         require(validators[_validator.addr].addr ==  address(0), "validator already registered");
+        require(_validator.commissionRate <= 10 ** 9, "invalid commission rate");
 
         // step 2: deploy liquid stake contract
         if (address(_validator.liquidContract) == address(0)){
@@ -678,11 +708,12 @@ contract Autonity is IERC20 {
         validators[_validator.addr] = _validator;
     }
 
-    /* Todo : Finish */
+    /* Todo : Finish
     function _disableValidator(address _address) internal {
         Validator storage val = validators[_address];
 
         val.state = ValidatorState.disabling;
+        val.liquidContract.freeze();
         // TODO: We should start unbonding and destroy stake token
         // retrieving the list of account holders here might be too expensive.
         // Need to be extra careful..
@@ -691,7 +722,7 @@ contract Autonity is IERC20 {
 
         emit RemovedValidator(_address);
     }
-
+    */
     /**
      * @dev Create a bonding object of `amount` stake token with the `_recipient` address.
      * This object will be processed

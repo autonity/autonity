@@ -47,20 +47,26 @@ contract Liquid is IERC20 {
         }
     }
 
-    function redeem(uint256 _amount) public view {
-        require(accounts[msg.sender].balance >= _amount, "sender's balance has to be greater than the specified amount");
-        // call the autonity Contract redeem function
+    /*
+    function freeze() public onlyAutonity {
+        frozen = true;
     }
+    */
 
     function redistribute() public payable onlyAutonity  {
         uint256 _totalFees = msg.value;
-        uint256 _validatorFees = (_totalFees  * commissionRate) / 100000;
+        uint256 _validatorFees = (_totalFees  * commissionRate) / (10**9);
+        // Step 1 : transfer entitled amount of fees to validator's treasury account.
         treasury.transfer(_validatorFees);
         _totalFees -= _validatorFees;
+        // Step 2 : perform redistribution amongst liquid stake token holder for this
+        // validator.
         for (uint256 i=0; i < accountList.length; i++) {
             address payable _addr = accountList[i];
             uint256 _reward = (_totalFees * accounts[_addr].balance) / supply;
-            _addr.transfer(_reward);
+            _addr.send(_reward); // only 2300 GAS FORWARDED to avoid attacks.
+            // Funds are lost if above operation fails !
+            // TODO: do something about that
         }
     }
 
