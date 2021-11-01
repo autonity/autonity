@@ -301,6 +301,7 @@ contract Autonity is IERC20 {
     */
     function burn(address _addr, uint256 _amount) public onlyOperator {
         require(accounts[_addr] >= _amount, "Amount exceeds balance");
+        accounts[_addr] -= _amount;
         stakeSupply -= _amount;
         emit BurnedStake(_addr, _amount);
     }
