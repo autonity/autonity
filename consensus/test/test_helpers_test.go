@@ -730,7 +730,7 @@ func peerSendExternalTransaction(addresses []addressesList, test *testCase, vali
 func checkNodesDontContainMaliciousBlock(t *testing.T, minHeight uint64, validators map[string]*testNode, test *testCase) {
 	// check that all nodes got the same blocks
 	for i := uint64(1); i <= minHeight; i++ {
-		blockHash := validators["VA"].blocks[i].hash
+		blockHash := validators["V1"].blocks[i].hash
 
 		for index, validator := range validators {
 			if isExternalUser(index) {
