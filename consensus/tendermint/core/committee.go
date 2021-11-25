@@ -147,6 +147,7 @@ type weightedRandomSamplingCommittee struct {
 	bc                     *ethcore.BlockChain // Todo : remove this dependency
 	autonityContract       *autonity.Contract
 	previousBlockStateRoot common.Hash
+	cachedProposer         map[int64]types.CommitteeMember
 }
 
 func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *weightedRandomSamplingCommittee {
@@ -155,6 +156,7 @@ func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityCont
 		bc:                     bc,
 		autonityContract:       autonityContract,
 		previousBlockStateRoot: previousBlock.Root(),
+		cachedProposer:         make(map[int64]types.CommitteeMember),
 	}
 }
 
@@ -190,7 +192,9 @@ func (w *weightedRandomSamplingCommittee) GetByAddress(addr common.Address) (int
 
 // Get the round proposer
 func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.CommitteeMember {
-
+	if res, ok := w.cachedProposer[round]; ok {
+		return res
+	}
 	// If previous header was the genesis block then we will not yet have
 	// deployed the autonity contract so will take the proposer as the first
 	// defined validator of the genesis block.
@@ -207,6 +211,8 @@ func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 	}
 	proposer := w.autonityContract.GetProposerFromAC(w.previousHeader, statedb, w.previousHeader.Number.Uint64(), round)
 	member := w.previousHeader.CommitteeMember(proposer)
+
+	w.cachedProposer[round] = *member
 	return *member
 	// TODO make this return an error
 }
