@@ -19,6 +19,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/crypto"
 	"math/big"
 	"sync"
 	"time"
@@ -85,7 +86,8 @@ type propEvent struct {
 }
 
 type peer struct {
-	id string
+	id      string
+	address common.Address
 
 	*p2p.Peer
 	rw p2p.MsgReadWriter
@@ -112,6 +114,7 @@ type peer struct {
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter, getPooledTx func(hash common.Hash) *types.Transaction) *peer {
 	return &peer{
 		Peer:            p,
+		address:         crypto.PubkeyToAddress(*p.Node().Pubkey()),
 		rw:              rw,
 		version:         version,
 		id:              fmt.Sprintf("%x", p.ID().Bytes()[:8]),
