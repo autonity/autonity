@@ -418,12 +418,16 @@ contract Autonity is IERC20 {
         Validator[] memory _validatorList = new Validator[](_len);
         Validator[] memory _committeeList = new Validator[](_committeeLength);
 
+        // since Push function does not apply to fix length array, introduce a index j to prevent the overflow,
+        // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
+        uint j = 0;
         for (uint256 i = 0;i < validatorList.length; i++) {
             if (validators[validatorList[i]].state == ValidatorState.enabled &&
                 validators[validatorList[i]].bondedStake > 0) {
                 // Perform a copy of the validator object
                 Validator memory _user = validators[validatorList[i]];
-                _validatorList[i] =_user;
+                _validatorList[j] = _user;
+                j++;
             }
         }
 
