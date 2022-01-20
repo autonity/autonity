@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/ethash"
 	"math/big"
 	"runtime"
 	"sync"
@@ -33,7 +34,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus"
-	tendermintcore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -145,9 +145,9 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	)
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	consEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
+	consensusEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
 	if cons != nil {
-		consEngine = cons(consEngine)
+		consensusEngine = cons(consensusEngine)
 	}
 
 	eth := &Ethereum{
@@ -155,7 +155,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		chainDb:           chainDb,
 		eventMux:          stack.EventMux(),
 		accountManager:    stack.AccountManager(),
-		engine:            consEngine,
+		engine:            consensusEngine,
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,
 		gasPrice:          config.Miner.GasPrice,
@@ -189,9 +189,13 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		return nil, err
 	}
 
-	if be, ok := consEngine.(tendermintcore.Backend); ok {
+	// temporary solution
+	if be, ok := consensusEngine.(interface {
+		SetBlockchain(*core.BlockChain)
+	}); ok {
 		be.SetBlockchain(eth.blockchain)
 	}
+
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -252,6 +256,30 @@ func makeExtraData(extra []byte) []byte {
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
+	if chainConfig.Ethash != nil {
+		ethConfig := config.Ethash
+		switch ethConfig.PowMode {
+		case ethash.ModeFake:
+			log.Warn("Ethash used in fake mode")
+			return ethash.NewFaker()
+		case ethash.ModeTest:
+			log.Warn("Ethash used in test mode")
+			return ethash.NewTester(nil, noverify)
+		default:
+			engine := ethash.New(ethash.Config{
+				CacheDir:         ctx.ResolvePath(ethConfig.CacheDir),
+				CachesInMem:      ethConfig.CachesInMem,
+				CachesOnDisk:     ethConfig.CachesOnDisk,
+				CachesLockMmap:   ethConfig.CachesLockMmap,
+				DatasetDir:       ethConfig.DatasetDir,
+				DatasetsInMem:    ethConfig.DatasetsInMem,
+				DatasetsOnDisk:   ethConfig.DatasetsOnDisk,
+				DatasetsLockMmap: ethConfig.DatasetsLockMmap,
+			}, notify, noverify)
+			engine.SetThreads(-1) // Disable CPU mining
+			return engine
+		}
+	}
 	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig)
 }
 

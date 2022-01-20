@@ -308,18 +308,15 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err == nil || bytes != nil {
 		JSONString = string(bytes)
 	}
-	contract, err := autonity.NewAutonityContract(
+	if bc.autonityContract, err = autonity.NewAutonityContract(
 		bc,
 		acConfig.Operator,
 		acConfig.MinGasPrice,
 		JSONString,
 		&defaultEVMProvider{bc},
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
-
-	bc.autonityContract = contract
 	bc.processor.SetAutonityContract(bc.autonityContract)
 
 	// Ensure that a previous crash in SetHead doesn't leave extra ancients
