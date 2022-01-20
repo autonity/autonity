@@ -486,7 +486,6 @@ func TestHandleCommit(t *testing.T) {
 
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().LastCommittedProposal().MinTimes(1).Return(block, addr)
-	backendMock.EXPECT().BlockChain().MinTimes(1)
 
 	c := &core{
 		address:          addr,

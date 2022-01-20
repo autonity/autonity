@@ -53,6 +53,7 @@ func TestStartRoundVariables(t *testing.T) {
 	overrideDefaultCoreValues := func(core *core) {
 		core.height = big.NewInt(-1)
 		core.round = int64(-1)
+		core.committee = committeeSet
 		core.step = precommitDone
 		core.lockedValue = &types.Block{}
 		core.lockedRound = 0
@@ -150,6 +151,7 @@ func TestStartRound(t *testing.T) {
 		prevHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		prevBlock := generateBlock(prevHeight)
 		setCommitteeAndSealOnBlock(t, prevBlock, committeeSet, privateKeys, len(members)-1)
+
 		proposalHeight := big.NewInt(prevHeight.Int64() + 1)
 		proposalBlock := generateBlock(proposalHeight)
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
@@ -166,11 +168,11 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().Address().Return(clientAddr)
 
 		core := New(backendMock)
+		core.committee = committeeSet
 		// We assume that round 0 can only happen when we move to a new height, therefore, height is
-		// incremented by 1 in start round when round = 0, and the committee set is updated. However, in test case where
-		// round is more than 0, then we need to explicitly update the committee set and height.
+		// incremented by 1 in start round when round = 0, However, in test case where
+		// round is more than 0, then we need to explicitly update the height.
 		if currentRound > 0 {
-			core.committee = committeeSet
 			core.height = proposalHeight
 		}
 		core.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
@@ -1206,6 +1208,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	assert.NoError(t, err)
 
 	newCommitteeSet, err := newRoundRobinSet(committeeSet.Committee(), members[currentRound].Address)
+	c.committee = newCommitteeSet
 	assert.NoError(t, err)
 	backendMock.EXPECT().LastCommittedProposal().Return(proposal.ProposalBlock, members[currentRound].Address).MaxTimes(2)
 
