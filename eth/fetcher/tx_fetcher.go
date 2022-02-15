@@ -18,7 +18,8 @@ package fetcher
 
 import (
 	"bytes"
-	"fmt"
+    "errors"
+    "fmt"
 	mrand "math/rand"
 	"sort"
 	"time"
@@ -277,30 +278,28 @@ func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) 
 	)
 	errs := f.addTxs(txs)
 	for i, err := range errs {
-		if err != nil {
-			// Track the transaction hash if the price is too low for us.
-			// Avoid re-request this transaction when we receive another
-			// announcement.
-			if err == core.ErrUnderpriced || err == core.ErrReplaceUnderpriced {
-				for f.underpriced.Cardinality() >= maxTxUnderpricedSetSize {
-					f.underpriced.Pop()
-				}
-				f.underpriced.Add(txs[i].Hash())
-			}
-			// Track a few interesting failure types
-			switch err {
-			case nil: // Noop, but need to handle to not count these
+        // Track the transaction hash if the price is too low for us.
+        // Avoid re-request this transaction when we receive another
+        // announcement.
+        if errors.Is(err, core.ErrUnderpriced) || errors.Is(err, core.ErrReplaceUnderpriced) {
+            for f.underpriced.Cardinality() >= maxTxUnderpricedSetSize {
+                f.underpriced.Pop()
+            }
+            f.underpriced.Add(txs[i].Hash())
+        }
+        // Track a few interesting failure types
+        switch {
+        case err == nil: // Noop, but need to handle to not count these
 
-			case core.ErrAlreadyKnown:
-				duplicate++
+        case errors.Is(err, core.ErrAlreadyKnown):
+            duplicate++
 
-			case core.ErrUnderpriced, core.ErrReplaceUnderpriced:
-				underpriced++
+        case errors.Is(err, core.ErrUnderpriced) || errors.Is(err, core.ErrReplaceUnderpriced):
+            underpriced++
 
-			default:
-				otherreject++
-			}
-		}
+        default:
+            otherreject++
+        }
 		added = append(added, txs[i].Hash())
 	}
 	if direct {

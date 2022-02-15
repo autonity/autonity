@@ -277,10 +277,10 @@ var testCases = []testCase{
 		Expected: ECIES_AES128_SHA256,
 	},
 	{
-		Curve:    elliptic.P384(),
-		Name:     "P384",
-		Expected: ECIES_AES256_SHA384,
-	},
+        Curve:    elliptic.P384(),
+        Name:     "P384",
+        Expected: ECIES_AES192_SHA384,
+    },
 	{
 		Curve:    elliptic.P521(),
 		Name:     "P521",

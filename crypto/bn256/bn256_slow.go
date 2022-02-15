@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be found
 // in the LICENSE file.
 
+//go:build !amd64 && !arm64
 // +build !amd64,!arm64
 
 // Package bn256 implements the Optimal Ate pairing over a 256-bit Barreto-Naehrig curve.
 package bn256
-
-import "github.com/clearmatics/autonity/crypto/bn256/google"
 
 // G1 is an abstract cyclic group. The zero value is suitable for use as the
 // output of an operation, but cannot be used as an input.

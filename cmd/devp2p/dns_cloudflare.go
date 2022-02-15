@@ -17,7 +17,8 @@
 package main
 
 import (
-	"fmt"
+	"context"
+    "fmt"
 	"strings"
 
 	"github.com/cloudflare/cloudflare-go"
@@ -79,8 +80,8 @@ func (c *cloudflareClient) checkZone(name string) error {
 		}
 		c.zoneID = id
 	}
-	log.Info(fmt.Sprintf("Checking Permissions on zone %s", c.zoneID))
-	zone, err := c.ZoneDetails(c.zoneID)
+    log.Info(fmt.Sprintf("Checking Permissions on zone %s", c.zoneID))
+    zone, err := c.ZoneDetails(context.Background(), c.zoneID)
 	if err != nil {
 		return err
 	}
@@ -112,8 +113,8 @@ func (c *cloudflareClient) uploadRecords(name string, records map[string]string)
 	}
 	records = lrecords
 
-	log.Info(fmt.Sprintf("Retrieving existing TXT records on %s", name))
-	entries, err := c.DNSRecords(c.zoneID, cloudflare.DNSRecord{Type: "TXT"})
+    log.Info(fmt.Sprintf("Retrieving existing TXT records on %s", name))
+    entries, err := c.DNSRecords(context.Background(), c.zoneID, cloudflare.DNSRecord{Type: "TXT"})
 	if err != nil {
 		return err
 	}
@@ -129,20 +130,22 @@ func (c *cloudflareClient) uploadRecords(name string, records map[string]string)
 	for path, val := range records {
 		old, exists := existing[path]
 		if !exists {
-			// Entry is unknown, push a new one to Cloudflare.
-			log.Info(fmt.Sprintf("Creating %s = %q", path, val))
-			ttl := rootTTL
-			if path != name {
-				ttl = treeNodeTTL // Max TTL permitted by Cloudflare
-			}
-			_, err = c.CreateDNSRecord(c.zoneID, cloudflare.DNSRecord{Type: "TXT", Name: path, Content: val, TTL: ttl})
-		} else if old.Content != val {
+            // Entry is unknown, push a new one to Cloudflare.
+            log.Info(fmt.Sprintf("Creating %s = %q", path, val))
+            ttl := rootTTL
+            if path != name {
+                ttl = treeNodeTTLCloudflare // Max TTL permitted by Cloudflare
+
+            }
+            record := cloudflare.DNSRecord{Type: "TXT", Name: path, Content: val, TTL: ttl}
+            _, err = c.CreateDNSRecord(context.Background(), c.zoneID, record)
+        } else if old.Content != val {
 			// Entry already exists, only change its content.
 			log.Info(fmt.Sprintf("Updating %s from %q to %q", path, old.Content, val))
-			old.Content = val
-			err = c.UpdateDNSRecord(c.zoneID, old.ID, old)
+            old.Content = val
+            err = c.UpdateDNSRecord(context.Background(), c.zoneID, old.ID, old)
 		} else {
-			log.Info(fmt.Sprintf("Skipping %s = %q", path, val))
+            log.Debug(fmt.Sprintf("Skipping %s = %q", path, val))
 		}
 		if err != nil {
 			return fmt.Errorf("failed to publish %s: %v", path, err)
@@ -156,9 +159,9 @@ func (c *cloudflareClient) uploadRecords(name string, records map[string]string)
 		}
 		// Stale entry, nuke it.
 		log.Info(fmt.Sprintf("Deleting %s = %q", path, entry.Content))
-		if err := c.DeleteDNSRecord(c.zoneID, entry.ID); err != nil {
-			return fmt.Errorf("failed to delete %s: %v", path, err)
-		}
+        if err := c.DeleteDNSRecord(context.Background(), c.zoneID, entry.ID); err != nil {
+            return fmt.Errorf("failed to delete %s: %v", path, err)
+        }
 	}
 	return nil
 }

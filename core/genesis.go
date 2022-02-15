@@ -22,25 +22,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/trie"
 	"math/big"
 	"sort"
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/trie"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -67,7 +64,8 @@ type Genesis struct {
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 
-	mu sync.RWMutex
+	mu      sync.RWMutex
+	BaseFee *big.Int `json:"baseFeePerGas"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -103,6 +101,7 @@ type genesisSpecMarshaling struct {
 	GasUsed    math.HexOrDecimal64
 	Number     math.HexOrDecimal64
 	Difficulty *math.HexOrDecimal256
+	BaseFee    *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
 
 	VotingPowers []math.HexOrDecimal64
@@ -161,6 +160,13 @@ func (e *GenesisMismatchError) Error() string {
 //
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
+	return SetupGenesisBlockWithOverride(db, genesis, nil, nil)
+}
+
+func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, overrideArrowGlacier, overrideTerminalTotalDifficulty *big.Int) (*params.ChainConfig, common.Hash, error) {
+	if genesis != nil && genesis.Config == nil {
+		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+	}
 	// Just commit the new block if there is no stored genesis block.
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
@@ -176,11 +182,10 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 		}
 		return genesis.Config, block.Hash(), nil
 	}
-
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0, ""), nil); err != nil {
+	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock()
 		}
@@ -199,7 +204,6 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 		}
 		return genesis.Config, block.Hash(), nil
 	}
-
 	// Check whether the genesis block is already written.
 	if genesis != nil {
 		b, err := genesis.ToBlock(nil)
@@ -211,9 +215,14 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
 	}
-
 	// Get the existing chain configuration.
 	newcfg := genesis.configOrDefault(stored)
+	if overrideArrowGlacier != nil {
+		newcfg.ArrowGlacierBlock = overrideArrowGlacier
+	}
+	if overrideTerminalTotalDifficulty != nil {
+		newcfg.TerminalTotalDifficulty = overrideTerminalTotalDifficulty
+	}
 	if err := newcfg.CheckConfigForkOrder(); err != nil {
 		return newcfg, common.Hash{}, err
 	}
@@ -229,7 +238,6 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	if genesis == nil && stored != params.MainnetGenesisHash {
 		return storedcfg, stored, nil
 	}
-
 	// Check config compatibility and write the config. Compatibility errors
 	// are returned to the caller unless we're already at block zero.
 	height := rawdb.ReadHeaderNumber(db, rawdb.ReadHeadHeaderHash(db))
@@ -252,12 +260,12 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return params.MainnetChainConfig
 	case ghash == params.RopstenGenesisHash:
 		return params.RopstenChainConfig
+	case ghash == params.SepoliaGenesisHash:
+		return params.SepoliaChainConfig
 	case ghash == params.RinkebyGenesisHash:
 		return params.RinkebyChainConfig
 	case ghash == params.GoerliGenesisHash:
 		return params.GoerliChainConfig
-	case ghash == params.YoloV1GenesisHash:
-		return params.YoloV1ChainConfig
 	default:
 		return params.AllEthashProtocolChanges
 	}
@@ -285,7 +293,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	statedb, err := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	if err != nil {
+		panic(err)
+	}
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
@@ -328,7 +339,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Extra:      g.GetExtraData(),
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
-		Difficulty: diff,
+		BaseFee:    g.BaseFee,
+		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		Root:       root,
@@ -338,10 +350,20 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
+	if g.Difficulty == nil && g.Mixhash == (common.Hash{}) {
+		head.Difficulty = params.GenesisDifficulty
+	}
+	if g.Config != nil && g.Config.IsLondon(common.Big0) {
+		if g.BaseFee != nil {
+			head.BaseFee = g.BaseFee
+		} else {
+			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+		}
+	}
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock(head, nil, nil, nil, new(trie.Trie)), nil
+	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
 }
 
 func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
@@ -379,7 +401,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	}
 
 	if block.Number().Sign() != 0 {
-		return nil, fmt.Errorf("can't commit genesis block with number > 0")
+		return nil, errors.New("can't commit genesis block with number > 0")
 	}
 
 	g.mu.RLock()
@@ -456,7 +478,10 @@ func (g *Genesis) SetExtraData(extraData []byte) {
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{Alloc: GenesisAlloc{addr: {Balance: balance}}}
+	g := Genesis{
+		Alloc:   GenesisAlloc{addr: {Balance: balance}},
+		BaseFee: big.NewInt(params.InitialBaseFee),
+	}
 	return g.MustCommit(db)
 }
 

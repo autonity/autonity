@@ -17,29 +17,32 @@
 package light
 
 import (
-	"bytes"
-	"context"
-	"math/big"
+    "bytes"
+    "context"
+    "errors"
+    "math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/rlp"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/core"
+    "github.com/ethereum/go-ethereum/core/rawdb"
+    "github.com/ethereum/go-ethereum/core/types"
+    "github.com/ethereum/go-ethereum/rlp"
 )
 
-var sha3Nil = crypto.Keccak256Hash(nil)
+// errNonCanonicalHash is returned if the requested chain data doesn't belong
+// to the canonical chain. ODR can only retrieve the canonical chain data covered
+// by the CHT or Bloom trie for verification.
+var errNonCanonicalHash = errors.New("hash is not currently canonical")
 
 // GetHeaderByNumber retrieves the canonical block header corresponding to the
-// given number.
+// given number. The returned header is proven by local CHT.
 func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*types.Header, error) {
-	// Try to find it in the local database first.
-	db := odr.Database()
-	hash := rawdb.ReadCanonicalHash(db, number)
+    // Try to find it in the local database first.
+    db := odr.Database()
+    hash := rawdb.ReadCanonicalHash(db, number)
 
-	// If there is a canonical hash, there should have a header too.
-	// But if it's pruned, re-fetch from network again.
+    // If there is a canonical hash, there should have a header too.
+    // But if it's pruned, re-fetch from network again.
 	if (hash != common.Hash{}) {
 		if header := rawdb.ReadHeader(db, hash, number); header != nil {
 			return header, nil
@@ -63,25 +66,6 @@ func GetHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64) (*typ
 	return r.Header, nil
 }
 
-// GetUntrustedHeaderByNumber retrieves specified block header without
-// correctness checking. Note this function should only be used in light
-// client checkpoint syncing.
-func GetUntrustedHeaderByNumber(ctx context.Context, odr OdrBackend, number uint64, peerId string) (*types.Header, error) {
-	// todo(rjl493456442) it's a hack to retrieve headers which is not covered
-	// by CHT. Fix it in LES4
-	r := &ChtRequest{
-		BlockNum:  number,
-		ChtNum:    number / odr.IndexerConfig().ChtSize,
-		Untrusted: true,
-		PeerId:    peerId,
-		Config:    odr.IndexerConfig(),
-	}
-	if err := odr.Retrieve(ctx, r); err != nil {
-		return nil, err
-	}
-	return r.Header, nil
-}
-
 // GetCanonicalHash retrieves the canonical block hash corresponding to the number.
 func GetCanonicalHash(ctx context.Context, odr OdrBackend, number uint64) (common.Hash, error) {
 	hash := rawdb.ReadCanonicalHash(odr.Database(), number)
@@ -98,33 +82,39 @@ func GetCanonicalHash(ctx context.Context, odr OdrBackend, number uint64) (commo
 
 // GetTd retrieves the total difficulty corresponding to the number and hash.
 func GetTd(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (*big.Int, error) {
-	td := rawdb.ReadTd(odr.Database(), hash, number)
-	if td != nil {
-		return td, nil
-	}
-	_, err := GetHeaderByNumber(ctx, odr, number)
-	if err != nil {
-		return nil, err
-	}
-	// <hash, number> -> td mapping already be stored in db, get it.
-	return rawdb.ReadTd(odr.Database(), hash, number), nil
+    td := rawdb.ReadTd(odr.Database(), hash, number)
+    if td != nil {
+        return td, nil
+    }
+    header, err := GetHeaderByNumber(ctx, odr, number)
+    if err != nil {
+        return nil, err
+    }
+    if header.Hash() != hash {
+        return nil, errNonCanonicalHash
+    }
+    // <hash, number> -> td mapping already be stored in db, get it.
+    return rawdb.ReadTd(odr.Database(), hash, number), nil
 }
 
 // GetBodyRLP retrieves the block body (transactions and uncles) in RLP encoding.
 func GetBodyRLP(ctx context.Context, odr OdrBackend, hash common.Hash, number uint64) (rlp.RawValue, error) {
-	if data := rawdb.ReadBodyRLP(odr.Database(), hash, number); data != nil {
-		return data, nil
-	}
-	// Retrieve the block header first and pass it for verification.
-	header, err := GetHeaderByNumber(ctx, odr, number)
-	if err != nil {
-		return nil, errNoHeader
-	}
-	r := &BlockRequest{Hash: hash, Number: number, Header: header}
-	if err := odr.Retrieve(ctx, r); err != nil {
-		return nil, err
-	}
-	return r.Rlp, nil
+    if data := rawdb.ReadBodyRLP(odr.Database(), hash, number); data != nil {
+        return data, nil
+    }
+    // Retrieve the block header first and pass it for verification.
+    header, err := GetHeaderByNumber(ctx, odr, number)
+    if err != nil {
+        return nil, errNoHeader
+    }
+    if header.Hash() != hash {
+        return nil, errNonCanonicalHash
+    }
+    r := &BlockRequest{Hash: hash, Number: number, Header: header}
+    if err := odr.Retrieve(ctx, r); err != nil {
+        return nil, err
+    }
+    return r.Rlp, nil
 }
 
 // GetBody retrieves the block body (transactions, uncles) corresponding to the
@@ -163,16 +153,19 @@ func GetBlockReceipts(ctx context.Context, odr OdrBackend, hash common.Hash, num
 	// Assume receipts are already stored locally and attempt to retrieve.
 	receipts := rawdb.ReadRawReceipts(odr.Database(), hash, number)
 	if receipts == nil {
-		header, err := GetHeaderByNumber(ctx, odr, number)
-		if err != nil {
-			return nil, errNoHeader
-		}
-		r := &ReceiptsRequest{Hash: hash, Number: number, Header: header}
-		if err := odr.Retrieve(ctx, r); err != nil {
-			return nil, err
-		}
-		receipts = r.Receipts
-	}
+        header, err := GetHeaderByNumber(ctx, odr, number)
+        if err != nil {
+            return nil, errNoHeader
+        }
+        if header.Hash() != hash {
+            return nil, errNonCanonicalHash
+        }
+        r := &ReceiptsRequest{Hash: hash, Number: number, Header: header}
+        if err := odr.Retrieve(ctx, r); err != nil {
+            return nil, err
+        }
+        receipts = r.Receipts
+    }
 	// If the receipts are incomplete, fill the derived fields
 	if len(receipts) > 0 && receipts[0].TxHash == (common.Hash{}) {
 		block, err := GetBlock(ctx, odr, hash, number)
@@ -266,27 +259,32 @@ func GetBloomBits(ctx context.Context, odr OdrBackend, bit uint, sections []uint
 		BitIdx:           bit,
 		SectionIndexList: reqSections,
 		Config:           odr.IndexerConfig(),
-	}
-	if err := odr.Retrieve(ctx, r); err != nil {
-		return nil, err
-	}
-	for i, idx := range reqIndex {
-		result[idx] = r.BloomBits[i]
-	}
-	return result, nil
+    }
+    if err := odr.Retrieve(ctx, r); err != nil {
+        return nil, err
+    }
+    for i, idx := range reqIndex {
+        result[idx] = r.BloomBits[i]
+    }
+    return result, nil
 }
 
-// GetTransaction retrieves a canonical transaction by hash and also returns its position in the chain
+// GetTransaction retrieves a canonical transaction by hash and also returns
+// its position in the chain. There is no guarantee in the LES protocol that
+// the mined transaction will be retrieved back for sure because of different
+// reasons(the transaction is unindexed, the malicous server doesn't reply it
+// deliberately, etc). Therefore, unretrieved transactions will receive a certain
+// number of retrys, thus giving a weak guarantee.
 func GetTransaction(ctx context.Context, odr OdrBackend, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
-	r := &TxStatusRequest{Hashes: []common.Hash{txHash}}
-	if err := odr.Retrieve(ctx, r); err != nil || r.Status[0].Status != core.TxStatusIncluded {
-		return nil, common.Hash{}, 0, 0, err
-	}
-	pos := r.Status[0].Lookup
-	// first ensure that we have the header, otherwise block body retrieval will fail
-	// also verify if this is a canonical block by getting the header by number and checking its hash
-	if header, err := GetHeaderByNumber(ctx, odr, pos.BlockIndex); err != nil || header.Hash() != pos.BlockHash {
-		return nil, common.Hash{}, 0, 0, err
+    r := &TxStatusRequest{Hashes: []common.Hash{txHash}}
+    if err := odr.RetrieveTxStatus(ctx, r); err != nil || r.Status[0].Status != core.TxStatusIncluded {
+        return nil, common.Hash{}, 0, 0, err
+    }
+    pos := r.Status[0].Lookup
+    // first ensure that we have the header, otherwise block body retrieval will fail
+    // also verify if this is a canonical block by getting the header by number and checking its hash
+    if header, err := GetHeaderByNumber(ctx, odr, pos.BlockIndex); err != nil || header.Hash() != pos.BlockHash {
+        return nil, common.Hash{}, 0, 0, err
 	}
 	body, err := GetBody(ctx, odr, pos.BlockHash, pos.BlockIndex)
 	if err != nil || uint64(len(body.Transactions)) <= pos.Index || body.Transactions[pos.Index].Hash() != txHash {

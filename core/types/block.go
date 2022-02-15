@@ -18,20 +18,17 @@
 package types
 
 import (
-	"encoding/binary"
-	"fmt"
-	"io"
-	"math/big"
-	"reflect"
-	"sync"
-	"sync/atomic"
-	"time"
+    "encoding/binary"
+    "fmt"
+    "io"
+    "math/big"
+    "reflect"
+    "sync/atomic"
+    "time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/rlp"
-	"golang.org/x/crypto/sha3"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/common/hexutil"
+    "github.com/ethereum/go-ethereum/rlp"
 )
 
 var (
@@ -75,26 +72,28 @@ type Header struct {
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
-	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
-	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
-	Number      *big.Int       `json:"number"           gencodec:"required"`
-	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
-	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
-	Time        uint64         `json:"timestamp"        gencodec:"required"`
-	Extra       []byte         `json:"extraData"        gencodec:"required"`
-	MixDigest   common.Hash    `json:"mixHash"`
-	Nonce       BlockNonce     `json:"nonce"`
+    ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+    Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+    Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
+    Number      *big.Int       `json:"number"           gencodec:"required"`
+    GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
+    GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
+    Time        uint64         `json:"timestamp"        gencodec:"required"`
+    Extra       []byte         `json:"extraData"        gencodec:"required"`
+    MixDigest   common.Hash    `json:"mixHash"`
+    Nonce       BlockNonce     `json:"nonce"`
+    // BaseFee was added by EIP-1559 and is ignored in legacy headers.
+    BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
 
-	/*
-		PoS header fields, round & committedSeals not taken into account
-		for computing the sigHash.
-	*/
-	Committee Committee `json:"committee"           gencodec:"required"`
-	// used for committee member lookup, lazily initialised.
-	committeeMap map[common.Address]*CommitteeMember
-	// Used to ensure the committeeMap is created only once.
-	once sync.Once
+    /*
+    	PoS header fields, round & committedSeals not taken into account
+    	for computing the sigHash.
+    */
+    Committee Committee `json:"committee"           gencodec:"required"`
+    // used for committee member lookup, lazily initialised.
+    committeeMap map[common.Address]*CommitteeMember
+    // Used to ensure the committeeMap is created only once.
+    once sync.Once
 
 	ProposerSeal       []byte   `json:"proposerSeal"        gencodec:"required"`
 	Round              uint64   `json:"round"               gencodec:"required"`
@@ -135,16 +134,25 @@ type originalHeader struct {
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
-	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
-	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
-	Number      *big.Int       `json:"number"           gencodec:"required"`
-	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
-	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
-	Time        uint64         `json:"timestamp"        gencodec:"required"`
-	Extra       []byte         `json:"extraData"        gencodec:"required"`
-	MixDigest   common.Hash    `json:"mixHash"`
-	Nonce       BlockNonce     `json:"nonce"`
+    ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+    Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+    Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
+    Number      *big.Int       `json:"number"           gencodec:"required"`
+    GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
+    GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
+    Time        uint64         `json:"timestamp"        gencodec:"required"`
+    Extra       []byte         `json:"extraData"        gencodec:"required"`
+    MixDigest   common.Hash    `json:"mixHash"`
+    Nonce       BlockNonce     `json:"nonce"`
+
+    // BaseFee was added by EIP-1559 and is ignored in legacy headers.
+    BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
+
+    /*
+    	TODO (MariusVanDerWijden) Add this field once needed
+    	// Random was added during the merge and contains the BeaconState randomness
+    	Random common.Hash `json:"random" rlp:"optional"`
+    */
 }
 
 type headerExtra struct {
@@ -166,8 +174,9 @@ type headerMarshaling struct {
 	GasLimit   hexutil.Uint64
 	GasUsed    hexutil.Uint64
 	Time       hexutil.Uint64
-	Extra      hexutil.Bytes
-	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
+    Extra      hexutil.Bytes
+    BaseFee    *hexutil.Big
+    Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
 	/*
 		PoS header fields type overriedes
 	*/
@@ -208,17 +217,22 @@ func (h *Header) Size() common.StorageSize {
 // overhead
 func (h *Header) SanityCheck() error {
 	if h.Number != nil && !h.Number.IsUint64() {
-		return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
-	}
-	if h.Difficulty != nil {
-		if diffLen := h.Difficulty.BitLen(); diffLen > 80 {
-			return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
-		}
-	}
-	if eLen := len(h.Extra); eLen > 100*1024 {
-		return fmt.Errorf("too large block extradata: size %d", eLen)
-	}
-	return nil
+        return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
+    }
+    if h.Difficulty != nil {
+        if diffLen := h.Difficulty.BitLen(); diffLen > 80 {
+            return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
+        }
+    }
+    if eLen := len(h.Extra); eLen > 100*1024 {
+        return fmt.Errorf("too large block extradata: size %d", eLen)
+    }
+    if h.BaseFee != nil {
+        if bfLen := h.BaseFee.BitLen(); bfLen > 256 {
+            return fmt.Errorf("too large base fee: bitlen %d", bfLen)
+        }
+    }
+    return nil
 }
 
 // DecodeRLP decodes the Ethereum
@@ -368,33 +382,11 @@ type Block struct {
 	ReceivedFrom interface{}
 }
 
-// DeprecatedTd is an old relic for extracting the TD of a block. It is in the
-// code solely to facilitate upgrading the database from the old format to the
-// new, after which it should be deleted. Do not use!
-func (b *Block) DeprecatedTd() *big.Int {
-	return b.td
-}
-
-// [deprecated by eth/63]
-// StorageBlock defines the RLP encoding of a Block stored in the
-// state database. The StorageBlock encoding contains fields that
-// would otherwise need to be recomputed.
-type StorageBlock Block
-
 // "external" block encoding. used for eth protocol, etc.
 type extblock struct {
 	Header *Header
 	Txs    []*Transaction
 	Uncles []*Header
-}
-
-// [deprecated by eth/63]
-// "storage" block encoding. used for database.
-type storageblock struct {
-	Header *Header
-	Txs    []*Transaction
-	Uncles []*Header
-	TD     *big.Int
 }
 
 // NewBlock creates a new block. The input data is copied,
@@ -404,17 +396,17 @@ type storageblock struct {
 // The values of TxHash, UncleHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs, uncles
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt, hasher Hasher) *Block {
-	b := &Block{header: CopyHeader(header), td: new(big.Int)}
+func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt, hasher TrieHasher) *Block {
+    b := &Block{header: CopyHeader(header), td: new(big.Int)}
 
-	// TODO: panic if len(txs) != len(receipts)
-	if len(txs) == 0 {
-		b.header.TxHash = EmptyRootHash
-	} else {
-		b.header.TxHash = DeriveSha(Transactions(txs), hasher)
-		b.transactions = make(Transactions, len(txs))
-		copy(b.transactions, txs)
-	}
+    // TODO: panic if len(txs) != len(receipts)
+    if len(txs) == 0 {
+        b.header.TxHash = EmptyRootHash
+    } else {
+        b.header.TxHash = DeriveSha(Transactions(txs), hasher)
+        b.transactions = make(Transactions, len(txs))
+        copy(b.transactions, txs)
+    }
 
 	if len(receipts) == 0 {
 		b.header.ReceiptHash = EmptyRootHash
@@ -447,26 +439,29 @@ func NewBlockWithHeader(header *Header) *Block {
 // modifying a header variable.
 func CopyHeader(h *Header) *Header {
 
-	difficulty := big.NewInt(0)
-	if h.Difficulty != nil {
-		difficulty.Set(h.Difficulty)
-	}
+    difficulty := big.NewInt(0)
+    if h.Difficulty != nil {
+        difficulty.Set(h.Difficulty)
+    }
 
-	number := big.NewInt(0)
-	if h.Number != nil {
-		number.Set(h.Number)
-	}
+    number := big.NewInt(0)
+    if h.Number != nil {
+        number.Set(h.Number)
+    }
 
-	extra := make([]byte, 0)
-	if len(h.Extra) > 0 {
-		extra = make([]byte, len(h.Extra))
-		copy(extra, h.Extra)
-	}
+    if h.BaseFee != nil {
+        cpy.BaseFee = new(big.Int).Set(h.BaseFee)
+    }
+    extra := make([]byte, 0)
+    if len(h.Extra) > 0 {
+        extra = make([]byte, len(h.Extra))
+        copy(extra, h.Extra)
+    }
 
-	/* PoS fields deep copy section*/
-	committee := make([]CommitteeMember, 0)
-	if len(h.Committee) > 0 {
-		committee = make([]CommitteeMember, len(h.Committee))
+    /* PoS fields deep copy section*/
+    committee := make([]CommitteeMember, 0)
+    if len(h.Committee) > 0 {
+        committee = make([]CommitteeMember, len(h.Committee))
 		for i, val := range h.Committee {
 			committee[i] = CommitteeMember{
 				Address:     val.Address,
@@ -545,16 +540,6 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 	})
 }
 
-// [deprecated by eth/63]
-func (b *StorageBlock) DecodeRLP(s *rlp.Stream) error {
-	var sb storageblock
-	if err := s.Decode(&sb); err != nil {
-		return err
-	}
-	b.header, b.uncles, b.transactions, b.td = sb.Header, sb.Uncles, sb.Txs, sb.TD
-	return nil
-}
-
 // TODO: copies
 
 func (b *Block) Uncles() []*Header          { return b.uncles }
@@ -587,6 +572,13 @@ func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
 func (b *Block) UncleHash() common.Hash   { return b.header.UncleHash }
 func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 
+func (b *Block) BaseFee() *big.Int {
+    if b.header.BaseFee == nil {
+        return nil
+    }
+    return new(big.Int).Set(b.header.BaseFee)
+}
+
 func (b *Block) Header() *Header { return CopyHeader(b.header) }
 
 // Body returns the non-header content of the block.
@@ -595,7 +587,7 @@ func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
 func (b *Block) Size() common.StorageSize {
-	if size := b.size.Load(); size != nil {
+    if size := b.size.Load(); size != nil {
 		return size.(common.StorageSize)
 	}
 	c := writeCounter(0)
@@ -659,12 +651,30 @@ func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 // Hash returns the keccak256 hash of b's header.
 // The hash is computed on the first call and cached thereafter.
 func (b *Block) Hash() common.Hash {
-	if hash := b.hash.Load(); hash != nil {
-		return hash.(common.Hash)
-	}
-	v := b.header.Hash()
-	b.hash.Store(v)
-	return v
+    if hash := b.hash.Load(); hash != nil {
+        return hash.(common.Hash)
+    }
+    v := b.header.Hash()
+    b.hash.Store(v)
+    return v
 }
 
 type Blocks []*Block
+
+// HeaderParentHashFromRLP returns the parentHash of an RLP-encoded
+// header. If 'header' is invalid, the zero hash is returned.
+func HeaderParentHashFromRLP(header []byte) common.Hash {
+    // parentHash is the first list element.
+    listContent, _, err := rlp.SplitList(header)
+    if err != nil {
+        return common.Hash{}
+    }
+    parentHash, _, err := rlp.SplitString(listContent)
+    if err != nil {
+        return common.Hash{}
+    }
+    if len(parentHash) != 32 {
+        return common.Hash{}
+    }
+    return common.BytesToHash(parentHash)
+}

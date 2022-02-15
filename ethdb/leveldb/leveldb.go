@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
+//go:build !js
 // +build !js
 
 // Package leveldb implements the key-value database layer based on LevelDB.
@@ -73,42 +74,57 @@ type Database struct {
 	memCompGauge       metrics.Gauge // Gauge for tracking the number of memory compaction
 	level0CompGauge    metrics.Gauge // Gauge for tracking the number of table compaction in level0
 	nonlevel0CompGauge metrics.Gauge // Gauge for tracking the number of table compaction in non0 level
-	seekCompGauge      metrics.Gauge // Gauge for tracking the number of table compaction caused by read opt
+    seekCompGauge      metrics.Gauge // Gauge for tracking the number of table compaction caused by read opt
 
-	quitLock sync.Mutex      // Mutex protecting the quit channel access
-	quitChan chan chan error // Quit channel to stop the metrics collection before closing the database
+    quitLock sync.Mutex      // Mutex protecting the quit channel access
+    quitChan chan chan error // Quit channel to stop the metrics collection before closing the database
 
-	log log.Logger // Contextual logger tracking the database path
+    log log.Logger // Contextual logger tracking the database path
 }
 
 // New returns a wrapped LevelDB object. The namespace is the prefix that the
 // metrics reporting should use for surfacing internal stats.
-func New(file string, cache int, handles int, namespace string) (*Database, error) {
-	// Ensure we have some minimal caching and file guarantees
-	if cache < minCache {
-		cache = minCache
-	}
-	if handles < minHandles {
-		handles = minHandles
-	}
-	logger := log.New("database", file)
-	logger.Info("Allocated cache and file handles", "cache", common.StorageSize(cache*1024*1024), "handles", handles)
+func New(file string, cache int, handles int, namespace string, readonly bool) (*Database, error) {
+    return NewCustom(file, namespace, func(options *opt.Options) {
+        // Ensure we have some minimal caching and file guarantees
+        if cache < minCache {
+            cache = minCache
+        }
+        if handles < minHandles {
+            handles = minHandles
+        }
+        // Set default options
+        options.OpenFilesCacheCapacity = handles
+        options.BlockCacheCapacity = cache / 2 * opt.MiB
+        options.WriteBuffer = cache / 4 * opt.MiB // Two of these are used internally
+        if readonly {
+            options.ReadOnly = true
+        }
+    })
+}
 
-	// Open the db and recover any potential corruptions
-	db, err := leveldb.OpenFile(file, &opt.Options{
-		OpenFilesCacheCapacity: handles,
-		BlockCacheCapacity:     cache / 2 * opt.MiB,
-		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
-		Filter:                 filter.NewBloomFilter(10),
-		DisableSeeksCompaction: true,
-	})
-	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
-		db, err = leveldb.RecoverFile(file, nil)
-	}
-	if err != nil {
-		return nil, err
-	}
-	// Assemble the wrapper with all the registered metrics
+// NewCustom returns a wrapped LevelDB object. The namespace is the prefix that the
+// metrics reporting should use for surfacing internal stats.
+// The customize function allows the caller to modify the leveldb options.
+func NewCustom(file string, namespace string, customize func(options *opt.Options)) (*Database, error) {
+    options := configureOptions(customize)
+    logger := log.New("database", file)
+    usedCache := options.GetBlockCacheCapacity() + options.GetWriteBuffer()*2
+    logCtx := []interface{}{"cache", common.StorageSize(usedCache), "handles", options.GetOpenFilesCacheCapacity()}
+    if options.ReadOnly {
+        logCtx = append(logCtx, "readonly", "true")
+    }
+    logger.Info("Allocated cache and file handles", logCtx...)
+
+    // Open the db and recover any potential corruptions
+    db, err := leveldb.OpenFile(file, options)
+    if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
+        db, err = leveldb.RecoverFile(file, nil)
+    }
+    if err != nil {
+        return nil, err
+    }
+    // Assemble the wrapper with all the registered metrics
 	ldb := &Database{
 		fn:       file,
 		db:       db,
@@ -123,25 +139,39 @@ func New(file string, cache int, handles int, namespace string) (*Database, erro
 	ldb.diskWriteMeter = metrics.NewRegisteredMeter(namespace+"disk/write", nil)
 	ldb.writeDelayMeter = metrics.NewRegisteredMeter(namespace+"compact/writedelay/duration", nil)
 	ldb.writeDelayNMeter = metrics.NewRegisteredMeter(namespace+"compact/writedelay/counter", nil)
-	ldb.memCompGauge = metrics.NewRegisteredGauge(namespace+"compact/memory", nil)
-	ldb.level0CompGauge = metrics.NewRegisteredGauge(namespace+"compact/level0", nil)
-	ldb.nonlevel0CompGauge = metrics.NewRegisteredGauge(namespace+"compact/nonlevel0", nil)
-	ldb.seekCompGauge = metrics.NewRegisteredGauge(namespace+"compact/seek", nil)
+    ldb.memCompGauge = metrics.NewRegisteredGauge(namespace+"compact/memory", nil)
+    ldb.level0CompGauge = metrics.NewRegisteredGauge(namespace+"compact/level0", nil)
+    ldb.nonlevel0CompGauge = metrics.NewRegisteredGauge(namespace+"compact/nonlevel0", nil)
+    ldb.seekCompGauge = metrics.NewRegisteredGauge(namespace+"compact/seek", nil)
 
-	// Start up the metrics gathering and return
-	go ldb.meter(metricsGatheringInterval)
-	return ldb, nil
+    // Start up the metrics gathering and return
+    go ldb.meter(metricsGatheringInterval)
+    return ldb, nil
+}
+
+// configureOptions sets some default options, then runs the provided setter.
+func configureOptions(customizeFn func(*opt.Options)) *opt.Options {
+    // Set default options
+    options := &opt.Options{
+        Filter:                 filter.NewBloomFilter(10),
+        DisableSeeksCompaction: true,
+    }
+    // Allow caller to make custom modifications to the options
+    if customizeFn != nil {
+        customizeFn(options)
+    }
+    return options
 }
 
 // Close stops the metrics collection, flushes any pending data to disk and closes
 // all io accesses to the underlying key-value store.
 func (db *Database) Close() error {
-	db.quitLock.Lock()
-	defer db.quitLock.Unlock()
+    db.quitLock.Lock()
+    defer db.quitLock.Unlock()
 
-	if db.quitChan != nil {
-		errc := make(chan error)
-		db.quitChan <- errc
+    if db.quitChan != nil {
+        errc := make(chan error)
+        db.quitChan <- errc
 		if err := <-errc; err != nil {
 			db.log.Error("Metrics collection failed", "err", err)
 		}
@@ -425,14 +455,14 @@ type batch struct {
 // Put inserts the given value into the batch for later committing.
 func (b *batch) Put(key, value []byte) error {
 	b.b.Put(key, value)
-	b.size += len(value)
+    b.size += len(key) + len(value)
 	return nil
 }
 
 // Delete inserts the a key removal into the batch for later committing.
 func (b *batch) Delete(key []byte) error {
 	b.b.Delete(key)
-	b.size++
+    b.size += len(key)
 	return nil
 }
 

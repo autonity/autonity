@@ -78,25 +78,32 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			transacts = make(map[string]*tmplMethod)
 			events    = make(map[string]*tmplEvent)
 			fallback  *tmplMethod
-			receive   *tmplMethod
+            receive   *tmplMethod
 
-			// identifiers are used to detect duplicated identifiers of functions
-			// and events. For all calls, transacts and events, abigen will generate
-			// corresponding bindings. However we have to ensure there is no
-			// identifier collisions in the bindings of these categories.
-			callIdentifiers     = make(map[string]bool)
-			transactIdentifiers = make(map[string]bool)
-			eventIdentifiers    = make(map[string]bool)
-		)
-		for _, original := range evmABI.Methods {
-			// Normalize the method for capital cases and non-anonymous inputs/outputs
-			normalized := original
-			normalizedName := methodNormalizer[lang](alias(aliases, original.Name))
-			// Ensure there is no duplicated identifier
-			var identifiers = callIdentifiers
-			if !original.IsConstant() {
-				identifiers = transactIdentifiers
-			}
+            // identifiers are used to detect duplicated identifiers of functions
+            // and events. For all calls, transacts and events, abigen will generate
+            // corresponding bindings. However we have to ensure there is no
+            // identifier collisions in the bindings of these categories.
+            callIdentifiers     = make(map[string]bool)
+            transactIdentifiers = make(map[string]bool)
+            eventIdentifiers    = make(map[string]bool)
+        )
+
+        for _, input := range evmABI.Constructor.Inputs {
+            if hasStruct(input.Type) {
+                bindStructType[lang](input.Type, structs)
+            }
+        }
+
+        for _, original := range evmABI.Methods {
+            // Normalize the method for capital cases and non-anonymous inputs/outputs
+            normalized := original
+            normalizedName := methodNormalizer[lang](alias(aliases, original.Name))
+            // Ensure there is no duplicated identifier
+            var identifiers = callIdentifiers
+            if !original.IsConstant() {
+                identifiers = transactIdentifiers
+            }
 			if identifiers[normalizedName] {
 				return "", fmt.Errorf("duplicated identifier \"%s\"(normalized \"%s\"), use --alias for renaming", original.Name, normalizedName)
 			}

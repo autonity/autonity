@@ -17,26 +17,27 @@
 package core_test
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"io/ioutil"
-	"math/big"
-	"os"
-	"path/filepath"
-	"testing"
-	"time"
+    "bytes"
+    "context"
+    "fmt"
+    "io/ioutil"
+    "math/big"
+    "os"
+    "path/filepath"
+    "testing"
+    "time"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/clearmatics/autonity/signer/core"
-	"github.com/clearmatics/autonity/signer/fourbyte"
-	"github.com/clearmatics/autonity/signer/storage"
+    "github.com/ethereum/go-ethereum/accounts"
+    "github.com/ethereum/go-ethereum/accounts/keystore"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/common/hexutil"
+    "github.com/ethereum/go-ethereum/core/types"
+    "github.com/ethereum/go-ethereum/internal/ethapi"
+    "github.com/ethereum/go-ethereum/rlp"
+    "github.com/ethereum/go-ethereum/signer/core"
+    "github.com/ethereum/go-ethereum/signer/core/apitypes"
+    "github.com/ethereum/go-ethereum/signer/fourbyte"
+    "github.com/ethereum/go-ethereum/signer/storage"
 )
 
 //Used for testing
@@ -223,21 +224,21 @@ func TestNewAcc(t *testing.T) {
 	}
 }
 
-func mkTestTx(from common.MixedcaseAddress) core.SendTxArgs {
-	to := common.NewMixedcaseAddress(common.HexToAddress("0x1337"))
-	gas := hexutil.Uint64(21000)
-	gasPrice := (hexutil.Big)(*big.NewInt(2000000000))
-	value := (hexutil.Big)(*big.NewInt(1e18))
-	nonce := (hexutil.Uint64)(0)
-	data := hexutil.Bytes(common.Hex2Bytes("01020304050607080a"))
-	tx := core.SendTxArgs{
-		From:     from,
-		To:       &to,
-		Gas:      gas,
-		GasPrice: gasPrice,
-		Value:    value,
-		Data:     &data,
-		Nonce:    nonce}
+func mkTestTx(from common.MixedcaseAddress) apitypes.SendTxArgs {
+    to := common.NewMixedcaseAddress(common.HexToAddress("0x1337"))
+    gas := hexutil.Uint64(21000)
+    gasPrice := (hexutil.Big)(*big.NewInt(2000000000))
+    value := (hexutil.Big)(*big.NewInt(1e18))
+    nonce := (hexutil.Uint64)(0)
+    data := hexutil.Bytes(common.Hex2Bytes("01020304050607080a"))
+    tx := apitypes.SendTxArgs{
+        From:     from,
+        To:       &to,
+        Gas:      gas,
+        GasPrice: &gasPrice,
+        Value:    value,
+        Data:     &data,
+        Nonce:    nonce}
 	return tx
 }
 
@@ -245,26 +246,29 @@ func TestSignTx(t *testing.T) {
 	var (
 		list      []common.Address
 		res, res2 *ethapi.SignTransactionResult
-		err       error
-	)
+        err       error
+    )
 
-	api, control := setup(t)
-	createAccount(control, api, t)
-	control.approveCh <- "A"
-	list, err = api.List(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := common.NewMixedcaseAddress(list[0])
+    api, control := setup(t)
+    createAccount(control, api, t)
+    control.approveCh <- "A"
+    list, err = api.List(context.Background())
+    if err != nil {
+        t.Fatal(err)
+    }
+    if len(list) == 0 {
+        t.Fatal("Unexpected empty list")
+    }
+    a := common.NewMixedcaseAddress(list[0])
 
-	methodSig := "test(uint)"
-	tx := mkTestTx(a)
+    methodSig := "test(uint)"
+    tx := mkTestTx(a)
 
-	control.approveCh <- "Y"
-	control.inputCh <- "wrongpassword"
-	res, err = api.SignTransaction(context.Background(), tx, &methodSig)
-	if res != nil {
-		t.Errorf("Expected nil-response, got %v", res)
+    control.approveCh <- "Y"
+    control.inputCh <- "wrongpassword"
+    res, err = api.SignTransaction(context.Background(), tx, &methodSig)
+    if res != nil {
+        t.Errorf("Expected nil-response, got %v", res)
 	}
 	if err != keystore.ErrDecrypt {
 		t.Errorf("Expected ErrLocked! %v", err)

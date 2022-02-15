@@ -18,20 +18,30 @@ package ethash
 
 import (
 	crand "crypto/rand"
+	"errors"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/core/types"
 	"math"
 	"math/big"
 	"math/rand"
 	"runtime"
 	"sync"
+)
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
+const (
+	// staleThreshold is the maximum depth of the acceptable stale but valid ethash solution.
+	staleThreshold = 7
+)
+
+var (
+	errNoMiningWork      = errors.New("no mining work available yet")
+	errInvalidSealResult = errors.New("invalid or stale proof-of-work solution")
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -119,8 +129,9 @@ func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan s
 	)
 	// Start generating random nonces until we abort or find a good one
 	var (
-		attempts = int64(0)
-		nonce    = seed
+		attempts  = int64(0)
+		nonce     = seed
+		powBuffer = new(big.Int)
 	)
 	logger := ethash.config.Log.New("miner", id)
 	logger.Trace("Started ethash search for new nonces", "seed", seed)
@@ -142,7 +153,7 @@ search:
 			}
 			// Compute the PoW value of this nonce
 			digest, result := hashimotoFull(dataset.dataset, hash, nonce)
-			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
+			if powBuffer.SetBytes(result).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
 				header = types.CopyHeader(header)
 				header.Nonce = types.EncodeNonce(nonce)

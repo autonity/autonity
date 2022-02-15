@@ -73,11 +73,10 @@ func (b *benchmarkBlockHeaders) init(h *serverHandler, count int) error {
 }
 
 func (b *benchmarkBlockHeaders) request(peer *serverPeer, index int) error {
-	if b.byHash {
-		return peer.requestHeadersByHash(0, b.hashes[index], b.amount, b.skip, b.reverse)
-	} else {
-		return peer.requestHeadersByNumber(0, uint64(b.offset+rand.Int63n(b.randMax)), b.amount, b.skip, b.reverse)
-	}
+    if b.byHash {
+        return peer.requestHeadersByHash(0, b.hashes[index], b.amount, b.skip, b.reverse)
+    }
+    return peer.requestHeadersByNumber(0, uint64(b.offset+rand.Int63n(b.randMax)), b.amount, b.skip, b.reverse)
 }
 
 // benchmarkBodiesOrReceipts implements requestBenchmark
@@ -96,11 +95,10 @@ func (b *benchmarkBodiesOrReceipts) init(h *serverHandler, count int) error {
 }
 
 func (b *benchmarkBodiesOrReceipts) request(peer *serverPeer, index int) error {
-	if b.receipts {
-		return peer.requestReceipts(0, []common.Hash{b.hashes[index]})
-	} else {
-		return peer.requestBodies(0, []common.Hash{b.hashes[index]})
-	}
+    if b.receipts {
+        return peer.requestReceipts(0, []common.Hash{b.hashes[index]})
+    }
+    return peer.requestBodies(0, []common.Hash{b.hashes[index]})
 }
 
 // benchmarkProofsOrCode implements requestBenchmark
@@ -115,13 +113,12 @@ func (b *benchmarkProofsOrCode) init(h *serverHandler, count int) error {
 }
 
 func (b *benchmarkProofsOrCode) request(peer *serverPeer, index int) error {
-	key := make([]byte, 32)
-	rand.Read(key)
-	if b.code {
-		return peer.requestCode(0, []CodeReq{{BHash: b.headHash, AccKey: key}})
-	} else {
-		return peer.requestProofs(0, []ProofReq{{BHash: b.headHash, Key: key}})
-	}
+    key := make([]byte, 32)
+    rand.Read(key)
+    if b.code {
+        return peer.requestCode(0, []CodeReq{{BHash: b.headHash, AccKey: key}})
+    }
+    return peer.requestProofs(0, []ProofReq{{BHash: b.headHash, Key: key}})
 }
 
 // benchmarkHelperTrie implements requestBenchmark
@@ -159,7 +156,7 @@ func (b *benchmarkHelperTrie) request(peer *serverPeer, index int) error {
 		for i := range reqs {
 			key := make([]byte, 8)
 			binary.BigEndian.PutUint64(key[:], uint64(rand.Int63n(int64(b.headNum))))
-			reqs[i] = HelperTrieReq{Type: htCanonical, TrieIdx: b.sectionCount - 1, Key: key, AuxReq: auxHeader}
+            reqs[i] = HelperTrieReq{Type: htCanonical, TrieIdx: b.sectionCount - 1, Key: key, AuxReq: htAuxHeader}
 		}
 	}
 
@@ -173,8 +170,8 @@ type benchmarkTxSend struct {
 
 func (b *benchmarkTxSend) init(h *serverHandler, count int) error {
 	key, _ := crypto.GenerateKey()
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	signer := types.NewEIP155Signer(big.NewInt(18))
+    addr := crypto.PubkeyToAddress(key.PublicKey)
+    signer := types.LatestSigner(h.server.chainConfig)
 	b.txs = make(types.Transactions, count)
 
 	for i := range b.txs {

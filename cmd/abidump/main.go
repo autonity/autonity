@@ -23,7 +23,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/clearmatics/autonity/signer/core"
 	"github.com/clearmatics/autonity/signer/fourbyte"
 )
 
@@ -41,7 +40,7 @@ func parse(data []byte) {
 	if err != nil {
 		die(err)
 	}
-	messages := core.ValidationMessages{}
+	messages := apitypes.ValidationMessages{}
 	db.ValidateCallData(nil, data, &messages)
 	for _, m := range messages.Messages {
 		fmt.Printf("%v: %v\n", m.Typ, m.Message)

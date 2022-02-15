@@ -168,33 +168,30 @@ func (w *wizard) manageComponents() {
 // deployComponent displays a list of network components the user can deploy and
 // guides through the process.
 func (w *wizard) deployComponent() {
-	// Print all the things we can deploy and wait or user choice
-	fmt.Println()
-	fmt.Println("What would you like to deploy? (recommended order)")
-	fmt.Println(" 1. Ethstats  - Network monitoring tool")
-	fmt.Println(" 2. Bootnode  - Entry point of the network")
-	fmt.Println(" 3. Sealer    - Full node minting new blocks")
-	fmt.Println(" 4. Explorer  - Chain analysis webservice")
-	fmt.Println(" 5. Wallet    - Browser wallet for quick sends")
-	fmt.Println(" 6. Faucet    - Crypto faucet to give away funds")
-	fmt.Println(" 7. Dashboard - Website listing above web-services")
+    // Print all the things we can deploy and wait or user choice
+    fmt.Println()
+    fmt.Println("What would you like to deploy? (recommended order)")
+    fmt.Println(" 1. Ethstats  - Network monitoring tool")
+    fmt.Println(" 2. Bootnode  - Entry point of the network")
+    fmt.Println(" 3. Sealer    - Full node minting new blocks")
+    fmt.Println(" 4. Explorer  - Chain analysis webservice")
+    fmt.Println(" 5. Faucet    - Crypto faucet to give away funds")
+    fmt.Println(" 6. Dashboard - Website listing above web-services")
 
-	switch w.read() {
-	case "1":
-		w.deployEthstats()
-	case "2":
-		w.deployNode(true)
-	case "3":
-		w.deployNode(false)
-	case "4":
-		w.deployExplorer()
-	case "5":
-		w.deployWallet()
-	case "6":
-		w.deployFaucet()
-	case "7":
-		w.deployDashboard()
-	default:
-		log.Error("That's not something I can do")
+    switch w.read() {
+    case "1":
+        w.deployEthstats()
+    case "2":
+        w.deployNode(true)
+    case "3":
+        w.deployNode(false)
+    case "4":
+        w.deployExplorer()
+    case "5":
+        w.deployFaucet()
+    case "6":
+        w.deployDashboard()
+    default:
+        log.Error("That's not something I can do")
 	}
 }

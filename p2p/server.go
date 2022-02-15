@@ -19,27 +19,26 @@ package p2p
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"encoding/hex"
-	"errors"
-	"fmt"
-	"net"
-	"sort"
-	"sync"
-	"sync/atomic"
-	"time"
+    "crypto/ecdsa"
+    "encoding/hex"
+    "errors"
+    "fmt"
+    "net"
+    "sort"
+    "sync"
+    "sync/atomic"
+    "time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/discover"
-	"github.com/clearmatics/autonity/p2p/discv5"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/p2p/nat"
-	"github.com/clearmatics/autonity/p2p/netutil"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/common/mclock"
+    "github.com/ethereum/go-ethereum/crypto"
+    "github.com/ethereum/go-ethereum/event"
+    "github.com/ethereum/go-ethereum/log"
+    "github.com/ethereum/go-ethereum/p2p/discover"
+    "github.com/ethereum/go-ethereum/p2p/enode"
+    "github.com/ethereum/go-ethereum/p2p/enr"
+    "github.com/ethereum/go-ethereum/p2p/nat"
+    "github.com/ethereum/go-ethereum/p2p/netutil"
 )
 
 const (
@@ -105,7 +104,7 @@ type Config struct {
 	// BootstrapNodesV5 are used to establish connectivity
 	// with the rest of the network using the V5 discovery
 	// protocol.
-	BootstrapNodesV5 []*discv5.Node `toml:",omitempty"`
+    BootstrapNodesV5 []*enode.Node `toml:",omitempty"`
 
 	// Static nodes are used as pre-configured connections which are always
 	// maintained and re-connected on disconnects.
@@ -193,9 +192,9 @@ type Server struct {
 
 	nodedb    *enode.DB
 	localnode *enode.LocalNode
-	ntab      *discover.UDPv4
-	DiscV5    *discv5.Network
-	discmix   *enode.FairMix
+    ntab      *discover.UDPv4
+    DiscV5    *discover.UDPv5
+    discmix   *enode.FairMix
 	dialsched *dialScheduler
 
 	// Channels into the run loop.
@@ -256,7 +255,7 @@ type transport interface {
 }
 
 func (c *conn) String() string {
-	s := connFlag(atomic.LoadInt32((*int32)(&c.flags))).String()
+    s := c.flags.String()
 	if (c.node.ID() != enode.ID{}) {
 		s += " " + c.node.ID().String()
 	}
@@ -285,7 +284,8 @@ func (f connFlag) String() string {
 }
 
 func (c *conn) is(f connFlag) bool {
-	return connFlag(atomic.LoadInt32((*int32)(&c.flags)))&f != 0
+    flags := connFlag(atomic.LoadInt32((*int32)(&c.flags)))
+    return flags&f != 0
 }
 
 func (c *conn) set(f connFlag, val bool) {
@@ -365,7 +365,7 @@ func (srv *Server) RemovePeer(node *enode.Node) {
 	}
 }
 
-// AddTrustedPeer adds the given node to a reserved whitelist which allows the
+// AddTrustedPeer adds the given node to a reserved trusted list which allows the
 // node to always connect, even if the slot are full.
 func (srv *Server) AddTrustedPeer(node *enode.Node) {
 	select {
@@ -464,7 +464,7 @@ type sharedUDPConn struct {
 	unhandled chan discover.ReadPacket
 }
 
-// ReadFromUDP implements discv5.conn
+// ReadFromUDP implements discover.UDPConn
 func (s *sharedUDPConn) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error) {
 	packet, ok := <-s.unhandled
 	if !ok {
@@ -478,7 +478,7 @@ func (s *sharedUDPConn) ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err err
 	return l, packet.Addr, nil
 }
 
-// Close implements discv5.conn
+// Close implements discover.UDPConn
 func (s *sharedUDPConn) Close() error {
 	return nil
 }
@@ -520,28 +520,24 @@ func (srv *Server) Start() (err error) {
 	srv.addtrusted = make(chan *enode.Node)
 	srv.removetrusted = make(chan *enode.Node)
 	srv.peerOp = make(chan peerOpFunc)
-	srv.peerOpDone = make(chan struct{})
+    srv.peerOpDone = make(chan struct{})
 
-	if err := srv.setupLocalNode(); err != nil {
-		return err
-	}
-	if srv.ListenAddr != "" {
-		if err := srv.setupListening(); err != nil {
-			return err
-		}
-	}
+    if err := srv.setupLocalNode(); err != nil {
+        return err
+    }
+    if srv.ListenAddr != "" {
+        if err := srv.setupListening(); err != nil {
+            return err
+        }
+    }
+    if err := srv.setupDiscovery(); err != nil {
+        return err
+    }
+    srv.setupDialScheduler()
 
-	// Discovery protocol is disabled for consortium chains.
-	// Bootnodes are disabled.
-	// Static nodes logic is used to handle returned Whitelist and will be populated via the eth service.
-	log.Info("Private-network mode enabled.")
-	srv.NoDiscovery = true
-
-	srv.setupDialScheduler()
-
-	srv.loopWG.Add(1)
-	go srv.run()
-	return nil
+    srv.loopWG.Add(1)
+    go srv.run()
+    return nil
 }
 
 func (srv *Server) setupLocalNode() error {
@@ -634,14 +630,14 @@ func (srv *Server) setupDiscovery() error {
 			unhandled = make(chan discover.ReadPacket, 100)
 			sconn = &sharedUDPConn{conn, unhandled}
 		}
-		cfg := discover.Config{
-			PrivateKey:  srv.PrivateKey,
-			NetRestrict: srv.NetRestrict,
-			Bootnodes:   srv.BootstrapNodes,
-			Unhandled:   unhandled,
-			Log:         srv.log,
-		}
-		ntab, err := discover.ListenUDP(conn, srv.localnode, cfg)
+        cfg := discover.Config{
+            PrivateKey:  srv.PrivateKey,
+            NetRestrict: srv.NetRestrict,
+            Bootnodes:   srv.BootstrapNodes,
+            Unhandled:   unhandled,
+            Log:         srv.log,
+        }
+        ntab, err := discover.ListenV4(conn, srv.localnode, cfg)
 		if err != nil {
 			return err
 		}
@@ -651,21 +647,22 @@ func (srv *Server) setupDiscovery() error {
 
 	// Discovery V5
 	if srv.DiscoveryV5 {
-		var ntab *discv5.Network
-		var err error
-		if sconn != nil {
-			ntab, err = discv5.ListenUDP(srv.PrivateKey, sconn, "", srv.NetRestrict)
-		} else {
-			ntab, err = discv5.ListenUDP(srv.PrivateKey, conn, "", srv.NetRestrict)
-		}
-		if err != nil {
-			return err
-		}
-		if err := ntab.SetFallbackNodes(srv.BootstrapNodesV5); err != nil {
-			return err
-		}
-		srv.DiscV5 = ntab
-	}
+        cfg := discover.Config{
+            PrivateKey:  srv.PrivateKey,
+            NetRestrict: srv.NetRestrict,
+            Bootnodes:   srv.BootstrapNodesV5,
+            Log:         srv.log,
+        }
+        var err error
+        if sconn != nil {
+            srv.DiscV5, err = discover.ListenV5(sconn, srv.localnode, cfg)
+        } else {
+            srv.DiscV5, err = discover.ListenV5(conn, srv.localnode, cfg)
+        }
+        if err != nil {
+            return err
+        }
+    }
 	return nil
 }
 
@@ -686,7 +683,6 @@ func (srv *Server) setupDialScheduler() {
 	if config.dialer == nil {
 		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
 	}
-	srv.discmix = enode.NewFairMix(discmixTimeout)
 	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn)
 	for _, n := range srv.StaticNodes {
 		srv.dialsched.addStatic(n)
@@ -801,7 +797,7 @@ running:
 			// the remote identity is known (but hasn't been verified yet).
 			if trusted[c.node.ID()] {
 				// Ensure that the trusted flag is set before checking against MaxPeers.
-				atomic.StoreInt32((*int32)(&c.flags), atomic.LoadInt32((*int32)(&c.flags))|int32(trustedConn))
+                c.flags |= trustedConn
 			}
 			// TODO: track in-progress inbound node IDs (pre-Peer) to avoid dialing them.
 			c.cont <- srv.postHandshakeChecks(peers, inboundCount, c)
@@ -814,8 +810,8 @@ running:
 				// The handshakes are done and it passed all checks.
 				p := srv.launchPeer(c)
 				peers[c.node.ID()] = p
-				srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))), "addr", p.RemoteAddr(), "name", p.Name())
-				srv.dialsched.peerAdded(c)
+                srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", c.flags, "addr", p.RemoteAddr(), "name", p.Name())
+                srv.dialsched.peerAdded(c)
 				if p.Inbound() {
 					inboundCount++
 				}
@@ -910,36 +906,41 @@ func (srv *Server) listenLoop() {
 		// Wait for a free slot before accepting.
 		<-slots
 
-		var (
-			fd  net.Conn
-			err error
-		)
+        var (
+            fd      net.Conn
+            err     error
+            lastLog time.Time
+        )
 		for {
 			fd, err = srv.listener.Accept()
 			if netutil.IsTemporaryError(err) {
-				srv.log.Debug("Temporary read error", "err", err)
-				continue
-			} else if err != nil {
-				srv.log.Debug("Read error", "err", err)
-				slots <- struct{}{}
-				return
-			}
-			break
-		}
+                if time.Since(lastLog) > 1*time.Second {
+                    srv.log.Debug("Temporary read error", "err", err)
+                    lastLog = time.Now()
+                }
+                time.Sleep(time.Millisecond * 200)
+                continue
+            } else if err != nil {
+                srv.log.Debug("Read error", "err", err)
+                slots <- struct{}{}
+                return
+            }
+            break
+        }
 
-		remoteIP := netutil.AddrIP(fd.RemoteAddr())
-		if err := srv.checkInboundConn(fd, remoteIP); err != nil {
-			srv.log.Debug("Rejected inbound connnection", "addr", fd.RemoteAddr(), "err", err)
-			fd.Close()
-			slots <- struct{}{}
-			continue
-		}
-		if remoteIP != nil {
-			var addr *net.TCPAddr
-			if tcp, ok := fd.RemoteAddr().(*net.TCPAddr); ok {
-				addr = tcp
-			}
-			fd = newMeteredConn(fd, true, addr)
+        remoteIP := netutil.AddrIP(fd.RemoteAddr())
+        if err := srv.checkInboundConn(remoteIP); err != nil {
+            srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
+            fd.Close()
+            slots <- struct{}{}
+            continue
+        }
+        if remoteIP != nil {
+            var addr *net.TCPAddr
+            if tcp, ok := fd.RemoteAddr().(*net.TCPAddr); ok {
+                addr = tcp
+            }
+            fd = newMeteredConn(fd, true, addr)
 			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr())
 		}
 		go func() {
@@ -949,17 +950,17 @@ func (srv *Server) listenLoop() {
 	}
 }
 
-func (srv *Server) checkInboundConn(fd net.Conn, remoteIP net.IP) error {
-	if remoteIP == nil {
-		return nil
-	}
-	// Reject connections that do not match NetRestrict.
-	if srv.NetRestrict != nil && !srv.NetRestrict.Contains(remoteIP) {
-		return fmt.Errorf("not whitelisted in NetRestrict")
-	}
-	// Reject Internet peers that try too often.
-	now := srv.clock.Now()
-	srv.inboundHistory.expire(now, nil)
+func (srv *Server) checkInboundConn(remoteIP net.IP) error {
+    if remoteIP == nil {
+        return nil
+    }
+    // Reject connections that do not match NetRestrict.
+    if srv.NetRestrict != nil && !srv.NetRestrict.Contains(remoteIP) {
+        return fmt.Errorf("not in netrestrict list")
+    }
+    // Reject Internet peers that try too often.
+    now := srv.clock.Now()
+    srv.inboundHistory.expire(now, nil)
 	if !netutil.IsLAN(remoteIP) && srv.inboundHistory.contains(remoteIP.String()) {
 		return fmt.Errorf("too many attempts")
 	}
@@ -1000,7 +1001,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		dialPubkey = new(ecdsa.PublicKey)
 		if err := dialDest.Load((*enode.Secp256k1)(dialPubkey)); err != nil {
 			err = errors.New("dial destination doesn't have a secp256k1 public key")
-			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))), "err", err)
+            srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 			return err
 		}
 	}
@@ -1008,7 +1009,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	// Run the RLPx handshake.
 	remotePubkey, err := c.doEncHandshake(srv.PrivateKey)
 	if err != nil {
-		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))), "err", err)
+        srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 		return err
 	}
 	if dialDest != nil {
@@ -1016,7 +1017,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	} else {
 		c.node = nodeFromConn(remotePubkey, c.fd)
 	}
-	clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", connFlag(atomic.LoadInt32((*int32)(&c.flags))))
+    clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", c.flags)
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {
 		clog.Trace("Rejected peer", "err", err)

@@ -43,6 +43,7 @@ type Config struct {
 	Value       *big.Int
 	Debug       bool
 	EVMConfig   vm.Config
+    BaseFee     *big.Int
 
 	State     *state.StateDB
 	GetHashFn func(n uint64) common.Hash
@@ -55,18 +56,19 @@ func setDefaults(cfg *Config) {
 			ChainID:             big.NewInt(1),
 			HomesteadBlock:      new(big.Int),
 			DAOForkBlock:        new(big.Int),
-			DAOForkSupport:      false,
-			EIP150Block:         new(big.Int),
-			EIP150Hash:          common.Hash{},
-			EIP155Block:         new(big.Int),
-			EIP158Block:         new(big.Int),
-			ByzantiumBlock:      new(big.Int),
-			ConstantinopleBlock: new(big.Int),
-			PetersburgBlock:     new(big.Int),
-			IstanbulBlock:       new(big.Int),
-			MuirGlacierBlock:    new(big.Int),
-			YoloV1Block:         nil,
-		}
+            DAOForkSupport:      false,
+            EIP150Block:         new(big.Int),
+            EIP150Hash:          common.Hash{},
+            EIP155Block:         new(big.Int),
+            EIP158Block:         new(big.Int),
+            ByzantiumBlock:      new(big.Int),
+            ConstantinopleBlock: new(big.Int),
+            PetersburgBlock:     new(big.Int),
+            IstanbulBlock:       new(big.Int),
+            MuirGlacierBlock:    new(big.Int),
+            BerlinBlock:         new(big.Int),
+            LondonBlock:         new(big.Int),
+        }
 	}
 
 	if cfg.Difficulty == nil {
@@ -82,16 +84,19 @@ func setDefaults(cfg *Config) {
 		cfg.GasPrice = new(big.Int)
 	}
 	if cfg.Value == nil {
-		cfg.Value = new(big.Int)
-	}
-	if cfg.BlockNumber == nil {
-		cfg.BlockNumber = new(big.Int)
-	}
-	if cfg.GetHashFn == nil {
-		cfg.GetHashFn = func(n uint64) common.Hash {
-			return common.BytesToHash(crypto.Keccak256([]byte(new(big.Int).SetUint64(n).String())))
-		}
-	}
+        cfg.Value = new(big.Int)
+    }
+    if cfg.BlockNumber == nil {
+        cfg.BlockNumber = new(big.Int)
+    }
+    if cfg.GetHashFn == nil {
+        cfg.GetHashFn = func(n uint64) common.Hash {
+            return common.BytesToHash(crypto.Keccak256([]byte(new(big.Int).SetUint64(n).String())))
+        }
+    }
+    if cfg.BaseFee == nil {
+        cfg.BaseFee = big.NewInt(params.InitialBaseFee)
+    }
 }
 
 // Execute executes the code using the input as call data during the execution.
@@ -103,26 +108,29 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 	if cfg == nil {
 		cfg = new(Config)
 	}
-	setDefaults(cfg)
+    setDefaults(cfg)
 
-	if cfg.State == nil {
-		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	}
-	var (
-		address = common.BytesToAddress([]byte("contract"))
-		vmenv   = NewEnv(cfg)
-		sender  = vm.AccountRef(cfg.Origin)
-	)
-	cfg.State.CreateAccount(address)
-	// set the receiver's (the executing contract) code for execution.
-	cfg.State.SetCode(address, code)
-	// Call the code with the given configuration.
-	ret, _, err := vmenv.Call(
-		sender,
-		common.BytesToAddress([]byte("contract")),
-		input,
-		cfg.GasLimit,
-		cfg.Value,
+    if cfg.State == nil {
+        cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+    }
+    var (
+        address = common.BytesToAddress([]byte("contract"))
+        vmenv   = NewEnv(cfg)
+        sender  = vm.AccountRef(cfg.Origin)
+    )
+    if rules := cfg.ChainConfig.Rules(vmenv.Context.BlockNumber, vmenv.Context.Random != nil); rules.IsBerlin {
+        cfg.State.PrepareAccessList(cfg.Origin, &address, vm.ActivePrecompiles(rules), nil)
+    }
+    cfg.State.CreateAccount(address)
+    // set the receiver's (the executing contract) code for execution.
+    cfg.State.SetCode(address, code)
+    // Call the code with the given configuration.
+    ret, _, err := vmenv.Call(
+        sender,
+        common.BytesToAddress([]byte("contract")),
+        input,
+        cfg.GasLimit,
+        cfg.Value,
 	)
 
 	return ret, cfg.State, err
@@ -132,25 +140,27 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 	if cfg == nil {
 		cfg = new(Config)
-	}
-	setDefaults(cfg)
+    }
+    setDefaults(cfg)
 
-	if cfg.State == nil {
-		cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	}
-	var (
-		vmenv  = NewEnv(cfg)
-		sender = vm.AccountRef(cfg.Origin)
-	)
-
-	// Call the code with the given configuration.
-	code, address, leftOverGas, err := vmenv.Create(
-		sender,
-		input,
-		cfg.GasLimit,
-		cfg.Value,
-	)
-	return code, address, leftOverGas, err
+    if cfg.State == nil {
+        cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+    }
+    var (
+        vmenv  = NewEnv(cfg)
+        sender = vm.AccountRef(cfg.Origin)
+    )
+    if rules := cfg.ChainConfig.Rules(vmenv.Context.BlockNumber, vmenv.Context.Random != nil); rules.IsBerlin {
+        cfg.State.PrepareAccessList(cfg.Origin, nil, vm.ActivePrecompiles(rules), nil)
+    }
+    // Call the code with the given configuration.
+    code, address, leftOverGas, err := vmenv.Create(
+        sender,
+        input,
+        cfg.GasLimit,
+        cfg.Value,
+    )
+    return code, address, leftOverGas, err
 }
 
 // Call executes the code given by the contract's address. It will return the
@@ -159,19 +169,23 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 // Call, unlike Execute, requires a config and also requires the State field to
 // be set.
 func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, error) {
-	setDefaults(cfg)
+    setDefaults(cfg)
 
-	vmenv := NewEnv(cfg)
+    vmenv := NewEnv(cfg)
 
-	sender := cfg.State.GetOrNewStateObject(cfg.Origin)
-	// Call the code with the given configuration.
-	ret, leftOverGas, err := vmenv.Call(
-		sender,
-		address,
-		input,
-		cfg.GasLimit,
-		cfg.Value,
-	)
+    sender := cfg.State.GetOrNewStateObject(cfg.Origin)
+    statedb := cfg.State
 
-	return ret, leftOverGas, err
+    if rules := cfg.ChainConfig.Rules(vmenv.Context.BlockNumber, vmenv.Context.Random != nil); rules.IsBerlin {
+        statedb.PrepareAccessList(cfg.Origin, &address, vm.ActivePrecompiles(rules), nil)
+    }
+    // Call the code with the given configuration.
+    ret, leftOverGas, err := vmenv.Call(
+        sender,
+        address,
+        input,
+        cfg.GasLimit,
+        cfg.Value,
+    )
+    return ret, leftOverGas, err
 }

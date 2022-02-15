@@ -56,21 +56,21 @@ func (w *wizard) deployDashboard() {
 	// Port and proxy settings retrieved, figure out which services are available
 	available := make(map[string][]string)
 	for server, services := range w.services {
-		for _, service := range services {
-			available[service] = append(available[service], server)
-		}
-	}
-	for _, service := range []string{"ethstats", "explorer", "wallet", "faucet"} {
-		// Gather all the locally hosted pages of this type
-		var pages []string
-		for _, server := range available[service] {
-			client := w.servers[server]
-			if client == nil {
-				continue
-			}
-			// If there's a service running on the machine, retrieve it's port number
-			var port int
-			switch service {
+        for _, service := range services {
+            available[service] = append(available[service], server)
+        }
+    }
+    for _, service := range []string{"ethstats", "explorer", "faucet"} {
+        // Gather all the locally hosted pages of this type
+        var pages []string
+        for _, server := range available[service] {
+            client := w.servers[server]
+            if client == nil {
+                continue
+            }
+            // If there's a service running on the machine, retrieve it's port number
+            var port int
+            switch service {
 			case "ethstats":
 				if infos, err := checkEthstats(client, w.network); err == nil {
 					port = infos.port
@@ -78,10 +78,6 @@ func (w *wizard) deployDashboard() {
 			case "explorer":
 				if infos, err := checkExplorer(client, w.network); err == nil {
 					port = infos.port
-				}
-			case "wallet":
-				if infos, err := checkWallet(client, w.network); err == nil {
-					port = infos.webPort
 				}
 			case "faucet":
 				if infos, err := checkFaucet(client, w.network); err == nil {
@@ -127,8 +123,6 @@ func (w *wizard) deployDashboard() {
 			infos.ethstats = page
 		case "explorer":
 			infos.explorer = page
-		case "wallet":
-			infos.wallet = page
 		case "faucet":
 			infos.faucet = page
 		}

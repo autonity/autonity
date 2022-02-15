@@ -165,27 +165,33 @@ func (a Accounts) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a Accounts) Less(i, j int) bool { return bytes.Compare(a[i].addr.Bytes(), a[j].addr.Bytes()) < 0 }
 
 func TestCheckpointRegister(t *testing.T) {
-	// Initialize test accounts
-	var accounts Accounts
-	for i := 0; i < 3; i++ {
-		key, _ := crypto.GenerateKey()
-		addr := crypto.PubkeyToAddress(key.PublicKey)
-		accounts = append(accounts, Account{key: key, addr: addr})
-	}
-	sort.Sort(accounts)
+    // Initialize test accounts
+    var accounts Accounts
+    for i := 0; i < 3; i++ {
+        key, _ := crypto.GenerateKey()
+        addr := crypto.PubkeyToAddress(key.PublicKey)
+        accounts = append(accounts, Account{key: key, addr: addr})
+    }
+    sort.Sort(accounts)
 
-	// Deploy registrar contract
-	contractBackend := backends.NewSimulatedBackend(core.GenesisAlloc{accounts[0].addr: {Balance: big.NewInt(1000000000)}, accounts[1].addr: {Balance: big.NewInt(1000000000)}, accounts[2].addr: {Balance: big.NewInt(1000000000)}}, 10000000)
-	defer contractBackend.Close()
+    // Deploy registrar contract
+    contractBackend := backends.NewSimulatedBackend(
+        core.GenesisAlloc{
+            accounts[0].addr: {Balance: big.NewInt(10000000000000000)},
+            accounts[1].addr: {Balance: big.NewInt(10000000000000000)},
+            accounts[2].addr: {Balance: big.NewInt(10000000000000000)},
+        }, 10000000,
+    )
+    defer contractBackend.Close()
 
-	transactOpts := bind.NewKeyedTransactor(accounts[0].key)
+    transactOpts, _ := bind.NewKeyedTransactorWithChainID(accounts[0].key, big.NewInt(1337))
 
-	// 3 trusted signers, threshold 2
-	contractAddr, _, c, err := contract.DeployCheckpointOracle(transactOpts, contractBackend, []common.Address{accounts[0].addr, accounts[1].addr, accounts[2].addr}, sectionSize, processConfirms, big.NewInt(2))
-	if err != nil {
-		t.Error("Failed to deploy registrar contract", err)
-	}
-	contractBackend.Commit()
+    // 3 trusted signers, threshold 2
+    contractAddr, _, c, err := contract.DeployCheckpointOracle(transactOpts, contractBackend, []common.Address{accounts[0].addr, accounts[1].addr, accounts[2].addr}, sectionSize, processConfirms, big.NewInt(2))
+    if err != nil {
+        t.Error("Failed to deploy registrar contract", err)
+    }
+    contractBackend.Commit()
 
 	// getRecent returns block height and hash of the head parent.
 	getRecent := func() (*big.Int, common.Hash) {

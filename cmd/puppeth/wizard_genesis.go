@@ -17,21 +17,22 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"math/big"
-	"math/rand"
-	"net/http"
-	"os"
-	"path/filepath"
-	"time"
+	"bytes"
+    "encoding/json"
+    "fmt"
+    "io"
+    "io/ioutil"
+    "math/big"
+    "math/rand"
+    "net/http"
+    "os"
+    "path/filepath"
+    "time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/core"
+    "github.com/ethereum/go-ethereum/log"
+    "github.com/ethereum/go-ethereum/params"
 )
 
 // makeGenesis creates a new genesis struct based on some user input.
@@ -60,14 +61,53 @@ func (w *wizard) makeGenesis() {
 	fmt.Println(" 2. Clique - proof-of-authority")
 
 	choice := w.read()
-	switch {
-	case choice == "1":
-		// In case of ethash, we're pretty much done
-		genesis.Config.Ethash = new(params.EthashConfig)
-		genesis.ExtraData = make([]byte, 32)
-	default:
-		log.Crit("Invalid consensus engine choice", "choice", choice)
-	}
+    switch {
+    case choice == "1":
+        // In case of ethash, we're pretty much done
+        genesis.Config.Ethash = new(params.EthashConfig)
+        genesis.ExtraData = make([]byte, 32)
+
+    case choice == "" || choice == "2":
+        // In the case of clique, configure the consensus parameters
+        genesis.Difficulty = big.NewInt(1)
+        genesis.Config.Clique = &params.CliqueConfig{
+            Period: 15,
+            Epoch:  30000,
+        }
+        fmt.Println()
+        fmt.Println("How many seconds should blocks take? (default = 15)")
+        genesis.Config.Clique.Period = uint64(w.readDefaultInt(15))
+
+        // We also need the initial list of signers
+        fmt.Println()
+        fmt.Println("Which accounts are allowed to seal? (mandatory at least one)")
+
+        var signers []common.Address
+        for {
+            if address := w.readAddress(); address != nil {
+                signers = append(signers, *address)
+                continue
+            }
+            if len(signers) > 0 {
+                break
+            }
+        }
+        // Sort the signers and embed into the extra-data section
+        for i := 0; i < len(signers); i++ {
+            for j := i + 1; j < len(signers); j++ {
+                if bytes.Compare(signers[i][:], signers[j][:]) > 0 {
+                    signers[i], signers[j] = signers[j], signers[i]
+                }
+            }
+        }
+        genesis.ExtraData = make([]byte, 32+len(signers)*common.AddressLength+65)
+        for i, signer := range signers {
+            copy(genesis.ExtraData[32+i*common.AddressLength:], signer[:])
+        }
+
+    default:
+        log.Crit("Invalid consensus engine choice", "choice", choice)
+    }
 	// Consensus all set, just ask for initial funds and go
 	fmt.Println()
 	fmt.Println("Which accounts should be pre-funded? (advisable at least one)")
@@ -101,7 +141,7 @@ func (w *wizard) makeGenesis() {
 	w.conf.flush()
 }
 
-// importGenesis imports a Autonity genesis spec into puppeth.
+// importGenesis imports a Geth genesis spec into puppeth.
 func (w *wizard) importGenesis() {
 	// Request the genesis JSON spec URL from the user
 	fmt.Println()
@@ -186,50 +226,54 @@ func (w *wizard) manageGenesis() {
 		w.conf.Genesis.Config.ConstantinopleBlock = w.readDefaultBigInt(w.conf.Genesis.Config.ConstantinopleBlock)
 		if w.conf.Genesis.Config.PetersburgBlock == nil {
 			w.conf.Genesis.Config.PetersburgBlock = w.conf.Genesis.Config.ConstantinopleBlock
-		}
-		fmt.Println()
-		fmt.Printf("Which block should Petersburg come into effect? (default = %v)\n", w.conf.Genesis.Config.PetersburgBlock)
-		w.conf.Genesis.Config.PetersburgBlock = w.readDefaultBigInt(w.conf.Genesis.Config.PetersburgBlock)
+        }
+        fmt.Println()
+        fmt.Printf("Which block should Petersburg come into effect? (default = %v)\n", w.conf.Genesis.Config.PetersburgBlock)
+        w.conf.Genesis.Config.PetersburgBlock = w.readDefaultBigInt(w.conf.Genesis.Config.PetersburgBlock)
 
-		fmt.Println()
-		fmt.Printf("Which block should Istanbul come into effect? (default = %v)\n", w.conf.Genesis.Config.IstanbulBlock)
-		w.conf.Genesis.Config.IstanbulBlock = w.readDefaultBigInt(w.conf.Genesis.Config.IstanbulBlock)
+        fmt.Println()
+        fmt.Printf("Which block should Istanbul come into effect? (default = %v)\n", w.conf.Genesis.Config.IstanbulBlock)
+        w.conf.Genesis.Config.IstanbulBlock = w.readDefaultBigInt(w.conf.Genesis.Config.IstanbulBlock)
 
-		fmt.Println()
-		fmt.Printf("Which block should YOLOv1 come into effect? (default = %v)\n", w.conf.Genesis.Config.YoloV1Block)
-		w.conf.Genesis.Config.YoloV1Block = w.readDefaultBigInt(w.conf.Genesis.Config.YoloV1Block)
+        fmt.Println()
+        fmt.Printf("Which block should Berlin come into effect? (default = %v)\n", w.conf.Genesis.Config.BerlinBlock)
+        w.conf.Genesis.Config.BerlinBlock = w.readDefaultBigInt(w.conf.Genesis.Config.BerlinBlock)
 
-		out, _ := json.MarshalIndent(w.conf.Genesis.Config, "", "  ")
-		fmt.Printf("Chain configuration updated:\n\n%s\n", out)
+        fmt.Println()
+        fmt.Printf("Which block should London come into effect? (default = %v)\n", w.conf.Genesis.Config.LondonBlock)
+        w.conf.Genesis.Config.LondonBlock = w.readDefaultBigInt(w.conf.Genesis.Config.LondonBlock)
 
-		w.conf.flush()
+        out, _ := json.MarshalIndent(w.conf.Genesis.Config, "", "  ")
+        fmt.Printf("Chain configuration updated:\n\n%s\n", out)
+
+        w.conf.flush()
 
 	case "2":
 		// Save whatever genesis configuration we currently have
 		fmt.Println()
-		fmt.Printf("Which folder to save the genesis specs into? (default = current)\n")
-		fmt.Printf("  Will create %s.json, %s-aleth.json, %s-harmony.json, %s-parity.json\n", w.network, w.network, w.network, w.network)
+        fmt.Printf("Which folder to save the genesis specs into? (default = current)\n")
+        fmt.Printf("  Will create %s.json, %s-aleth.json, %s-harmony.json, %s-parity.json\n", w.network, w.network, w.network, w.network)
 
-		folder := w.readDefaultString(".")
-		if err := os.MkdirAll(folder, 0755); err != nil {
-			log.Error("Failed to create spec folder", "folder", folder, "err", err)
-			return
-		}
-		out, _ := json.MarshalIndent(w.conf.Genesis, "", "  ")
+        folder := w.readDefaultString(".")
+        if err := os.MkdirAll(folder, 0755); err != nil {
+            log.Error("Failed to create spec folder", "folder", folder, "err", err)
+            return
+        }
+        out, _ := json.MarshalIndent(w.conf.Genesis, "", "  ")
 
-		// Export the native genesis spec used by puppeth and Autonity
-		autonityJson := filepath.Join(folder, fmt.Sprintf("%s.json", w.network))
-		if err := ioutil.WriteFile((autonityJson), out, 0644); err != nil {
-			log.Error("Failed to save genesis file", "err", err)
-			return
-		}
-		log.Info("Saved native genesis chain spec", "path", autonityJson)
+        // Export the native genesis spec used by puppeth and Geth
+        gethJson := filepath.Join(folder, fmt.Sprintf("%s.json", w.network))
+        if err := ioutil.WriteFile(gethJson, out, 0644); err != nil {
+            log.Error("Failed to save genesis file", "err", err)
+            return
+        }
+        log.Info("Saved native genesis chain spec", "path", gethJson)
 
-		// Export the genesis spec used by Aleth (formerly C++ Ethereum)
-		if spec, err := newAlethGenesisSpec(w.network, w.conf.Genesis); err != nil {
-			log.Error("Failed to create Aleth chain spec", "err", err)
-		} else {
-			saveGenesis(folder, w.network, "aleth", spec)
+        // Export the genesis spec used by Aleth (formerly C++ Ethereum)
+        if spec, err := newAlethGenesisSpec(w.network, w.conf.Genesis); err != nil {
+            log.Error("Failed to create Aleth chain spec", "err", err)
+        } else {
+            saveGenesis(folder, w.network, "aleth", spec)
 		}
 		// Export the genesis spec used by Parity
 		if spec, err := newParityChainSpec(w.network, w.conf.Genesis, []string{}); err != nil {

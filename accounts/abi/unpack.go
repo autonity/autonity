@@ -290,11 +290,11 @@ func tuplePointsTo(index int, output []byte) (start int, err error) {
 	offset := big.NewInt(0).SetBytes(output[index : index+32])
 	outputLen := big.NewInt(int64(len(output)))
 
-	if offset.Cmp(big.NewInt(int64(len(output)))) > 0 {
-		return 0, fmt.Errorf("abi: cannot marshal in to go slice: offset %v would go over slice boundary (len=%v)", offset, outputLen)
-	}
-	if offset.BitLen() > 63 {
-		return 0, fmt.Errorf("abi offset larger than int64: %v", offset)
-	}
+	if offset.Cmp(outputLen) > 0 {
+        return 0, fmt.Errorf("abi: cannot marshal in to go slice: offset %v would go over slice boundary (len=%v)", offset, outputLen)
+    }
+    if offset.BitLen() > 63 {
+        return 0, fmt.Errorf("abi offset larger than int64: %v", offset)
+    }
 	return int(offset.Uint64()), nil
 }

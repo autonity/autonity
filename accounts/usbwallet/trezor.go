@@ -179,21 +179,25 @@ func (w *trezorDriver) Derive(path accounts.DerivationPath) (common.Address, err
 // SignTx implements usbwallet.driver, sending the transaction to the Trezor and
 // waiting for the user to confirm or deny the transaction.
 func (w *trezorDriver) SignTx(path accounts.DerivationPath, tx *types.Transaction, chainID *big.Int) (common.Address, *types.Transaction, error) {
-	if w.device == nil {
-		return common.Address{}, nil, accounts.ErrWalletClosed
-	}
-	return w.trezorSign(path, tx, chainID)
+    if w.device == nil {
+        return common.Address{}, nil, accounts.ErrWalletClosed
+    }
+    return w.trezorSign(path, tx, chainID)
+}
+
+func (w *trezorDriver) SignTypedMessage(path accounts.DerivationPath, domainHash []byte, messageHash []byte) ([]byte, error) {
+    return nil, accounts.ErrNotSupported
 }
 
 // trezorDerive sends a derivation request to the Trezor device and returns the
 // Ethereum address located on that path.
 func (w *trezorDriver) trezorDerive(derivationPath []uint32) (common.Address, error) {
-	address := new(trezor.EthereumAddress)
-	if _, err := w.trezorExchange(&trezor.EthereumGetAddress{AddressN: derivationPath}, address); err != nil {
-		return common.Address{}, err
-	}
-	if addr := address.GetAddressBin(); len(addr) > 0 { // Older firmwares use binary fomats
-		return common.BytesToAddress(addr), nil
+    address := new(trezor.EthereumAddress)
+    if _, err := w.trezorExchange(&trezor.EthereumGetAddress{AddressN: derivationPath}, address); err != nil {
+        return common.Address{}, err
+    }
+    if addr := address.GetAddressBin(); len(addr) > 0 { // Older firmwares use binary fomats
+        return common.BytesToAddress(addr), nil
 	}
 	if addr := address.GetAddressHex(); len(addr) > 0 { // Newer firmwares use hexadecimal fomats
 		return common.HexToAddress(addr), nil
@@ -255,10 +259,12 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction
 	if chainID == nil {
 		signer = new(types.HomesteadSigner)
 	} else {
+        // Trezor backend does not support typed transactions yet.
 		signer = types.NewEIP155Signer(chainID)
 		signature[64] -= byte(chainID.Uint64()*2 + 35)
 	}
-	// Inject the final signature into the transaction and sanity check the sender
+
+    // Inject the final signature into the transaction and sanity check the sender
 	signed, err := tx.WithSignature(signer, signature)
 	if err != nil {
 		return common.Address{}, nil, err

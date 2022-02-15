@@ -17,21 +17,21 @@
 package les
 
 import (
-	"math/big"
-	"math/rand"
-	"sync"
-	"time"
+    "math/big"
+    "math/rand"
+    "sync"
+    "time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth/fetcher"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/light"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/consensus"
+    "github.com/ethereum/go-ethereum/core"
+    "github.com/ethereum/go-ethereum/core/rawdb"
+    "github.com/ethereum/go-ethereum/core/types"
+    "github.com/ethereum/go-ethereum/ethdb"
+    "github.com/ethereum/go-ethereum/les/fetcher"
+    "github.com/ethereum/go-ethereum/light"
+    "github.com/ethereum/go-ethereum/log"
+    "github.com/ethereum/go-ethereum/p2p/enode"
 )
 
 const (
@@ -66,13 +66,13 @@ type response struct {
 
 // fetcherPeer holds the fetcher-specific information for each active peer
 type fetcherPeer struct {
-	latest *announceData // The latest announcement sent from the peer
+    latest *announceData // The latest announcement sent from the peer
 
-	// These following two fields can track the latest announces
-	// from the peer with limited size for caching. We hold the
-	// assumption that all enqueued announces are td-monotonic.
-	announces     map[common.Hash]*announce // Announcement map
-	announcesList []common.Hash             // FIFO announces list
+    // These following two fields can track the latest announces
+    // from the peer with limited size for caching. We hold the
+    // assumption that all enqueued announces are td-monotonic.
+    announces map[common.Hash]*announce // Announcement map
+    fifo      []common.Hash             // FIFO announces list
 }
 
 // addAnno enqueues an new trusted announcement. If the queued announces overflow,
@@ -80,47 +80,47 @@ type fetcherPeer struct {
 func (fp *fetcherPeer) addAnno(anno *announce) {
 	// Short circuit if the anno already exists. In normal case it should
 	// never happen since only monotonic anno is accepted. But the adversary
-	// may feed us fake announces with higher td but same hash. In this case,
-	// ignore the anno anyway.
-	hash := anno.data.Hash
-	if _, exist := fp.announces[hash]; exist {
-		return
-	}
-	fp.announces[hash] = anno
-	fp.announcesList = append(fp.announcesList, hash)
+    // may feed us fake announces with higher td but same hash. In this case,
+    // ignore the anno anyway.
+    hash := anno.data.Hash
+    if _, exist := fp.announces[hash]; exist {
+        return
+    }
+    fp.announces[hash] = anno
+    fp.fifo = append(fp.fifo, hash)
 
-	// Evict oldest if the announces are oversized.
-	if len(fp.announcesList)-cachedAnnosThreshold > 0 {
-		for i := 0; i < len(fp.announcesList)-cachedAnnosThreshold; i++ {
-			delete(fp.announces, fp.announcesList[i])
-		}
-		copy(fp.announcesList, fp.announcesList[len(fp.announcesList)-cachedAnnosThreshold:])
-		fp.announcesList = fp.announcesList[:cachedAnnosThreshold]
-	}
+    // Evict oldest if the announces are oversized.
+    if len(fp.fifo)-cachedAnnosThreshold > 0 {
+        for i := 0; i < len(fp.fifo)-cachedAnnosThreshold; i++ {
+            delete(fp.announces, fp.fifo[i])
+        }
+        copy(fp.fifo, fp.fifo[len(fp.fifo)-cachedAnnosThreshold:])
+        fp.fifo = fp.fifo[:cachedAnnosThreshold]
+    }
 }
 
 // forwardAnno removes all announces from the map with a number lower than
 // the provided threshold.
 func (fp *fetcherPeer) forwardAnno(td *big.Int) []*announce {
-	var (
-		cutset  int
-		evicted []*announce
-	)
-	for ; cutset < len(fp.announcesList); cutset++ {
-		anno := fp.announces[fp.announcesList[cutset]]
-		if anno == nil {
-			continue // In theory it should never ever happen
-		}
-		if anno.data.Td.Cmp(td) > 0 {
-			break
-		}
-		evicted = append(evicted, anno)
-		delete(fp.announces, anno.data.Hash)
-	}
-	if cutset > 0 {
-		copy(fp.announcesList, fp.announcesList[cutset:])
-		fp.announcesList = fp.announcesList[:len(fp.announcesList)-cutset]
-	}
+    var (
+        cutset  int
+        evicted []*announce
+    )
+    for ; cutset < len(fp.fifo); cutset++ {
+        anno := fp.announces[fp.fifo[cutset]]
+        if anno == nil {
+            continue // In theory it should never ever happen
+        }
+        if anno.data.Td.Cmp(td) > 0 {
+            break
+        }
+        evicted = append(evicted, anno)
+        delete(fp.announces, anno.data.Hash)
+    }
+    if cutset > 0 {
+        copy(fp.fifo, fp.fifo[cutset:])
+        fp.fifo = fp.fifo[:len(fp.fifo)-cutset]
+    }
 	return evicted
 }
 
@@ -153,9 +153,7 @@ type lightFetcher struct {
 	synchronise func(peer *serverPeer)
 
 	// Test fields or hooks
-	noAnnounce  bool
 	newHeadHook func(*types.Header)
-	newAnnounce func(*serverPeer, *announceData)
 }
 
 // newLightFetcher creates a light fetcher instance.
@@ -474,12 +472,6 @@ func (f *lightFetcher) mainloop() {
 
 // announce processes a new announcement message received from a peer.
 func (f *lightFetcher) announce(p *serverPeer, head *announceData) {
-	if f.newAnnounce != nil {
-		f.newAnnounce(p, head)
-	}
-	if f.noAnnounce {
-		return
-	}
 	select {
 	case f.announceCh <- &announce{peerid: p.ID(), trust: p.trusted, data: head}:
 	case <-f.closeCh:
@@ -507,8 +499,8 @@ func (f *lightFetcher) requestHeaderByHash(peerid enode.ID) func(common.Hash) er
 			getCost: func(dp distPeer) uint64 { return dp.(*serverPeer).getRequestCost(GetBlockHeadersMsg, 1) },
 			canSend: func(dp distPeer) bool { return dp.(*serverPeer).ID() == peerid },
 			request: func(dp distPeer) func() {
-				peer, id := dp.(*serverPeer), genReqID()
-				cost := peer.getRequestCost(GetBlockHeadersMsg, 1)
+                peer, id := dp.(*serverPeer), rand.Uint64()
+                cost := peer.getRequestCost(GetBlockHeadersMsg, 1)
 				peer.fcServer.QueuedRequest(id, cost)
 
 				return func() {

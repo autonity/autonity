@@ -17,59 +17,58 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
+    "fmt"
+    "os"
+    "path/filepath"
+    "strings"
 
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/console"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/rpc"
-	"gopkg.in/urfave/cli.v1"
+    "github.com/ethereum/go-ethereum/cmd/utils"
+    "github.com/ethereum/go-ethereum/console"
+    "github.com/ethereum/go-ethereum/node"
+    "github.com/ethereum/go-ethereum/rpc"
+    "gopkg.in/urfave/cli.v1"
 )
 
 var (
 	consoleFlags = []cli.Flag{utils.JSpathFlag, utils.ExecFlag, utils.PreloadJSFlag}
 
 	consoleCommand = cli.Command{
-		Action:   utils.MigrateFlags(localConsole),
-		Name:     "console",
-		Usage:    "Start an interactive JavaScript environment",
-		Flags:    append(append(nodeFlags, rpcFlags...), consoleFlags...),
-		Category: "CONSOLE COMMANDS",
-		Description: `
+        Action:   utils.MigrateFlags(localConsole),
+        Name:     "console",
+        Usage:    "Start an interactive JavaScript environment",
+        Flags:    append(append(nodeFlags, rpcFlags...), consoleFlags...),
+        Category: "CONSOLE COMMANDS",
+        Description: `
 The Autonity console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/clearmatics/autonity/wiki/JavaScript-Console.`,
-	}
+See https://geth.ethereum.org/docs/interface/javascript-console.`,
+    }
 
 	attachCommand = cli.Command{
-		Action:    utils.MigrateFlags(remoteConsole),
-		Name:      "attach",
-		Usage:     "Start an interactive JavaScript environment (connect to node)",
-		ArgsUsage: "[endpoint]",
-		Flags:     append(consoleFlags, utils.DataDirFlag),
-		Category:  "CONSOLE COMMANDS",
-		Description: `
+        Action:    utils.MigrateFlags(remoteConsole),
+        Name:      "attach",
+        Usage:     "Start an interactive JavaScript environment (connect to node)",
+        ArgsUsage: "[endpoint]",
+        Flags:     append(consoleFlags, utils.DataDirFlag),
+        Category:  "CONSOLE COMMANDS",
+        Description: `
 The Autonity console is an interactive shell for the JavaScript runtime environment
 which exposes a node admin interface as well as the Ðapp JavaScript API.
-See https://github.com/clearmatics/autonity/wiki/JavaScript-Console.
-This command allows to open a console on a running autonity node.`,
-	}
+See https://geth.ethereum.org/docs/interface/javascript-console.
+This command allows to open a console on a running geth node.`,
+    }
 
 	javascriptCommand = cli.Command{
-		Action:    utils.MigrateFlags(ephemeralConsole),
-		Name:      "js",
-		Usage:     "Execute the specified JavaScript files",
-		ArgsUsage: "<jsfile> [jsfile...]",
-		Flags:     append(nodeFlags, consoleFlags...),
-		Category:  "CONSOLE COMMANDS",
-		Description: `
+        Action:    utils.MigrateFlags(ephemeralConsole),
+        Name:      "js",
+        Usage:     "Execute the specified JavaScript files",
+        ArgsUsage: "<jsfile> [jsfile...]",
+        Flags:     append(nodeFlags, consoleFlags...),
+        Category:  "CONSOLE COMMANDS",
+        Description: `
 The JavaScript VM exposes a node admin interface as well as the Ðapp
-JavaScript API. See https://github.com/clearmatics/autonity/wiki/JavaScript-Console`,
-	}
+JavaScript API. See https://geth.ethereum.org/docs/interface/javascript-console`,
+    }
 )
 
 // localConsole starts a new autonity node, attaching a JavaScript console to it at the
@@ -77,14 +76,14 @@ JavaScript API. See https://github.com/clearmatics/autonity/wiki/JavaScript-Cons
 func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
-	stack, backend := makeFullNode(ctx)
-	startNode(ctx, stack, backend)
+    stack, backend := makeFullNode(ctx)
+    startNode(ctx, stack, backend, true)
 	defer stack.Close()
 
-	// Attach to the newly started node and start the JavaScript console
+    // Attach to the newly started node and create the JavaScript console.
 	client, err := stack.Attach()
 	if err != nil {
-		utils.Fatalf("Failed to attach to the inproc autonity: %v", err)
+        return fmt.Errorf("Failed to attach to the inproc autonity: %v", err)
 	}
 	config := console.Config{
 		DataDir: utils.MakeDataDir(ctx),
@@ -92,37 +91,62 @@ func localConsole(ctx *cli.Context) error {
 		Client:  client,
 		Preload: utils.MakeConsolePreloads(ctx),
 	}
-
 	console, err := console.New(config)
-	if err != nil {
-		utils.Fatalf("Failed to start the JavaScript console: %v", err)
-	}
-	defer console.Stop(false)
+    if err != nil {
+        return fmt.Errorf("Failed to start the JavaScript console: %v", err)
+    }
+    defer console.Stop(false)
 
-	// If only a short execution was requested, evaluate and return
-	if script := ctx.GlobalString(utils.ExecFlag.Name); script != "" {
-		console.Evaluate(script)
-		return nil
-	}
-	// Otherwise print the welcome screen and enter interactive mode
-	console.Welcome()
-	console.Interactive()
+    // If only a short execution was requested, evaluate and return.
+    if script := ctx.GlobalString(utils.ExecFlag.Name); script != "" {
+        console.Evaluate(script)
+        return nil
+    }
 
-	return nil
+    // Track node shutdown and stop the console when it goes down.
+    // This happens when SIGTERM is sent to the process.
+    go func() {
+        stack.Wait()
+        console.StopInteractive()
+    }()
+
+    // Print the welcome screen and enter interactive mode.
+    console.Welcome()
+    console.Interactive()
+    return nil
 }
 
-// remoteConsole will connect to a remote autonity instance, attaching a JavaScript
+// remoteConsole will connect to a remote geth instance, attaching a JavaScript
 // console to it.
 func remoteConsole(ctx *cli.Context) error {
 	// Attach to a remotely running autonity instance and start the JavaScript console
 	endpoint := ctx.Args().First()
 	if endpoint == "" {
-		path := node.DefaultDataDir()
-		if ctx.GlobalIsSet(utils.DataDirFlag.Name) {
-			path = ctx.GlobalString(utils.DataDirFlag.Name)
-		}
-		endpoint = fmt.Sprintf("%s/autonity.ipc", path)
-	}
+        path := node.DefaultDataDir()
+        if ctx.GlobalIsSet(utils.DataDirFlag.Name) {
+            path = ctx.GlobalString(utils.DataDirFlag.Name)
+        }
+        endpoint = fmt.Sprintf("%s/autonity.ipc", path)
+        if path != "" {
+            if ctx.GlobalBool(utils.RopstenFlag.Name) {
+                // Maintain compatibility with older Geth configurations storing the
+                // Ropsten database in `testnet` instead of `ropsten`.
+                legacyPath := filepath.Join(path, "testnet")
+                if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+                    path = legacyPath
+                } else {
+                    path = filepath.Join(path, "ropsten")
+                }
+            } else if ctx.GlobalBool(utils.RinkebyFlag.Name) {
+                path = filepath.Join(path, "rinkeby")
+            } else if ctx.GlobalBool(utils.GoerliFlag.Name) {
+                path = filepath.Join(path, "goerli")
+            } else if ctx.GlobalBool(utils.SepoliaFlag.Name) {
+                path = filepath.Join(path, "sepolia")
+            }
+        }
+        endpoint = fmt.Sprintf("%s/geth.ipc", path)
+    }
 	client, err := dialRPC(endpoint)
 	if err != nil {
 		utils.Fatalf("Unable to attach to remote autonity: %v", err)
@@ -133,7 +157,6 @@ func remoteConsole(ctx *cli.Context) error {
 		Client:  client,
 		Preload: utils.MakeConsolePreloads(ctx),
 	}
-
 	console, err := console.New(config)
 	if err != nil {
 		utils.Fatalf("Failed to start the JavaScript console: %v", err)
@@ -148,19 +171,18 @@ func remoteConsole(ctx *cli.Context) error {
 	// Otherwise print the welcome screen and enter interactive mode
 	console.Welcome()
 	console.Interactive()
-
 	return nil
 }
 
 // dialRPC returns a RPC client which connects to the given endpoint.
 // The check for empty endpoint implements the defaulting logic
-// for "autonity attach" and "autonity monitor" with no argument.
+// for "geth attach" with no argument.
 func dialRPC(endpoint string) (*rpc.Client, error) {
 	if endpoint == "" {
 		endpoint = node.DefaultIPCEndpoint(clientIdentifier)
 	} else if strings.HasPrefix(endpoint, "rpc:") || strings.HasPrefix(endpoint, "ipc:") {
-		// Backwards compatibility with autonity < 1.5 which required
-		// these prefixes.
+        // Backwards compatibility with geth < 1.5 which required
+        // these prefixes.
 		endpoint = endpoint[4:]
 	}
 	return rpc.Dial(endpoint)
@@ -171,43 +193,42 @@ func dialRPC(endpoint string) (*rpc.Client, error) {
 // everything down.
 func ephemeralConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	stack, backend := makeFullNode(ctx)
-	startNode(ctx, stack, backend)
+    stack, backend := makeFullNode(ctx)
+    startNode(ctx, stack, backend, false)
 	defer stack.Close()
 
 	// Attach to the newly started node and start the JavaScript console
 	client, err := stack.Attach()
 	if err != nil {
-		utils.Fatalf("Failed to attach to the inproc autonity: %v", err)
+        return fmt.Errorf("Failed to attach to the inproc autonity: %v", err)
 	}
 	config := console.Config{
 		DataDir: utils.MakeDataDir(ctx),
 		DocRoot: ctx.GlobalString(utils.JSpathFlag.Name),
-		Client:  client,
-		Preload: utils.MakeConsolePreloads(ctx),
-	}
+        Client:  client,
+        Preload: utils.MakeConsolePreloads(ctx),
+    }
 
-	console, err := console.New(config)
-	if err != nil {
-		utils.Fatalf("Failed to start the JavaScript console: %v", err)
-	}
-	defer console.Stop(false)
+    console, err := console.New(config)
+    if err != nil {
+        return fmt.Errorf("Failed to start the JavaScript console: %v", err)
+    }
+    defer console.Stop(false)
 
-	// Evaluate each of the specified JavaScript files
-	for _, file := range ctx.Args() {
-		if err = console.Execute(file); err != nil {
-			utils.Fatalf("Failed to execute %s: %v", file, err)
-		}
-	}
-	// Wait for pending callbacks, but stop for Ctrl-C.
-	abort := make(chan os.Signal, 1)
-	signal.Notify(abort, syscall.SIGINT, syscall.SIGTERM)
+    // Interrupt the JS interpreter when node is stopped.
+    go func() {
+        stack.Wait()
+        console.Stop(false)
+    }()
 
-	go func() {
-		<-abort
-		os.Exit(0)
-	}()
-	console.Stop(true)
+    // Evaluate each of the specified JavaScript files.
+    for _, file := range ctx.Args() {
+        if err = console.Execute(file); err != nil {
+            return fmt.Errorf("Failed to execute %s: %v", file, err)
+        }
+    }
 
-	return nil
+    // The main script is now done, but keep running timers/callbacks.
+    console.Stop(true)
+    return nil
 }

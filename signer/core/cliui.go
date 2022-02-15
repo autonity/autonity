@@ -103,31 +103,48 @@ func showMetadata(metadata Metadata) {
 func (ui *CommandlineUI) ApproveTx(request *SignTxRequest) (SignTxResponse, error) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
-	weival := request.Transaction.Value.ToInt()
-	fmt.Printf("--------- Transaction request-------------\n")
-	if to := request.Transaction.To; to != nil {
-		fmt.Printf("to:    %v\n", to.Original())
-		if !to.ValidChecksum() {
-			fmt.Printf("\nWARNING: Invalid checksum on to-address!\n\n")
-		}
-	} else {
-		fmt.Printf("to:    <contact creation>\n")
-	}
-	fmt.Printf("from:     %v\n", request.Transaction.From.String())
-	fmt.Printf("value:    %v wei\n", weival)
-	fmt.Printf("gas:      %v (%v)\n", request.Transaction.Gas, uint64(request.Transaction.Gas))
-	fmt.Printf("gasprice: %v wei\n", request.Transaction.GasPrice.ToInt())
-	fmt.Printf("nonce:    %v (%v)\n", request.Transaction.Nonce, uint64(request.Transaction.Nonce))
-	if request.Transaction.Data != nil {
-		d := *request.Transaction.Data
-		if len(d) > 0 {
-			fmt.Printf("data:     %v\n", hexutil.Encode(d))
-		}
-	}
-	if request.Callinfo != nil {
-		fmt.Printf("\nTransaction validation:\n")
-		for _, m := range request.Callinfo {
-			fmt.Printf("  * %s : %s\n", m.Typ, m.Message)
+    weival := request.Transaction.Value.ToInt()
+    fmt.Printf("--------- Transaction request-------------\n")
+    if to := request.Transaction.To; to != nil {
+        fmt.Printf("to:    %v\n", to.Original())
+        if !to.ValidChecksum() {
+            fmt.Printf("\nWARNING: Invalid checksum on to-address!\n\n")
+        }
+    } else {
+        fmt.Printf("to:    <contact creation>\n")
+    }
+    fmt.Printf("from:               %v\n", request.Transaction.From.String())
+    fmt.Printf("value:              %v wei\n", weival)
+    fmt.Printf("gas:                %v (%v)\n", request.Transaction.Gas, uint64(request.Transaction.Gas))
+    if request.Transaction.MaxFeePerGas != nil {
+        fmt.Printf("maxFeePerGas:          %v wei\n", request.Transaction.MaxFeePerGas.ToInt())
+        fmt.Printf("maxPriorityFeePerGas:  %v wei\n", request.Transaction.MaxPriorityFeePerGas.ToInt())
+    } else {
+        fmt.Printf("gasprice: %v wei\n", request.Transaction.GasPrice.ToInt())
+    }
+    fmt.Printf("nonce:    %v (%v)\n", request.Transaction.Nonce, uint64(request.Transaction.Nonce))
+    if chainId := request.Transaction.ChainID; chainId != nil {
+        fmt.Printf("chainid:  %v\n", chainId)
+    }
+    if list := request.Transaction.AccessList; list != nil {
+        fmt.Printf("Accesslist\n")
+        for i, el := range *list {
+            fmt.Printf(" %d. %v\n", i, el.Address)
+            for j, slot := range el.StorageKeys {
+                fmt.Printf("   %d. %v\n", j, slot)
+            }
+        }
+    }
+    if request.Transaction.Data != nil {
+        d := *request.Transaction.Data
+        if len(d) > 0 {
+            fmt.Printf("data:     %v\n", hexutil.Encode(d))
+        }
+    }
+    if request.Callinfo != nil {
+        fmt.Printf("\nTransaction validation:\n")
+        for _, m := range request.Callinfo {
+            fmt.Printf("  * %s : %s\n", m.Typ, m.Message)
 		}
 		fmt.Println()
 

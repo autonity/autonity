@@ -28,7 +28,6 @@ import (
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/discover"
-	"github.com/clearmatics/autonity/p2p/discv5"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/p2p/nat"
 	"github.com/clearmatics/autonity/p2p/netutil"
@@ -111,33 +110,33 @@ func main() {
 
 	realaddr := conn.LocalAddr().(*net.UDPAddr)
 	if natm != nil {
-		if !realaddr.IP.IsLoopback() {
-			go nat.Map(natm, nil, "udp", realaddr.Port, realaddr.Port, "ethereum discovery")
-		}
-		if ext, err := natm.ExternalIP(); err == nil {
-			realaddr = &net.UDPAddr{IP: ext, Port: realaddr.Port}
-		}
-	}
+        if !realaddr.IP.IsLoopback() {
+            go nat.Map(natm, nil, "udp", realaddr.Port, realaddr.Port, "ethereum discovery")
+        }
+        if ext, err := natm.ExternalIP(); err == nil {
+            realaddr = &net.UDPAddr{IP: ext, Port: realaddr.Port}
+        }
+    }
 
-	printNotice(&nodeKey.PublicKey, *realaddr)
+    printNotice(&nodeKey.PublicKey, *realaddr)
 
-	if *runv5 {
-		if _, err := discv5.ListenUDP(nodeKey, conn, "", restrictList); err != nil {
-			utils.Fatalf("%v", err)
-		}
-	} else {
-		db, _ := enode.OpenDB("")
-		ln := enode.NewLocalNode(db, nodeKey)
-		cfg := discover.Config{
-			PrivateKey:  nodeKey,
-			NetRestrict: restrictList,
-		}
-		if _, err := discover.ListenUDP(conn, ln, cfg); err != nil {
-			utils.Fatalf("%v", err)
-		}
-	}
+    db, _ := enode.OpenDB("")
+    ln := enode.NewLocalNode(db, nodeKey)
+    cfg := discover.Config{
+        PrivateKey:  nodeKey,
+        NetRestrict: restrictList,
+    }
+    if *runv5 {
+        if _, err := discover.ListenV5(conn, ln, cfg); err != nil {
+            utils.Fatalf("%v", err)
+        }
+    } else {
+        if _, err := discover.ListenUDP(conn, ln, cfg); err != nil {
+            utils.Fatalf("%v", err)
+        }
+    }
 
-	select {}
+    select {}
 }
 
 func printNotice(nodeKey *ecdsa.PublicKey, addr net.UDPAddr) {

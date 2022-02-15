@@ -314,7 +314,7 @@ func BenchmarkSearchSlot(b *testing.B) {
 // With accountList and sorting
 // BenchmarkFlatten-6   	      50	  29890856 ns/op
 //
-// Without sorting and tracking accountlist
+// Without sorting and tracking accountList
 // BenchmarkFlatten-6   	     300	   5511511 ns/op
 func BenchmarkFlatten(b *testing.B) {
 	fill := func(parent snapshot) *diffLayer {
@@ -378,17 +378,17 @@ func BenchmarkJournal(b *testing.B) {
 			accounts[accountKey] = randomAccount()
 
 			accStorage := make(map[common.Hash][]byte)
-			for i := 0; i < 200; i++ {
-				value := make([]byte, 32)
-				rand.Read(value)
-				accStorage[randomHash()] = value
+            for i := 0; i < 200; i++ {
+                value := make([]byte, 32)
+                rand.Read(value)
+                accStorage[randomHash()] = value
 
-			}
-			storage[accountKey] = accStorage
-		}
-		return newDiffLayer(parent, common.Hash{}, destructs, accounts, storage)
-	}
-	layer := snapshot(new(diskLayer))
+            }
+            storage[accountKey] = accStorage
+        }
+        return newDiffLayer(parent, common.Hash{}, destructs, accounts, storage)
+    }
+    layer := snapshot(emptyLayer())
 	for i := 1; i < 128; i++ {
 		layer = fill(layer)
 	}

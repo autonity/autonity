@@ -19,7 +19,8 @@ package flowcontrol
 
 import (
 	"fmt"
-	"sync"
+    "math"
+    "sync"
 	"time"
 
 	"github.com/clearmatics/autonity/common/mclock"
@@ -313,19 +314,22 @@ const safetyMargin = time.Millisecond
 // with the given maximum estimated cost. Second return value is the relative
 // estimated buffer level after sending the request (divided by BufLimit).
 func (node *ServerNode) CanSend(maxCost uint64) (time.Duration, float64) {
-	node.lock.RLock()
-	defer node.lock.RUnlock()
+    node.lock.RLock()
+    defer node.lock.RUnlock()
 
-	now := node.clock.Now()
-	node.recalcBLE(now)
-	maxCost += uint64(safetyMargin) * node.params.MinRecharge / uint64(fcTimeConst)
-	if maxCost > node.params.BufLimit {
-		maxCost = node.params.BufLimit
-	}
-	if node.bufEstimate >= maxCost {
-		relBuf := float64(node.bufEstimate-maxCost) / float64(node.params.BufLimit)
-		if node.log != nil {
-			node.log.add(now, fmt.Sprintf("canSend  bufEst=%d  maxCost=%d  true  relBuf=%f", node.bufEstimate, maxCost, relBuf))
+    if node.params.BufLimit == 0 {
+        return time.Duration(math.MaxInt64), 0
+    }
+    now := node.clock.Now()
+    node.recalcBLE(now)
+    maxCost += uint64(safetyMargin) * node.params.MinRecharge / uint64(fcTimeConst)
+    if maxCost > node.params.BufLimit {
+        maxCost = node.params.BufLimit
+    }
+    if node.bufEstimate >= maxCost {
+        relBuf := float64(node.bufEstimate-maxCost) / float64(node.params.BufLimit)
+        if node.log != nil {
+            node.log.add(now, fmt.Sprintf("canSend  bufEst=%d  maxCost=%d  true  relBuf=%f", node.bufEstimate, maxCost, relBuf))
 		}
 		return 0, relBuf
 	}

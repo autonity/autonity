@@ -17,7 +17,8 @@
 package accounts
 
 import (
-	"reflect"
+	"fmt"
+    "reflect"
 	"testing"
 )
 
@@ -68,12 +69,50 @@ func TestHDPathParsing(t *testing.T) {
 		{"/44'/60'/0'/0", nil}, // Absolute path without m prefix, might be user error
 		{"m/2147483648'", nil}, // Overflows 32 bit integer
 		{"m/-1'", nil},         // Cannot contain negative number
-	}
-	for i, tt := range tests {
-		if path, err := ParseDerivationPath(tt.input); !reflect.DeepEqual(path, tt.output) {
-			t.Errorf("test %d: parse mismatch: have %v (%v), want %v", i, path, err, tt.output)
-		} else if path == nil && err == nil {
-			t.Errorf("test %d: nil path and error: %v", i, err)
-		}
-	}
+    }
+    for i, tt := range tests {
+        if path, err := ParseDerivationPath(tt.input); !reflect.DeepEqual(path, tt.output) {
+            t.Errorf("test %d: parse mismatch: have %v (%v), want %v", i, path, err, tt.output)
+        } else if path == nil && err == nil {
+            t.Errorf("test %d: nil path and error: %v", i, err)
+        }
+    }
+}
+
+func testDerive(t *testing.T, next func() DerivationPath, expected []string) {
+    t.Helper()
+    for i, want := range expected {
+        if have := next(); fmt.Sprintf("%v", have) != want {
+            t.Errorf("step %d, have %v, want %v", i, have, want)
+        }
+    }
+}
+
+func TestHdPathIteration(t *testing.T) {
+    testDerive(t, DefaultIterator(DefaultBaseDerivationPath),
+        []string{
+            "m/44'/60'/0'/0/0", "m/44'/60'/0'/0/1",
+            "m/44'/60'/0'/0/2", "m/44'/60'/0'/0/3",
+            "m/44'/60'/0'/0/4", "m/44'/60'/0'/0/5",
+            "m/44'/60'/0'/0/6", "m/44'/60'/0'/0/7",
+            "m/44'/60'/0'/0/8", "m/44'/60'/0'/0/9",
+        })
+
+    testDerive(t, DefaultIterator(LegacyLedgerBaseDerivationPath),
+        []string{
+            "m/44'/60'/0'/0", "m/44'/60'/0'/1",
+            "m/44'/60'/0'/2", "m/44'/60'/0'/3",
+            "m/44'/60'/0'/4", "m/44'/60'/0'/5",
+            "m/44'/60'/0'/6", "m/44'/60'/0'/7",
+            "m/44'/60'/0'/8", "m/44'/60'/0'/9",
+        })
+
+    testDerive(t, LedgerLiveIterator(DefaultBaseDerivationPath),
+        []string{
+            "m/44'/60'/0'/0/0", "m/44'/60'/1'/0/0",
+            "m/44'/60'/2'/0/0", "m/44'/60'/3'/0/0",
+            "m/44'/60'/4'/0/0", "m/44'/60'/5'/0/0",
+            "m/44'/60'/6'/0/0", "m/44'/60'/7'/0/0",
+            "m/44'/60'/8'/0/0", "m/44'/60'/9'/0/0",
+        })
 }

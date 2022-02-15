@@ -74,25 +74,34 @@ func NewID(config *params.ChainConfig, genesis common.Hash, head uint64) ID {
 	var next uint64
 	for _, fork := range gatherForks(config) {
 		if fork <= head {
-			// Fork already passed, checksum the previous hash and the fork number
-			hash = checksumUpdate(hash, fork)
-			continue
-		}
-		next = fork
-		break
-	}
-	return ID{Hash: checksumToBytes(hash), Next: next}
+            // Fork already passed, checksum the previous hash and the fork number
+            hash = checksumUpdate(hash, fork)
+            continue
+        }
+        next = fork
+        break
+    }
+    return ID{Hash: checksumToBytes(hash), Next: next}
+}
+
+// NewIDWithChain calculates the Ethereum fork ID from an existing chain instance.
+func NewIDWithChain(chain Blockchain) ID {
+    return NewID(
+        chain.Config(),
+        chain.Genesis().Hash(),
+        chain.CurrentHeader().Number.Uint64(),
+    )
 }
 
 // NewFilter creates a filter that returns if a fork ID should be rejected or not
 // based on the local chain's status.
 func NewFilter(chain Blockchain) Filter {
-	return newFilter(
-		chain.Config(),
-		chain.Genesis().Hash(),
-		func() uint64 {
-			return chain.CurrentHeader().Number.Uint64()
-		},
+    return newFilter(
+        chain.Config(),
+        chain.Genesis().Hash(),
+        func() uint64 {
+            return chain.CurrentHeader().Number.Uint64()
+        },
 	)
 }
 
@@ -146,9 +155,9 @@ func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() ui
 		for i, fork := range forks {
 			// If our head is beyond this fork, continue to the next (we have a dummy
 			// fork of maxuint64 as the last item to always fail this check eventually).
-			if head > fork {
-				continue
-			}
+            if head >= fork {
+                continue
+            }
 			// Found the first unpassed fork block, check if our current state matches
 			// the remote checksum (rule #1).
 			if sums[i] == id.Hash {

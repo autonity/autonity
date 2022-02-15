@@ -17,18 +17,18 @@
 package les
 
 import (
-	"encoding/binary"
-	"math"
-	"sync"
-	"sync/atomic"
-	"time"
+    "encoding/binary"
+    "math"
+    "sync"
+    "sync/atomic"
+    "time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/les/flowcontrol"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
+    "github.com/ethereum/go-ethereum/common/mclock"
+    "github.com/ethereum/go-ethereum/eth/ethconfig"
+    "github.com/ethereum/go-ethereum/ethdb"
+    "github.com/ethereum/go-ethereum/les/flowcontrol"
+    "github.com/ethereum/go-ethereum/log"
+    "github.com/ethereum/go-ethereum/metrics"
 )
 
 const makeCostStats = false // make request cost statistics during operation
@@ -137,17 +137,17 @@ type costTracker struct {
 
 // newCostTracker creates a cost tracker and loads the cost factor statistics from the database.
 // It also returns the minimum capacity that can be assigned to any peer.
-func newCostTracker(db ethdb.Database, config *eth.Config) (*costTracker, uint64) {
-	utilTarget := float64(config.LightServ) * flowcontrol.FixedPointMultiplier / 100
-	ct := &costTracker{
-		db:         db,
-		stopCh:     make(chan chan struct{}),
-		reqInfoCh:  make(chan reqInfo, 100),
-		utilTarget: utilTarget,
-	}
-	if config.LightIngress > 0 {
-		ct.inSizeFactor = utilTarget / float64(config.LightIngress)
-	}
+func newCostTracker(db ethdb.Database, config *ethconfig.Config) (*costTracker, uint64) {
+    utilTarget := float64(config.LightServ) * flowcontrol.FixedPointMultiplier / 100
+    ct := &costTracker{
+        db:         db,
+        stopCh:     make(chan chan struct{}),
+        reqInfoCh:  make(chan reqInfo, 100),
+        utilTarget: utilTarget,
+    }
+    if config.LightIngress > 0 {
+        ct.inSizeFactor = utilTarget / float64(config.LightIngress)
+    }
 	if config.LightEgress > 0 {
 		ct.outSizeFactor = utilTarget / float64(config.LightEgress)
 	}
@@ -367,7 +367,6 @@ func (ct *costTracker) gfLoop() {
 				}
 				recentServedGauge.Update(int64(recentTime))
 				recentEstimatedGauge.Update(int64(recentAvg))
-				totalRechargeGauge.Update(int64(totalRecharge))
 
 			case <-saveTicker.C:
 				saveCostFactor()

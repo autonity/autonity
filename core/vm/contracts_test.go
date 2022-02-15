@@ -38,22 +38,44 @@ type precompiledTest struct {
 // precompiledFailureTest defines the input/error pairs for precompiled
 // contract failure tests.
 type precompiledFailureTest struct {
-	Input         string
-	ExpectedError string
-	Name          string
+    Input         string
+    ExpectedError string
+    Name          string
 }
 
-var allPrecompiles = PrecompiledContractsYoloV1
+// allPrecompiles does not map to the actual set of precompiles, as it also contains
+// repriced versions of precompiles at certain slots
+var allPrecompiles = map[common.Address]PrecompiledContract{
+    common.BytesToAddress([]byte{1}):    &ecrecover{},
+    common.BytesToAddress([]byte{2}):    &sha256hash{},
+    common.BytesToAddress([]byte{3}):    &ripemd160hash{},
+    common.BytesToAddress([]byte{4}):    &dataCopy{},
+    common.BytesToAddress([]byte{5}):    &bigModExp{eip2565: false},
+    common.BytesToAddress([]byte{0xf5}): &bigModExp{eip2565: true},
+    common.BytesToAddress([]byte{6}):    &bn256AddIstanbul{},
+    common.BytesToAddress([]byte{7}):    &bn256ScalarMulIstanbul{},
+    common.BytesToAddress([]byte{8}):    &bn256PairingIstanbul{},
+    common.BytesToAddress([]byte{9}):    &blake2F{},
+    common.BytesToAddress([]byte{10}):   &bls12381G1Add{},
+    common.BytesToAddress([]byte{11}):   &bls12381G1Mul{},
+    common.BytesToAddress([]byte{12}):   &bls12381G1MultiExp{},
+    common.BytesToAddress([]byte{13}):   &bls12381G2Add{},
+    common.BytesToAddress([]byte{14}):   &bls12381G2Mul{},
+    common.BytesToAddress([]byte{15}):   &bls12381G2MultiExp{},
+    common.BytesToAddress([]byte{16}):   &bls12381Pairing{},
+    common.BytesToAddress([]byte{17}):   &bls12381MapG1{},
+    common.BytesToAddress([]byte{18}):   &bls12381MapG2{},
+}
 
 // EIP-152 test vectors
 var blake2FMalformedInputTests = []precompiledFailureTest{
-	{
-		Input:         "",
-		ExpectedError: errBlake2FInvalidInputLength.Error(),
-		Name:          "vector 0: empty input",
-	},
-	{
-		Input:         "00000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001",
+    {
+        Input:         "",
+        ExpectedError: errBlake2FInvalidInputLength.Error(),
+        Name:          "vector 0: empty input",
+    },
+    {
+        Input:         "00000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001",
 		ExpectedError: errBlake2FInvalidInputLength.Error(),
 		Name:          "vector 1: less than 213 bytes input",
 	},
@@ -203,15 +225,18 @@ func BenchmarkPrecompiledRipeMD(bench *testing.B) {
 func BenchmarkPrecompiledIdentity(bench *testing.B) {
 	t := precompiledTest{
 		Input:    "38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e000000000000000000000000000000000000000000000000000000000000001b38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e789d1dd423d25f0772d2748d60f7e4b81bb14d086eba8e8e8efb6dcff8a4ae02",
-		Expected: "38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e000000000000000000000000000000000000000000000000000000000000001b38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e789d1dd423d25f0772d2748d60f7e4b81bb14d086eba8e8e8efb6dcff8a4ae02",
-		Name:     "128",
-	}
-	benchmarkPrecompiled("04", t, bench)
+        Expected: "38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e000000000000000000000000000000000000000000000000000000000000001b38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e789d1dd423d25f0772d2748d60f7e4b81bb14d086eba8e8e8efb6dcff8a4ae02",
+        Name:     "128",
+    }
+    benchmarkPrecompiled("04", t, bench)
 }
 
 // Tests the sample inputs from the ModExp EIP 198.
 func TestPrecompiledModExp(t *testing.T)      { testJson("modexp", "05", t) }
 func BenchmarkPrecompiledModExp(b *testing.B) { benchJson("modexp", "05", b) }
+
+func TestPrecompiledModExpEip2565(t *testing.T)      { testJson("modexp_eip2565", "f5", t) }
+func BenchmarkPrecompiledModExpEip2565(b *testing.B) { benchJson("modexp_eip2565", "f5", b) }
 
 // Tests the sample inputs from the elliptic curve addition EIP 213.
 func TestPrecompiledBn256Add(t *testing.T)      { testJson("bn256Add", "06", t) }
@@ -219,9 +244,9 @@ func BenchmarkPrecompiledBn256Add(b *testing.B) { benchJson("bn256Add", "06", b)
 
 // Tests OOG
 func TestPrecompiledModExpOOG(t *testing.T) {
-	modexpTests, err := loadJson("modexp")
-	if err != nil {
-		t.Fatal(err)
+    modexpTests, err := loadJson("modexp")
+    if err != nil {
+        t.Fatal(err)
 	}
 	for _, test := range modexpTests {
 		testPrecompiledOOG("05", test, t)

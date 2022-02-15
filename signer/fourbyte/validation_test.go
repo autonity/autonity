@@ -17,12 +17,12 @@
 package fourbyte
 
 import (
-	"math/big"
-	"testing"
+    "math/big"
+    "testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/signer/core"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/common/hexutil"
+    "github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 func mixAddr(a string) (*common.MixedcaseAddress, error) {
@@ -33,20 +33,20 @@ func toHexBig(h string) hexutil.Big {
 	return hexutil.Big(*b)
 }
 func toHexUint(h string) hexutil.Uint64 {
-	b := big.NewInt(0).SetBytes(common.FromHex(h))
-	return hexutil.Uint64(b.Uint64())
+    b := big.NewInt(0).SetBytes(common.FromHex(h))
+    return hexutil.Uint64(b.Uint64())
 }
-func dummyTxArgs(t txtestcase) *core.SendTxArgs {
-	to, _ := mixAddr(t.to)
-	from, _ := mixAddr(t.from)
-	n := toHexUint(t.n)
-	gas := toHexUint(t.g)
-	gasPrice := toHexBig(t.gp)
-	value := toHexBig(t.value)
-	var (
-		data, input *hexutil.Bytes
-	)
-	if t.d != "" {
+func dummyTxArgs(t txtestcase) *apitypes.SendTxArgs {
+    to, _ := mixAddr(t.to)
+    from, _ := mixAddr(t.from)
+    n := toHexUint(t.n)
+    gas := toHexUint(t.g)
+    gasPrice := toHexBig(t.gp)
+    value := toHexBig(t.value)
+    var (
+        data, input *hexutil.Bytes
+    )
+    if t.d != "" {
 		a := hexutil.Bytes(common.FromHex(t.d))
 		data = &a
 	}
@@ -55,16 +55,16 @@ func dummyTxArgs(t txtestcase) *core.SendTxArgs {
 		input = &a
 
 	}
-	return &core.SendTxArgs{
-		From:     *from,
-		To:       to,
-		Value:    value,
-		Nonce:    n,
-		GasPrice: gasPrice,
-		Gas:      gas,
-		Data:     data,
-		Input:    input,
-	}
+    return &apitypes.SendTxArgs{
+        From:     *from,
+        To:       to,
+        Value:    value,
+        Nonce:    n,
+        GasPrice: &gasPrice,
+        Gas:      gas,
+        Data:     data,
+        Input:    input,
+    }
 }
 
 type txtestcase struct {

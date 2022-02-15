@@ -107,11 +107,11 @@ type ClientManager struct {
 // any moment.
 func NewClientManager(curve PieceWiseLinear, clock mclock.Clock) *ClientManager {
 	cm := &ClientManager{
-		clock:         clock,
-		rcQueue:       prque.New(func(a interface{}, i int) { a.(*ClientNode).queueIndex = i }),
-		capLastUpdate: clock.Now(),
-		stop:          make(chan chan struct{}),
-	}
+        clock:         clock,
+        rcQueue:       prque.NewWrapAround(func(a interface{}, i int) { a.(*ClientNode).queueIndex = i }),
+        capLastUpdate: clock.Now(),
+        stop:          make(chan chan struct{}),
+    }
 	if curve != nil {
 		cm.SetRechargeCurve(curve)
 	}

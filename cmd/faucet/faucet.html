@@ -177,17 +177,17 @@
 						}
 						// Iterate over our entire local collection and re-render the funding table
 						var content = "";
-						for (var i=0; i<requests.length; i++) {
-							var done    = requests[i].time == "";
-							var elapsed = moment().unix()-moment(requests[i].time).unix();
+						for (var i = requests.length - 1; i >= 0; i--) {
+                          var done = requests[i].time == "";
+                          var elapsed = moment().unix() - moment(requests[i].time).unix();
 
-							content += "<tr id='" + requests[i].tx.hash + "'>";
-							content += "  <td><div style=\"background: url('" + requests[i].avatar + "'); background-size: cover; width:32px; height: 32px; border-radius: 4px;\"></div></td>";
-							content += "  <td><pre>" + requests[i].account + "</pre></td>";
-							content += "  <td style=\"width: 100%; text-align: center; vertical-align: middle;\">";
-							if (done) {
-								content += "    funded";
-							} else {
+                          content += "<tr id='" + requests[i].tx.hash + "'>";
+                          content += "  <td><div style=\"background: url('" + requests[i].avatar + "'); background-size: cover; width:32px; height: 32px; border-radius: 4px;\"></div></td>";
+                          content += "  <td><pre>" + requests[i].account + "</pre></td>";
+                          content += "  <td style=\"width: 100%; text-align: center; vertical-align: middle;\">";
+                          if (done) {
+                            content += "    funded";
+                          } else {
 								content += "    <span id='time-" + i + "' class='timer'>" + moment.duration(-elapsed, 'seconds').humanize(true) + "</span>";
 							}
 							content += "    <div class='progress' style='height: 4px; margin: 0;'>";

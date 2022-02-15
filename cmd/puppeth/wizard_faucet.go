@@ -92,26 +92,41 @@ func (w *wizard) deployFaucet() {
 		if !w.readDefaultYesNo(false) {
 			log.Warn("Users will be able to requests funds via automated scripts")
 		} else {
-			// Captcha protection explicitly requested, read the site and secret keys
-			fmt.Println()
-			fmt.Printf("What is the reCaptcha site key to authenticate human users?\n")
-			infos.captchaToken = w.readString()
+            // Captcha protection explicitly requested, read the site and secret keys
+            fmt.Println()
+            fmt.Printf("What is the reCaptcha site key to authenticate human users?\n")
+            infos.captchaToken = w.readString()
 
-			fmt.Println()
-			fmt.Printf("What is the reCaptcha secret key to verify authentications? (won't be echoed)\n")
-			infos.captchaSecret = w.readPassword()
-		}
-	}
-	// Figure out where the user wants to store the persistent data
-	fmt.Println()
-	if infos.node.datadir == "" {
-		fmt.Printf("Where should data be stored on the remote machine?\n")
-		infos.node.datadir = w.readString()
-	} else {
-		fmt.Printf("Where should data be stored on the remote machine? (default = %s)\n", infos.node.datadir)
-		infos.node.datadir = w.readDefaultString(infos.node.datadir)
-	}
-	// Figure out which port to listen on
+            fmt.Println()
+            fmt.Printf("What is the reCaptcha secret key to verify authentications? (won't be echoed)\n")
+            infos.captchaSecret = w.readPassword()
+        }
+    }
+    // Accessing the Twitter API requires a bearer token, request it
+    if infos.twitterToken != "" {
+        fmt.Println()
+        fmt.Println("Reuse previous Twitter API token (y/n)? (default = yes)")
+        if !w.readDefaultYesNo(true) {
+            infos.twitterToken = ""
+        }
+    }
+    if infos.twitterToken == "" {
+        // No previous twitter token (or old one discarded)
+        fmt.Println()
+        fmt.Println()
+        fmt.Printf("What is the Twitter API app Bearer token?\n")
+        infos.twitterToken = w.readString()
+    }
+    // Figure out where the user wants to store the persistent data
+    fmt.Println()
+    if infos.node.datadir == "" {
+        fmt.Printf("Where should data be stored on the remote machine?\n")
+        infos.node.datadir = w.readString()
+    } else {
+        fmt.Printf("Where should data be stored on the remote machine? (default = %s)\n", infos.node.datadir)
+        infos.node.datadir = w.readDefaultString(infos.node.datadir)
+    }
+    // Figure out which port to listen on
 	fmt.Println()
 	fmt.Printf("Which TCP/UDP port should the light client listen on? (default = %d)\n", infos.node.port)
 	infos.node.port = w.readDefaultInt(infos.node.port)

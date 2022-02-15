@@ -18,7 +18,6 @@ package main
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -105,10 +104,11 @@ func TestAccountImport(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			importAccountWithExpect(t, test.key, test.output)
-		})
+		test := test
+        t.Run(test.name, func(t *testing.T) {
+            t.Parallel()
+            importAccountWithExpect(t, test.key, test.output)
+        })
 	}
 }
 
@@ -122,7 +122,7 @@ func importAccountWithExpect(t *testing.T, key string, expected string) {
 	if err := ioutil.WriteFile(passwordFile, []byte("foobar"), 0600); err != nil {
 		t.Error(err)
 	}
-	geth := runAutonity(t, "account", "import", keyfile, "-password", passwordFile)
+    geth := runAutonity(t, "--lightkdf", "account", "import", keyfile, "-password", passwordFile)
 	defer geth.ExpectExit()
 	geth.Expect(expected)
 }
@@ -226,7 +226,7 @@ Fatal: Failed to unlock account f466859ead1932d743d622cb74fc058882e8648a (could 
 `)
 }
 
-// https://github.com/clearmatics/autonity/issues/1785
+// https://github.com/ethereum/go-ethereum/issues/1785
 func TestUnlockFlagMultiIndex(t *testing.T) {
 	datadir, jsonFile := tmpDatadirWithKeystoreAndGenesisFile(t)
 	defer os.RemoveAll(datadir)
@@ -329,19 +329,24 @@ In order to avoid this warning, you need to remove the following duplicate key f
 }
 
 func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
-	dir, jsonFile := tmpDataDirWithGenesisFile(t)
-	defer os.RemoveAll(dir)
-	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
-	autonity := runAutonity(t,
-		"--datadir", dir, "--genesis", jsonFile, "--keystore", store, "--nat", "none", "--nodiscover",
-		"--maxpeers", "0", "--port", "0", "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
-	defer autonity.ExpectExit()
+    dir, jsonFile := tmpDataDirWithGenesisFile(t)
+    defer os.RemoveAll(dir)
+    store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
+    autonity := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
+        "--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--keystore",
+        store, "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 
-	// Helper for the expect template, returns absolute keystore path.
-	autonity.SetTemplateFunc("keypath", func(file string) string {
-		abs, _ := filepath.Abs(filepath.Join(store, file))
-		return abs
-	})
+    defer autonity.ExpectExit()
+    autonity := runAutonity(t,
+        "--datadir", dir, "--genesis", jsonFile, "--keystore", store, "--nat", "none", "--nodiscover",
+        "--maxpeers", "0", "--port", "0", "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
+    defer autonity.ExpectExit()
+
+    // Helper for the expect template, returns absolute keystore path.
+    autonity.SetTemplateFunc("keypath", func(file string) string {
+        abs, _ := filepath.Abs(filepath.Join(store, file))
+        return abs
+    })
 	autonity.Expect(`
 Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
 !! Unsupported terminal, password will be echoed.

@@ -18,7 +18,6 @@ package tests
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,26 +33,15 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-// Command line flags to configure the interpreters.
-var (
-	testEVM   = flag.String("vm.evm", "", "EVM configuration")
-	testEWASM = flag.String("vm.ewasm", "", "EWASM configuration")
-)
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	os.Exit(m.Run())
-}
-
 var (
 	baseDir            = filepath.Join(".", "testdata")
 	blockTestDir       = filepath.Join(baseDir, "BlockchainTests")
 	stateTestDir       = filepath.Join(baseDir, "GeneralStateTests")
 	legacyStateTestDir = filepath.Join(baseDir, "LegacyTests", "Constantinople", "GeneralStateTests")
 	transactionTestDir = filepath.Join(baseDir, "TransactionTests")
-	vmTestDir          = filepath.Join(baseDir, "VMTests")
 	rlpTestDir         = filepath.Join(baseDir, "RLPTests")
 	difficultyTestDir  = filepath.Join(baseDir, "BasicTests")
+    benchmarksDir      = filepath.Join(".", "evm-benchmarks", "benchmarks")
 )
 
 func readJSON(reader io.Reader, value interface{}) error {
@@ -101,11 +89,11 @@ func findLine(data []byte, offset int64) (line int) {
 
 // testMatcher controls skipping and chain config assignment to tests.
 type testMatcher struct {
-	configpat    []testConfig
-	failpat      []testFailure
-	skiploadpat  []*regexp.Regexp
-	slowpat      []*regexp.Regexp
-	whitelistpat *regexp.Regexp
+    configpat      []testConfig
+    failpat        []testFailure
+    skiploadpat    []*regexp.Regexp
+    slowpat        []*regexp.Regexp
+    runonlylistpat *regexp.Regexp
 }
 
 type testConfig struct {
@@ -136,8 +124,8 @@ func (tm *testMatcher) fails(pattern string, reason string) {
 	tm.failpat = append(tm.failpat, testFailure{regexp.MustCompile(pattern), reason})
 }
 
-func (tm *testMatcher) whitelist(pattern string) {
-	tm.whitelistpat = regexp.MustCompile(pattern)
+func (tm *testMatcher) runonly(pattern string) {
+    tm.runonlylistpat = regexp.MustCompile(pattern)
 }
 
 // config defines chain config for tests matching the pattern.
@@ -167,29 +155,27 @@ func (tm *testMatcher) findSkip(name string) (reason string, skipload bool) {
 }
 
 // findConfig returns the chain config matching defined patterns.
-func (tm *testMatcher) findConfig(name string) *params.ChainConfig {
-	// TODO(fjl): name can be derived from testing.T when min Go version is 1.8
-	for _, m := range tm.configpat {
-		if m.p.MatchString(name) {
-			return &m.config
-		}
-	}
-	return new(params.ChainConfig)
+func (tm *testMatcher) findConfig(t *testing.T) *params.ChainConfig {
+    for _, m := range tm.configpat {
+        if m.p.MatchString(t.Name()) {
+            return &m.config
+        }
+    }
+    return new(params.ChainConfig)
 }
 
 // checkFailure checks whether a failure is expected.
-func (tm *testMatcher) checkFailure(t *testing.T, name string, err error) error {
-	// TODO(fjl): name can be derived from t when min Go version is 1.8
-	failReason := ""
-	for _, m := range tm.failpat {
-		if m.p.MatchString(name) {
-			failReason = m.reason
-			break
-		}
-	}
-	if failReason != "" {
-		t.Logf("expected failure: %s", failReason)
-		if err != nil {
+func (tm *testMatcher) checkFailure(t *testing.T, err error) error {
+    failReason := ""
+    for _, m := range tm.failpat {
+        if m.p.MatchString(t.Name()) {
+            failReason = m.reason
+            break
+        }
+    }
+    if failReason != "" {
+        t.Logf("expected failure: %s", failReason)
+        if err != nil {
 			t.Logf("error: %v", err)
 			return nil
 		}
@@ -228,21 +214,21 @@ func (tm *testMatcher) walk(t *testing.T, dir string, runTest interface{}) {
 }
 
 func (tm *testMatcher) runTestFile(t *testing.T, path, name string, runTest interface{}) {
-	if r, _ := tm.findSkip(name); r != "" {
-		t.Skip(r)
-	}
-	if tm.whitelistpat != nil {
-		if !tm.whitelistpat.MatchString(name) {
-			t.Skip("Skipped by whitelist")
-		}
-	}
-	t.Parallel()
+    if r, _ := tm.findSkip(name); r != "" {
+        t.Skip(r)
+    }
+    if tm.runonlylistpat != nil {
+        if !tm.runonlylistpat.MatchString(name) {
+            t.Skip("Skipped by runonly")
+        }
+    }
+    t.Parallel()
 
-	// Load the file as map[string]<testType>.
-	m := makeMapFromTestFunc(runTest)
-	if err := readJSONFile(path, m.Addr().Interface()); err != nil {
-		t.Fatal(err)
-	}
+    // Load the file as map[string]<testType>.
+    m := makeMapFromTestFunc(runTest)
+    if err := readJSONFile(path, m.Addr().Interface()); err != nil {
+        t.Fatal(err)
+    }
 
 	// Run all tests from the map. Don't wrap in a subtest if there is only one test in the file.
 	keys := sortedMapKeys(m)
@@ -290,13 +276,13 @@ func runTestFunc(runTest interface{}, t *testing.T, name string, m reflect.Value
 	})
 }
 
-func TestMatcherWhitelist(t *testing.T) {
-	t.Parallel()
-	tm := new(testMatcher)
-	tm.whitelist("invalid*")
-	tm.walk(t, rlpTestDir, func(t *testing.T, name string, test *RLPTest) {
-		if name[:len("invalidRLPTest.json")] != "invalidRLPTest.json" {
-			t.Fatalf("invalid test found: %s != invalidRLPTest.json", name)
-		}
-	})
+func TestMatcherRunonlylist(t *testing.T) {
+    t.Parallel()
+    tm := new(testMatcher)
+    tm.runonly("invalid*")
+    tm.walk(t, rlpTestDir, func(t *testing.T, name string, test *RLPTest) {
+        if name[:len("invalidRLPTest.json")] != "invalidRLPTest.json" {
+            t.Fatalf("invalid test found: %s != invalidRLPTest.json", name)
+        }
+    })
 }

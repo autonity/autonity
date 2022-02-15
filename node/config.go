@@ -17,26 +17,21 @@
 package node
 
 import (
-	"crypto/ecdsa"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"sync"
+    "crypto/ecdsa"
+    "fmt"
+    "io/ioutil"
+    "os"
+    "path/filepath"
+    "runtime"
+    "strings"
+    "sync"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/external"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/accounts/scwallet"
-	"github.com/clearmatics/autonity/accounts/usbwallet"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/rpc"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/crypto"
+    "github.com/ethereum/go-ethereum/log"
+    "github.com/ethereum/go-ethereum/p2p"
+    "github.com/ethereum/go-ethereum/p2p/enode"
+    "github.com/ethereum/go-ethereum/rpc"
 )
 
 const (
@@ -86,23 +81,27 @@ type Config struct {
 	ExternalSigner string `toml:",omitempty"`
 
 	// UseLightweightKDF lowers the memory and CPU requirements of the key store
-	// scrypt KDF at the expense of security.
-	UseLightweightKDF bool `toml:",omitempty"`
+    // scrypt KDF at the expense of security.
+    UseLightweightKDF bool `toml:",omitempty"`
 
-	// InsecureUnlockAllowed allows user to unlock accounts in unsafe http environment.
-	InsecureUnlockAllowed bool `toml:",omitempty"`
+    // InsecureUnlockAllowed allows user to unlock accounts in unsafe http environment.
+    InsecureUnlockAllowed bool `toml:",omitempty"`
 
-	// NoUSB disables hardware wallet monitoring and connectivity.
-	NoUSB bool `toml:",omitempty"`
+    // NoUSB disables hardware wallet monitoring and connectivity.
+    // Deprecated: USB monitoring is disabled by default and must be enabled explicitly.
+    NoUSB bool `toml:",omitempty"`
 
-	// SmartCardDaemonPath is the path to the smartcard daemon's socket
-	SmartCardDaemonPath string `toml:",omitempty"`
+    // USB enables hardware wallet monitoring and connectivity.
+    USB bool `toml:",omitempty"`
 
-	// IPCPath is the requested location to place the IPC endpoint. If the path is
-	// a simple file name, it is placed inside the data directory (or on the root
-	// pipe path on Windows), whereas if it's a resolvable path name (absolute or
-	// relative), then that specific path is enforced. An empty path disables IPC.
-	IPCPath string
+    // SmartCardDaemonPath is the path to the smartcard daemon's socket
+    SmartCardDaemonPath string `toml:",omitempty"`
+
+    // IPCPath is the requested location to place the IPC endpoint. If the path is
+    // a simple file name, it is placed inside the data directory (or on the root
+    // pipe path on Windows), whereas if it's a resolvable path name (absolute or
+    // relative), then that specific path is enforced. An empty path disables IPC.
+    IPCPath string
 
 	// HTTPHost is the host interface on which to start the HTTP RPC server. If this
 	// field is empty, no HTTP API endpoint will be started.
@@ -127,33 +126,39 @@ type Config struct {
 	// Requests using ip address directly are not affected
 	HTTPVirtualHosts []string `toml:",omitempty"`
 
-	// HTTPModules is a list of API modules to expose via the HTTP RPC interface.
-	// If the module list is empty, all RPC API endpoints designated public will be
-	// exposed.
-	HTTPModules []string
+    // HTTPModules is a list of API modules to expose via the HTTP RPC interface.
+    // If the module list is empty, all RPC API endpoints designated public will be
+    // exposed.
+    HTTPModules []string
 
-	// HTTPTimeouts allows for customization of the timeout values used by the HTTP RPC
-	// interface.
-	HTTPTimeouts rpc.HTTPTimeouts
+    // HTTPTimeouts allows for customization of the timeout values used by the HTTP RPC
+    // interface.
+    HTTPTimeouts rpc.HTTPTimeouts
 
-	// WSHost is the host interface on which to start the websocket RPC server. If
-	// this field is empty, no websocket API endpoint will be started.
-	WSHost string
+    // HTTPPathPrefix specifies a path prefix on which http-rpc is to be served.
+    HTTPPathPrefix string `toml:",omitempty"`
 
-	// WSPort is the TCP port number on which to start the websocket RPC server. The
-	// default zero value is/ valid and will pick a port number randomly (useful for
-	// ephemeral nodes).
-	WSPort int `toml:",omitempty"`
+    // WSHost is the host interface on which to start the websocket RPC server. If
+    // this field is empty, no websocket API endpoint will be started.
+    WSHost string
 
-	// WSOrigins is the list of domain to accept websocket requests from. Please be
-	// aware that the server can only act upon the HTTP request the client sends and
-	// cannot verify the validity of the request header.
-	WSOrigins []string `toml:",omitempty"`
+    // WSPort is the TCP port number on which to start the websocket RPC server. The
+    // default zero value is/ valid and will pick a port number randomly (useful for
+    // ephemeral nodes).
+    WSPort int `toml:",omitempty"`
 
-	// WSModules is a list of API modules to expose via the websocket RPC interface.
-	// If the module list is empty, all RPC API endpoints designated public will be
-	// exposed.
-	WSModules []string
+    // WSPathPrefix specifies a path prefix on which ws-rpc is to be served.
+    WSPathPrefix string `toml:",omitempty"`
+
+    // WSOrigins is the list of domain to accept websocket requests from. Please be
+    // aware that the server can only act upon the HTTP request the client sends and
+    // cannot verify the validity of the request header.
+    WSOrigins []string `toml:",omitempty"`
+
+    // WSModules is a list of API modules to expose via the websocket RPC interface.
+    // If the module list is empty, all RPC API endpoints designated public will be
+    // exposed.
+    WSModules []string
 
 	// WSExposeAll exposes all API modules via the WebSocket RPC interface rather
 	// than just the public ones.
@@ -169,19 +174,22 @@ type Config struct {
 
 	// GraphQLVirtualHosts is the list of virtual hostnames which are allowed on incoming requests.
 	// This is by default {'localhost'}. Using this prevents attacks like
-	// DNS rebinding, which bypasses SOP by simply masquerading as being within the same
-	// origin. These attacks do not utilize CORS, since they are not cross-domain.
-	// By explicitly checking the Host-header, the server will not allow requests
-	// made against the server with a malicious host domain.
-	// Requests using ip address directly are not affected
-	GraphQLVirtualHosts []string `toml:",omitempty"`
+    // DNS rebinding, which bypasses SOP by simply masquerading as being within the same
+    // origin. These attacks do not utilize CORS, since they are not cross-domain.
+    // By explicitly checking the Host-header, the server will not allow requests
+    // made against the server with a malicious host domain.
+    // Requests using ip address directly are not affected
+    GraphQLVirtualHosts []string `toml:",omitempty"`
 
-	// Logger is a custom logger to use with the p2p.Server.
-	Logger log.Logger `toml:",omitempty"`
+    // Logger is a custom logger to use with the p2p.Server.
+    Logger log.Logger `toml:",omitempty"`
 
-	staticNodesWarning         bool
-	trustedNodesWarning        bool
-	oldAutonityResourceWarning bool
+    staticNodesWarning         bool
+    trustedNodesWarning        bool
+    oldAutonityResourceWarning bool
+
+    // AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
+    AllowUnprotectedTxs bool `toml:",omitempty"`
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into
@@ -407,106 +415,59 @@ func (c *Config) parsePersistentNodes(w *bool, path string) []*enode.Node {
 		if url == "" {
 			continue
 		}
-		node, err := enode.Parse(enode.ValidSchemes, url)
-		if err != nil {
-			log.Error(fmt.Sprintf("Node URL %s: %v\n", url, err))
-			continue
-		}
-		nodes = append(nodes, node)
-	}
-	return nodes
+        node, err := enode.Parse(enode.ValidSchemes, url)
+        if err != nil {
+            log.Error(fmt.Sprintf("Node URL %s: %v\n", url, err))
+            continue
+        }
+        nodes = append(nodes, node)
+    }
+    return nodes
 }
 
-// AccountConfig determines the settings for scrypt and keydirectory
-func (c *Config) AccountConfig() (int, int, string, error) {
-	scryptN := keystore.StandardScryptN
-	scryptP := keystore.StandardScryptP
-	if c.UseLightweightKDF {
-		scryptN = keystore.LightScryptN
-		scryptP = keystore.LightScryptP
-	}
-
-	var (
-		keydir string
-		err    error
-	)
-	switch {
-	case filepath.IsAbs(c.KeyStoreDir):
-		keydir = c.KeyStoreDir
-	case c.DataDir != "":
-		if c.KeyStoreDir == "" {
-			keydir = filepath.Join(c.DataDir, datadirDefaultKeyStore)
-		} else {
-			keydir, err = filepath.Abs(c.KeyStoreDir)
-		}
-	case c.KeyStoreDir != "":
-		keydir, err = filepath.Abs(c.KeyStoreDir)
-	}
-	return scryptN, scryptP, keydir, err
+// KeyDirConfig determines the settings for keydirectory
+func (c *Config) KeyDirConfig() (string, error) {
+    var (
+        keydir string
+        err    error
+    )
+    switch {
+    case filepath.IsAbs(c.KeyStoreDir):
+        keydir = c.KeyStoreDir
+    case c.DataDir != "":
+        if c.KeyStoreDir == "" {
+            keydir = filepath.Join(c.DataDir, datadirDefaultKeyStore)
+        } else {
+            keydir, err = filepath.Abs(c.KeyStoreDir)
+        }
+    case c.KeyStoreDir != "":
+        keydir, err = filepath.Abs(c.KeyStoreDir)
+    }
+    return keydir, err
 }
 
-func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
-	scryptN, scryptP, keydir, err := conf.AccountConfig()
-	var ephemeral string
-	if keydir == "" {
-		// There is no datadir.
-		keydir, err = ioutil.TempDir("", "go-ethereum-keystore")
-		ephemeral = keydir
+// getKeyStoreDir retrieves the key directory and will create
+// and ephemeral one if necessary.
+func getKeyStoreDir(conf *Config) (string, bool, error) {
+    keydir, err := conf.KeyDirConfig()
+    if err != nil {
+        return "", false, err
+    }
+    isEphemeral := false
+    if keydir == "" {
+        // There is no datadir.
+        keydir, err = ioutil.TempDir("", "go-ethereum-keystore")
+        isEphemeral = true
+    }
+
+    if err != nil {
+        return "", false, err
+    }
+    if err := os.MkdirAll(keydir, 0700); err != nil {
+        return "", false, err
 	}
 
-	if err != nil {
-		return nil, "", err
-	}
-	if err := os.MkdirAll(keydir, 0700); err != nil {
-		return nil, "", err
-	}
-	// Assemble the account manager and supported backends
-	var backends []accounts.Backend
-	if len(conf.ExternalSigner) > 0 {
-		log.Info("Using external signer", "url", conf.ExternalSigner)
-		if extapi, err := external.NewExternalBackend(conf.ExternalSigner); err == nil {
-			backends = append(backends, extapi)
-		} else {
-			return nil, "", fmt.Errorf("error connecting to external signer: %v", err)
-		}
-	}
-	if len(backends) == 0 {
-		// For now, we're using EITHER external signer OR local signers.
-		// If/when we implement some form of lockfile for USB and keystore wallets,
-		// we can have both, but it's very confusing for the user to see the same
-		// accounts in both externally and locally, plus very racey.
-		backends = append(backends, keystore.NewKeyStore(keydir, scryptN, scryptP))
-		if !conf.NoUSB {
-			// Start a USB hub for Ledger hardware wallets
-			if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
-			} else {
-				backends = append(backends, ledgerhub)
-			}
-			// Start a USB hub for Trezor hardware wallets (HID version)
-			if trezorhub, err := usbwallet.NewTrezorHubWithHID(); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start HID Trezor hub, disabling: %v", err))
-			} else {
-				backends = append(backends, trezorhub)
-			}
-			// Start a USB hub for Trezor hardware wallets (WebUSB version)
-			if trezorhub, err := usbwallet.NewTrezorHubWithWebUSB(); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start WebUSB Trezor hub, disabling: %v", err))
-			} else {
-				backends = append(backends, trezorhub)
-			}
-		}
-		if len(conf.SmartCardDaemonPath) > 0 {
-			// Start a smart card hub
-			if schub, err := scwallet.NewHub(conf.SmartCardDaemonPath, scwallet.Scheme, keydir); err != nil {
-				log.Warn(fmt.Sprintf("Failed to start smart card hub, disabling: %v", err))
-			} else {
-				backends = append(backends, schub)
-			}
-		}
-	}
-
-	return accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: conf.InsecureUnlockAllowed}, backends...), ephemeral, nil
+    return keydir, isEphemeral, nil
 }
 
 var warnLock sync.Mutex

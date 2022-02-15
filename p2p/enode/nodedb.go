@@ -51,14 +51,18 @@ const (
 	dbNodeSeq       = "seq"
 
 	// Local information is keyed by ID only, the full key is "local:<ID>:seq".
-	// Use localItemKey to create those keys.
-	dbLocalSeq = "seq"
+    // Use localItemKey to create those keys.
+    dbLocalSeq = "seq"
 )
 
 const (
-	dbNodeExpiration = 24 * time.Hour // Time after which an unseen node should be dropped.
-	dbCleanupCycle   = time.Hour      // Time period for running the expiration task.
-	dbVersion        = 9
+    dbNodeExpiration = 24 * time.Hour // Time after which an unseen node should be dropped.
+    dbCleanupCycle   = time.Hour      // Time period for running the expiration task.
+    dbVersion        = 9
+)
+
+var (
+    errInvalidIP = errors.New("invalid IP")
 )
 
 var zeroIP = make(net.IP, 16)
@@ -66,9 +70,9 @@ var zeroIP = make(net.IP, 16)
 // DB is the node database, storing previously seen nodes and any collected metadata about
 // them for QoS purposes.
 type DB struct {
-	lvl    *leveldb.DB   // Interface to the database itself
-	runner sync.Once     // Ensures we can start at most one expirer
-	quit   chan struct{} // Channel to signal the expiring thread to stop
+    lvl    *leveldb.DB   // Interface to the database itself
+    runner sync.Once     // Ensures we can start at most one expirer
+    quit   chan struct{} // Channel to signal the expiring thread to stop
 }
 
 // OpenDB opens a node database for storing and retrieving infos about known peers in the
@@ -163,7 +167,7 @@ func splitNodeItemKey(key []byte) (id ID, ip net.IP, field string) {
 	}
 	key = key[len(dbDiscoverRoot)+1:]
 	// Split out the IP.
-	ip = net.IP(key[:16])
+    ip = key[:16]
 	if ip4 := ip.To4(); ip4 != nil {
 		ip = ip4
 	}
@@ -359,54 +363,83 @@ func (db *DB) expireNodes() {
 // LastPingReceived retrieves the time of the last ping packet received from
 // a remote node.
 func (db *DB) LastPingReceived(id ID, ip net.IP) time.Time {
-	return time.Unix(db.fetchInt64(nodeItemKey(id, ip, dbNodePing)), 0)
+    if ip = ip.To16(); ip == nil {
+        return time.Time{}
+    }
+    return time.Unix(db.fetchInt64(nodeItemKey(id, ip, dbNodePing)), 0)
 }
 
 // UpdateLastPingReceived updates the last time we tried contacting a remote node.
 func (db *DB) UpdateLastPingReceived(id ID, ip net.IP, instance time.Time) error {
-	return db.storeInt64(nodeItemKey(id, ip, dbNodePing), instance.Unix())
+    if ip = ip.To16(); ip == nil {
+        return errInvalidIP
+    }
+    return db.storeInt64(nodeItemKey(id, ip, dbNodePing), instance.Unix())
 }
 
 // LastPongReceived retrieves the time of the last successful pong from remote node.
 func (db *DB) LastPongReceived(id ID, ip net.IP) time.Time {
-	// Launch expirer
-	db.ensureExpirer()
-	return time.Unix(db.fetchInt64(nodeItemKey(id, ip, dbNodePong)), 0)
+    if ip = ip.To16(); ip == nil {
+        return time.Time{}
+    }
+    // Launch expirer
+    db.ensureExpirer()
+    return time.Unix(db.fetchInt64(nodeItemKey(id, ip, dbNodePong)), 0)
 }
 
 // UpdateLastPongReceived updates the last pong time of a node.
 func (db *DB) UpdateLastPongReceived(id ID, ip net.IP, instance time.Time) error {
-	return db.storeInt64(nodeItemKey(id, ip, dbNodePong), instance.Unix())
+    if ip = ip.To16(); ip == nil {
+        return errInvalidIP
+    }
+    return db.storeInt64(nodeItemKey(id, ip, dbNodePong), instance.Unix())
 }
 
 // FindFails retrieves the number of findnode failures since bonding.
 func (db *DB) FindFails(id ID, ip net.IP) int {
-	return int(db.fetchInt64(nodeItemKey(id, ip, dbNodeFindFails)))
+    if ip = ip.To16(); ip == nil {
+        return 0
+    }
+    return int(db.fetchInt64(nodeItemKey(id, ip, dbNodeFindFails)))
 }
 
 // UpdateFindFails updates the number of findnode failures since bonding.
 func (db *DB) UpdateFindFails(id ID, ip net.IP, fails int) error {
-	return db.storeInt64(nodeItemKey(id, ip, dbNodeFindFails), int64(fails))
+    if ip = ip.To16(); ip == nil {
+        return errInvalidIP
+    }
+    return db.storeInt64(nodeItemKey(id, ip, dbNodeFindFails), int64(fails))
 }
 
 // FindFailsV5 retrieves the discv5 findnode failure counter.
 func (db *DB) FindFailsV5(id ID, ip net.IP) int {
-	return int(db.fetchInt64(v5Key(id, ip, dbNodeFindFails)))
+    if ip = ip.To16(); ip == nil {
+        return 0
+    }
+    return int(db.fetchInt64(v5Key(id, ip, dbNodeFindFails)))
 }
 
 // UpdateFindFailsV5 stores the discv5 findnode failure counter.
 func (db *DB) UpdateFindFailsV5(id ID, ip net.IP, fails int) error {
-	return db.storeInt64(v5Key(id, ip, dbNodeFindFails), int64(fails))
+    if ip = ip.To16(); ip == nil {
+        return errInvalidIP
+    }
+    return db.storeInt64(v5Key(id, ip, dbNodeFindFails), int64(fails))
 }
 
-// LocalSeq retrieves the local record sequence counter.
+// localSeq retrieves the local record sequence counter, defaulting to the current
+// timestamp if no previous exists. This ensures that wiping all data associated
+// with a node (apart from its key) will not generate already used sequence nums.
 func (db *DB) localSeq(id ID) uint64 {
-	return db.fetchUint64(localItemKey(id, dbLocalSeq))
+    if seq := db.fetchUint64(localItemKey(id, dbLocalSeq)); seq > 0 {
+        return seq
+    }
+    return nowMilliseconds()
 }
 
 // storeLocalSeq stores the local record sequence counter.
 func (db *DB) storeLocalSeq(id ID, n uint64) {
-	db.storeUint64(localItemKey(id, dbLocalSeq), n)
+    db.storeUint64(localItemKey(id, dbLocalSeq), n)
 }
 
 // QuerySeeds retrieves random nodes to be used as potential seed nodes

@@ -17,23 +17,24 @@
 package console
 
 import (
-	"bytes"
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
-	"testing"
-	"time"
+    "bytes"
+    "errors"
+    "fmt"
+    "io/ioutil"
+    "os"
+    "strings"
+    "testing"
+    "time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/console/prompt"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/internal/jsre"
-	"github.com/clearmatics/autonity/miner"
-	"github.com/clearmatics/autonity/node"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/consensus/ethash"
+    "github.com/ethereum/go-ethereum/console/prompt"
+    "github.com/ethereum/go-ethereum/core"
+    "github.com/ethereum/go-ethereum/eth"
+    "github.com/ethereum/go-ethereum/eth/ethconfig"
+    "github.com/ethereum/go-ethereum/internal/jsre"
+    "github.com/ethereum/go-ethereum/miner"
+    "github.com/ethereum/go-ethereum/node"
 )
 
 const (
@@ -85,30 +86,30 @@ type tester struct {
 
 // newTester creates a test environment based on which the console can operate.
 // Please ensure you call Close() on the returned tester to avoid leaks.
-func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
-	// Create a temporary storage for the node keys and initialize it
-	workspace, err := ioutil.TempDir("", "console-tester-")
-	if err != nil {
-		t.Fatalf("failed to create temporary keystore: %v", err)
-	}
+func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
+    // Create a temporary storage for the node keys and initialize it
+    workspace, err := ioutil.TempDir("", "console-tester-")
+    if err != nil {
+        t.Fatalf("failed to create temporary keystore: %v", err)
+    }
 
-	// Create a networkless protocol stack and start an Ethereum service within
-	stack, err := node.New(&node.Config{DataDir: workspace, UseLightweightKDF: true, Name: testInstance})
-	if err != nil {
-		t.Fatalf("failed to create node: %v", err)
-	}
-	ethConf := &eth.Config{
-		Genesis: core.DefaultGenesisBlock(),
-		Miner: miner.Config{
-			Etherbase: common.HexToAddress(testAddress),
-		},
-		Ethash: ethash.Config{
-			PowMode: ethash.ModeTest,
-		},
-	}
-	if confOverride != nil {
-		confOverride(ethConf)
-	}
+    // Create a networkless protocol stack and start an Ethereum service within
+    stack, err := node.New(&node.Config{DataDir: workspace, UseLightweightKDF: true, Name: testInstance})
+    if err != nil {
+        t.Fatalf("failed to create node: %v", err)
+    }
+    ethConf := &ethconfig.Config{
+        Genesis: core.DeveloperGenesisBlock(15, 11_500_000, common.Address{}),
+        Miner: miner.Config{
+            Etherbase: ethereum /go -ethereumcommon.HexToAddress(testAddress),
+        },
+        Ethash: ethash.Config{
+            PowMode: ethash.ModeTest,
+        },
+    }
+    if confOverride != nil {
+        confOverride(ethConf)
+    }
 	ethBackend, err := eth.New(stack, ethConf, nil)
 	if err != nil {
 		t.Fatalf("failed to register Ethereum protocol: %v", err)

@@ -19,20 +19,20 @@ package keystore
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
+    "encoding/hex"
+    "encoding/json"
+    "fmt"
+    "io"
+    "io/ioutil"
+    "os"
+    "path/filepath"
+    "strings"
+    "time"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/pborman/uuid"
+    "github.com/ethereum/go-ethereum/accounts"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/crypto"
+    "github.com/google/uuid"
 )
 
 const (
@@ -103,23 +103,26 @@ func (k *Key) MarshalJSON() (j []byte, err error) {
 }
 
 func (k *Key) UnmarshalJSON(j []byte) (err error) {
-	keyJSON := new(plainKeyJSON)
-	err = json.Unmarshal(j, &keyJSON)
-	if err != nil {
-		return err
-	}
+    keyJSON := new(plainKeyJSON)
+    err = json.Unmarshal(j, &keyJSON)
+    if err != nil {
+        return err
+    }
 
-	u := new(uuid.UUID)
-	*u = uuid.Parse(keyJSON.Id)
-	k.Id = *u
-	addr, err := hex.DecodeString(keyJSON.Address)
-	if err != nil {
-		return err
-	}
-	privkey, err := crypto.HexToECDSA(keyJSON.PrivateKey)
-	if err != nil {
-		return err
-	}
+    u := new(uuid.UUID)
+    *u, err = uuid.Parse(keyJSON.Id)
+    if err != nil {
+        return err
+    }
+    k.Id = *u
+    addr, err := hex.DecodeString(keyJSON.Address)
+    if err != nil {
+        return err
+    }
+    privkey, err := crypto.HexToECDSA(keyJSON.PrivateKey)
+    if err != nil {
+        return err
+    }
 
 	k.Address = common.BytesToAddress(addr)
 	k.PrivateKey = privkey
@@ -128,13 +131,16 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 }
 
 func newKeyFromECDSA(privateKeyECDSA *ecdsa.PrivateKey) *Key {
-	id := uuid.NewRandom()
-	key := &Key{
-		Id:         id,
-		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
-		PrivateKey: privateKeyECDSA,
-	}
-	return key
+    id, err := uuid.NewRandom()
+    if err != nil {
+        panic(fmt.Sprintf("Could not create random uuid: %v", err))
+    }
+    key := &Key{
+        Id:         id,
+        Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
+        PrivateKey: privateKeyECDSA,
+    }
+    return key
 }
 
 // NewKeyForDirectICAP generates a key whose address fits into < 155 bits so it can fit

@@ -35,14 +35,16 @@ func WaitMined(ctx context.Context, b DeployBackend, tx *types.Transaction) (*ty
 	logger := log.New("hash", tx.Hash())
 	for {
 		receipt, err := b.TransactionReceipt(ctx, tx.Hash())
-		if receipt != nil {
+		if err == nil {
 			return receipt, nil
 		}
-		if err != nil {
-			logger.Trace("Receipt retrieval failed", "err", err)
-		} else {
+
+		if errors.Is(err, ethereum.NotFound) {
 			logger.Trace("Transaction not yet mined")
+		} else {
+			logger.Trace("Receipt retrieval failed", "err", err)
 		}
+
 		// Wait for the next round.
 		select {
 		case <-ctx.Done():

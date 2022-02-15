@@ -72,15 +72,16 @@ func TestCompleteKeywords(t *testing.T) {
 		{
 			input: "x.gazonk.",
 			want: []string{
-				"x.gazonk.constructor",
-				"x.gazonk.hasOwnProperty",
-				"x.gazonk.isPrototypeOf",
-				"x.gazonk.propertyIsEnumerable",
-				"x.gazonk.toLocaleString",
-				"x.gazonk.toString",
-				"x.gazonk.valueOf",
-				"x.gazonk.xyz",
-			},
+                "x.gazonk.__proto__",
+                "x.gazonk.constructor",
+                "x.gazonk.hasOwnProperty",
+                "x.gazonk.isPrototypeOf",
+                "x.gazonk.propertyIsEnumerable",
+                "x.gazonk.toLocaleString",
+                "x.gazonk.toString",
+                "x.gazonk.valueOf",
+                "x.gazonk.xyz",
+            },
 		},
 	}
 	for _, test := range tests {

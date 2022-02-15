@@ -30,28 +30,31 @@ import (
 
 	"github.com/clearmatics/autonity/log"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
+    "golang.org/x/crypto/ssh/agent"
+    "golang.org/x/crypto/ssh/terminal"
 )
 
 // sshClient is a small wrapper around Go's SSH client with a few utility methods
 // implemented on top.
 type sshClient struct {
-	server  string // Server name or IP without port number
-	address string // IP address of the remote server
-	pubkey  []byte // RSA public key to authenticate the server
-	client  *ssh.Client
-	logger  log.Logger
+    server  string // Server name or IP without port number
+    address string // IP address of the remote server
+    pubkey  []byte // RSA public key to authenticate the server
+    client  *ssh.Client
+    logger  log.Logger
 }
+
+const EnvSSHAuthSock = "SSH_AUTH_SOCK"
 
 // dial establishes an SSH connection to a remote node using the current user and
 // the user's configured private RSA key. If that fails, password authentication
 // is fallen back to. server can be a string like user:identity@server:port.
 func dial(server string, pubkey []byte) (*sshClient, error) {
-	// Figure out username, identity, hostname and port
-	hostname := ""
-	hostport := server
-	username := ""
-	identity := "id_rsa" // default
+    // Figure out username, identity, hostname and port
+    hostname := ""
+    hostport := server
+    username := ""
+    identity := "id_rsa" // default
 
 	if strings.Contains(server, "@") {
 		prefix := server[:strings.Index(server, "@")]
@@ -70,52 +73,63 @@ func dial(server string, pubkey []byte) (*sshClient, error) {
 		hostport += ":22"
 	}
 	logger := log.New("server", server)
-	logger.Debug("Attempting to establish SSH connection")
+    logger.Debug("Attempting to establish SSH connection")
 
-	user, err := user.Current()
-	if err != nil {
-		return nil, err
-	}
-	if username == "" {
-		username = user.Username
-	}
-	// Configure the supported authentication methods (private key and password)
-	var auths []ssh.AuthMethod
+    user, err := user.Current()
+    if err != nil {
+        return nil, err
+    }
+    if username == "" {
+        username = user.Username
+    }
 
-	path := filepath.Join(user.HomeDir, ".ssh", identity)
-	if buf, err := ioutil.ReadFile(path); err != nil {
-		log.Warn("No SSH key, falling back to passwords", "path", path, "err", err)
-	} else {
-		key, err := ssh.ParsePrivateKey(buf)
-		if err != nil {
-			fmt.Printf("What's the decryption password for %s? (won't be echoed)\n>", path)
-			blob, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Println()
-			if err != nil {
-				log.Warn("Couldn't read password", "err", err)
-			}
-			key, err := ssh.ParsePrivateKeyWithPassphrase(buf, blob)
-			if err != nil {
-				log.Warn("Failed to decrypt SSH key, falling back to passwords", "path", path, "err", err)
-			} else {
-				auths = append(auths, ssh.PublicKeys(key))
-			}
-		} else {
-			auths = append(auths, ssh.PublicKeys(key))
-		}
-	}
-	auths = append(auths, ssh.PasswordCallback(func() (string, error) {
-		fmt.Printf("What's the login password for %s at %s? (won't be echoed)\n> ", username, server)
-		blob, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+    // Configure the supported authentication methods (ssh agent, private key and password)
+    var (
+        auths []ssh.AuthMethod
+        conn  net.Conn
+    )
+    if conn, err = net.Dial("unix", os.Getenv(EnvSSHAuthSock)); err != nil {
+        log.Warn("Unable to dial SSH agent, falling back to private keys", "err", err)
+    } else {
+        client := agent.NewClient(conn)
+        auths = append(auths, ssh.PublicKeysCallback(client.Signers))
+    }
+    if err != nil {
+        path := filepath.Join(user.HomeDir, ".ssh", identity)
+        if buf, err := ioutil.ReadFile(path); err != nil {
+            log.Warn("No SSH key, falling back to passwords", "path", path, "err", err)
+        } else {
+            key, err := ssh.ParsePrivateKey(buf)
+            if err != nil {
+                fmt.Printf("What's the decryption password for %s? (won't be echoed)\n>", path)
+                blob, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+                fmt.Println()
+                if err != nil {
+                    log.Warn("Couldn't read password", "err", err)
+                }
+                key, err := ssh.ParsePrivateKeyWithPassphrase(buf, blob)
+                if err != nil {
+                    log.Warn("Failed to decrypt SSH key, falling back to passwords", "path", path, "err", err)
+                } else {
+                    auths = append(auths, ssh.PublicKeys(key))
+                }
+            } else {
+                auths = append(auths, ssh.PublicKeys(key))
+            }
+        }
+        auths = append(auths, ssh.PasswordCallback(func() (string, error) {
+            fmt.Printf("What's the login password for %s at %s? (won't be echoed)\n> ", username, server)
+            blob, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 
-		fmt.Println()
-		return string(blob), err
-	}))
-	// Resolve the IP address of the remote server
-	addr, err := net.LookupHost(hostname)
-	if err != nil {
-		return nil, err
-	}
+            fmt.Println()
+            return string(blob), err
+        }))
+    }
+    // Resolve the IP address of the remote server
+    addr, err := net.LookupHost(hostname)
+    if err != nil {
+        return nil, err
+    }
 	if len(addr) == 0 {
 		return nil, errors.New("no IPs associated with domain")
 	}

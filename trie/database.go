@@ -100,7 +100,7 @@ func (n rawNode) cache() (hashNode, bool)   { panic("this should never end up in
 func (n rawNode) fstring(ind string) string { panic("this should never end up in a live trie") }
 
 func (n rawNode) EncodeRLP(w io.Writer) error {
-	_, err := w.Write([]byte(n))
+	_, err := w.Write(n)
 	return err
 }
 
@@ -262,43 +262,53 @@ func expandNode(hash hashNode, n node) node {
 				node.Children[i] = expandNode(nil, n[i])
 			}
 		}
-		return node
+        return node
 
-	case valueNode, hashNode:
-		return n
+    case valueNode, hashNode:
+        return n
 
-	default:
-		panic(fmt.Sprintf("unknown node type: %T", n))
-	}
+    default:
+        panic(fmt.Sprintf("unknown node type: %T", n))
+    }
+}
+
+// Config defines all necessary options for database.
+type Config struct {
+    Cache     int    // Memory allowance (MB) to use for caching trie nodes in memory
+    Journal   string // Journal of clean cache to survive node restarts
+    Preimages bool   // Flag whether the preimage of trie key is recorded
 }
 
 // NewDatabase creates a new trie database to store ephemeral trie content before
 // its written out to disk or garbage collected. No read cache is created, so all
 // data retrievals will hit the underlying disk database.
 func NewDatabase(diskdb ethdb.KeyValueStore) *Database {
-	return NewDatabaseWithCache(diskdb, 0, "")
+    return NewDatabaseWithConfig(diskdb, nil)
 }
 
-// NewDatabaseWithCache creates a new trie database to store ephemeral trie content
+// NewDatabaseWithConfig creates a new trie database to store ephemeral trie content
 // before its written out to disk or garbage collected. It also acts as a read cache
 // for nodes loaded from disk.
-func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, cache int, journal string) *Database {
-	var cleans *fastcache.Cache
-	if cache > 0 {
-		if journal == "" {
-			cleans = fastcache.New(cache * 1024 * 1024)
-		} else {
-			cleans = fastcache.LoadFromFileOrNew(journal, cache*1024*1024)
-		}
-	}
-	return &Database{
-		diskdb: diskdb,
-		cleans: cleans,
-		dirties: map[common.Hash]*cachedNode{{}: {
-			children: make(map[common.Hash]uint16),
-		}},
-		preimages: make(map[common.Hash][]byte),
-	}
+func NewDatabaseWithConfig(diskdb ethdb.KeyValueStore, config *Config) *Database {
+    var cleans *fastcache.Cache
+    if config != nil && config.Cache > 0 {
+        if config.Journal == "" {
+            cleans = fastcache.New(config.Cache * 1024 * 1024)
+        } else {
+            cleans = fastcache.LoadFromFileOrNew(config.Journal, config.Cache*1024*1024)
+        }
+    }
+    db := &Database{
+        diskdb: diskdb,
+        cleans: cleans,
+        dirties: map[common.Hash]*cachedNode{{}: {
+            children: make(map[common.Hash]uint16),
+        }},
+    }
+    if config == nil || config.Preimages { // TODO(karalabe): Flip to default off in the future
+        db.preimages = make(map[common.Hash][]byte)
+    }
+    return db
 }
 
 // DiskDB retrieves the persistent storage backing the trie database.
@@ -345,11 +355,16 @@ func (db *Database) insert(hash common.Hash, size int, node node) {
 //
 // Note, this method assumes that the database's lock is held!
 func (db *Database) insertPreimage(hash common.Hash, preimage []byte) {
-	if _, ok := db.preimages[hash]; ok {
-		return
-	}
-	db.preimages[hash] = preimage
-	db.preimagesSize += common.StorageSize(common.HashLength + len(preimage))
+    // Short circuit if preimage collection is disabled
+    if db.preimages == nil {
+        return
+    }
+    // Track the preimage if a yet unknown one
+    if _, ok := db.preimages[hash]; ok {
+        return
+    }
+    db.preimages[hash] = preimage
+    db.preimagesSize += common.StorageSize(common.HashLength + len(preimage))
 }
 
 // node retrieves a cached trie node from memory, or returns nil if none can be
@@ -431,15 +446,19 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 // preimage retrieves a cached trie node pre-image from memory. If it cannot be
 // found cached, the method queries the persistent database for the content.
 func (db *Database) preimage(hash common.Hash) []byte {
-	// Retrieve the node from cache if available
-	db.lock.RLock()
-	preimage := db.preimages[hash]
-	db.lock.RUnlock()
+    // Short circuit if preimage collection is disabled
+    if db.preimages == nil {
+        return nil
+    }
+    // Retrieve the node from cache if available
+    db.lock.RLock()
+    preimage := db.preimages[hash]
+    db.lock.RUnlock()
 
-	if preimage != nil {
-		return preimage
-	}
-	return rawdb.ReadPreimage(db.diskdb, hash)
+    if preimage != nil {
+        return preimage
+    }
+    return rawdb.ReadPreimage(db.diskdb, hash)
 }
 
 // Nodes retrieves the hashes of all the nodes cached within the memory database.
@@ -588,14 +607,18 @@ func (db *Database) Cap(limit common.StorageSize) error {
 	// leave for later to deduplicate writes.
 	flushPreimages := db.preimagesSize > 4*1024*1024
 	if flushPreimages {
-		rawdb.WritePreimages(batch, db.preimages)
-		if batch.ValueSize() > ethdb.IdealBatchSize {
-			if err := batch.Write(); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
-	}
+        if db.preimages == nil {
+            log.Error("Attempted to write preimages whilst disabled")
+        } else {
+            rawdb.WritePreimages(batch, db.preimages)
+            if batch.ValueSize() > ethdb.IdealBatchSize {
+                if err := batch.Write(); err != nil {
+                    return err
+                }
+                batch.Reset()
+            }
+        }
+    }
 	// Keep committing nodes from the flush-list until we're below allowance
 	oldest := db.oldest
 	for size > limit && oldest != (common.Hash{}) {
@@ -630,8 +653,12 @@ func (db *Database) Cap(limit common.StorageSize) error {
 	defer db.lock.Unlock()
 
 	if flushPreimages {
-		db.preimages, db.preimagesSize = make(map[common.Hash][]byte), 0
-	}
+        if db.preimages == nil {
+            log.Error("Attempted to reset preimage cache whilst disabled")
+        } else {
+            db.preimages, db.preimagesSize = make(map[common.Hash][]byte), 0
+        }
+    }
 	for db.oldest != oldest {
 		node := db.dirties[db.oldest]
 		delete(db.dirties, db.oldest)
@@ -666,61 +693,57 @@ func (db *Database) Cap(limit common.StorageSize) error {
 // Note, this method is a non-synchronized mutator. It is unsafe to call this
 // concurrently with other mutators.
 func (db *Database) Commit(node common.Hash, report bool, callback func(common.Hash)) error {
-	// Create a database batch to flush persistent data out. It is important that
-	// outside code doesn't see an inconsistent state (referenced data removed from
-	// memory cache during commit but not yet in persistent storage). This is ensured
-	// by only uncaching existing data when the database write finalizes.
-	start := time.Now()
-	batch := db.diskdb.NewBatch()
+    // Create a database batch to flush persistent data out. It is important that
+    // outside code doesn't see an inconsistent state (referenced data removed from
+    // memory cache during commit but not yet in persistent storage). This is ensured
+    // by only uncaching existing data when the database write finalizes.
+    start := time.Now()
+    batch := db.diskdb.NewBatch()
 
-	// Move all of the accumulated preimages into a write batch
-	rawdb.WritePreimages(batch, db.preimages)
-	if batch.ValueSize() > ethdb.IdealBatchSize {
-		if err := batch.Write(); err != nil {
-			return err
-		}
-		batch.Reset()
-	}
-	// Since we're going to replay trie node writes into the clean cache, flush out
-	// any batched pre-images before continuing.
-	if err := batch.Write(); err != nil {
-		return err
-	}
-	batch.Reset()
+    // Move all of the accumulated preimages into a write batch
+    if db.preimages != nil {
+        rawdb.WritePreimages(batch, db.preimages)
+        // Since we're going to replay trie node writes into the clean cache, flush out
+        // any batched pre-images before continuing.
+        if err := batch.Write(); err != nil {
+            return err
+        }
+        batch.Reset()
+    }
+    // Move the trie itself into the batch, flushing if enough data is accumulated
+    nodes, storage := len(db.dirties), db.dirtiesSize
 
-	// Move the trie itself into the batch, flushing if enough data is accumulated
-	nodes, storage := len(db.dirties), db.dirtiesSize
+    uncacher := &cleaner{db}
+    if err := db.commit(node, batch, uncacher, callback); err != nil {
+        log.Error("Failed to commit trie from trie database", "err", err)
+        return err
+    }
+    // Trie mostly committed to disk, flush any batch leftovers
+    if err := batch.Write(); err != nil {
+        log.Error("Failed to write trie to disk", "err", err)
+        return err
+    }
+    // Uncache any leftovers in the last batch
+    db.lock.Lock()
+    defer db.lock.Unlock()
 
-	uncacher := &cleaner{db}
-	if err := db.commit(node, batch, uncacher, callback); err != nil {
-		log.Error("Failed to commit trie from trie database", "err", err)
-		return err
-	}
-	// Trie mostly committed to disk, flush any batch leftovers
-	if err := batch.Write(); err != nil {
-		log.Error("Failed to write trie to disk", "err", err)
-		return err
-	}
-	// Uncache any leftovers in the last batch
-	db.lock.Lock()
-	defer db.lock.Unlock()
+    batch.Replay(uncacher)
+    batch.Reset()
 
-	batch.Replay(uncacher)
-	batch.Reset()
+    // Reset the storage counters and bumped metrics
+    if db.preimages != nil {
+        db.preimages, db.preimagesSize = make(map[common.Hash][]byte), 0
+    }
+    memcacheCommitTimeTimer.Update(time.Since(start))
+    memcacheCommitSizeMeter.Mark(int64(storage - db.dirtiesSize))
+    memcacheCommitNodesMeter.Mark(int64(nodes - len(db.dirties)))
 
-	// Reset the storage counters and bumpd metrics
-	db.preimages, db.preimagesSize = make(map[common.Hash][]byte), 0
-
-	memcacheCommitTimeTimer.Update(time.Since(start))
-	memcacheCommitSizeMeter.Mark(int64(storage - db.dirtiesSize))
-	memcacheCommitNodesMeter.Mark(int64(nodes - len(db.dirties)))
-
-	logger := log.Info
-	if !report {
-		logger = log.Debug
-	}
-	logger("Persisted trie from memory database", "nodes", nodes-len(db.dirties)+int(db.flushnodes), "size", storage-db.dirtiesSize+db.flushsize, "time", time.Since(start)+db.flushtime,
-		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.dirties), "livesize", db.dirtiesSize)
+    logger := log.Info
+    if !report {
+        logger = log.Debug
+    }
+    logger("Persisted trie from memory database", "nodes", nodes-len(db.dirties)+int(db.flushnodes), "size", storage-db.dirtiesSize+db.flushsize, "time", time.Since(start)+db.flushtime,
+        "gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.dirties), "livesize", db.dirtiesSize)
 
 	// Reset the garbage collection statistics
 	db.gcnodes, db.gcsize, db.gctime = 0, 0, 0
@@ -765,24 +788,24 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleane
 // cleaner is a database batch replayer that takes a batch of write operations
 // and cleans up the trie database from anything written to disk.
 type cleaner struct {
-	db *Database
+    db *Database
 }
 
 // Put reacts to database writes and implements dirty data uncaching. This is the
 // post-processing step of a commit operation where the already persisted trie is
 // removed from the dirty cache and moved into the clean cache. The reason behind
-// the two-phase commit is to ensure ensure data availability while moving from
-// memory to disk.
+// the two-phase commit is to ensure data availability while moving from memory
+// to disk.
 func (c *cleaner) Put(key []byte, rlp []byte) error {
-	hash := common.BytesToHash(key)
+    hash := common.BytesToHash(key)
 
-	// If the node does not exist, we're done on this path
-	node, ok := c.db.dirties[hash]
-	if !ok {
-		return nil
-	}
-	// Node still exists, remove it from the flush-list
-	switch hash {
+    // If the node does not exist, we're done on this path
+    node, ok := c.db.dirties[hash]
+    if !ok {
+        return nil
+    }
+    // Node still exists, remove it from the flush-list
+    switch hash {
 	case c.db.oldest:
 		c.db.oldest = node.flushNext
 		c.db.dirties[node.flushNext].flushPrev = common.Hash{}

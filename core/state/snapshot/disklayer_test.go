@@ -17,17 +17,18 @@
 package snapshot
 
 import (
-	"bytes"
-	"io/ioutil"
-	"os"
-	"testing"
+    "bytes"
+    "io/ioutil"
+    "os"
+    "testing"
 
-	"github.com/VictoriaMetrics/fastcache"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/ethdb/leveldb"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
+    "github.com/VictoriaMetrics/fastcache"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/core/rawdb"
+    "github.com/ethereum/go-ethereum/ethdb"
+    "github.com/ethereum/go-ethereum/ethdb/leveldb"
+    "github.com/ethereum/go-ethereum/ethdb/memorydb"
+    "github.com/ethereum/go-ethereum/rlp"
 )
 
 // reverse reverses the contents of a byte slice. It's used to update random accs
@@ -419,14 +420,89 @@ func TestDiskPartialMerge(t *testing.T) {
 			}
 		}
 		assertDatabaseStorage(conNoModNoCache, conNoModNoCacheSlot, conNoModNoCacheSlot[:])
-		assertDatabaseStorage(conNoModCache, conNoModCacheSlot, conNoModCacheSlot[:])
-		assertDatabaseStorage(conModNoCache, conModNoCacheSlot, reverse(conModNoCacheSlot[:]))
-		assertDatabaseStorage(conModCache, conModCacheSlot, reverse(conModCacheSlot[:]))
-		assertDatabaseStorage(conDelNoCache, conDelNoCacheSlot, nil)
-		assertDatabaseStorage(conDelCache, conDelCacheSlot, nil)
-		assertDatabaseStorage(conNukeNoCache, conNukeNoCacheSlot, nil)
-		assertDatabaseStorage(conNukeCache, conNukeCacheSlot, nil)
-	}
+        assertDatabaseStorage(conNoModCache, conNoModCacheSlot, conNoModCacheSlot[:])
+        assertDatabaseStorage(conModNoCache, conModNoCacheSlot, reverse(conModNoCacheSlot[:]))
+        assertDatabaseStorage(conModCache, conModCacheSlot, reverse(conModCacheSlot[:]))
+        assertDatabaseStorage(conDelNoCache, conDelNoCacheSlot, nil)
+        assertDatabaseStorage(conDelCache, conDelCacheSlot, nil)
+        assertDatabaseStorage(conNukeNoCache, conNukeNoCacheSlot, nil)
+        assertDatabaseStorage(conNukeCache, conNukeCacheSlot, nil)
+    }
+}
+
+// Tests that when the bottom-most diff layer is merged into the disk
+// layer whether the corresponding generator is persisted correctly.
+func TestDiskGeneratorPersistence(t *testing.T) {
+    var (
+        accOne        = randomHash()
+        accTwo        = randomHash()
+        accOneSlotOne = randomHash()
+        accOneSlotTwo = randomHash()
+
+        accThree     = randomHash()
+        accThreeSlot = randomHash()
+        baseRoot     = randomHash()
+        diffRoot     = randomHash()
+        diffTwoRoot  = randomHash()
+        genMarker    = append(randomHash().Bytes(), randomHash().Bytes()...)
+    )
+    // Testing scenario 1, the disk layer is still under the construction.
+    db := rawdb.NewMemoryDatabase()
+
+    rawdb.WriteAccountSnapshot(db, accOne, accOne[:])
+    rawdb.WriteStorageSnapshot(db, accOne, accOneSlotOne, accOneSlotOne[:])
+    rawdb.WriteStorageSnapshot(db, accOne, accOneSlotTwo, accOneSlotTwo[:])
+    rawdb.WriteSnapshotRoot(db, baseRoot)
+
+    // Create a disk layer based on all above updates
+    snaps := &Tree{
+        layers: map[common.Hash]snapshot{
+            baseRoot: &diskLayer{
+                diskdb:    db,
+                cache:     fastcache.New(500 * 1024),
+                root:      baseRoot,
+                genMarker: genMarker,
+            },
+        },
+    }
+    // Modify or delete some accounts, flatten everything onto disk
+    if err := snaps.Update(diffRoot, baseRoot, nil, map[common.Hash][]byte{
+        accTwo: accTwo[:],
+    }, nil); err != nil {
+        t.Fatalf("failed to update snapshot tree: %v", err)
+    }
+    if err := snaps.Cap(diffRoot, 0); err != nil {
+        t.Fatalf("failed to flatten snapshot tree: %v", err)
+    }
+    blob := rawdb.ReadSnapshotGenerator(db)
+    var generator journalGenerator
+    if err := rlp.DecodeBytes(blob, &generator); err != nil {
+        t.Fatalf("Failed to decode snapshot generator %v", err)
+    }
+    if !bytes.Equal(generator.Marker, genMarker) {
+        t.Fatalf("Generator marker is not matched")
+    }
+    // Test scenario 2, the disk layer is fully generated
+    // Modify or delete some accounts, flatten everything onto disk
+    if err := snaps.Update(diffTwoRoot, diffRoot, nil, map[common.Hash][]byte{
+        accThree: accThree.Bytes(),
+    }, map[common.Hash]map[common.Hash][]byte{
+        accThree: {accThreeSlot: accThreeSlot.Bytes()},
+    }); err != nil {
+        t.Fatalf("failed to update snapshot tree: %v", err)
+    }
+    diskLayer := snaps.layers[snaps.diskRoot()].(*diskLayer)
+    diskLayer.genMarker = nil // Construction finished
+    if err := snaps.Cap(diffTwoRoot, 0); err != nil {
+        t.Fatalf("failed to flatten snapshot tree: %v", err)
+    }
+    blob = rawdb.ReadSnapshotGenerator(db)
+    if err := rlp.DecodeBytes(blob, &generator); err != nil {
+        t.Fatalf("Failed to decode snapshot generator %v", err)
+    }
+    if len(generator.Marker) != 0 {
+        t.Fatalf("Failed to update snapshot generator")
+    }
 }
 
 // Tests that merging something into a disk layer persists it into the database
@@ -436,7 +512,7 @@ func TestDiskPartialMerge(t *testing.T) {
 // This test case is a tiny specialized case of TestDiskPartialMerge, which tests
 // some very specific cornercases that random tests won't ever trigger.
 func TestDiskMidAccountPartialMerge(t *testing.T) {
-	// TODO(@karalabe) ?
+    // TODO(@karalabe) ?
 }
 
 // TestDiskSeek tests that seek-operations work on the disk layer
@@ -448,7 +524,7 @@ func TestDiskSeek(t *testing.T) {
 		t.Fatal(err)
 	} else {
 		defer os.RemoveAll(dir)
-		diskdb, err := leveldb.New(dir, 256, 0, "")
+        diskdb, err := leveldb.New(dir, 256, 0, "", false)
 		if err != nil {
 			t.Fatal(err)
 		}

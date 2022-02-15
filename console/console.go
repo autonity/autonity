@@ -17,7 +17,8 @@
 package console
 
 import (
-	"fmt"
+	"errors"
+    "fmt"
 
 	"io"
 	"io/ioutil"
@@ -26,8 +27,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
-	"syscall"
+    "strings"
+    "sync"
+    "syscall"
 
 	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/internal/jsre"
@@ -68,13 +70,20 @@ type Config struct {
 // JavaScript console attached to a running node via an external or in-process RPC
 // client.
 type Console struct {
-	client   *rpc.Client         // RPC client to execute Ethereum requests through
-	jsre     *jsre.JSRE          // JavaScript runtime environment running the interpreter
-	prompt   string              // Input prompt prefix string
-	prompter prompt.UserPrompter // Input prompter to allow interactive user feedback
-	histPath string              // Absolute path to the console scrollback history
-	history  []string            // Scroll history maintained by the console
-	printer  io.Writer           // Output writer to serialize any display strings to
+    client   *rpc.Client         // RPC client to execute Ethereum requests through
+    jsre     *jsre.JSRE          // JavaScript runtime environment running the interpreter
+    prompt   string              // Input prompt prefix string
+    prompter prompt.UserPrompter // Input prompter to allow interactive user feedback
+    histPath string              // Absolute path to the console scrollback history
+    history  []string            // Scroll history maintained by the console
+    printer  io.Writer           // Output writer to serialize any display strings to
+
+    interactiveStopped chan struct{}
+    stopInteractiveCh  chan struct{}
+    signalReceived     chan struct{}
+    stopped            chan struct{}
+    wg                 sync.WaitGroup
+    stopOnce           sync.Once
 }
 
 // New initializes a JavaScript interpreted runtime environment and sets defaults
@@ -93,20 +102,28 @@ func New(config Config) (*Console, error) {
 
 	// Initialize the console and return
 	console := &Console{
-		client:   config.Client,
-		jsre:     jsre.New(config.DocRoot, config.Printer),
-		prompt:   config.Prompt,
-		prompter: config.Prompter,
-		printer:  config.Printer,
-		histPath: filepath.Join(config.DataDir, HistoryFile),
-	}
-	if err := os.MkdirAll(config.DataDir, 0700); err != nil {
-		return nil, err
-	}
-	if err := console.init(config.Preload); err != nil {
-		return nil, err
-	}
-	return console, nil
+        client:             config.Client,
+        jsre:               jsre.New(config.DocRoot, config.Printer),
+        prompt:             config.Prompt,
+        prompter:           config.Prompter,
+        printer:            config.Printer,
+        histPath:           filepath.Join(config.DataDir, HistoryFile),
+        interactiveStopped: make(chan struct{}),
+        stopInteractiveCh:  make(chan struct{}),
+        signalReceived:     make(chan struct{}, 1),
+        stopped:            make(chan struct{}),
+    }
+    if err := os.MkdirAll(config.DataDir, 0700); err != nil {
+        return nil, err
+    }
+    if err := console.init(config.Preload); err != nil {
+        return nil, err
+    }
+
+    console.wg.Add(1)
+    go console.interruptHandler()
+
+    return console, nil
 }
 
 // init retrieves the available APIs from the remote RPC provider and initializes
@@ -341,60 +358,118 @@ func (c *Console) Welcome() {
 		sort.Strings(modules)
 		message += " modules: " + strings.Join(modules, " ") + "\n"
 	}
+    message += "\nTo exit, press ctrl-d or type exit"
 	fmt.Fprintln(c.printer, message)
 }
 
 // Evaluate executes code and pretty prints the result to the specified output
 // stream.
 func (c *Console) Evaluate(statement string) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Fprintf(c.printer, "[native] error: %v\n", r)
-		}
-	}()
-	c.jsre.Evaluate(statement, c.printer)
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Fprintf(c.printer, "[native] error: %v\n", r)
+        }
+    }()
+    c.jsre.Evaluate(statement, c.printer)
+
+    // Avoid exiting Interactive when jsre was interrupted by SIGINT.
+    c.clearSignalReceived()
 }
 
-// Interactive starts an interactive user session, where input is propted from
+// interruptHandler runs in its own goroutine and waits for signals.
+// When a signal is received, it interrupts the JS interpreter.
+func (c *Console) interruptHandler() {
+    defer c.wg.Done()
+
+    // During Interactive, liner inhibits the signal while it is prompting for
+    // input. However, the signal will be received while evaluating JS.
+    //
+    // On unsupported terminals, SIGINT can also happen while prompting.
+    // Unfortunately, it is not possible to abort the prompt in this case and
+    // the c.readLines goroutine leaks.
+    sig := make(chan os.Signal, 1)
+    signal.Notify(sig, syscall.SIGINT)
+    defer signal.Stop(sig)
+
+    for {
+        select {
+        case <-sig:
+            c.setSignalReceived()
+            c.jsre.Interrupt(errors.New("interrupted"))
+        case <-c.stopInteractiveCh:
+            close(c.interactiveStopped)
+            c.jsre.Interrupt(errors.New("interrupted"))
+        case <-c.stopped:
+            return
+        }
+    }
+}
+
+func (c *Console) setSignalReceived() {
+    select {
+    case c.signalReceived <- struct{}{}:
+    default:
+    }
+}
+
+func (c *Console) clearSignalReceived() {
+    select {
+    case <-c.signalReceived:
+    default:
+    }
+}
+
+// StopInteractive causes Interactive to return as soon as possible.
+func (c *Console) StopInteractive() {
+    select {
+    case c.stopInteractiveCh <- struct{}{}:
+    case <-c.stopped:
+    }
+}
+
+// Interactive starts an interactive user session, where in.put is propted from
 // the configured user prompter.
 func (c *Console) Interactive() {
-	var (
-		prompt      = c.prompt             // the current prompt line (used for multi-line inputs)
-		indents     = 0                    // the current number of input indents (used for multi-line inputs)
-		input       = ""                   // the current user input
-		inputLine   = make(chan string, 1) // receives user input
-		inputErr    = make(chan error, 1)  // receives liner errors
-		requestLine = make(chan string)    // requests a line of input
-		interrupt   = make(chan os.Signal, 1)
-	)
+    var (
+        prompt      = c.prompt             // the current prompt line (used for multi-line inputs)
+        indents     = 0                    // the current number of input indents (used for multi-line inputs)
+        input       = ""                   // the current user input
+        inputLine   = make(chan string, 1) // receives user input
+        inputErr    = make(chan error, 1)  // receives liner errors
+        requestLine = make(chan string)    // requests a line of input
+    )
 
-	// Monitor Ctrl-C. While liner does turn on the relevant terminal mode bits to avoid
-	// the signal, a signal can still be received for unsupported terminals. Unfortunately
-	// there is no way to cancel the line reader when this happens. The readLines
-	// goroutine will be leaked in this case.
-	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(interrupt)
+    defer func() {
+        c.writeHistory()
+    }()
 
-	// The line reader runs in a separate goroutine.
-	go c.readLines(inputLine, inputErr, requestLine)
-	defer close(requestLine)
+    // The line reader runs in a separate goroutine.
+    go c.readLines(inputLine, inputErr, requestLine)
+    defer close(requestLine)
 
-	for {
-		// Send the next prompt, triggering an input read.
-		requestLine <- prompt
+    for {
+        // Send the next prompt, triggering an input read.
+        requestLine <- prompt
 
-		select {
-		case <-interrupt:
-			fmt.Fprintln(c.printer, "caught interrupt, exiting")
-			return
+        select {
+        case <-c.interactiveStopped:
+            fmt.Fprintln(c.printer, "node is down, exiting console")
+            return
 
-		case err := <-inputErr:
-			if err == liner.ErrPromptAborted && indents > 0 {
-				// When prompting for multi-line input, the first Ctrl-C resets
-				// the multi-line state.
-				prompt, indents, input = c.prompt, 0, ""
-				continue
-			}
+        case <-c.signalReceived:
+            // SIGINT received while prompting for input -> unsupported terminal.
+            // I'm not sure if the best choice would be to leave the console running here.
+            // Bash keeps running in this case. node.js does not.
+            fmt.Fprintln(c.printer, "caught interrupt, exiting")
+            return
+
+        case err := <-inputErr:
+            if err == liner.ErrPromptAborted {
+                // When prompting for multi-line input, the first Ctrl-C resets
+                // the multi-line state.
+                prompt, indents, input = c.prompt, 0, ""
+                continue
+            }
 			return
 
 		case line := <-inputLine:
@@ -482,22 +557,29 @@ func countIndents(input string) int {
 		}
 	}
 
-	return indents
+    return indents
 }
 
 // Execute runs the JavaScript file specified as the argument.
 func (c *Console) Execute(path string) error {
-	return c.jsre.Exec(path)
+    return c.jsre.Exec(path)
 }
 
 // Stop cleans up the console and terminates the runtime environment.
 func (c *Console) Stop(graceful bool) error {
-	if err := ioutil.WriteFile(c.histPath, []byte(strings.Join(c.history, "\n")), 0600); err != nil {
-		return err
-	}
-	if err := os.Chmod(c.histPath, 0600); err != nil { // Force 0600, even if it was different previously
-		return err
-	}
-	c.jsre.Stop(graceful)
-	return nil
+    c.stopOnce.Do(func() {
+        // Stop the interrupt handler.
+        close(c.stopped)
+        c.wg.Wait()
+    })
+
+    c.jsre.Stop(graceful)
+    return nil
+}
+
+func (c *Console) writeHistory() error {
+    if err := ioutil.WriteFile(c.histPath, []byte(strings.Join(c.history, "\n")), 0600); err != nil {
+        return err
+    }
+    return os.Chmod(c.histPath, 0600) // Force 0600, even if it was different previously
 }

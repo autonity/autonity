@@ -18,8 +18,6 @@ package les
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
@@ -145,25 +143,34 @@ func (rm *retrieveManager) sendReq(reqID uint64, req *distReq, val validatorFunc
 		r.lock.Lock()
 		r.sentTo[p] = sentReqToPeer{delivered: false, frozen: false, event: make(chan int, 1)}
 		r.lock.Unlock()
-		return request(p)
-	}
-	rm.lock.Lock()
-	rm.sentReqs[reqID] = r
-	rm.lock.Unlock()
+        return request(p)
+    }
+    rm.lock.Lock()
+    rm.sentReqs[reqID] = r
+    rm.lock.Unlock()
 
-	go r.retrieveLoop()
-	return r
+    go r.retrieveLoop()
+    return r
+}
+
+// requested reports whether the request with given reqid is sent by the retriever.
+func (rm *retrieveManager) requested(reqId uint64) bool {
+    rm.lock.RLock()
+    defer rm.lock.RUnlock()
+
+    _, ok := rm.sentReqs[reqId]
+    return ok
 }
 
 // deliver is called by the LES protocol manager to deliver reply messages to waiting requests
 func (rm *retrieveManager) deliver(peer distPeer, msg *Msg) error {
-	rm.lock.RLock()
-	req, ok := rm.sentReqs[msg.ReqID]
-	rm.lock.RUnlock()
+    rm.lock.RLock()
+    req, ok := rm.sentReqs[msg.ReqID]
+    rm.lock.RUnlock()
 
-	if ok {
-		return req.deliver(peer, msg)
-	}
+    if ok {
+        return req.deliver(peer, msg)
+    }
 	return errResp(ErrUnexpectedResponse, "reqID = %v", msg.ReqID)
 }
 
@@ -328,7 +335,6 @@ func (r *sentReq) tryRequest() {
 	}
 
 	defer func() {
-		// send feedback to server pool and remove peer if hard timeout happened
 		pp, ok := p.(*serverPeer)
 		if hrto && ok {
 			pp.Log().Debug("Request timed out hard")
@@ -336,10 +342,6 @@ func (r *sentReq) tryRequest() {
 				r.rm.peers.unregister(pp.id)
 			}
 		}
-
-		r.lock.Lock()
-		delete(r.sentTo, p)
-		r.lock.Unlock()
 	}()
 
 	select {
@@ -425,11 +427,4 @@ func (r *sentReq) stop(err error) {
 // stop function) after stopCh has been closed
 func (r *sentReq) getError() error {
 	return r.err
-}
-
-// genReqID generates a new random request ID
-func genReqID() uint64 {
-	var rnd [8]byte
-	rand.Read(rnd[:])
-	return binary.BigEndian.Uint64(rnd[:])
 }
