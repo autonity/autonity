@@ -17,17 +17,17 @@
 package node
 
 import (
-    "context"
-    "fmt"
-    "strings"
+	"context"
+	"fmt"
+	"strings"
 
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/ethereum/go-ethereum/internal/debug"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/p2p"
-    "github.com/ethereum/go-ethereum/p2p/enode"
-    "github.com/ethereum/go-ethereum/rpc"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/internal/debug"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/rpc"
 )
 
 // apis returns the collection of built-in RPC APIs.
@@ -153,28 +153,28 @@ func (api *privateAdminAPI) PeerEvents(ctx context.Context) (*rpc.Subscription, 
 			case <-sub.Err():
 				return
 			case <-rpcSub.Err():
-                return
-            case <-notifier.Closed():
-                return
-            }
-        }
-    }()
+				return
+			case <-notifier.Closed():
+				return
+			}
+		}
+	}()
 
-    return rpcSub, nil
+	return rpcSub, nil
 }
 
 // StartHTTP starts the HTTP RPC API server.
 func (api *privateAdminAPI) StartHTTP(host *string, port *int, cors *string, apis *string, vhosts *string) (bool, error) {
-    api.node.lock.Lock()
-    defer api.node.lock.Unlock()
+	api.node.lock.Lock()
+	defer api.node.lock.Unlock()
 
-    // Determine host and port.
-    if host == nil {
-        h := DefaultHTTPHost
-        if api.node.config.HTTPHost != "" {
-            h = api.node.config.HTTPHost
-        }
-        host = &h
+	// Determine host and port.
+	if host == nil {
+		h := DefaultHTTPHost
+		if api.node.config.HTTPHost != "" {
+			h = api.node.config.HTTPHost
+		}
+		host = &h
 	}
 	if port == nil {
 		port = &api.node.config.HTTPPort
@@ -207,45 +207,45 @@ func (api *privateAdminAPI) StartHTTP(host *string, port *int, cors *string, api
 
 	if err := api.node.http.setListenAddr(*host, *port); err != nil {
 		return false, err
-    }
-    if err := api.node.http.enableRPC(api.node.rpcAPIs, config); err != nil {
-        return false, err
-    }
-    if err := api.node.http.start(); err != nil {
-        return false, err
-    }
-    return true, nil
+	}
+	if err := api.node.http.enableRPC(api.node.rpcAPIs, config); err != nil {
+		return false, err
+	}
+	if err := api.node.http.start(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // StartRPC starts the HTTP RPC API server.
 // Deprecated: use StartHTTP instead.
 func (api *privateAdminAPI) StartRPC(host *string, port *int, cors *string, apis *string, vhosts *string) (bool, error) {
-    log.Warn("Deprecation warning", "method", "admin.StartRPC", "use-instead", "admin.StartHTTP")
-    return api.StartHTTP(host, port, cors, apis, vhosts)
+	log.Warn("Deprecation warning", "method", "admin.StartRPC", "use-instead", "admin.StartHTTP")
+	return api.StartHTTP(host, port, cors, apis, vhosts)
 }
 
 // StopHTTP shuts down the HTTP server.
 func (api *privateAdminAPI) StopHTTP() (bool, error) {
-    api.node.http.stop()
-    return true, nil
+	api.node.http.stop()
+	return true, nil
 }
 
 // StopRPC shuts down the HTTP server.
 // Deprecated: use StopHTTP instead.
 func (api *privateAdminAPI) StopRPC() (bool, error) {
-    log.Warn("Deprecation warning", "method", "admin.StopRPC", "use-instead", "admin.StopHTTP")
-    return api.StopHTTP()
+	log.Warn("Deprecation warning", "method", "admin.StopRPC", "use-instead", "admin.StopHTTP")
+	return api.StopHTTP()
 }
 
 // StartWS starts the websocket RPC API server.
 func (api *privateAdminAPI) StartWS(host *string, port *int, allowedOrigins *string, apis *string) (bool, error) {
-    api.node.lock.Lock()
-    defer api.node.lock.Unlock()
+	api.node.lock.Lock()
+	defer api.node.lock.Unlock()
 
-    // Determine host and port.
-    if host == nil {
-        h := DefaultWSHost
-        if api.node.config.WSHost != "" {
+	// Determine host and port.
+	if host == nil {
+		h := DefaultWSHost
+		if api.node.config.WSHost != "" {
 			h = api.node.config.WSHost
 		}
 		host = &h

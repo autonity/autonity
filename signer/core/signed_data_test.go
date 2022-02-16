@@ -17,35 +17,35 @@
 package core_test
 
 import (
-    "bytes"
-    "context"
-    "encoding/json"
-    "fmt"
-    "io/ioutil"
-    "path"
-    "strings"
-    "testing"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"path"
+	"strings"
+	"testing"
 
-    "github.com/ethereum/go-ethereum/accounts/keystore"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/common/math"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/ethereum/go-ethereum/signer/core"
-    "github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/signer/core"
+	"github.com/clearmatics/autonity/signer/core/apitypes"
 )
 
 var typesStandard = apitypes.Types{
-    "EIP712Domain": {
-        {
-            Name: "name",
-            Type: "string",
-        },
-        {
-            Name: "version",
-            Type: "string",
-        },
-        {
+	"EIP712Domain": {
+		{
+			Name: "name",
+			Type: "string",
+		},
+		{
+			Name: "version",
+			Type: "string",
+		},
+		{
 			Name: "chainId",
 			Type: "uint256",
 		},
@@ -155,11 +155,11 @@ var jsonTypedData = `
 const primaryType = "Mail"
 
 var domainStandard = apitypes.TypedDataDomain{
-    Name:              "Ether Mail",
-    Version:           "1",
-    ChainId:           math.NewHexOrDecimal256(1),
-    VerifyingContract: "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
-    Salt:              "",
+	Name:              "Ether Mail",
+	Version:           "1",
+	ChainId:           math.NewHexOrDecimal256(1),
+	VerifyingContract: "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+	Salt:              "",
 }
 
 var messageStandard = map[string]interface{}{
@@ -175,10 +175,10 @@ var messageStandard = map[string]interface{}{
 }
 
 var typedData = apitypes.TypedData{
-    Types:       typesStandard,
-    PrimaryType: primaryType,
-    Domain:      domainStandard,
-    Message:     messageStandard,
+	Types:       typesStandard,
+	PrimaryType: primaryType,
+	Domain:      domainStandard,
+	Message:     messageStandard,
 }
 
 func TestSignData(t *testing.T) {
@@ -195,7 +195,7 @@ func TestSignData(t *testing.T) {
 
 	control.approveCh <- "Y"
 	control.inputCh <- "wrongpassword"
-    signature, err := api.SignData(context.Background(), apitypes.TextPlain.Mime, a, hexutil.Encode([]byte("EHLO world")))
+	signature, err := api.SignData(context.Background(), apitypes.TextPlain.Mime, a, hexutil.Encode([]byte("EHLO world")))
 	if signature != nil {
 		t.Errorf("Expected nil-data, got %x", signature)
 	}
@@ -203,7 +203,7 @@ func TestSignData(t *testing.T) {
 		t.Errorf("Expected ErrLocked! '%v'", err)
 	}
 	control.approveCh <- "No way"
-    signature, err = api.SignData(context.Background(), apitypes.TextPlain.Mime, a, hexutil.Encode([]byte("EHLO world")))
+	signature, err = api.SignData(context.Background(), apitypes.TextPlain.Mime, a, hexutil.Encode([]byte("EHLO world")))
 	if signature != nil {
 		t.Errorf("Expected nil-data, got %x", signature)
 	}
@@ -213,7 +213,7 @@ func TestSignData(t *testing.T) {
 	// text/plain
 	control.approveCh <- "Y"
 	control.inputCh <- "a_long_password"
-    signature, err = api.SignData(context.Background(), apitypes.TextPlain.Mime, a, hexutil.Encode([]byte("EHLO world")))
+	signature, err = api.SignData(context.Background(), apitypes.TextPlain.Mime, a, hexutil.Encode([]byte("EHLO world")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,36 +233,36 @@ func TestSignData(t *testing.T) {
 }
 
 func TestDomainChainId(t *testing.T) {
-    withoutChainID := apitypes.TypedData{
-        Types: apitypes.Types{
-            "EIP712Domain": []apitypes.Type{
-                {Name: "name", Type: "string"},
-            },
-        },
-        Domain: apitypes.TypedDataDomain{
-            Name: "test",
-        },
-    }
+	withoutChainID := apitypes.TypedData{
+		Types: apitypes.Types{
+			"EIP712Domain": []apitypes.Type{
+				{Name: "name", Type: "string"},
+			},
+		},
+		Domain: apitypes.TypedDataDomain{
+			Name: "test",
+		},
+	}
 
-    if _, ok := withoutChainID.Domain.Map()["chainId"]; ok {
-        t.Errorf("Expected the chainId key to not be present in the domain map")
-    }
-    // should encode successfully
-    if _, err := withoutChainID.HashStruct("EIP712Domain", withoutChainID.Domain.Map()); err != nil {
-        t.Errorf("Expected the typedData to encode the domain successfully, got %v", err)
-    }
-    withChainID := apitypes.TypedData{
-        Types: apitypes.Types{
-            "EIP712Domain": []apitypes.Type{
-                {Name: "name", Type: "string"},
-                {Name: "chainId", Type: "uint256"},
-            },
-        },
-        Domain: apitypes.TypedDataDomain{
-            Name:    "test",
-            ChainId: math.NewHexOrDecimal256(1),
-        },
-    }
+	if _, ok := withoutChainID.Domain.Map()["chainId"]; ok {
+		t.Errorf("Expected the chainId key to not be present in the domain map")
+	}
+	// should encode successfully
+	if _, err := withoutChainID.HashStruct("EIP712Domain", withoutChainID.Domain.Map()); err != nil {
+		t.Errorf("Expected the typedData to encode the domain successfully, got %v", err)
+	}
+	withChainID := apitypes.TypedData{
+		Types: apitypes.Types{
+			"EIP712Domain": []apitypes.Type{
+				{Name: "name", Type: "string"},
+				{Name: "chainId", Type: "uint256"},
+			},
+		},
+		Domain: apitypes.TypedDataDomain{
+			Name:    "test",
+			ChainId: math.NewHexOrDecimal256(1),
+		},
+	}
 
 	if _, ok := withChainID.Domain.Map()["chainId"]; !ok {
 		t.Errorf("Expected the chainId key be present in the domain map")
@@ -324,7 +324,7 @@ func TestEncodeData(t *testing.T) {
 }
 
 func TestFormatter(t *testing.T) {
-    var d apitypes.TypedData
+	var d apitypes.TypedData
 	err := json.Unmarshal([]byte(jsonTypedData), &d)
 	if err != nil {
 		t.Fatalf("unmarshalling failed '%v'", err)
@@ -339,16 +339,16 @@ func TestFormatter(t *testing.T) {
 }
 
 func sign(typedData apitypes.TypedData) ([]byte, []byte, error) {
-    domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
-    if err != nil {
-        return nil, nil, err
-    }
-    typedDataHash, err := typedData.HashStruct(typedData.PrimaryType, typedData.Message)
-    if err != nil {
-        return nil, nil, err
-    }
-    rawData := []byte(fmt.Sprintf("\x19\x01%s%s", string(domainSeparator), string(typedDataHash)))
-    sighash := crypto.Keccak256(rawData)
+	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
+	if err != nil {
+		return nil, nil, err
+	}
+	typedDataHash, err := typedData.HashStruct(typedData.PrimaryType, typedData.Message)
+	if err != nil {
+		return nil, nil, err
+	}
+	rawData := []byte(fmt.Sprintf("\x19\x01%s%s", string(domainSeparator), string(typedDataHash)))
+	sighash := crypto.Keccak256(rawData)
 	return typedDataHash, sighash, nil
 }
 
@@ -367,7 +367,7 @@ func TestJsonFiles(t *testing.T) {
 			t.Errorf("Failed to read file %v: %v", fInfo.Name(), err)
 			continue
 		}
-        var typedData apitypes.TypedData
+		var typedData apitypes.TypedData
 		err = json.Unmarshal(data, &typedData)
 		if err != nil {
 			t.Errorf("Test %d, file %v, json unmarshalling failed: %v", i, fInfo.Name(), err)
@@ -399,7 +399,7 @@ func TestFuzzerFiles(t *testing.T) {
 			t.Errorf("Failed to read file %v: %v", fInfo.Name(), err)
 			continue
 		}
-        var typedData apitypes.TypedData
+		var typedData apitypes.TypedData
 		err = json.Unmarshal(data, &typedData)
 		if err != nil {
 			t.Errorf("Test %d, file %v, json unmarshalling failed: %v", i, fInfo.Name(), err)
@@ -499,7 +499,7 @@ var gnosisTx = `
 // TestGnosisTypedData tests the scenario where a user submits a full EIP-712
 // struct without using the gnosis-specific endpoint
 func TestGnosisTypedData(t *testing.T) {
-    var td apitypes.TypedData
+	var td apitypes.TypedData
 	err := json.Unmarshal([]byte(gnosisTypedData), &td)
 	if err != nil {
 		t.Fatalf("unmarshalling failed '%v'", err)
@@ -523,14 +523,14 @@ func TestGnosisCustomData(t *testing.T) {
 		t.Fatal(err)
 	}
 	var td = tx.ToTypedData()
-    _, sighash, err := sign(td)
-    if err != nil {
-        t.Fatal(err)
-    }
-    expSigHash := common.FromHex("0x28bae2bd58d894a1d9b69e5e9fde3570c4b98a6fc5499aefb54fb830137e831f")
-    if !bytes.Equal(expSigHash, sighash) {
-        t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
-    }
+	_, sighash, err := sign(td)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expSigHash := common.FromHex("0x28bae2bd58d894a1d9b69e5e9fde3570c4b98a6fc5499aefb54fb830137e831f")
+	if !bytes.Equal(expSigHash, sighash) {
+		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
+	}
 }
 
 var gnosisTypedDataWithChainId = `
@@ -629,36 +629,186 @@ var gnosisTxWithChainId = `
 `
 
 func TestGnosisTypedDataWithChainId(t *testing.T) {
-    var td apitypes.TypedData
-    err := json.Unmarshal([]byte(gnosisTypedDataWithChainId), &td)
-    if err != nil {
-        t.Fatalf("unmarshalling failed '%v'", err)
-    }
-    _, sighash, err := sign(td)
-    if err != nil {
-        t.Fatal(err)
-    }
-    expSigHash := common.FromHex("0x6619dab5401503f2735256e12b898e69eb701d6a7e0d07abf1be4bb8aebfba29")
-    if !bytes.Equal(expSigHash, sighash) {
-        t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
-    }
+	var td apitypes.TypedData
+	err := json.Unmarshal([]byte(gnosisTypedDataWithChainId), &td)
+	if err != nil {
+		t.Fatalf("unmarshalling failed '%v'", err)
+	}
+	_, sighash, err := sign(td)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expSigHash := common.FromHex("0x6619dab5401503f2735256e12b898e69eb701d6a7e0d07abf1be4bb8aebfba29")
+	if !bytes.Equal(expSigHash, sighash) {
+		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
+	}
 }
 
 // TestGnosisCustomData tests the scenario where a user submits only the gnosis-safe
 // specific data, and we fill the TypedData struct on our side
 func TestGnosisCustomDataWithChainId(t *testing.T) {
-    var tx core.GnosisSafeTx
-    err := json.Unmarshal([]byte(gnosisTxWithChainId), &tx)
-    if err != nil {
-        t.Fatal(err)
+	var tx core.GnosisSafeTx
+	err := json.Unmarshal([]byte(gnosisTxWithChainId), &tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var td = tx.ToTypedData()
+	_, sighash, err := sign(td)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expSigHash := common.FromHex("0x6619dab5401503f2735256e12b898e69eb701d6a7e0d07abf1be4bb8aebfba29")
+	if !bytes.Equal(expSigHash, sighash) {
+		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
+	}
+}
+
+var complexTypedData = `
+{
+    "types": {
+        "EIP712Domain": [
+            {
+                "name": "chainId",
+                "type": "uint256"
+            },
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "verifyingContract",
+                "type": "address"
+            },
+            {
+                "name": "version",
+                "type": "string"
+            }
+        ],
+        "Action": [
+            {
+                "name": "action",
+                "type": "string"
+            },
+            {
+                "name": "params",
+                "type": "string"
+            }
+        ],
+        "Cell": [
+            {
+                "name": "capacity",
+                "type": "string"
+            },
+            {
+                "name": "lock",
+                "type": "string"
+            },
+            {
+                "name": "type",
+                "type": "string"
+            },
+            {
+                "name": "data",
+                "type": "string"
+            },
+            {
+                "name": "extraData",
+                "type": "string"
+            }
+        ],
+        "Transaction": [
+            {
+                "name": "DAS_MESSAGE",
+                "type": "string"
+            },
+            {
+                "name": "inputsCapacity",
+                "type": "string"
+            },
+            {
+                "name": "outputsCapacity",
+                "type": "string"
+            },
+            {
+                "name": "fee",
+                "type": "string"
+            },
+            {
+                "name": "action",
+                "type": "Action"
+            },
+            {
+                "name": "inputs",
+                "type": "Cell[]"
+            },
+            {
+                "name": "outputs",
+                "type": "Cell[]"
+            },
+            {
+                "name": "digest",
+                "type": "bytes32"
+            }
+        ]
+    },
+    "primaryType": "Transaction",
+    "domain": {
+        "chainId": "56",
+        "name": "da.systems",
+        "verifyingContract": "0x0000000000000000000000000000000020210722",
+        "version": "1"
+    },
+    "message": {
+        "DAS_MESSAGE": "SELL mobcion.bit FOR 100000 CKB",
+        "inputsCapacity": "1216.9999 CKB",
+        "outputsCapacity": "1216.9998 CKB",
+        "fee": "0.0001 CKB",
+        "digest": "0x53a6c0f19ec281604607f5d6817e442082ad1882bef0df64d84d3810dae561eb",
+        "action": {
+            "action": "start_account_sale",
+            "params": "0x00"
+        },
+        "inputs": [
+            {
+                "capacity": "218 CKB",
+                "lock": "das-lock,0x01,0x051c152f77f8efa9c7c6d181cc97ee67c165c506...",
+                "type": "account-cell-type,0x01,0x",
+                "data": "{ account: mobcion.bit, expired_at: 1670913958 }",
+                "extraData": "{ status: 0, records_hash: 0x55478d76900611eb079b22088081124ed6c8bae21a05dd1a0d197efcc7c114ce }"
+            }
+        ],
+        "outputs": [
+            {
+                "capacity": "218 CKB",
+                "lock": "das-lock,0x01,0x051c152f77f8efa9c7c6d181cc97ee67c165c506...",
+                "type": "account-cell-type,0x01,0x",
+                "data": "{ account: mobcion.bit, expired_at: 1670913958 }",
+                "extraData": "{ status: 1, records_hash: 0x55478d76900611eb079b22088081124ed6c8bae21a05dd1a0d197efcc7c114ce }"
+            },
+            {
+                "capacity": "201 CKB",
+                "lock": "das-lock,0x01,0x051c152f77f8efa9c7c6d181cc97ee67c165c506...",
+                "type": "account-sale-cell-type,0x01,0x",
+                "data": "0x1209460ef3cb5f1c68ed2c43a3e020eec2d9de6e...",
+                "extraData": ""
+            }
+        ]
     }
-    var td = tx.ToTypedData()
-    _, sighash, err := sign(td)
-    if err != nil {
-        t.Fatal(err)
-    }
-    expSigHash := common.FromHex("0x6619dab5401503f2735256e12b898e69eb701d6a7e0d07abf1be4bb8aebfba29")
-    if !bytes.Equal(expSigHash, sighash) {
-        t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
-    }
+}
+`
+
+func TestComplexTypedData(t *testing.T) {
+	var td apitypes.TypedData
+	err := json.Unmarshal([]byte(complexTypedData), &td)
+	if err != nil {
+		t.Fatalf("unmarshalling failed '%v'", err)
+	}
+	_, sighash, err := sign(td)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expSigHash := common.FromHex("0x42b1aca82bb6900ff75e90a136de550a58f1a220a071704088eabd5e6ce20446")
+	if !bytes.Equal(expSigHash, sighash) {
+		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
+	}
 }

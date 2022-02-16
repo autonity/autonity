@@ -19,9 +19,9 @@ package ethash
 import (
 	crand "crypto/rand"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core/types"
 	"math"
 	"math/big"
 	"math/rand"

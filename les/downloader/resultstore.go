@@ -17,54 +17,54 @@
 package downloader
 
 import (
-    "fmt"
-    "sync"
-    "sync/atomic"
+	"fmt"
+	"sync"
+	"sync/atomic"
 
-    "github.com/ethereum/go-ethereum/core/types"
+	"github.com/clearmatics/autonity/core/types"
 )
 
 // resultStore implements a structure for maintaining fetchResults, tracking their
 // download-progress and delivering (finished) results.
 type resultStore struct {
-    items        []*fetchResult // Downloaded but not yet delivered fetch results
-    resultOffset uint64         // Offset of the first cached fetch result in the block chain
+	items        []*fetchResult // Downloaded but not yet delivered fetch results
+	resultOffset uint64         // Offset of the first cached fetch result in the block chain
 
-    // Internal index of first non-completed entry, updated atomically when needed.
-    // If all items are complete, this will equal length(items), so
-    // *important* : is not safe to use for indexing without checking against length
-    indexIncomplete int32 // atomic access
+	// Internal index of first non-completed entry, updated atomically when needed.
+	// If all items are complete, this will equal length(items), so
+	// *important* : is not safe to use for indexing without checking against length
+	indexIncomplete int32 // atomic access
 
-    // throttleThreshold is the limit up to which we _want_ to fill the
-    // results. If blocks are large, we want to limit the results to less
-    // than the number of available slots, and maybe only fill 1024 out of
-    // 8192 possible places. The queue will, at certain times, recalibrate
-    // this index.
-    throttleThreshold uint64
+	// throttleThreshold is the limit up to which we _want_ to fill the
+	// results. If blocks are large, we want to limit the results to less
+	// than the number of available slots, and maybe only fill 1024 out of
+	// 8192 possible places. The queue will, at certain times, recalibrate
+	// this index.
+	throttleThreshold uint64
 
-    lock sync.RWMutex
+	lock sync.RWMutex
 }
 
 func newResultStore(size int) *resultStore {
-    return &resultStore{
-        resultOffset:      0,
-        items:             make([]*fetchResult, size),
-        throttleThreshold: uint64(size),
-    }
+	return &resultStore{
+		resultOffset:      0,
+		items:             make([]*fetchResult, size),
+		throttleThreshold: uint64(size),
+	}
 }
 
 // SetThrottleThreshold updates the throttling threshold based on the requested
 // limit and the total queue capacity. It returns the (possibly capped) threshold
 func (r *resultStore) SetThrottleThreshold(threshold uint64) uint64 {
-    r.lock.Lock()
-    defer r.lock.Unlock()
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
-    limit := uint64(len(r.items))
-    if threshold >= limit {
-        threshold = limit
-    }
-    r.throttleThreshold = threshold
-    return r.throttleThreshold
+	limit := uint64(len(r.items))
+	if threshold >= limit {
+		threshold = limit
+	}
+	r.throttleThreshold = threshold
+	return r.throttleThreshold
 }
 
 // AddFetch adds a header for body/receipt fetching. This is used when the queue
@@ -76,19 +76,19 @@ func (r *resultStore) SetThrottleThreshold(threshold uint64) uint64 {
 //   item      - the result to store data into
 //   err       - any error that occurred
 func (r *resultStore) AddFetch(header *types.Header, fastSync bool) (stale, throttled bool, item *fetchResult, err error) {
-    r.lock.Lock()
-    defer r.lock.Unlock()
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
-    var index int
-    item, index, stale, throttled, err = r.getFetchResult(header.Number.Uint64())
-    if err != nil || stale || throttled {
-        return stale, throttled, item, err
-    }
-    if item == nil {
-        item = newFetchResult(header, fastSync)
-        r.items[index] = item
-    }
-    return stale, throttled, item, err
+	var index int
+	item, index, stale, throttled, err = r.getFetchResult(header.Number.Uint64())
+	if err != nil || stale || throttled {
+		return stale, throttled, item, err
+	}
+	if item == nil {
+		item = newFetchResult(header, fastSync)
+		r.items[index] = item
+	}
+	return stale, throttled, item, err
 }
 
 // GetDeliverySlot returns the fetchResult for the given header. If the 'stale' flag
@@ -96,46 +96,46 @@ func (r *resultStore) AddFetch(header *types.Header, fastSync bool) (stale, thro
 // does not bubble up the 'throttle' flag, since it's moot at the point in time when
 // the item is downloaded and ready for delivery
 func (r *resultStore) GetDeliverySlot(headerNumber uint64) (*fetchResult, bool, error) {
-    r.lock.RLock()
-    defer r.lock.RUnlock()
+	r.lock.RLock()
+	defer r.lock.RUnlock()
 
-    res, _, stale, _, err := r.getFetchResult(headerNumber)
-    return res, stale, err
+	res, _, stale, _, err := r.getFetchResult(headerNumber)
+	return res, stale, err
 }
 
 // getFetchResult returns the fetchResult corresponding to the given item, and
 // the index where the result is stored.
 func (r *resultStore) getFetchResult(headerNumber uint64) (item *fetchResult, index int, stale, throttle bool, err error) {
-    index = int(int64(headerNumber) - int64(r.resultOffset))
-    throttle = index >= int(r.throttleThreshold)
-    stale = index < 0
+	index = int(int64(headerNumber) - int64(r.resultOffset))
+	throttle = index >= int(r.throttleThreshold)
+	stale = index < 0
 
-    if index >= len(r.items) {
-        err = fmt.Errorf("%w: index allocation went beyond available resultStore space "+
-            "(index [%d] = header [%d] - resultOffset [%d], len(resultStore) = %d", errInvalidChain,
-            index, headerNumber, r.resultOffset, len(r.items))
-        return nil, index, stale, throttle, err
-    }
-    if stale {
-        return nil, index, stale, throttle, nil
-    }
-    item = r.items[index]
-    return item, index, stale, throttle, nil
+	if index >= len(r.items) {
+		err = fmt.Errorf("%w: index allocation went beyond available resultStore space "+
+			"(index [%d] = header [%d] - resultOffset [%d], len(resultStore) = %d", errInvalidChain,
+			index, headerNumber, r.resultOffset, len(r.items))
+		return nil, index, stale, throttle, err
+	}
+	if stale {
+		return nil, index, stale, throttle, nil
+	}
+	item = r.items[index]
+	return item, index, stale, throttle, nil
 }
 
 // hasCompletedItems returns true if there are processable items available
 // this method is cheaper than countCompleted
 func (r *resultStore) HasCompletedItems() bool {
-    r.lock.RLock()
-    defer r.lock.RUnlock()
+	r.lock.RLock()
+	defer r.lock.RUnlock()
 
-    if len(r.items) == 0 {
-        return false
-    }
-    if item := r.items[0]; item != nil && item.AllDone() {
-        return true
-    }
-    return false
+	if len(r.items) == 0 {
+		return false
+	}
+	if item := r.items[0]; item != nil && item.AllDone() {
+		return true
+	}
+	return false
 }
 
 // countCompleted returns the number of items ready for delivery, stopping at
@@ -143,52 +143,52 @@ func (r *resultStore) HasCompletedItems() bool {
 //
 // The mthod assumes (at least) rlock is held.
 func (r *resultStore) countCompleted() int {
-    // We iterate from the already known complete point, and see
-    // if any more has completed since last count
-    index := atomic.LoadInt32(&r.indexIncomplete)
-    for ; ; index++ {
-        if index >= int32(len(r.items)) {
-            break
-        }
-        result := r.items[index]
-        if result == nil || !result.AllDone() {
-            break
-        }
-    }
-    atomic.StoreInt32(&r.indexIncomplete, index)
-    return int(index)
+	// We iterate from the already known complete point, and see
+	// if any more has completed since last count
+	index := atomic.LoadInt32(&r.indexIncomplete)
+	for ; ; index++ {
+		if index >= int32(len(r.items)) {
+			break
+		}
+		result := r.items[index]
+		if result == nil || !result.AllDone() {
+			break
+		}
+	}
+	atomic.StoreInt32(&r.indexIncomplete, index)
+	return int(index)
 }
 
 // GetCompleted returns the next batch of completed fetchResults
 func (r *resultStore) GetCompleted(limit int) []*fetchResult {
-    r.lock.Lock()
-    defer r.lock.Unlock()
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
-    completed := r.countCompleted()
-    if limit > completed {
-        limit = completed
-    }
-    results := make([]*fetchResult, limit)
-    copy(results, r.items[:limit])
+	completed := r.countCompleted()
+	if limit > completed {
+		limit = completed
+	}
+	results := make([]*fetchResult, limit)
+	copy(results, r.items[:limit])
 
-    // Delete the results from the cache and clear the tail.
-    copy(r.items, r.items[limit:])
-    for i := len(r.items) - limit; i < len(r.items); i++ {
-        r.items[i] = nil
-    }
-    // Advance the expected block number of the first cache entry
-    r.resultOffset += uint64(limit)
-    atomic.AddInt32(&r.indexIncomplete, int32(-limit))
+	// Delete the results from the cache and clear the tail.
+	copy(r.items, r.items[limit:])
+	for i := len(r.items) - limit; i < len(r.items); i++ {
+		r.items[i] = nil
+	}
+	// Advance the expected block number of the first cache entry
+	r.resultOffset += uint64(limit)
+	atomic.AddInt32(&r.indexIncomplete, int32(-limit))
 
-    return results
+	return results
 }
 
 // Prepare initialises the offset with the given block number
 func (r *resultStore) Prepare(offset uint64) {
-    r.lock.Lock()
-    defer r.lock.Unlock()
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
-    if r.resultOffset < offset {
-        r.resultOffset = offset
-    }
+	if r.resultOffset < offset {
+		r.resultOffset = offset
+	}
 }

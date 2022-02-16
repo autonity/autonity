@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/node"
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/node"
 )
 
 type handler struct {

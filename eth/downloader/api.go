@@ -17,12 +17,11 @@
 package downloader
 
 import (
-    "context"
-    "sync"
+	"context"
+	"sync"
 
-    "github.com/ethereum/go-ethereum"
-    "github.com/ethereum/go-ethereum/event"
-    "github.com/ethereum/go-ethereum/rpc"
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/rpc"
 )
 
 // PublicDownloaderAPI provides an API which gives information about the current synchronisation status.

@@ -17,16 +17,16 @@
 package les
 
 import (
-    "math/big"
-    "testing"
-    "time"
+	"math/big"
+	"testing"
+	"time"
 
-    "github.com/ethereum/go-ethereum/consensus/ethash"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/p2p/enode"
-    "github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/params"
 )
 
 // verifyImportEvent verifies that one single event arrive on an import channel.
@@ -67,27 +67,27 @@ func TestSequentialAnnouncementsLes2(t *testing.T) { testSequentialAnnouncements
 func TestSequentialAnnouncementsLes3(t *testing.T) { testSequentialAnnouncements(t, 3) }
 
 func testSequentialAnnouncements(t *testing.T, protocol int) {
-    netconfig := testnetConfig{
-        blocks:    4,
-        protocol:  protocol,
-        nopruning: true,
-    }
-    s, c, teardown := newClientServerEnv(t, netconfig)
-    defer teardown()
+	netconfig := testnetConfig{
+		blocks:    4,
+		protocol:  protocol,
+		nopruning: true,
+	}
+	s, c, teardown := newClientServerEnv(t, netconfig)
+	defer teardown()
 
-    // Create connected peer pair, the initial signal from LES server
-    // is discarded to prevent syncing.
-    p1, _, err := newTestPeerPair("peer", protocol, s.handler, c.handler, true)
-    if err != nil {
-        t.Fatalf("Failed to create peer pair %v", err)
-    }
-    importCh := make(chan interface{})
-    c.handler.fetcher.newHeadHook = func(header *types.Header) {
-        importCh <- header
-    }
-    for i := uint64(1); i <= s.backend.Blockchain().CurrentHeader().Number.Uint64(); i++ {
-        header := s.backend.Blockchain().GetHeaderByNumber(i)
-        hash, number := header.Hash(), header.Number.Uint64()
+	// Create connected peer pair, the initial signal from LES server
+	// is discarded to prevent syncing.
+	p1, _, err := newTestPeerPair("peer", protocol, s.handler, c.handler, true)
+	if err != nil {
+		t.Fatalf("Failed to create peer pair %v", err)
+	}
+	importCh := make(chan interface{})
+	c.handler.fetcher.newHeadHook = func(header *types.Header) {
+		importCh <- header
+	}
+	for i := uint64(1); i <= s.backend.Blockchain().CurrentHeader().Number.Uint64(); i++ {
+		header := s.backend.Blockchain().GetHeaderByNumber(i)
+		hash, number := header.Hash(), header.Number.Uint64()
 		td := rawdb.ReadTd(s.db, hash, number)
 
 		announce := announceData{hash, number, td, 0, nil}
@@ -105,27 +105,27 @@ func TestGappedAnnouncementsLes2(t *testing.T) { testGappedAnnouncements(t, 2) }
 func TestGappedAnnouncementsLes3(t *testing.T) { testGappedAnnouncements(t, 3) }
 
 func testGappedAnnouncements(t *testing.T, protocol int) {
-    netconfig := testnetConfig{
-        blocks:    4,
-        protocol:  protocol,
-        nopruning: true,
-    }
-    s, c, teardown := newClientServerEnv(t, netconfig)
-    defer teardown()
+	netconfig := testnetConfig{
+		blocks:    4,
+		protocol:  protocol,
+		nopruning: true,
+	}
+	s, c, teardown := newClientServerEnv(t, netconfig)
+	defer teardown()
 
-    // Create connected peer pair, the initial signal from LES server
-    // is discarded to prevent syncing.
-    peer, _, err := newTestPeerPair("peer", protocol, s.handler, c.handler, true)
-    if err != nil {
-        t.Fatalf("Failed to create peer pair %v", err)
-    }
-    done := make(chan *types.Header, 1)
-    c.handler.fetcher.newHeadHook = func(header *types.Header) { done <- header }
+	// Create connected peer pair, the initial signal from LES server
+	// is discarded to prevent syncing.
+	peer, _, err := newTestPeerPair("peer", protocol, s.handler, c.handler, true)
+	if err != nil {
+		t.Fatalf("Failed to create peer pair %v", err)
+	}
+	done := make(chan *types.Header, 1)
+	c.handler.fetcher.newHeadHook = func(header *types.Header) { done <- header }
 
-    // Prepare announcement by latest header.
-    latest := s.backend.Blockchain().CurrentHeader()
-    hash, number := latest.Hash(), latest.Number.Uint64()
-    td := rawdb.ReadTd(s.db, hash, number)
+	// Prepare announcement by latest header.
+	latest := s.backend.Blockchain().CurrentHeader()
+	hash, number := latest.Hash(), latest.Number.Uint64()
+	td := rawdb.ReadTd(s.db, hash, number)
 
 	// Sign the announcement if necessary.
 	announce := announceData{hash, number, td, 0, nil}
@@ -163,32 +163,32 @@ func testTrustedAnnouncement(t *testing.T, protocol int) {
 	for i := 0; i < 10; i++ {
 		s, n, teardown := newTestServerPeer(t, 10, protocol)
 
-        servers = append(servers, s)
-        nodes = append(nodes, n)
-        teardowns = append(teardowns, teardown)
+		servers = append(servers, s)
+		nodes = append(nodes, n)
+		teardowns = append(teardowns, teardown)
 
-        // A half of them are trusted servers.
-        if i < 5 {
-            ids = append(ids, n.String())
-        }
-    }
-    netconfig := testnetConfig{
-        protocol:    protocol,
-        nopruning:   true,
-        ulcServers:  ids,
-        ulcFraction: 60,
-    }
-    _, c, teardown := newClientServerEnv(t, netconfig)
-    defer teardown()
-    defer func() {
-        for i := 0; i < len(teardowns); i++ {
-            teardowns[i]()
-        }
-    }()
-    // Connect all server instances.
-    for i := 0; i < len(servers); i++ {
-        sp, cp, err := connect(servers[i].handler, nodes[i].ID(), c.handler, protocol, true)
-        if err != nil {
+		// A half of them are trusted servers.
+		if i < 5 {
+			ids = append(ids, n.String())
+		}
+	}
+	netconfig := testnetConfig{
+		protocol:    protocol,
+		nopruning:   true,
+		ulcServers:  ids,
+		ulcFraction: 60,
+	}
+	_, c, teardown := newClientServerEnv(t, netconfig)
+	defer teardown()
+	defer func() {
+		for i := 0; i < len(teardowns); i++ {
+			teardowns[i]()
+		}
+	}()
+	// Connect all server instances.
+	for i := 0; i < len(servers); i++ {
+		sp, cp, err := connect(servers[i].handler, nodes[i].ID(), c.handler, protocol, true)
+		if err != nil {
 			t.Fatalf("connect server and client failed, err %s", err)
 		}
 		cpeers = append(cpeers, cp)
@@ -213,14 +213,14 @@ func testTrustedAnnouncement(t *testing.T, protocol int) {
 				p.sendAnnounce(announce)
 			}
 		}
-        if callback != nil {
-            callback()
-        }
-        verifyChainHeight(t, c.handler.fetcher, expected)
-    }
-    check([]uint64{1}, 1, func() { <-newHead })   // Sequential announcements
-    check([]uint64{4}, 4, func() { <-newHead })   // ULC-style light syncing, rollback untrusted headers
-    check([]uint64{10}, 10, func() { <-newHead }) // Sync the whole chain.
+		if callback != nil {
+			callback()
+		}
+		verifyChainHeight(t, c.handler.fetcher, expected)
+	}
+	check([]uint64{1}, 1, func() { <-newHead })   // Sequential announcements
+	check([]uint64{4}, 4, func() { <-newHead })   // ULC-style light syncing, rollback untrusted headers
+	check([]uint64{10}, 10, func() { <-newHead }) // Sync the whole chain.
 }
 
 func TestInvalidAnnouncesLES2(t *testing.T) { testInvalidAnnounces(t, lpv2) }
@@ -228,37 +228,37 @@ func TestInvalidAnnouncesLES3(t *testing.T) { testInvalidAnnounces(t, lpv3) }
 func TestInvalidAnnouncesLES4(t *testing.T) { testInvalidAnnounces(t, lpv4) }
 
 func testInvalidAnnounces(t *testing.T, protocol int) {
-    netconfig := testnetConfig{
-        blocks:    4,
-        protocol:  protocol,
-        nopruning: true,
-    }
-    s, c, teardown := newClientServerEnv(t, netconfig)
-    defer teardown()
+	netconfig := testnetConfig{
+		blocks:    4,
+		protocol:  protocol,
+		nopruning: true,
+	}
+	s, c, teardown := newClientServerEnv(t, netconfig)
+	defer teardown()
 
-    // Create connected peer pair, the initial signal from LES server
-    // is discarded to prevent syncing.
-    peer, _, err := newTestPeerPair("peer", lpv3, s.handler, c.handler, true)
-    if err != nil {
-        t.Fatalf("Failed to create peer pair %v", err)
-    }
-    done := make(chan *types.Header, 1)
-    c.handler.fetcher.newHeadHook = func(header *types.Header) { done <- header }
+	// Create connected peer pair, the initial signal from LES server
+	// is discarded to prevent syncing.
+	peer, _, err := newTestPeerPair("peer", lpv3, s.handler, c.handler, true)
+	if err != nil {
+		t.Fatalf("Failed to create peer pair %v", err)
+	}
+	done := make(chan *types.Header, 1)
+	c.handler.fetcher.newHeadHook = func(header *types.Header) { done <- header }
 
-    // Prepare announcement by latest header.
-    headerOne := s.backend.Blockchain().GetHeaderByNumber(1)
-    hash, number := headerOne.Hash(), headerOne.Number.Uint64()
-    td := big.NewInt(params.GenesisDifficulty.Int64() + 200) // bad td
+	// Prepare announcement by latest header.
+	headerOne := s.backend.Blockchain().GetHeaderByNumber(1)
+	hash, number := headerOne.Hash(), headerOne.Number.Uint64()
+	td := big.NewInt(params.GenesisDifficulty.Int64() + 200) // bad td
 
-    // Sign the announcement if necessary.
-    announce := announceData{hash, number, td, 0, nil}
-    if peer.cpeer.announceType == announceTypeSigned {
-        announce.sign(s.handler.server.privateKey)
-    }
-    peer.cpeer.sendAnnounce(announce)
-    <-done // Wait syncing
+	// Sign the announcement if necessary.
+	announce := announceData{hash, number, td, 0, nil}
+	if peer.cpeer.announceType == announceTypeSigned {
+		announce.sign(s.handler.server.privateKey)
+	}
+	peer.cpeer.sendAnnounce(announce)
+	<-done // Wait syncing
 
-    // Ensure the bad peer is evicited
+	// Ensure the bad peer is evicited
 	if c.handler.backend.peers.len() != 0 {
 		t.Fatalf("Failed to evict invalid peer")
 	}

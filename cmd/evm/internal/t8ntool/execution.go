@@ -17,26 +17,26 @@
 package t8ntool
 
 import (
-    "fmt"
-    "math/big"
-    "os"
+	"fmt"
+	"math/big"
+	"os"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/math"
-    "github.com/ethereum/go-ethereum/consensus/ethash"
-    "github.com/ethereum/go-ethereum/consensus/misc"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/core/state"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/core/vm"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/ethereum/go-ethereum/ethdb"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/params"
-    "github.com/ethereum/go-ethereum/rlp"
-    "github.com/ethereum/go-ethereum/trie"
-    "golang.org/x/crypto/sha3"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/consensus/misc"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/trie"
+	"golang.org/x/crypto/sha3"
 )
 
 type Prestate struct {
@@ -47,15 +47,15 @@ type Prestate struct {
 // ExecutionResult contains the execution status after running a state test, any
 // error that might have occurred and a dump of the final state if requested.
 type ExecutionResult struct {
-    StateRoot   common.Hash           `json:"stateRoot"`
-    TxRoot      common.Hash           `json:"txRoot"`
-    ReceiptRoot common.Hash           `json:"receiptsRoot"`
-    LogsHash    common.Hash           `json:"logsHash"`
-    Bloom       types.Bloom           `json:"logsBloom"        gencodec:"required"`
-    Receipts    types.Receipts        `json:"receipts"`
-    Rejected    []*rejectedTx         `json:"rejected,omitempty"`
-    Difficulty  *math.HexOrDecimal256 `json:"currentDifficulty" gencodec:"required"`
-    GasUsed     math.HexOrDecimal64   `json:"gasUsed"`
+	StateRoot   common.Hash           `json:"stateRoot"`
+	TxRoot      common.Hash           `json:"txRoot"`
+	ReceiptRoot common.Hash           `json:"receiptsRoot"`
+	LogsHash    common.Hash           `json:"logsHash"`
+	Bloom       types.Bloom           `json:"logsBloom"        gencodec:"required"`
+	Receipts    types.Receipts        `json:"receipts"`
+	Rejected    []*rejectedTx         `json:"rejected,omitempty"`
+	Difficulty  *math.HexOrDecimal256 `json:"currentDifficulty" gencodec:"required"`
+	GasUsed     math.HexOrDecimal64   `json:"gasUsed"`
 }
 
 type ommer struct {
@@ -65,51 +65,51 @@ type ommer struct {
 
 //go:generate gencodec -type stEnv -field-override stEnvMarshaling -out gen_stenv.go
 type stEnv struct {
-    Coinbase         common.Address                      `json:"currentCoinbase"   gencodec:"required"`
-    Difficulty       *big.Int                            `json:"currentDifficulty"`
-    Random           *big.Int                            `json:"currentRandom"`
-    ParentDifficulty *big.Int                            `json:"parentDifficulty"`
-    GasLimit         uint64                              `json:"currentGasLimit"   gencodec:"required"`
-    Number           uint64                              `json:"currentNumber"     gencodec:"required"`
-    Timestamp        uint64                              `json:"currentTimestamp"  gencodec:"required"`
-    ParentTimestamp  uint64                              `json:"parentTimestamp,omitempty"`
-    BlockHashes      map[math.HexOrDecimal64]common.Hash `json:"blockHashes,omitempty"`
-    Ommers           []ommer                             `json:"ommers,omitempty"`
-    BaseFee          *big.Int                            `json:"currentBaseFee,omitempty"`
-    ParentUncleHash  common.Hash                         `json:"parentUncleHash"`
+	Coinbase         common.Address                      `json:"currentCoinbase"   gencodec:"required"`
+	Difficulty       *big.Int                            `json:"currentDifficulty"`
+	Random           *big.Int                            `json:"currentRandom"`
+	ParentDifficulty *big.Int                            `json:"parentDifficulty"`
+	GasLimit         uint64                              `json:"currentGasLimit"   gencodec:"required"`
+	Number           uint64                              `json:"currentNumber"     gencodec:"required"`
+	Timestamp        uint64                              `json:"currentTimestamp"  gencodec:"required"`
+	ParentTimestamp  uint64                              `json:"parentTimestamp,omitempty"`
+	BlockHashes      map[math.HexOrDecimal64]common.Hash `json:"blockHashes,omitempty"`
+	Ommers           []ommer                             `json:"ommers,omitempty"`
+	BaseFee          *big.Int                            `json:"currentBaseFee,omitempty"`
+	ParentUncleHash  common.Hash                         `json:"parentUncleHash"`
 }
 
 type stEnvMarshaling struct {
-    Coinbase         common.UnprefixedAddress
-    Difficulty       *math.HexOrDecimal256
-    Random           *math.HexOrDecimal256
-    ParentDifficulty *math.HexOrDecimal256
-    GasLimit         math.HexOrDecimal64
-    Number           math.HexOrDecimal64
-    Timestamp        math.HexOrDecimal64
-    ParentTimestamp  math.HexOrDecimal64
-    BaseFee          *math.HexOrDecimal256
+	Coinbase         common.UnprefixedAddress
+	Difficulty       *math.HexOrDecimal256
+	Random           *math.HexOrDecimal256
+	ParentDifficulty *math.HexOrDecimal256
+	GasLimit         math.HexOrDecimal64
+	Number           math.HexOrDecimal64
+	Timestamp        math.HexOrDecimal64
+	ParentTimestamp  math.HexOrDecimal64
+	BaseFee          *math.HexOrDecimal256
 }
 
 type rejectedTx struct {
-    Index int    `json:"index"`
-    Err   string `json:"error"`
+	Index int    `json:"index"`
+	Err   string `json:"error"`
 }
 
 // Apply applies a set of transactions to a pre-state
 func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
-    txs types.Transactions, miningReward int64,
-    getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)) (*state.StateDB, *ExecutionResult, error) {
+	txs types.Transactions, miningReward int64,
+	getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)) (*state.StateDB, *ExecutionResult, error) {
 
-    // Capture errors for BLOCKHASH operation, if we haven't been supplied the
-    // required blockhashes
-    var hashError error
-    getHash := func(num uint64) common.Hash {
-        if pre.Env.BlockHashes == nil {
-            hashError = fmt.Errorf("getHash(%d) invoked, no blockhashes provided", num)
-            return common.Hash{}
-        }
-        h, ok := pre.Env.BlockHashes[math.HexOrDecimal64(num)]
+	// Capture errors for BLOCKHASH operation, if we haven't been supplied the
+	// required blockhashes
+	var hashError error
+	getHash := func(num uint64) common.Hash {
+		if pre.Env.BlockHashes == nil {
+			hashError = fmt.Errorf("getHash(%d) invoked, no blockhashes provided", num)
+			return common.Hash{}
+		}
+		h, ok := pre.Env.BlockHashes[math.HexOrDecimal64(num)]
 		if !ok {
 			hashError = fmt.Errorf("getHash(%d) invoked, blockhash for that block not provided", num)
 		}
@@ -119,107 +119,107 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		statedb     = MakePreState(rawdb.NewMemoryDatabase(), pre.Pre)
 		signer      = types.MakeSigner(chainConfig, new(big.Int).SetUint64(pre.Env.Number))
 		gaspool     = new(core.GasPool)
-        blockHash   = common.Hash{0x13, 0x37}
-        rejectedTxs []*rejectedTx
-        includedTxs types.Transactions
+		blockHash   = common.Hash{0x13, 0x37}
+		rejectedTxs []*rejectedTx
+		includedTxs types.Transactions
 		gasUsed     = uint64(0)
 		receipts    = make(types.Receipts, 0)
 		txIndex     = 0
 	)
-    gaspool.AddGas(pre.Env.GasLimit)
-    vmContext := vm.BlockContext{
-        CanTransfer: core.CanTransfer,
-        Transfer:    core.Transfer,
-        Coinbase:    pre.Env.Coinbase,
-        BlockNumber: new(big.Int).SetUint64(pre.Env.Number),
-        Time:        new(big.Int).SetUint64(pre.Env.Timestamp),
-        Difficulty:  pre.Env.Difficulty,
-        GasLimit:    pre.Env.GasLimit,
-        GetHash:     getHash,
-    }
-    // If currentBaseFee is defined, add it to the vmContext.
-    if pre.Env.BaseFee != nil {
-        vmContext.BaseFee = new(big.Int).Set(pre.Env.BaseFee)
-    }
-    // If random is defined, add it to the vmContext.
-    if pre.Env.Random != nil {
-        rnd := common.BigToHash(pre.Env.Random)
-        vmContext.Random = &rnd
-    }
-    // If DAO is supported/enabled, we need to handle it here. In geth 'proper', it's
-    // done in StateProcessor.Process(block, ...), right before transactions are applied.
-    if chainConfig.DAOForkSupport &&
-        chainConfig.DAOForkBlock != nil &&
-        chainConfig.DAOForkBlock.Cmp(new(big.Int).SetUint64(pre.Env.Number)) == 0 {
-        misc.ApplyDAOHardFork(statedb)
-    }
+	gaspool.AddGas(pre.Env.GasLimit)
+	vmContext := vm.BlockContext{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		Coinbase:    pre.Env.Coinbase,
+		BlockNumber: new(big.Int).SetUint64(pre.Env.Number),
+		Time:        new(big.Int).SetUint64(pre.Env.Timestamp),
+		Difficulty:  pre.Env.Difficulty,
+		GasLimit:    pre.Env.GasLimit,
+		GetHash:     getHash,
+	}
+	// If currentBaseFee is defined, add it to the vmContext.
+	if pre.Env.BaseFee != nil {
+		vmContext.BaseFee = new(big.Int).Set(pre.Env.BaseFee)
+	}
+	// If random is defined, add it to the vmContext.
+	if pre.Env.Random != nil {
+		rnd := common.BigToHash(pre.Env.Random)
+		vmContext.Random = &rnd
+	}
+	// If DAO is supported/enabled, we need to handle it here. In geth 'proper', it's
+	// done in StateProcessor.Process(block, ...), right before transactions are applied.
+	if chainConfig.DAOForkSupport &&
+		chainConfig.DAOForkBlock != nil &&
+		chainConfig.DAOForkBlock.Cmp(new(big.Int).SetUint64(pre.Env.Number)) == 0 {
+		misc.ApplyDAOHardFork(statedb)
+	}
 
-    for i, tx := range txs {
-        msg, err := tx.AsMessage(signer, pre.Env.BaseFee)
+	for i, tx := range txs {
+		msg, err := tx.AsMessage(signer, pre.Env.BaseFee)
 		if err != nil {
-            log.Warn("rejected tx", "index", i, "hash", tx.Hash(), "error", err)
-            rejectedTxs = append(rejectedTxs, &rejectedTx{i, err.Error()})
-            continue
-        }
-        tracer, err := getTracerFn(txIndex, tx.Hash())
-        if err != nil {
-            return nil, nil, err
-        }
-        vmConfig.Tracer = tracer
-        vmConfig.Debug = (tracer != nil)
-        statedb.Prepare(tx.Hash(), txIndex)
-        txContext := core.NewEVMTxContext(msg)
-        snapshot := statedb.Snapshot()
-        evm := vm.NewEVM(vmContext, txContext, statedb, chainConfig, vmConfig)
+			log.Warn("rejected tx", "index", i, "hash", tx.Hash(), "error", err)
+			rejectedTxs = append(rejectedTxs, &rejectedTx{i, err.Error()})
+			continue
+		}
+		tracer, err := getTracerFn(txIndex, tx.Hash())
+		if err != nil {
+			return nil, nil, err
+		}
+		vmConfig.Tracer = tracer
+		vmConfig.Debug = (tracer != nil)
+		statedb.Prepare(tx.Hash(), txIndex)
+		txContext := core.NewEVMTxContext(msg)
+		snapshot := statedb.Snapshot()
+		evm := vm.NewEVM(vmContext, txContext, statedb, chainConfig, vmConfig)
 
-        // (ret []byte, usedGas uint64, failed bool, err error)
-        msgResult, err := core.ApplyMessage(evm, msg, gaspool)
-        if err != nil {
-            statedb.RevertToSnapshot(snapshot)
-            log.Info("rejected tx", "index", i, "hash", tx.Hash(), "from", msg.From(), "error", err)
-            rejectedTxs = append(rejectedTxs, &rejectedTx{i, err.Error()})
-            continue
-        }
-        includedTxs = append(includedTxs, tx)
-        if hashError != nil {
-            return nil, nil, NewError(ErrorMissingBlockhash, hashError)
-        }
-        gasUsed += msgResult.UsedGas
+		// (ret []byte, usedGas uint64, failed bool, err error)
+		msgResult, err := core.ApplyMessage(evm, msg, gaspool)
+		if err != nil {
+			statedb.RevertToSnapshot(snapshot)
+			log.Info("rejected tx", "index", i, "hash", tx.Hash(), "from", msg.From(), "error", err)
+			rejectedTxs = append(rejectedTxs, &rejectedTx{i, err.Error()})
+			continue
+		}
+		includedTxs = append(includedTxs, tx)
+		if hashError != nil {
+			return nil, nil, NewError(ErrorMissingBlockhash, hashError)
+		}
+		gasUsed += msgResult.UsedGas
 
-        // Receipt:
-        {
-            var root []byte
-            if chainConfig.IsByzantium(vmContext.BlockNumber) {
-                statedb.Finalise(true)
-            } else {
-                root = statedb.IntermediateRoot(chainConfig.IsEIP158(vmContext.BlockNumber)).Bytes()
-            }
+		// Receipt:
+		{
+			var root []byte
+			if chainConfig.IsByzantium(vmContext.BlockNumber) {
+				statedb.Finalise(true)
+			} else {
+				root = statedb.IntermediateRoot(chainConfig.IsEIP158(vmContext.BlockNumber)).Bytes()
+			}
 
-            // Create a new receipt for the transaction, storing the intermediate root and
-            // gas used by the tx.
-            receipt := &types.Receipt{Type: tx.Type(), PostState: root, CumulativeGasUsed: gasUsed}
-            if msgResult.Failed() {
-                receipt.Status = types.ReceiptStatusFailed
-            } else {
-                receipt.Status = types.ReceiptStatusSuccessful
-            }
-            receipt.TxHash = tx.Hash()
-            receipt.GasUsed = msgResult.UsedGas
+			// Create a new receipt for the transaction, storing the intermediate root and
+			// gas used by the tx.
+			receipt := &types.Receipt{Type: tx.Type(), PostState: root, CumulativeGasUsed: gasUsed}
+			if msgResult.Failed() {
+				receipt.Status = types.ReceiptStatusFailed
+			} else {
+				receipt.Status = types.ReceiptStatusSuccessful
+			}
+			receipt.TxHash = tx.Hash()
+			receipt.GasUsed = msgResult.UsedGas
 
-            // If the transaction created a contract, store the creation address in the receipt.
-            if msg.To() == nil {
-                receipt.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, tx.Nonce())
-            }
+			// If the transaction created a contract, store the creation address in the receipt.
+			if msg.To() == nil {
+				receipt.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, tx.Nonce())
+			}
 
-            // Set the receipt logs and create the bloom filter.
-            receipt.Logs = statedb.GetLogs(tx.Hash(), blockHash)
-            receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-            // These three are non-consensus fields:
-            //receipt.BlockHash
-            //receipt.BlockNumber
-            receipt.TransactionIndex = uint(txIndex)
-            receipts = append(receipts, receipt)
-        }
+			// Set the receipt logs and create the bloom filter.
+			receipt.Logs = statedb.GetLogs(tx.Hash(), blockHash)
+			receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+			// These three are non-consensus fields:
+			//receipt.BlockHash
+			//receipt.BlockNumber
+			receipt.TransactionIndex = uint(txIndex)
+			receipts = append(receipts, receipt)
+		}
 
 		txIndex++
 	}
@@ -255,16 +255,16 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		return nil, nil, NewError(ErrorEVM, fmt.Errorf("could not commit state: %v", err))
 	}
 	execRs := &ExecutionResult{
-        StateRoot:   root,
-        TxRoot:      types.DeriveSha(includedTxs, trie.NewStackTrie(nil)),
-        ReceiptRoot: types.DeriveSha(receipts, trie.NewStackTrie(nil)),
-        Bloom:       types.CreateBloom(receipts),
-        LogsHash:    rlpHash(statedb.Logs()),
-        Receipts:    receipts,
-        Rejected:    rejectedTxs,
-        Difficulty:  (*math.HexOrDecimal256)(vmContext.Difficulty),
-        GasUsed:     (math.HexOrDecimal64)(gasUsed),
-    }
+		StateRoot:   root,
+		TxRoot:      types.DeriveSha(includedTxs, trie.NewStackTrie(nil)),
+		ReceiptRoot: types.DeriveSha(receipts, trie.NewStackTrie(nil)),
+		Bloom:       types.CreateBloom(receipts),
+		LogsHash:    rlpHash(statedb.Logs()),
+		Receipts:    receipts,
+		Rejected:    rejectedTxs,
+		Difficulty:  (*math.HexOrDecimal256)(vmContext.Difficulty),
+		GasUsed:     (math.HexOrDecimal64)(gasUsed),
+	}
 	return statedb, execRs, nil
 }
 
@@ -282,14 +282,14 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 	// Commit and re-open to start with a clean state.
 	root, _ := statedb.Commit(false)
 	statedb, _ = state.New(root, sdb, nil)
-    return statedb
+	return statedb
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
-    hw := sha3.NewLegacyKeccak256()
-    rlp.Encode(hw, x)
-    hw.Sum(h[:0])
-    return h
+	hw := sha3.NewLegacyKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }
 
 // calcDifficulty is based on ethash.CalcDifficulty. This method is used in case
@@ -297,17 +297,17 @@ func rlpHash(x interface{}) (h common.Hash) {
 // parent timestamp + difficulty.
 // Note: this method only works for ethash engine.
 func calcDifficulty(config *params.ChainConfig, number, currentTime, parentTime uint64,
-    parentDifficulty *big.Int, parentUncleHash common.Hash) *big.Int {
-    uncleHash := parentUncleHash
-    if uncleHash == (common.Hash{}) {
-        uncleHash = types.EmptyUncleHash
-    }
-    parent := &types.Header{
-        ParentHash: common.Hash{},
-        UncleHash:  uncleHash,
-        Difficulty: parentDifficulty,
-        Number:     new(big.Int).SetUint64(number - 1),
-        Time:       parentTime,
-    }
-    return ethash.CalcDifficulty(config, currentTime, parent)
+	parentDifficulty *big.Int, parentUncleHash common.Hash) *big.Int {
+	uncleHash := parentUncleHash
+	if uncleHash == (common.Hash{}) {
+		uncleHash = types.EmptyUncleHash
+	}
+	parent := &types.Header{
+		ParentHash: common.Hash{},
+		UncleHash:  uncleHash,
+		Difficulty: parentDifficulty,
+		Number:     new(big.Int).SetUint64(number - 1),
+		Time:       parentTime,
+	}
+	return ethash.CalcDifficulty(config, currentTime, parent)
 }

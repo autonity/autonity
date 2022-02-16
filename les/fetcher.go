@@ -17,21 +17,21 @@
 package les
 
 import (
-    "math/big"
-    "math/rand"
-    "sync"
-    "time"
+	"math/big"
+	"math/rand"
+	"sync"
+	"time"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/consensus"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/ethdb"
-    "github.com/ethereum/go-ethereum/les/fetcher"
-    "github.com/ethereum/go-ethereum/light"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/les/fetcher"
+	"github.com/clearmatics/autonity/light"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/p2p/enode"
 )
 
 const (
@@ -66,13 +66,13 @@ type response struct {
 
 // fetcherPeer holds the fetcher-specific information for each active peer
 type fetcherPeer struct {
-    latest *announceData // The latest announcement sent from the peer
+	latest *announceData // The latest announcement sent from the peer
 
-    // These following two fields can track the latest announces
-    // from the peer with limited size for caching. We hold the
-    // assumption that all enqueued announces are td-monotonic.
-    announces map[common.Hash]*announce // Announcement map
-    fifo      []common.Hash             // FIFO announces list
+	// These following two fields can track the latest announces
+	// from the peer with limited size for caching. We hold the
+	// assumption that all enqueued announces are td-monotonic.
+	announces map[common.Hash]*announce // Announcement map
+	fifo      []common.Hash             // FIFO announces list
 }
 
 // addAnno enqueues an new trusted announcement. If the queued announces overflow,
@@ -80,47 +80,47 @@ type fetcherPeer struct {
 func (fp *fetcherPeer) addAnno(anno *announce) {
 	// Short circuit if the anno already exists. In normal case it should
 	// never happen since only monotonic anno is accepted. But the adversary
-    // may feed us fake announces with higher td but same hash. In this case,
-    // ignore the anno anyway.
-    hash := anno.data.Hash
-    if _, exist := fp.announces[hash]; exist {
-        return
-    }
-    fp.announces[hash] = anno
-    fp.fifo = append(fp.fifo, hash)
+	// may feed us fake announces with higher td but same hash. In this case,
+	// ignore the anno anyway.
+	hash := anno.data.Hash
+	if _, exist := fp.announces[hash]; exist {
+		return
+	}
+	fp.announces[hash] = anno
+	fp.fifo = append(fp.fifo, hash)
 
-    // Evict oldest if the announces are oversized.
-    if len(fp.fifo)-cachedAnnosThreshold > 0 {
-        for i := 0; i < len(fp.fifo)-cachedAnnosThreshold; i++ {
-            delete(fp.announces, fp.fifo[i])
-        }
-        copy(fp.fifo, fp.fifo[len(fp.fifo)-cachedAnnosThreshold:])
-        fp.fifo = fp.fifo[:cachedAnnosThreshold]
-    }
+	// Evict oldest if the announces are oversized.
+	if len(fp.fifo)-cachedAnnosThreshold > 0 {
+		for i := 0; i < len(fp.fifo)-cachedAnnosThreshold; i++ {
+			delete(fp.announces, fp.fifo[i])
+		}
+		copy(fp.fifo, fp.fifo[len(fp.fifo)-cachedAnnosThreshold:])
+		fp.fifo = fp.fifo[:cachedAnnosThreshold]
+	}
 }
 
 // forwardAnno removes all announces from the map with a number lower than
 // the provided threshold.
 func (fp *fetcherPeer) forwardAnno(td *big.Int) []*announce {
-    var (
-        cutset  int
-        evicted []*announce
-    )
-    for ; cutset < len(fp.fifo); cutset++ {
-        anno := fp.announces[fp.fifo[cutset]]
-        if anno == nil {
-            continue // In theory it should never ever happen
-        }
-        if anno.data.Td.Cmp(td) > 0 {
-            break
-        }
-        evicted = append(evicted, anno)
-        delete(fp.announces, anno.data.Hash)
-    }
-    if cutset > 0 {
-        copy(fp.fifo, fp.fifo[cutset:])
-        fp.fifo = fp.fifo[:len(fp.fifo)-cutset]
-    }
+	var (
+		cutset  int
+		evicted []*announce
+	)
+	for ; cutset < len(fp.fifo); cutset++ {
+		anno := fp.announces[fp.fifo[cutset]]
+		if anno == nil {
+			continue // In theory it should never ever happen
+		}
+		if anno.data.Td.Cmp(td) > 0 {
+			break
+		}
+		evicted = append(evicted, anno)
+		delete(fp.announces, anno.data.Hash)
+	}
+	if cutset > 0 {
+		copy(fp.fifo, fp.fifo[cutset:])
+		fp.fifo = fp.fifo[:len(fp.fifo)-cutset]
+	}
 	return evicted
 }
 
@@ -499,8 +499,8 @@ func (f *lightFetcher) requestHeaderByHash(peerid enode.ID) func(common.Hash) er
 			getCost: func(dp distPeer) uint64 { return dp.(*serverPeer).getRequestCost(GetBlockHeadersMsg, 1) },
 			canSend: func(dp distPeer) bool { return dp.(*serverPeer).ID() == peerid },
 			request: func(dp distPeer) func() {
-                peer, id := dp.(*serverPeer), rand.Uint64()
-                cost := peer.getRequestCost(GetBlockHeadersMsg, 1)
+				peer, id := dp.(*serverPeer), rand.Uint64()
+				cost := peer.getRequestCost(GetBlockHeadersMsg, 1)
 				peer.fcServer.QueuedRequest(id, cost)
 
 				return func() {

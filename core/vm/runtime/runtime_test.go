@@ -24,21 +24,21 @@ import (
 	"testing"
 	"time"
 
-    "github.com/clearmatics/autonity/accounts/abi"
-    "github.com/clearmatics/autonity/common"
-    "github.com/clearmatics/autonity/consensus"
-    "github.com/clearmatics/autonity/core"
-    "github.com/clearmatics/autonity/core/asm"
-    "github.com/clearmatics/autonity/core/rawdb"
-    "github.com/clearmatics/autonity/core/state"
-    "github.com/clearmatics/autonity/core/types"
-    "github.com/clearmatics/autonity/core/vm"
-    "github.com/clearmatics/autonity/eth/tracers"
-    "github.com/clearmatics/autonity/eth/tracers/logger"
-    "github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/accounts/abi"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/asm"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/eth/tracers"
+	"github.com/clearmatics/autonity/eth/tracers/logger"
+	"github.com/clearmatics/autonity/params"
 
-    // force-load js tracers to trigger registration
-    _ "github.com/clearmatics/autonity/eth/tracers/js"
+	// force-load js tracers to trigger registration
+	_ "github.com/clearmatics/autonity/eth/tracers/js"
 )
 
 func TestDefaults(t *testing.T) {
@@ -321,14 +321,14 @@ func TestBlockhash(t *testing.T) {
 	if last.Uint64() != 744 {
 		t.Fatalf("last block should be 744, got %d (%x)", last, ret[64:96])
 	}
-    if exp, got := 255, chain.counter; exp != got {
-        t.Errorf("suboptimal; too much chain iteration, expected %d, got %d", exp, got)
-    }
+	if exp, got := 255, chain.counter; exp != got {
+		t.Errorf("suboptimal; too much chain iteration, expected %d, got %d", exp, got)
+	}
 }
 
 type stepCounter struct {
-    inner *logger.JSONLogger
-    steps int
+	inner *logger.JSONLogger
+	steps int
 }
 
 func (s *stepCounter) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
@@ -340,38 +340,38 @@ func (s *stepCounter) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, sc
 func (s *stepCounter) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
 
 func (s *stepCounter) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
-    s.steps++
-    // Enable this for more output
-    //s.inner.CaptureState(env, pc, op, gas, cost, memory, stack, rStack, contract, depth, err)
+	s.steps++
+	// Enable this for more output
+	//s.inner.CaptureState(env, pc, op, gas, cost, memory, stack, rStack, contract, depth, err)
 }
 
 // benchmarkNonModifyingCode benchmarks code, but if the code modifies the
 // state, this should not be used, since it does not reset the state between runs.
 func benchmarkNonModifyingCode(gas uint64, code []byte, name string, tracerCode string, b *testing.B) {
-    cfg := new(Config)
-    setDefaults(cfg)
-    cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-    cfg.GasLimit = gas
-    if len(tracerCode) > 0 {
-        tracer, err := tracers.New(tracerCode, new(tracers.Context))
-        if err != nil {
-            b.Fatal(err)
-        }
-        cfg.EVMConfig = vm.Config{
-            Debug:  true,
-            Tracer: tracer,
-        }
-    }
-    var (
-        destination = common.BytesToAddress([]byte("contract"))
-        vmenv       = NewEnv(cfg)
-        sender      = vm.AccountRef(cfg.Origin)
-    )
-    cfg.State.CreateAccount(destination)
-    eoa := common.HexToAddress("E0")
-    {
-        cfg.State.CreateAccount(eoa)
-        cfg.State.SetNonce(eoa, 100)
+	cfg := new(Config)
+	setDefaults(cfg)
+	cfg.State, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	cfg.GasLimit = gas
+	if len(tracerCode) > 0 {
+		tracer, err := tracers.New(tracerCode, new(tracers.Context))
+		if err != nil {
+			b.Fatal(err)
+		}
+		cfg.EVMConfig = vm.Config{
+			Debug:  true,
+			Tracer: tracer,
+		}
+	}
+	var (
+		destination = common.BytesToAddress([]byte("contract"))
+		vmenv       = NewEnv(cfg)
+		sender      = vm.AccountRef(cfg.Origin)
+	)
+	cfg.State.CreateAccount(destination)
+	eoa := common.HexToAddress("E0")
+	{
+		cfg.State.CreateAccount(eoa)
+		cfg.State.SetNonce(eoa, 100)
 	}
 	reverting := common.HexToAddress("EE")
 	{
@@ -491,222 +491,222 @@ func BenchmarkSimpleLoop(b *testing.B) {
 		byte(vm.CALL),
 		byte(vm.POP),      // pop return value
 		byte(vm.PUSH1), 0, // jumpdestination
-        byte(vm.JUMP),
-    }
+		byte(vm.JUMP),
+	}
 
-    //tracer := logger.NewJSONLogger(nil, os.Stdout)
-    //Execute(loopingCode, nil, &Config{
-    //	EVMConfig: vm.Config{
-    //		Debug:  true,
-    //		Tracer: tracer,
-    //	}})
-    // 100M gas
-    benchmarkNonModifyingCode(100000000, staticCallIdentity, "staticcall-identity-100M", "", b)
-    benchmarkNonModifyingCode(100000000, callIdentity, "call-identity-100M", "", b)
-    benchmarkNonModifyingCode(100000000, loopingCode, "loop-100M", "", b)
-    benchmarkNonModifyingCode(100000000, callInexistant, "call-nonexist-100M", "", b)
-    benchmarkNonModifyingCode(100000000, callEOA, "call-EOA-100M", "", b)
-    benchmarkNonModifyingCode(100000000, calllRevertingContractWithInput, "call-reverting-100M", "", b)
+	//tracer := logger.NewJSONLogger(nil, os.Stdout)
+	//Execute(loopingCode, nil, &Config{
+	//	EVMConfig: vm.Config{
+	//		Debug:  true,
+	//		Tracer: tracer,
+	//	}})
+	// 100M gas
+	benchmarkNonModifyingCode(100000000, staticCallIdentity, "staticcall-identity-100M", "", b)
+	benchmarkNonModifyingCode(100000000, callIdentity, "call-identity-100M", "", b)
+	benchmarkNonModifyingCode(100000000, loopingCode, "loop-100M", "", b)
+	benchmarkNonModifyingCode(100000000, callInexistant, "call-nonexist-100M", "", b)
+	benchmarkNonModifyingCode(100000000, callEOA, "call-EOA-100M", "", b)
+	benchmarkNonModifyingCode(100000000, calllRevertingContractWithInput, "call-reverting-100M", "", b)
 
-    //benchmarkNonModifyingCode(10000000, staticCallIdentity, "staticcall-identity-10M", b)
-    //benchmarkNonModifyingCode(10000000, loopingCode, "loop-10M", b)
+	//benchmarkNonModifyingCode(10000000, staticCallIdentity, "staticcall-identity-10M", b)
+	//benchmarkNonModifyingCode(10000000, loopingCode, "loop-10M", b)
 }
 
 // TestEip2929Cases contains various testcases that are used for
 // EIP-2929 about gas repricings
 func TestEip2929Cases(t *testing.T) {
-    t.Skip("Test only useful for generating documentation")
-    id := 1
-    prettyPrint := func(comment string, code []byte) {
+	t.Skip("Test only useful for generating documentation")
+	id := 1
+	prettyPrint := func(comment string, code []byte) {
 
-        instrs := make([]string, 0)
-        it := asm.NewInstructionIterator(code)
-        for it.Next() {
-            if it.Arg() != nil && 0 < len(it.Arg()) {
-                instrs = append(instrs, fmt.Sprintf("%v 0x%x", it.Op(), it.Arg()))
-            } else {
-                instrs = append(instrs, fmt.Sprintf("%v", it.Op()))
-            }
-        }
-        ops := strings.Join(instrs, ", ")
-        fmt.Printf("### Case %d\n\n", id)
-        id++
-        fmt.Printf("%v\n\nBytecode: \n```\n0x%x\n```\nOperations: \n```\n%v\n```\n\n",
-            comment,
-            code, ops)
-        Execute(code, nil, &Config{
-            EVMConfig: vm.Config{
-                Debug:     true,
-                Tracer:    logger.NewMarkdownLogger(nil, os.Stdout),
-                ExtraEips: []int{2929},
-            },
-        })
-    }
+		instrs := make([]string, 0)
+		it := asm.NewInstructionIterator(code)
+		for it.Next() {
+			if it.Arg() != nil && 0 < len(it.Arg()) {
+				instrs = append(instrs, fmt.Sprintf("%v 0x%x", it.Op(), it.Arg()))
+			} else {
+				instrs = append(instrs, fmt.Sprintf("%v", it.Op()))
+			}
+		}
+		ops := strings.Join(instrs, ", ")
+		fmt.Printf("### Case %d\n\n", id)
+		id++
+		fmt.Printf("%v\n\nBytecode: \n```\n0x%x\n```\nOperations: \n```\n%v\n```\n\n",
+			comment,
+			code, ops)
+		Execute(code, nil, &Config{
+			EVMConfig: vm.Config{
+				Debug:     true,
+				Tracer:    logger.NewMarkdownLogger(nil, os.Stdout),
+				ExtraEips: []int{2929},
+			},
+		})
+	}
 
-    { // First eip testcase
-        code := []byte{
-            // Three checks against a precompile
-            byte(vm.PUSH1), 1, byte(vm.EXTCODEHASH), byte(vm.POP),
-            byte(vm.PUSH1), 2, byte(vm.EXTCODESIZE), byte(vm.POP),
-            byte(vm.PUSH1), 3, byte(vm.BALANCE), byte(vm.POP),
-            // Three checks against a non-precompile
-            byte(vm.PUSH1), 0xf1, byte(vm.EXTCODEHASH), byte(vm.POP),
-            byte(vm.PUSH1), 0xf2, byte(vm.EXTCODESIZE), byte(vm.POP),
-            byte(vm.PUSH1), 0xf3, byte(vm.BALANCE), byte(vm.POP),
-            // Same three checks (should be cheaper)
-            byte(vm.PUSH1), 0xf2, byte(vm.EXTCODEHASH), byte(vm.POP),
-            byte(vm.PUSH1), 0xf3, byte(vm.EXTCODESIZE), byte(vm.POP),
-            byte(vm.PUSH1), 0xf1, byte(vm.BALANCE), byte(vm.POP),
-            // Check the origin, and the 'this'
-            byte(vm.ORIGIN), byte(vm.BALANCE), byte(vm.POP),
-            byte(vm.ADDRESS), byte(vm.BALANCE), byte(vm.POP),
+	{ // First eip testcase
+		code := []byte{
+			// Three checks against a precompile
+			byte(vm.PUSH1), 1, byte(vm.EXTCODEHASH), byte(vm.POP),
+			byte(vm.PUSH1), 2, byte(vm.EXTCODESIZE), byte(vm.POP),
+			byte(vm.PUSH1), 3, byte(vm.BALANCE), byte(vm.POP),
+			// Three checks against a non-precompile
+			byte(vm.PUSH1), 0xf1, byte(vm.EXTCODEHASH), byte(vm.POP),
+			byte(vm.PUSH1), 0xf2, byte(vm.EXTCODESIZE), byte(vm.POP),
+			byte(vm.PUSH1), 0xf3, byte(vm.BALANCE), byte(vm.POP),
+			// Same three checks (should be cheaper)
+			byte(vm.PUSH1), 0xf2, byte(vm.EXTCODEHASH), byte(vm.POP),
+			byte(vm.PUSH1), 0xf3, byte(vm.EXTCODESIZE), byte(vm.POP),
+			byte(vm.PUSH1), 0xf1, byte(vm.BALANCE), byte(vm.POP),
+			// Check the origin, and the 'this'
+			byte(vm.ORIGIN), byte(vm.BALANCE), byte(vm.POP),
+			byte(vm.ADDRESS), byte(vm.BALANCE), byte(vm.POP),
 
-            byte(vm.STOP),
-        }
-        prettyPrint("This checks `EXT`(codehash,codesize,balance) of precompiles, which should be `100`, "+
-            "and later checks the same operations twice against some non-precompiles. "+
-            "Those are cheaper second time they are accessed. Lastly, it checks the `BALANCE` of `origin` and `this`.", code)
-    }
+			byte(vm.STOP),
+		}
+		prettyPrint("This checks `EXT`(codehash,codesize,balance) of precompiles, which should be `100`, "+
+			"and later checks the same operations twice against some non-precompiles. "+
+			"Those are cheaper second time they are accessed. Lastly, it checks the `BALANCE` of `origin` and `this`.", code)
+	}
 
-    { // EXTCODECOPY
-        code := []byte{
-            // extcodecopy( 0xff,0,0,0,0)
-            byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
-            byte(vm.PUSH1), 0xff, byte(vm.EXTCODECOPY),
-            // extcodecopy( 0xff,0,0,0,0)
-            byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
-            byte(vm.PUSH1), 0xff, byte(vm.EXTCODECOPY),
-            // extcodecopy( this,0,0,0,0)
-            byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
-            byte(vm.ADDRESS), byte(vm.EXTCODECOPY),
+	{ // EXTCODECOPY
+		code := []byte{
+			// extcodecopy( 0xff,0,0,0,0)
+			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
+			byte(vm.PUSH1), 0xff, byte(vm.EXTCODECOPY),
+			// extcodecopy( 0xff,0,0,0,0)
+			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
+			byte(vm.PUSH1), 0xff, byte(vm.EXTCODECOPY),
+			// extcodecopy( this,0,0,0,0)
+			byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, byte(vm.PUSH1), 0x00, //length, codeoffset, memoffset
+			byte(vm.ADDRESS), byte(vm.EXTCODECOPY),
 
-            byte(vm.STOP),
-        }
-        prettyPrint("This checks `extcodecopy( 0xff,0,0,0,0)` twice, (should be expensive first time), "+
-            "and then does `extcodecopy( this,0,0,0,0)`.", code)
-    }
+			byte(vm.STOP),
+		}
+		prettyPrint("This checks `extcodecopy( 0xff,0,0,0,0)` twice, (should be expensive first time), "+
+			"and then does `extcodecopy( this,0,0,0,0)`.", code)
+	}
 
-    { // SLOAD + SSTORE
-        code := []byte{
+	{ // SLOAD + SSTORE
+		code := []byte{
 
-            // Add slot `0x1` to access list
-            byte(vm.PUSH1), 0x01, byte(vm.SLOAD), byte(vm.POP), // SLOAD( 0x1) (add to access list)
-            // Write to `0x1` which is already in access list
-            byte(vm.PUSH1), 0x11, byte(vm.PUSH1), 0x01, byte(vm.SSTORE), // SSTORE( loc: 0x01, val: 0x11)
-            // Write to `0x2` which is not in access list
-            byte(vm.PUSH1), 0x11, byte(vm.PUSH1), 0x02, byte(vm.SSTORE), // SSTORE( loc: 0x02, val: 0x11)
-            // Write again to `0x2`
-            byte(vm.PUSH1), 0x11, byte(vm.PUSH1), 0x02, byte(vm.SSTORE), // SSTORE( loc: 0x02, val: 0x11)
-            // Read slot in access list (0x2)
-            byte(vm.PUSH1), 0x02, byte(vm.SLOAD), // SLOAD( 0x2)
-            // Read slot in access list (0x1)
-            byte(vm.PUSH1), 0x01, byte(vm.SLOAD), // SLOAD( 0x1)
-        }
-        prettyPrint("This checks `sload( 0x1)` followed by `sstore(loc: 0x01, val:0x11)`, then 'naked' sstore:"+
-            "`sstore(loc: 0x02, val:0x11)` twice, and `sload(0x2)`, `sload(0x1)`. ", code)
-    }
-    { // Call variants
-        code := []byte{
-            // identity precompile
-            byte(vm.PUSH1), 0x0, byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-            byte(vm.PUSH1), 0x04, byte(vm.PUSH1), 0x0, byte(vm.CALL), byte(vm.POP),
+			// Add slot `0x1` to access list
+			byte(vm.PUSH1), 0x01, byte(vm.SLOAD), byte(vm.POP), // SLOAD( 0x1) (add to access list)
+			// Write to `0x1` which is already in access list
+			byte(vm.PUSH1), 0x11, byte(vm.PUSH1), 0x01, byte(vm.SSTORE), // SSTORE( loc: 0x01, val: 0x11)
+			// Write to `0x2` which is not in access list
+			byte(vm.PUSH1), 0x11, byte(vm.PUSH1), 0x02, byte(vm.SSTORE), // SSTORE( loc: 0x02, val: 0x11)
+			// Write again to `0x2`
+			byte(vm.PUSH1), 0x11, byte(vm.PUSH1), 0x02, byte(vm.SSTORE), // SSTORE( loc: 0x02, val: 0x11)
+			// Read slot in access list (0x2)
+			byte(vm.PUSH1), 0x02, byte(vm.SLOAD), // SLOAD( 0x2)
+			// Read slot in access list (0x1)
+			byte(vm.PUSH1), 0x01, byte(vm.SLOAD), // SLOAD( 0x1)
+		}
+		prettyPrint("This checks `sload( 0x1)` followed by `sstore(loc: 0x01, val:0x11)`, then 'naked' sstore:"+
+			"`sstore(loc: 0x02, val:0x11)` twice, and `sload(0x2)`, `sload(0x1)`. ", code)
+	}
+	{ // Call variants
+		code := []byte{
+			// identity precompile
+			byte(vm.PUSH1), 0x0, byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
+			byte(vm.PUSH1), 0x04, byte(vm.PUSH1), 0x0, byte(vm.CALL), byte(vm.POP),
 
-            // random account - call 1
-            byte(vm.PUSH1), 0x0, byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-            byte(vm.PUSH1), 0xff, byte(vm.PUSH1), 0x0, byte(vm.CALL), byte(vm.POP),
+			// random account - call 1
+			byte(vm.PUSH1), 0x0, byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
+			byte(vm.PUSH1), 0xff, byte(vm.PUSH1), 0x0, byte(vm.CALL), byte(vm.POP),
 
-            // random account - call 2
-            byte(vm.PUSH1), 0x0, byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-            byte(vm.PUSH1), 0xff, byte(vm.PUSH1), 0x0, byte(vm.STATICCALL), byte(vm.POP),
-        }
-        prettyPrint("This calls the `identity`-precompile (cheap), then calls an account (expensive) and `staticcall`s the same"+
-            "account (cheap)", code)
-    }
+			// random account - call 2
+			byte(vm.PUSH1), 0x0, byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
+			byte(vm.PUSH1), 0xff, byte(vm.PUSH1), 0x0, byte(vm.STATICCALL), byte(vm.POP),
+		}
+		prettyPrint("This calls the `identity`-precompile (cheap), then calls an account (expensive) and `staticcall`s the same"+
+			"account (cheap)", code)
+	}
 }
 
 // TestColdAccountAccessCost test that the cold account access cost is reported
 // correctly
-// see: https://github.com/ethereum/go-ethereum/issues/22649
+// see: https://github.com/clearmatics/autonity/issues/22649
 func TestColdAccountAccessCost(t *testing.T) {
-    for i, tc := range []struct {
-        code []byte
-        step int
-        want uint64
-    }{
-        { // EXTCODEHASH(0xff)
-            code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.EXTCODEHASH), byte(vm.POP)},
-            step: 1,
-            want: 2600,
-        },
-        { // BALANCE(0xff)
-            code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.BALANCE), byte(vm.POP)},
-            step: 1,
-            want: 2600,
-        },
-        { // CALL(0xff)
-            code: []byte{
-                byte(vm.PUSH1), 0x0,
-                byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-                byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
-            },
-            step: 7,
-            want: 2855,
-        },
-        { // CALLCODE(0xff)
-            code: []byte{
-                byte(vm.PUSH1), 0x0,
-                byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-                byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
-            },
-            step: 7,
-            want: 2855,
-        },
-        { // DELEGATECALL(0xff)
-            code: []byte{
-                byte(vm.PUSH1), 0x0,
-                byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-                byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
-            },
-            step: 6,
-            want: 2855,
-        },
-        { // STATICCALL(0xff)
-            code: []byte{
-                byte(vm.PUSH1), 0x0,
-                byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-                byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
-            },
-            step: 6,
-            want: 2855,
-        },
-        { // SELFDESTRUCT(0xff)
-            code: []byte{
-                byte(vm.PUSH1), 0xff, byte(vm.SELFDESTRUCT),
-            },
-            step: 1,
-            want: 7600,
-        },
-    } {
-        tracer := logger.NewStructLogger(nil)
-        Execute(tc.code, nil, &Config{
-            EVMConfig: vm.Config{
-                Debug:  true,
-                Tracer: tracer,
-            },
-        })
-        have := tracer.StructLogs()[tc.step].GasCost
-        if want := tc.want; have != want {
-            for ii, op := range tracer.StructLogs() {
-                t.Logf("%d: %v %d", ii, op.OpName(), op.GasCost)
-            }
-            t.Fatalf("tescase %d, gas report wrong, step %d, have %d want %d", i, tc.step, have, want)
-        }
-    }
+	for i, tc := range []struct {
+		code []byte
+		step int
+		want uint64
+	}{
+		{ // EXTCODEHASH(0xff)
+			code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.EXTCODEHASH), byte(vm.POP)},
+			step: 1,
+			want: 2600,
+		},
+		{ // BALANCE(0xff)
+			code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.BALANCE), byte(vm.POP)},
+			step: 1,
+			want: 2600,
+		},
+		{ // CALL(0xff)
+			code: []byte{
+				byte(vm.PUSH1), 0x0,
+				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
+				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
+			},
+			step: 7,
+			want: 2855,
+		},
+		{ // CALLCODE(0xff)
+			code: []byte{
+				byte(vm.PUSH1), 0x0,
+				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
+				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
+			},
+			step: 7,
+			want: 2855,
+		},
+		{ // DELEGATECALL(0xff)
+			code: []byte{
+				byte(vm.PUSH1), 0x0,
+				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
+				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
+			},
+			step: 6,
+			want: 2855,
+		},
+		{ // STATICCALL(0xff)
+			code: []byte{
+				byte(vm.PUSH1), 0x0,
+				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
+				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
+			},
+			step: 6,
+			want: 2855,
+		},
+		{ // SELFDESTRUCT(0xff)
+			code: []byte{
+				byte(vm.PUSH1), 0xff, byte(vm.SELFDESTRUCT),
+			},
+			step: 1,
+			want: 7600,
+		},
+	} {
+		tracer := logger.NewStructLogger(nil)
+		Execute(tc.code, nil, &Config{
+			EVMConfig: vm.Config{
+				Debug:  true,
+				Tracer: tracer,
+			},
+		})
+		have := tracer.StructLogs()[tc.step].GasCost
+		if want := tc.want; have != want {
+			for ii, op := range tracer.StructLogs() {
+				t.Logf("%d: %v %d", ii, op.OpName(), op.GasCost)
+			}
+			t.Fatalf("tescase %d, gas report wrong, step %d, have %d want %d", i, tc.step, have, want)
+		}
+	}
 }
 
 func TestRuntimeJSTracer(t *testing.T) {
-    jsTracers := []string{
-        `{enters: 0, exits: 0, enterGas: 0, gasUsed: 0, steps:0,
+	jsTracers := []string{
+		`{enters: 0, exits: 0, enterGas: 0, gasUsed: 0, steps:0,
 	step: function() { this.steps++}, 
 	fault: function() {}, 
 	result: function() { 
@@ -720,7 +720,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 		this.exits++; 
 		this.gasUsed = res.getGasUsed();
 	}}`,
-        `{enters: 0, exits: 0, enterGas: 0, gasUsed: 0, steps:0,
+		`{enters: 0, exits: 0, enterGas: 0, gasUsed: 0, steps:0,
 	fault: function() {}, 
 	result: function() { 
 		return [this.enters, this.exits,this.enterGas,this.gasUsed, this.steps].join(",") 
@@ -733,204 +733,204 @@ func TestRuntimeJSTracer(t *testing.T) {
 		this.exits++; 
 		this.gasUsed = res.getGasUsed();
 	}}`}
-    tests := []struct {
-        code []byte
-        // One result per tracer
-        results []string
-    }{
-        {
-            // CREATE
-            code: []byte{
-                // Store initcode in memory at 0x00 (5 bytes left-padded to 32 bytes)
-                byte(vm.PUSH5),
-                // Init code: PUSH1 0, PUSH1 0, RETURN (3 steps)
-                byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN),
-                byte(vm.PUSH1), 0,
-                byte(vm.MSTORE),
-                // length, offset, value
-                byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
-                byte(vm.CREATE),
-                byte(vm.POP),
-            },
-            results: []string{`"1,1,4294935775,6,12"`, `"1,1,4294935775,6,0"`},
-        },
-        {
-            // CREATE2
-            code: []byte{
-                // Store initcode in memory at 0x00 (5 bytes left-padded to 32 bytes)
-                byte(vm.PUSH5),
-                // Init code: PUSH1 0, PUSH1 0, RETURN (3 steps)
-                byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN),
-                byte(vm.PUSH1), 0,
-                byte(vm.MSTORE),
-                // salt, length, offset, value
-                byte(vm.PUSH1), 1, byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
-                byte(vm.CREATE2),
-                byte(vm.POP),
-            },
-            results: []string{`"1,1,4294935766,6,13"`, `"1,1,4294935766,6,0"`},
-        },
-        {
-            // CALL
-            code: []byte{
-                // outsize, outoffset, insize, inoffset
-                byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
-                byte(vm.PUSH1), 0, // value
-                byte(vm.PUSH1), 0xbb, //address
-                byte(vm.GAS), // gas
-                byte(vm.CALL),
-                byte(vm.POP),
-            },
-            results: []string{`"1,1,4294964716,6,13"`, `"1,1,4294964716,6,0"`},
-        },
-        {
-            // CALLCODE
-            code: []byte{
-                // outsize, outoffset, insize, inoffset
-                byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
-                byte(vm.PUSH1), 0, // value
-                byte(vm.PUSH1), 0xcc, //address
-                byte(vm.GAS), // gas
-                byte(vm.CALLCODE),
-                byte(vm.POP),
-            },
-            results: []string{`"1,1,4294964716,6,13"`, `"1,1,4294964716,6,0"`},
-        },
-        {
-            // STATICCALL
-            code: []byte{
-                // outsize, outoffset, insize, inoffset
-                byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
-                byte(vm.PUSH1), 0xdd, //address
-                byte(vm.GAS), // gas
-                byte(vm.STATICCALL),
-                byte(vm.POP),
-            },
-            results: []string{`"1,1,4294964719,6,12"`, `"1,1,4294964719,6,0"`},
-        },
-        {
-            // DELEGATECALL
-            code: []byte{
-                // outsize, outoffset, insize, inoffset
-                byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
-                byte(vm.PUSH1), 0xee, //address
-                byte(vm.GAS), // gas
-                byte(vm.DELEGATECALL),
-                byte(vm.POP),
-            },
-            results: []string{`"1,1,4294964719,6,12"`, `"1,1,4294964719,6,0"`},
-        },
-        {
-            // CALL self-destructing contract
-            code: []byte{
-                // outsize, outoffset, insize, inoffset
-                byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
-                byte(vm.PUSH1), 0, // value
-                byte(vm.PUSH1), 0xff, //address
-                byte(vm.GAS), // gas
-                byte(vm.CALL),
-                byte(vm.POP),
-            },
-            results: []string{`"2,2,0,5003,12"`, `"2,2,0,5003,0"`},
-        },
-    }
-    calleeCode := []byte{
-        byte(vm.PUSH1), 0,
-        byte(vm.PUSH1), 0,
-        byte(vm.RETURN),
-    }
-    depressedCode := []byte{
-        byte(vm.PUSH1), 0xaa,
-        byte(vm.SELFDESTRUCT),
-    }
-    main := common.HexToAddress("0xaa")
-    for i, jsTracer := range jsTracers {
-        for j, tc := range tests {
-            statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-            statedb.SetCode(main, tc.code)
-            statedb.SetCode(common.HexToAddress("0xbb"), calleeCode)
-            statedb.SetCode(common.HexToAddress("0xcc"), calleeCode)
-            statedb.SetCode(common.HexToAddress("0xdd"), calleeCode)
-            statedb.SetCode(common.HexToAddress("0xee"), calleeCode)
-            statedb.SetCode(common.HexToAddress("0xff"), depressedCode)
+	tests := []struct {
+		code []byte
+		// One result per tracer
+		results []string
+	}{
+		{
+			// CREATE
+			code: []byte{
+				// Store initcode in memory at 0x00 (5 bytes left-padded to 32 bytes)
+				byte(vm.PUSH5),
+				// Init code: PUSH1 0, PUSH1 0, RETURN (3 steps)
+				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN),
+				byte(vm.PUSH1), 0,
+				byte(vm.MSTORE),
+				// length, offset, value
+				byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
+				byte(vm.CREATE),
+				byte(vm.POP),
+			},
+			results: []string{`"1,1,4294935775,6,12"`, `"1,1,4294935775,6,0"`},
+		},
+		{
+			// CREATE2
+			code: []byte{
+				// Store initcode in memory at 0x00 (5 bytes left-padded to 32 bytes)
+				byte(vm.PUSH5),
+				// Init code: PUSH1 0, PUSH1 0, RETURN (3 steps)
+				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN),
+				byte(vm.PUSH1), 0,
+				byte(vm.MSTORE),
+				// salt, length, offset, value
+				byte(vm.PUSH1), 1, byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
+				byte(vm.CREATE2),
+				byte(vm.POP),
+			},
+			results: []string{`"1,1,4294935766,6,13"`, `"1,1,4294935766,6,0"`},
+		},
+		{
+			// CALL
+			code: []byte{
+				// outsize, outoffset, insize, inoffset
+				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 0, // value
+				byte(vm.PUSH1), 0xbb, //address
+				byte(vm.GAS), // gas
+				byte(vm.CALL),
+				byte(vm.POP),
+			},
+			results: []string{`"1,1,4294964716,6,13"`, `"1,1,4294964716,6,0"`},
+		},
+		{
+			// CALLCODE
+			code: []byte{
+				// outsize, outoffset, insize, inoffset
+				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 0, // value
+				byte(vm.PUSH1), 0xcc, //address
+				byte(vm.GAS), // gas
+				byte(vm.CALLCODE),
+				byte(vm.POP),
+			},
+			results: []string{`"1,1,4294964716,6,13"`, `"1,1,4294964716,6,0"`},
+		},
+		{
+			// STATICCALL
+			code: []byte{
+				// outsize, outoffset, insize, inoffset
+				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 0xdd, //address
+				byte(vm.GAS), // gas
+				byte(vm.STATICCALL),
+				byte(vm.POP),
+			},
+			results: []string{`"1,1,4294964719,6,12"`, `"1,1,4294964719,6,0"`},
+		},
+		{
+			// DELEGATECALL
+			code: []byte{
+				// outsize, outoffset, insize, inoffset
+				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 0xee, //address
+				byte(vm.GAS), // gas
+				byte(vm.DELEGATECALL),
+				byte(vm.POP),
+			},
+			results: []string{`"1,1,4294964719,6,12"`, `"1,1,4294964719,6,0"`},
+		},
+		{
+			// CALL self-destructing contract
+			code: []byte{
+				// outsize, outoffset, insize, inoffset
+				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 0, // value
+				byte(vm.PUSH1), 0xff, //address
+				byte(vm.GAS), // gas
+				byte(vm.CALL),
+				byte(vm.POP),
+			},
+			results: []string{`"2,2,0,5003,12"`, `"2,2,0,5003,0"`},
+		},
+	}
+	calleeCode := []byte{
+		byte(vm.PUSH1), 0,
+		byte(vm.PUSH1), 0,
+		byte(vm.RETURN),
+	}
+	depressedCode := []byte{
+		byte(vm.PUSH1), 0xaa,
+		byte(vm.SELFDESTRUCT),
+	}
+	main := common.HexToAddress("0xaa")
+	for i, jsTracer := range jsTracers {
+		for j, tc := range tests {
+			statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+			statedb.SetCode(main, tc.code)
+			statedb.SetCode(common.HexToAddress("0xbb"), calleeCode)
+			statedb.SetCode(common.HexToAddress("0xcc"), calleeCode)
+			statedb.SetCode(common.HexToAddress("0xdd"), calleeCode)
+			statedb.SetCode(common.HexToAddress("0xee"), calleeCode)
+			statedb.SetCode(common.HexToAddress("0xff"), depressedCode)
 
-            tracer, err := tracers.New(jsTracer, new(tracers.Context))
-            if err != nil {
-                t.Fatal(err)
-            }
-            _, _, err = Call(main, nil, &Config{
-                State: statedb,
-                EVMConfig: vm.Config{
-                    Debug:  true,
-                    Tracer: tracer,
-                }})
-            if err != nil {
-                t.Fatal("didn't expect error", err)
-            }
-            res, err := tracer.GetResult()
-            if err != nil {
-                t.Fatal(err)
-            }
-            if have, want := string(res), tc.results[i]; have != want {
-                t.Errorf("wrong result for tracer %d testcase %d, have \n%v\nwant\n%v\n", i, j, have, want)
-            }
-        }
-    }
+			tracer, err := tracers.New(jsTracer, new(tracers.Context))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _, err = Call(main, nil, &Config{
+				State: statedb,
+				EVMConfig: vm.Config{
+					Debug:  true,
+					Tracer: tracer,
+				}})
+			if err != nil {
+				t.Fatal("didn't expect error", err)
+			}
+			res, err := tracer.GetResult()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if have, want := string(res), tc.results[i]; have != want {
+				t.Errorf("wrong result for tracer %d testcase %d, have \n%v\nwant\n%v\n", i, j, have, want)
+			}
+		}
+	}
 }
 
 func TestJSTracerCreateTx(t *testing.T) {
-    jsTracer := `
+	jsTracer := `
 	{enters: 0, exits: 0,
 	step: function() {},
 	fault: function() {},
 	result: function() { return [this.enters, this.exits].join(",") },
 	enter: function(frame) { this.enters++ },
 	exit: function(res) { this.exits++ }}`
-    code := []byte{byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN)}
+	code := []byte{byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN)}
 
-    statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-    tracer, err := tracers.New(jsTracer, new(tracers.Context))
-    if err != nil {
-        t.Fatal(err)
-    }
-    _, _, _, err = Create(code, &Config{
-        State: statedb,
-        EVMConfig: vm.Config{
-            Debug:  true,
-            Tracer: tracer,
-        }})
-    if err != nil {
-        t.Fatal(err)
-    }
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	tracer, err := tracers.New(jsTracer, new(tracers.Context))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, _, err = Create(code, &Config{
+		State: statedb,
+		EVMConfig: vm.Config{
+			Debug:  true,
+			Tracer: tracer,
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-    res, err := tracer.GetResult()
-    if err != nil {
-        t.Fatal(err)
-    }
-    if have, want := string(res), `"0,0"`; have != want {
-        t.Errorf("wrong result for tracer, have \n%v\nwant\n%v\n", have, want)
-    }
+	res, err := tracer.GetResult()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if have, want := string(res), `"0,0"`; have != want {
+		t.Errorf("wrong result for tracer, have \n%v\nwant\n%v\n", have, want)
+	}
 }
 
 func BenchmarkTracerStepVsCallFrame(b *testing.B) {
-    // Simply pushes and pops some values in a loop
-    code := []byte{
-        byte(vm.JUMPDEST),
-        byte(vm.PUSH1), 0,
-        byte(vm.PUSH1), 0,
-        byte(vm.POP),
-        byte(vm.POP),
-        byte(vm.PUSH1), 0, // jumpdestination
-        byte(vm.JUMP),
-    }
+	// Simply pushes and pops some values in a loop
+	code := []byte{
+		byte(vm.JUMPDEST),
+		byte(vm.PUSH1), 0,
+		byte(vm.PUSH1), 0,
+		byte(vm.POP),
+		byte(vm.POP),
+		byte(vm.PUSH1), 0, // jumpdestination
+		byte(vm.JUMP),
+	}
 
-    stepTracer := `
+	stepTracer := `
 	{
 	step: function() {},
 	fault: function() {},
 	result: function() {},
 	}`
-    callFrameTracer := `
+	callFrameTracer := `
 	{
 	enter: function() {},
 	exit: function() {},
@@ -938,6 +938,6 @@ func BenchmarkTracerStepVsCallFrame(b *testing.B) {
 	result: function() {},
 	}`
 
-    benchmarkNonModifyingCode(10000000, code, "tracer-step-10M", stepTracer, b)
-    benchmarkNonModifyingCode(10000000, code, "tracer-call-frame-10M", callFrameTracer, b)
+	benchmarkNonModifyingCode(10000000, code, "tracer-step-10M", stepTracer, b)
+	benchmarkNonModifyingCode(10000000, code, "tracer-call-frame-10M", callFrameTracer, b)
 }

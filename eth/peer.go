@@ -17,52 +17,52 @@
 package eth
 
 import (
-    "math/big"
+	"math/big"
 
-    "github.com/ethereum/go-ethereum/eth/protocols/eth"
-    "github.com/ethereum/go-ethereum/eth/protocols/snap"
+	"github.com/clearmatics/autonity/eth/protocols/eth"
+	"github.com/clearmatics/autonity/eth/protocols/snap"
 )
 
 // ethPeerInfo represents a short summary of the `eth` sub-protocol metadata known
 // about a connected peer.
 type ethPeerInfo struct {
-    Version    uint     `json:"version"`    // Ethereum protocol version negotiated
-    Difficulty *big.Int `json:"difficulty"` // Total difficulty of the peer's blockchain
-    Head       string   `json:"head"`       // Hex hash of the peer's best owned block
+	Version    uint     `json:"version"`    // Ethereum protocol version negotiated
+	Difficulty *big.Int `json:"difficulty"` // Total difficulty of the peer's blockchain
+	Head       string   `json:"head"`       // Hex hash of the peer's best owned block
 }
 
 // ethPeer is a wrapper around eth.Peer to maintain a few extra metadata.
 type ethPeer struct {
-    *eth.Peer
-    snapExt  *snapPeer     // Satellite `snap` connection
-    snapWait chan struct{} // Notification channel for snap connections
+	*eth.Peer
+	snapExt  *snapPeer     // Satellite `snap` connection
+	snapWait chan struct{} // Notification channel for snap connections
 }
 
 // info gathers and returns some `eth` protocol metadata known about a peer.
 func (p *ethPeer) info() *ethPeerInfo {
-    hash, td := p.Head()
+	hash, td := p.Head()
 
-    return &ethPeerInfo{
-        Version:    p.Version(),
-        Difficulty: td,
-        Head:       hash.Hex(),
-    }
+	return &ethPeerInfo{
+		Version:    p.Version(),
+		Difficulty: td,
+		Head:       hash.Hex(),
+	}
 }
 
 // snapPeerInfo represents a short summary of the `snap` sub-protocol metadata known
 // about a connected peer.
 type snapPeerInfo struct {
-    Version uint `json:"version"` // Snapshot protocol version negotiated
+	Version uint `json:"version"` // Snapshot protocol version negotiated
 }
 
 // snapPeer is a wrapper around snap.Peer to maintain a few extra metadata.
 type snapPeer struct {
-    *snap.Peer
+	*snap.Peer
 }
 
 // info gathers and returns some `snap` protocol metadata known about a peer.
 func (p *snapPeer) info() *snapPeerInfo {
-    return &snapPeerInfo{
-        Version: p.Version(),
-    }
+	return &snapPeerInfo{
+		Version: p.Version(),
+	}
 }

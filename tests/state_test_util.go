@@ -17,27 +17,27 @@
 package tests
 
 import (
-    "encoding/hex"
-    "encoding/json"
-    "fmt"
-    "math/big"
-    "strconv"
-    "strings"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"strconv"
+	"strings"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/common/math"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/core/state"
-    "github.com/ethereum/go-ethereum/core/state/snapshot"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/core/vm"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/ethereum/go-ethereum/ethdb"
-    "github.com/ethereum/go-ethereum/params"
-    "github.com/ethereum/go-ethereum/rlp"
-    "golang.org/x/crypto/sha3"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/state/snapshot"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 // StateTest checks transaction processing without block context.
@@ -65,61 +65,61 @@ type stJSON struct {
 }
 
 type stPostState struct {
-    Root            common.UnprefixedHash `json:"hash"`
-    Logs            common.UnprefixedHash `json:"logs"`
-    TxBytes         hexutil.Bytes         `json:"txbytes"`
-    ExpectException string                `json:"expectException"`
-    Indexes         struct {
-        Data  int `json:"data"`
-        Gas   int `json:"gas"`
-        Value int `json:"value"`
-    }
+	Root            common.UnprefixedHash `json:"hash"`
+	Logs            common.UnprefixedHash `json:"logs"`
+	TxBytes         hexutil.Bytes         `json:"txbytes"`
+	ExpectException string                `json:"expectException"`
+	Indexes         struct {
+		Data  int `json:"data"`
+		Gas   int `json:"gas"`
+		Value int `json:"value"`
+	}
 }
 
 //go:generate gencodec -type stEnv -field-override stEnvMarshaling -out gen_stenv.go
 
 type stEnv struct {
-    Coinbase   common.Address `json:"currentCoinbase"   gencodec:"required"`
-    Difficulty *big.Int       `json:"currentDifficulty" gencodec:"optional"`
-    Random     *big.Int       `json:"currentRandom"     gencodec:"optional"`
-    GasLimit   uint64         `json:"currentGasLimit"   gencodec:"required"`
-    Number     uint64         `json:"currentNumber"     gencodec:"required"`
-    Timestamp  uint64         `json:"currentTimestamp"  gencodec:"required"`
-    BaseFee    *big.Int       `json:"currentBaseFee"    gencodec:"optional"`
+	Coinbase   common.Address `json:"currentCoinbase"   gencodec:"required"`
+	Difficulty *big.Int       `json:"currentDifficulty" gencodec:"optional"`
+	Random     *big.Int       `json:"currentRandom"     gencodec:"optional"`
+	GasLimit   uint64         `json:"currentGasLimit"   gencodec:"required"`
+	Number     uint64         `json:"currentNumber"     gencodec:"required"`
+	Timestamp  uint64         `json:"currentTimestamp"  gencodec:"required"`
+	BaseFee    *big.Int       `json:"currentBaseFee"    gencodec:"optional"`
 }
 
 type stEnvMarshaling struct {
 	Coinbase   common.UnprefixedAddress
-    Difficulty *math.HexOrDecimal256
-    Random     *math.HexOrDecimal256
-    GasLimit   math.HexOrDecimal64
+	Difficulty *math.HexOrDecimal256
+	Random     *math.HexOrDecimal256
+	GasLimit   math.HexOrDecimal64
 	Number     math.HexOrDecimal64
-    Timestamp  math.HexOrDecimal64
-    BaseFee    *math.HexOrDecimal256
+	Timestamp  math.HexOrDecimal64
+	BaseFee    *math.HexOrDecimal256
 }
 
 //go:generate gencodec -type stTransaction -field-override stTransactionMarshaling -out gen_sttransaction.go
 
 type stTransaction struct {
-    GasPrice             *big.Int            `json:"gasPrice"`
-    MaxFeePerGas         *big.Int            `json:"maxFeePerGas"`
-    MaxPriorityFeePerGas *big.Int            `json:"maxPriorityFeePerGas"`
-    Nonce                uint64              `json:"nonce"`
-    To                   string              `json:"to"`
-    Data                 []string            `json:"data"`
-    AccessLists          []*types.AccessList `json:"accessLists,omitempty"`
-    GasLimit             []uint64            `json:"gasLimit"`
-    Value                []string            `json:"value"`
-    PrivateKey           []byte              `json:"secretKey"`
+	GasPrice             *big.Int            `json:"gasPrice"`
+	MaxFeePerGas         *big.Int            `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas *big.Int            `json:"maxPriorityFeePerGas"`
+	Nonce                uint64              `json:"nonce"`
+	To                   string              `json:"to"`
+	Data                 []string            `json:"data"`
+	AccessLists          []*types.AccessList `json:"accessLists,omitempty"`
+	GasLimit             []uint64            `json:"gasLimit"`
+	Value                []string            `json:"value"`
+	PrivateKey           []byte              `json:"secretKey"`
 }
 
 type stTransactionMarshaling struct {
-    GasPrice             *math.HexOrDecimal256
-    MaxFeePerGas         *math.HexOrDecimal256
-    MaxPriorityFeePerGas *math.HexOrDecimal256
-    Nonce                math.HexOrDecimal64
-    GasLimit             []math.HexOrDecimal64
-    PrivateKey           hexutil.Bytes
+	GasPrice             *math.HexOrDecimal256
+	MaxFeePerGas         *math.HexOrDecimal256
+	MaxPriorityFeePerGas *math.HexOrDecimal256
+	Nonce                math.HexOrDecimal64
+	GasLimit             []math.HexOrDecimal64
+	PrivateKey           hexutil.Bytes
 }
 
 // GetChainConfig takes a fork definition and returns a chain config.
@@ -179,65 +179,65 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bo
 
 // RunNoVerify runs a specific subtest and returns the statedb and post-state root
 func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapshotter bool) (*snapshot.Tree, *state.StateDB, common.Hash, error) {
-    config, eips, err := GetChainConfig(subtest.Fork)
-    if err != nil {
-        return nil, nil, common.Hash{}, UnsupportedForkError{subtest.Fork}
-    }
-    vmconfig.ExtraEips = eips
-    block := t.genesis(config).ToBlock(nil)
-    snaps, statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
+	config, eips, err := GetChainConfig(subtest.Fork)
+	if err != nil {
+		return nil, nil, common.Hash{}, UnsupportedForkError{subtest.Fork}
+	}
+	vmconfig.ExtraEips = eips
+	block := t.genesis(config).ToBlock(nil)
+	snaps, statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
 
-    var baseFee *big.Int
-    if config.IsLondon(new(big.Int)) {
-        baseFee = t.json.Env.BaseFee
-        if baseFee == nil {
-            // Retesteth uses `0x10` for genesis baseFee. Therefore, it defaults to
-            // parent - 2 : 0xa as the basefee for 'this' context.
-            baseFee = big.NewInt(0x0a)
-        }
-    }
-    post := t.json.Post[subtest.Fork][subtest.Index]
-    msg, err := t.json.Tx.toMessage(post, baseFee)
-    if err != nil {
-        return nil, nil, common.Hash{}, err
-    }
+	var baseFee *big.Int
+	if config.IsLondon(new(big.Int)) {
+		baseFee = t.json.Env.BaseFee
+		if baseFee == nil {
+			// Retesteth uses `0x10` for genesis baseFee. Therefore, it defaults to
+			// parent - 2 : 0xa as the basefee for 'this' context.
+			baseFee = big.NewInt(0x0a)
+		}
+	}
+	post := t.json.Post[subtest.Fork][subtest.Index]
+	msg, err := t.json.Tx.toMessage(post, baseFee)
+	if err != nil {
+		return nil, nil, common.Hash{}, err
+	}
 
-    // Try to recover tx with current signer
-    if len(post.TxBytes) != 0 {
-        var ttx types.Transaction
-        err := ttx.UnmarshalBinary(post.TxBytes)
-        if err != nil {
-            return nil, nil, common.Hash{}, err
-        }
+	// Try to recover tx with current signer
+	if len(post.TxBytes) != 0 {
+		var ttx types.Transaction
+		err := ttx.UnmarshalBinary(post.TxBytes)
+		if err != nil {
+			return nil, nil, common.Hash{}, err
+		}
 
-        if _, err := types.Sender(types.LatestSigner(config), &ttx); err != nil {
-            return nil, nil, common.Hash{}, err
-        }
-    }
+		if _, err := types.Sender(types.LatestSigner(config), &ttx); err != nil {
+			return nil, nil, common.Hash{}, err
+		}
+	}
 
-    // Prepare the EVM.
-    txContext := core.NewEVMTxContext(msg)
-    context := core.NewEVMBlockContext(block.Header(), nil, &t.json.Env.Coinbase)
-    context.GetHash = vmTestBlockHash
-    context.BaseFee = baseFee
-    if t.json.Env.Random != nil {
-        rnd := common.BigToHash(t.json.Env.Random)
-        context.Random = &rnd
-        context.Difficulty = big.NewInt(0)
-    }
-    evm := vm.NewEVM(context, txContext, statedb, config, vmconfig)
-    // Execute the message.
-    snapshot := statedb.Snapshot()
-    gaspool := new(core.GasPool)
-    gaspool.AddGas(block.GasLimit())
-    if _, err := core.ApplyMessage(evm, msg, gaspool); err != nil {
-        statedb.RevertToSnapshot(snapshot)
-    }
+	// Prepare the EVM.
+	txContext := core.NewEVMTxContext(msg)
+	context := core.NewEVMBlockContext(block.Header(), nil, &t.json.Env.Coinbase)
+	context.GetHash = vmTestBlockHash
+	context.BaseFee = baseFee
+	if t.json.Env.Random != nil {
+		rnd := common.BigToHash(t.json.Env.Random)
+		context.Random = &rnd
+		context.Difficulty = big.NewInt(0)
+	}
+	evm := vm.NewEVM(context, txContext, statedb, config, vmconfig)
+	// Execute the message.
+	snapshot := statedb.Snapshot()
+	gaspool := new(core.GasPool)
+	gaspool.AddGas(block.GasLimit())
+	if _, err := core.ApplyMessage(evm, msg, gaspool); err != nil {
+		statedb.RevertToSnapshot(snapshot)
+	}
 
-    // Commit block
-    statedb.Commit(config.IsEIP158(block.Number()))
-    // Add 0-value mining reward. This only makes a difference in the cases
-    // where
+	// Commit block
+	statedb.Commit(config.IsEIP158(block.Number()))
+	// Add 0-value mining reward. This only makes a difference in the cases
+	// where
 	// - the coinbase suicided, or
 	// - there are only 'bad' transactions, which aren't executed. In those cases,
 	//   the coinbase gets no txfee, so isn't created, and thus needs to be touched
@@ -267,41 +267,41 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter boo
 
 	var snaps *snapshot.Tree
 	if snapshotter {
-        snaps, _ = snapshot.New(db, sdb.TrieDB(), 1, root, false, true, false)
+		snaps, _ = snapshot.New(db, sdb.TrieDB(), 1, root, false, true, false)
 	}
 	statedb, _ = state.New(root, sdb, snaps)
 	return snaps, statedb
 }
 
 func (t *StateTest) genesis(config *params.ChainConfig) *core.Genesis {
-    genesis := &core.Genesis{
-        Config:     config,
-        Coinbase:   t.json.Env.Coinbase,
-        Difficulty: t.json.Env.Difficulty,
-        GasLimit:   t.json.Env.GasLimit,
-        Number:     t.json.Env.Number,
-        Timestamp:  t.json.Env.Timestamp,
-        Alloc:      t.json.Pre,
-    }
-    if t.json.Env.Random != nil {
-        // Post-Merge
-        genesis.Mixhash = common.BigToHash(t.json.Env.Random)
-        genesis.Difficulty = big.NewInt(0)
-    }
-    return genesis
+	genesis := &core.Genesis{
+		Config:     config,
+		Coinbase:   t.json.Env.Coinbase,
+		Difficulty: t.json.Env.Difficulty,
+		GasLimit:   t.json.Env.GasLimit,
+		Number:     t.json.Env.Number,
+		Timestamp:  t.json.Env.Timestamp,
+		Alloc:      t.json.Pre,
+	}
+	if t.json.Env.Random != nil {
+		// Post-Merge
+		genesis.Mixhash = common.BigToHash(t.json.Env.Random)
+		genesis.Difficulty = big.NewInt(0)
+	}
+	return genesis
 }
 
 func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (core.Message, error) {
-    // Derive sender from private key if present.
-    var from common.Address
-    if len(tx.PrivateKey) > 0 {
-        key, err := crypto.ToECDSA(tx.PrivateKey)
-        if err != nil {
-            return nil, fmt.Errorf("invalid private key: %v", err)
-        }
-        from = crypto.PubkeyToAddress(key.PublicKey)
-    }
-    // Parse recipient if present.
+	// Derive sender from private key if present.
+	var from common.Address
+	if len(tx.PrivateKey) > 0 {
+		key, err := crypto.ToECDSA(tx.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("invalid private key: %v", err)
+		}
+		from = crypto.PubkeyToAddress(key.PublicKey)
+	}
+	// Parse recipient if present.
 	var to *common.Address
 	if tx.To != "" {
 		to = new(common.Address)
@@ -326,51 +326,51 @@ func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (core.Messa
 	// Value, Data hex encoding is messy: https://github.com/ethereum/tests/issues/203
 	value := new(big.Int)
 	if valueHex != "0x" {
-        v, ok := math.ParseBig256(valueHex)
-        if !ok {
-            return nil, fmt.Errorf("invalid tx value %q", valueHex)
-        }
-        value = v
-    }
-    data, err := hex.DecodeString(strings.TrimPrefix(dataHex, "0x"))
-    if err != nil {
-        return nil, fmt.Errorf("invalid tx data %q", dataHex)
-    }
-    var accessList types.AccessList
-    if tx.AccessLists != nil && tx.AccessLists[ps.Indexes.Data] != nil {
-        accessList = *tx.AccessLists[ps.Indexes.Data]
-    }
-    // If baseFee provided, set gasPrice to effectiveGasPrice.
-    gasPrice := tx.GasPrice
-    if baseFee != nil {
-        if tx.MaxFeePerGas == nil {
-            tx.MaxFeePerGas = gasPrice
-        }
-        if tx.MaxFeePerGas == nil {
-            tx.MaxFeePerGas = new(big.Int)
-        }
-        if tx.MaxPriorityFeePerGas == nil {
-            tx.MaxPriorityFeePerGas = tx.MaxFeePerGas
-        }
-        gasPrice = math.BigMin(new(big.Int).Add(tx.MaxPriorityFeePerGas, baseFee),
-            tx.MaxFeePerGas)
-    }
-    if gasPrice == nil {
-        return nil, fmt.Errorf("no gas price provided")
-    }
+		v, ok := math.ParseBig256(valueHex)
+		if !ok {
+			return nil, fmt.Errorf("invalid tx value %q", valueHex)
+		}
+		value = v
+	}
+	data, err := hex.DecodeString(strings.TrimPrefix(dataHex, "0x"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid tx data %q", dataHex)
+	}
+	var accessList types.AccessList
+	if tx.AccessLists != nil && tx.AccessLists[ps.Indexes.Data] != nil {
+		accessList = *tx.AccessLists[ps.Indexes.Data]
+	}
+	// If baseFee provided, set gasPrice to effectiveGasPrice.
+	gasPrice := tx.GasPrice
+	if baseFee != nil {
+		if tx.MaxFeePerGas == nil {
+			tx.MaxFeePerGas = gasPrice
+		}
+		if tx.MaxFeePerGas == nil {
+			tx.MaxFeePerGas = new(big.Int)
+		}
+		if tx.MaxPriorityFeePerGas == nil {
+			tx.MaxPriorityFeePerGas = tx.MaxFeePerGas
+		}
+		gasPrice = math.BigMin(new(big.Int).Add(tx.MaxPriorityFeePerGas, baseFee),
+			tx.MaxFeePerGas)
+	}
+	if gasPrice == nil {
+		return nil, fmt.Errorf("no gas price provided")
+	}
 
-    msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, gasPrice,
-        tx.MaxFeePerGas, tx.MaxPriorityFeePerGas, data, accessList, false)
-    return msg, nil
+	msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, gasPrice,
+		tx.MaxFeePerGas, tx.MaxPriorityFeePerGas, data, accessList, false)
+	return msg, nil
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
-    hw := sha3.NewLegacyKeccak256()
-    rlp.Encode(hw, x)
-    hw.Sum(h[:0])
-    return h
+	hw := sha3.NewLegacyKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }
 
 func vmTestBlockHash(n uint64) common.Hash {
-    return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
+	return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
 }

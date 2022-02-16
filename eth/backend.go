@@ -27,36 +27,35 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/clique"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state/pruner"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/eth/filters"
-	"github.com/ethereum/go-ethereum/eth/gasprice"
-	"github.com/ethereum/go-ethereum/eth/protocols/eth"
-	"github.com/ethereum/go-ethereum/eth/protocols/snap"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
-	"github.com/ethereum/go-ethereum/internal/shutdowncheck"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/dnsdisc"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/bloombits"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state/pruner"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/eth/downloader"
+	"github.com/clearmatics/autonity/eth/ethconfig"
+	"github.com/clearmatics/autonity/eth/filters"
+	"github.com/clearmatics/autonity/eth/gasprice"
+	"github.com/clearmatics/autonity/eth/protocols/eth"
+	"github.com/clearmatics/autonity/eth/protocols/snap"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/internal/shutdowncheck"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/miner"
+	"github.com/clearmatics/autonity/node"
+	"github.com/clearmatics/autonity/p2p"
+	"github.com/clearmatics/autonity/p2p/dnsdisc"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/rpc"
 )
 
 // Config contains the configuration options of the ETH protocol.
@@ -99,8 +98,8 @@ type Ethereum struct {
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
-	chainHeadSub event.Subscription
-	chainHeadCh  chan core.ChainHeadEvent
+	chainHeadSub    event.Subscription
+	chainHeadCh     chan core.ChainHeadEvent
 	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully
 }
 
@@ -591,7 +590,6 @@ func (s *Ethereum) Start() error {
 	s.chainHeadSub = s.blockchain.SubscribeChainHeadEvent(s.chainHeadCh)
 	go s.chainHeadEventLoop(s.p2pServer)
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
-
 
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)

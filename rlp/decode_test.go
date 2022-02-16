@@ -17,17 +17,17 @@
 package rlp
 
 import (
-    "bytes"
-    "encoding/hex"
-    "errors"
-    "fmt"
-    "io"
-    "math/big"
-    "reflect"
-    "strings"
-    "testing"
+	"bytes"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"math/big"
+	"reflect"
+	"strings"
+	"testing"
 
-    "github.com/ethereum/go-ethereum/common/math"
+	"github.com/clearmatics/autonity/common/math"
 )
 
 func TestStreamKind(t *testing.T) {
@@ -320,27 +320,27 @@ type decodeTest struct {
 }
 
 type simplestruct struct {
-    A uint
-    B string
+	A uint
+	B string
 }
 
 type recstruct struct {
-    I     uint
-    Child *recstruct `rlp:"nil"`
+	I     uint
+	Child *recstruct `rlp:"nil"`
 }
 
 type bigIntStruct struct {
-    I *big.Int
-    B string
+	I *big.Int
+	B string
 }
 
 type invalidNilTag struct {
-    X []byte `rlp:"nil"`
+	X []byte `rlp:"nil"`
 }
 
 type invalidTail1 struct {
-    A uint `rlp:"tail"`
-    B string
+	A uint `rlp:"tail"`
+	B string
 }
 
 type invalidTail2 struct {
@@ -369,63 +369,63 @@ type nilListUint struct {
 }
 
 type nilStringSlice struct {
-    X *[]uint `rlp:"nilString"`
+	X *[]uint `rlp:"nilString"`
 }
 
 type intField struct {
-    X int
+	X int
 }
 
 type optionalFields struct {
-    A uint
-    B uint `rlp:"optional"`
-    C uint `rlp:"optional"`
+	A uint
+	B uint `rlp:"optional"`
+	C uint `rlp:"optional"`
 }
 
 type optionalAndTailField struct {
-    A    uint
-    B    uint   `rlp:"optional"`
-    Tail []uint `rlp:"tail"`
+	A    uint
+	B    uint   `rlp:"optional"`
+	Tail []uint `rlp:"tail"`
 }
 
 type optionalBigIntField struct {
-    A uint
-    B *big.Int `rlp:"optional"`
+	A uint
+	B *big.Int `rlp:"optional"`
 }
 
 type optionalPtrField struct {
-    A uint
-    B *[3]byte `rlp:"optional"`
+	A uint
+	B *[3]byte `rlp:"optional"`
 }
 
 type optionalPtrFieldNil struct {
-    A uint
-    B *[3]byte `rlp:"optional,nil"`
+	A uint
+	B *[3]byte `rlp:"optional,nil"`
 }
 
 type ignoredField struct {
-    A uint
-    B uint `rlp:"-"`
-    C uint
+	A uint
+	B uint `rlp:"-"`
+	C uint
 }
 
 var (
-    veryBigInt = new(big.Int).Add(
-        big.NewInt(0).Lsh(big.NewInt(0xFFFFFFFFFFFFFF), 16),
-        big.NewInt(0xFFFF),
-    )
-    veryVeryBigInt = new(big.Int).Exp(veryBigInt, big.NewInt(8), nil)
+	veryBigInt = new(big.Int).Add(
+		big.NewInt(0).Lsh(big.NewInt(0xFFFFFFFFFFFFFF), 16),
+		big.NewInt(0xFFFF),
+	)
+	veryVeryBigInt = new(big.Int).Exp(veryBigInt, big.NewInt(8), nil)
 )
 
 var decodeTests = []decodeTest{
-    // booleans
-    {input: "01", ptr: new(bool), value: true},
-    {input: "80", ptr: new(bool), value: false},
-    {input: "02", ptr: new(bool), error: "rlp: invalid boolean value: 2"},
+	// booleans
+	{input: "01", ptr: new(bool), value: true},
+	{input: "80", ptr: new(bool), value: false},
+	{input: "02", ptr: new(bool), error: "rlp: invalid boolean value: 2"},
 
-    // integers
-    {input: "05", ptr: new(uint32), value: uint32(5)},
-    {input: "80", ptr: new(uint32), value: uint32(0)},
+	// integers
+	{input: "05", ptr: new(uint32), value: uint32(5)},
+	{input: "80", ptr: new(uint32), value: uint32(0)},
 	{input: "820505", ptr: new(uint32), value: uint32(0x0505)},
 	{input: "83050505", ptr: new(uint32), value: uint32(0x050505)},
 	{input: "8405050505", ptr: new(uint32), value: uint32(0x05050505)},
@@ -475,54 +475,54 @@ var decodeTests = []decodeTest{
 	{input: "817F", ptr: new([1]byte), error: "rlp: non-canonical size information for [1]uint8"},
 
 	// zero sized byte arrays
-    {input: "80", ptr: new([0]byte), value: [0]byte{}},
-    {input: "01", ptr: new([0]byte), error: "rlp: input string too long for [0]uint8"},
-    {input: "8101", ptr: new([0]byte), error: "rlp: input string too long for [0]uint8"},
+	{input: "80", ptr: new([0]byte), value: [0]byte{}},
+	{input: "01", ptr: new([0]byte), error: "rlp: input string too long for [0]uint8"},
+	{input: "8101", ptr: new([0]byte), error: "rlp: input string too long for [0]uint8"},
 
-    // strings
-    {input: "00", ptr: new(string), value: "\000"},
-    {input: "8D6162636465666768696A6B6C6D", ptr: new(string), value: "abcdefghijklm"},
-    {input: "C0", ptr: new(string), error: "rlp: expected input string or byte for string"},
+	// strings
+	{input: "00", ptr: new(string), value: "\000"},
+	{input: "8D6162636465666768696A6B6C6D", ptr: new(string), value: "abcdefghijklm"},
+	{input: "C0", ptr: new(string), error: "rlp: expected input string or byte for string"},
 
-    // big ints
-    {input: "80", ptr: new(*big.Int), value: big.NewInt(0)},
-    {input: "01", ptr: new(*big.Int), value: big.NewInt(1)},
-    {input: "89FFFFFFFFFFFFFFFFFF", ptr: new(*big.Int), value: veryBigInt},
-    {input: "B848FFFFFFFFFFFFFFFFF800000000000000001BFFFFFFFFFFFFFFFFC8000000000000000045FFFFFFFFFFFFFFFFC800000000000000001BFFFFFFFFFFFFFFFFF8000000000000000001", ptr: new(*big.Int), value: veryVeryBigInt},
-    {input: "10", ptr: new(big.Int), value: *big.NewInt(16)}, // non-pointer also works
-    {input: "C0", ptr: new(*big.Int), error: "rlp: expected input string or byte for *big.Int"},
-    {input: "00", ptr: new(*big.Int), error: "rlp: non-canonical integer (leading zero bytes) for *big.Int"},
-    {input: "820001", ptr: new(*big.Int), error: "rlp: non-canonical integer (leading zero bytes) for *big.Int"},
-    {input: "8105", ptr: new(*big.Int), error: "rlp: non-canonical size information for *big.Int"},
+	// big ints
+	{input: "80", ptr: new(*big.Int), value: big.NewInt(0)},
+	{input: "01", ptr: new(*big.Int), value: big.NewInt(1)},
+	{input: "89FFFFFFFFFFFFFFFFFF", ptr: new(*big.Int), value: veryBigInt},
+	{input: "B848FFFFFFFFFFFFFFFFF800000000000000001BFFFFFFFFFFFFFFFFC8000000000000000045FFFFFFFFFFFFFFFFC800000000000000001BFFFFFFFFFFFFFFFFF8000000000000000001", ptr: new(*big.Int), value: veryVeryBigInt},
+	{input: "10", ptr: new(big.Int), value: *big.NewInt(16)}, // non-pointer also works
+	{input: "C0", ptr: new(*big.Int), error: "rlp: expected input string or byte for *big.Int"},
+	{input: "00", ptr: new(*big.Int), error: "rlp: non-canonical integer (leading zero bytes) for *big.Int"},
+	{input: "820001", ptr: new(*big.Int), error: "rlp: non-canonical integer (leading zero bytes) for *big.Int"},
+	{input: "8105", ptr: new(*big.Int), error: "rlp: non-canonical size information for *big.Int"},
 
-    // structs
-    {
-        input: "C50583343434",
-        ptr:   new(simplestruct),
-        value: simplestruct{5, "444"},
-    },
-    {
-        input: "C601C402C203C0",
-        ptr:   new(recstruct),
-        value: recstruct{1, &recstruct{2, &recstruct{3, nil}}},
-    },
-    {
-        // This checks that empty big.Int works correctly in struct context. It's easy to
-        // miss the update of s.kind for this case, so it needs its own test.
-        input: "C58083343434",
-        ptr:   new(bigIntStruct),
-        value: bigIntStruct{new(big.Int), "444"},
-    },
+	// structs
+	{
+		input: "C50583343434",
+		ptr:   new(simplestruct),
+		value: simplestruct{5, "444"},
+	},
+	{
+		input: "C601C402C203C0",
+		ptr:   new(recstruct),
+		value: recstruct{1, &recstruct{2, &recstruct{3, nil}}},
+	},
+	{
+		// This checks that empty big.Int works correctly in struct context. It's easy to
+		// miss the update of s.kind for this case, so it needs its own test.
+		input: "C58083343434",
+		ptr:   new(bigIntStruct),
+		value: bigIntStruct{new(big.Int), "444"},
+	},
 
-    // struct errors
-    {
-        input: "C0",
-        ptr:   new(simplestruct),
-        error: "rlp: too few elements for rlp.simplestruct",
-    },
-    {
-        input: "C105",
-        ptr:   new(simplestruct),
+	// struct errors
+	{
+		input: "C0",
+		ptr:   new(simplestruct),
+		error: "rlp: too few elements for rlp.simplestruct",
+	},
+	{
+		input: "C105",
+		ptr:   new(simplestruct),
 		error: "rlp: too few elements for rlp.simplestruct",
 	},
 	{
@@ -594,11 +594,11 @@ var decodeTests = []decodeTest{
 	},
 
 	// struct tag "-"
-    {
-        input: "C20102",
-        ptr:   new(ignoredField),
-        value: ignoredField{A: 1, C: 2},
-    },
+	{
+		input: "C20102",
+		ptr:   new(ignoredField),
+		value: ignoredField{A: 1, C: 2},
+	},
 
 	// struct tag "nilList"
 	{
@@ -627,129 +627,129 @@ var decodeTests = []decodeTest{
 		error: "rlp: wrong kind of empty value (got List, want String) for *[]uint, decoding into (rlp.nilStringSlice).X",
 	},
 	{
-        input: "C180",
-        ptr:   new(nilStringSlice),
-        value: nilStringSlice{},
-    },
-    {
-        input: "C2C103",
-        ptr:   new(nilStringSlice),
-        value: nilStringSlice{X: &[]uint{3}},
-    },
+		input: "C180",
+		ptr:   new(nilStringSlice),
+		value: nilStringSlice{},
+	},
+	{
+		input: "C2C103",
+		ptr:   new(nilStringSlice),
+		value: nilStringSlice{X: &[]uint{3}},
+	},
 
-    // struct tag "optional"
-    {
-        input: "C101",
-        ptr:   new(optionalFields),
-        value: optionalFields{1, 0, 0},
-    },
-    {
-        input: "C20102",
-        ptr:   new(optionalFields),
-        value: optionalFields{1, 2, 0},
-    },
-    {
-        input: "C3010203",
-        ptr:   new(optionalFields),
-        value: optionalFields{1, 2, 3},
-    },
-    {
-        input: "C401020304",
-        ptr:   new(optionalFields),
-        error: "rlp: input list has too many elements for rlp.optionalFields",
-    },
-    {
-        input: "C101",
-        ptr:   new(optionalAndTailField),
-        value: optionalAndTailField{A: 1},
-    },
-    {
-        input: "C20102",
-        ptr:   new(optionalAndTailField),
-        value: optionalAndTailField{A: 1, B: 2, Tail: []uint{}},
-    },
-    {
-        input: "C401020304",
-        ptr:   new(optionalAndTailField),
-        value: optionalAndTailField{A: 1, B: 2, Tail: []uint{3, 4}},
-    },
-    {
-        input: "C101",
-        ptr:   new(optionalBigIntField),
-        value: optionalBigIntField{A: 1, B: nil},
-    },
-    {
-        input: "C20102",
-        ptr:   new(optionalBigIntField),
-        value: optionalBigIntField{A: 1, B: big.NewInt(2)},
-    },
-    {
-        input: "C101",
-        ptr:   new(optionalPtrField),
-        value: optionalPtrField{A: 1},
-    },
-    {
-        input: "C20180", // not accepted because "optional" doesn't enable "nil"
-        ptr:   new(optionalPtrField),
-        error: "rlp: input string too short for [3]uint8, decoding into (rlp.optionalPtrField).B",
-    },
-    {
-        input: "C20102",
-        ptr:   new(optionalPtrField),
-        error: "rlp: input string too short for [3]uint8, decoding into (rlp.optionalPtrField).B",
-    },
-    {
-        input: "C50183010203",
-        ptr:   new(optionalPtrField),
-        value: optionalPtrField{A: 1, B: &[3]byte{1, 2, 3}},
-    },
-    {
-        input: "C101",
-        ptr:   new(optionalPtrFieldNil),
-        value: optionalPtrFieldNil{A: 1},
-    },
-    {
-        input: "C20180", // accepted because "nil" tag allows empty input
-        ptr:   new(optionalPtrFieldNil),
-        value: optionalPtrFieldNil{A: 1},
-    },
-    {
-        input: "C20102",
-        ptr:   new(optionalPtrFieldNil),
-        error: "rlp: input string too short for [3]uint8, decoding into (rlp.optionalPtrFieldNil).B",
-    },
+	// struct tag "optional"
+	{
+		input: "C101",
+		ptr:   new(optionalFields),
+		value: optionalFields{1, 0, 0},
+	},
+	{
+		input: "C20102",
+		ptr:   new(optionalFields),
+		value: optionalFields{1, 2, 0},
+	},
+	{
+		input: "C3010203",
+		ptr:   new(optionalFields),
+		value: optionalFields{1, 2, 3},
+	},
+	{
+		input: "C401020304",
+		ptr:   new(optionalFields),
+		error: "rlp: input list has too many elements for rlp.optionalFields",
+	},
+	{
+		input: "C101",
+		ptr:   new(optionalAndTailField),
+		value: optionalAndTailField{A: 1},
+	},
+	{
+		input: "C20102",
+		ptr:   new(optionalAndTailField),
+		value: optionalAndTailField{A: 1, B: 2, Tail: []uint{}},
+	},
+	{
+		input: "C401020304",
+		ptr:   new(optionalAndTailField),
+		value: optionalAndTailField{A: 1, B: 2, Tail: []uint{3, 4}},
+	},
+	{
+		input: "C101",
+		ptr:   new(optionalBigIntField),
+		value: optionalBigIntField{A: 1, B: nil},
+	},
+	{
+		input: "C20102",
+		ptr:   new(optionalBigIntField),
+		value: optionalBigIntField{A: 1, B: big.NewInt(2)},
+	},
+	{
+		input: "C101",
+		ptr:   new(optionalPtrField),
+		value: optionalPtrField{A: 1},
+	},
+	{
+		input: "C20180", // not accepted because "optional" doesn't enable "nil"
+		ptr:   new(optionalPtrField),
+		error: "rlp: input string too short for [3]uint8, decoding into (rlp.optionalPtrField).B",
+	},
+	{
+		input: "C20102",
+		ptr:   new(optionalPtrField),
+		error: "rlp: input string too short for [3]uint8, decoding into (rlp.optionalPtrField).B",
+	},
+	{
+		input: "C50183010203",
+		ptr:   new(optionalPtrField),
+		value: optionalPtrField{A: 1, B: &[3]byte{1, 2, 3}},
+	},
+	{
+		input: "C101",
+		ptr:   new(optionalPtrFieldNil),
+		value: optionalPtrFieldNil{A: 1},
+	},
+	{
+		input: "C20180", // accepted because "nil" tag allows empty input
+		ptr:   new(optionalPtrFieldNil),
+		value: optionalPtrFieldNil{A: 1},
+	},
+	{
+		input: "C20102",
+		ptr:   new(optionalPtrFieldNil),
+		error: "rlp: input string too short for [3]uint8, decoding into (rlp.optionalPtrFieldNil).B",
+	},
 
-    // struct tag "optional" field clearing
-    {
-        input: "C101",
-        ptr:   &optionalFields{A: 9, B: 8, C: 7},
-        value: optionalFields{A: 1, B: 0, C: 0},
-    },
-    {
-        input: "C20102",
-        ptr:   &optionalFields{A: 9, B: 8, C: 7},
-        value: optionalFields{A: 1, B: 2, C: 0},
-    },
-    {
-        input: "C20102",
-        ptr:   &optionalAndTailField{A: 9, B: 8, Tail: []uint{7, 6, 5}},
-        value: optionalAndTailField{A: 1, B: 2, Tail: []uint{}},
-    },
-    {
-        input: "C101",
-        ptr:   &optionalPtrField{A: 9, B: &[3]byte{8, 7, 6}},
-        value: optionalPtrField{A: 1},
-    },
+	// struct tag "optional" field clearing
+	{
+		input: "C101",
+		ptr:   &optionalFields{A: 9, B: 8, C: 7},
+		value: optionalFields{A: 1, B: 0, C: 0},
+	},
+	{
+		input: "C20102",
+		ptr:   &optionalFields{A: 9, B: 8, C: 7},
+		value: optionalFields{A: 1, B: 2, C: 0},
+	},
+	{
+		input: "C20102",
+		ptr:   &optionalAndTailField{A: 9, B: 8, Tail: []uint{7, 6, 5}},
+		value: optionalAndTailField{A: 1, B: 2, Tail: []uint{}},
+	},
+	{
+		input: "C101",
+		ptr:   &optionalPtrField{A: 9, B: &[3]byte{8, 7, 6}},
+		value: optionalPtrField{A: 1},
+	},
 
-    // RawValue
-    {input: "01", ptr: new(RawValue), value: RawValue(unhex("01"))},
-    {input: "82FFFF", ptr: new(RawValue), value: RawValue(unhex("82FFFF"))},
-    {input: "C20102", ptr: new([]RawValue), value: []RawValue{unhex("01"), unhex("02")}},
+	// RawValue
+	{input: "01", ptr: new(RawValue), value: RawValue(unhex("01"))},
+	{input: "82FFFF", ptr: new(RawValue), value: RawValue(unhex("82FFFF"))},
+	{input: "C20102", ptr: new([]RawValue), value: []RawValue{unhex("01"), unhex("02")}},
 
-    // pointers
-    {input: "00", ptr: new(*[]byte), value: &[]byte{0}},
-    {input: "80", ptr: new(*uint), value: uintp(0)},
-    {input: "C0", ptr: new(*uint), error: "rlp: expected input string or byte for uint"},
+	// pointers
+	{input: "00", ptr: new(*[]byte), value: &[]byte{0}},
+	{input: "80", ptr: new(*uint), value: uintp(0)},
+	{input: "C0", ptr: new(*uint), error: "rlp: expected input string or byte for uint"},
 	{input: "07", ptr: new(*uint), value: uintp(7)},
 	{input: "817F", ptr: new(*uint), error: "rlp: non-canonical size information for uint"},
 	{input: "8180", ptr: new(*uint), value: uintp(0x80)},
@@ -804,34 +804,34 @@ func runTests(t *testing.T, decode func([]byte, interface{}) error) {
 		if err == nil && !reflect.DeepEqual(deref, test.value) {
 			t.Errorf("test %d: value mismatch\ngot  %#v\nwant %#v\ndecoding into %T\ninput %q",
 				i, deref, test.value, test.ptr, test.input)
-        }
-    }
+		}
+	}
 }
 
 func TestDecodeWithByteReader(t *testing.T) {
-    runTests(t, func(input []byte, into interface{}) error {
-        return Decode(bytes.NewReader(input), into)
-    })
+	runTests(t, func(input []byte, into interface{}) error {
+		return Decode(bytes.NewReader(input), into)
+	})
 }
 
 func testDecodeWithEncReader(t *testing.T, n int) {
-    s := strings.Repeat("0", n)
-    _, r, _ := EncodeToReader(s)
-    var decoded string
-    err := Decode(r, &decoded)
-    if err != nil {
-        t.Errorf("Unexpected decode error with n=%v: %v", n, err)
-    }
-    if decoded != s {
-        t.Errorf("Decode mismatch with n=%v", n)
-    }
+	s := strings.Repeat("0", n)
+	_, r, _ := EncodeToReader(s)
+	var decoded string
+	err := Decode(r, &decoded)
+	if err != nil {
+		t.Errorf("Unexpected decode error with n=%v: %v", n, err)
+	}
+	if decoded != s {
+		t.Errorf("Decode mismatch with n=%v", n)
+	}
 }
 
 // This is a regression test checking that decoding from encReader
 // works for RLP values of size 8192 bytes or more.
 func TestDecodeWithEncReader(t *testing.T) {
-    testDecodeWithEncReader(t, 8188) // length with header is 8191
-    testDecodeWithEncReader(t, 8189) // length with header is 8192
+	testDecodeWithEncReader(t, 8188) // length with header is 8191
+	testDecodeWithEncReader(t, 8189) // length with header is 8192
 }
 
 // plainReader reads from a byte slice but does not
@@ -841,7 +841,7 @@ func TestDecodeWithEncReader(t *testing.T) {
 type plainReader []byte
 
 func newPlainReader(b []byte) io.Reader {
-    return (*plainReader)(&b)
+	return (*plainReader)(&b)
 }
 
 func (r *plainReader) Read(buf []byte) (n int, err error) {
@@ -964,56 +964,56 @@ func (f *unencodableDecoder) DecodeRLP(s *Stream) error {
 }
 
 func TestDecoderFunc(t *testing.T) {
-    var x func()
-    if err := DecodeBytes([]byte{0xC0}, (*unencodableDecoder)(&x)); err != nil {
-        t.Fatal(err)
-    }
-    x()
+	var x func()
+	if err := DecodeBytes([]byte{0xC0}, (*unencodableDecoder)(&x)); err != nil {
+		t.Fatal(err)
+	}
+	x()
 }
 
 // This tests the validity checks for fields with struct tag "optional".
 func TestInvalidOptionalField(t *testing.T) {
-    type (
-        invalid1 struct {
-            A uint `rlp:"optional"`
-            B uint
-        }
-        invalid2 struct {
-            T []uint `rlp:"tail,optional"`
-        }
-        invalid3 struct {
-            T []uint `rlp:"optional,tail"`
-        }
-    )
+	type (
+		invalid1 struct {
+			A uint `rlp:"optional"`
+			B uint
+		}
+		invalid2 struct {
+			T []uint `rlp:"tail,optional"`
+		}
+		invalid3 struct {
+			T []uint `rlp:"optional,tail"`
+		}
+	)
 
-    tests := []struct {
-        v   interface{}
-        err string
-    }{
-        {v: new(invalid1), err: `rlp: struct field rlp.invalid1.B needs "optional" tag`},
-        {v: new(invalid2), err: `rlp: invalid struct tag "optional" for rlp.invalid2.T (also has "tail" tag)`},
-        {v: new(invalid3), err: `rlp: invalid struct tag "tail" for rlp.invalid3.T (also has "optional" tag)`},
-    }
-    for _, test := range tests {
-        err := DecodeBytes(unhex("C20102"), test.v)
-        if err == nil {
-            t.Errorf("no error for %T", test.v)
-        } else if err.Error() != test.err {
-            t.Errorf("wrong error for %T: %v", test.v, err.Error())
-        }
-    }
+	tests := []struct {
+		v   interface{}
+		err string
+	}{
+		{v: new(invalid1), err: `rlp: struct field rlp.invalid1.B needs "optional" tag`},
+		{v: new(invalid2), err: `rlp: invalid struct tag "optional" for rlp.invalid2.T (also has "tail" tag)`},
+		{v: new(invalid3), err: `rlp: invalid struct tag "tail" for rlp.invalid3.T (also has "optional" tag)`},
+	}
+	for _, test := range tests {
+		err := DecodeBytes(unhex("C20102"), test.v)
+		if err == nil {
+			t.Errorf("no error for %T", test.v)
+		} else if err.Error() != test.err {
+			t.Errorf("wrong error for %T: %v", test.v, err.Error())
+		}
+	}
 
 }
 
 func ExampleDecode() {
-    input, _ := hex.DecodeString("C90A1486666F6F626172")
+	input, _ := hex.DecodeString("C90A1486666F6F626172")
 
-    type example struct {
-        A, B   uint
-        String string
-    }
+	type example struct {
+		A, B   uint
+		String string
+	}
 
-    var s example
+	var s example
 	err := Decode(bytes.NewReader(input), &s)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -1082,82 +1082,82 @@ func ExampleStream() {
 }
 
 func BenchmarkDecodeUints(b *testing.B) {
-    enc := encodeTestSlice(90000)
-    b.SetBytes(int64(len(enc)))
-    b.ReportAllocs()
-    b.ResetTimer()
+	enc := encodeTestSlice(90000)
+	b.SetBytes(int64(len(enc)))
+	b.ReportAllocs()
+	b.ResetTimer()
 
-    for i := 0; i < b.N; i++ {
-        var s []uint
-        r := bytes.NewReader(enc)
-        if err := Decode(r, &s); err != nil {
-            b.Fatalf("Decode error: %v", err)
+	for i := 0; i < b.N; i++ {
+		var s []uint
+		r := bytes.NewReader(enc)
+		if err := Decode(r, &s); err != nil {
+			b.Fatalf("Decode error: %v", err)
 		}
 	}
 }
 
 func BenchmarkDecodeUintsReused(b *testing.B) {
-    enc := encodeTestSlice(100000)
-    b.SetBytes(int64(len(enc)))
-    b.ReportAllocs()
-    b.ResetTimer()
+	enc := encodeTestSlice(100000)
+	b.SetBytes(int64(len(enc)))
+	b.ReportAllocs()
+	b.ResetTimer()
 
-    var s []uint
-    for i := 0; i < b.N; i++ {
-        r := bytes.NewReader(enc)
-        if err := Decode(r, &s); err != nil {
-            b.Fatalf("Decode error: %v", err)
-        }
-    }
+	var s []uint
+	for i := 0; i < b.N; i++ {
+		r := bytes.NewReader(enc)
+		if err := Decode(r, &s); err != nil {
+			b.Fatalf("Decode error: %v", err)
+		}
+	}
 }
 
 func BenchmarkDecodeByteArrayStruct(b *testing.B) {
-    enc, err := EncodeToBytes(&byteArrayStruct{})
-    if err != nil {
-        b.Fatal(err)
-    }
-    b.SetBytes(int64(len(enc)))
-    b.ReportAllocs()
-    b.ResetTimer()
+	enc, err := EncodeToBytes(&byteArrayStruct{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(enc)))
+	b.ReportAllocs()
+	b.ResetTimer()
 
-    var out byteArrayStruct
-    for i := 0; i < b.N; i++ {
-        if err := DecodeBytes(enc, &out); err != nil {
-            b.Fatal(err)
-        }
-    }
+	var out byteArrayStruct
+	for i := 0; i < b.N; i++ {
+		if err := DecodeBytes(enc, &out); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func BenchmarkDecodeBigInts(b *testing.B) {
-    ints := make([]*big.Int, 200)
-    for i := range ints {
-        ints[i] = math.BigPow(2, int64(i))
-    }
-    enc, err := EncodeToBytes(ints)
-    if err != nil {
-        b.Fatal(err)
-    }
-    b.SetBytes(int64(len(enc)))
-    b.ReportAllocs()
-    b.ResetTimer()
+	ints := make([]*big.Int, 200)
+	for i := range ints {
+		ints[i] = math.BigPow(2, int64(i))
+	}
+	enc, err := EncodeToBytes(ints)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(enc)))
+	b.ReportAllocs()
+	b.ResetTimer()
 
-    var out []*big.Int
-    for i := 0; i < b.N; i++ {
-        if err := DecodeBytes(enc, &out); err != nil {
-            b.Fatal(err)
-        }
-    }
+	var out []*big.Int
+	for i := 0; i < b.N; i++ {
+		if err := DecodeBytes(enc, &out); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func encodeTestSlice(n uint) []byte {
-    s := make([]uint, n)
-    for i := uint(0); i < n; i++ {
-        s[i] = i
-    }
-    b, err := EncodeToBytes(s)
-    if err != nil {
-        panic(fmt.Sprintf("encode error: %v", err))
-    }
+	s := make([]uint, n)
+	for i := uint(0); i < n; i++ {
+		s[i] = i
+	}
+	b, err := EncodeToBytes(s)
+	if err != nil {
+		panic(fmt.Sprintf("encode error: %v", err))
+	}
 	return b
 }
 

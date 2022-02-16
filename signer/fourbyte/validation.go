@@ -17,30 +17,30 @@
 package fourbyte
 
 import (
-    "bytes"
-    "errors"
-    "fmt"
-    "math/big"
+	"bytes"
+	"errors"
+	"fmt"
+	"math/big"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/signer/core/apitypes"
 )
 
 // ValidateTransaction does a number of checks on the supplied transaction, and
 // returns either a list of warnings, or an error (indicating that the transaction
 // should be immediately rejected).
 func (db *Database) ValidateTransaction(selector *string, tx *apitypes.SendTxArgs) (*apitypes.ValidationMessages, error) {
-    messages := new(apitypes.ValidationMessages)
+	messages := new(apitypes.ValidationMessages)
 
-    // Prevent accidental erroneous usage of both 'input' and 'data' (show stopper)
-    if tx.Data != nil && tx.Input != nil && !bytes.Equal(*tx.Data, *tx.Input) {
-        return nil, errors.New(`ambiguous request: both "data" and "input" are set and are not identical`)
-    }
-    // Place data on 'data', and nil 'input'
-    var data []byte
-    if tx.Input != nil {
-        tx.Data = tx.Input
-        tx.Input = nil
+	// Prevent accidental erroneous usage of both 'input' and 'data' (show stopper)
+	if tx.Data != nil && tx.Input != nil && !bytes.Equal(*tx.Data, *tx.Input) {
+		return nil, errors.New(`ambiguous request: both "data" and "input" are set and are not identical`)
+	}
+	// Place data on 'data', and nil 'input'
+	var data []byte
+	if tx.Input != nil {
+		tx.Data = tx.Input
+		tx.Input = nil
 	}
 	if tx.Data != nil {
 		data = *tx.Data
@@ -48,8 +48,8 @@ func (db *Database) ValidateTransaction(selector *string, tx *apitypes.SendTxArg
 	// Contract creation doesn't validate call data, handle first
 	if tx.To == nil {
 		// Contract creation should contain sufficient data to deploy a contract. A
-        // typical error is omitting sender due to some quirk in the javascript call
-        // e.g. https://github.com/ethereum/go-ethereum/issues/16106.
+		// typical error is omitting sender due to some quirk in the javascript call
+		// e.g. https://github.com/clearmatics/autonity/issues/16106.
 		if len(data) == 0 {
 			// Prevent sending ether into black hole (show stopper)
 			if tx.Value.ToInt().Cmp(big.NewInt(0)) > 0 {
@@ -63,44 +63,44 @@ func (db *Database) ValidateTransaction(selector *string, tx *apitypes.SendTxArg
 		// Method selector should be nil for contract creation
 		if selector != nil {
 			messages.Warn("Transaction will create a contract, but method selector supplied, indicating an intent to call a method")
-        }
-        return messages, nil
-    }
-    // Not a contract creation, validate as a plain transaction
-    if !tx.To.ValidChecksum() {
-        messages.Warn("Invalid checksum on recipient address")
-    }
-    if bytes.Equal(tx.To.Address().Bytes(), common.Address{}.Bytes()) {
-        messages.Crit("Transaction recipient is the zero address")
-    }
-    switch {
-    case tx.GasPrice == nil && tx.MaxFeePerGas == nil:
-        messages.Crit("Neither 'gasPrice' nor 'maxFeePerGas' specified.")
-    case tx.GasPrice == nil && tx.MaxPriorityFeePerGas == nil:
-        messages.Crit("Neither 'gasPrice' nor 'maxPriorityFeePerGas' specified.")
-    case tx.GasPrice != nil && tx.MaxFeePerGas != nil:
-        messages.Crit("Both 'gasPrice' and 'maxFeePerGas' specified.")
-    case tx.GasPrice != nil && tx.MaxPriorityFeePerGas != nil:
-        messages.Crit("Both 'gasPrice' and 'maxPriorityFeePerGas' specified.")
-    }
-    // Semantic fields validated, try to make heads or tails of the call data
-    db.ValidateCallData(selector, data, messages)
-    return messages, nil
+		}
+		return messages, nil
+	}
+	// Not a contract creation, validate as a plain transaction
+	if !tx.To.ValidChecksum() {
+		messages.Warn("Invalid checksum on recipient address")
+	}
+	if bytes.Equal(tx.To.Address().Bytes(), common.Address{}.Bytes()) {
+		messages.Crit("Transaction recipient is the zero address")
+	}
+	switch {
+	case tx.GasPrice == nil && tx.MaxFeePerGas == nil:
+		messages.Crit("Neither 'gasPrice' nor 'maxFeePerGas' specified.")
+	case tx.GasPrice == nil && tx.MaxPriorityFeePerGas == nil:
+		messages.Crit("Neither 'gasPrice' nor 'maxPriorityFeePerGas' specified.")
+	case tx.GasPrice != nil && tx.MaxFeePerGas != nil:
+		messages.Crit("Both 'gasPrice' and 'maxFeePerGas' specified.")
+	case tx.GasPrice != nil && tx.MaxPriorityFeePerGas != nil:
+		messages.Crit("Both 'gasPrice' and 'maxPriorityFeePerGas' specified.")
+	}
+	// Semantic fields validated, try to make heads or tails of the call data
+	db.ValidateCallData(selector, data, messages)
+	return messages, nil
 }
 
 // ValidateCallData checks if the ABI call-data + method selector (if given) can
 // be parsed and seems to match.
 func (db *Database) ValidateCallData(selector *string, data []byte, messages *apitypes.ValidationMessages) {
-    // If the data is empty, we have a plain value transfer, nothing more to do
-    if len(data) == 0 {
-        return
-    }
-    // Validate the call data that it has the 4byte prefix and the rest divisible by 32 bytes
-    if len(data) < 4 {
-        messages.Warn("Transaction data is not valid ABI (missing the 4 byte call prefix)")
-        return
-    }
-    if n := len(data) - 4; n%32 != 0 {
+	// If the data is empty, we have a plain value transfer, nothing more to do
+	if len(data) == 0 {
+		return
+	}
+	// Validate the call data that it has the 4byte prefix and the rest divisible by 32 bytes
+	if len(data) < 4 {
+		messages.Warn("Transaction data is not valid ABI (missing the 4 byte call prefix)")
+		return
+	}
+	if n := len(data) - 4; n%32 != 0 {
 		messages.Warn(fmt.Sprintf("Transaction data is not valid ABI (length should be a multiple of 32 (was %d))", n))
 	}
 	// If a custom method selector was provided, validate with that

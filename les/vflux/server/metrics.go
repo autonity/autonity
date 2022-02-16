@@ -17,19 +17,19 @@
 package server
 
 import (
-    "github.com/ethereum/go-ethereum/metrics"
+	"github.com/clearmatics/autonity/metrics"
 )
 
 var (
-    totalActiveCapacityGauge = metrics.NewRegisteredGauge("vflux/server/active/capacity", nil)
-    totalActiveCountGauge    = metrics.NewRegisteredGauge("vflux/server/active/count", nil)
-    totalInactiveCountGauge  = metrics.NewRegisteredGauge("vflux/server/inactive/count", nil)
+	totalActiveCapacityGauge = metrics.NewRegisteredGauge("vflux/server/active/capacity", nil)
+	totalActiveCountGauge    = metrics.NewRegisteredGauge("vflux/server/active/count", nil)
+	totalInactiveCountGauge  = metrics.NewRegisteredGauge("vflux/server/inactive/count", nil)
 
-    clientConnectedMeter    = metrics.NewRegisteredMeter("vflux/server/clientEvent/connected", nil)
-    clientActivatedMeter    = metrics.NewRegisteredMeter("vflux/server/clientEvent/activated", nil)
-    clientDeactivatedMeter  = metrics.NewRegisteredMeter("vflux/server/clientEvent/deactivated", nil)
-    clientDisconnectedMeter = metrics.NewRegisteredMeter("vflux/server/clientEvent/disconnected", nil)
+	clientConnectedMeter    = metrics.NewRegisteredMeter("vflux/server/clientEvent/connected", nil)
+	clientActivatedMeter    = metrics.NewRegisteredMeter("vflux/server/clientEvent/activated", nil)
+	clientDeactivatedMeter  = metrics.NewRegisteredMeter("vflux/server/clientEvent/deactivated", nil)
+	clientDisconnectedMeter = metrics.NewRegisteredMeter("vflux/server/clientEvent/disconnected", nil)
 
-    capacityQueryZeroMeter    = metrics.NewRegisteredMeter("vflux/server/capQueryZero", nil)
-    capacityQueryNonZeroMeter = metrics.NewRegisteredMeter("vflux/server/capQueryNonZero", nil)
+	capacityQueryZeroMeter    = metrics.NewRegisteredMeter("vflux/server/capQueryZero", nil)
+	capacityQueryNonZeroMeter = metrics.NewRegisteredMeter("vflux/server/capQueryNonZero", nil)
 )

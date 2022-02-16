@@ -17,23 +17,23 @@
 package bls
 
 import (
-    "bytes"
-    "fmt"
+	"bytes"
+	"fmt"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/vm"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/vm"
 )
 
 const (
-    blsG1Add      = byte(10)
-    blsG1Mul      = byte(11)
-    blsG1MultiExp = byte(12)
-    blsG2Add      = byte(13)
-    blsG2Mul      = byte(14)
-    blsG2MultiExp = byte(15)
-    blsPairing    = byte(16)
-    blsMapG1      = byte(17)
-    blsMapG2      = byte(18)
+	blsG1Add      = byte(10)
+	blsG1Mul      = byte(11)
+	blsG1MultiExp = byte(12)
+	blsG2Add      = byte(13)
+	blsG2Mul      = byte(14)
+	blsG2MultiExp = byte(15)
+	blsPairing    = byte(16)
+	blsMapG1      = byte(17)
+	blsMapG2      = byte(18)
 )
 
 func FuzzG1Add(data []byte) int      { return fuzz(blsG1Add, data) }
@@ -47,27 +47,27 @@ func FuzzMapG1(data []byte) int      { return fuzz(blsMapG1, data) }
 func FuzzMapG2(data []byte) int      { return fuzz(blsMapG2, data) }
 
 func checkInput(id byte, inputLen int) bool {
-    switch id {
-    case blsG1Add:
-        return inputLen == 256
-    case blsG1Mul:
-        return inputLen == 160
-    case blsG1MultiExp:
-        return inputLen%160 == 0
-    case blsG2Add:
-        return inputLen == 512
-    case blsG2Mul:
-        return inputLen == 288
-    case blsG2MultiExp:
-        return inputLen%288 == 0
-    case blsPairing:
-        return inputLen%384 == 0
-    case blsMapG1:
-        return inputLen == 64
-    case blsMapG2:
-        return inputLen == 128
-    }
-    panic("programmer error")
+	switch id {
+	case blsG1Add:
+		return inputLen == 256
+	case blsG1Mul:
+		return inputLen == 160
+	case blsG1MultiExp:
+		return inputLen%160 == 0
+	case blsG2Add:
+		return inputLen == 512
+	case blsG2Mul:
+		return inputLen == 288
+	case blsG2MultiExp:
+		return inputLen%288 == 0
+	case blsPairing:
+		return inputLen%384 == 0
+	case blsMapG1:
+		return inputLen == 64
+	case blsMapG2:
+		return inputLen == 128
+	}
+	panic("programmer error")
 }
 
 // The fuzzer functions must return
@@ -78,24 +78,24 @@ func checkInput(id byte, inputLen int) bool {
 // 0  otherwise
 // other values are reserved for future use.
 func fuzz(id byte, data []byte) int {
-    // Even on bad input, it should not crash, so we still test the gas calc
-    precompile := vm.PrecompiledContractsBLS[common.BytesToAddress([]byte{id})]
-    gas := precompile.RequiredGas(data)
-    if !checkInput(id, len(data)) {
-        return 0
-    }
-    // If the gas cost is too large (25M), bail out
-    if gas > 25*1000*1000 {
-        return 0
-    }
-    cpy := make([]byte, len(data))
-    copy(cpy, data)
-    _, err := precompile.Run(cpy)
-    if !bytes.Equal(cpy, data) {
-        panic(fmt.Sprintf("input data modified, precompile %d: %x %x", id, data, cpy))
-    }
-    if err != nil {
-        return 0
-    }
-    return 1
+	// Even on bad input, it should not crash, so we still test the gas calc
+	precompile := vm.PrecompiledContractsBLS[common.BytesToAddress([]byte{id})]
+	gas := precompile.RequiredGas(data)
+	if !checkInput(id, len(data)) {
+		return 0
+	}
+	// If the gas cost is too large (25M), bail out
+	if gas > 25*1000*1000 {
+		return 0
+	}
+	cpy := make([]byte, len(data))
+	copy(cpy, data)
+	_, err := precompile.Run(cpy)
+	if !bytes.Equal(cpy, data) {
+		panic(fmt.Sprintf("input data modified, precompile %d: %x %x", id, data, cpy))
+	}
+	if err != nil {
+		return 0
+	}
+	return 1
 }

@@ -27,18 +27,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clearmatics/autonity/log"
 	mapset "github.com/deckarep/golang-set"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 )
 
 const (
-    wsReadBuffer       = 1024
-    wsWriteBuffer      = 1024
-    wsPingInterval     = 60 * time.Second
-    wsPingWriteTimeout = 5 * time.Second
-    wsPongTimeout      = 30 * time.Second
-    wsMessageSizeLimit = 15 * 1024 * 1024
+	wsReadBuffer       = 1024
+	wsWriteBuffer      = 1024
+	wsPingInterval     = 60 * time.Second
+	wsPingWriteTimeout = 5 * time.Second
+	wsPongTimeout      = 30 * time.Second
+	wsMessageSizeLimit = 15 * 1024 * 1024
 )
 
 var wsBufferPool = new(sync.Pool)
@@ -55,14 +55,14 @@ func (s *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 		CheckOrigin:     wsHandshakeValidator(allowedOrigins),
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        conn, err := upgrader.Upgrade(w, r, nil)
-        if err != nil {
-            log.Debug("WebSocket upgrade failed", "err", err)
-            return
-        }
-        codec := newWebsocketCodec(conn, r.Host, r.Header)
-        s.ServeCodec(codec, 0)
-    })
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Debug("WebSocket upgrade failed", "err", err)
+			return
+		}
+		codec := newWebsocketCodec(conn, r.Host, r.Header)
+		s.ServeCodec(codec, 0)
+	})
 }
 
 // wsHandshakeValidator returns a handler that verifies the origin during the
@@ -77,14 +77,14 @@ func wsHandshakeValidator(allowedOrigins []string) func(*http.Request) bool {
 			allowAllOrigins = true
 		}
 		if origin != "" {
-            origins.Add(origin)
+			origins.Add(origin)
 		}
 	}
 	// allow localhost if no allowedOrigins are specified.
 	if len(origins.ToSlice()) == 0 {
 		origins.Add("http://localhost")
 		if hostname, err := os.Hostname(); err == nil {
-            origins.Add("http://" + hostname)
+			origins.Add("http://" + hostname)
 		}
 	}
 	log.Debug(fmt.Sprintf("Allowed origin(s) for WS RPC interface %v", origins.ToSlice()))
@@ -97,11 +97,11 @@ func wsHandshakeValidator(allowedOrigins []string) func(*http.Request) bool {
 		if _, ok := req.Header["Origin"]; !ok {
 			return true
 		}
-        // Verify origin against allow list.
+		// Verify origin against allow list.
 		origin := strings.ToLower(req.Header.Get("Origin"))
-        if allowAllOrigins || originIsAllowed(origins, origin) {
-            return true
-        }
+		if allowAllOrigins || originIsAllowed(origins, origin) {
+			return true
+		}
 		log.Warn("Rejected WebSocket connection", "origin", origin)
 		return false
 	}
@@ -115,81 +115,81 @@ type wsHandshakeError struct {
 }
 
 func (e wsHandshakeError) Error() string {
-    s := e.err.Error()
-    if e.status != "" {
-        s += " (HTTP status " + e.status + ")"
-    }
-    return s
+	s := e.err.Error()
+	if e.status != "" {
+		s += " (HTTP status " + e.status + ")"
+	}
+	return s
 }
 
 func originIsAllowed(allowedOrigins mapset.Set, browserOrigin string) bool {
-    it := allowedOrigins.Iterator()
-    for origin := range it.C {
-        if ruleAllowsOrigin(origin.(string), browserOrigin) {
-            return true
-        }
-    }
-    return false
+	it := allowedOrigins.Iterator()
+	for origin := range it.C {
+		if ruleAllowsOrigin(origin.(string), browserOrigin) {
+			return true
+		}
+	}
+	return false
 }
 
 func ruleAllowsOrigin(allowedOrigin string, browserOrigin string) bool {
-    var (
-        allowedScheme, allowedHostname, allowedPort string
-        browserScheme, browserHostname, browserPort string
-        err                                         error
-    )
-    allowedScheme, allowedHostname, allowedPort, err = parseOriginURL(allowedOrigin)
-    if err != nil {
-        log.Warn("Error parsing allowed origin specification", "spec", allowedOrigin, "error", err)
-        return false
-    }
-    browserScheme, browserHostname, browserPort, err = parseOriginURL(browserOrigin)
-    if err != nil {
-        log.Warn("Error parsing browser 'Origin' field", "Origin", browserOrigin, "error", err)
-        return false
-    }
-    if allowedScheme != "" && allowedScheme != browserScheme {
-        return false
-    }
-    if allowedHostname != "" && allowedHostname != browserHostname {
-        return false
-    }
-    if allowedPort != "" && allowedPort != browserPort {
-        return false
-    }
-    return true
+	var (
+		allowedScheme, allowedHostname, allowedPort string
+		browserScheme, browserHostname, browserPort string
+		err                                         error
+	)
+	allowedScheme, allowedHostname, allowedPort, err = parseOriginURL(allowedOrigin)
+	if err != nil {
+		log.Warn("Error parsing allowed origin specification", "spec", allowedOrigin, "error", err)
+		return false
+	}
+	browserScheme, browserHostname, browserPort, err = parseOriginURL(browserOrigin)
+	if err != nil {
+		log.Warn("Error parsing browser 'Origin' field", "Origin", browserOrigin, "error", err)
+		return false
+	}
+	if allowedScheme != "" && allowedScheme != browserScheme {
+		return false
+	}
+	if allowedHostname != "" && allowedHostname != browserHostname {
+		return false
+	}
+	if allowedPort != "" && allowedPort != browserPort {
+		return false
+	}
+	return true
 }
 
 func parseOriginURL(origin string) (string, string, string, error) {
-    parsedURL, err := url.Parse(strings.ToLower(origin))
-    if err != nil {
-        return "", "", "", err
-    }
-    var scheme, hostname, port string
-    if strings.Contains(origin, "://") {
-        scheme = parsedURL.Scheme
-        hostname = parsedURL.Hostname()
-        port = parsedURL.Port()
-    } else {
-        scheme = ""
-        hostname = parsedURL.Scheme
-        port = parsedURL.Opaque
-        if hostname == "" {
-            hostname = origin
-        }
-    }
-    return scheme, hostname, port, nil
+	parsedURL, err := url.Parse(strings.ToLower(origin))
+	if err != nil {
+		return "", "", "", err
+	}
+	var scheme, hostname, port string
+	if strings.Contains(origin, "://") {
+		scheme = parsedURL.Scheme
+		hostname = parsedURL.Hostname()
+		port = parsedURL.Port()
+	} else {
+		scheme = ""
+		hostname = parsedURL.Scheme
+		port = parsedURL.Opaque
+		if hostname == "" {
+			hostname = origin
+		}
+	}
+	return scheme, hostname, port, nil
 }
 
 // DialWebsocketWithDialer creates a new RPC client that communicates with a JSON-RPC server
 // that is listening on the given endpoint using the provided dialer.
 func DialWebsocketWithDialer(ctx context.Context, endpoint, origin string, dialer websocket.Dialer) (*Client, error) {
-    endpoint, header, err := wsClientHeaders(endpoint, origin)
-    if err != nil {
-        return nil, err
-    }
-    return newClient(ctx, func(ctx context.Context) (ServerCodec, error) {
-        conn, resp, err := dialer.DialContext(ctx, endpoint, header)
+	endpoint, header, err := wsClientHeaders(endpoint, origin)
+	if err != nil {
+		return nil, err
+	}
+	return newClient(ctx, func(ctx context.Context) (ServerCodec, error) {
+		conn, resp, err := dialer.DialContext(ctx, endpoint, header)
 		if err != nil {
 			hErr := wsHandshakeError{err: err}
 			if resp != nil {
@@ -197,7 +197,7 @@ func DialWebsocketWithDialer(ctx context.Context, endpoint, origin string, diale
 			}
 			return nil, hErr
 		}
-        return newWebsocketCodec(conn, endpoint, header), nil
+		return newWebsocketCodec(conn, endpoint, header), nil
 	})
 }
 
@@ -234,56 +234,56 @@ func wsClientHeaders(endpoint, origin string) (string, http.Header, error) {
 
 type websocketCodec struct {
 	*jsonCodec
-    conn *websocket.Conn
-    info PeerInfo
+	conn *websocket.Conn
+	info PeerInfo
 
 	wg        sync.WaitGroup
 	pingReset chan struct{}
 }
 
 func newWebsocketCodec(conn *websocket.Conn, host string, req http.Header) ServerCodec {
-    conn.SetReadLimit(wsMessageSizeLimit)
-    conn.SetPongHandler(func(appData string) error {
-        conn.SetReadDeadline(time.Time{})
-        return nil
-    })
-    wc := &websocketCodec{
-        jsonCodec: NewFuncCodec(conn, conn.WriteJSON, conn.ReadJSON).(*jsonCodec),
-        conn:      conn,
-        pingReset: make(chan struct{}, 1),
-        info: PeerInfo{
-            Transport:  "ws",
-            RemoteAddr: conn.RemoteAddr().String(),
-        },
-    }
-    // Fill in connection details.
-    wc.info.HTTP.Host = host
-    wc.info.HTTP.Origin = req.Get("Origin")
-    wc.info.HTTP.UserAgent = req.Get("User-Agent")
-    // Start pinger.
-    wc.wg.Add(1)
-    go wc.pingLoop()
-    return wc
+	conn.SetReadLimit(wsMessageSizeLimit)
+	conn.SetPongHandler(func(appData string) error {
+		conn.SetReadDeadline(time.Time{})
+		return nil
+	})
+	wc := &websocketCodec{
+		jsonCodec: NewFuncCodec(conn, conn.WriteJSON, conn.ReadJSON).(*jsonCodec),
+		conn:      conn,
+		pingReset: make(chan struct{}, 1),
+		info: PeerInfo{
+			Transport:  "ws",
+			RemoteAddr: conn.RemoteAddr().String(),
+		},
+	}
+	// Fill in connection details.
+	wc.info.HTTP.Host = host
+	wc.info.HTTP.Origin = req.Get("Origin")
+	wc.info.HTTP.UserAgent = req.Get("User-Agent")
+	// Start pinger.
+	wc.wg.Add(1)
+	go wc.pingLoop()
+	return wc
 }
 
 func (wc *websocketCodec) close() {
-    wc.jsonCodec.close()
-    wc.wg.Wait()
+	wc.jsonCodec.close()
+	wc.wg.Wait()
 }
 
 func (wc *websocketCodec) peerInfo() PeerInfo {
-    return wc.info
+	return wc.info
 }
 
 func (wc *websocketCodec) writeJSON(ctx context.Context, v interface{}) error {
-    err := wc.jsonCodec.writeJSON(ctx, v)
-    if err == nil {
-        // Notify pingLoop to delay the next idle ping.
-        select {
-        case wc.pingReset <- struct{}{}:
-        default:
-        }
-    }
+	err := wc.jsonCodec.writeJSON(ctx, v)
+	if err == nil {
+		// Notify pingLoop to delay the next idle ping.
+		select {
+		case wc.pingReset <- struct{}{}:
+		default:
+		}
+	}
 	return err
 }
 
@@ -305,9 +305,9 @@ func (wc *websocketCodec) pingLoop() {
 		case <-timer.C:
 			wc.jsonCodec.encMu.Lock()
 			wc.conn.SetWriteDeadline(time.Now().Add(wsPingWriteTimeout))
-            wc.conn.WriteMessage(websocket.PingMessage, nil)
-            wc.conn.SetReadDeadline(time.Now().Add(wsPongTimeout))
-            wc.jsonCodec.encMu.Unlock()
+			wc.conn.WriteMessage(websocket.PingMessage, nil)
+			wc.conn.SetReadDeadline(time.Now().Add(wsPongTimeout))
+			wc.jsonCodec.encMu.Unlock()
 			timer.Reset(wsPingInterval)
 		}
 	}

@@ -17,31 +17,31 @@
 package light
 
 import (
-    "context"
-    "errors"
-    "fmt"
+	"context"
+	"errors"
+	"fmt"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/core/state"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/ethereum/go-ethereum/ethdb"
-    "github.com/ethereum/go-ethereum/rlp"
-    "github.com/ethereum/go-ethereum/trie"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/trie"
 )
 
 var (
-    sha3Nil = crypto.Keccak256Hash(nil)
+	sha3Nil = crypto.Keccak256Hash(nil)
 )
 
 func NewState(ctx context.Context, head *types.Header, odr OdrBackend) *state.StateDB {
-    state, _ := state.New(head.Root, NewStateDatabase(ctx, head, odr), nil)
-    return state
+	state, _ := state.New(head.Root, NewStateDatabase(ctx, head, odr), nil)
+	return state
 }
 
 func NewStateDatabase(ctx context.Context, head *types.Header, odr OdrBackend) state.Database {
-    return &odrDatabase{ctx, StateTrieID(head), odr}
+	return &odrDatabase{ctx, StateTrieID(head), odr}
 }
 
 type odrDatabase struct {
@@ -103,45 +103,45 @@ type odrTrie struct {
 }
 
 func (t *odrTrie) TryGet(key []byte) ([]byte, error) {
-    key = crypto.Keccak256(key)
-    var res []byte
-    err := t.do(key, func() (err error) {
-        res, err = t.trie.TryGet(key)
-        return err
-    })
-    return res, err
+	key = crypto.Keccak256(key)
+	var res []byte
+	err := t.do(key, func() (err error) {
+		res, err = t.trie.TryGet(key)
+		return err
+	})
+	return res, err
 }
 
 func (t *odrTrie) TryUpdateAccount(key []byte, acc *types.StateAccount) error {
-    key = crypto.Keccak256(key)
-    value, err := rlp.EncodeToBytes(acc)
-    if err != nil {
-        return fmt.Errorf("decoding error in account update: %w", err)
-    }
-    return t.do(key, func() error {
-        return t.trie.TryUpdate(key, value)
-    })
+	key = crypto.Keccak256(key)
+	value, err := rlp.EncodeToBytes(acc)
+	if err != nil {
+		return fmt.Errorf("decoding error in account update: %w", err)
+	}
+	return t.do(key, func() error {
+		return t.trie.TryUpdate(key, value)
+	})
 }
 
 func (t *odrTrie) TryUpdate(key, value []byte) error {
-    key = crypto.Keccak256(key)
-    return t.do(key, func() error {
-        return t.trie.TryUpdate(key, value)
-    })
+	key = crypto.Keccak256(key)
+	return t.do(key, func() error {
+		return t.trie.TryUpdate(key, value)
+	})
 }
 
 func (t *odrTrie) TryDelete(key []byte) error {
-    key = crypto.Keccak256(key)
+	key = crypto.Keccak256(key)
 	return t.do(key, func() error {
 		return t.trie.TryDelete(key)
 	})
 }
 
 func (t *odrTrie) Commit(onleaf trie.LeafCallback) (common.Hash, int, error) {
-    if t.trie == nil {
-        return t.id.Root, 0, nil
-    }
-    return t.trie.Commit(onleaf)
+	if t.trie == nil {
+		return t.id.Root, 0, nil
+	}
+	return t.trie.Commit(onleaf)
 }
 
 func (t *odrTrie) Hash() common.Hash {

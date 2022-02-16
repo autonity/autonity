@@ -17,28 +17,28 @@
 package main
 
 import (
-    "fmt"
-    "io/ioutil"
-    "os"
+	"fmt"
+	"io/ioutil"
+	"os"
 
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/tests/fuzzers/vflux"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/tests/fuzzers/vflux"
 )
 
 func main() {
-    log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-    if len(os.Args) != 2 {
-        fmt.Fprintf(os.Stderr, "Usage: debug <file>\n")
-        fmt.Fprintf(os.Stderr, "Example\n")
-        fmt.Fprintf(os.Stderr, "	$ debug ../crashers/4bbef6857c733a87ecf6fd8b9e7238f65eb9862a\n")
-        os.Exit(1)
-    }
-    crasher := os.Args[1]
-    data, err := ioutil.ReadFile(crasher)
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "error loading crasher %v: %v", crasher, err)
-        os.Exit(1)
-    }
-    vflux.FuzzClientPool(data)
+	if len(os.Args) != 2 {
+		fmt.Fprintf(os.Stderr, "Usage: debug <file>\n")
+		fmt.Fprintf(os.Stderr, "Example\n")
+		fmt.Fprintf(os.Stderr, "	$ debug ../crashers/4bbef6857c733a87ecf6fd8b9e7238f65eb9862a\n")
+		os.Exit(1)
+	}
+	crasher := os.Args[1]
+	data, err := ioutil.ReadFile(crasher)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading crasher %v: %v", crasher, err)
+		os.Exit(1)
+	}
+	vflux.FuzzClientPool(data)
 }

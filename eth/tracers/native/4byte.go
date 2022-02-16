@@ -17,19 +17,19 @@
 package native
 
 import (
-    "encoding/json"
-    "math/big"
-    "strconv"
-    "sync/atomic"
-    "time"
+	"encoding/json"
+	"math/big"
+	"strconv"
+	"sync/atomic"
+	"time"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/vm"
-    "github.com/ethereum/go-ethereum/eth/tracers"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/eth/tracers"
 )
 
 func init() {
-    register("4byteTracer", newFourByteTracer)
+	register("4byteTracer", newFourByteTracer)
 }
 
 // fourByteTracer searches for 4byte-identifiers, and collects them for post-processing.
@@ -46,50 +46,50 @@ func init() {
 //     0xc281d19e-0: 1
 //   }
 type fourByteTracer struct {
-    env               *vm.EVM
-    ids               map[string]int   // ids aggregates the 4byte ids found
-    interrupt         uint32           // Atomic flag to signal execution interruption
-    reason            error            // Textual reason for the interruption
-    activePrecompiles []common.Address // Updated on CaptureStart based on given rules
+	env               *vm.EVM
+	ids               map[string]int   // ids aggregates the 4byte ids found
+	interrupt         uint32           // Atomic flag to signal execution interruption
+	reason            error            // Textual reason for the interruption
+	activePrecompiles []common.Address // Updated on CaptureStart based on given rules
 }
 
 // newFourByteTracer returns a native go tracer which collects
 // 4 byte-identifiers of a tx, and implements vm.EVMLogger.
 func newFourByteTracer() tracers.Tracer {
-    t := &fourByteTracer{
-        ids: make(map[string]int),
-    }
-    return t
+	t := &fourByteTracer{
+		ids: make(map[string]int),
+	}
+	return t
 }
 
 // isPrecompiled returns whether the addr is a precompile. Logic borrowed from newJsTracer in eth/tracers/js/tracer.go
 func (t *fourByteTracer) isPrecompiled(addr common.Address) bool {
-    for _, p := range t.activePrecompiles {
-        if p == addr {
-            return true
-        }
-    }
-    return false
+	for _, p := range t.activePrecompiles {
+		if p == addr {
+			return true
+		}
+	}
+	return false
 }
 
 // store saves the given identifier and datasize.
 func (t *fourByteTracer) store(id []byte, size int) {
-    key := bytesToHex(id) + "-" + strconv.Itoa(size)
-    t.ids[key] += 1
+	key := bytesToHex(id) + "-" + strconv.Itoa(size)
+	t.ids[key] += 1
 }
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
 func (t *fourByteTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-    t.env = env
+	t.env = env
 
-    // Update list of precompiles based on current block
-    rules := env.ChainConfig().Rules(env.Context.BlockNumber, env.Context.Random != nil)
-    t.activePrecompiles = vm.ActivePrecompiles(rules)
+	// Update list of precompiles based on current block
+	rules := env.ChainConfig().Rules(env.Context.BlockNumber, env.Context.Random != nil)
+	t.activePrecompiles = vm.ActivePrecompiles(rules)
 
-    // Save the outer calldata also
-    if len(input) >= 4 {
-        t.store(input[0:4], len(input)-4)
-    }
+	// Save the outer calldata also
+	if len(input) >= 4 {
+		t.store(input[0:4], len(input)-4)
+	}
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
@@ -98,24 +98,24 @@ func (t *fourByteTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 
 // CaptureEnter is called when EVM enters a new scope (via call, create or selfdestruct).
 func (t *fourByteTracer) CaptureEnter(op vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
-    // Skip if tracing was interrupted
-    if atomic.LoadUint32(&t.interrupt) > 0 {
-        t.env.Cancel()
-        return
-    }
-    if len(input) < 4 {
-        return
-    }
-    // primarily we want to avoid CREATE/CREATE2/SELFDESTRUCT
-    if op != vm.DELEGATECALL && op != vm.STATICCALL &&
-        op != vm.CALL && op != vm.CALLCODE {
-        return
-    }
-    // Skip any pre-compile invocations, those are just fancy opcodes
-    if t.isPrecompiled(to) {
-        return
-    }
-    t.store(input[0:4], len(input)-4)
+	// Skip if tracing was interrupted
+	if atomic.LoadUint32(&t.interrupt) > 0 {
+		t.env.Cancel()
+		return
+	}
+	if len(input) < 4 {
+		return
+	}
+	// primarily we want to avoid CREATE/CREATE2/SELFDESTRUCT
+	if op != vm.DELEGATECALL && op != vm.STATICCALL &&
+		op != vm.CALL && op != vm.CALLCODE {
+		return
+	}
+	// Skip any pre-compile invocations, those are just fancy opcodes
+	if t.isPrecompiled(to) {
+		return
+	}
+	t.store(input[0:4], len(input)-4)
 }
 
 // CaptureExit is called when EVM exits a scope, even if the scope didn't
@@ -134,15 +134,15 @@ func (t *fourByteTracer) CaptureEnd(output []byte, gasUsed uint64, _ time.Durati
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
 func (t *fourByteTracer) GetResult() (json.RawMessage, error) {
-    res, err := json.Marshal(t.ids)
-    if err != nil {
-        return nil, err
-    }
-    return res, t.reason
+	res, err := json.Marshal(t.ids)
+	if err != nil {
+		return nil, err
+	}
+	return res, t.reason
 }
 
 // Stop terminates execution of the tracer at the first opportune moment.
 func (t *fourByteTracer) Stop(err error) {
-    t.reason = err
-    atomic.StoreUint32(&t.interrupt, 1)
+	t.reason = err
+	atomic.StoreUint32(&t.interrupt, 1)
 }

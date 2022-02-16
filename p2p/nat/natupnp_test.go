@@ -21,8 +21,8 @@ import (
 	"io"
 	"net"
 	"net/http"
-    "os"
-    "runtime"
+	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -163,12 +163,12 @@ func TestUPNP_DDWRT(t *testing.T) {
 	// Attempt to discover the fake device.
 	discovered := discoverUPnP()
 	if discovered == nil {
-        if os.Getenv("CI") != "" {
-            t.Fatalf("not discovered")
-        } else {
-            t.Skipf("UPnP not discovered (known issue, see https://github.com/ethereum/go-ethereum/issues/21476)")
-        }
-    }
+		if os.Getenv("CI") != "" {
+			t.Fatalf("not discovered")
+		} else {
+			t.Skipf("UPnP not discovered (known issue, see https://github.com/clearmatics/autonity/issues/21476)")
+		}
+	}
 	upnp, _ := discovered.(*upnp)
 	if upnp.service != "IGDv1-IP1" {
 		t.Errorf("upnp.service mismatch: got %q, want %q", upnp.service, "IGDv1-IP1")

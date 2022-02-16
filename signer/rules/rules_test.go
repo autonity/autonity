@@ -17,19 +17,19 @@
 package rules
 
 import (
-    "fmt"
-    "math/big"
-    "strings"
-    "testing"
+	"fmt"
+	"math/big"
+	"strings"
+	"testing"
 
-    "github.com/ethereum/go-ethereum/accounts"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/internal/ethapi"
-    "github.com/ethereum/go-ethereum/signer/core"
-    "github.com/ethereum/go-ethereum/signer/core/apitypes"
-    "github.com/ethereum/go-ethereum/signer/storage"
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/signer/core"
+	"github.com/clearmatics/autonity/signer/core/apitypes"
+	"github.com/clearmatics/autonity/signer/storage"
 )
 
 const JS = `
@@ -181,9 +181,9 @@ func TestSignTxRequest(t *testing.T) {
 	}
 	t.Logf("to %v", to.Address().String())
 	resp, err := r.ApproveTx(&core.SignTxRequest{
-        Transaction: apitypes.SendTxArgs{
-            From: *from,
-            To:   to},
+		Transaction: apitypes.SendTxArgs{
+			From: *from,
+			To:   to},
 		Callinfo: nil,
 		Meta:     core.Metadata{Remote: "remoteip", Local: "localip", Scheme: "inproc"},
 	})
@@ -433,17 +433,17 @@ func dummyTx(value hexutil.Big) *core.SignTxRequest {
 	gasPrice := hexutil.Big(*big.NewInt(2000000))
 
 	return &core.SignTxRequest{
-        Transaction: apitypes.SendTxArgs{
-            From:     *from,
-            To:       to,
-            Value:    value,
-            Nonce:    n,
-            GasPrice: &gasPrice,
-            Gas:      gas,
-        },
-        Callinfo: []apitypes.ValidationInfo{
-            {Typ: "Warning", Message: "All your base are bellong to us"},
-        },
+		Transaction: apitypes.SendTxArgs{
+			From:     *from,
+			To:       to,
+			Value:    value,
+			Nonce:    n,
+			GasPrice: &gasPrice,
+			Gas:      gas,
+		},
+		Callinfo: []apitypes.ValidationInfo{
+			{Typ: "Warning", Message: "All your base are bellong to us"},
+		},
 		Meta: core.Metadata{Remote: "remoteip", Local: "localip", Scheme: "inproc"},
 	}
 }
@@ -605,17 +605,17 @@ function ApproveSignData(r){
 
 	t.Logf("address %v %v\n", addr.String(), addr.Original())
 
-    nvt := []*apitypes.NameValueType{
-        {
-            Name:  "message",
-            Typ:   "text/plain",
-            Value: message,
-        },
-    }
-    resp, err := r.ApproveSignData(&core.SignDataRequest{
-        Address:  *addr,
-        Messages: nvt,
-        Hash:     hash,
+	nvt := []*apitypes.NameValueType{
+		{
+			Name:  "message",
+			Typ:   "text/plain",
+			Value: message,
+		},
+	}
+	resp, err := r.ApproveSignData(&core.SignDataRequest{
+		Address:  *addr,
+		Messages: nvt,
+		Hash:     hash,
 		Meta:     core.Metadata{Remote: "remoteip", Local: "localip", Scheme: "inproc"},
 		Rawdata:  []byte(rawdata),
 	})

@@ -18,89 +18,89 @@
 package rawdb
 
 import (
-    "bytes"
-    "encoding/binary"
+	"bytes"
+	"encoding/binary"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/metrics"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/metrics"
 )
 
 // The fields below define the low level database schema prefixing.
 var (
-    // databaseVersionKey tracks the current database version.
-    databaseVersionKey = []byte("DatabaseVersion")
+	// databaseVersionKey tracks the current database version.
+	databaseVersionKey = []byte("DatabaseVersion")
 
-    // headHeaderKey tracks the latest known header's hash.
-    headHeaderKey = []byte("LastHeader")
+	// headHeaderKey tracks the latest known header's hash.
+	headHeaderKey = []byte("LastHeader")
 
-    // headBlockKey tracks the latest known full block's hash.
-    headBlockKey = []byte("LastBlock")
+	// headBlockKey tracks the latest known full block's hash.
+	headBlockKey = []byte("LastBlock")
 
-    // headFastBlockKey tracks the latest known incomplete block's hash during fast sync.
-    headFastBlockKey = []byte("LastFast")
+	// headFastBlockKey tracks the latest known incomplete block's hash during fast sync.
+	headFastBlockKey = []byte("LastFast")
 
-    // lastPivotKey tracks the last pivot block used by fast sync (to reenable on sethead).
-    lastPivotKey = []byte("LastPivot")
+	// lastPivotKey tracks the last pivot block used by fast sync (to reenable on sethead).
+	lastPivotKey = []byte("LastPivot")
 
-    // fastTrieProgressKey tracks the number of trie entries imported during fast sync.
-    fastTrieProgressKey = []byte("TrieSync")
+	// fastTrieProgressKey tracks the number of trie entries imported during fast sync.
+	fastTrieProgressKey = []byte("TrieSync")
 
-    // snapshotDisabledKey flags that the snapshot should not be maintained due to initial sync.
-    snapshotDisabledKey = []byte("SnapshotDisabled")
+	// snapshotDisabledKey flags that the snapshot should not be maintained due to initial sync.
+	snapshotDisabledKey = []byte("SnapshotDisabled")
 
-    // SnapshotRootKey tracks the hash of the last snapshot.
-    SnapshotRootKey = []byte("SnapshotRoot")
+	// SnapshotRootKey tracks the hash of the last snapshot.
+	SnapshotRootKey = []byte("SnapshotRoot")
 
-    // snapshotJournalKey tracks the in-memory diff layers across restarts.
-    snapshotJournalKey = []byte("SnapshotJournal")
+	// snapshotJournalKey tracks the in-memory diff layers across restarts.
+	snapshotJournalKey = []byte("SnapshotJournal")
 
-    // snapshotGeneratorKey tracks the snapshot generation marker across restarts.
-    snapshotGeneratorKey = []byte("SnapshotGenerator")
+	// snapshotGeneratorKey tracks the snapshot generation marker across restarts.
+	snapshotGeneratorKey = []byte("SnapshotGenerator")
 
-    // snapshotRecoveryKey tracks the snapshot recovery marker across restarts.
-    snapshotRecoveryKey = []byte("SnapshotRecovery")
+	// snapshotRecoveryKey tracks the snapshot recovery marker across restarts.
+	snapshotRecoveryKey = []byte("SnapshotRecovery")
 
-    // snapshotSyncStatusKey tracks the snapshot sync status across restarts.
-    snapshotSyncStatusKey = []byte("SnapshotSyncStatus")
+	// snapshotSyncStatusKey tracks the snapshot sync status across restarts.
+	snapshotSyncStatusKey = []byte("SnapshotSyncStatus")
 
-    // txIndexTailKey tracks the oldest block whose transactions have been indexed.
-    txIndexTailKey = []byte("TransactionIndexTail")
+	// txIndexTailKey tracks the oldest block whose transactions have been indexed.
+	txIndexTailKey = []byte("TransactionIndexTail")
 
-    // fastTxLookupLimitKey tracks the transaction lookup limit during fast sync.
-    fastTxLookupLimitKey = []byte("FastTransactionLookupLimit")
+	// fastTxLookupLimitKey tracks the transaction lookup limit during fast sync.
+	fastTxLookupLimitKey = []byte("FastTransactionLookupLimit")
 
-    // badBlockKey tracks the list of bad blocks seen by local
-    badBlockKey = []byte("InvalidBlock")
+	// badBlockKey tracks the list of bad blocks seen by local
+	badBlockKey = []byte("InvalidBlock")
 
-    // uncleanShutdownKey tracks the list of local crashes
-    uncleanShutdownKey = []byte("unclean-shutdown") // config prefix for the db
+	// uncleanShutdownKey tracks the list of local crashes
+	uncleanShutdownKey = []byte("unclean-shutdown") // config prefix for the db
 
-    // transitionStatusKey tracks the eth2 transition status.
-    transitionStatusKey = []byte("eth2-transition")
+	// transitionStatusKey tracks the eth2 transition status.
+	transitionStatusKey = []byte("eth2-transition")
 
-    // Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-    headerPrefix       = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
-    headerTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
-    headerHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
-    headerNumberPrefix = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
+	headerPrefix       = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
+	headerTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
+	headerHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerNumberPrefix = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
 
-    blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
-    blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
+	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
+	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 
-    txLookupPrefix        = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
-    bloomBitsPrefix       = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
-    SnapshotAccountPrefix = []byte("a") // SnapshotAccountPrefix + account hash -> account trie value
-    SnapshotStoragePrefix = []byte("o") // SnapshotStoragePrefix + account hash + storage hash -> storage trie value
-    CodePrefix            = []byte("c") // CodePrefix + code hash -> account code
+	txLookupPrefix        = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
+	bloomBitsPrefix       = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
+	SnapshotAccountPrefix = []byte("a") // SnapshotAccountPrefix + account hash -> account trie value
+	SnapshotStoragePrefix = []byte("o") // SnapshotStoragePrefix + account hash + storage hash -> storage trie value
+	CodePrefix            = []byte("c") // CodePrefix + code hash -> account code
 
-    PreimagePrefix = []byte("secure-key-")      // PreimagePrefix + hash -> preimage
-    configPrefix   = []byte("ethereum-config-") // config prefix for the db
+	PreimagePrefix = []byte("secure-key-")      // PreimagePrefix + hash -> preimage
+	configPrefix   = []byte("ethereum-config-") // config prefix for the db
 
-    // Chain index prefixes (use `i` + single byte to avoid mixing data types).
-    BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
+	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
+	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
 
-    preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
-    preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
+	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
+	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
 )
 
 const (
@@ -123,11 +123,11 @@ const (
 // FreezerNoSnappy configures whether compression is disabled for the ancient-tables.
 // Hashes and difficulties don't compress well.
 var FreezerNoSnappy = map[string]bool{
-    freezerHeaderTable:     false,
-    freezerHashTable:       true,
-    freezerBodiesTable:     false,
-    freezerReceiptTable:    false,
-    freezerDifficultyTable: true,
+	freezerHeaderTable:     false,
+	freezerHashTable:       true,
+	freezerBodiesTable:     false,
+	freezerReceiptTable:    false,
+	freezerDifficultyTable: true,
 }
 
 // LegacyTxLookupEntry is the legacy TxLookupEntry definition with some unnecessary
@@ -212,21 +212,21 @@ func bloomBitsKey(bit uint, section uint64, hash common.Hash) []byte {
 
 // preimageKey = PreimagePrefix + hash
 func preimageKey(hash common.Hash) []byte {
-    return append(PreimagePrefix, hash.Bytes()...)
+	return append(PreimagePrefix, hash.Bytes()...)
 }
 
 // codeKey = CodePrefix + hash
 func codeKey(hash common.Hash) []byte {
-    return append(CodePrefix, hash.Bytes()...)
+	return append(CodePrefix, hash.Bytes()...)
 }
 
 // IsCodeKey reports whether the given byte slice is the key of contract code,
 // if so return the raw code hash as well.
 func IsCodeKey(key []byte) (bool, []byte) {
-    if bytes.HasPrefix(key, CodePrefix) && len(key) == common.HashLength+len(CodePrefix) {
-        return true, key[len(CodePrefix):]
-    }
-    return false, nil
+	if bytes.HasPrefix(key, CodePrefix) && len(key) == common.HashLength+len(CodePrefix) {
+		return true, key[len(CodePrefix):]
+	}
+	return false, nil
 }
 
 // configKey = configPrefix + hash

@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/bitutil"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/p2p/rlpx"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/bitutil"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/p2p/rlpx"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 const (

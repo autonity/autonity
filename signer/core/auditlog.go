@@ -17,14 +17,14 @@
 package core
 
 import (
-    "context"
-    "encoding/json"
+	"context"
+	"encoding/json"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/internal/ethapi"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/signer/core/apitypes"
 )
 
 type AuditLogger struct {
@@ -45,16 +45,16 @@ func (l *AuditLogger) New(ctx context.Context) (common.Address, error) {
 }
 
 func (l *AuditLogger) SignTransaction(ctx context.Context, args apitypes.SendTxArgs, methodSelector *string) (*ethapi.SignTransactionResult, error) {
-    sel := "<nil>"
-    if methodSelector != nil {
-        sel = *methodSelector
-    }
-    l.log.Info("SignTransaction", "type", "request", "metadata", MetadataFromContext(ctx).String(),
-        "tx", args.String(),
-        "methodSelector", sel)
+	sel := "<nil>"
+	if methodSelector != nil {
+		sel = *methodSelector
+	}
+	l.log.Info("SignTransaction", "type", "request", "metadata", MetadataFromContext(ctx).String(),
+		"tx", args.String(),
+		"methodSelector", sel)
 
-    res, e := l.api.SignTransaction(ctx, args, methodSelector)
-    if res != nil {
+	res, e := l.api.SignTransaction(ctx, args, methodSelector)
+	if res != nil {
 		l.log.Info("SignTransaction", "type", "response", "data", common.Bytes2Hex(res.Raw), "error", e)
 	} else {
 		l.log.Info("SignTransaction", "type", "response", "data", res, "error", e)
@@ -90,11 +90,11 @@ func (l *AuditLogger) SignGnosisSafeTx(ctx context.Context, addr common.Mixedcas
 }
 
 func (l *AuditLogger) SignTypedData(ctx context.Context, addr common.MixedcaseAddress, data apitypes.TypedData) (hexutil.Bytes, error) {
-    l.log.Info("SignTypedData", "type", "request", "metadata", MetadataFromContext(ctx).String(),
-        "addr", addr.String(), "data", data)
-    b, e := l.api.SignTypedData(ctx, addr, data)
-    l.log.Info("SignTypedData", "type", "response", "data", common.Bytes2Hex(b), "error", e)
-    return b, e
+	l.log.Info("SignTypedData", "type", "request", "metadata", MetadataFromContext(ctx).String(),
+		"addr", addr.String(), "data", data)
+	b, e := l.api.SignTypedData(ctx, addr, data)
+	l.log.Info("SignTypedData", "type", "response", "data", common.Bytes2Hex(b), "error", e)
+	return b, e
 }
 
 func (l *AuditLogger) EcRecover(ctx context.Context, data hexutil.Bytes, sig hexutil.Bytes) (common.Address, error) {

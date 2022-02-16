@@ -17,20 +17,20 @@
 package eth
 
 import (
-    "errors"
-    "fmt"
-    "io"
-    "math/big"
+	"errors"
+	"fmt"
+	"io"
+	"math/big"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/forkid"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/forkid"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 // Constants to match up protocol versions and messages
 const (
-    ETH66 = 66
+	ETH66 = 66
 )
 
 // ProtocolName is the official short name of the `eth` protocol used during
@@ -49,68 +49,68 @@ var protocolLengths = map[uint]uint64{ETH66: 17}
 const maxMessageSize = 10 * 1024 * 1024
 
 const (
-    StatusMsg                     = 0x00
-    NewBlockHashesMsg             = 0x01
-    TransactionsMsg               = 0x02
-    GetBlockHeadersMsg            = 0x03
-    BlockHeadersMsg               = 0x04
-    GetBlockBodiesMsg             = 0x05
-    BlockBodiesMsg                = 0x06
-    NewBlockMsg                   = 0x07
-    GetNodeDataMsg                = 0x0d
-    NodeDataMsg                   = 0x0e
-    GetReceiptsMsg                = 0x0f
-    ReceiptsMsg                   = 0x10
-    NewPooledTransactionHashesMsg = 0x08
-    GetPooledTransactionsMsg      = 0x09
-    PooledTransactionsMsg         = 0x0a
+	StatusMsg                     = 0x00
+	NewBlockHashesMsg             = 0x01
+	TransactionsMsg               = 0x02
+	GetBlockHeadersMsg            = 0x03
+	BlockHeadersMsg               = 0x04
+	GetBlockBodiesMsg             = 0x05
+	BlockBodiesMsg                = 0x06
+	NewBlockMsg                   = 0x07
+	GetNodeDataMsg                = 0x0d
+	NodeDataMsg                   = 0x0e
+	GetReceiptsMsg                = 0x0f
+	ReceiptsMsg                   = 0x10
+	NewPooledTransactionHashesMsg = 0x08
+	GetPooledTransactionsMsg      = 0x09
+	PooledTransactionsMsg         = 0x0a
 )
 
 var (
-    errNoStatusMsg             = errors.New("no status message")
-    errMsgTooLarge             = errors.New("message too long")
-    errDecode                  = errors.New("invalid message")
-    errInvalidMsgCode          = errors.New("invalid message code")
-    errProtocolVersionMismatch = errors.New("protocol version mismatch")
-    errNetworkIDMismatch       = errors.New("network ID mismatch")
-    errGenesisMismatch         = errors.New("genesis mismatch")
-    errForkIDRejected          = errors.New("fork ID rejected")
+	errNoStatusMsg             = errors.New("no status message")
+	errMsgTooLarge             = errors.New("message too long")
+	errDecode                  = errors.New("invalid message")
+	errInvalidMsgCode          = errors.New("invalid message code")
+	errProtocolVersionMismatch = errors.New("protocol version mismatch")
+	errNetworkIDMismatch       = errors.New("network ID mismatch")
+	errGenesisMismatch         = errors.New("genesis mismatch")
+	errForkIDRejected          = errors.New("fork ID rejected")
 )
 
 // Packet represents a p2p message in the `eth` protocol.
 type Packet interface {
-    Name() string // Name returns a string corresponding to the message type.
-    Kind() byte   // Kind returns the message type.
+	Name() string // Name returns a string corresponding to the message type.
+	Kind() byte   // Kind returns the message type.
 }
 
 // StatusPacket is the network packet for the status message for eth/64 and later.
 type StatusPacket struct {
-    ProtocolVersion uint32
-    NetworkID       uint64
-    TD              *big.Int
-    Head            common.Hash
-    Genesis         common.Hash
-    ForkID          forkid.ID
+	ProtocolVersion uint32
+	NetworkID       uint64
+	TD              *big.Int
+	Head            common.Hash
+	Genesis         common.Hash
+	ForkID          forkid.ID
 }
 
 // NewBlockHashesPacket is the network packet for the block announcements.
 type NewBlockHashesPacket []struct {
-    Hash   common.Hash // Hash of one particular block being announced
-    Number uint64      // Number of one particular block being announced
+	Hash   common.Hash // Hash of one particular block being announced
+	Number uint64      // Number of one particular block being announced
 }
 
 // Unpack retrieves the block hashes and numbers from the announcement packet
 // and returns them in a split flat format that's more consistent with the
 // internal data structures.
 func (p *NewBlockHashesPacket) Unpack() ([]common.Hash, []uint64) {
-    var (
-        hashes  = make([]common.Hash, len(*p))
-        numbers = make([]uint64, len(*p))
-    )
-    for i, body := range *p {
-        hashes[i], numbers[i] = body.Hash, body.Number
-    }
-    return hashes, numbers
+	var (
+		hashes  = make([]common.Hash, len(*p))
+		numbers = make([]uint64, len(*p))
+	)
+	for i, body := range *p {
+		hashes[i], numbers[i] = body.Hash, body.Number
+	}
+	return hashes, numbers
 }
 
 // TransactionsPacket is the network packet for broadcasting new transactions.
@@ -118,52 +118,52 @@ type TransactionsPacket []*types.Transaction
 
 // GetBlockHeadersPacket represents a block header query.
 type GetBlockHeadersPacket struct {
-    Origin  HashOrNumber // Block from which to retrieve headers
-    Amount  uint64       // Maximum number of headers to retrieve
-    Skip    uint64       // Blocks to skip between consecutive headers
-    Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
+	Origin  HashOrNumber // Block from which to retrieve headers
+	Amount  uint64       // Maximum number of headers to retrieve
+	Skip    uint64       // Blocks to skip between consecutive headers
+	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
 }
 
 // GetBlockHeadersPacket66 represents a block header query over eth/66
 type GetBlockHeadersPacket66 struct {
-    RequestId uint64
-    *GetBlockHeadersPacket
+	RequestId uint64
+	*GetBlockHeadersPacket
 }
 
 // HashOrNumber is a combined field for specifying an origin block.
 type HashOrNumber struct {
-    Hash   common.Hash // Block hash from which to retrieve headers (excludes Number)
-    Number uint64      // Block hash from which to retrieve headers (excludes Hash)
+	Hash   common.Hash // Block hash from which to retrieve headers (excludes Number)
+	Number uint64      // Block hash from which to retrieve headers (excludes Hash)
 }
 
 // EncodeRLP is a specialized encoder for HashOrNumber to encode only one of the
 // two contained union fields.
 func (hn *HashOrNumber) EncodeRLP(w io.Writer) error {
-    if hn.Hash == (common.Hash{}) {
-        return rlp.Encode(w, hn.Number)
-    }
-    if hn.Number != 0 {
-        return fmt.Errorf("both origin hash (%x) and number (%d) provided", hn.Hash, hn.Number)
-    }
-    return rlp.Encode(w, hn.Hash)
+	if hn.Hash == (common.Hash{}) {
+		return rlp.Encode(w, hn.Number)
+	}
+	if hn.Number != 0 {
+		return fmt.Errorf("both origin hash (%x) and number (%d) provided", hn.Hash, hn.Number)
+	}
+	return rlp.Encode(w, hn.Hash)
 }
 
 // DecodeRLP is a specialized decoder for HashOrNumber to decode the contents
 // into either a block hash or a block number.
 func (hn *HashOrNumber) DecodeRLP(s *rlp.Stream) error {
-    _, size, err := s.Kind()
-    switch {
-    case err != nil:
-        return err
-    case size == 32:
-        hn.Number = 0
-        return s.Decode(&hn.Hash)
-    case size <= 8:
-        hn.Hash = common.Hash{}
-        return s.Decode(&hn.Number)
-    default:
-        return fmt.Errorf("invalid input size %d for origin", size)
-    }
+	_, size, err := s.Kind()
+	switch {
+	case err != nil:
+		return err
+	case size == 32:
+		hn.Number = 0
+		return s.Decode(&hn.Hash)
+	case size <= 8:
+		hn.Hash = common.Hash{}
+		return s.Decode(&hn.Number)
+	default:
+		return fmt.Errorf("invalid input size %d for origin", size)
+	}
 }
 
 // BlockHeadersPacket represents a block header response.
@@ -171,8 +171,8 @@ type BlockHeadersPacket []*types.Header
 
 // BlockHeadersPacket represents a block header response over eth/66.
 type BlockHeadersPacket66 struct {
-    RequestId uint64
-    BlockHeadersPacket
+	RequestId uint64
+	BlockHeadersPacket
 }
 
 // BlockHeadersRLPPacket represents a block header response, to use when we already
@@ -181,27 +181,27 @@ type BlockHeadersRLPPacket []rlp.RawValue
 
 // BlockHeadersPacket represents a block header response over eth/66.
 type BlockHeadersRLPPacket66 struct {
-    RequestId uint64
-    BlockHeadersRLPPacket
+	RequestId uint64
+	BlockHeadersRLPPacket
 }
 
 // NewBlockPacket is the network packet for the block propagation message.
 type NewBlockPacket struct {
-    Block *types.Block
-    TD    *big.Int
+	Block *types.Block
+	TD    *big.Int
 }
 
 // sanityCheck verifies that the values are reasonable, as a DoS protection
 func (request *NewBlockPacket) sanityCheck() error {
-    if err := request.Block.SanityCheck(); err != nil {
-        return err
-    }
-    //TD at mainnet block #7753254 is 76 bits. If it becomes 100 million times
-    // larger, it will still fit within 100 bits
-    if tdlen := request.TD.BitLen(); tdlen > 100 {
-        return fmt.Errorf("too large block TD: bitlen %d", tdlen)
-    }
-    return nil
+	if err := request.Block.SanityCheck(); err != nil {
+		return err
+	}
+	//TD at mainnet block #7753254 is 76 bits. If it becomes 100 million times
+	// larger, it will still fit within 100 bits
+	if tdlen := request.TD.BitLen(); tdlen > 100 {
+		return fmt.Errorf("too large block TD: bitlen %d", tdlen)
+	}
+	return nil
 }
 
 // GetBlockBodiesPacket represents a block body query.
@@ -209,8 +209,8 @@ type GetBlockBodiesPacket []common.Hash
 
 // GetBlockBodiesPacket represents a block body query over eth/66.
 type GetBlockBodiesPacket66 struct {
-    RequestId uint64
-    GetBlockBodiesPacket
+	RequestId uint64
+	GetBlockBodiesPacket
 }
 
 // BlockBodiesPacket is the network packet for block content distribution.
@@ -218,8 +218,8 @@ type BlockBodiesPacket []*BlockBody
 
 // BlockBodiesPacket is the network packet for block content distribution over eth/66.
 type BlockBodiesPacket66 struct {
-    RequestId uint64
-    BlockBodiesPacket
+	RequestId uint64
+	BlockBodiesPacket
 }
 
 // BlockBodiesRLPPacket is used for replying to block body requests, in cases
@@ -229,27 +229,27 @@ type BlockBodiesRLPPacket []rlp.RawValue
 
 // BlockBodiesRLPPacket66 is the BlockBodiesRLPPacket over eth/66
 type BlockBodiesRLPPacket66 struct {
-    RequestId uint64
-    BlockBodiesRLPPacket
+	RequestId uint64
+	BlockBodiesRLPPacket
 }
 
 // BlockBody represents the data content of a single block.
 type BlockBody struct {
-    Transactions []*types.Transaction // Transactions contained within a block
-    Uncles       []*types.Header      // Uncles contained within a block
+	Transactions []*types.Transaction // Transactions contained within a block
+	Uncles       []*types.Header      // Uncles contained within a block
 }
 
 // Unpack retrieves the transactions and uncles from the range packet and returns
 // them in a split flat format that's more consistent with the internal data structures.
 func (p *BlockBodiesPacket) Unpack() ([][]*types.Transaction, [][]*types.Header) {
-    var (
-        txset    = make([][]*types.Transaction, len(*p))
-        uncleset = make([][]*types.Header, len(*p))
-    )
-    for i, body := range *p {
-        txset[i], uncleset[i] = body.Transactions, body.Uncles
-    }
-    return txset, uncleset
+	var (
+		txset    = make([][]*types.Transaction, len(*p))
+		uncleset = make([][]*types.Header, len(*p))
+	)
+	for i, body := range *p {
+		txset[i], uncleset[i] = body.Transactions, body.Uncles
+	}
+	return txset, uncleset
 }
 
 // GetNodeDataPacket represents a trie node data query.
@@ -257,8 +257,8 @@ type GetNodeDataPacket []common.Hash
 
 // GetNodeDataPacket represents a trie node data query over eth/66.
 type GetNodeDataPacket66 struct {
-    RequestId uint64
-    GetNodeDataPacket
+	RequestId uint64
+	GetNodeDataPacket
 }
 
 // NodeDataPacket is the network packet for trie node data distribution.
@@ -266,8 +266,8 @@ type NodeDataPacket [][]byte
 
 // NodeDataPacket is the network packet for trie node data distribution over eth/66.
 type NodeDataPacket66 struct {
-    RequestId uint64
-    NodeDataPacket
+	RequestId uint64
+	NodeDataPacket
 }
 
 // GetReceiptsPacket represents a block receipts query.
@@ -275,8 +275,8 @@ type GetReceiptsPacket []common.Hash
 
 // GetReceiptsPacket represents a block receipts query over eth/66.
 type GetReceiptsPacket66 struct {
-    RequestId uint64
-    GetReceiptsPacket
+	RequestId uint64
+	GetReceiptsPacket
 }
 
 // ReceiptsPacket is the network packet for block receipts distribution.
@@ -284,8 +284,8 @@ type ReceiptsPacket [][]*types.Receipt
 
 // ReceiptsPacket is the network packet for block receipts distribution over eth/66.
 type ReceiptsPacket66 struct {
-    RequestId uint64
-    ReceiptsPacket
+	RequestId uint64
+	ReceiptsPacket
 }
 
 // ReceiptsRLPPacket is used for receipts, when we already have it encoded
@@ -293,8 +293,8 @@ type ReceiptsRLPPacket []rlp.RawValue
 
 // ReceiptsPacket66 is the eth-66 version of ReceiptsRLPPacket
 type ReceiptsRLPPacket66 struct {
-    RequestId uint64
-    ReceiptsRLPPacket
+	RequestId uint64
+	ReceiptsRLPPacket
 }
 
 // NewPooledTransactionHashesPacket represents a transaction announcement packet.
@@ -304,8 +304,8 @@ type NewPooledTransactionHashesPacket []common.Hash
 type GetPooledTransactionsPacket []common.Hash
 
 type GetPooledTransactionsPacket66 struct {
-    RequestId uint64
-    GetPooledTransactionsPacket
+	RequestId uint64
+	GetPooledTransactionsPacket
 }
 
 // PooledTransactionsPacket is the network packet for transaction distribution.
@@ -313,8 +313,8 @@ type PooledTransactionsPacket []*types.Transaction
 
 // PooledTransactionsPacket is the network packet for transaction distribution over eth/66.
 type PooledTransactionsPacket66 struct {
-    RequestId uint64
-    PooledTransactionsPacket
+	RequestId uint64
+	PooledTransactionsPacket
 }
 
 // PooledTransactionsPacket is the network packet for transaction distribution, used
@@ -323,8 +323,8 @@ type PooledTransactionsRLPPacket []rlp.RawValue
 
 // PooledTransactionsRLPPacket66 is the eth/66 form of PooledTransactionsRLPPacket
 type PooledTransactionsRLPPacket66 struct {
-    RequestId uint64
-    PooledTransactionsRLPPacket
+	RequestId uint64
+	PooledTransactionsRLPPacket
 }
 
 func (*StatusPacket) Name() string { return "Status" }

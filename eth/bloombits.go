@@ -17,10 +17,10 @@
 package eth
 
 import (
-    "time"
+	"time"
 
-    "github.com/ethereum/go-ethereum/common/bitutil"
-    "github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/clearmatics/autonity/common/bitutil"
+	"github.com/clearmatics/autonity/core/rawdb"
 )
 
 const (

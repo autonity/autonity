@@ -17,14 +17,14 @@
 package pruner
 
 import (
-    "encoding/binary"
-    "errors"
-    "os"
+	"encoding/binary"
+	"errors"
+	"os"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/log"
-    bloomfilter "github.com/holiman/bloomfilter/v2"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/log"
+	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
 
 // stateBloomHasher is a wrapper around a byte blob to satisfy the interface API
@@ -55,7 +55,7 @@ func (f stateBloomHasher) Sum64() uint64                     { return binary.Big
 // After the entire state is generated, the bloom filter should be persisted into
 // the disk. It indicates the whole generation procedure is finished.
 type stateBloom struct {
-    bloom *bloomfilter.Filter
+	bloom *bloomfilter.Filter
 }
 
 // newStateBloomWithSize creates a brand new state bloom for state generation.
@@ -63,61 +63,61 @@ type stateBloom struct {
 // to the https://hur.st/bloomfilter/?n=600000000&p=&m=2048MB&k=4, the parameters
 // are picked so that the false-positive rate for mainnet is low enough.
 func newStateBloomWithSize(size uint64) (*stateBloom, error) {
-    bloom, err := bloomfilter.New(size*1024*1024*8, 4)
-    if err != nil {
-        return nil, err
-    }
-    log.Info("Initialized state bloom", "size", common.StorageSize(float64(bloom.M()/8)))
-    return &stateBloom{bloom: bloom}, nil
+	bloom, err := bloomfilter.New(size*1024*1024*8, 4)
+	if err != nil {
+		return nil, err
+	}
+	log.Info("Initialized state bloom", "size", common.StorageSize(float64(bloom.M()/8)))
+	return &stateBloom{bloom: bloom}, nil
 }
 
 // NewStateBloomFromDisk loads the state bloom from the given file.
 // In this case the assumption is held the bloom filter is complete.
 func NewStateBloomFromDisk(filename string) (*stateBloom, error) {
-    bloom, _, err := bloomfilter.ReadFile(filename)
-    if err != nil {
-        return nil, err
-    }
-    return &stateBloom{bloom: bloom}, nil
+	bloom, _, err := bloomfilter.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return &stateBloom{bloom: bloom}, nil
 }
 
 // Commit flushes the bloom filter content into the disk and marks the bloom
 // as complete.
 func (bloom *stateBloom) Commit(filename, tempname string) error {
-    // Write the bloom out into a temporary file
-    _, err := bloom.bloom.WriteFile(tempname)
-    if err != nil {
-        return err
-    }
-    // Ensure the file is synced to disk
-    f, err := os.OpenFile(tempname, os.O_RDWR, 0666)
-    if err != nil {
-        return err
-    }
-    if err := f.Sync(); err != nil {
-        f.Close()
-        return err
-    }
-    f.Close()
+	// Write the bloom out into a temporary file
+	_, err := bloom.bloom.WriteFile(tempname)
+	if err != nil {
+		return err
+	}
+	// Ensure the file is synced to disk
+	f, err := os.OpenFile(tempname, os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	f.Close()
 
-    // Move the teporary file into it's final location
-    return os.Rename(tempname, filename)
+	// Move the teporary file into it's final location
+	return os.Rename(tempname, filename)
 }
 
 // Put implements the KeyValueWriter interface. But here only the key is needed.
 func (bloom *stateBloom) Put(key []byte, value []byte) error {
-    // If the key length is not 32bytes, ensure it's contract code
-    // entry with new scheme.
-    if len(key) != common.HashLength {
-        isCode, codeKey := rawdb.IsCodeKey(key)
-        if !isCode {
-            return errors.New("invalid entry")
-        }
-        bloom.bloom.Add(stateBloomHasher(codeKey))
-        return nil
-    }
-    bloom.bloom.Add(stateBloomHasher(key))
-    return nil
+	// If the key length is not 32bytes, ensure it's contract code
+	// entry with new scheme.
+	if len(key) != common.HashLength {
+		isCode, codeKey := rawdb.IsCodeKey(key)
+		if !isCode {
+			return errors.New("invalid entry")
+		}
+		bloom.bloom.Add(stateBloomHasher(codeKey))
+		return nil
+	}
+	bloom.bloom.Add(stateBloomHasher(key))
+	return nil
 }
 
 // Delete removes the key from the key-value data store.
@@ -128,5 +128,5 @@ func (bloom *stateBloom) Delete(key []byte) error { panic("not supported") }
 // - If it says yes, the key may be contained
 // - If it says no, the key is definitely not contained.
 func (bloom *stateBloom) Contain(key []byte) (bool, error) {
-    return bloom.bloom.Contains(stateBloomHasher(key)), nil
+	return bloom.bloom.Contains(stateBloomHasher(key)), nil
 }

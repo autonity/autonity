@@ -17,39 +17,39 @@
 package keystore
 
 import (
-    "crypto/aes"
-    "crypto/cipher"
-    "crypto/sha256"
-    "encoding/hex"
-    "encoding/json"
-    "errors"
-    "fmt"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
 
-    "github.com/ethereum/go-ethereum/accounts"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/google/uuid"
-    "golang.org/x/crypto/pbkdf2"
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 // creates a Key and stores that in the given KeyStore by decrypting a presale key JSON
 func importPreSaleKey(keyStore keyStore, keyJSON []byte, password string) (accounts.Account, *Key, error) {
-    key, err := decryptPreSaleKey(keyJSON, password)
-    if err != nil {
-        return accounts.Account{}, nil, err
-    }
-    key.Id, err = uuid.NewRandom()
-    if err != nil {
-        return accounts.Account{}, nil, err
-    }
-    a := accounts.Account{
-        Address: key.Address,
-        URL: accounts.URL{
-            Scheme: KeyStoreScheme,
-            Path:   keyStore.JoinPath(keyFileName(key.Address)),
-        },
-    }
-    err = keyStore.StoreKey(a.URL.Path, key, password)
-    return a, key, err
+	key, err := decryptPreSaleKey(keyJSON, password)
+	if err != nil {
+		return accounts.Account{}, nil, err
+	}
+	key.Id, err = uuid.NewRandom()
+	if err != nil {
+		return accounts.Account{}, nil, err
+	}
+	a := accounts.Account{
+		Address: key.Address,
+		URL: accounts.URL{
+			Scheme: KeyStoreScheme,
+			Path:   keyStore.JoinPath(keyFileName(key.Address)),
+		},
+	}
+	err = keyStore.StoreKey(a.URL.Path, key, password)
+	return a, key, err
 }
 
 func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error) {
@@ -89,10 +89,10 @@ func decryptPreSaleKey(fileContent []byte, password string) (key *Key, err error
 	ecKey := crypto.ToECDSAUnsafe(ethPriv)
 
 	key = &Key{
-        Id:         uuid.UUID{},
-        Address:    crypto.PubkeyToAddress(ecKey.PublicKey),
-        PrivateKey: ecKey,
-    }
+		Id:         uuid.UUID{},
+		Address:    crypto.PubkeyToAddress(ecKey.PublicKey),
+		PrivateKey: ecKey,
+	}
 	derivedAddr := hex.EncodeToString(key.Address.Bytes()) // needed because .Hex() gives leading "0x"
 	expectedAddr := preSaleKeyStruct.EthAddr
 	if derivedAddr != expectedAddr {

@@ -17,17 +17,17 @@
 package native
 
 import (
-    "encoding/json"
-    "math/big"
-    "time"
+	"encoding/json"
+	"math/big"
+	"time"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/vm"
-    "github.com/ethereum/go-ethereum/eth/tracers"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/eth/tracers"
 )
 
 func init() {
-    register("noopTracer", newNoopTracer)
+	register("noopTracer", newNoopTracer)
 }
 
 // noopTracer is a go implementation of the Tracer interface which
@@ -36,7 +36,7 @@ type noopTracer struct{}
 
 // newNoopTracer returns a new noop tracer.
 func newNoopTracer() tracers.Tracer {
-    return &noopTracer{}
+	return &noopTracer{}
 }
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
@@ -66,7 +66,7 @@ func (t *noopTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 
 // GetResult returns an empty json object.
 func (t *noopTracer) GetResult() (json.RawMessage, error) {
-    return json.RawMessage(`{}`), nil
+	return json.RawMessage(`{}`), nil
 }
 
 // Stop terminates execution of the tracer at the first opportune moment.

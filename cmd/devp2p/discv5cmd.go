@@ -17,13 +17,13 @@
 package main
 
 import (
-    "fmt"
-    "time"
+	"fmt"
+	"time"
 
-    "github.com/ethereum/go-ethereum/cmd/devp2p/internal/v5test"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/p2p/discover"
-    "gopkg.in/urfave/cli.v1"
+	"github.com/clearmatics/autonity/cmd/devp2p/internal/v5test"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/p2p/discover"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -56,16 +56,16 @@ var (
 		Flags:  []cli.Flag{bootnodesFlag, crawlTimeoutFlag},
 	}
 	discv5TestCommand = cli.Command{
-        Name:   "test",
-        Usage:  "Runs protocol tests against a node",
-        Action: discv5Test,
-        Flags: []cli.Flag{
-            testPatternFlag,
-            testTAPFlag,
-            testListen1Flag,
-            testListen2Flag,
-        },
-    }
+		Name:   "test",
+		Usage:  "Runs protocol tests against a node",
+		Action: discv5Test,
+		Flags: []cli.Flag{
+			testPatternFlag,
+			testTAPFlag,
+			testListen1Flag,
+			testListen2Flag,
+		},
+	}
 	discv5ListenCommand = cli.Command{
 		Name:   "listen",
 		Usage:  "Runs a node",
@@ -123,7 +123,7 @@ func discv5Test(ctx *cli.Context) error {
 		Listen1: ctx.String(testListen1Flag.Name),
 		Listen2: ctx.String(testListen2Flag.Name),
 	}
-    return runTests(ctx, suite.AllTests())
+	return runTests(ctx, suite.AllTests())
 }
 
 func discv5Listen(ctx *cli.Context) error {

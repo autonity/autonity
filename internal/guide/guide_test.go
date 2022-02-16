@@ -23,16 +23,16 @@
 package guide
 
 import (
-    "io/ioutil"
-    "math/big"
-    "os"
-    "path/filepath"
-    "testing"
-    "time"
+	"io/ioutil"
+	"math/big"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 
-    "github.com/ethereum/go-ethereum/accounts/keystore"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/types"
+	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
 )
 
 // Tests that the account management snippets work correctly.
@@ -66,28 +66,28 @@ func TestAccountManagement(t *testing.T) {
 	if err := ks.Delete(newAcc, "Update password"); err != nil {
 		t.Fatalf("Failed to delete account: %v", err)
 	}
-    // Import back the account we've exported (and then deleted) above with yet
-    // again a fresh passphrase
-    if _, err := ks.Import(jsonAcc, "Export password", "Import password"); err != nil {
-        t.Fatalf("Failed to import account: %v", err)
-    }
-    // Create a new account to sign transactions with
-    signer, err := ks.NewAccount("Signer password")
-    if err != nil {
-        t.Fatalf("Failed to create signer account: %v", err)
-    }
-    tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), nil)
-    chain := big.NewInt(1)
+	// Import back the account we've exported (and then deleted) above with yet
+	// again a fresh passphrase
+	if _, err := ks.Import(jsonAcc, "Export password", "Import password"); err != nil {
+		t.Fatalf("Failed to import account: %v", err)
+	}
+	// Create a new account to sign transactions with
+	signer, err := ks.NewAccount("Signer password")
+	if err != nil {
+		t.Fatalf("Failed to create signer account: %v", err)
+	}
+	tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), nil)
+	chain := big.NewInt(1)
 
-    // Sign a transaction with a single authorization
-    if _, err := ks.SignTxWithPassphrase(signer, "Signer password", tx, chain); err != nil {
-        t.Fatalf("Failed to sign with passphrase: %v", err)
-    }
-    // Sign a transaction with multiple manually cancelled authorizations
-    if err := ks.Unlock(signer, "Signer password"); err != nil {
-        t.Fatalf("Failed to unlock account: %v", err)
-    }
-    if _, err := ks.SignTx(signer, tx, chain); err != nil {
+	// Sign a transaction with a single authorization
+	if _, err := ks.SignTxWithPassphrase(signer, "Signer password", tx, chain); err != nil {
+		t.Fatalf("Failed to sign with passphrase: %v", err)
+	}
+	// Sign a transaction with multiple manually cancelled authorizations
+	if err := ks.Unlock(signer, "Signer password"); err != nil {
+		t.Fatalf("Failed to unlock account: %v", err)
+	}
+	if _, err := ks.SignTx(signer, tx, chain); err != nil {
 		t.Fatalf("Failed to sign with unlocked account: %v", err)
 	}
 	if err := ks.Lock(signer.Address); err != nil {

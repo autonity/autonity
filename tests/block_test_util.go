@@ -18,25 +18,25 @@
 package tests
 
 import (
-    "bytes"
-    "encoding/hex"
-    "encoding/json"
-    "fmt"
-    "math/big"
-    "os"
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"os"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/common/math"
-    "github.com/ethereum/go-ethereum/consensus"
-    "github.com/ethereum/go-ethereum/consensus/ethash"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/core/state"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/core/vm"
-    "github.com/ethereum/go-ethereum/params"
-    "github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/params"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 // A BlockTest checks handling of entire blocks.
@@ -60,10 +60,10 @@ type btJSON struct {
 }
 
 type btBlock struct {
-    BlockHeader     *btHeader
-    ExpectException string
-    Rlp             string
-    UncleHeaders    []*btHeader
+	BlockHeader     *btHeader
+	ExpectException string
+	Rlp             string
+	UncleHeaders    []*btHeader
 }
 
 //go:generate gencodec -type btHeader -field-override btHeaderMarshaling -out gen_btheader.go
@@ -84,18 +84,18 @@ type btHeader struct {
 	Difficulty       *big.Int
 	GasLimit         uint64
 	GasUsed          uint64
-    Timestamp        uint64
-    BaseFeePerGas    *big.Int
+	Timestamp        uint64
+	BaseFeePerGas    *big.Int
 }
 
 type btHeaderMarshaling struct {
-    ExtraData     hexutil.Bytes
-    Number        *math.HexOrDecimal256
-    Difficulty    *math.HexOrDecimal256
-    GasLimit      math.HexOrDecimal64
-    GasUsed       math.HexOrDecimal64
-    Timestamp     math.HexOrDecimal64
-    BaseFeePerGas *math.HexOrDecimal256
+	ExtraData     hexutil.Bytes
+	Number        *math.HexOrDecimal256
+	Difficulty    *math.HexOrDecimal256
+	GasLimit      math.HexOrDecimal64
+	GasUsed       math.HexOrDecimal64
+	Timestamp     math.HexOrDecimal64
+	BaseFeePerGas *math.HexOrDecimal256
 }
 
 func (t *BlockTest) Run(snapshotter bool) error {
@@ -127,7 +127,7 @@ func (t *BlockTest) Run(snapshotter bool) error {
 		cache.SnapshotLimit = 1
 		cache.SnapshotWait = true
 	}
-    chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil, nil)
+	chain, err := core.NewBlockChain(db, cache, config, engine, vm.Config{}, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -150,9 +150,9 @@ func (t *BlockTest) Run(snapshotter bool) error {
 	}
 	// Cross-check the snapshot-to-hash against the trie hash
 	if snapshotter {
-        if err := chain.Snapshots().Verify(chain.CurrentBlock().Root()); err != nil {
-            return err
-        }
+		if err := chain.Snapshots().Verify(chain.CurrentBlock().Root()); err != nil {
+			return err
+		}
 	}
 	return t.validateImportedHeaders(chain, validBlocks)
 }
@@ -160,18 +160,18 @@ func (t *BlockTest) Run(snapshotter bool) error {
 func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
 	return &core.Genesis{
 		Config:     config,
-        Nonce:      t.json.Genesis.Nonce.Uint64(),
-        Timestamp:  t.json.Genesis.Timestamp,
-        ParentHash: t.json.Genesis.ParentHash,
-        ExtraData:  t.json.Genesis.ExtraData,
-        GasLimit:   t.json.Genesis.GasLimit,
-        GasUsed:    t.json.Genesis.GasUsed,
-        Difficulty: t.json.Genesis.Difficulty,
-        Mixhash:    t.json.Genesis.MixHash,
-        Coinbase:   t.json.Genesis.Coinbase,
-        Alloc:      t.json.Pre,
-        BaseFee:    t.json.Genesis.BaseFeePerGas,
-    }
+		Nonce:      t.json.Genesis.Nonce.Uint64(),
+		Timestamp:  t.json.Genesis.Timestamp,
+		ParentHash: t.json.Genesis.ParentHash,
+		ExtraData:  t.json.Genesis.ExtraData,
+		GasLimit:   t.json.Genesis.GasLimit,
+		GasUsed:    t.json.Genesis.GasUsed,
+		Difficulty: t.json.Genesis.Difficulty,
+		Mixhash:    t.json.Genesis.MixHash,
+		Coinbase:   t.json.Genesis.Coinbase,
+		Alloc:      t.json.Pre,
+		BaseFee:    t.json.Genesis.BaseFeePerGas,
+	}
 }
 
 /* See https://github.com/ethereum/tests/wiki/Blockchain-Tests-II
@@ -189,17 +189,17 @@ func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
 func (t *BlockTest) insertBlocks(blockchain *core.BlockChain) ([]btBlock, error) {
 	validBlocks := make([]btBlock, 0)
 	// insert the test blocks, which will execute all transactions
-    for bi, b := range t.json.Blocks {
-        cb, err := b.decode()
-        if err != nil {
-            if b.BlockHeader == nil {
-                continue // OK - block is supposed to be invalid, continue with next block
-            } else {
-                return nil, fmt.Errorf("block RLP decoding failed when expected to succeed: %v", err)
-            }
-        }
-        // RLP decoding worked, try to insert into chain:
-        blocks := types.Blocks{cb}
+	for bi, b := range t.json.Blocks {
+		cb, err := b.decode()
+		if err != nil {
+			if b.BlockHeader == nil {
+				continue // OK - block is supposed to be invalid, continue with next block
+			} else {
+				return nil, fmt.Errorf("block RLP decoding failed when expected to succeed: %v", err)
+			}
+		}
+		// RLP decoding worked, try to insert into chain:
+		blocks := types.Blocks{cb}
 		i, err := blockchain.InsertChain(blocks)
 		if err != nil {
 			if b.BlockHeader == nil {
@@ -209,13 +209,13 @@ func (t *BlockTest) insertBlocks(blockchain *core.BlockChain) ([]btBlock, error)
 			}
 		}
 		if b.BlockHeader == nil {
-            if data, err := json.MarshalIndent(cb.Header(), "", "  "); err == nil {
-                fmt.Fprintf(os.Stderr, "block (index %d) insertion should have failed due to: %v:\n%v\n",
-                    bi, b.ExpectException, string(data))
-            }
-            return nil, fmt.Errorf("block (index %d) insertion should have failed due to: %v",
-                bi, b.ExpectException)
-        }
+			if data, err := json.MarshalIndent(cb.Header(), "", "  "); err == nil {
+				fmt.Fprintf(os.Stderr, "block (index %d) insertion should have failed due to: %v:\n%v\n",
+					bi, b.ExpectException, string(data))
+			}
+			return nil, fmt.Errorf("block (index %d) insertion should have failed due to: %v",
+				bi, b.ExpectException)
+		}
 
 		// validate RLP decoding by checking all values against test file JSON
 		if err = validateHeader(b.BlockHeader, cb.Header()); err != nil {

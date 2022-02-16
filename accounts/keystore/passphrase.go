@@ -28,23 +28,23 @@ package keystore
 import (
 	"bytes"
 	"crypto/aes"
-    "crypto/rand"
-    "crypto/sha256"
-    "encoding/hex"
-    "encoding/json"
-    "fmt"
-    "io"
-    "io/ioutil"
-    "os"
-    "path/filepath"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
-    "github.com/ethereum/go-ethereum/accounts"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/math"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/google/uuid"
-    "golang.org/x/crypto/pbkdf2"
-    "golang.org/x/crypto/scrypt"
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/pbkdf2"
+	"golang.org/x/crypto/scrypt"
 )
 
 const (
@@ -118,11 +118,11 @@ func (ks keyStorePassphrase) StoreKey(filename string, key *Key, auth string) er
 		_, err = ks.GetKey(key.Address, tmpName, auth)
 		if err != nil {
 			msg := "An error was encountered when saving and verifying the keystore file. \n" +
-                "This indicates that the keystore is corrupted. \n" +
-                "The corrupted file is stored at \n%v\n" +
-                "Please file a ticket at:\n\n" +
-                "https://github.com/ethereum/go-ethereum/issues." +
-                "The error was : %s"
+				"This indicates that the keystore is corrupted. \n" +
+				"The corrupted file is stored at \n%v\n" +
+				"Please file a ticket at:\n\n" +
+				"https://github.com/clearmatics/autonity/issues." +
+				"The error was : %s"
 			//lint:ignore ST1005 This is a message for the user
 			return fmt.Errorf(msg, tmpName, err)
 		}
@@ -218,25 +218,25 @@ func DecryptKey(keyjson []byte, auth string) (*Key, error) {
 		keyBytes, keyId, err = decryptKeyV1(k, auth)
 	} else {
 		k := new(encryptedKeyJSONV3)
-        if err := json.Unmarshal(keyjson, k); err != nil {
-            return nil, err
-        }
-        keyBytes, keyId, err = decryptKeyV3(k, auth)
-    }
-    // Handle any decryption errors and return the key
-    if err != nil {
-        return nil, err
-    }
-    key := crypto.ToECDSAUnsafe(keyBytes)
-    id, err := uuid.FromBytes(keyId)
-    if err != nil {
-        return nil, err
-    }
-    return &Key{
-        Id:         id,
-        Address:    crypto.PubkeyToAddress(key.PublicKey),
-        PrivateKey: key,
-    }, nil
+		if err := json.Unmarshal(keyjson, k); err != nil {
+			return nil, err
+		}
+		keyBytes, keyId, err = decryptKeyV3(k, auth)
+	}
+	// Handle any decryption errors and return the key
+	if err != nil {
+		return nil, err
+	}
+	key := crypto.ToECDSAUnsafe(keyBytes)
+	id, err := uuid.FromBytes(keyId)
+	if err != nil {
+		return nil, err
+	}
+	return &Key{
+		Id:         id,
+		Address:    crypto.PubkeyToAddress(key.PublicKey),
+		PrivateKey: key,
+	}, nil
 }
 
 func DecryptDataV3(cryptoJson CryptoJSON, auth string) ([]byte, error) {
@@ -276,36 +276,36 @@ func DecryptDataV3(cryptoJson CryptoJSON, auth string) ([]byte, error) {
 }
 
 func decryptKeyV3(keyProtected *encryptedKeyJSONV3, auth string) (keyBytes []byte, keyId []byte, err error) {
-    if keyProtected.Version != version {
-        return nil, nil, fmt.Errorf("version not supported: %v", keyProtected.Version)
-    }
-    keyUUID, err := uuid.Parse(keyProtected.Id)
-    if err != nil {
-        return nil, nil, err
-    }
-    keyId = keyUUID[:]
-    plainText, err := DecryptDataV3(keyProtected.Crypto, auth)
-    if err != nil {
-        return nil, nil, err
-    }
-    return plainText, keyId, err
+	if keyProtected.Version != version {
+		return nil, nil, fmt.Errorf("version not supported: %v", keyProtected.Version)
+	}
+	keyUUID, err := uuid.Parse(keyProtected.Id)
+	if err != nil {
+		return nil, nil, err
+	}
+	keyId = keyUUID[:]
+	plainText, err := DecryptDataV3(keyProtected.Crypto, auth)
+	if err != nil {
+		return nil, nil, err
+	}
+	return plainText, keyId, err
 }
 
 func decryptKeyV1(keyProtected *encryptedKeyJSONV1, auth string) (keyBytes []byte, keyId []byte, err error) {
-    keyUUID, err := uuid.Parse(keyProtected.Id)
-    if err != nil {
-        return nil, nil, err
-    }
-    keyId = keyUUID[:]
-    mac, err := hex.DecodeString(keyProtected.Crypto.MAC)
-    if err != nil {
-        return nil, nil, err
-    }
+	keyUUID, err := uuid.Parse(keyProtected.Id)
+	if err != nil {
+		return nil, nil, err
+	}
+	keyId = keyUUID[:]
+	mac, err := hex.DecodeString(keyProtected.Crypto.MAC)
+	if err != nil {
+		return nil, nil, err
+	}
 
-    iv, err := hex.DecodeString(keyProtected.Crypto.CipherParams.IV)
-    if err != nil {
-        return nil, nil, err
-    }
+	iv, err := hex.DecodeString(keyProtected.Crypto.CipherParams.IV)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	cipherText, err := hex.DecodeString(keyProtected.Crypto.CipherText)
 	if err != nil {

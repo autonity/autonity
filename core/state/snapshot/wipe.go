@@ -17,13 +17,13 @@
 package snapshot
 
 import (
-    "bytes"
-    "time"
+	"bytes"
+	"time"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/ethdb"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/metrics"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/ethdb"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 )
 
 // wipeKeyRange deletes a range of keys from the database starting with prefix
@@ -32,60 +32,60 @@ import (
 //
 // Origin is included for wiping and limit is excluded if they are specified.
 func wipeKeyRange(db ethdb.KeyValueStore, kind string, prefix []byte, origin []byte, limit []byte, keylen int, meter metrics.Meter, report bool) error {
-    // Batch deletions together to avoid holding an iterator for too long
-    var (
-        batch = db.NewBatch()
-        items int
-    )
-    // Iterate over the key-range and delete all of them
-    start, logged := time.Now(), time.Now()
+	// Batch deletions together to avoid holding an iterator for too long
+	var (
+		batch = db.NewBatch()
+		items int
+	)
+	// Iterate over the key-range and delete all of them
+	start, logged := time.Now(), time.Now()
 
-    it := db.NewIterator(prefix, origin)
-    var stop []byte
-    if limit != nil {
-        stop = append(prefix, limit...)
-    }
-    for it.Next() {
-        // Skip any keys with the correct prefix but wrong length (trie nodes)
-        key := it.Key()
-        if !bytes.HasPrefix(key, prefix) {
-            break
-        }
-        if len(key) != keylen {
-            continue
-        }
-        if stop != nil && bytes.Compare(key, stop) >= 0 {
-            break
-        }
-        // Delete the key and periodically recreate the batch and iterator
-        batch.Delete(key)
-        items++
+	it := db.NewIterator(prefix, origin)
+	var stop []byte
+	if limit != nil {
+		stop = append(prefix, limit...)
+	}
+	for it.Next() {
+		// Skip any keys with the correct prefix but wrong length (trie nodes)
+		key := it.Key()
+		if !bytes.HasPrefix(key, prefix) {
+			break
+		}
+		if len(key) != keylen {
+			continue
+		}
+		if stop != nil && bytes.Compare(key, stop) >= 0 {
+			break
+		}
+		// Delete the key and periodically recreate the batch and iterator
+		batch.Delete(key)
+		items++
 
-        if items%10000 == 0 {
-            // Batch too large (or iterator too long lived, flush and recreate)
-            it.Release()
-            if err := batch.Write(); err != nil {
-                return err
-            }
+		if items%10000 == 0 {
+			// Batch too large (or iterator too long lived, flush and recreate)
+			it.Release()
+			if err := batch.Write(); err != nil {
+				return err
+			}
 			batch.Reset()
 			seekPos := key[len(prefix):]
 			it = db.NewIterator(prefix, seekPos)
 
-            if time.Since(logged) > 8*time.Second && report {
-                log.Info("Deleting state snapshot leftovers", "kind", kind, "wiped", items, "elapsed", common.PrettyDuration(time.Since(start)))
-                logged = time.Now()
-            }
-        }
-    }
-    it.Release()
-    if err := batch.Write(); err != nil {
-        return err
-    }
-    if meter != nil {
-        meter.Mark(int64(items))
-    }
-    if report {
-        log.Info("Deleted state snapshot leftovers", "kind", kind, "wiped", items, "elapsed", common.PrettyDuration(time.Since(start)))
-    }
-    return nil
+			if time.Since(logged) > 8*time.Second && report {
+				log.Info("Deleting state snapshot leftovers", "kind", kind, "wiped", items, "elapsed", common.PrettyDuration(time.Since(start)))
+				logged = time.Now()
+			}
+		}
+	}
+	it.Release()
+	if err := batch.Write(); err != nil {
+		return err
+	}
+	if meter != nil {
+		meter.Mark(int64(items))
+	}
+	if report {
+		log.Info("Deleted state snapshot leftovers", "kind", kind, "wiped", items, "elapsed", common.PrettyDuration(time.Since(start)))
+	}
+	return nil
 }

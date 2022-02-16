@@ -17,20 +17,19 @@
 package filters
 
 import (
-    "context"
-    "encoding/json"
-    "errors"
-    "fmt"
-    "math/big"
-    "sync"
-    "time"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math/big"
+	"sync"
+	"time"
 
-    "github.com/ethereum/go-ethereum"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/event"
-    "github.com/ethereum/go-ethereum/rpc"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/rpc"
 )
 
 // filter is a helper struct that holds meta information over the filter type
@@ -52,51 +51,51 @@ type PublicFilterAPI struct {
 	quit      chan struct{}
 	events    *EventSystem
 	filtersMu sync.Mutex
-    filters   map[rpc.ID]*filter
-    timeout   time.Duration
+	filters   map[rpc.ID]*filter
+	timeout   time.Duration
 }
 
 // NewPublicFilterAPI returns a new PublicFilterAPI instance.
 func NewPublicFilterAPI(backend Backend, lightMode bool, timeout time.Duration) *PublicFilterAPI {
-    api := &PublicFilterAPI{
-        backend: backend,
-        events:  NewEventSystem(backend, lightMode),
-        filters: make(map[rpc.ID]*filter),
-        timeout: timeout,
-    }
-    go api.timeoutLoop(timeout)
+	api := &PublicFilterAPI{
+		backend: backend,
+		events:  NewEventSystem(backend, lightMode),
+		filters: make(map[rpc.ID]*filter),
+		timeout: timeout,
+	}
+	go api.timeoutLoop(timeout)
 
-    return api
+	return api
 }
 
 // timeoutLoop runs at the interval set by 'timeout' and deletes filters
 // that have not been recently used. It is started when the API is created.
 func (api *PublicFilterAPI) timeoutLoop(timeout time.Duration) {
-    var toUninstall []*Subscription
-    ticker := time.NewTicker(timeout)
-    defer ticker.Stop()
-    for {
-        <-ticker.C
-        api.filtersMu.Lock()
-        for id, f := range api.filters {
-            select {
-            case <-f.deadline.C:
-                toUninstall = append(toUninstall, f.s)
-                delete(api.filters, id)
-            default:
-                continue
-            }
-        }
-        api.filtersMu.Unlock()
+	var toUninstall []*Subscription
+	ticker := time.NewTicker(timeout)
+	defer ticker.Stop()
+	for {
+		<-ticker.C
+		api.filtersMu.Lock()
+		for id, f := range api.filters {
+			select {
+			case <-f.deadline.C:
+				toUninstall = append(toUninstall, f.s)
+				delete(api.filters, id)
+			default:
+				continue
+			}
+		}
+		api.filtersMu.Unlock()
 
-        // Unsubscribes are processed outside the lock to avoid the following scenario:
-        // event loop attempts broadcasting events to still active filters while
-        // Unsubscribe is waiting for it to process the uninstall request.
-        for _, s := range toUninstall {
-            s.Unsubscribe()
-        }
-        toUninstall = nil
-    }
+		// Unsubscribes are processed outside the lock to avoid the following scenario:
+		// event loop attempts broadcasting events to still active filters while
+		// Unsubscribe is waiting for it to process the uninstall request.
+		for _, s := range toUninstall {
+			s.Unsubscribe()
+		}
+		toUninstall = nil
+	}
 }
 
 // NewPendingTransactionFilter creates a filter that fetches pending transaction hashes
@@ -113,7 +112,7 @@ func (api *PublicFilterAPI) NewPendingTransactionFilter() rpc.ID {
 	)
 
 	api.filtersMu.Lock()
-    api.filters[pendingTxSub.ID] = &filter{typ: PendingTransactionsSubscription, deadline: time.NewTimer(api.timeout), hashes: make([]common.Hash, 0), s: pendingTxSub}
+	api.filters[pendingTxSub.ID] = &filter{typ: PendingTransactionsSubscription, deadline: time.NewTimer(api.timeout), hashes: make([]common.Hash, 0), s: pendingTxSub}
 	api.filtersMu.Unlock()
 
 	go func() {
@@ -183,7 +182,7 @@ func (api *PublicFilterAPI) NewBlockFilter() rpc.ID {
 	)
 
 	api.filtersMu.Lock()
-    api.filters[headerSub.ID] = &filter{typ: BlocksSubscription, deadline: time.NewTimer(api.timeout), hashes: make([]common.Hash, 0), s: headerSub}
+	api.filters[headerSub.ID] = &filter{typ: BlocksSubscription, deadline: time.NewTimer(api.timeout), hashes: make([]common.Hash, 0), s: headerSub}
 	api.filtersMu.Unlock()
 
 	go func() {
@@ -296,11 +295,11 @@ func (api *PublicFilterAPI) NewFilter(crit FilterCriteria) (rpc.ID, error) {
 	logs := make(chan []*types.Log)
 	logsSub, err := api.events.SubscribeLogs(ethereum.FilterQuery(crit), logs)
 	if err != nil {
-        return "", err
+		return "", err
 	}
 
 	api.filtersMu.Lock()
-    api.filters[logsSub.ID] = &filter{typ: LogsSubscription, crit: crit, deadline: time.NewTimer(api.timeout), logs: make([]*types.Log, 0), s: logsSub}
+	api.filters[logsSub.ID] = &filter{typ: LogsSubscription, crit: crit, deadline: time.NewTimer(api.timeout), logs: make([]*types.Log, 0), s: logsSub}
 	api.filtersMu.Unlock()
 
 	go func() {
@@ -425,7 +424,7 @@ func (api *PublicFilterAPI) GetFilterChanges(id rpc.ID) (interface{}, error) {
 			// receive timer value and reset timer
 			<-f.deadline.C
 		}
-        f.deadline.Reset(api.timeout)
+		f.deadline.Reset(api.timeout)
 
 		switch f.typ {
 		case PendingTransactionsSubscription, BlocksSubscription:

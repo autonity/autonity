@@ -26,6 +26,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
 	"github.com/clearmatics/autonity/core/types"
@@ -34,42 +35,49 @@ import (
 )
 
 type Chain struct {
-    genesis     core.Genesis
-    blocks      []*types.Block
-    chainConfig *params.ChainConfig
+	genesis     core.Genesis
+	blocks      []*types.Block
+	chainConfig *params.ChainConfig
 }
 
 // Len returns the length of the chain.
 func (c *Chain) Len() int {
-    return len(c.blocks)
+	return len(c.blocks)
 }
 
 // TD calculates the total difficulty of the chain at the
 // chain head.
 func (c *Chain) TD() *big.Int {
-    sum := big.NewInt(0)
-    for _, block := range c.blocks[:c.Len()] {
-        sum.Add(sum, block.Difficulty())
-    }
-    return sum
+	sum := big.NewInt(0)
+	for _, block := range c.blocks[:c.Len()] {
+		sum.Add(sum, block.Difficulty())
+	}
+	return sum
 }
 
 // TotalDifficultyAt calculates the total difficulty of the chain
 // at the given block height.
 func (c *Chain) TotalDifficultyAt(height int) *big.Int {
-    sum := big.NewInt(0)
-    if height >= c.Len() {
-        return sum
-    }
-    for _, block := range c.blocks[:height+1] {
-        sum.Add(sum, block.Difficulty())
-    }
-    return sum
+	sum := big.NewInt(0)
+	if height >= c.Len() {
+		return sum
+	}
+	for _, block := range c.blocks[:height+1] {
+		sum.Add(sum, block.Difficulty())
+	}
+	return sum
+}
+
+func (c *Chain) RootAt(height int) common.Hash {
+	if height < c.Len() {
+		return c.blocks[height].Root()
+	}
+	return common.Hash{}
 }
 
 // ForkID gets the fork id of the chain.
 func (c *Chain) ForkID() forkid.ID {
-    return forkid.NewID(c.chainConfig, c.blocks[0].Hash(), uint64(c.Len()))
+	return forkid.NewID(c.chainConfig, c.blocks[0].Hash(), uint64(c.Len()))
 }
 
 // Shorten returns a copy chain of a desired height from the imported
@@ -119,70 +127,70 @@ func (c *Chain) GetHeaders(req GetBlockHeaders) (BlockHeaders, error) {
 	}
 
 	for i := 1; i < int(req.Amount); i++ {
-        blockNumber += (1 + req.Skip)
-        headers[i] = c.blocks[blockNumber].Header()
-    }
+		blockNumber += (1 + req.Skip)
+		headers[i] = c.blocks[blockNumber].Header()
+	}
 
-    return headers, nil
+	return headers, nil
 }
 
 // loadChain takes the given chain.rlp file, and decodes and returns
 // the blocks from the file.
 func loadChain(chainfile string, genesis string) (*Chain, error) {
-    gen, err := loadGenesis(genesis)
-    if err != nil {
-        return nil, err
-    }
-    gblock := gen.ToBlock(nil)
+	gen, err := loadGenesis(genesis)
+	if err != nil {
+		return nil, err
+	}
+	gblock := gen.ToBlock(nil)
 
-    blocks, err := blocksFromFile(chainfile, gblock)
-    if err != nil {
-        return nil, err
-    }
+	blocks, err := blocksFromFile(chainfile, gblock)
+	if err != nil {
+		return nil, err
+	}
 
-    c := &Chain{genesis: gen, blocks: blocks, chainConfig: gen.Config}
-    return c, nil
+	c := &Chain{genesis: gen, blocks: blocks, chainConfig: gen.Config}
+	return c, nil
 }
 
 func loadGenesis(genesisFile string) (core.Genesis, error) {
-    chainConfig, err := ioutil.ReadFile(genesisFile)
-    if err != nil {
-        return core.Genesis{}, err
-    }
-    var gen core.Genesis
-    if err := json.Unmarshal(chainConfig, &gen); err != nil {
-        return core.Genesis{}, err
-    }
-    return gen, nil
+	chainConfig, err := ioutil.ReadFile(genesisFile)
+	if err != nil {
+		return core.Genesis{}, err
+	}
+	var gen core.Genesis
+	if err := json.Unmarshal(chainConfig, &gen); err != nil {
+		return core.Genesis{}, err
+	}
+	return gen, nil
 }
 
 func blocksFromFile(chainfile string, gblock *types.Block) ([]*types.Block, error) {
-    // Load chain.rlp.
-    fh, err := os.Open(chainfile)
-    if err != nil {
-        return nil, err
-    }
-    defer fh.Close()
-    var reader io.Reader = fh
-    if strings.HasSuffix(chainfile, ".gz") {
-        if reader, err = gzip.NewReader(reader); err != nil {
-            return nil, err
-        }
-    }
-    stream := rlp.NewStream(reader, 0)
-    var blocks = make([]*types.Block, 1)
-    blocks[0] = gblock
-    for i := 0; ; i++ {
-        var b types.Block
-        if err := stream.Decode(&b); err == io.EOF {
-            break
-        } else if err != nil {
-            return nil, fmt.Errorf("at block index %d: %v", i, err)
-        }
-        if b.NumberU64() != uint64(i+1) {
-            return nil, fmt.Errorf("block at index %d has wrong number %d", i, b.NumberU64())
-        }
-        blocks = append(blocks, &b)
-    }
-    return blocks, nil
+	// Load chain.rlp.
+	fh, err := os.Open(chainfile)
+	if err != nil {
+		return nil, err
+	}
+	defer fh.Close()
+	var reader io.Reader = fh
+	if strings.HasSuffix(chainfile, ".gz") {
+		if reader, err = gzip.NewReader(reader); err != nil {
+			return nil, err
+		}
+	}
+	stream := rlp.NewStream(reader, 0)
+	var blocks = make([]*types.Block, 1)
+	blocks[0] = gblock
+	for i := 0; ; i++ {
+		var b types.Block
+		if err := stream.Decode(&b); err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("at block index %d: %v", i, err)
+		}
+		if b.NumberU64() != uint64(i+1) {
+			return nil, fmt.Errorf("block at index %d has wrong number %d", i, b.NumberU64())
+		}
+		blocks = append(blocks, &b)
+	}
+	return blocks, nil
 }

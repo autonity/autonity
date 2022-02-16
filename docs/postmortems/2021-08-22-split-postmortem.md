@@ -9,7 +9,7 @@ block [13107518](https://etherscan.io/block/13107518), at which a minority chain
   discussed.
 - 2021-08-18: Made public announcement over twitter about upcoming security release upcoming Tuesday. Downstream
   projects were also notified about the upcoming patch-release.
-- 2021-08-24: Released [v1.10.8](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.8) containing the fix on
+- 2021-08-24: Released [v1.10.8](https://github.com/clearmatics/autonity/releases/tag/v1.10.8) containing the fix on
   Tuesday morning (CET). Erigon released [v2021.08.04](https://github.com/ledgerwatch/erigon/releases/tag/v2021.08.04).
 - 2021-08-27: At 12:50:07 UTC, issue exploited. Analysis started roughly 30m later,
 
@@ -77,7 +77,7 @@ implemented `ETH66` would be cut off from the network. After further discussions
   downstream projects.
 - Temporarily revert the `ETH65`-removal.
 - Place the fix into the PR optimizing the jumpdest
-  analysis [233381](https://github.com/ethereum/go-ethereum/pull/23381).
+  analysis [233381](https://github.com/clearmatics/autonity/pull/23381).
 - After 4-8 weeks, release details about the vulnerability.
 
 ## Exploit

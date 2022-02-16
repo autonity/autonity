@@ -18,31 +18,31 @@ package les
 
 import (
 	"context"
-    "errors"
-    "flag"
-    "io/ioutil"
-    "math/rand"
-    "os"
-    "sync"
-    "sync/atomic"
-    "testing"
-    "time"
+	"errors"
+	"flag"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    "github.com/ethereum/go-ethereum/consensus/ethash"
-    "github.com/ethereum/go-ethereum/eth"
-    ethdownloader "github.com/ethereum/go-ethereum/eth/downloader"
-    "github.com/ethereum/go-ethereum/eth/ethconfig"
-    "github.com/ethereum/go-ethereum/les/downloader"
-    "github.com/ethereum/go-ethereum/les/flowcontrol"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/node"
-    "github.com/ethereum/go-ethereum/p2p/enode"
-    "github.com/ethereum/go-ethereum/p2p/simulations"
-    "github.com/ethereum/go-ethereum/p2p/simulations/adapters"
-    "github.com/ethereum/go-ethereum/rpc"
-    "github.com/mattn/go-colorable"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/eth"
+	ethdownloader "github.com/clearmatics/autonity/eth/downloader"
+	"github.com/clearmatics/autonity/eth/ethconfig"
+	"github.com/clearmatics/autonity/les/downloader"
+	"github.com/clearmatics/autonity/les/flowcontrol"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/node"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/p2p/simulations"
+	"github.com/clearmatics/autonity/p2p/simulations/adapters"
+	"github.com/clearmatics/autonity/rpc"
+	"github.com/mattn/go-colorable"
 )
 
 // Additional command line flags for the test binary.
@@ -494,24 +494,24 @@ func testSim(t *testing.T, serverCount, clientCount int, serverDir, clientDir []
 }
 
 func newLesClientService(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
-    config := ethconfig.Defaults
-    config.SyncMode = (ethdownloader.SyncMode)(downloader.LightSync)
-    config.Ethash.PowMode = ethash.ModeFake
-    return New(stack, &config)
+	config := ethconfig.Defaults
+	config.SyncMode = (ethdownloader.SyncMode)(downloader.LightSync)
+	config.Ethash.PowMode = ethash.ModeFake
+	return New(stack, &config)
 }
 
 func newLesServerService(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
-    config := ethconfig.Defaults
-    config.SyncMode = (ethdownloader.SyncMode)(downloader.FullSync)
-    config.LightServ = testServerCapacity
-    config.LightPeers = testMaxClients
-    ethereum, err := eth.New(stack, &config)
-    if err != nil {
-        return nil, err
-    }
-    _, err = NewLesServer(stack, ethereum, &config)
-    if err != nil {
-        return nil, err
-    }
+	config := ethconfig.Defaults
+	config.SyncMode = (ethdownloader.SyncMode)(downloader.FullSync)
+	config.LightServ = testServerCapacity
+	config.LightPeers = testMaxClients
+	ethereum, err := eth.New(stack, &config)
+	if err != nil {
+		return nil, err
+	}
+	_, err = NewLesServer(stack, ethereum, &config)
+	if err != nil {
+		return nil, err
+	}
 	return ethereum, nil
 }

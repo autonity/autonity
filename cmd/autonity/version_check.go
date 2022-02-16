@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/clearmatics/autonity/log"
 	"gopkg.in/urfave/cli.v1"
 )
 

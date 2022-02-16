@@ -36,6 +36,7 @@ var (
 		Subcommands: []cli.Command{
 			rlpxPingCommand,
 			rlpxEthTestCommand,
+			rlpxSnapTestCommand,
 		},
 	}
 	rlpxPingCommand = cli.Command{
@@ -44,15 +45,25 @@ var (
 		Action: rlpxPing,
 	}
 	rlpxEthTestCommand = cli.Command{
-        Name:      "eth-test",
-        Usage:     "Runs tests against a node",
-        ArgsUsage: "<node> <chain.rlp> <genesis.json>",
-        Action:    rlpxEthTest,
-        Flags: []cli.Flag{
-            testPatternFlag,
-            testTAPFlag,
-        },
-    }
+		Name:      "eth-test",
+		Usage:     "Runs tests against a node",
+		ArgsUsage: "<node> <chain.rlp> <genesis.json>",
+		Action:    rlpxEthTest,
+		Flags: []cli.Flag{
+			testPatternFlag,
+			testTAPFlag,
+		},
+	}
+	rlpxSnapTestCommand = cli.Command{
+		Name:      "snap-test",
+		Usage:     "Runs tests against a node",
+		ArgsUsage: "<node> <chain.rlp> <genesis.json>",
+		Action:    rlpxSnapTest,
+		Flags: []cli.Flag{
+			testPatternFlag,
+			testTAPFlag,
+		},
+	}
 )
 
 func rlpxPing(ctx *cli.Context) error {
@@ -92,17 +103,29 @@ func rlpxPing(ctx *cli.Context) error {
 
 // rlpxEthTest runs the eth protocol test suite.
 func rlpxEthTest(ctx *cli.Context) error {
-    if ctx.NArg() < 3 {
-        exit("missing path to chain.rlp as command-line argument")
-    }
-    suite, err := ethtest.NewSuite(getNodeArg(ctx), ctx.Args()[1], ctx.Args()[2])
-    if err != nil {
-        exit(err)
-    }
-    // check if given node supports eth66, and if so, run eth66 protocol tests as well
-    is66Failed, _ := utesting.Run(utesting.Test{Name: "Is_66", Fn: suite.Is_66})
-    if is66Failed {
-        return runTests(ctx, suite.EthTests())
-    }
-    return runTests(ctx, suite.AllEthTests())
+	if ctx.NArg() < 3 {
+		exit("missing path to chain.rlp as command-line argument")
+	}
+	suite, err := ethtest.NewSuite(getNodeArg(ctx), ctx.Args()[1], ctx.Args()[2])
+	if err != nil {
+		exit(err)
+	}
+	// check if given node supports eth66, and if so, run eth66 protocol tests as well
+	is66Failed, _ := utesting.Run(utesting.Test{Name: "Is_66", Fn: suite.Is_66})
+	if is66Failed {
+		return runTests(ctx, suite.EthTests())
+	}
+	return runTests(ctx, suite.AllEthTests())
+}
+
+// rlpxSnapTest runs the snap protocol test suite.
+func rlpxSnapTest(ctx *cli.Context) error {
+	if ctx.NArg() < 3 {
+		exit("missing path to chain.rlp as command-line argument")
+	}
+	suite, err := ethtest.NewSuite(getNodeArg(ctx), ctx.Args()[1], ctx.Args()[2])
+	if err != nil {
+		exit(err)
+	}
+	return runTests(ctx, suite.SnapTests())
 }

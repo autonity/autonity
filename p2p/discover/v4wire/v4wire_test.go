@@ -17,14 +17,14 @@
 package v4wire
 
 import (
-    "encoding/hex"
-    "net"
-    "reflect"
-    "testing"
+	"encoding/hex"
+	"net"
+	"reflect"
+	"testing"
 
-    "github.com/davecgh/go-spew/spew"
-    "github.com/ethereum/go-ethereum/crypto"
-    "github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/crypto"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // EIP-8 test vectors.
@@ -44,13 +44,13 @@ var testPackets = []struct {
 	{
 		input: "e9614ccfd9fc3e74360018522d30e1419a143407ffcce748de3e22116b7e8dc92ff74788c0b6663aaa3d67d641936511c8f8d6ad8698b820a7cf9e1be7155e9a241f556658c55428ec0563514365799a4be2be5a685a80971ddcfa80cb422cdd0101ec04cb847f000001820cfa8215a8d790000000000000000000000000000000018208ae820d058443b9a3550102",
 		wantPacket: &Ping{
-            Version:    4,
-            From:       Endpoint{net.ParseIP("127.0.0.1").To4(), 3322, 5544},
-            To:         Endpoint{net.ParseIP("::1"), 2222, 3333},
-            Expiration: 1136239445,
-            ENRSeq:     1,
-            Rest:       []rlp.RawValue{{0x02}},
-        },
+			Version:    4,
+			From:       Endpoint{net.ParseIP("127.0.0.1").To4(), 3322, 5544},
+			To:         Endpoint{net.ParseIP("::1"), 2222, 3333},
+			Expiration: 1136239445,
+			ENRSeq:     1,
+			Rest:       []rlp.RawValue{{0x02}},
+		},
 	},
 	{
 		input: "c7c44041b9f7c7e41934417ebac9a8e1a4c6298f74553f2fcfdcae6ed6fe53163eb3d2b52e39fe91831b8a927bf4fc222c3902202027e5e9eb812195f95d20061ef5cd31d502e47ecb61183f74a504fe04c51e73df81f25c4d506b26db4517490103f84eb840ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd31387574077f301b421bc84df7266c44e9e6d569fc56be00812904767bf5ccd1fc7f8443b9a35582999983999999280dc62cc8255c73471e0a61da0c89acdc0e035e260add7fc0c04ad9ebf3919644c91cb247affc82b69bd2ca235c71eab8e49737c937a2c396",

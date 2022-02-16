@@ -19,13 +19,13 @@
 package main
 
 import (
-    "io"
-    "sort"
+	"io"
+	"sort"
 
-    "github.com/ethereum/go-ethereum/cmd/utils"
-    "github.com/ethereum/go-ethereum/internal/debug"
-    "github.com/ethereum/go-ethereum/internal/flags"
-    "gopkg.in/urfave/cli.v1"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/internal/debug"
+	"github.com/clearmatics/autonity/internal/flags"
+	"gopkg.in/urfave/cli.v1"
 )
 
 // AppHelpFlagGroups is the application flags, grouped by functionality.
@@ -33,38 +33,38 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 	{
 		Name: "ETHEREUM",
 		Flags: []cli.Flag{
-            configFileFlag,
-            utils.InitGenesisFlag,
-            utils.DataDirFlag,
-            utils.AncientFlag,
-            utils.MinFreeDiskSpaceFlag,
-            utils.KeyStoreDirFlag,
-            utils.USBFlag,
-            utils.SmartCardDaemonPathFlag,
-            utils.NetworkIdFlag,
-            utils.SyncModeFlag,
-            utils.ExitWhenSyncedFlag,
-            utils.GCModeFlag,
-            utils.TxLookupLimitFlag,
-            utils.EthStatsURLFlag,
-            utils.IdentityFlag,
-            utils.LightKDFFlag,
-            utils.WhitelistFlag,
+			configFileFlag,
+			utils.InitGenesisFlag,
+			utils.DataDirFlag,
+			utils.AncientFlag,
+			utils.MinFreeDiskSpaceFlag,
+			utils.KeyStoreDirFlag,
+			utils.USBFlag,
+			utils.SmartCardDaemonPathFlag,
+			utils.NetworkIdFlag,
+			utils.SyncModeFlag,
+			utils.ExitWhenSyncedFlag,
+			utils.GCModeFlag,
+			utils.TxLookupLimitFlag,
+			utils.EthStatsURLFlag,
+			utils.IdentityFlag,
+			utils.LightKDFFlag,
+			utils.WhitelistFlag,
 		},
 	},
 	{
 		Name: "LIGHT CLIENT",
 		Flags: []cli.Flag{
-            utils.LightServeFlag,
-            utils.LightIngressFlag,
-            utils.LightEgressFlag,
-            utils.LightMaxPeersFlag,
-            utils.UltraLightServersFlag,
-            utils.UltraLightFractionFlag,
-            utils.UltraLightOnlyAnnounceFlag,
-            utils.LightNoPruneFlag,
-            utils.LightNoSyncServeFlag,
-        },
+			utils.LightServeFlag,
+			utils.LightIngressFlag,
+			utils.LightEgressFlag,
+			utils.LightMaxPeersFlag,
+			utils.UltraLightServersFlag,
+			utils.UltraLightFractionFlag,
+			utils.UltraLightOnlyAnnounceFlag,
+			utils.LightNoPruneFlag,
+			utils.LightNoSyncServeFlag,
+		},
 	},
 	{
 		Name: "TRANSACTION POOL",
@@ -85,16 +85,16 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 	{
 		Name: "PERFORMANCE TUNING",
 		Flags: []cli.Flag{
-            utils.CacheFlag,
-            utils.CacheDatabaseFlag,
-            utils.CacheTrieFlag,
-            utils.CacheTrieJournalFlag,
-            utils.CacheTrieRejournalFlag,
-            utils.CacheGCFlag,
-            utils.CacheSnapshotFlag,
-            utils.CacheNoPrefetchFlag,
-            utils.CachePreimagesFlag,
-        },
+			utils.CacheFlag,
+			utils.CacheDatabaseFlag,
+			utils.CacheTrieFlag,
+			utils.CacheTrieJournalFlag,
+			utils.CacheTrieRejournalFlag,
+			utils.CacheGCFlag,
+			utils.CacheSnapshotFlag,
+			utils.CacheNoPrefetchFlag,
+			utils.CachePreimagesFlag,
+		},
 	},
 	{
 		Name: "ACCOUNT",
@@ -108,32 +108,32 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 	{
 		Name: "API AND CONSOLE",
 		Flags: []cli.Flag{
-            utils.IPCDisabledFlag,
-            utils.IPCPathFlag,
-            utils.HTTPEnabledFlag,
-            utils.HTTPListenAddrFlag,
-            utils.HTTPPortFlag,
-            utils.HTTPApiFlag,
-            utils.HTTPPathPrefixFlag,
-            utils.HTTPCORSDomainFlag,
-            utils.HTTPVirtualHostsFlag,
-            utils.WSEnabledFlag,
-            utils.WSListenAddrFlag,
-            utils.WSPortFlag,
-            utils.WSApiFlag,
-            utils.WSPathPrefixFlag,
-            utils.WSAllowedOriginsFlag,
-            utils.GraphQLEnabledFlag,
-            utils.GraphQLCORSDomainFlag,
-            utils.GraphQLVirtualHostsFlag,
-            utils.RPCGlobalGasCapFlag,
-            utils.RPCGlobalEVMTimeoutFlag,
-            utils.RPCGlobalTxFeeCapFlag,
-            utils.AllowUnprotectedTxs,
-            utils.JSpathFlag,
-            utils.ExecFlag,
-            utils.PreloadJSFlag,
-        },
+			utils.IPCDisabledFlag,
+			utils.IPCPathFlag,
+			utils.HTTPEnabledFlag,
+			utils.HTTPListenAddrFlag,
+			utils.HTTPPortFlag,
+			utils.HTTPApiFlag,
+			utils.HTTPPathPrefixFlag,
+			utils.HTTPCORSDomainFlag,
+			utils.HTTPVirtualHostsFlag,
+			utils.WSEnabledFlag,
+			utils.WSListenAddrFlag,
+			utils.WSPortFlag,
+			utils.WSApiFlag,
+			utils.WSPathPrefixFlag,
+			utils.WSAllowedOriginsFlag,
+			utils.GraphQLEnabledFlag,
+			utils.GraphQLCORSDomainFlag,
+			utils.GraphQLVirtualHostsFlag,
+			utils.RPCGlobalGasCapFlag,
+			utils.RPCGlobalEVMTimeoutFlag,
+			utils.RPCGlobalTxFeeCapFlag,
+			utils.AllowUnprotectedTxs,
+			utils.JSpathFlag,
+			utils.ExecFlag,
+			utils.PreloadJSFlag,
+		},
 	},
 	{
 		Name: "NETWORKING",
@@ -154,26 +154,26 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 	{
 		Name: "MINER",
 		Flags: []cli.Flag{
-            utils.MiningEnabledFlag,
-            utils.MinerThreadsFlag,
-            utils.MinerNotifyFlag,
-            utils.MinerNotifyFullFlag,
-            utils.MinerGasPriceFlag,
-            utils.MinerGasLimitFlag,
-            utils.MinerEtherbaseFlag,
-            utils.MinerExtraDataFlag,
-            utils.MinerRecommitIntervalFlag,
-            utils.MinerNoVerifyFlag,
-        },
+			utils.MiningEnabledFlag,
+			utils.MinerThreadsFlag,
+			utils.MinerNotifyFlag,
+			utils.MinerNotifyFullFlag,
+			utils.MinerGasPriceFlag,
+			utils.MinerGasLimitFlag,
+			utils.MinerEtherbaseFlag,
+			utils.MinerExtraDataFlag,
+			utils.MinerRecommitIntervalFlag,
+			utils.MinerNoVerifyFlag,
+		},
 	},
 	{
 		Name: "GAS PRICE ORACLE",
 		Flags: []cli.Flag{
-            utils.GpoBlocksFlag,
-            utils.GpoPercentileFlag,
-            utils.GpoMaxGasPriceFlag,
-            utils.GpoIgnoreGasPriceFlag,
-        },
+			utils.GpoBlocksFlag,
+			utils.GpoPercentileFlag,
+			utils.GpoMaxGasPriceFlag,
+			utils.GpoIgnoreGasPriceFlag,
+		},
 	},
 	{
 		Name: "VIRTUAL MACHINE",
@@ -192,19 +192,19 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 		Name:  "METRICS AND STATS",
 		Flags: metricsFlags,
 	},
-    {
-        Name: "ALIASED (deprecated)",
-        Flags: []cli.Flag{
-            utils.NoUSBFlag,
-        },
-    },
+	{
+		Name: "ALIASED (deprecated)",
+		Flags: []cli.Flag{
+			utils.NoUSBFlag,
+		},
+	},
 	{
 		Name: "MISC",
 		Flags: []cli.Flag{
-            utils.SnapshotFlag,
-            utils.BloomFilterSizeFlag,
-            cli.HelpFlag,
-        },
+			utils.SnapshotFlag,
+			utils.BloomFilterSizeFlag,
+			cli.HelpFlag,
+		},
 	},
 }
 

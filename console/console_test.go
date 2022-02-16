@@ -26,15 +26,15 @@ import (
     "testing"
     "time"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/consensus/ethash"
-    "github.com/ethereum/go-ethereum/console/prompt"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/eth"
-    "github.com/ethereum/go-ethereum/eth/ethconfig"
-    "github.com/ethereum/go-ethereum/internal/jsre"
-    "github.com/ethereum/go-ethereum/miner"
-    "github.com/ethereum/go-ethereum/node"
+    "github.com/clearmatics/autonity/common"
+    "github.com/clearmatics/autonity/consensus/ethash"
+    "github.com/clearmatics/autonity/console/prompt"
+    "github.com/clearmatics/autonity/core"
+    "github.com/clearmatics/autonity/eth"
+    "github.com/clearmatics/autonity/eth/ethconfig"
+    "github.com/clearmatics/autonity/internal/jsre"
+    "github.com/clearmatics/autonity/miner"
+    "github.com/clearmatics/autonity/node"
 )
 
 const (

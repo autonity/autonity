@@ -17,12 +17,12 @@
 package trie
 
 import (
-    "fmt"
+	"fmt"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/rlp"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/rlp"
 )
 
 // SecureTrie wraps a trie with key hashing. In a secure trie, all
@@ -78,28 +78,28 @@ func (t *SecureTrie) Get(key []byte) []byte {
 // The value bytes must not be modified by the caller.
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *SecureTrie) TryGet(key []byte) ([]byte, error) {
-    return t.trie.TryGet(t.hashKey(key))
+	return t.trie.TryGet(t.hashKey(key))
 }
 
 // TryGetNode attempts to retrieve a trie node by compact-encoded path. It is not
 // possible to use keybyte-encoding as the path might contain odd nibbles.
 func (t *SecureTrie) TryGetNode(path []byte) ([]byte, int, error) {
-    return t.trie.TryGetNode(path)
+	return t.trie.TryGetNode(path)
 }
 
 // TryUpdate account will abstract the write of an account to the
 // secure trie.
 func (t *SecureTrie) TryUpdateAccount(key []byte, acc *types.StateAccount) error {
-    hk := t.hashKey(key)
-    data, err := rlp.EncodeToBytes(acc)
-    if err != nil {
-        return err
-    }
-    if err := t.trie.TryUpdate(hk, data); err != nil {
-        return err
-    }
-    t.getSecKeyCache()[string(hk)] = common.CopyBytes(key)
-    return nil
+	hk := t.hashKey(key)
+	data, err := rlp.EncodeToBytes(acc)
+	if err != nil {
+		return err
+	}
+	if err := t.trie.TryUpdate(hk, data); err != nil {
+		return err
+	}
+	t.getSecKeyCache()[string(hk)] = common.CopyBytes(key)
+	return nil
 }
 
 // Update associates key with value in the trie. Subsequent calls to
@@ -109,8 +109,8 @@ func (t *SecureTrie) TryUpdateAccount(key []byte, acc *types.StateAccount) error
 // The value bytes must not be modified by the caller while they are
 // stored in the trie.
 func (t *SecureTrie) Update(key, value []byte) {
-    if err := t.TryUpdate(key, value); err != nil {
-        log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
+	if err := t.TryUpdate(key, value); err != nil {
+		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
 }
 
@@ -162,17 +162,17 @@ func (t *SecureTrie) GetKey(shaKey []byte) []byte {
 // Committing flushes nodes from memory. Subsequent Get calls will load nodes
 // from the database.
 func (t *SecureTrie) Commit(onleaf LeafCallback) (common.Hash, int, error) {
-    // Write all the pre-images to the actual disk database
-    if len(t.getSecKeyCache()) > 0 {
-        if t.trie.db.preimages != nil { // Ugly direct check but avoids the below write lock
-            t.trie.db.lock.Lock()
-            for hk, key := range t.secKeyCache {
-                t.trie.db.insertPreimage(common.BytesToHash([]byte(hk)), key)
-            }
-            t.trie.db.lock.Unlock()
-        }
-        t.secKeyCache = make(map[string][]byte)
-    }
+	// Write all the pre-images to the actual disk database
+	if len(t.getSecKeyCache()) > 0 {
+		if t.trie.db.preimages != nil { // Ugly direct check but avoids the below write lock
+			t.trie.db.lock.Lock()
+			for hk, key := range t.secKeyCache {
+				t.trie.db.insertPreimage(common.BytesToHash([]byte(hk)), key)
+			}
+			t.trie.db.lock.Unlock()
+		}
+		t.secKeyCache = make(map[string][]byte)
+	}
 	// Commit the trie to its intermediate node database
 	return t.trie.Commit(onleaf)
 }

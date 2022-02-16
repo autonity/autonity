@@ -17,13 +17,13 @@
 package state
 
 import (
-    "bytes"
-    "fmt"
+	"bytes"
+	"fmt"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/rlp"
-    "github.com/ethereum/go-ethereum/trie"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/trie"
 )
 
 // NodeIterator is an iterator to traverse the entire state trie post-order,
@@ -105,7 +105,7 @@ func (it *NodeIterator) step() error {
 		return nil
 	}
 	// Otherwise we've reached an account node, initiate data iteration
-    var account types.StateAccount
+	var account types.StateAccount
 	if err := rlp.Decode(bytes.NewReader(it.stateIt.LeafBlob()), &account); err != nil {
 		return err
 	}

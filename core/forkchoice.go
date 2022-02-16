@@ -17,27 +17,27 @@
 package core
 
 import (
-    crand "crypto/rand"
-    "errors"
-    "math/big"
-    mrand "math/rand"
+	crand "crypto/rand"
+	"errors"
+	"math/big"
+	mrand "math/rand"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/math"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
 )
 
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header verification. It's implemented by both blockchain
 // and lightchain.
 type ChainReader interface {
-    // Config retrieves the header chain's chain configuration.
-    Config() *params.ChainConfig
+	// Config retrieves the header chain's chain configuration.
+	Config() *params.ChainConfig
 
-    // GetTd returns the total difficulty of a local block.
-    GetTd(common.Hash, uint64) *big.Int
+	// GetTd returns the total difficulty of a local block.
+	GetTd(common.Hash, uint64) *big.Int
 }
 
 // ForkChoice is the fork chooser based on the highest total difficulty of the
@@ -46,27 +46,27 @@ type ChainReader interface {
 // offering fork choice during the eth1/2 merge phase, but also keep the compatibility
 // for all other proof-of-work networks.
 type ForkChoice struct {
-    chain ChainReader
-    rand  *mrand.Rand
+	chain ChainReader
+	rand  *mrand.Rand
 
-    // preserve is a helper function used in td fork choice.
-    // Miners will prefer to choose the local mined block if the
-    // local td is equal to the extern one. It can be nil for light
-    // client
-    preserve func(header *types.Header) bool
+	// preserve is a helper function used in td fork choice.
+	// Miners will prefer to choose the local mined block if the
+	// local td is equal to the extern one. It can be nil for light
+	// client
+	preserve func(header *types.Header) bool
 }
 
 func NewForkChoice(chainReader ChainReader, preserve func(header *types.Header) bool) *ForkChoice {
-    // Seed a fast but crypto originating random generator
-    seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
-    if err != nil {
-        log.Crit("Failed to initialize random seed", "err", err)
-    }
-    return &ForkChoice{
-        chain:    chainReader,
-        rand:     mrand.New(mrand.NewSource(seed.Int64())),
-        preserve: preserve,
-    }
+	// Seed a fast but crypto originating random generator
+	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
+	if err != nil {
+		log.Crit("Failed to initialize random seed", "err", err)
+	}
+	return &ForkChoice{
+		chain:    chainReader,
+		rand:     mrand.New(mrand.NewSource(seed.Int64())),
+		preserve: preserve,
+	}
 }
 
 // ReorgNeeded returns whether the reorg should be applied
@@ -75,34 +75,34 @@ func NewForkChoice(chainReader ChainReader, preserve func(header *types.Header) 
 // total difficulty is higher. In the extern mode, the trusted
 // header is always selected as the head.
 func (f *ForkChoice) ReorgNeeded(current *types.Header, header *types.Header) (bool, error) {
-    var (
-        localTD  = f.chain.GetTd(current.Hash(), current.Number.Uint64())
-        externTd = f.chain.GetTd(header.Hash(), header.Number.Uint64())
-    )
-    if localTD == nil || externTd == nil {
-        return false, errors.New("missing td")
-    }
-    // Accept the new header as the chain head if the transition
-    // is already triggered. We assume all the headers after the
-    // transition come from the trusted consensus layer.
-    if ttd := f.chain.Config().TerminalTotalDifficulty; ttd != nil && ttd.Cmp(externTd) <= 0 {
-        return true, nil
-    }
-    // If the total difficulty is higher than our known, add it to the canonical chain
-    // Second clause in the if statement reduces the vulnerability to selfish mining.
-    // Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
-    reorg := externTd.Cmp(localTD) > 0
-    if !reorg && externTd.Cmp(localTD) == 0 {
-        number, headNumber := header.Number.Uint64(), current.Number.Uint64()
-        if number < headNumber {
-            reorg = true
-        } else if number == headNumber {
-            var currentPreserve, externPreserve bool
-            if f.preserve != nil {
-                currentPreserve, externPreserve = f.preserve(current), f.preserve(header)
-            }
-            reorg = !currentPreserve && (externPreserve || f.rand.Float64() < 0.5)
-        }
-    }
-    return reorg, nil
+	var (
+		localTD  = f.chain.GetTd(current.Hash(), current.Number.Uint64())
+		externTd = f.chain.GetTd(header.Hash(), header.Number.Uint64())
+	)
+	if localTD == nil || externTd == nil {
+		return false, errors.New("missing td")
+	}
+	// Accept the new header as the chain head if the transition
+	// is already triggered. We assume all the headers after the
+	// transition come from the trusted consensus layer.
+	if ttd := f.chain.Config().TerminalTotalDifficulty; ttd != nil && ttd.Cmp(externTd) <= 0 {
+		return true, nil
+	}
+	// If the total difficulty is higher than our known, add it to the canonical chain
+	// Second clause in the if statement reduces the vulnerability to selfish mining.
+	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
+	reorg := externTd.Cmp(localTD) > 0
+	if !reorg && externTd.Cmp(localTD) == 0 {
+		number, headNumber := header.Number.Uint64(), current.Number.Uint64()
+		if number < headNumber {
+			reorg = true
+		} else if number == headNumber {
+			var currentPreserve, externPreserve bool
+			if f.preserve != nil {
+				currentPreserve, externPreserve = f.preserve(current), f.preserve(header)
+			}
+			reorg = !currentPreserve && (externPreserve || f.rand.Float64() < 0.5)
+		}
+	}
+	return reorg, nil
 }

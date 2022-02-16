@@ -18,18 +18,18 @@
 package fetcher
 
 import (
-    "errors"
-    "math/rand"
-    "time"
+	"errors"
+	"math/rand"
+	"time"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/prque"
-    "github.com/ethereum/go-ethereum/consensus"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/eth/protocols/eth"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/metrics"
-    "github.com/ethereum/go-ethereum/trie"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/prque"
+	"github.com/clearmatics/autonity/consensus"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/eth/protocols/eth"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/trie"
 )
 
 const (
@@ -229,7 +229,7 @@ func NewBlockFetcher(light bool, getHeader HeaderRetrievalFn, getBlock blockRetr
 // Start boots up the announcement based synchroniser, accepting and processing
 // hash notifications and block fetches until termination requested.
 func (f *BlockFetcher) Start() {
-    go f.loop()
+	go f.loop()
 }
 
 // Stop terminates the announcement based synchroniser, canceling all pending
@@ -331,23 +331,23 @@ func (f *BlockFetcher) FilterBodies(peer string, transactions [][]*types.Transac
 // Loop is the main fetcher loop, checking and processing various notification
 // events.
 func (f *BlockFetcher) loop() {
-    // Iterate the block fetching until a quit is requested
-    var (
-        fetchTimer    = time.NewTimer(0)
-        completeTimer = time.NewTimer(0)
-    )
-    <-fetchTimer.C // clear out the channel
-    <-completeTimer.C
-    defer fetchTimer.Stop()
-    defer completeTimer.Stop()
+	// Iterate the block fetching until a quit is requested
+	var (
+		fetchTimer    = time.NewTimer(0)
+		completeTimer = time.NewTimer(0)
+	)
+	<-fetchTimer.C // clear out the channel
+	<-completeTimer.C
+	defer fetchTimer.Stop()
+	defer completeTimer.Stop()
 
-    for {
-        // Clean up any expired block fetches
-        for hash, announce := range f.fetching {
-            if time.Since(announce.time) > fetchTimeout {
-                f.forgetHash(hash)
-            }
-        }
+	for {
+		// Clean up any expired block fetches
+		for hash, announce := range f.fetching {
+			if time.Since(announce.time) > fetchTimeout {
+				f.forgetHash(hash)
+			}
+		}
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
 		for !f.queue.Empty() {
@@ -382,34 +382,34 @@ func (f *BlockFetcher) loop() {
 			// BlockFetcher terminating, abort all operations
 			return
 
-        case notification := <-f.notify:
-            // A block was announced, make sure the peer isn't DOSing us
-            blockAnnounceInMeter.Mark(1)
+		case notification := <-f.notify:
+			// A block was announced, make sure the peer isn't DOSing us
+			blockAnnounceInMeter.Mark(1)
 
-            count := f.announces[notification.origin] + 1
-            if count > hashLimit {
-                log.Debug("Peer exceeded outstanding announces", "peer", notification.origin, "limit", hashLimit)
-                blockAnnounceDOSMeter.Mark(1)
-                break
-            }
-            if notification.number == 0 {
-                break
-            }
-            // If we have a valid block number, check that it's potentially useful
-            if dist := int64(notification.number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
-                log.Debug("Peer discarded announcement", "peer", notification.origin, "number", notification.number, "hash", notification.hash, "distance", dist)
-                blockAnnounceDropMeter.Mark(1)
-                break
-            }
-            // All is well, schedule the announce if block's not yet downloading
-            if _, ok := f.fetching[notification.hash]; ok {
-                break
-            }
-            if _, ok := f.completing[notification.hash]; ok {
-                break
-            }
-            f.announces[notification.origin] = count
-            f.announced[notification.hash] = append(f.announced[notification.hash], notification)
+			count := f.announces[notification.origin] + 1
+			if count > hashLimit {
+				log.Debug("Peer exceeded outstanding announces", "peer", notification.origin, "limit", hashLimit)
+				blockAnnounceDOSMeter.Mark(1)
+				break
+			}
+			if notification.number == 0 {
+				break
+			}
+			// If we have a valid block number, check that it's potentially useful
+			if dist := int64(notification.number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
+				log.Debug("Peer discarded announcement", "peer", notification.origin, "number", notification.number, "hash", notification.hash, "distance", dist)
+				blockAnnounceDropMeter.Mark(1)
+				break
+			}
+			// All is well, schedule the announce if block's not yet downloading
+			if _, ok := f.fetching[notification.hash]; ok {
+				break
+			}
+			if _, ok := f.completing[notification.hash]; ok {
+				break
+			}
+			f.announces[notification.origin] = count
+			f.announced[notification.hash] = append(f.announced[notification.hash], notification)
 			if f.announceChangeHook != nil && len(f.announced[notification.hash]) == 1 {
 				f.announceChangeHook(notification.hash, true)
 			}
@@ -462,28 +462,28 @@ func (f *BlockFetcher) loop() {
 
 				// Create a closure of the fetch and schedule in on a new thread
 				fetchHeader, hashes := f.fetching[hashes[0]].fetchHeader, hashes
-                go func(peer string) {
-                    if f.fetchingHook != nil {
-                        f.fetchingHook(hashes)
-                    }
-                    for _, hash := range hashes {
-                        headerFetchMeter.Mark(1)
-                        go func(hash common.Hash) {
-                            resCh := make(chan *eth.Response)
+				go func(peer string) {
+					if f.fetchingHook != nil {
+						f.fetchingHook(hashes)
+					}
+					for _, hash := range hashes {
+						headerFetchMeter.Mark(1)
+						go func(hash common.Hash) {
+							resCh := make(chan *eth.Response)
 
-                            req, err := fetchHeader(hash, resCh)
-                            if err != nil {
-                                return // Legacy code, yolo
-                            }
-                            defer req.Close()
+							req, err := fetchHeader(hash, resCh)
+							if err != nil {
+								return // Legacy code, yolo
+							}
+							defer req.Close()
 
-                            res := <-resCh
-                            res.Done <- nil
+							res := <-resCh
+							res.Done <- nil
 
-                            f.FilterHeaders(peer, *res.Res.(*eth.BlockHeadersPacket), time.Now().Add(res.Time))
-                        }(hash)
-                    }
-                }(peer)
+							f.FilterHeaders(peer, *res.Res.(*eth.BlockHeadersPacket), time.Now().Add(res.Time))
+						}(hash)
+					}
+				}(peer)
 			}
 			// Schedule the next fetch if blocks are still pending
 			f.rescheduleFetch(fetchTimer)
@@ -505,31 +505,31 @@ func (f *BlockFetcher) loop() {
 			}
 			// Send out all block body requests
 			for peer, hashes := range request {
-                log.Trace("Fetching scheduled bodies", "peer", peer, "list", hashes)
+				log.Trace("Fetching scheduled bodies", "peer", peer, "list", hashes)
 
-                // Create a closure of the fetch and schedule in on a new thread
-                if f.completingHook != nil {
-                    f.completingHook(hashes)
-                }
-                fetchBodies := f.completing[hashes[0]].fetchBodies
-                bodyFetchMeter.Mark(int64(len(hashes)))
+				// Create a closure of the fetch and schedule in on a new thread
+				if f.completingHook != nil {
+					f.completingHook(hashes)
+				}
+				fetchBodies := f.completing[hashes[0]].fetchBodies
+				bodyFetchMeter.Mark(int64(len(hashes)))
 
-                go func(peer string, hashes []common.Hash) {
-                    resCh := make(chan *eth.Response)
+				go func(peer string, hashes []common.Hash) {
+					resCh := make(chan *eth.Response)
 
-                    req, err := fetchBodies(hashes, resCh)
-                    if err != nil {
-                        return // Legacy code, yolo
-                    }
-                    defer req.Close()
+					req, err := fetchBodies(hashes, resCh)
+					if err != nil {
+						return // Legacy code, yolo
+					}
+					defer req.Close()
 
-                    res := <-resCh
-                    res.Done <- nil
+					res := <-resCh
+					res.Done <- nil
 
-                    txs, uncles := res.Res.(*eth.BlockBodiesPacket).Unpack()
-                    f.FilterBodies(peer, txs, uncles, time.Now())
-                }(peer, hashes)
-            }
+					txs, uncles := res.Res.(*eth.BlockBodiesPacket).Unpack()
+					f.FilterBodies(peer, txs, uncles, time.Now())
+				}(peer, hashes)
+			}
 			// Schedule the next fetch if blocks are still pending
 			f.rescheduleComplete(completeTimer)
 
@@ -655,7 +655,7 @@ func (f *BlockFetcher) loop() {
 							continue
 						}
 						if txnHash == (common.Hash{}) {
-                            txnHash = types.DeriveSha(types.Transactions(task.transactions[i]), trie.NewStackTrie(nil))
+							txnHash = types.DeriveSha(types.Transactions(task.transactions[i]), trie.NewStackTrie(nil))
 						}
 						if txnHash != announce.header.TxHash {
 							continue
@@ -820,7 +820,7 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {
-        defer func() { f.done <- hash }()
+		defer func() { f.done <- hash }()
 
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
@@ -833,7 +833,7 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 		case nil:
 			// All ok, quickly propagate to our peers
 			blockBroadcastOutTimer.UpdateSince(block.ReceivedAt)
-            go f.broadcastBlock(block, true)
+			go f.broadcastBlock(block, true)
 
 		case consensus.ErrFutureBlock:
 			// Weird future block, don't fail, but neither propagate
@@ -851,7 +851,7 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 		}
 		// If import succeeded, broadcast the block
 		blockAnnounceOutTimer.UpdateSince(block.ReceivedAt)
-        go f.broadcastBlock(block, false)
+		go f.broadcastBlock(block, false)
 
 		// Invoke the testing hook if needed
 		if f.importedHook != nil {
@@ -863,27 +863,27 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 // forgetHash removes all traces of a block announcement from the fetcher's
 // internal state.
 func (f *BlockFetcher) forgetHash(hash common.Hash) {
-    // Remove all pending announces and decrement DOS counters
-    if announceMap, ok := f.announced[hash]; ok {
-        for _, announce := range announceMap {
-            f.announces[announce.origin]--
-            if f.announces[announce.origin] <= 0 {
-                delete(f.announces, announce.origin)
-            }
-        }
-        delete(f.announced, hash)
-        if f.announceChangeHook != nil {
-            f.announceChangeHook(hash, false)
-        }
-    }
-    // Remove any pending fetches and decrement the DOS counters
-    if announce := f.fetching[hash]; announce != nil {
-        f.announces[announce.origin]--
-        if f.announces[announce.origin] <= 0 {
-            delete(f.announces, announce.origin)
-        }
-        delete(f.fetching, hash)
-    }
+	// Remove all pending announces and decrement DOS counters
+	if announceMap, ok := f.announced[hash]; ok {
+		for _, announce := range announceMap {
+			f.announces[announce.origin]--
+			if f.announces[announce.origin] <= 0 {
+				delete(f.announces, announce.origin)
+			}
+		}
+		delete(f.announced, hash)
+		if f.announceChangeHook != nil {
+			f.announceChangeHook(hash, false)
+		}
+	}
+	// Remove any pending fetches and decrement the DOS counters
+	if announce := f.fetching[hash]; announce != nil {
+		f.announces[announce.origin]--
+		if f.announces[announce.origin] <= 0 {
+			delete(f.announces, announce.origin)
+		}
+		delete(f.fetching, hash)
+	}
 
 	// Remove any pending completion requests and decrement the DOS counters
 	for _, announce := range f.fetched[hash] {

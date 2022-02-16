@@ -17,9 +17,9 @@
 package catalyst
 
 import (
-    "sync"
+	"sync"
 
-    "github.com/ethereum/go-ethereum/core/beacon"
+	"github.com/clearmatics/autonity/core/beacon"
 )
 
 // maxTrackedPayloads is the maximum number of prepared payloads the execution
@@ -30,49 +30,49 @@ const maxTrackedPayloads = 10
 // payloadQueueItem represents an id->payload tuple to store until it's retrieved
 // or evicted.
 type payloadQueueItem struct {
-    id      beacon.PayloadID
-    payload *beacon.ExecutableDataV1
+	id      beacon.PayloadID
+	payload *beacon.ExecutableDataV1
 }
 
 // payloadQueue tracks the latest handful of constructed payloads to be retrieved
 // by the beacon chain if block production is requested.
 type payloadQueue struct {
-    payloads []*payloadQueueItem
-    lock     sync.RWMutex
+	payloads []*payloadQueueItem
+	lock     sync.RWMutex
 }
 
 // newPayloadQueue creates a pre-initialized queue with a fixed number of slots
 // all containing empty items.
 func newPayloadQueue() *payloadQueue {
-    return &payloadQueue{
-        payloads: make([]*payloadQueueItem, maxTrackedPayloads),
-    }
+	return &payloadQueue{
+		payloads: make([]*payloadQueueItem, maxTrackedPayloads),
+	}
 }
 
 // put inserts a new payload into the queue at the given id.
 func (q *payloadQueue) put(id beacon.PayloadID, data *beacon.ExecutableDataV1) {
-    q.lock.Lock()
-    defer q.lock.Unlock()
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
-    copy(q.payloads[1:], q.payloads)
-    q.payloads[0] = &payloadQueueItem{
-        id:      id,
-        payload: data,
-    }
+	copy(q.payloads[1:], q.payloads)
+	q.payloads[0] = &payloadQueueItem{
+		id:      id,
+		payload: data,
+	}
 }
 
 // get retrieves a previously stored payload item or nil if it does not exist.
 func (q *payloadQueue) get(id beacon.PayloadID) *beacon.ExecutableDataV1 {
-    q.lock.RLock()
-    defer q.lock.RUnlock()
+	q.lock.RLock()
+	defer q.lock.RUnlock()
 
-    for _, item := range q.payloads {
-        if item == nil {
-            return nil // no more items
-        }
-        if item.id == id {
-            return item.payload
-        }
-    }
-    return nil
+	for _, item := range q.payloads {
+		if item == nil {
+			return nil // no more items
+		}
+		if item.id == id {
+			return item.payload
+		}
+	}
+	return nil
 }

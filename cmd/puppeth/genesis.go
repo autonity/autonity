@@ -17,18 +17,18 @@
 package main
 
 import (
-    "errors"
-    "math"
-    "math/big"
-    "strings"
+	"errors"
+	"math"
+	"math/big"
+	"strings"
 
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/common/hexutil"
-    math2 "github.com/ethereum/go-ethereum/common/math"
-    "github.com/ethereum/go-ethereum/consensus/ethash"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/params"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/common/hexutil"
+	math2 "github.com/clearmatics/autonity/common/math"
+	"github.com/clearmatics/autonity/consensus/ethash"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/params"
 )
 
 // alethGenesisSpec represents the genesis specification format used by the
@@ -151,9 +151,9 @@ func newAlethGenesisSpec(network string, genesis *core.Genesis) (*alethGenesisSp
 	spec.Genesis.Difficulty = (*hexutil.Big)(genesis.Difficulty)
 	spec.Genesis.Author = genesis.Coinbase
 	spec.Genesis.Timestamp = (hexutil.Uint64)(genesis.Timestamp)
-    spec.Genesis.ParentHash = genesis.ParentHash
-    spec.Genesis.ExtraData = genesis.ExtraData
-    spec.Genesis.GasLimit = (hexutil.Uint64)(genesis.GasLimit)
+	spec.Genesis.ParentHash = genesis.ParentHash
+	spec.Genesis.ExtraData = genesis.ExtraData
+	spec.Genesis.GasLimit = (hexutil.Uint64)(genesis.GasLimit)
 
 	for address, account := range genesis.Alloc {
 		spec.setAccount(address, account)
@@ -424,14 +424,14 @@ func newParityChainSpec(network string, genesis *core.Genesis, bootnodes []strin
 	// Disable this one
 	spec.Params.EIP98Transition = math.MaxInt64
 
-    spec.Genesis.Seal.Ethereum.Nonce = types.EncodeNonce(genesis.Nonce)
-    spec.Genesis.Seal.Ethereum.MixHash = genesis.Mixhash[:]
-    spec.Genesis.Difficulty = (*hexutil.Big)(genesis.Difficulty)
+	spec.Genesis.Seal.Ethereum.Nonce = types.EncodeNonce(genesis.Nonce)
+	spec.Genesis.Seal.Ethereum.MixHash = genesis.Mixhash[:]
+	spec.Genesis.Difficulty = (*hexutil.Big)(genesis.Difficulty)
 	spec.Genesis.Author = genesis.Coinbase
 	spec.Genesis.Timestamp = (hexutil.Uint64)(genesis.Timestamp)
-    spec.Genesis.ParentHash = genesis.ParentHash
-    spec.Genesis.ExtraData = genesis.ExtraData
-    spec.Genesis.GasLimit = (hexutil.Uint64)(genesis.GasLimit)
+	spec.Genesis.ParentHash = genesis.ParentHash
+	spec.Genesis.ExtraData = genesis.ExtraData
+	spec.Genesis.GasLimit = (hexutil.Uint64)(genesis.GasLimit)
 
 	spec.Accounts = make(map[common.UnprefixedAddress]*parityChainSpecAccount)
 	for address, account := range genesis.Alloc {
@@ -612,15 +612,15 @@ func newPyEthereumGenesisSpec(network string, genesis *core.Genesis) (*pyEthereu
 		return nil, errors.New("unsupported consensus engine")
 	}
 	spec := &pyEthereumGenesisSpec{
-        Nonce:      types.EncodeNonce(genesis.Nonce),
-        Timestamp:  (hexutil.Uint64)(genesis.Timestamp),
-        ExtraData:  genesis.ExtraData,
-        GasLimit:   (hexutil.Uint64)(genesis.GasLimit),
-        Difficulty: (*hexutil.Big)(genesis.Difficulty),
-        Mixhash:    genesis.Mixhash,
-        Coinbase:   genesis.Coinbase,
-        Alloc:      genesis.Alloc,
-        ParentHash: genesis.ParentHash,
-    }
+		Nonce:      types.EncodeNonce(genesis.Nonce),
+		Timestamp:  (hexutil.Uint64)(genesis.Timestamp),
+		ExtraData:  genesis.ExtraData,
+		GasLimit:   (hexutil.Uint64)(genesis.GasLimit),
+		Difficulty: (*hexutil.Big)(genesis.Difficulty),
+		Mixhash:    genesis.Mixhash,
+		Coinbase:   genesis.Coinbase,
+		Alloc:      genesis.Alloc,
+		ParentHash: genesis.ParentHash,
+	}
 	return spec, nil
 }

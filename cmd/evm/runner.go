@@ -18,28 +18,28 @@ package main
 
 import (
 	"bytes"
-    "encoding/json"
-    "fmt"
-    "io/ioutil"
-    "math/big"
-    "os"
-    goruntime "runtime"
-    "runtime/pprof"
-    "testing"
-    "time"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"math/big"
+	"os"
+	goruntime "runtime"
+	"runtime/pprof"
+	"testing"
+	"time"
 
-    "github.com/ethereum/go-ethereum/cmd/evm/internal/compiler"
-    "github.com/ethereum/go-ethereum/cmd/utils"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/core"
-    "github.com/ethereum/go-ethereum/core/rawdb"
-    "github.com/ethereum/go-ethereum/core/state"
-    "github.com/ethereum/go-ethereum/core/vm"
-    "github.com/ethereum/go-ethereum/core/vm/runtime"
-    "github.com/ethereum/go-ethereum/eth/tracers/logger"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/params"
-    "gopkg.in/urfave/cli.v1"
+	"github.com/clearmatics/autonity/cmd/evm/internal/compiler"
+	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/core"
+	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/core/vm"
+	"github.com/clearmatics/autonity/core/vm/runtime"
+	"github.com/clearmatics/autonity/eth/tracers/logger"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/params"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var runCommand = cli.Command{
@@ -105,39 +105,39 @@ func timedExec(bench bool, execFunc func() ([]byte, uint64, error)) (output []by
 }
 
 func runCmd(ctx *cli.Context) error {
-    glogger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(false)))
-    glogger.Verbosity(log.Lvl(ctx.GlobalInt(VerbosityFlag.Name)))
-    log.Root().SetHandler(glogger)
-    logconfig := &logger.Config{
-        EnableMemory:     !ctx.GlobalBool(DisableMemoryFlag.Name),
-        DisableStack:     ctx.GlobalBool(DisableStackFlag.Name),
-        DisableStorage:   ctx.GlobalBool(DisableStorageFlag.Name),
-        EnableReturnData: !ctx.GlobalBool(DisableReturnDataFlag.Name),
-        Debug:            ctx.GlobalBool(DebugFlag.Name),
-    }
+	glogger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(false)))
+	glogger.Verbosity(log.Lvl(ctx.GlobalInt(VerbosityFlag.Name)))
+	log.Root().SetHandler(glogger)
+	logconfig := &logger.Config{
+		EnableMemory:     !ctx.GlobalBool(DisableMemoryFlag.Name),
+		DisableStack:     ctx.GlobalBool(DisableStackFlag.Name),
+		DisableStorage:   ctx.GlobalBool(DisableStorageFlag.Name),
+		EnableReturnData: !ctx.GlobalBool(DisableReturnDataFlag.Name),
+		Debug:            ctx.GlobalBool(DebugFlag.Name),
+	}
 
-    var (
-        tracer        vm.EVMLogger
-        debugLogger   *logger.StructLogger
-        statedb       *state.StateDB
-        chainConfig   *params.ChainConfig
-        sender        = common.BytesToAddress([]byte("sender"))
-        receiver      = common.BytesToAddress([]byte("receiver"))
-        genesisConfig *core.Genesis
-    )
+	var (
+		tracer        vm.EVMLogger
+		debugLogger   *logger.StructLogger
+		statedb       *state.StateDB
+		chainConfig   *params.ChainConfig
+		sender        = common.BytesToAddress([]byte("sender"))
+		receiver      = common.BytesToAddress([]byte("receiver"))
+		genesisConfig *core.Genesis
+	)
 	if ctx.GlobalBool(MachineFlag.Name) {
-        tracer = logger.NewJSONLogger(logconfig, os.Stdout)
+		tracer = logger.NewJSONLogger(logconfig, os.Stdout)
 	} else if ctx.GlobalBool(DebugFlag.Name) {
-        debugLogger = logger.NewStructLogger(logconfig)
-        tracer = debugLogger
+		debugLogger = logger.NewStructLogger(logconfig)
+		tracer = debugLogger
 	} else {
-        debugLogger = logger.NewStructLogger(logconfig)
+		debugLogger = logger.NewStructLogger(logconfig)
 	}
 	if ctx.GlobalString(GenesisFlag.Name) != "" {
 		gen := readGenesis(ctx.GlobalString(GenesisFlag.Name))
 		genesisConfig = gen
-        db := rawdb.NewMemoryDatabase()
-        genesis := gen.ToBlock(db)
+		db := rawdb.NewMemoryDatabase()
+		genesis := gen.ToBlock(db)
 		statedb, _ = state.New(genesis.Root(), state.NewDatabase(db), nil)
 		chainConfig = gen.Config
 	} else {
@@ -212,9 +212,9 @@ func runCmd(ctx *cli.Context) error {
 		Coinbase:    genesisConfig.Coinbase,
 		BlockNumber: new(big.Int).SetUint64(genesisConfig.Number),
 		EVMConfig: vm.Config{
-            Tracer: tracer,
-            Debug:  ctx.GlobalBool(DebugFlag.Name) || ctx.GlobalBool(MachineFlag.Name),
-        },
+			Tracer: tracer,
+			Debug:  ctx.GlobalBool(DebugFlag.Name) || ctx.GlobalBool(MachineFlag.Name),
+		},
 	}
 
 	if cpuProfilePath := ctx.GlobalString(CPUProfileFlag.Name); cpuProfilePath != "" {
@@ -269,8 +269,8 @@ func runCmd(ctx *cli.Context) error {
 
 	if ctx.GlobalBool(DumpFlag.Name) {
 		statedb.Commit(true)
-        statedb.IntermediateRoot(true)
-        fmt.Println(string(statedb.Dump(nil)))
+		statedb.IntermediateRoot(true)
+		fmt.Println(string(statedb.Dump(nil)))
 	}
 
 	if memProfilePath := ctx.GlobalString(MemProfileFlag.Name); memProfilePath != "" {
@@ -288,11 +288,11 @@ func runCmd(ctx *cli.Context) error {
 
 	if ctx.GlobalBool(DebugFlag.Name) {
 		if debugLogger != nil {
-            fmt.Fprintln(os.Stderr, "#### TRACE ####")
-            logger.WriteTrace(os.Stderr, debugLogger.StructLogs())
+			fmt.Fprintln(os.Stderr, "#### TRACE ####")
+			logger.WriteTrace(os.Stderr, debugLogger.StructLogs())
 		}
-        fmt.Fprintln(os.Stderr, "#### LOGS ####")
-        logger.WriteLogs(os.Stderr, statedb.Logs())
+		fmt.Fprintln(os.Stderr, "#### LOGS ####")
+		logger.WriteLogs(os.Stderr, statedb.Logs())
 	}
 
 	if bench || ctx.GlobalBool(StatDumpFlag.Name) {

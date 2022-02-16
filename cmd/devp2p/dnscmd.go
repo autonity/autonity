@@ -17,20 +17,20 @@
 package main
 
 import (
-    "crypto/ecdsa"
-    "encoding/json"
-    "fmt"
-    "io/ioutil"
-    "os"
-    "path/filepath"
-    "time"
+	"crypto/ecdsa"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 
-    "github.com/ethereum/go-ethereum/accounts/keystore"
-    "github.com/ethereum/go-ethereum/common"
-    "github.com/ethereum/go-ethereum/console/prompt"
-    "github.com/ethereum/go-ethereum/p2p/dnsdisc"
-    "github.com/ethereum/go-ethereum/p2p/enode"
-    "gopkg.in/urfave/cli.v1"
+	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/console/prompt"
+	"github.com/clearmatics/autonity/p2p/dnsdisc"
+	"github.com/clearmatics/autonity/p2p/enode"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -38,13 +38,13 @@ var (
 		Name:  "dns",
 		Usage: "DNS Discovery Commands",
 		Subcommands: []cli.Command{
-            dnsSyncCommand,
-            dnsSignCommand,
-            dnsTXTCommand,
-            dnsCloudflareCommand,
-            dnsRoute53Command,
-            dnsRoute53NukeCommand,
-        },
+			dnsSyncCommand,
+			dnsSignCommand,
+			dnsTXTCommand,
+			dnsCloudflareCommand,
+			dnsRoute53Command,
+			dnsRoute53NukeCommand,
+		},
 	}
 	dnsSyncCommand = cli.Command{
 		Name:      "sync",
@@ -68,35 +68,35 @@ var (
 	}
 	dnsCloudflareCommand = cli.Command{
 		Name:      "to-cloudflare",
-        Usage:     "Deploy DNS TXT records to CloudFlare",
-        ArgsUsage: "<tree-directory>",
-        Action:    dnsToCloudflare,
-        Flags:     []cli.Flag{cloudflareTokenFlag, cloudflareZoneIDFlag},
-    }
-    dnsRoute53Command = cli.Command{
-        Name:      "to-route53",
-        Usage:     "Deploy DNS TXT records to Amazon Route53",
-        ArgsUsage: "<tree-directory>",
-        Action:    dnsToRoute53,
-        Flags: []cli.Flag{
-            route53AccessKeyFlag,
-            route53AccessSecretFlag,
-            route53ZoneIDFlag,
-            route53RegionFlag,
-        },
-    }
-    dnsRoute53NukeCommand = cli.Command{
-        Name:      "nuke-route53",
-        Usage:     "Deletes DNS TXT records of a subdomain on Amazon Route53",
-        ArgsUsage: "<domain>",
-        Action:    dnsNukeRoute53,
-        Flags: []cli.Flag{
-            route53AccessKeyFlag,
-            route53AccessSecretFlag,
-            route53ZoneIDFlag,
-            route53RegionFlag,
-        },
-    }
+		Usage:     "Deploy DNS TXT records to CloudFlare",
+		ArgsUsage: "<tree-directory>",
+		Action:    dnsToCloudflare,
+		Flags:     []cli.Flag{cloudflareTokenFlag, cloudflareZoneIDFlag},
+	}
+	dnsRoute53Command = cli.Command{
+		Name:      "to-route53",
+		Usage:     "Deploy DNS TXT records to Amazon Route53",
+		ArgsUsage: "<tree-directory>",
+		Action:    dnsToRoute53,
+		Flags: []cli.Flag{
+			route53AccessKeyFlag,
+			route53AccessSecretFlag,
+			route53ZoneIDFlag,
+			route53RegionFlag,
+		},
+	}
+	dnsRoute53NukeCommand = cli.Command{
+		Name:      "nuke-route53",
+		Usage:     "Deletes DNS TXT records of a subdomain on Amazon Route53",
+		ArgsUsage: "<domain>",
+		Action:    dnsNukeRoute53,
+		Flags: []cli.Flag{
+			route53AccessKeyFlag,
+			route53AccessSecretFlag,
+			route53ZoneIDFlag,
+			route53RegionFlag,
+		},
+	}
 )
 
 var (
@@ -115,9 +115,9 @@ var (
 )
 
 const (
-    rootTTL               = 30 * 60              // 30 min
-    treeNodeTTL           = 4 * 7 * 24 * 60 * 60 // 4 weeks
-    treeNodeTTLCloudflare = 24 * 60 * 60         // 1 day
+	rootTTL               = 30 * 60              // 30 min
+	treeNodeTTL           = 4 * 7 * 24 * 60 * 60 // 4 weeks
+	treeNodeTTLCloudflare = 24 * 60 * 60         // 1 day
 )
 
 // dnsSync performs dnsSyncCommand.
@@ -178,25 +178,25 @@ func dnsSign(ctx *cli.Context) error {
 
 	key := loadSigningKey(keyfile)
 	url, err := t.Sign(key, domain)
-    if err != nil {
-        return fmt.Errorf("can't sign: %v", err)
-    }
+	if err != nil {
+		return fmt.Errorf("can't sign: %v", err)
+	}
 
-    def = treeToDefinition(url, t)
-    def.Meta.LastModified = time.Now()
-    writeTreeMetadata(defdir, def)
-    return nil
+	def = treeToDefinition(url, t)
+	def.Meta.LastModified = time.Now()
+	writeTreeMetadata(defdir, def)
+	return nil
 }
 
 // directoryName returns the directory name of the given path.
 // For example, when dir is "foo/bar", it returns "bar".
 // When dir is ".", and the working directory is "example/foo", it returns "foo".
 func directoryName(dir string) string {
-    abs, err := filepath.Abs(dir)
-    if err != nil {
-        exit(err)
-    }
-    return filepath.Base(abs)
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		exit(err)
+	}
+	return filepath.Base(abs)
 }
 
 // dnsToTXT performs dnsTXTCommand.
@@ -218,9 +218,9 @@ func dnsToTXT(ctx *cli.Context) error {
 
 // dnsToCloudflare performs dnsCloudflareCommand.
 func dnsToCloudflare(ctx *cli.Context) error {
-    if ctx.NArg() != 1 {
-        return fmt.Errorf("need tree definition directory as argument")
-    }
+	if ctx.NArg() != 1 {
+		return fmt.Errorf("need tree definition directory as argument")
+	}
 	domain, t, err := loadTreeDefinitionForExport(ctx.Args().Get(0))
 	if err != nil {
 		return err
@@ -231,35 +231,35 @@ func dnsToCloudflare(ctx *cli.Context) error {
 
 // dnsToRoute53 performs dnsRoute53Command.
 func dnsToRoute53(ctx *cli.Context) error {
-    if ctx.NArg() != 1 {
-        return fmt.Errorf("need tree definition directory as argument")
-    }
-    domain, t, err := loadTreeDefinitionForExport(ctx.Args().Get(0))
-    if err != nil {
-        return err
-    }
-    client := newRoute53Client(ctx)
-    return client.deploy(domain, t)
+	if ctx.NArg() != 1 {
+		return fmt.Errorf("need tree definition directory as argument")
+	}
+	domain, t, err := loadTreeDefinitionForExport(ctx.Args().Get(0))
+	if err != nil {
+		return err
+	}
+	client := newRoute53Client(ctx)
+	return client.deploy(domain, t)
 }
 
 // dnsNukeRoute53 performs dnsRoute53NukeCommand.
 func dnsNukeRoute53(ctx *cli.Context) error {
-    if ctx.NArg() != 1 {
-        return fmt.Errorf("need domain name as argument")
-    }
-    client := newRoute53Client(ctx)
-    return client.deleteDomain(ctx.Args().First())
+	if ctx.NArg() != 1 {
+		return fmt.Errorf("need domain name as argument")
+	}
+	client := newRoute53Client(ctx)
+	return client.deleteDomain(ctx.Args().First())
 }
 
 // loadSigningKey loads a private key in Ethereum keystore format.
 func loadSigningKey(keyfile string) *ecdsa.PrivateKey {
-    keyjson, err := ioutil.ReadFile(keyfile)
-    if err != nil {
-        exit(fmt.Errorf("failed to read the keyfile at '%s': %v", keyfile, err))
-    }
-    password, _ := prompt.Stdin.PromptPassword("Please enter the password for '" + keyfile + "': ")
-    key, err := keystore.DecryptKey(keyjson, password)
-    if err != nil {
+	keyjson, err := ioutil.ReadFile(keyfile)
+	if err != nil {
+		exit(fmt.Errorf("failed to read the keyfile at '%s': %v", keyfile, err))
+	}
+	password, _ := prompt.Stdin.PromptPassword("Please enter the password for '" + keyfile + "': ")
+	key, err := keystore.DecryptKey(keyjson, password)
+	if err != nil {
 		exit(fmt.Errorf("error decrypting key: %v", err))
 	}
 	return key.PrivateKey

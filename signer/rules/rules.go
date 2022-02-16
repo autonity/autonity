@@ -17,17 +17,17 @@
 package rules
 
 import (
-    "encoding/json"
-    "fmt"
-    "os"
-    "strings"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
 
-    "github.com/dop251/goja"
-    "github.com/ethereum/go-ethereum/internal/ethapi"
-    "github.com/ethereum/go-ethereum/internal/jsre/deps"
-    "github.com/ethereum/go-ethereum/log"
-    "github.com/ethereum/go-ethereum/signer/core"
-    "github.com/ethereum/go-ethereum/signer/storage"
+	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/internal/jsre/deps"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/signer/core"
+	"github.com/clearmatics/autonity/signer/storage"
+	"github.com/dop251/goja"
 )
 
 var (

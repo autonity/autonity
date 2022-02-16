@@ -17,12 +17,11 @@
 package keystore
 
 import (
-    "math/big"
+	"math/big"
 
-    "github.com/ethereum/go-ethereum"
-    "github.com/ethereum/go-ethereum/accounts"
-    "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/crypto"
+	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/core/types"
+	"github.com/clearmatics/autonity/crypto"
 )
 
 // keystoreWallet implements the accounts.Wallet interface for the original
@@ -100,26 +99,26 @@ func (w *keystoreWallet) SignData(account accounts.Account, mimeType string, dat
 
 // SignDataWithPassphrase signs keccak256(data). The mimetype parameter describes the type of data being signed.
 func (w *keystoreWallet) SignDataWithPassphrase(account accounts.Account, passphrase, mimeType string, data []byte) ([]byte, error) {
-    // Make sure the requested account is contained within
-    if !w.Contains(account) {
-        return nil, accounts.ErrUnknownAccount
-    }
-    // Account seems valid, request the keystore to sign
-    return w.keystore.SignHashWithPassphrase(account, passphrase, crypto.Keccak256(data))
+	// Make sure the requested account is contained within
+	if !w.Contains(account) {
+		return nil, accounts.ErrUnknownAccount
+	}
+	// Account seems valid, request the keystore to sign
+	return w.keystore.SignHashWithPassphrase(account, passphrase, crypto.Keccak256(data))
 }
 
 // SignText implements accounts.Wallet, attempting to sign the hash of
 // the given text with the given account.
 func (w *keystoreWallet) SignText(account accounts.Account, text []byte) ([]byte, error) {
-    return w.signHash(account, accounts.TextHash(text))
+	return w.signHash(account, accounts.TextHash(text))
 }
 
 // SignTextWithPassphrase implements accounts.Wallet, attempting to sign the
 // hash of the given text with the given account using passphrase as extra authentication.
 func (w *keystoreWallet) SignTextWithPassphrase(account accounts.Account, passphrase string, text []byte) ([]byte, error) {
-    // Make sure the requested account is contained within
-    if !w.Contains(account) {
-        return nil, accounts.ErrUnknownAccount
+	// Make sure the requested account is contained within
+	if !w.Contains(account) {
+		return nil, accounts.ErrUnknownAccount
 	}
 	// Account seems valid, request the keystore to sign
 	return w.keystore.SignHashWithPassphrase(account, passphrase, accounts.TextHash(text))
