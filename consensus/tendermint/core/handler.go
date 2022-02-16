@@ -29,21 +29,21 @@ import (
 
 // Start implements core.Tendermint.Start
 func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
-	// Set the autonity contract
 	c.autonityContract = contract
+	committeeSet := newWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
+		c.autonityContract,
+		c.backend.BlockChain())
+	c.setCommitteeSet(committeeSet)
+
 	ctx, c.cancel = context.WithCancel(ctx)
-
 	c.subscribeEvents()
-
 	// core.height needs to be set beforehand for unmined block's logic.
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
 	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
 	go c.handleNewUnminedBlockEvent(ctx)
-
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
-
 	go c.backend.HandleUnhandledMsgs(ctx)
 }
 

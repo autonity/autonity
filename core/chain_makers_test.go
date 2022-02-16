@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/common"
 	"math/big"
 
 	"github.com/clearmatics/autonity/consensus/ethash"
@@ -41,7 +42,7 @@ func ExampleGenerateChain() {
 
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
+		Config: params.AutonityTestChainConfig,
 		Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 	}
 	genesis := gspec.MustCommit(db)
@@ -92,9 +93,11 @@ func ExampleGenerateChain() {
 	fmt.Println("balance of addr1:", state.GetBalance(addr1))
 	fmt.Println("balance of addr2:", state.GetBalance(addr2))
 	fmt.Println("balance of addr3:", state.GetBalance(addr3))
+	fmt.Println("balance of the 0 address :", state.GetBalance(common.Address{}))
 	// Output:
-	// last block: #5
-	// balance of addr1: 989000
-	// balance of addr2: 10000
-	// balance of addr3: 19687500000000001000
+	//last block: #5
+	//balance of addr1: 989000
+	//balance of addr2: 10000
+	//balance of addr3: 7875000000000001000
+	//balance of the 0 address : 5500000000000000000
 }

@@ -11,7 +11,7 @@ LABEL org.opencontainers.image.source https://github.com/clearmatics/autonity
 RUN apk add --no-cache make gcc musl-dev linux-headers libc-dev git perl-utils
 
 ADD . /autonity
-RUN cd /autonity && make autonity
+RUN cd /autonity && make autonity-docker
 
 
 # Pull Autonity into a second stage deploy alpine container

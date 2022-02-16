@@ -19,9 +19,12 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
+	"net"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/crypto"
 	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"golang.org/x/crypto/sha3"
 )
@@ -250,23 +253,66 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
-	TestChainConfig          = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil}
 
-	// Basic configuration for Tendermint, the Autonity Contract config needs still to be properly initialized.
+	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
+	ValidatorEnode             = enode.NewV4(&ValidatorKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	TestAutonityContractConfig = AutonityContractGenesis{
+		Bytecode:        "",
+		ABI:             "",
+		MinGasPrice:     0,
+		EpochPeriod:     0,
+		UnbondingPeriod: 0,
+		BlockPeriod:     0,
+		Operator:        common.Address{},
+		Treasury:        common.Address{},
+		TreasuryFee:     0,
+		Validators: []*Validator{
+			{
+				Treasury:       &common.Address{},
+				Address:        &ValidatorAddress,
+				Enode:          ValidatorEnode.URLv4(),
+				CommissionRate: new(big.Int).SetUint64(0),
+				BondedStake:    new(big.Int).SetUint64(1),
+			},
+		},
+	}
+
+	AllEthashProtocolChangesWithAutonity = &ChainConfig{ChainID: big.NewInt(1337),
+		HomesteadBlock:         big.NewInt(0),
+		EIP150Block:            big.NewInt(0),
+		EIP155Block:            big.NewInt(0),
+		EIP158Block:            big.NewInt(0),
+		ByzantiumBlock:         big.NewInt(0),
+		ConstantinopleBlock:    big.NewInt(0),
+		PetersburgBlock:        big.NewInt(0),
+		IstanbulBlock:          big.NewInt(0),
+		Ethash:                 new(EthashConfig),
+		AutonityContractConfig: &TestAutonityContractConfig,
+	}
+
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
+
+	// AutonityTestChainConfig  Basic configuration for Tendermint, the Autonity Contract config needs still to be properly initialized.
 	AutonityTestChainConfig = &ChainConfig{ChainID: big.NewInt(1),
-		HomesteadBlock:      big.NewInt(0),
-		EIP150Block:         big.NewInt(0),
-		EIP155Block:         big.NewInt(0),
-		EIP158Block:         big.NewInt(0),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: big.NewInt(0),
-		PetersburgBlock:     big.NewInt(0),
-		IstanbulBlock:       big.NewInt(0),
-		Tendermint:          tendermint.DefaultConfig()}
+		HomesteadBlock:         big.NewInt(0),
+		EIP150Block:            big.NewInt(0),
+		EIP155Block:            big.NewInt(0),
+		EIP158Block:            big.NewInt(0),
+		ByzantiumBlock:         big.NewInt(0),
+		ConstantinopleBlock:    big.NewInt(0),
+		PetersburgBlock:        big.NewInt(0),
+		IstanbulBlock:          big.NewInt(0),
+		AutonityContractConfig: &TestAutonityContractConfig,
+	}
 
 	TestRules = TestChainConfig.Rules(new(big.Int))
 )
+
+func init() {
+	TestAutonityContractConfig.Prepare()
+}
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
 // BloomTrie) associated with the appropriate section index and head hash. It is
@@ -352,7 +398,6 @@ type ChainConfig struct {
 
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
-	Tendermint             *tendermint.Config       `json:"tendermint,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonityContract,omitempty"`
 }
 
@@ -370,10 +415,8 @@ func (c *ChainConfig) String() string {
 	switch {
 	case c.Ethash != nil:
 		engine = c.Ethash
-	case c.Tendermint != nil:
-		engine = c.Tendermint
 	default:
-		engine = "unknown"
+		engine = "Tendermint"
 	}
 	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v Constantinople: %v Petersburg: %v Istanbul: %v, Muir Glacier: %v, Berlin: %v, London: %v, Arrow Glacier: %v, MergeFork: %v, Engine: %v}",
 		c.ChainID,
@@ -589,6 +632,51 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 		return newCompatError("Merge Start fork block", c.MergeForkBlock, newcfg.MergeForkBlock)
 	}
 	return nil
+}
+
+func (c *ChainConfig) Copy() *ChainConfig {
+	cfg := &ChainConfig{
+		DAOForkSupport: c.DAOForkSupport,
+		EIP150Hash:     c.EIP150Hash,
+	}
+	if c.Ethash != nil {
+		cfg.Ethash = &(*c.Ethash)
+	}
+	if c.AutonityContractConfig != nil {
+		cfg.AutonityContractConfig = &(*c.AutonityContractConfig)
+	}
+	if c.ChainID != nil {
+		cfg.ChainID = big.NewInt(0).Set(c.ChainID)
+	}
+	if c.HomesteadBlock != nil {
+		cfg.HomesteadBlock = big.NewInt(0).Set(c.HomesteadBlock)
+	}
+	if c.DAOForkBlock != nil {
+		cfg.DAOForkBlock = big.NewInt(0).Set(c.DAOForkBlock)
+	}
+	if c.EIP150Block != nil {
+		cfg.EIP150Block = big.NewInt(0).Set(c.EIP150Block)
+	}
+	if c.EIP155Block != nil {
+		cfg.EIP155Block = big.NewInt(0).Set(c.EIP155Block)
+	}
+	if c.EIP158Block != nil {
+		cfg.EIP158Block = big.NewInt(0).Set(c.EIP158Block)
+	}
+	if c.ByzantiumBlock != nil {
+		cfg.ByzantiumBlock = big.NewInt(0).Set(c.ByzantiumBlock)
+	}
+	if c.ConstantinopleBlock != nil {
+		cfg.ConstantinopleBlock = big.NewInt(0).Set(c.ConstantinopleBlock)
+	}
+	if c.PetersburgBlock != nil {
+		cfg.PetersburgBlock = big.NewInt(0).Set(c.PetersburgBlock)
+	}
+	if c.EWASMBlock != nil {
+		cfg.EWASMBlock = big.NewInt(0).Set(c.EWASMBlock)
+	}
+
+	return cfg
 }
 
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to

@@ -120,12 +120,6 @@ func TestHeaderHash(t *testing.T) {
 			}),
 			posHeaderHash,
 		},
-		{
-			setExtra(PosHeader, headerExtra{
-				PastCommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")},
-			}),
-			common.HexToHash("0x0e006ab23161c9d88dab8cf00b6de143f1230b8f8a9d6b91ed10bb788edb9e4f"),
-		},
 	}
 	for i := range testCases {
 		if !reflect.DeepEqual(testCases[i].hash, testCases[i].header.Hash()) {
@@ -139,7 +133,5 @@ func setExtra(h Header, hExtra headerExtra) Header {
 	h.ProposerSeal = hExtra.ProposerSeal
 	h.Round = hExtra.Round
 	h.CommittedSeals = hExtra.CommittedSeals
-	h.PastCommittedSeals = hExtra.PastCommittedSeals
-
 	return h
 }

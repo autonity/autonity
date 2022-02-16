@@ -158,9 +158,9 @@ func (c *core) handleCommit(ctx context.Context) {
 	lastBlock, _ := c.backend.LastCommittedProposal()
 	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 	if height.Cmp(c.Height()) == 0 {
-		c.logger.Debug("Discarding event as core is at the same height", "height", c.Height())
+		c.logger.Debug("discarding event as core is at the same height", "height", c.Height())
 	} else {
-		c.logger.Debug("Received proposal is ahead", "height", c.Height(), "block_height", height)
+		c.logger.Debug("new chain head ahead of consensus core height", "height", c.Height(), "block_height", height)
 		c.startRound(ctx, 0)
 	}
 }

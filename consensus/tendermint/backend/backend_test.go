@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/p2p/enode"
 	"math"
 	"math/big"
 	"reflect"
@@ -34,7 +35,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -181,7 +181,7 @@ func TestVerifyProposal(t *testing.T) {
 		block = block.WithSeal(header)
 
 		// We need to sleep to avoid verifying a block in the future
-		time.Sleep(time.Duration(backend.config.BlockPeriod) * time.Second)
+		time.Sleep(time.Duration(1) * time.Second)
 		if _, err := backend.VerifyProposal(*block); err != nil {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
@@ -493,27 +493,6 @@ func TestBackendGetContractABI(t *testing.T) {
 	}
 }
 
-func TestBackendWhiteList(t *testing.T) {
-	//Very shallow test for the time being, running only with 1 validator
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
-	whitelist := engine.WhiteList()
-	if len(whitelist) != 1 {
-		t.Fatalf("unexpected returned whitelist")
-	}
-	expectedWhitelist := chain.Config().AutonityContractConfig.Users[0].Enode
-	if strings.Compare(whitelist[0], expectedWhitelist) != 0 {
-		t.Fatalf("unexpected returned whitelist")
-	}
-}
-
 /**
  * SimpleBackend
  * Private key: bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1
@@ -570,7 +549,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 	memDB := rawdb.NewMemoryDatabase()
 	// Use the first key as private key
-	b := New(genesis.Config.Tendermint, nodeKeys[0], memDB, genesis.Config, &vm.Config{})
+	b := New(nodeKeys[0], &vm.Config{})
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
@@ -603,14 +582,12 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Config = params.TestChainConfig
 	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	// force enable Tendermint engine
-	genesis.Config.Tendermint = config.DefaultConfig()
 	genesis.Difficulty = defaultDifficulty
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.BFTDigest
 	genesis.Timestamp = 1
 
-	AppendValidators(genesis, addrs)
+	AppendValidators(genesis, nodeKeys)
 	err := genesis.Config.AutonityContractConfig.Prepare()
 	if err != nil {
 		panic(err)
@@ -619,9 +596,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	return genesis, nodeKeys
 }
 
-const EnodeStub = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303"
-
-func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
+func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 	if genesis.Config == nil {
 		genesis.Config = &params.ChainConfig{}
 	}
@@ -629,26 +604,29 @@ func AppendValidators(genesis *core.Genesis, addrs []common.Address) {
 		genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	}
 
-	for i := range addrs {
-		genesis.Config.AutonityContractConfig.Users = append(
-			genesis.Config.AutonityContractConfig.Users,
-			params.User{
-				Address: &addrs[i],
-				Type:    params.UserValidator,
-				Enode:   EnodeStub,
-				Stake:   100,
+	for i := range keys {
+		addr := crypto.PubkeyToAddress(keys[i].PublicKey)
+		node := enode.NewV4(&keys[i].PublicKey, nil, 0, 0)
+		genesis.Config.AutonityContractConfig.Validators = append(
+
+			genesis.Config.AutonityContractConfig.Validators,
+			&params.Validator{
+				Address:     &addr,
+				Treasury:    &addr,
+				Enode:       node.URLv4(),
+				BondedStake: new(big.Int).SetUint64(100),
 			})
 	}
 }
 
-func makeHeader(parent *types.Block, config *config.Config) *types.Header {
+func makeHeader(parent *types.Block) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
-		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(config.BlockPeriod)).Uint64(),
+		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(1)).Uint64(),
 		Difficulty: defaultDifficulty,
 		MixDigest:  types.BFTDigest,
 		Round:      0,
@@ -672,7 +650,7 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
-	header := makeHeader(parent, engine.config)
+	header := makeHeader(parent)
 	_ = engine.Prepare(chain, header)
 
 	state, errS := chain.StateAt(parent.Root())

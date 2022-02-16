@@ -1,52 +1,82 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.7.1;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
-import "./SafeMath.sol";
+import "./Liquid.sol";
 import "./Precompiled.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20 {
-    using SafeMath for uint256;
 
-    enum UserType { Participant, Stakeholder, Validator}
-    struct User {
-        address payable addr;
-        UserType userType;
-        uint256 stake;
-        string enode;
+    enum ValidatorState { enabled, disabling, disabled}
+    struct Validator {
+        address payable treasury;
+        address addr;
+        string enode; // //addr must match provided enode
+        uint256 commissionRate;
+        uint256 bondedStake;
+        uint256 selfBondedStake;
+        uint256 totalSlashed;
+        Liquid liquidContract;
+        uint256 liquidSupply;
+        string extra; // meta-data JSON format (do we need to secure it ?)
+        // Following might not be needed
+        uint256 registrationBlock;
+        ValidatorState state;
     }
 
     struct CommitteeMember {
-        address payable addr;
+        address addr;
         uint256 votingPower;
     }
 
-    struct EconomicMetrics {
-        address[] accounts;
-        UserType[] usertypes;
-        uint256[] stakes;
-        uint256 mingasprice;
-        uint256 stakesupply;
+    /* Used for epoched staking */
+
+    struct Staking {
+        address payable delegator;
+        address delegatee;
+        uint256 amount;
+        uint256 startBlock;
     }
 
     /* State data that needs to be dumped in-case of a contract upgrade. */
-    address[] private usersList;
-    string[] private enodesWhitelist;
-    mapping (address => User) private users;
+
+    address[] private validatorList;
     address public operatorAccount;
+    address payable public treasuryAccount;
+    uint256 public treasuryFee;
     uint256 private minGasPrice;
     uint256 public committeeSize;
     string private contractVersion;
 
+    // Stake token state transitions happen every epoch.
+    uint256 public epochPeriod;
+    uint256 public epochID;
+    uint256 public lastEpochBlock;
+    uint256 public epochTotalBondedStake;
+    uint256 public unbondingPeriod;
+    uint256 public blockPeriod;
+    CommitteeMember[] private committee;
+    uint256 public totalRedistributed;
+    uint256 public epochReward;
+    string[] private committeeNodes;
     mapping (address => mapping (address => uint256)) private allowances;
 
+    /*
+    Keep track of bonding and unbonding requests.
+    Absolutely unsure if this is the most efficient way to do it...
+    */
+    mapping (uint256 => Staking) private bondingMap;
+    uint256 public tailBondingID;
+    uint256 public headBondingID;// not needed
+    mapping (uint256 => Staking) private unbondingMap;
+    uint256 public tailUnbondingID;
+    uint256 public headUnbondingID;
+
     /* State data that will be recomputed during a contract upgrade. */
-    address[] private validators;
-    address[] private stakeholders;
+    mapping (address => uint256) private accounts;
+    mapping (address => Validator) private validators;
     uint256 private stakeSupply;
-    CommitteeMember[] private committee;
 
     /*
     We're saving the address of who is deploying the contract and we use it
@@ -65,13 +95,11 @@ contract Autonity is IERC20 {
     string contractAbi;
 
     /* Events */
-    event UserAdded(address _address, UserType _type, uint256 _stake);
-    event RemovedUser(address _address, UserType _type);
-    event ChangedUserType(address _address, UserType _oldType, UserType _newType);
-    event MintedStake(address _address, uint256 _amount);
-    event BurnedStake(address _address, uint256 _amount);
-    event Rewarded(address _address, uint256 _amount);
-
+    event MintedStake(address addr, uint256 amount);
+    event BurnedStake(address addr, uint256 amount);
+    event RegisteredValidator(address treasury, address addr, string enode, address liquidContract);
+    event RemovedValidator(address addr);
+    event Rewarded(address addr, uint256 amount);
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
      * Note that `gasPrice` may be zero.
@@ -83,31 +111,58 @@ contract Autonity is IERC20 {
      */
     event ContractUpgraded(string version);
 
-    constructor (address[] memory _participantAddress,
-        string[] memory _participantEnode,
-        uint256[] memory _participantType,
-        uint256[] memory _participantStake,
+    // TODO : accounts too
+    constructor (Validator[] memory _validators,
         address _operatorAccount,
         uint256 _minGasPrice,
         uint256 _committeeSize,
-        string memory _contractVersion) {
-
-        require(_participantAddress.length == _participantEnode.length
-        && _participantAddress.length == _participantType.length
-        && _participantAddress.length == _participantStake.length,
-            "Incorrect constructor params");
-
-        for (uint256 i = 0; i < _participantAddress.length; i++) {
-            require(_participantAddress[i] != address(0), "Addresses must be defined");
-            UserType _userType = UserType(_participantType[i]);
-            address payable addr = address(uint160(_participantAddress[i]));
-            _createUser(addr, _participantEnode[i], _userType, _participantStake[i]);
-        }
+        string memory _contractVersion,
+        uint256 _epochPeriod,
+        uint256 _epochId,
+        uint256 _lastEpochBlock,
+        uint256 _unbondingPeriod,
+        address payable _treasuryAccount,
+        uint256 _treasuryFee
+    ) {
         operatorAccount = _operatorAccount;
         minGasPrice = _minGasPrice;
         contractVersion = _contractVersion;
         committeeSize = _committeeSize;
         deployer = msg.sender;
+        epochPeriod = _epochPeriod;
+        epochID = _epochId;
+        lastEpochBlock = _lastEpochBlock;
+        unbondingPeriod = _unbondingPeriod;
+        treasuryAccount = _treasuryAccount;
+        treasuryFee = _treasuryFee;
+
+
+        /* We are sharing the same Validator data structure for both genesis
+           initialization and runtime. It's not an ideal solution but
+           it avoids us adding more complexity to the contract and running into
+           stack limit issues.
+        */
+        for (uint256 i = 0; i < _validators.length; i++) {
+            uint256 _bondedStake = _validators[i].bondedStake;
+
+            // Sanitize the validator fields for a fresh new deployment.
+            _validators[i].liquidSupply = 0;
+            _validators[i].liquidContract = Liquid(address(0));
+            _validators[i].bondedStake = 0;
+            _validators[i].registrationBlock = 0;
+            _validators[i].state = ValidatorState.enabled;
+            // Autonity doesn't handle voting power over 64 bits.
+            require(_bondedStake < 2 ** 60, "issued Newton can't be greater than 2^60");
+
+            _registerValidator(_validators[i]);
+
+            accounts[_validators[i].treasury] += _bondedStake;
+            stakeSupply += _bondedStake;
+            epochTotalBondedStake += _bondedStake;
+            _bond(_validators[i].addr, _bondedStake, payable(_validators[i].treasury));
+        }
+        _stakingTransitions();
+        computeCommittee();
     }
 
     /**
@@ -139,68 +194,116 @@ contract Autonity is IERC20 {
         return "NEW";
     }
 
-    /**
-    * @notice Create a user in the Autonity Contract with the specified role. Restricted to the operator account.
-    */
-    function addUser(address payable _address, uint256 _stake, string memory _enode, UserType _role) public onlyOperator(msg.sender) {
-        require(!(_role == UserType.Participant && _stake > 0), "participant can't have stake");
-        _createUser(_address, _enode, _role, _stake);
-        emit UserAdded(_address, _role, _stake);
+
+    function registerValidator(string memory _enode, uint256 _commissionRate, string memory _extra) public {
+        Validator memory _val = Validator(payable(msg.sender), //treasury
+            address(0), // address
+            _enode, // enode
+            _commissionRate, // validator commission rate
+            0, // bonded stake
+            0, // self bonded stake
+            0,  // total slashed
+            Liquid(address(0)), // liquid token contract
+            0, // liquid token supply
+            _extra,
+            block.number,
+            ValidatorState.enabled
+        );
+
+         _registerValidator(_val);
+        emit RegisteredValidator(msg.sender, _val.addr, _enode, address(_val.liquidContract));
+    }
+
+    function bond(address _validator, uint256 _amount) public {
+        require(validators[_validator].addr == _validator, "validator not registered");
+        require(validators[_validator].state == ValidatorState.enabled, "validator need to be enabled");
+        _bond(_validator, _amount, payable(msg.sender));
+    }
+
+    function unbond(address _validator, uint256 _amount) public {
+        require(validators[_validator].addr == _validator, "validator not registered");
+        require(validators[_validator].state == ValidatorState.enabled, "validator need to be enabled");
+        _unbond(_validator, _amount, payable(msg.sender));
     }
 
     /**
-    * @notice Change the user account type. Restricted to the operator account.
-    */
-    function changeUserType(address _address , UserType newUserType ) public onlyOperator(msg.sender) {
-        _changeUserType(_address, newUserType);
-    }
+    * @notice Remove the validator account from the contract.
+    * @param _address address to be removed.
+    * @dev emit a {RemovedValidator} event.
 
-    /**
-    * @notice Remove the user account from the contract. The account stake is burnt and the
-    * associated enode(if present) is removed from the enode whitelist. Restricted to the operator account.
-    * @param account address to be removed.
-    * @dev emit a {RemoveUser} event.
-    */
-    function removeUser(address account) public onlyOperator(msg.sender) {
-        _removeUser(account);
+    function disableValidator(address _address) public {
+        // Q: Should we keep it in state memory or not ?
+        require(validators[_address].addr == _address, "validator must be registered");
+        require(validators[_address].treasury == msg.sender, "require caller to be validator admin account");
+        require(validators[_address].state == ValidatorState.enabled, "validator must be enabled");
+
+        _disableValidator(_address);
     }
+    */
 
     /**
     * @notice Set the minimum gas price. Restricted to the operator account.
-    * @param price Positive integer.
+    * @param _price Positive integer.
     * @dev Emit a {MinimumGasPriceUpdated} event.
     */
-    function setMinimumGasPrice(uint256 price) public onlyOperator(msg.sender) {
-        minGasPrice = price;
-        emit MinimumGasPriceUpdated(price);
+    function setMinimumGasPrice(uint256 _price) public onlyOperator {
+        minGasPrice = _price;
+        emit MinimumGasPriceUpdated(_price);
     }
 
     /*
     * @notice Set the maximum size of the consensus committee. Restricted to the Operator account.
     *
     */
-    function setCommitteeSize(uint256 size) public onlyOperator(msg.sender) {
-        committeeSize = size;
+    function setCommitteeSize(uint256 _size) public onlyOperator {
+        committeeSize = _size;
+    }
+
+    function setUnbondingPeriod(uint256 _period) public onlyOperator {
+        unbondingPeriod = _period;
+    }
+
+    function setEpochPeriod(uint256 _period) public onlyOperator {
+        epochPeriod = _period;
+    }
+
+    function setOperatorAccount(address _account) public onlyOperator {
+        operatorAccount = _account;
+    }
+
+    function setBlockPeriod(uint256 _period) public onlyOperator {
+        blockPeriod = _period;
+    }
+
+    function setTreasuryAccount(address payable _account) public onlyOperator {
+        treasuryAccount = _account;
+    }
+
+    function setTreasuryFee(uint256 _treasuryFee) public onlyOperator {
+        treasuryFee = _treasuryFee;
     }
 
     /*
     * @notice Mint new stake token (NEW) and add it to the recipient balance. Restricted to the Operator account.
     * @dev emit a MintStake event.
     */
-    function mint(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
-        users[_account].stake = users[_account].stake.add(_amount);
-        stakeSupply = stakeSupply.add(_amount);
-        emit MintedStake(_account, _amount);
+    function mint(address _addr, uint256 _amount) public onlyOperator {
+        // Autonity doesn't handle voting power over 64 bits.
+        require(_amount < 2 ** 60, "issued Newton can't be greater than 2^60");
+        accounts[_addr] += _amount;
+        stakeSupply += _amount;
+        emit MintedStake(_addr, _amount);
     }
 
     /**
     * @notice Burn the specified amount of NEW stake token from an account. Restricted to the Operator account.
+    * This won't burn associated Liquid tokens.
     */
-    function burn(address _account, uint256 _amount) public onlyOperator(msg.sender) canUseStake(_account) {
-        users[_account].stake = users[_account].stake.sub(_amount, "Redeem stake amount exceeds balance");
-        stakeSupply = stakeSupply.sub(_amount);
-        _checkDowngradeValidator(_account);
-        emit BurnedStake(_account, _amount);
+    function burn(address _addr, uint256 _amount) public onlyOperator {
+        require(accounts[_addr] >= _amount, "Amount exceeds balance");
+        accounts[_addr] -= _amount;
+        stakeSupply -= _amount;
+        emit BurnedStake(_addr, _amount);
     }
 
     /**
@@ -241,7 +344,8 @@ contract Autonity is IERC20 {
      */
     function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool){
         _transfer(sender, recipient, amount);
-        _approve(sender, msg.sender, allowances[sender][msg.sender].sub(amount, "ERC20: transfer amount exceeds allowance"));
+        uint256 newAllowance = allowances[sender][msg.sender] - amount;
+        _approve(sender, msg.sender, newAllowance);
         return true;
     }
 
@@ -254,7 +358,7 @@ contract Autonity is IERC20 {
 
     function upgradeContract(string memory _bytecode,
                              string memory _abi,
-                             string memory _version) public onlyOperator(msg.sender) returns(bool) {
+                             string memory _version) public onlyOperator returns(bool) {
         bytecode = _bytecode;
         contractAbi = _abi;
         contractVersion = _version;
@@ -262,14 +366,7 @@ contract Autonity is IERC20 {
         return true;
     }
 
-    /**
-    * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.
-    * @return `bytecode` the new contract bytecode.
-    * @return `contractAbi` the new contract ABI.
-    */
-    function getNewContract() external view returns(string memory, string memory) {
-        return (bytecode, contractAbi);
-    }
+
 
 
     /** @dev finalize is the block state finalisation function. It is called
@@ -280,45 +377,87 @@ contract Autonity is IERC20 {
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next block consensus committee.
     */
-    function finalize(uint256 amount) external onlyProtocol(msg.sender)
+    function finalize(uint256 amount) external onlyProtocol
         returns(bool , CommitteeMember[] memory) {
-
-        _performRedistribution(amount);
         bool _updateAvailable = bytes(bytecode).length != 0;
-        computeCommittee();
+        epochReward += amount;
+        if (lastEpochBlock + epochPeriod == block.number) {
+            // - slashing should come here first -
+            _performRedistribution(epochReward);
+            epochReward = 0;
+            _stakingTransitions();
+            computeCommittee();
+            lastEpochBlock = block.number;
+        }
         return (_updateAvailable, committee);
     }
 
-    /**
-    * @dev Dump the current internal state key elements. Called by the protocol during a contract upgrade.
-    * The returned data will be passed directly to the constructor of the new contract at deployment.
-    */
-    function getState() external view returns(
-        address[] memory _addr,
-        string[] memory _enode,
-        uint256[] memory _userType,
-        uint256[] memory _stake,
-        address _operatorAccount,
-        uint256 _minGasPrice,
-        uint256 _committeeSize,
-        string memory _contractVersion) {
 
-        // Exceptionally using named returns here, make things clearer.
-        _addr = new address[](usersList.length);
-        _userType  = new uint256[](usersList.length);
-        _stake = new uint256[](usersList.length);
-        _enode = new string[](usersList.length);
-        for(uint256 i=0; i<usersList.length; i++ ) {
-            _addr[i] = users[usersList[i]].addr;
-            _userType[i] = uint256(users[usersList[i]].userType);
-            _stake[i] = users[usersList[i]].stake;
-            _enode[i] = users[usersList[i]].enode;
+    /**
+    * @notice update the current committee by selecting top staking validators.
+    * Restricted to the protocol.
+    */
+    function computeCommittee() public onlyProtocol {
+        // Left public for testing purposes.
+        require(validatorList.length > 0, "There must be validators");
+        /*
+         As opposed to storage arrays, it is not possible to resize memory arrays
+         have to calculate the required size in advance
+        */
+        uint _len = 0;
+        for (uint256 i = 0;i < validatorList.length; i++) {
+            if (validators[validatorList[i]].state == ValidatorState.enabled &&
+                validators[validatorList[i]].bondedStake > 0) {
+                _len++;
+            }
         }
-        _operatorAccount = operatorAccount;
-        _minGasPrice = minGasPrice;
-        _committeeSize = committeeSize;
-        _contractVersion = contractVersion;
+
+        uint256 _committeeLength = committeeSize;
+        if (_committeeLength >= _len) {_committeeLength = _len;}
+
+        Validator[] memory _validatorList = new Validator[](_len);
+        Validator[] memory _committeeList = new Validator[](_committeeLength);
+
+        // since Push function does not apply to fix length array, introduce a index j to prevent the overflow,
+        // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
+        uint j = 0;
+        for (uint256 i = 0;i < validatorList.length; i++) {
+            if (validators[validatorList[i]].state == ValidatorState.enabled &&
+                validators[validatorList[i]].bondedStake > 0) {
+                // Perform a copy of the validator object
+                Validator memory _user = validators[validatorList[i]];
+                _validatorList[j] = _user;
+                j++;
+            }
+        }
+
+        // If there are more validators than seats in the committee
+        if (_validatorList.length > committeeSize) {
+            // sort validators by stake in ascending order
+            _sortByStake(_validatorList);
+            // choose the top-N (with N=maxCommitteeSize)
+            // Todo: (optimisation) just pop()
+            for (uint256 _j = 0; _j < committeeSize; _j++) {
+                _committeeList[_j] = _validatorList[_j];
+            }
+        }
+        // If all the validators fit in the committee
+        else {
+            _committeeList = _validatorList;
+        }
+
+        // Update committee in persistent storage
+        delete committee;
+        delete committeeNodes;
+        epochTotalBondedStake =0;
+        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
+            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].bondedStake);
+            committee.push(_member);
+            committeeNodes.push(_committeeList[_k].enode);
+            epochTotalBondedStake += _committeeList[_k].bondedStake;
+        }
     }
+
 
     /*
     ============================================================
@@ -345,29 +484,15 @@ contract Autonity is IERC20 {
      * @notice Returns the current list of validators.
      */
     function getValidators() external view returns (address[] memory) {
-        return validators;
+        return validatorList;
     }
 
-    /**
-     * @notice Returns the current list of stakeholders.
-     */
-    function getStakeholders() external view returns (address[] memory) {
-        return stakeholders;
-    }
 
     /**
-    * @notice Autonity Protocol function, returns the list of authorized enodes
-    * able to join the network.
+    * @notice Returns the amount of unbonded Newton token held by the account (ERC-20).
     */
-    function getWhitelist() external view returns (string[] memory) {
-        return enodesWhitelist;
-    }
-
-    /**
-    * @notice Returns the amount of stake token held by the account (ERC-20).
-    */
-    function balanceOf(address _account) external view override returns (uint256) {
-        return users[_account].stake;
+    function balanceOf(address _addr) external view override returns (uint256) {
+        return accounts[_addr];
     }
 
     /**
@@ -381,9 +506,9 @@ contract Autonity is IERC20 {
     * @return Returns a user object with the `_account` parameter. The returned data
     * object might be empty if there is no user associated.
     */
-    function getUser(address _account) external view returns(User memory) {
+    function getValidator(address _addr) external view returns(Validator memory) {
         //TODO : coreturn an error if no user was found.
-        return users[_account];
+        return validators[_addr];
     }
 
     /**
@@ -394,11 +519,28 @@ contract Autonity is IERC20 {
     }
 
     /**
+    * @return Returns the maximum size of the consensus committee.
+    */
+    function getCommitteeEnodes() external view returns(string[] memory) {
+        return committeeNodes;
+    }
+
+    /**
     * @return Returns the minimum gas price.
     * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
     */
     function getMinimumGasPrice() external view returns(uint256) {
         return minGasPrice;
+    }
+
+
+    /**
+     * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.
+     * @return `bytecode` the new contract bytecode.
+     * @return `contractAbi` the new contract ABI.
+     */
+    function getNewContract() external view returns(string memory, string memory) {
+        return (bytecode, contractAbi);
     }
 
     /**
@@ -413,13 +555,13 @@ contract Autonity is IERC20 {
         // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
         uint256 total_voting_power = 0;
         for (uint256 i = 0; i < committee.length; i++) {
-            total_voting_power = total_voting_power.add(committee[i].votingPower);
+            total_voting_power += committee[i].votingPower;
         }
 
         require(total_voting_power != 0, "The committee is not staking");
 
         // distribute seed into a 256bits key-space.
-        uint256 key = height.add(round);
+        uint256 key = height + round;
         uint256 value = uint256(keccak256(abi.encodePacked(key)));
         uint256 index = value % total_voting_power;
 
@@ -427,7 +569,7 @@ contract Autonity is IERC20 {
         // we assume there is no 0 stake/power validators.
         uint256 counter = 0;
         for (uint256 i = 0; i < committee.length; i++) {
-            counter = counter.add(committee[i].votingPower);
+            counter += committee[i].votingPower;
             if (index <= counter - 1) {
                 return committee[i].addr;
             }
@@ -436,67 +578,37 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @notice Returns an object which contains all the network economics data.
+    * @dev Dump the current internal state key elements. Called by the protocol during a contract upgrade.
+    * The returned data will be passed directly to the constructor of the new contract at deployment.
+    * THIS WILL BE DEPRECIATED WITH NEW PROXY-LIKE UPGRADE MECHANISM.
     */
-    function dumpEconomicMetrics() public view returns(EconomicMetrics memory) {
-        uint len = usersList.length;
+    function getState() external view returns(
+        address _operatorAccount,
+        uint256 _minGasPrice,
+        uint256 _committeeSize,
+        string memory _contractVersion) {
 
-        address[] memory tempAddrlist = new address[](len);
-        UserType[] memory tempTypelist = new UserType[](len);
-        uint256[] memory tempStakelist = new uint256[](len);
-
-        for (uint i = 0; i < len; i++) {
-            tempAddrlist[i] = users[usersList[i]].addr;
-            tempTypelist[i] = users[usersList[i]].userType;
-            tempStakelist[i] = users[usersList[i]].stake;
-        }
-
-        EconomicMetrics memory data = EconomicMetrics(tempAddrlist, tempTypelist, tempStakelist, minGasPrice, stakeSupply);
-        return data;
+        _operatorAccount = operatorAccount;
+        _minGasPrice = minGasPrice;
+        _committeeSize = committeeSize;
+        _contractVersion = contractVersion;
     }
 
-    /**
-    * @notice update the current committee by selecting top staking validators.
-    * Restricted to the protocol.
-    */
-    function computeCommittee() public onlyProtocol(msg.sender) {
-        // Left public for testing purposes.
-        require(validators.length > 0, "There must be validators");
-        uint _len = validators.length;
-        uint256 _committeeLength = committeeSize;
-        if (_committeeLength >= _len) {_committeeLength = _len;}
-
-        User[] memory _validatorList = new User[](_len);
-        User[] memory _committeeList = new User[](_committeeLength);
-
-        for (uint256 i = 0;i < validators.length; i++) {
-            User memory _user = users[validators[i]];
-            _validatorList[i] =_user;
+    // lastId not included
+    function getBondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
+        Staking[] memory _results = new Staking[](lastId - startId);
+        for(uint256 i = 0; i< lastId - startId ; i++){
+            _results[i] = bondingMap[startId +i];
         }
-
-        // If there are more validators than seats in the committee
-        if (_validatorList.length > committeeSize) {
-            // sort validators by stake in ascending order
-            _sortByStake(_validatorList);
-            // choose the top-N (with N=maxCommitteeSize)
-            for (uint256 _j = 0; _j < committeeSize; _j++) {
-                _committeeList[_j] = _validatorList[_j];
-            }
-        }
-        // If all the validators fit in the committee
-        else {
-            _committeeList = _validatorList;
-        }
-
-        // Update committee in persistent storage
-        delete committee;
-        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
-            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].stake);
-            committee.push(_member);
-        }
-
+        return _results;
     }
-
+    function getUnbondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
+        Staking[] memory _results = new Staking[](lastId - startId);
+        for(uint256 i = 0; i< lastId - startId ; i++){
+            _results[i] = unbondingMap[startId +i];
+        }
+        return _results;
+    }
     /*
     ============================================================
 
@@ -509,8 +621,8 @@ contract Autonity is IERC20 {
     * @dev Modifier that checks if the caller is the governance operator account.
     * This should be abstracted by a separate smart-contract.
     */
-    modifier onlyOperator(address _caller) {
-        require(operatorAccount == _caller, "caller is not the operator");
+    modifier onlyOperator{
+        require(operatorAccount == msg.sender, "caller is not the operator");
         _;
     }
 
@@ -519,19 +631,8 @@ contract Autonity is IERC20 {
     * Only the protocol itself can invoke the contract with the 0 address to the exception
     * of testing.
     */
-    modifier onlyProtocol(address _caller) {
-        require(deployer == _caller, "function restricted to the protocol");
-        _;
-    }
-
-    /**
-    * @dev Modifier that checks if the adress is authorized to own stake.
-    */
-    modifier canUseStake(address _address) {
-        require(_address != address(0), "address must be defined");
-        require(users[_address].userType == UserType.Stakeholder ||
-        users[_address].userType ==  UserType.Validator, "address not allowed to use stake");
-        require(users[_address].addr != address(0), "address must be defined");
+    modifier onlyProtocol {
+        require(deployer == msg.sender, "function restricted to the protocol");
         _;
     }
 
@@ -552,21 +653,29 @@ contract Autonity is IERC20 {
     */
     function _performRedistribution(uint256 _amount) internal  {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
-        require(stakeholders.length > 0, "there must be stake holders");
+        // take treasury fee.
 
-        for (uint256 i = 0; i < stakeholders.length; i++) {
-            User storage _user = users[stakeholders[i]];
-            uint256 _reward = _user.stake.mul(_amount).div(stakeSupply);
-            _user.addr.transfer(_reward);
-            emit Rewarded(_user.addr, _reward);
+        uint256 _treasuryReward = (treasuryFee * _amount) / 10**9;
+        if (_treasuryReward > 0) {
+            treasuryAccount.transfer(_treasuryReward);
+            _amount -= _treasuryReward;
+        }
+        totalRedistributed += _amount;
+        for (uint256 i = 0; i < committee.length; i++) {
+            Validator storage _val = validators[committee[i].addr];
+            uint256 _reward = (_val.bondedStake * _amount) / epochTotalBondedStake;
+            if(_reward > 0) {
+                _val.liquidContract.redistribute{value: _reward}();
+            }
+            emit Rewarded(_val.addr, _reward);
         }
     }
 
-    function _transfer(address sender, address recipient, uint256 amount) internal canUseStake(sender) canUseStake(recipient) {
-        users[sender].stake = users[sender].stake.sub(amount, "Transfer amount exceeds balance");
-        users[recipient].stake = users[recipient].stake.add(amount);
-        _checkDowngradeValidator(sender);
-        emit Transfer(sender, recipient, amount);
+    function _transfer(address _sender, address _recipient, uint256 _amount) internal {
+        require(accounts[_sender] >= _amount, "amount exceeds balance");
+        accounts[_sender] -= _amount;
+        accounts[_recipient] += _amount;
+        emit Transfer(_sender, _recipient, _amount);
     }
 
     /**
@@ -578,7 +687,7 @@ contract Autonity is IERC20 {
      * Emits an {Approval} event.
      *
      */
-    function _approve(address owner, address spender, uint256 amount) internal canUseStake(spender) virtual {
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
         require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
 
@@ -586,120 +695,140 @@ contract Autonity is IERC20 {
         emit Approval(owner, spender, amount);
     }
 
-    /**
-    * @dev If the user is a validator and its stake is zero downgrade it to a
-    * stakeholder. Unless the user is the only validator in which case the
-    * transaction is reverted.
-    *
-    * This check is used to ensure that we do not end up in a situation where
-    * the system has no validators.
+    function _registerValidator(Validator memory _validator) internal {
+        // _enode can't be empty and needs to be well-formed.
+        uint _err;
+        (_validator.addr, _err) = Precompiled.enodeCheck(_validator.enode);
+        require( _err == 0, "enode error");
+        require(validators[_validator.addr].addr ==  address(0), "validator already registered");
+        require(_validator.commissionRate <= 10 ** 9, "invalid commission rate");
+
+        // step 2: deploy liquid stake contract
+        if (address(_validator.liquidContract) == address(0)){
+            _validator.liquidContract = new Liquid(_validator.addr,
+                _validator.treasury,
+                _validator.commissionRate);
+        }
+        validatorList.push(_validator.addr);
+        validators[_validator.addr] = _validator;
+    }
+
+    /* Todo : Finish
+    function _disableValidator(address _address) internal {
+        Validator storage val = validators[_address];
+
+        val.state = ValidatorState.disabling;
+        val.liquidContract.freeze();
+        // TODO: We should start unbonding and destroy stake token
+        // retrieving the list of account holders here might be too expensive.
+        // Need to be extra careful..
+
+        //stakeSupply -= val.bondedStake;
+
+        emit RemovedValidator(_address);
+    }
     */
-    function _checkDowngradeValidator(address _address) internal {
-        User memory u = users[_address];
-        if (u.stake != 0 || u.userType != UserType.Validator) {
-            return;
-        }
+    /**
+     * @dev Create a bonding object of `amount` stake token with the `_recipient` address.
+     * This object will be processed
+     *
+     * This function assume that `_validator` is a valid validator address.
+     */
+    function _bond(address _validator, uint256 _amount, address payable _recipient) internal {
 
-        require(validators.length > 1, "Downgrade user failed due to keep at least 1 validator in the network");
-        _changeUserType(u.addr, UserType.Stakeholder);
+        require(_amount > 0, "amount need to be strictly positive");
+        require(accounts[_recipient] >= _amount, "insufficient Newton balance");
+
+        accounts[_recipient] -= _amount;
+        Staking memory _bonding = Staking( _recipient, _validator, _amount, block.number);
+        bondingMap[headBondingID] = _bonding;
+        headBondingID++;
     }
 
-    function _changeUserType(address _address , UserType newUserType ) internal {
-        require(_address != address(0), "address must be defined");
-        require(users[_address].addr != address(0), "user must exist");
+    function _applyBonding(uint256 id) internal {
+        Staking storage _bonding = bondingMap[id];
+        Validator storage _validator = validators[_bonding.delegatee];
 
-        require(users[_address].userType != newUserType, "The user is already of this type.");
-
-        // Removes the user and adds it again with the new userType
-        User memory u = users[_address];
-        if(newUserType == UserType.Participant){
-            require(u.stake == 0);
+        /* The conversion rate is equal to the ratio of issued liquid tokens
+             over the total amount of bonded staked tokens. */
+        uint256 _liquidAmount;
+        if (_validator.bondedStake == 0 ) {
+            _liquidAmount =  _bonding.amount;
+        } else {
+            _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _validator.bondedStake;
         }
-        _removeUser(u.addr);
-        _createUser(u.addr, u.enode, newUserType, u.stake);
 
-        emit ChangedUserType(u.addr , u.userType , newUserType);
+        _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
+        _validator.bondedStake += _bonding.amount;
+        if(_bonding.delegator == _validator.treasury) {
+            _validator.selfBondedStake += _bonding.amount;
+        }
+        _validator.liquidSupply += _liquidAmount;
     }
 
-    function _removeUser(address _address) internal {
-        require(_address != address(0), "address must be defined");
-        require(users[_address].addr != address(0), "user must exists");
-        User storage u = users[_address];
+    function _unbond(address _validator, uint256 _amount, address payable _recipient) internal {
+        uint256 liqBalance = validators[_validator].liquidContract.balanceOf(_recipient);
+        require(liqBalance >= _amount, "insufficient Liquid Newton balance");
 
-        if(u.userType == UserType.Validator || u.userType == UserType.Stakeholder){
-            _removeFromArray(u.addr, stakeholders);
+        validators[_validator].liquidContract.burn(_recipient, _amount);
+        Staking memory _unbonding = Staking( _recipient, _validator, _amount, block.number);
+        unbondingMap[headUnbondingID] = _unbonding;
+        headUnbondingID++;
+    }
+
+    function _applyUnbonding(uint256 id) internal {
+        Staking storage _unbonding = unbondingMap[id];
+        Validator storage validator = validators[_unbonding.delegatee];
+        /* validator.liquidSupply must not be equal to zero here */
+        uint256 _newtonAmount = (_unbonding.amount * validator.bondedStake) / validator.liquidSupply;
+
+        validator.bondedStake -= _newtonAmount;
+        if(_unbonding.delegator == validator.treasury) {
+            validator.selfBondedStake -= _newtonAmount;
         }
+        validator.liquidSupply -= _unbonding.amount;
+        accounts[_unbonding.delegator] += _newtonAmount;
+    }
 
-        if(u.userType == UserType.Validator){
-            require(validators.length > 1, "There must be at least 1 validator in the network");
-            _removeFromArray(u.addr, validators);
+    /* Should be called at every epoch */
+    function _stakingTransitions() internal {
+        for(uint256 i = tailBondingID; i < headBondingID; i++){
+            _applyBonding(i);
         }
+        tailBondingID = headBondingID;
 
-        if (!(bytes(u.enode).length == 0)) {
-            for (uint256 i = 0; i < enodesWhitelist.length; i++) {
-                if (_compareStringsbyBytes(enodesWhitelist[i], u.enode)) {
-                    enodesWhitelist[i] = enodesWhitelist[enodesWhitelist.length - 1];
-                    enodesWhitelist.pop();
-                    break;
-                }
+        uint256 _processedId = tailUnbondingID;
+        for(uint256 i = tailUnbondingID; i < headUnbondingID; i++){
+            if(unbondingMap[i].startBlock + unbondingPeriod <= block.number){
+                _applyUnbonding(i);
+                _processedId += 1;
+            } else {
+                break;
             }
         }
-        stakeSupply = stakeSupply.sub(u.stake);
-        _removeFromArray(u.addr, usersList);
-        delete users[_address];
-        emit RemovedUser(_address, u.userType);
+        tailUnbondingID = _processedId;
     }
-
-
-    function _createUser(address payable _address, string memory _enode, UserType _userType, uint256 _stake) internal {
-        require(_address != address(0), "Addresses must be defined");
-        require(Precompiled.enodeCheck(_enode)[0] != 0, "enode error");
-
-        User memory u = User(_address, _userType, _stake, _enode);
-
-        // avoid duplicated user in usersList.
-        require(users[u.addr].addr == address(0), "already registered address");
-
-        usersList.push(u.addr);
-
-        users[u.addr] = u;
-
-        if (u.userType == UserType.Stakeholder){
-            stakeholders.push(u.addr);
-        } else if(u.userType == UserType.Validator){
-            require(u.stake != 0, "validator with 0 stake is not permitted");
-            validators.push(u.addr);
-            stakeholders.push(u.addr);
-        }
-        stakeSupply = stakeSupply.add(_stake);
-
-        if(bytes(u.enode).length != 0) {
-            enodesWhitelist.push(u.enode);
-        }
-    }
-
-
 
     /**
     * @dev Order validators by stake
     */
-    function _sortByStake(User[] memory _validators) internal pure {
+    function _sortByStake(Validator[] memory _validators) internal pure {
         _structQuickSort(_validators, int(0), int(_validators.length - 1));
     }
 
     /**
     * @dev QuickSort algorithm sorting in ascending order by stake.
     */
-    function _structQuickSort(User[] memory _users, int _low, int _high) internal pure {
+    function _structQuickSort(Validator[] memory _users, int _low, int _high) internal pure {
 
         int _i = _low;
         int _j = _high;
         if (_i==_j) return;
-        uint _pivot = _users[uint(_low + (_high - _low) / 2)].stake;
+        uint _pivot = _users[uint(_low + (_high - _low) / 2)].bondedStake;
         // Set the pivot element in its right sorted index in the array
         while (_i <= _j) {
-            while (_users[uint(_i)].stake > _pivot) _i++;
-            while (_pivot > _users[uint(_j)].stake) _j--;
+            while (_users[uint(_i)].bondedStake > _pivot) _i++;
+            while (_pivot > _users[uint(_j)].bondedStake) _j--;
             if (_i <= _j) {
                 (_users[uint(_i)], _users[uint(_j)]) = (_users[uint(_j)], _users[uint(_i)]);
                 _i++;
@@ -731,6 +860,5 @@ contract Autonity is IERC20 {
             }
         }
     }
-
 
 }

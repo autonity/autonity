@@ -21,7 +21,7 @@ import (
 // use only.
 //
 // Example usages
-// err := interact(rpcPort).tx(senderKey).addValidator(address ,stake, enode)
+// err := interact(rpcPort).tx(senderKey).registerValidator(address ,stake, enode)
 //
 // whitelist,err := interact(rpcPort).call(blockNumber).getWhitelist()
 func interact(rpcPort int) *interactor {
@@ -55,7 +55,7 @@ type interactor struct {
 	err      error
 }
 
-// close closes the underlying ethclient. Users of interacotor should not
+// close closes the underlying ethclient. Validators of interacotor should not
 // need to call this directly because the call that finally interacts with the
 // autonity contract will call this.
 func (i *interactor) close() {
@@ -135,16 +135,16 @@ func (t *transactor) execute(action func(instance *Autonity, opts *bind.Transact
 	return action(t.i.instance, t.opts)
 }
 
-func (t *transactor) addUser(address common.Address, stakeBalance *big.Int, enode string, role uint8) error {
+func (t *transactor) registerValidator(enode string, _commissionRate *big.Int, _extra string) error {
 	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.AddUser(opts, address, stakeBalance, enode, role)
+		_, err := instance.RegisterValidator(opts, enode, _commissionRate, _extra)
 		return err
 	})
 }
 
-func (t *transactor) removeUser(address common.Address) error {
+func (t *transactor) disableValidator(address common.Address) error {
 	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		_, err := instance.RemoveUser(opts, address)
+		_, err := instance.DisableValidator(opts, address)
 		return err
 	})
 }
@@ -191,30 +191,10 @@ func (c *caller) execute(action func(instance *Autonity, opts *bind.CallOpts) er
 	return action(c.i.instance, c.opts)
 }
 
-func (c *caller) getWhitelist() ([]string, error) {
-	var whitelist []string
+func (c *caller) getValidator(address common.Address) (AutonityValidator, error) {
+	var user AutonityValidator
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
-		w, err := instance.GetWhitelist(opts)
-		whitelist = w
-		return err
-	})
-	return whitelist, err
-}
-
-func (c *caller) dumpEconomicsMetricData() (AutonityEconomicMetrics, error) {
-	var metrics AutonityEconomicMetrics
-	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
-		m, err := instance.DumpEconomicMetrics(opts)
-		metrics = m
-		return err
-	})
-	return metrics, err
-}
-
-func (c *caller) getUser(address common.Address) (AutonityUser, error) {
-	var user AutonityUser
-	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
-		u, err := instance.GetUser(opts, address)
+		u, err := instance.GetValidator(opts, address)
 		user = u
 		return err
 	})

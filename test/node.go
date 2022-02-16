@@ -72,7 +72,7 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
+func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 
 	k := u.Key.(*ecdsa.PrivateKey)
 	address := crypto.PubkeyToAddress(k.PublicKey)
@@ -90,7 +90,7 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
 	// Set rpc ports
-	userCount := len(genesis.Config.AutonityContractConfig.Users)
+	userCount := len(genesis.Config.AutonityContractConfig.Validators)
 	c.HTTPPort = u.NodePort + userCount
 	c.WSPort = u.NodePort + userCount*2
 
@@ -113,7 +113,6 @@ func NewNode(u *gengen.User, genesis *core.Genesis) (*Node, error) {
 	ec.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinGasPrice)
 	ec.Genesis = genesis
 	ec.NetworkId = genesis.Config.ChainID.Uint64()
-	ec.Tendermint = *genesis.Config.Tendermint
 
 	node := &Node{
 		Config:    c,
@@ -265,7 +264,7 @@ type Network []*Node
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromUsers(users []*gengen.User) (Network, error) {
+func NewNetworkFromUsers(users []*gengen.Validator) (Network, error) {
 	g, err := Genesis(users)
 	if err != nil {
 		return nil, err
@@ -355,12 +354,12 @@ func ValueTransferTransaction(client *ethclient.Client, senderKey *ecdsa.Private
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
 // E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s'.
-func Users(count int, formatString string, startingPort int) ([]*gengen.User, error) {
-	var users []*gengen.User
+func Users(count int, formatString string, startingPort int) ([]*gengen.Validator, error) {
+	var users []*gengen.Validator
 	for i := startingPort; i < startingPort+count; i++ {
 
 		portString := strconv.Itoa(i)
-		u, err := gengen.ParseUser(fmt.Sprintf(formatString, portString, "key"+portString))
+		u, err := gengen.ParseValidator(fmt.Sprintf(formatString, portString, "key"+portString))
 		if err != nil {
 			return nil, err
 		}
@@ -370,13 +369,13 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.User, er
 }
 
 // Genesis creates a genesis instance from the provided users.
-func Genesis(users []*gengen.User) (*core.Genesis, error) {
+func Genesis(users []*gengen.Validator) (*core.Genesis, error) {
 	g, err := gengen.NewGenesis(1, users)
 	if err != nil {
 		return nil, err
 	}
 	// Make the tests fast
-	g.Config.Tendermint.BlockPeriod = 0
+	g.Config.AutonityContractConfig.BlockPeriod = 0
 	return g, nil
 }
 

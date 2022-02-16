@@ -2,7 +2,6 @@ package autonity
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"sort"
 	"strings"
@@ -30,9 +29,6 @@ type EVMProvider interface {
 }
 
 type Blockchainer interface {
-	UpdateEnodeWhitelist(newWhitelist *types.Nodes)
-	ReadEnodeWhitelist() *types.Nodes
-
 	PutKeyValue(key []byte, value []byte) error
 }
 
@@ -66,52 +62,6 @@ func NewAutonityContract(
 	return &contract, err
 }
 
-// measure metrics of user's meta data by regarding of network economic.
-func (ac *Contract) MeasureMetricsOfNetworkEconomic(header *types.Header, stateDB *state.StateDB) error {
-	// prepare abi and evm context
-	gas := uint64(0xFFFFFFFF)
-	evm := ac.evmProvider.EVM(header, Deployer, stateDB)
-	ABI := ac.contractABI
-
-	// pack the function which dump the data from contract.
-	input, err := ABI.Pack("dumpEconomicMetrics")
-	if err != nil {
-		return fmt.Errorf("failed to pack contract function: %v", err)
-	}
-
-	// call evm.
-	value := new(big.Int).SetUint64(0x00)
-	ret, _, vmerr := evm.Call(vm.AccountRef(Deployer), ContractAddress, input, gas, value)
-	if vmerr != nil {
-		return fmt.Errorf("EVM call to dumpNetworkEconomics failed: %v", vmerr)
-	}
-
-	// marshal the data from bytes arrays into specified structure.
-	v := EconomicMetaData{make([]common.Address, 32), make([]uint8, 32), make([]*big.Int, 32), new(big.Int), new(big.Int)}
-
-	if err := ABI.UnpackIntoInterface(&v, "dumpEconomicMetrics", ret); err != nil {
-		return fmt.Errorf("cannot unpack data from return value from contract: %v", err)
-	}
-
-	if len(v.Accounts) != len(v.Usertypes) {
-		return fmt.Errorf("accounts len: %d does not match user types len: %d", len(v.Accounts), len(v.Usertypes))
-	}
-
-	if len(v.Accounts) != len(v.Stakes) {
-		return fmt.Errorf("accounts len: %d does not match stakes len: %d", len(v.Accounts), len(v.Stakes))
-	}
-
-	for i := 0; i < len(v.Accounts); i++ {
-		userType := v.Usertypes[i]
-		if userType != Participant && userType != Stakeholder && userType != Validator {
-			return fmt.Errorf("undefined user type: %d", userType)
-		}
-	}
-
-	ac.metrics.SubmitEconomicMetrics(&v, stateDB, header.Number.Uint64(), ac.operator)
-	return nil
-}
-
 func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, error) {
 	// The Autonity Contract is not deployed yet at block #1, we return an error if this
 	// function is called at this height. In a past version we were returning the genesis committee field
@@ -129,32 +79,8 @@ func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (
 	return committeeSet, err
 }
 
-func (ac *Contract) UpdateEnodesWhitelist(state *state.StateDB, block *types.Block) error {
-	newWhitelist, err := ac.GetWhitelist(block, state)
-	if err != nil {
-		log.Error("Could not call contract", "err", err)
-		return ErrAutonityContract
-	}
-
-	ac.bc.UpdateEnodeWhitelist(newWhitelist)
-	return nil
-}
-
-func (ac *Contract) GetWhitelist(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
-	var (
-		newWhitelist *types.Nodes
-		err          error
-	)
-
-	if block.Number().Uint64() == 1 {
-		// use genesis block whitelist
-		newWhitelist = ac.bc.ReadEnodeWhitelist()
-	} else {
-		// call retrieveWhitelist contract function
-		newWhitelist, err = ac.callGetWhitelist(db, block.Header())
-	}
-
-	return newWhitelist, err
+func (ac *Contract) GetCommitteeEnodes(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
+	return ac.callGetCommitteeEnodes(db, block.Header())
 }
 
 func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {

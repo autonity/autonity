@@ -28,7 +28,6 @@ import (
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -52,35 +51,6 @@ func WriteCanonicalHash(db ethdb.KeyValueWriter, hash common.Hash, number uint64
 	if err := db.Put(headerHashKey(number), hash.Bytes()); err != nil {
 		log.Crit("Failed to store number to hash mapping", "err", err)
 	}
-}
-
-// WriteEnodeWhitelist stores the list of permitted enodes
-func WriteEnodeWhitelist(db ethdb.KeyValueWriter, whitelist *types.Nodes) {
-	bytes, err := rlp.EncodeToBytes(whitelist.StrList)
-	if err != nil {
-		log.Crit("Failed to RLP encode enode whitelist", "err", err)
-	}
-	if err := db.Put(enodeWhiteList, bytes); err != nil {
-		log.Crit("Failed to store last header's hash", "err", err)
-	}
-}
-
-// ReadEnodeWhitelist retrieve the list of permitted enodes
-func ReadEnodeWhitelist(db ethdb.KeyValueReader) *types.Nodes {
-	var strList []string
-	nodes := &types.Nodes{List: make([]*enode.Node, 0)}
-
-	data, _ := db.Get(enodeWhiteList)
-	if len(data) == 0 {
-		return nodes
-	}
-	if err := rlp.Decode(bytes.NewReader(data), &strList); err != nil {
-		log.Error("Invalid Enode whitelist", "err", err)
-		return nodes
-	}
-
-	nodes = types.NewNodes(strList)
-	return nodes
 }
 
 // PutKeyValue stores the key value to the chain data level db.

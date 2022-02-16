@@ -1,6 +1,7 @@
 package params
 
 import (
+	"math/big"
 	"net"
 	"testing"
 
@@ -22,18 +23,18 @@ func TestPrepareAutonityContract(t *testing.T) {
 
 	contractConfig := AutonityContractGenesis{
 		Operator: common.HexToAddress("0xff"),
-		Bytecode: "some code",
-		ABI:      "some abi",
-		Users: []User{
+		Validators: []*Validator{
 			{
-				Enode:   node1.String(),
-				Type:    UserStakeHolder,
-				Address: &addr1,
+				Treasury:    &common.Address{},
+				Enode:       node1.String(),
+				Address:     &addr1,
+				BondedStake: big.NewInt(1),
 			},
 			{
-				Enode:   node2.String(),
-				Type:    UserValidator,
-				Address: &addr2,
+				Treasury:    &common.Address{},
+				Enode:       node2.String(),
+				Address:     &addr2,
+				BondedStake: big.NewInt(1),
 			},
 		},
 	}
@@ -42,30 +43,24 @@ func TestPrepareAutonityContract(t *testing.T) {
 
 func TestPrepareAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Bytecode: "some code",
-		ABI:      "some abi",
 		Operator: common.HexToAddress("0xff"),
-		Users: []User{
+		Validators: []*Validator{
 			{
-				Enode: "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				Type:  UserParticipant,
-				Stake: 10,
+				Treasury: &common.Address{},
+				Enode:    "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
 			},
 		},
 	}
 	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
 }
 
-func TestPrepareAutonityContract_ByteCodeMissed_Fail(t *testing.T) {
-	address := common.HexToAddress("0x123")
+func TestPrepareAutonityContract_TreasuryMissed_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		ABI:      "some abi",
 		Operator: common.HexToAddress("0xff"),
-		Users: []User{
+		Validators: []*Validator{
 			{
-				Address: &address,
-				Enode:   "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				Type:    UserParticipant,
+				Enode:       "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+				BondedStake: big.NewInt(1),
 			},
 		},
 	}
@@ -77,15 +72,14 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 	t.Skip("Do we need it?")
 	address := common.HexToAddress("0x123")
 	contractConfig := AutonityContractGenesis{
-		Bytecode: "some code",
-		ABI:      "some abi",
 		Operator: common.HexToAddress("0xff"),
 
-		Users: []User{
+		Validators: []*Validator{
 			{
-				Address: &address,
-				Enode:   "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				Type:    UserParticipant,
+				Address:     &address,
+				Enode:       "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+				BondedStake: big.NewInt(10),
+				Treasury:    &common.Address{},
 			},
 		},
 	}
@@ -94,24 +88,20 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 
 func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Bytecode: "some code",
-		ABI:      "some abi",
-		Users:    []User{},
+		Validators: []*Validator{},
 	}
 	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
 }
 func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	contractConfig := &AutonityContractGenesis{
-		Bytecode: "some code",
-		ABI:      "some abi",
-		Users: []User{
+		Validators: []*Validator{
 			{
-				Enode: "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				Type:  UserValidator,
-				Stake: 1,
+				Treasury:    &common.Address{},
+				Enode:       "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+				BondedStake: big.NewInt(1),
 			},
 		},
 	}
 	require.NoError(t, contractConfig.Prepare())
-	assert.NotNil(t, contractConfig.Users[0].Address, "Failed to add user address")
+	assert.NotNil(t, contractConfig.Validators[0].Address, "Failed to add user address")
 }

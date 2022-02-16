@@ -21,7 +21,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -88,7 +87,6 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 	genesis.Mixhash = types.BFTDigest
 
 	genesis.Config = params.TestChainConfig
-	genesis.Config.Tendermint = config.DefaultConfig()
 	genesis.Config.Ethash = nil
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 
@@ -99,24 +97,19 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 		}
 	}
 
-	users := make([]params.User, 0, len(nodes))
+	validators := make([]*params.Validator, 0, len(nodes))
 	for n, node := range nodes {
-		var nodeType params.UserType
-		stake := uint64(100)
 
+		stake := big.NewInt(100)
 		var skip bool
 		switch {
 		case strings.HasPrefix(n, ValidatorPrefix):
-			nodeType = params.UserValidator
-		case strings.HasPrefix(n, StakeholderPrefix):
-			nodeType = params.UserStakeHolder
-		case strings.HasPrefix(n, ParticipantPrefix):
-			nodeType = params.UserParticipant
-			stake = 0
+
 		case strings.HasPrefix(n, ExternalPrefix):
 			//an unknown user
 			skip = true
 		default:
+			skip = true
 			require.FailNow(t, "incorrect node type")
 		}
 
@@ -124,11 +117,11 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 			continue
 		}
 		address := crypto.PubkeyToAddress(node.privateKey.PublicKey)
-		users = append(users, params.User{
-			Address: &address,
-			Enode:   node.url,
-			Type:    nodeType,
-			Stake:   stake,
+		validators = append(validators, &params.Validator{
+			Address:     &address,
+			Enode:       node.url,
+			Treasury:    &common.Address{},
+			BondedStake: stake,
 		})
 	}
 
@@ -144,16 +137,15 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 	}
 
 	address := crypto.PubkeyToAddress(shKey.PublicKey)
-	stakeHolder := params.User{
-		Address: &address,
-		Type:    params.UserStakeHolder,
-		Stake:   200,
+	stakeHolder := params.Validator{
+		Address:     &address,
+		Enode:       stakeNode.url,
+		Treasury:    &common.Address{},
+		BondedStake: big.NewInt(200),
 	}
 
-	stakeHolder.Enode = stakeNode.url
-
-	users = append(users, stakeHolder)
-	genesis.Config.AutonityContractConfig.Users = users
+	validators = append(validators, &stakeHolder)
+	genesis.Config.AutonityContractConfig.Validators = validators
 	err = genesis.Config.AutonityContractConfig.Prepare()
 	require.NoError(t, err)
 	return genesis
@@ -197,7 +189,6 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		DatabaseCache:   256,
 		DatabaseHandles: 256,
 		TxPool:          core.DefaultTxPoolConfig,
-		Tendermint:      *genesis.Config.Tendermint,
 	}
 	return configNode, ethConfig
 }
@@ -387,7 +378,8 @@ wgLoop:
 	for {
 		select {
 		case ev := <-peer.eventChan:
-			err = peer.service.APIBackend.IsSelfInWhitelist()
+			//err = peer.service.APIBackend.IsSelfInWhitelist()
+			var err error // todo : update
 			if !isExternalUser && err != nil {
 				return fmt.Errorf("a user %q should be in the whitelist: %v on block %d", index, err, ev.Block.NumberU64())
 			}
@@ -738,7 +730,7 @@ func peerSendExternalTransaction(addresses []addressesList, test *testCase, vali
 func checkNodesDontContainMaliciousBlock(t *testing.T, minHeight uint64, validators map[string]*testNode, test *testCase) {
 	// check that all nodes got the same blocks
 	for i := uint64(1); i <= minHeight; i++ {
-		blockHash := validators["VA"].blocks[i].hash
+		blockHash := validators["V1"].blocks[i].hash
 
 		for index, validator := range validators {
 			if isExternalUser(index) {

@@ -12,19 +12,18 @@ import (
 
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
 	"github.com/spf13/cobra"
 )
 
 const (
 	minGasPriceFlag = "min-gas-price"
-	userFlag        = "user"
+	validatorFlag   = "validator"
 	outFileFlag     = "out-file"
 )
 
 var (
 	minGasPrice uint64
-	users       []string
+	validators  []string
 	outFile     string
 
 	// Note in order to achieve a consistent output formatting for the flag
@@ -47,7 +46,7 @@ much gas validators will receive for running the network. Depending on how
 GasLimit is set there may or may not be an incentive to submit transactions
 with higher gas prices than the minimum.`
 
-	userDescription = `
+	validatorDescription = `
 Specifies the parameters for a user. Can be specified multiple times, once for
 each user. The first user to be defined on the command line will become the
 operator (a user with special privileges and the ability to administer the
@@ -101,7 +100,7 @@ func NewCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "gengen",
 		Short:   gengenDescription,
-		Example: `./gengen --min-gas-price 10 --user 1e12,v,1,:6789 --user 1e12,v,1,:6799 --user-keys userkeys`,
+		Example: `./gengen --min-gas-price 10 --validator 1e12,v,1,:6789 --validator 1e12,v,1,:6799 --validator-keys validatorkeys`,
 		RunE:    generateGenesis,
 	}
 
@@ -120,8 +119,8 @@ func NewCmd() *cobra.Command {
 		panic(err)
 	}
 
-	flags.StringArrayVar(&users, userFlag, nil, userDescription)
-	err = rootCmd.MarkPersistentFlagRequired("user")
+	flags.StringArrayVar(&validators, validatorFlag, nil, validatorDescription)
+	err = rootCmd.MarkPersistentFlagRequired("validator")
 	if err != nil {
 		panic(err)
 	}
@@ -138,7 +137,7 @@ func NewCmd() *cobra.Command {
 
 func generateGenesis(cmd *cobra.Command, args []string) error {
 
-	parsed, err := parseUsers(users)
+	parsed, err := parseValidators(validators)
 	if err != nil {
 		return err
 	}
@@ -148,11 +147,11 @@ func generateGenesis(cmd *cobra.Command, args []string) error {
 	}
 	err = writeKeys(parsed)
 	if err != nil {
-		return fmt.Errorf("failed to write user keys: %v", err)
+		return fmt.Errorf("failed to write validator keys: %v", err)
 	}
 	err = writeGenesis(outFile, genesis)
 	if err != nil {
-		return fmt.Errorf("failed to write user keys: %v", err)
+		return fmt.Errorf("failed to write validator keys: %v", err)
 	}
 	return nil
 }
@@ -189,11 +188,11 @@ func readKey(keyFile string) (interface{}, error) {
 }
 
 // writeKeys writes the keys to file at path, one per line.
-func writeKeys(users []*User) error {
+func writeKeys(validators []*Validator) error {
 	writeErr := func(file string, err error) error {
 		return fmt.Errorf("failed to write key to %q: %v", file, err)
 	}
-	for _, u := range users {
+	for _, u := range validators {
 		switch k := u.Key.(type) {
 		case *ecdsa.PrivateKey:
 			err := ioutil.WriteFile(u.KeyPath, crypto.PrivECDSAToHex(k), os.ModePerm)
@@ -228,10 +227,10 @@ func writeGenesis(path string, genesis *core.Genesis) error {
 	return nil
 }
 
-func parseUsers(users []string) ([]*User, error) {
-	parsed := make([]*User, len(users))
-	for i, u := range users {
-		p, err := ParseUser(u)
+func parseValidators(validators []string) ([]*Validator, error) {
+	parsed := make([]*Validator, len(validators))
+	for i, u := range validators {
+		p, err := ParseValidator(u)
 		if err != nil {
 			return nil, err
 		}
@@ -240,27 +239,15 @@ func parseUsers(users []string) ([]*User, error) {
 	return parsed, nil
 }
 
-func ParseUser(u string) (*User, error) {
+func ParseValidator(u string) (*Validator, error) {
 	fields := strings.Split(u, ",")
 	if len(fields) != 5 {
-		return nil, fmt.Errorf("user strings need 5 fields, invalid user string %q", u)
+		return nil, fmt.Errorf("validator strings need 5 fields, invalid validator string %q", u)
 	}
 
 	initialEth, err := ParseUint(fields[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse initial eth: %v", err)
-	}
-
-	var userType params.UserType
-	switch fields[1] {
-	case "p":
-		userType = params.UserParticipant
-	case "s":
-		userType = params.UserStakeHolder
-	case "v":
-		userType = params.UserValidator
-	default:
-		return nil, fmt.Errorf("failed to parse user type %q, not one of u, s or p", fields[1])
 	}
 
 	bigStake, err := ParseUint(fields[2])
@@ -298,9 +285,8 @@ func ParseUser(u string) (*User, error) {
 		return nil, err
 	}
 
-	user := &User{
+	validator := &Validator{
 		InitialEth: initialEth,
-		UserType:   userType,
 		Stake:      stake,
 		NodeIP:     ip,
 		NodePort:   int(port),
@@ -308,5 +294,5 @@ func ParseUser(u string) (*User, error) {
 		Key:        key,
 	}
 
-	return user, nil
+	return validator, nil
 }

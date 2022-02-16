@@ -180,8 +180,6 @@ type BlockChain struct {
     chainHeadFeed event.Feed
     logsFeed      event.Feed
     blockProcFeed event.Feed
-    glienickeFeed event.Feed
-    autonityFeed  event.Feed
     scope         event.SubscriptionScope
     genesisBlock  *types.Block
 
@@ -219,10 +217,6 @@ type BlockChain struct {
 
     autonityContract *autonity.Contract
 
-    // senderCacher is a concurrent transaction sender recoverer and cacher
-    senderCacher *TxSenderCacher
-
-    autonityContract *autonity.Contract
     // senderCacher is a concurrent transaction sender recoverer and cacher
     senderCacher *TxSenderCacher
 }
@@ -328,7 +322,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if chainConfig.Tendermint != nil {
 
 		if chainConfig.AutonityContractConfig == nil {
-			return nil, errors.New("we need autonity contract specified for tendermint or istanbul consensus")
+			return nil, errors.New("Autonity contract config section missing from genesis config")
 		}
 
 		acConfig := bc.Config().AutonityContractConfig
@@ -338,21 +332,17 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		if err == nil || bytes != nil {
 			JSONString = string(bytes)
 		}
-		contract, err := autonity.NewAutonityContract(
+		if bc.autonityContract, err = autonity.NewAutonityContract(
 			bc,
 			acConfig.Operator,
 			acConfig.MinGasPrice,
 			JSONString,
 			&defaultEVMProvider{bc},
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
-
-		bc.autonityContract = contract
 		bc.processor.SetAutonityContract(bc.autonityContract)
 	}
-
 	// Ensure that a previous crash in SetHead doesn't leave extra ancients
 	if frozen, err := bc.db.Ancients(); err == nil && frozen > 0 {
 		var (
@@ -1223,20 +1213,6 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
     }
     // Make sure no inconsistent state is leaked during insertion
     externTd := new(big.Int).Add(block.Difficulty(), ptd)
-
-    if bc.chainConfig.Tendermint != nil {
-        // Call network permissioning logic before committing the state
-		err = bc.GetAutonityContract().UpdateEnodesWhitelist(state, block)
-		if err != nil && err != autonity.ErrAutonityContract {
-			return NonStatTy, err
-		}
-
-		// Measure network economic metrics.
-		err := bc.GetAutonityContract().MeasureMetricsOfNetworkEconomic(block.Header(), state)
-		if err != nil {
-			panic(err)
-		}
-	}
 
 	// Irrelevant of the canonical status, write the block itself to the database.
 	//
@@ -2354,23 +2330,6 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
     defer bc.chainmu.Unlock()
     _, err := bc.hc.InsertHeaderChain(chain, start, bc.forker)
     return 0, err
-}
-
-func (bc *BlockChain) SubscribeAutonityEvents(ch chan<- WhitelistEvent) event.Subscription {
-	return bc.scope.Track(bc.autonityFeed.Subscribe(ch))
-}
-
-func (bc *BlockChain) UpdateEnodeWhitelist(newWhitelist *types.Nodes) {
-	rawdb.WriteEnodeWhitelist(bc.db, newWhitelist)
-	bc.wg.Add(1)
-	go func() {
-		defer bc.wg.Done()
-		bc.autonityFeed.Send(WhitelistEvent{Whitelist: newWhitelist.List})
-	}()
-}
-
-func (bc *BlockChain) ReadEnodeWhitelist() *types.Nodes {
-	return rawdb.ReadEnodeWhitelist(bc.db)
 }
 
 func (bc *BlockChain) PutKeyValue(key []byte, value []byte) error {

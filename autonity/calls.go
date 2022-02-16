@@ -15,54 +15,28 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
-/*
- * ContractState is a unified structure to represent the autonity contract state.
- * By using a unified structure, the new state meta introduced in the Autonity.sol
- * should be synced with this structure.
- */
-type ContractState struct {
-	Users           []common.Address `abi:"users"`
-	Enodes          []string         `abi:"enodes"`
-	Types           []*big.Int       `abi:"types"`
-	Stakes          []*big.Int       `abi:"stakes"`
-	CommissionRates []*big.Int       `abi:"commisionrates"`
-	Operator        common.Address   `abi:"operator"`
-	Deployer        common.Address   `abi:"deployer"`
-	MinGasPrice     *big.Int         `abi:"mingasprice"`
-	BondingPeriod   *big.Int         `abi:"bondingperiod"`
-}
-
 type raw []byte
 
 func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(autonityConfig.Bytecode)
 
-	ln := len(autonityConfig.GetValidatorUsers())
-	validators := make(common.Addresses, 0, ln)
-	enodes := make([]string, 0, ln)
-	accTypes := make([]*big.Int, 0, ln)
-	participantStake := make([]*big.Int, 0, ln)
-
-	defaultCommitteeSize := big.NewInt(1000)
+	defaultCommitteeSize := big.NewInt(21)
 	defaultVersion := "v0.0.0"
-
-	for _, v := range autonityConfig.Users {
-		validators = append(validators, *v.Address)
-		enodes = append(enodes, v.Enode)
-		accTypes = append(accTypes, big.NewInt(int64(v.Type.GetID())))
-		participantStake = append(participantStake, big.NewInt(int64(v.Stake)))
-	}
+	vals := autonityConfig.GetValidatorsCopy()
 
 	constructorParams, err := abi.Pack("",
-		validators,
-		enodes,
-		accTypes,
-		participantStake,
+		vals,
 		autonityConfig.Operator,
 		new(big.Int).SetUint64(autonityConfig.MinGasPrice),
 		defaultCommitteeSize,
-		defaultVersion)
+		defaultVersion,
+		new(big.Int).SetUint64(autonityConfig.EpochPeriod),
+		new(big.Int).SetUint64(0),
+		new(big.Int).SetUint64(0),
+		new(big.Int).SetUint64(autonityConfig.UnbondingPeriod),
+		autonityConfig.Treasury,
+		new(big.Int).SetUint64(autonityConfig.TreasuryFee))
 	if err != nil {
 		log.Error("contractABI.Pack returns err", "err", err)
 		return err
@@ -138,9 +112,9 @@ func (ac *Contract) CallContractFunc(statedb *state.StateDB, header *types.Heade
 	return packedResult, err
 }
 
-func (ac *Contract) callGetWhitelist(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+func (ac *Contract) callGetCommitteeEnodes(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
 	var returnedEnodes []string
-	err := ac.AutonityContractCall(state, header, "getWhitelist", &returnedEnodes)
+	err := ac.AutonityContractCall(state, header, "getCommitteeEnodes", &returnedEnodes)
 	if err != nil {
 		return nil, err
 	}

@@ -224,15 +224,17 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	var committee types.Committee
 	if config.AutonityContractConfig != nil {
-		validators := config.AutonityContractConfig.GetValidatorUsers()
+		validators := config.AutonityContractConfig.GetValidators()
 		committee = make(types.Committee, len(validators))
 		for i, val := range validators {
 			committee[i] = types.CommitteeMember{
 				Address:     *val.Address,
-				VotingPower: new(big.Int).SetUint64(val.Stake),
+				VotingPower: val.BondedStake,
 			}
 		}
 	}
+
+	// This interface is not enough to support tendermint consensus engine.
 	chainreader := &fakeChainReader{
 		config:    config,
 		committee: committee,
@@ -342,7 +344,7 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
 func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
-	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
+	blocks, _ := GenerateChain(params.AutonityTestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	return blocks

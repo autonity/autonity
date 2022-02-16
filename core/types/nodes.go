@@ -28,7 +28,7 @@ func NewNodes(strList []string) *Nodes {
 		wg.Add(1)
 
 		go func(enodeStr string) {
-			log.Debug("performing", "node", enodeStr)
+			log.Debug("node retrieved", "node", enodeStr)
 			newEnode, err := enode.ParseV4(enodeStr)
 			if err != nil {
 				errCh <- err

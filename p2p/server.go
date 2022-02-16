@@ -209,6 +209,8 @@ type Server struct {
 
 	// State of run loop and listenLoop.
 	inboundHistory expHeap
+
+	consensusNodes []*enode.Node
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -382,44 +384,44 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 	}
 }
 
-// UpdateWhitelist updates the whitelist using static peers logic
-// This function can be heavily optimized if needed
-func (src *Server) UpdateWhitelist(enodes []*enode.Node) {
+// UpdateConsensusEnodes is responsible to make sure that
+// a node belonging to the consensus committee is fully connected
+// to the other consensus committee nodes.
+func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 
 	// Check for peers that needs to be disconnected
-	for _, connectedPeer := range src.Peers() {
+	for _, connectedPeer := range src.consensusNodes {
 		found := false
 		for _, whitelistedEnode := range enodes {
-			if connectedPeer.Node().ID() == whitelistedEnode.ID() {
+			if connectedPeer.ID() == whitelistedEnode.ID() {
 				found = true
 				break
 			}
 		}
 		if !found {
-			log.Info("Dropping no longer authorized peer", "enode", connectedPeer.Node().String())
-			src.RemovePeer(connectedPeer.Node())
-			src.RemoveTrustedPeer(connectedPeer.Node())
+			log.Debug("dropping node from static peers", "enode", connectedPeer.String())
+			src.RemoveTrustedPeer(connectedPeer)
+			src.dialsched.removeStatic(connectedPeer)
 		}
 	}
 
 	// Check for peers that needs to be connected
 	for _, whitelistedEnode := range enodes {
 		found := false
-		for _, oldEnode := range src.TrustedNodes {
+		for _, oldEnode := range src.consensusNodes {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
 			}
 		}
 		if !found {
-			log.Info("Connecting to newly authorized peer", "enode", whitelistedEnode.String())
-			src.AddPeer(whitelistedEnode)
+			log.Debug("connecting to newly authorized node", "enode", whitelistedEnode.String())
 			src.AddTrustedPeer(whitelistedEnode)
+			src.AddPeer(whitelistedEnode)
 		}
 	}
 
-	src.StaticNodes = enodes
-	src.TrustedNodes = enodes
+	src.consensusNodes = enodes
 }
 
 // SubscribePeers subscribes the given channel to peer events

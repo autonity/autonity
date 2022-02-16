@@ -99,6 +99,8 @@ type Ethereum struct {
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 
+	chainHeadSub event.Subscription
+	chainHeadCh  chan core.ChainHeadEvent
 	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully
 }
 
@@ -164,7 +166,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	merger := consensus.NewMerger(chainDb)
 	consEngine := CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
 	if cons != nil {
-		consEngine = cons(consEngine)
+		consensusEngine = cons(consensusEngine)
 	}
 
 	eth := &Ethereum{
@@ -173,22 +175,19 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		chainDb:           chainDb,
 		eventMux:          stack.EventMux(),
 		accountManager:    stack.AccountManager(),
-		engine:            consEngine,
+		engine:            consensusEngine,
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,
 		gasPrice:          config.Miner.GasPrice,
 		etherbase:         config.Miner.Etherbase,
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
-		glienickeCh:       make(chan core.WhitelistEvent),
-		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
+		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
+		chainHeadCh:       make(chan core.ChainHeadEvent),
 	}
 
-	// force to set the istanbul etherbase to node key address
-	if chainConfig.Tendermint != nil {
-		eth.etherbase = crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey)
-	}
+	eth.etherbase = crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey)
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
@@ -213,7 +212,10 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		return nil, err
 	}
 
-	if be, ok := consEngine.(tendermintcore.Backend); ok {
+	// temporary solution
+	if be, ok := consensusEngine.(interface {
+		SetBlockchain(*core.BlockChain)
+	}); ok {
 		be.SetBlockchain(eth.blockchain)
 	}
 	// Rewind the chain in case of an incompatible config upgrade.
@@ -306,35 +308,31 @@ func makeExtraData(extra []byte) []byte {
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
-
-	if chainConfig.Tendermint != nil {
-		return tendermintBackend.New(&config.Tendermint, ctx.Config().NodeKey(), db, chainConfig, vmConfig)
+	if chainConfig.Ethash != nil {
+		ethConfig := config.Ethash
+		switch ethConfig.PowMode {
+		case ethash.ModeFake:
+			log.Warn("Ethash used in fake mode")
+			return ethash.NewFaker()
+		case ethash.ModeTest:
+			log.Warn("Ethash used in test mode")
+			return ethash.NewTester(nil, noverify)
+		default:
+			engine := ethash.New(ethash.Config{
+				CacheDir:         ctx.ResolvePath(ethConfig.CacheDir),
+				CachesInMem:      ethConfig.CachesInMem,
+				CachesOnDisk:     ethConfig.CachesOnDisk,
+				CachesLockMmap:   ethConfig.CachesLockMmap,
+				DatasetDir:       ethConfig.DatasetDir,
+				DatasetsInMem:    ethConfig.DatasetsInMem,
+				DatasetsOnDisk:   ethConfig.DatasetsOnDisk,
+				DatasetsLockMmap: ethConfig.DatasetsLockMmap,
+			}, notify, noverify)
+			engine.SetThreads(-1) // Disable CPU mining
+			return engine
+		}
 	}
-
-	// Otherwise assume proof-of-work
-	ethConfig := config.Ethash
-
-	switch ethConfig.PowMode {
-	case ethash.ModeFake:
-		log.Warn("Ethash used in fake mode")
-		return ethash.NewFaker()
-	case ethash.ModeTest:
-		log.Warn("Ethash used in test mode")
-		return ethash.NewTester(nil, noverify)
-	default:
-		engine := ethash.New(ethash.Config{
-			CacheDir:         ctx.ResolvePath(ethConfig.CacheDir),
-			CachesInMem:      ethConfig.CachesInMem,
-			CachesOnDisk:     ethConfig.CachesOnDisk,
-			CachesLockMmap:   ethConfig.CachesLockMmap,
-			DatasetDir:       ethConfig.DatasetDir,
-			DatasetsInMem:    ethConfig.DatasetsInMem,
-			DatasetsOnDisk:   ethConfig.DatasetsOnDisk,
-			DatasetsLockMmap: ethConfig.DatasetsLockMmap,
-		}, notify, noverify)
-		engine.SetThreads(-1) // Disable CPU mining
-		return engine
-	}
+	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig)
 }
 
 // APIs return the collection of RPC services the ethereum package offers.
@@ -478,10 +476,7 @@ func (s *Ethereum) shouldPreserve(header *types.Header) bool {
 	// is A, F and G sign the block of round5 and reject the block of opponents
 	// and in the round6, the last available signer B is offline, the whole
 	// network is stuck.
-	if _, ok := s.engine.(*clique.Clique); ok {
-		return false
-	}
-	return s.isLocalBlock(header)
+	return s.isLocalBlock(block)
 }
 
 // SetEtherbase sets the mining reward address.
@@ -592,7 +587,11 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
+
+	s.chainHeadSub = s.blockchain.SubscribeChainHeadEvent(s.chainHeadCh)
+	go s.chainHeadEventLoop(s.p2pServer)
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
+
 
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)
@@ -613,42 +612,61 @@ func (s *Ethereum) Start() error {
 	return nil
 }
 
-// Whitelist updating loop. Act as a relay between state processing logic and DevP2P
-// for updating the list of authorized enodes
-func (s *Ethereum) glienickeEventLoop(server *p2p.Server) {
+/* This routine is responsible to takes some various actions
+depending if the local node is part of the consensus committee or not.
+*/
+func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
+	localAddress := crypto.PubkeyToAddress(*server.LocalNode().Node().Pubkey())
 
-	savedList := rawdb.ReadEnodeWhitelist(s.chainDb)
-	log.Info("Reading Whitelist", "list", savedList.StrList)
-	server.UpdateWhitelist(savedList.List)
+	updateConsensusEnodes := func(block *types.Block) {
+		state, err := s.blockchain.StateAt(block.Header().Root)
+		if err != nil {
+			log.Error("could not retrieve state at head block", "err", err)
+			return
+		}
+		enodesList, err := s.blockchain.GetAutonityContract().GetCommitteeEnodes(block, state)
+		if err != nil {
+			log.Error("could not retrieve consensus whitelist at head block", "err", err)
+			return
+		}
+		server.UpdateConsensusEnodes(enodesList.List)
+	}
+
+	wasValidating := false
+	currentBlock := s.blockchain.CurrentBlock()
+	if currentBlock.Header().CommitteeMember(localAddress) != nil {
+		updateConsensusEnodes(currentBlock)
+		s.miner.Start(common.Address{})
+		log.Info("Starting node as validator")
+		wasValidating = true
+	}
 
 	for {
 		select {
-		case event := <-s.glienickeCh:
-			whitelist := append([]*enode.Node{}, event.Whitelist...)
-			// Filter the list of need to be dropped peers depending on TD.
-			for _, connectedPeer := range s.protocolManager.peers.Peers() {
-				found := false
-				connectedEnode := connectedPeer.Node()
-				for _, whitelistedEnode := range whitelist {
-					if connectedEnode.ID() == whitelistedEnode.ID() {
-						found = true
-						break
-					}
+		case event := <-s.chainHeadCh:
+			header := event.Block.Header()
+			// check if the local node belongs to the consensus committee.
+			if header.CommitteeMember(localAddress) == nil {
+				// if the local node was part of the committee set for the previous block
+				// there is no longer the need to retain the full connections and the
+				// consensus engine enabled.
+				if wasValidating {
+					server.UpdateConsensusEnodes(nil)
+					log.Info("Local node no longer detected part of the consensus committee, mining stopped")
+					s.miner.Stop()
+					wasValidating = false
 				}
-
-				if !found {
-					// this node is no longer in the whitelist
-					peerID := fmt.Sprintf("%x", connectedEnode.ID().Bytes()[:8])
-					peer := s.protocolManager.peers.Peer(peerID)
-					localTd := s.blockchain.CurrentHeader().Number.Uint64() + 1
-					if peer != nil && peer.td.Uint64() > localTd {
-						whitelist = append(whitelist, connectedEnode)
-					}
-				}
+				continue
 			}
-			server.UpdateWhitelist(whitelist)
+			updateConsensusEnodes(event.Block)
+			// if we were not committee in the past block we need to enable the mining engine.
+			if !wasValidating {
+				log.Info("Local node detected part of the consensus committee, mining started")
+				s.miner.Start(common.Address{})
+			}
+			wasValidating = true
 		// Err() channel will be closed when unsubscribing.
-		case <-s.glienickeSub.Err():
+		case <-s.chainHeadSub.Err():
 			return
 		}
 	}
@@ -661,8 +679,7 @@ func (s *Ethereum) Stop() error {
 	s.ethDialCandidates.Close()
 	s.snapDialCandidates.Close()
 	s.handler.Stop()
-
-	s.glienickeSub.Unsubscribe()
+	s.chainHeadSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)

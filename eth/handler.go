@@ -123,6 +123,9 @@ type handler struct {
     chainSync *chainSyncer
     wg        sync.WaitGroup
     peerWG    sync.WaitGroup
+
+	engine consensus.Engine
+	pub    *ecdsa.PublicKey
 }
 
 // newHandler returns a handler for all Ethereum chain management protocol.
@@ -362,11 +365,10 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
     dead := make(chan struct{})
     defer close(dead)
 
-    if pm.blockchain.Config().Tendermint != nil {
-        syncer := pm.blockchain.Engine().(consensus.Syncer)
-        address := crypto.PubkeyToAddress(*p.Node().Pubkey())
-        syncer.ResetPeerCache(address)
-    }
+	if syncer, ok := pm.blockchain.Engine().(consensus.Syncer); ok {
+		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
+		syncer.ResetPeerCache(address)
+	}
 
     // If we have a trusted CHT, reject all peers below that (avoid fast sync eclipse)
     if h.checkpointHash != (common.Hash{}) {
@@ -668,11 +670,7 @@ func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) map[co
 	m := make(map[common.Address]consensus.Peer)
 
 	for _, p := range pm.peers.Peers() {
-		pubKey := p.Node().Pubkey()
-		if pubKey == nil {
-			continue
-		}
-		addr := crypto.PubkeyToAddress(*pubKey)
+		addr := p.address
 		if _, ok := targets[addr]; ok {
 			m[addr] = p
 		}

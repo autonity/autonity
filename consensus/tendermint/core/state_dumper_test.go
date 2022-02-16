@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/golang/mock/gomock"
@@ -30,7 +29,7 @@ func TestGetProposal(t *testing.T) {
 	nodeAddr := common.BytesToAddress([]byte("node"))
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(nodeAddr)
-	core := New(backendMock, config.RoundRobinConfig())
+	core := New(backendMock)
 
 	proposalMsg, proposal := randomProposal(t)
 	core.messages.getOrCreate(proposal.Round).SetProposal(&proposal, proposalMsg, true)
@@ -47,7 +46,7 @@ func TestGetRoundState(t *testing.T) {
 	backendMock := NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(sender)
 
-	c := New(backendMock, config.DefaultConfig())
+	c := New(backendMock)
 
 	var rounds []int64 = []int64{0, 1}
 	height := big.NewInt(int64(100) + 1)
@@ -82,7 +81,7 @@ func TestGetCoreState(t *testing.T) {
 	backendMock.EXPECT().Address().Return(sender)
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
 
-	c := New(backendMock, config.DefaultConfig())
+	c := New(backendMock)
 
 	var rounds []int64 = []int64{0, 1}
 
@@ -106,7 +105,6 @@ func TestGetCoreState(t *testing.T) {
 	state := <-e.stateChan
 
 	assert.Equal(t, sender, state.Client)
-	assert.Equal(t, uint64(c.proposerPolicy), state.ProposerPolicy)
 	assert.Equal(t, c.blockPeriod, state.BlockPeriod)
 	assert.Len(t, state.CurHeightMessages, 6)
 	assert.Equal(t, height, state.Height)

@@ -148,7 +148,7 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	// default topology if not set anything
-	nodeNames := getNodeNames()[:test.numValidators]
+	nodeNames := getNodeNames(test.numValidators)
 	stakeholderName := nodeNames[len(nodeNames)-1]
 
 	if test.topology != nil {
@@ -562,10 +562,12 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 
 	return nil
 }
-func getNodeNames() []string {
-	return []string{
-		"VA", "VB", "VC", "VD", "VE", "VF", "VG", "VH", "VI", "VJ", "VK",
+func getNodeNames(max int) []string {
+	res := make([]string, max)
+	for i := range res {
+		res[i] = "V" + strconv.Itoa(i)
 	}
+	return res
 }
 
 func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames []string, nodesNum int) {

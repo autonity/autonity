@@ -39,6 +39,11 @@ func TestInvalidCliqueConfig(t *testing.T) {
 }
 
 func TestSetupGenesis(t *testing.T) {
+	t.Skip("depreciated with autonity")
+	chainConfig := params.AutonityTestChainConfig
+	oldChainConfig := params.AutonityTestChainConfig
+	chainConfig.IstanbulBlock = big.NewInt(3)
+	oldChainConfig.IstanbulBlock = big.NewInt(2)
 	var (
 		customghash = common.HexToHash("0x89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50")
 		customg     = Genesis{

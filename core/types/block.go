@@ -95,34 +95,14 @@ type Header struct {
     // Used to ensure the committeeMap is created only once.
     once sync.Once
 
-	ProposerSeal       []byte   `json:"proposerSeal"        gencodec:"required"`
-	Round              uint64   `json:"round"               gencodec:"required"`
-	CommittedSeals     [][]byte `json:"committedSeals"      gencodec:"required"`
-	PastCommittedSeals [][]byte `json:"pastCommittedSeals"  gencodec:"required"`
+	ProposerSeal   []byte   `json:"proposerSeal"        gencodec:"required"`
+	Round          uint64   `json:"round"               gencodec:"required"`
+	CommittedSeals [][]byte `json:"committedSeals"      gencodec:"required"`
 }
 
 type CommitteeMember struct {
 	Address     common.Address `json:"address"            gencodec:"required"       abi:"addr"`
 	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
-}
-
-// MarshalText encodes b as a hex string with 0x prefix.
-func (c *CommitteeMember) MarshalText() ([]byte, error) {
-	data, err := rlp.EncodeToBytes(c)
-	if err != nil {
-		return nil, err
-	}
-	return hexutil.Bytes(data).MarshalText()
-}
-
-// UnmarshalText b as a hex string with 0x prefix.
-func (c *CommitteeMember) UnmarshalText(input []byte) error {
-	var b hexutil.Bytes
-	err := b.UnmarshalText(input)
-	if err != nil {
-		return err
-	}
-	return rlp.DecodeBytes(b, &c)
 }
 
 type Committee []CommitteeMember
@@ -156,11 +136,10 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee          Committee `json:"committee"           gencodec:"required"`
-	ProposerSeal       []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round              uint64    `json:"round"               gencodec:"required"`
-	CommittedSeals     [][]byte  `json:"committedSeals"      gencodec:"required"`
-	PastCommittedSeals [][]byte  `json:"pastCommittedSeals"  gencodec:"required"`
+	Committee      Committee `json:"committee"           gencodec:"required"`
+	ProposerSeal   []byte    `json:"proposerSeal"        gencodec:"required"`
+	Round          uint64    `json:"round"               gencodec:"required"`
+	CommittedSeals [][]byte  `json:"committedSeals"      gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked bu running go
@@ -180,10 +159,10 @@ type headerMarshaling struct {
 	/*
 		PoS header fields type overriedes
 	*/
-	ProposerSeal       hexutil.Bytes
-	Round              hexutil.Uint64
-	CommittedSeals     []hexutil.Bytes
-	PastCommittedSeals []hexutil.Bytes
+	Committee      Committee
+	ProposerSeal   hexutil.Bytes
+	Round          hexutil.Uint64
+	CommittedSeals []hexutil.Bytes
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -250,7 +229,6 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		}
 		h.CommittedSeals = hExtra.CommittedSeals
 		h.Committee = hExtra.Committee
-		h.PastCommittedSeals = hExtra.PastCommittedSeals
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
 	} else {
@@ -287,11 +265,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 // extra data.
 func (h *Header) EncodeRLP(w io.Writer) error {
 	hExtra := headerExtra{
-		Committee:          h.Committee,
-		ProposerSeal:       h.ProposerSeal,
-		Round:              h.Round,
-		CommittedSeals:     h.CommittedSeals,
-		PastCommittedSeals: h.PastCommittedSeals,
+		Committee:      h.Committee,
+		ProposerSeal:   h.ProposerSeal,
+		Round:          h.Round,
+		CommittedSeals: h.CommittedSeals,
 	}
 
 	original := h.original()
@@ -485,36 +462,26 @@ func CopyHeader(h *Header) *Header {
 		}
 	}
 
-	pastCommittedSeals := make([][]byte, 0)
-	if len(h.PastCommittedSeals) > 0 {
-		pastCommittedSeals = make([][]byte, len(h.PastCommittedSeals))
-		for i, val := range h.PastCommittedSeals {
-			pastCommittedSeals[i] = make([]byte, len(val))
-			copy(pastCommittedSeals[i], val)
-		}
-	}
-
 	cpy := &Header{
-		ParentHash:         h.ParentHash,
-		UncleHash:          h.UncleHash,
-		Coinbase:           h.Coinbase,
-		Root:               h.Root,
-		TxHash:             h.TxHash,
-		ReceiptHash:        h.ReceiptHash,
-		Bloom:              h.Bloom,
-		Difficulty:         difficulty,
-		Number:             number,
-		GasLimit:           h.GasLimit,
-		GasUsed:            h.GasUsed,
-		Time:               h.Time,
-		Extra:              extra,
-		MixDigest:          h.MixDigest,
-		Nonce:              h.Nonce,
-		Committee:          committee,
-		ProposerSeal:       proposerSeal,
-		Round:              h.Round,
-		CommittedSeals:     committedSeals,
-		PastCommittedSeals: pastCommittedSeals,
+		ParentHash:     h.ParentHash,
+		UncleHash:      h.UncleHash,
+		Coinbase:       h.Coinbase,
+		Root:           h.Root,
+		TxHash:         h.TxHash,
+		ReceiptHash:    h.ReceiptHash,
+		Bloom:          h.Bloom,
+		Difficulty:     difficulty,
+		Number:         number,
+		GasLimit:       h.GasLimit,
+		GasUsed:        h.GasUsed,
+		Time:           h.Time,
+		Extra:          extra,
+		MixDigest:      h.MixDigest,
+		Nonce:          h.Nonce,
+		Committee:      committee,
+		ProposerSeal:   proposerSeal,
+		Round:          h.Round,
+		CommittedSeals: committedSeals,
 	}
 	return cpy
 }

@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/clearmatics/autonity/trie"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -274,22 +275,24 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
-
 	var committee types.Committee
-	if g.Config.AutonityContractConfig != nil {
-		if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
-			return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
-		}
-		err := g.Config.AutonityContractConfig.Prepare()
-		if err != nil {
-			return nil, err
-		}
-		committee, err = extractCommittee(g.Config.AutonityContractConfig.Users)
-		if err != nil {
-			return nil, err
-		}
+	if g.Config.AutonityContractConfig == nil {
+		return nil, fmt.Errorf("autonity contract config section missing in genesis")
 	}
+	g.mu.Lock()
+	if g.Difficulty == nil {
+		g.Difficulty = params.GenesisDifficulty
+	}
+	g.mu.Unlock()
 
+	if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
+		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
+	}
+	var err error
+	committee, err = extractCommittee(g.Config.AutonityContractConfig.GetValidators())
+	if err != nil {
+		return nil, err
+	}
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
@@ -306,30 +309,18 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		}
 	}
 
-	if g.Config.AutonityContractConfig != nil {
-		evm := genesisEVM(g, statedb)
+	evm := genesisEVM(g, statedb)
 
-		abi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
-		if err != nil {
-			return nil, err
-		}
-
-		err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
-		if err != nil {
-			return nil, err
-		}
+	abi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
+	if err != nil {
+		return nil, err
 	}
 
+	err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
+	if err != nil {
+		return nil, err
+	}
 	root := statedb.IntermediateRoot(false)
-
-	g.mu.RLock()
-	diff := big.NewInt(0)
-	if g.Difficulty == nil {
-		diff.Set(params.GenesisDifficulty)
-	} else {
-		diff.Set(g.Difficulty)
-	}
-	g.mu.RUnlock()
 
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
@@ -388,7 +379,7 @@ func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if g.Config == nil {
-		g.Config = params.AllEthashProtocolChanges
+		g.Config = params.AllEthashProtocolChangesWithAutonity
 	}
 
 	if err := g.Config.CheckConfigForkOrder(); err != nil {
@@ -414,16 +405,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 
-	if g.Config.AutonityContractConfig != nil {
-		enodes := make([]string, 0, len(g.Config.AutonityContractConfig.Users))
-		for _, v := range g.Config.AutonityContractConfig.Users {
-			if v.Enode != "" {
-				enodes = append(enodes, v.Enode)
-			}
-		}
-
-		rawdb.WriteEnodeWhitelist(db, types.NewNodes(enodes))
-	}
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
@@ -431,24 +412,22 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 // extractCommittee takes a slice of autonity users and extracts the validators
 // into a new type 'types.Committee' which is returned. It returns an error if
 // the provided users contained no validators.
-func extractCommittee(users []params.User) (types.Committee, error) {
+func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 	var committee types.Committee
-	for _, v := range users {
-		if v.Type == params.UserValidator {
-			member := types.CommitteeMember{
-				Address:     *v.Address,
-				VotingPower: new(big.Int).SetUint64(v.Stake),
-			}
-			committee = append(committee, member)
+	for _, v := range validators {
+		member := types.CommitteeMember{
+			Address:     *v.Address,
+			VotingPower: v.BondedStake,
 		}
+		committee = append(committee, member)
 	}
 
 	if len(committee) == 0 {
-		return nil, fmt.Errorf("no validators specified in the initial autonity users")
+		return nil, fmt.Errorf("no validators specified in the initial autonity validators")
 	}
 
 	sort.Sort(committee)
-	log.Info("Starting PoS-BFT consensus protocol", "validators", committee)
+	log.Info("Starting DPoS-BFT consensus protocol", "validators", committee)
 	return committee, nil
 }
 

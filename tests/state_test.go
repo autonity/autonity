@@ -35,6 +35,7 @@ import (
 )
 
 func TestState(t *testing.T) {
+	t.Skip("no supported with autonity")
 	t.Parallel()
 
 	st := new(testMatcher)

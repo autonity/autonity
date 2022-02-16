@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	validUsers = []string{"1e12,v,1,:6789,key1", "1e12,s,1,:6799,key2", "1e12,p,0,:6780,key3"}
+	validValidators = []string{"1e12,v,1,:6789,key1", "1e12,s,1,:6799,key2", "1e12,p,1,:6780,key3"}
 )
 
 // This test runs the command and checks that the output is can be json
@@ -25,7 +25,7 @@ func TestGenesisCommand(t *testing.T) {
 	defer cleanup()
 
 	keyfile1, cleanup := tempFile(t)
-	// We delete this file immediately so that a key is genrated for this user,
+	// We delete this file immediately so that a key is genrated for this validator,
 	// but we use the temp path as the destination.
 	cleanup()
 	defer cleanup()
@@ -43,20 +43,20 @@ func TestGenesisCommand(t *testing.T) {
 	err = ioutil.WriteFile(keyfile3, crypto.PubECDSAToHex(&k.PublicKey), os.ModePerm)
 	require.NoError(t, err)
 
-	user1 := "1e12,v,1,:6789," + keyfile1
-	user2 := "1e12,s,1,:6799," + keyfile2
-	user3 := "1e12,p,0,:6780," + keyfile3
+	validator1 := "1e12,v,1,:6789," + keyfile1
+	validator2 := "1e12,s,1,:6799," + keyfile2
+	validator3 := "1e12,p,1,:6780," + keyfile3
 
 	args := []string{
 		"",
 		"--" + minGasPriceFlag,
 		"10",
-		"--" + userFlag,
-		user1,
-		"--" + userFlag,
-		user2,
-		"--" + userFlag,
-		user3,
+		"--" + validatorFlag,
+		validator1,
+		"--" + validatorFlag,
+		validator2,
+		"--" + validatorFlag,
+		validator3,
 		"--" + outFileFlag,
 		out,
 	}
@@ -77,14 +77,14 @@ func TestGenesisCommand(t *testing.T) {
 // This test checks that a generated *core.Genesis instance file is consistent
 // with an instance obtained by JSON encoding and decoding it.
 func TestEncodeDecodeConsistency(t *testing.T) {
-	users, err := parseUsers(validUsers)
+	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
-	// Set one of the users to have a publick key, just to cover more code
+	// Set one of the validators to have a publick key, just to cover more code
 	// branches.
-	k, ok := users[0].Key.(*ecdsa.PrivateKey)
+	k, ok := validators[0].Key.(*ecdsa.PrivateKey)
 	require.True(t, ok, "key should be an *ecdsa.PrivateKey")
-	users[0].Key = &k.PublicKey
-	g, err := NewGenesis(10, users)
+	validators[0].Key = &k.PublicKey
+	g, err := NewGenesis(10, validators)
 	require.NoError(t, err)
 	encoded, err := json.Marshal(g)
 	require.NoError(t, err)
@@ -95,130 +95,98 @@ func TestEncodeDecodeConsistency(t *testing.T) {
 	assert.Equal(t, g, decoded)
 }
 
-// The gengen tool should only generate users (params.User) with enodes
-// specified. It does this because it is redundant to specify the address as
-// well since that can be derived from the enode, and it is an error to specify
-// conflicting enodes and addresses, so by not specifying address we avoid this
-// case.
-func TestUsersAddressIsNil(t *testing.T) {
-	users, err := parseUsers(validUsers)
-	require.NoError(t, err)
-	g, err := NewGenesis(10, users)
-	require.NoError(t, err)
-
-	assert.Nil(t, g.Config.AutonityContractConfig.Users[0].Address)
-	assert.Nil(t, g.Config.AutonityContractConfig.Users[1].Address)
-}
-
 func TestGenesisCreationErrors(t *testing.T) {
-	// nil users
+	// nil validators
 	_, err := NewGenesis(10, nil)
-	assert.Error(t, err, "no users provided")
+	assert.Error(t, err, "no validators provided")
 
-	// User with nil key
-	users, err := parseUsers(validUsers)
+	// Validator with nil key
+	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
-	users[0].Key = nil
+	validators[0].Key = nil
 
-	_, err = NewGenesis(10, users)
-	assert.Error(t, err, "user had nil key")
+	_, err = NewGenesis(10, validators)
+	assert.Error(t, err, "validator had nil key")
 
-	// User with key of invalid type
-	users, err = parseUsers(validUsers)
+	// Validator with key of invalid type
+	validators, err = parseValidators(validValidators)
 	require.NoError(t, err)
-	users[0].Key = "I am not a key"
+	validators[0].Key = "I am not a key"
 
-	_, err = NewGenesis(10, users)
-	assert.Error(t, err, "user had invalid type of key")
+	_, err = NewGenesis(10, validators)
+	assert.Error(t, err, "validator had invalid type of key")
 
-	// Invalid user type
-	users, err = parseUsers(validUsers)
+	// Invalid validator type
+	validators, err = parseValidators(validValidators)
 	require.NoError(t, err)
-	users[0].UserType = "I am not a user type"
-
-	_, err = NewGenesis(10, users)
-	assert.Error(t, err, "user had invalid user type")
-
-	// Invalid user type and stake combination
-	users, err = parseUsers(validUsers)
-	require.NoError(t, err)
-	users[0].UserType = "p"
-	users[0].Stake = 1
-
-	_, err = NewGenesis(10, users)
-	assert.Error(t, err, "user has invalid stake and user type combination")
 }
 
-// Checks that errors are thrown appropriately in the case of invalid users.
-func TestUserParsingErrors(t *testing.T) {
+// Checks that errors are thrown appropriately in the case of invalid validators.
+func TestValidatorParsingErrors(t *testing.T) {
 
-	user := ""
-	_, err := ParseUser(user)
-	assert.Error(t, err, "empty user")
+	validator := ""
+	_, err := ParseValidator(validator)
+	assert.Error(t, err, "empty validator")
 
-	user = "1e12,v,:6789,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "missing field")
 
-	user = "1e12zz,v,1,:6789,key"
-	_, err = ParseUser(user)
+	validator = "1e12zz,v,1,:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid initial eth")
 
-	user = "456.789,v,1,:6789,key"
-	_, err = ParseUser(user)
+	validator = "456.789,v,1,:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "fractional initial eth")
 
-	user = "1e12,q,1,:6789,key"
-	_, err = ParseUser(user)
-	assert.Error(t, err, "invalid user type")
-
-	user = "1e12,v,1.8446744e20,:6789,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,1.8446744e20,:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "stake out of uint64 range")
 
-	user = "1e12,v,stake,:6789,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,stake,:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid stake")
 
-	user = "1e12,v,-1,:6789,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,-1,:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid stake")
 
-	user = "1e12,v,1.2,:6789,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,1.2,:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "fractional stake")
 
-	user = "1e12,v,1,:6789999,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,1,:6789999,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid port")
 
-	user = "1e12,v,1,:-1,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,1,:-1,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid port")
 
-	user = "1e12zz,v,1,:port,key"
-	_, err = ParseUser(user)
+	validator = "1e12zz,v,1,:port,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid port")
 
-	user = "1e12,v,1,lll:6789,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,1,lll:6789,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid ip")
 
-	user = "1e12,v,1,akakak,key"
-	_, err = ParseUser(user)
+	validator = "1e12,v,1,akakak,key"
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid address")
 
-	user = "1e12,v,1,lll:6789," + string(byte(0))
-	_, err = ParseUser(user)
+	validator = "1e12,v,1,lll:6789," + string(byte(0))
+	_, err = ParseValidator(validator)
 	assert.Error(t, err, "invalid key file name")
 
 }
 
-// Checks that when there is no file provided the keys are generated for users.
+// Checks that when there is no file provided the keys are generated for validators.
 func TestKeyRandomGeneration(t *testing.T) {
-	user := "1e12,v,1,:6789,key"
+	validator := "1e12,v,1,:6789,key"
 
-	u, err := ParseUser(user)
+	u, err := ParseValidator(validator)
 	require.NoError(t, err)
 
 	// We expect key to have been generated because the file 'key' does not
@@ -226,7 +194,7 @@ func TestKeyRandomGeneration(t *testing.T) {
 	key1, ok := u.Key.(*ecdsa.PrivateKey)
 	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
 
-	u, err = ParseUser(user)
+	u, err = ParseValidator(validator)
 	require.NoError(t, err)
 	key2, ok := u.Key.(*ecdsa.PrivateKey)
 	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
@@ -260,19 +228,19 @@ func TestKeysLoadedFromFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check private key loaded from file
-	user := "1e12,v,1,:6789," + keyFile1
-	u, err := ParseUser(user)
+	validator := "1e12,v,1,:6789," + keyFile1
+	u, err := ParseValidator(validator)
 	assert.NoError(t, err)
 	assert.Equal(t, key1, u.Key)
 
 	// Check public key loaded from file
-	user = "1e12,v,1,:6789," + keyFile2
-	u, err = ParseUser(user)
+	validator = "1e12,v,1,:6789," + keyFile2
+	u, err = ParseValidator(validator)
 	assert.NoError(t, err)
 	assert.Equal(t, &key2.PublicKey, u.Key)
 }
 
-// Checks that errors are thrown appropriately in the case of invalid user
+// Checks that errors are thrown appropriately in the case of invalid validator
 // keys.
 func TestKeyParsingErrors(t *testing.T) {
 

@@ -1,0 +1,46 @@
+{
+  "config": {
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "tendermint": {
+      "policy": 0,
+      "block-period": 1
+    },
+    "chainId": 1488,
+    "autonityContract": {
+      "deployer": "0x0000000000000000000000000000000000000002",
+      "bytecode": "",
+      "abi": "",
+      "minGasPrice": 5000,
+      "operator": "0x0000000000000000000000000000000000000003",
+      "users": [
+        {
+            "enode": "enode://168c5ee6c2897085756ae64e84d2cfff7f0f6cd723bd9fbc19720c57d79778a49aecad1417e89619d8fe5c4c6eedeae31e8a8f7895954596abf0f3231cd6d312@127.0.0.1:{{port}}",
+            "type": "validator",
+            "stake": 10000
+        }
+      ]
+    }
+  },
+  "nonce": "0x0",
+  "timestamp": "0x0",
+  "gasLimit": "0xffffffff",
+  "difficulty": "0x1",
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "number": "0x0",
+  "gasUsed": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+  "alloc": {
+    "0x7d65dda8e1e3997d09542c62cc72ceadd186dc28": {
+      "balance": "0x200000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

@@ -11,7 +11,7 @@ LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
-SOLC_VERSION = 0.7.1
+SOLC_VERSION = 0.8.11
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 
 AUTONITY_CONTRACT_BASE_DIR = ./autonity/solidity/
@@ -45,6 +45,14 @@ build-docker-image:
 	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
 
 autonity: embed-autonity-contract
+	mkdir -p $(BINDIR)
+	go build -o $(BINDIR)/autonity ./cmd/autonity
+	@echo "Done building."
+	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
+
+# Builds Autonity without contract compilation, useful with alpine containers not supporting
+# glibc for solc.
+autonity-docker:
 	mkdir -p $(BINDIR)
 	go build -o $(BINDIR)/autonity ./cmd/autonity
 	@echo "Done building."
