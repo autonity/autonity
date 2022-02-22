@@ -411,7 +411,7 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 
 	logIndex := uint(0)
 	//	The last receipt has no associated transaction. It is the Autonity Contract finalize internal call receipt.
-	if len(txs)+1 < len(r) {
+	if len(txs)+1 < len(rs) {
 		return errors.New("transaction and receipt count mismatch")
 	}
 	for i := 0; i < len(rs); i++ {

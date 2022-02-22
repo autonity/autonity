@@ -19,6 +19,7 @@ package keystore
 import (
 	"math/big"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"

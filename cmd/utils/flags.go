@@ -20,6 +20,10 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
+	ethcatalyst "github.com/clearmatics/autonity/eth/catalyst"
+	"github.com/clearmatics/autonity/eth/ethconfig"
+	"github.com/clearmatics/autonity/eth/tracers"
+	lescatalyst "github.com/clearmatics/autonity/les/catalyst"
 	"io"
 	"io/ioutil"
 	"math"
@@ -37,7 +41,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/fdlimit"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/clique"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"

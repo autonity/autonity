@@ -18,9 +18,11 @@ package external
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/signer/core/apitypes"
 	"math/big"
 	"sync"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"

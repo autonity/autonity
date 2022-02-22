@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/big"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -305,22 +306,6 @@ func (h *Header) original() *originalHeader {
 	}
 }
 
-// hasherPool holds LegacyKeccak hashers.
-var hasherPool = sync.Pool{
-	New: func() interface{} {
-		return sha3.NewLegacyKeccak256()
-	},
-}
-
-func rlpHash(x interface{}) (h common.Hash) {
-	sha := hasherPool.Get().(crypto.KeccakState)
-	defer hasherPool.Put(sha)
-	sha.Reset()
-	rlp.Encode(sha, x)
-	sha.Read(h[:])
-	return h
-}
-
 // EmptyBody returns true if there is no additional 'body' to complete the header
 // that is: no transactions and no uncles.
 func (h *Header) EmptyBody() bool {
@@ -425,10 +410,11 @@ func CopyHeader(h *Header) *Header {
 	if h.Number != nil {
 		number.Set(h.Number)
 	}
-
+	baseFee := big.NewInt(0)
 	if h.BaseFee != nil {
-		cpy.BaseFee = new(big.Int).Set(h.BaseFee)
+		baseFee.Set(h.BaseFee)
 	}
+
 	extra := make([]byte, 0)
 	if len(h.Extra) > 0 {
 		extra = make([]byte, len(h.Extra))
@@ -480,6 +466,7 @@ func CopyHeader(h *Header) *Header {
 		Nonce:          h.Nonce,
 		Committee:      committee,
 		ProposerSeal:   proposerSeal,
+		BaseFee:        baseFee,
 		Round:          h.Round,
 		CommittedSeals: committedSeals,
 	}

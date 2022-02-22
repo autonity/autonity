@@ -19,6 +19,7 @@ package accounts
 
 import (
 	"fmt"
+	ethereum "github.com/clearmatics/autonity"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -37,6 +38,7 @@ type Account struct {
 const (
 	MimetypeDataWithValidator = "data/validator"
 	MimetypeTypedData         = "data/typed"
+	MimetypeClique            = "application/x-clique-header"
 	MimetypeTextPlain         = "text/plain"
 )
 

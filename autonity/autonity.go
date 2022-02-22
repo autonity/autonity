@@ -126,9 +126,9 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 	receipt := types.NewReceipt(nil, false, 0)
 	receipt.TxHash = common.ACHash(header.Number)
 	receipt.GasUsed = 0
-	receipt.Logs = statedb.GetLogs(receipt.TxHash)
+	receipt.Logs = statedb.GetLogs(receipt.TxHash, header.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	receipt.BlockHash = statedb.BlockHash()
+	receipt.BlockHash = header.Hash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 

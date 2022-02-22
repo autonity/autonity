@@ -44,15 +44,15 @@ type (
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 	var precompiles map[common.Address]PrecompiledContract
 	switch {
-    case evm.chainRules.IsBerlin:
-        precompiles = PrecompiledContractsBerlin
-    case evm.chainRules.IsIstanbul:
-        precompiles = PrecompiledContractsIstanbul
-    case evm.chainRules.IsByzantium:
-        precompiles = PrecompiledContractsByzantium
-    default:
-        precompiles = PrecompiledContractsHomestead
-    }
+	case evm.chainRules.IsBerlin:
+		precompiles = PrecompiledContractsBerlin
+	case evm.chainRules.IsIstanbul:
+		precompiles = PrecompiledContractsIstanbul
+	case evm.chainRules.IsByzantium:
+		precompiles = PrecompiledContractsByzantium
+	default:
+		precompiles = PrecompiledContractsHomestead
+	}
 	p, ok := precompiles[addr]
 	return p, ok
 }
@@ -60,30 +60,30 @@ func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 // BlockContext provides the EVM with auxiliary information. Once provided
 // it shouldn't be modified.
 type BlockContext struct {
-    // CanTransfer returns whether the account contains
-    // sufficient ether to transfer the value
-    CanTransfer CanTransferFunc
-    // Transfer transfers ether from one account to the other
-    Transfer TransferFunc
-    // GetHash returns the hash corresponding to n
-    GetHash GetHashFunc
+	// CanTransfer returns whether the account contains
+	// sufficient ether to transfer the value
+	CanTransfer CanTransferFunc
+	// Transfer transfers ether from one account to the other
+	Transfer TransferFunc
+	// GetHash returns the hash corresponding to n
+	GetHash GetHashFunc
 
-    // Block information
-    Coinbase    common.Address // Provides information for COINBASE
-    GasLimit    uint64         // Provides information for GASLIMIT
-    BlockNumber *big.Int       // Provides information for NUMBER
-    Time        *big.Int       // Provides information for TIME
-    Difficulty  *big.Int       // Provides information for DIFFICULTY
-    BaseFee     *big.Int       // Provides information for BASEFEE
-    Random      *common.Hash   // Provides information for RANDOM
+	// Block information
+	Coinbase    common.Address // Provides information for COINBASE
+	GasLimit    uint64         // Provides information for GASLIMIT
+	BlockNumber *big.Int       // Provides information for NUMBER
+	Time        *big.Int       // Provides information for TIME
+	Difficulty  *big.Int       // Provides information for DIFFICULTY
+	BaseFee     *big.Int       // Provides information for BASEFEE
+	Random      *common.Hash   // Provides information for RANDOM
 }
 
 // TxContext provides the EVM with information about a transaction.
 // All fields can change between transactions.
 type TxContext struct {
-    // Message information
-    Origin   common.Address // Provides information for ORIGIN
-    GasPrice *big.Int       // Provides information for GASPRICE
+	// Message information
+	Origin   common.Address // Provides information for ORIGIN
+	GasPrice *big.Int       // Provides information for GASPRICE
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -96,24 +96,24 @@ type TxContext struct {
 //
 // The EVM should never be reused and is not thread safe.
 type EVM struct {
-    // Context provides auxiliary blockchain related information
-    Context BlockContext
-    TxContext
-    // StateDB gives access to the underlying state
-    StateDB StateDB
-    // Depth is the current call stack
-    depth int
+	// Context provides auxiliary blockchain related information
+	Context BlockContext
+	TxContext
+	// StateDB gives access to the underlying state
+	StateDB StateDB
+	// Depth is the current call stack
+	depth int
 
-    // chainConfig contains information about the current chain
-    chainConfig *params.ChainConfig
-    // chain rules contains the chain rules for the current epoch
-    chainRules params.Rules
-    // virtual machine configuration options used to initialise the
+	// chainConfig contains information about the current chain
+	chainConfig *params.ChainConfig
+	// chain rules contains the chain rules for the current epoch
+	chainRules params.Rules
+	// virtual machine configuration options used to initialise the
 	// evm.
-    Config Config
+	Config Config
 	// global (to this context) ethereum virtual machine
 	// used throughout the execution of the tx.
-    interpreter *EVMInterpreter
+	interpreter *EVMInterpreter
 	// abort is used to abort the EVM calling operations
 	// NOTE: must be set atomically
 	abort int32
@@ -126,39 +126,39 @@ type EVM struct {
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
 func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig *params.ChainConfig, config Config) *EVM {
-    evm := &EVM{
-        Context:     blockCtx,
-        TxContext:   txCtx,
-        StateDB:     statedb,
-        Config:      config,
-        chainConfig: chainConfig,
-        chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil),
-    }
-    evm.interpreter = NewEVMInterpreter(evm, config)
-    return evm
+	evm := &EVM{
+		Context:     blockCtx,
+		TxContext:   txCtx,
+		StateDB:     statedb,
+		Config:      config,
+		chainConfig: chainConfig,
+		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil),
+	}
+	evm.interpreter = NewEVMInterpreter(evm, config)
+	return evm
 }
 
 // Reset resets the EVM with a new transaction context.Reset
 // This is not threadsafe and should only be done very cautiously.
 func (evm *EVM) Reset(txCtx TxContext, statedb StateDB) {
-    evm.TxContext = txCtx
-    evm.StateDB = statedb
+	evm.TxContext = txCtx
+	evm.StateDB = statedb
 }
 
 // Cancel cancels any running EVM operation. This may be called concurrently and
 // it's safe to be called multiple times.
 func (evm *EVM) Cancel() {
-    atomic.StoreInt32(&evm.abort, 1)
+	atomic.StoreInt32(&evm.abort, 1)
 }
 
 // Cancelled returns true if Cancel has been called
 func (evm *EVM) Cancelled() bool {
-    return atomic.LoadInt32(&evm.abort) == 1
+	return atomic.LoadInt32(&evm.abort) == 1
 }
 
 // Interpreter returns the current interpreter
 func (evm *EVM) Interpreter() *EVMInterpreter {
-    return evm.interpreter
+	return evm.interpreter
 }
 
 // Call executes the contract associated with the addr with the given input as
@@ -179,54 +179,54 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 
 	if !evm.StateDB.Exist(addr) {
 		if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
-            // Calling a non existing account, don't do anything, but ping the tracer
-            if evm.Config.Debug {
-                if evm.depth == 0 {
-                    evm.Config.Tracer.CaptureStart(evm, caller.Address(), addr, false, input, gas, value)
-                    evm.Config.Tracer.CaptureEnd(ret, 0, 0, nil)
-                } else {
-                    evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value)
-                    evm.Config.Tracer.CaptureExit(ret, 0, nil)
-                }
-            }
-            return nil, gas, nil
-        }
-        evm.StateDB.CreateAccount(addr)
-    }
-    evm.Context.Transfer(evm.StateDB, caller.Address(), addr, value)
+			// Calling a non existing account, don't do anything, but ping the tracer
+			if evm.Config.Debug {
+				if evm.depth == 0 {
+					evm.Config.Tracer.CaptureStart(evm, caller.Address(), addr, false, input, gas, value)
+					evm.Config.Tracer.CaptureEnd(ret, 0, 0, nil)
+				} else {
+					evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value)
+					evm.Config.Tracer.CaptureExit(ret, 0, nil)
+				}
+			}
+			return nil, gas, nil
+		}
+		evm.StateDB.CreateAccount(addr)
+	}
+	evm.Context.Transfer(evm.StateDB, caller.Address(), addr, value)
 
-    // Capture the tracer start/end events in debug mode
-    if evm.Config.Debug {
-        if evm.depth == 0 {
-            evm.Config.Tracer.CaptureStart(evm, caller.Address(), addr, false, input, gas, value)
-            defer func(startGas uint64, startTime time.Time) { // Lazy evaluation of the parameters
-                evm.Config.Tracer.CaptureEnd(ret, startGas-gas, time.Since(startTime), err)
-            }(gas, time.Now())
-        } else {
-            // Handle tracer events for entering and exiting a call frame
-            evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value)
-            defer func(startGas uint64) {
-                evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
-            }(gas)
-        }
-    }
+	// Capture the tracer start/end events in debug mode
+	if evm.Config.Debug {
+		if evm.depth == 0 {
+			evm.Config.Tracer.CaptureStart(evm, caller.Address(), addr, false, input, gas, value)
+			defer func(startGas uint64, startTime time.Time) { // Lazy evaluation of the parameters
+				evm.Config.Tracer.CaptureEnd(ret, startGas-gas, time.Since(startTime), err)
+			}(gas, time.Now())
+		} else {
+			// Handle tracer events for entering and exiting a call frame
+			evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value)
+			defer func(startGas uint64) {
+				evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
+			}(gas)
+		}
+	}
 
-    if isPrecompile {
-        ret, gas, err = RunPrecompiledContract(p, input, gas)
-    } else {
-        // Initialise a new contract and set the code that is to be used by the EVM.
-        // The contract is a scoped environment for this execution context only.
-        code := evm.StateDB.GetCode(addr)
-        if len(code) == 0 {
-            ret, err = nil, nil // gas is unchanged
+	if isPrecompile {
+		ret, gas, err = RunPrecompiledContract(p, input, gas)
+	} else {
+		// Initialise a new contract and set the code that is to be used by the EVM.
+		// The contract is a scoped environment for this execution context only.
+		code := evm.StateDB.GetCode(addr)
+		if len(code) == 0 {
+			ret, err = nil, nil // gas is unchanged
 		} else {
 			addrCopy := addr
 			// If the account has no code, we can abort here
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
-            ret, err = evm.interpreter.Run(contract, input, false)
-            gas = contract.Gas
+			ret, err = evm.interpreter.Run(contract, input, false)
+			gas = contract.Gas
 		}
 	}
 	// When an error was returned by the EVM or when setting the creation code
@@ -255,35 +255,35 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	// Fail if we're trying to execute above the call depth limit
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
-    }
-    // Fail if we're trying to transfer more than the available balance
-    // Note although it's noop to transfer X ether to caller itself. But
-    // if caller doesn't have enough balance, it would be an error to allow
-    // over-charging itself. So the check here is necessary.
-    if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
-        return nil, gas, ErrInsufficientBalance
-    }
-    var snapshot = evm.StateDB.Snapshot()
+	}
+	// Fail if we're trying to transfer more than the available balance
+	// Note although it's noop to transfer X ether to caller itself. But
+	// if caller doesn't have enough balance, it would be an error to allow
+	// over-charging itself. So the check here is necessary.
+	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
+		return nil, gas, ErrInsufficientBalance
+	}
+	var snapshot = evm.StateDB.Snapshot()
 
-    // Invoke tracer hooks that signal entering/exiting a call frame
-    if evm.Config.Debug {
-        evm.Config.Tracer.CaptureEnter(CALLCODE, caller.Address(), addr, input, gas, value)
-        defer func(startGas uint64) {
-            evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
-        }(gas)
-    }
+	// Invoke tracer hooks that signal entering/exiting a call frame
+	if evm.Config.Debug {
+		evm.Config.Tracer.CaptureEnter(CALLCODE, caller.Address(), addr, input, gas, value)
+		defer func(startGas uint64) {
+			evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
+		}(gas)
+	}
 
-    // It is allowed to call precompiles, even via delegatecall
-    if p, isPrecompile := evm.precompile(addr); isPrecompile {
-        ret, gas, err = RunPrecompiledContract(p, input, gas)
-    } else {
-        addrCopy := addr
-        // Initialise a new contract and set the code that is to be used by the EVM.
-        // The contract is a scoped environment for this execution context only.
-        contract := NewContract(caller, AccountRef(caller.Address()), value, gas)
-        contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
-        ret, err = evm.interpreter.Run(contract, input, false)
-        gas = contract.Gas
+	// It is allowed to call precompiles, even via delegatecall
+	if p, isPrecompile := evm.precompile(addr); isPrecompile {
+		ret, gas, err = RunPrecompiledContract(p, input, gas)
+	} else {
+		addrCopy := addr
+		// Initialise a new contract and set the code that is to be used by the EVM.
+		// The contract is a scoped environment for this execution context only.
+		contract := NewContract(caller, AccountRef(caller.Address()), value, gas)
+		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+		ret, err = evm.interpreter.Run(contract, input, false)
+		gas = contract.Gas
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
@@ -300,30 +300,30 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 // DelegateCall differs from CallCode in the sense that it executes the given address'
 // code with the caller as context and the caller is set to the caller of the caller.
 func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-    // Fail if we're trying to execute above the call depth limit
-    if evm.depth > int(params.CallCreateDepth) {
-        return nil, gas, ErrDepth
-    }
-    var snapshot = evm.StateDB.Snapshot()
+	// Fail if we're trying to execute above the call depth limit
+	if evm.depth > int(params.CallCreateDepth) {
+		return nil, gas, ErrDepth
+	}
+	var snapshot = evm.StateDB.Snapshot()
 
-    // Invoke tracer hooks that signal entering/exiting a call frame
-    if evm.Config.Debug {
-        evm.Config.Tracer.CaptureEnter(DELEGATECALL, caller.Address(), addr, input, gas, nil)
-        defer func(startGas uint64) {
-            evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
-        }(gas)
-    }
+	// Invoke tracer hooks that signal entering/exiting a call frame
+	if evm.Config.Debug {
+		evm.Config.Tracer.CaptureEnter(DELEGATECALL, caller.Address(), addr, input, gas, nil)
+		defer func(startGas uint64) {
+			evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
+		}(gas)
+	}
 
-    // It is allowed to call precompiles, even via delegatecall
-    if p, isPrecompile := evm.precompile(addr); isPrecompile {
-        ret, gas, err = RunPrecompiledContract(p, input, gas)
-    } else {
-        addrCopy := addr
-        // Initialise a new contract and make initialise the delegate values
-        contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
-        contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
-        ret, err = evm.interpreter.Run(contract, input, false)
-        gas = contract.Gas
+	// It is allowed to call precompiles, even via delegatecall
+	if p, isPrecompile := evm.precompile(addr); isPrecompile {
+		ret, gas, err = RunPrecompiledContract(p, input, gas)
+	} else {
+		addrCopy := addr
+		// Initialise a new contract and make initialise the delegate values
+		contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
+		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+		ret, err = evm.interpreter.Run(contract, input, false)
+		gas = contract.Gas
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
@@ -346,40 +346,40 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// We take a snapshot here. This is a bit counter-intuitive, and could probably be skipped.
 	// However, even a staticcall is considered a 'touch'. On mainnet, static calls were introduced
 	// after all empty accounts were deleted, so this is not required. However, if we omit this,
-    // then certain tests start failing; stRevertTest/RevertPrecompiledTouchExactOOG.json.
-    // We could change this, but for now it's left for legacy reasons
-    var snapshot = evm.StateDB.Snapshot()
+	// then certain tests start failing; stRevertTest/RevertPrecompiledTouchExactOOG.json.
+	// We could change this, but for now it's left for legacy reasons
+	var snapshot = evm.StateDB.Snapshot()
 
-    // We do an AddBalance of zero here, just in order to trigger a touch.
-    // This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
-    // but is the correct thing to do and matters on other networks, in tests, and potential
-    // future scenarios
-    evm.StateDB.AddBalance(addr, big0)
+	// We do an AddBalance of zero here, just in order to trigger a touch.
+	// This doesn't matter on Mainnet, where all empties are gone at the time of Byzantium,
+	// but is the correct thing to do and matters on other networks, in tests, and potential
+	// future scenarios
+	evm.StateDB.AddBalance(addr, big0)
 
-    // Invoke tracer hooks that signal entering/exiting a call frame
-    if evm.Config.Debug {
-        evm.Config.Tracer.CaptureEnter(STATICCALL, caller.Address(), addr, input, gas, nil)
-        defer func(startGas uint64) {
-            evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
-        }(gas)
-    }
+	// Invoke tracer hooks that signal entering/exiting a call frame
+	if evm.Config.Debug {
+		evm.Config.Tracer.CaptureEnter(STATICCALL, caller.Address(), addr, input, gas, nil)
+		defer func(startGas uint64) {
+			evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
+		}(gas)
+	}
 
-    if p, isPrecompile := evm.precompile(addr); isPrecompile {
-        ret, gas, err = RunPrecompiledContract(p, input, gas)
-    } else {
-        // At this point, we use a copy of address. If we don't, the go compiler will
-        // leak the 'contract' to the outer scope, and make allocation for 'contract'
-        // even if the actual execution ends on RunPrecompiled above.
-        addrCopy := addr
-        // Initialise a new contract and set the code that is to be used by the EVM.
-        // The contract is a scoped environment for this execution context only.
+	if p, isPrecompile := evm.precompile(addr); isPrecompile {
+		ret, gas, err = RunPrecompiledContract(p, input, gas)
+	} else {
+		// At this point, we use a copy of address. If we don't, the go compiler will
+		// leak the 'contract' to the outer scope, and make allocation for 'contract'
+		// even if the actual execution ends on RunPrecompiled above.
+		addrCopy := addr
+		// Initialise a new contract and set the code that is to be used by the EVM.
+		// The contract is a scoped environment for this execution context only.
 		contract := NewContract(caller, AccountRef(addrCopy), new(big.Int), gas)
 		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
 		// When an error was returned by the EVM or when setting the creation code
 		// above we revert to the snapshot and consume any gas remaining. Additionally
 		// when we're in Homestead this also counts for code storage gas errors.
-        ret, err = evm.interpreter.Run(contract, input, true)
-        gas = contract.Gas
+		ret, err = evm.interpreter.Run(contract, input, true)
+		gas = contract.Gas
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
@@ -404,106 +404,106 @@ func (c *codeAndHash) Hash() common.Hash {
 
 // create creates a new contract using code as deployment code.
 func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *big.Int, address common.Address, typ OpCode) ([]byte, common.Address, uint64, error) {
-    // Depth check execution. Fail if we're trying to execute above the
-    // limit.
-    if evm.depth > int(params.CallCreateDepth) {
-        return nil, common.Address{}, gas, ErrDepth
-    }
-    if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
-        return nil, common.Address{}, gas, ErrInsufficientBalance
-    }
-    nonce := evm.StateDB.GetNonce(caller.Address())
-    if nonce+1 < nonce {
-        return nil, common.Address{}, gas, ErrNonceUintOverflow
-    }
-    evm.StateDB.SetNonce(caller.Address(), nonce+1)
-    // We add this to the access list _before_ taking a snapshot. Even if the creation fails,
-    // the access-list change should not be rolled back
-    if evm.chainRules.IsBerlin {
-        evm.StateDB.AddAddressToAccessList(address)
-    }
-    // Ensure there's no existing contract already at the designated address
-    contractHash := evm.StateDB.GetCodeHash(address)
-    if evm.StateDB.GetNonce(address) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
-        return nil, common.Address{}, 0, ErrContractAddressCollision
-    }
-    // Create a new account on the state
-    snapshot := evm.StateDB.Snapshot()
-    evm.StateDB.CreateAccount(address)
-    if evm.chainRules.IsEIP158 {
-        evm.StateDB.SetNonce(address, 1)
-    }
-    evm.Context.Transfer(evm.StateDB, caller.Address(), address, value)
+	// Depth check execution. Fail if we're trying to execute above the
+	// limit.
+	if evm.depth > int(params.CallCreateDepth) {
+		return nil, common.Address{}, gas, ErrDepth
+	}
+	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
+		return nil, common.Address{}, gas, ErrInsufficientBalance
+	}
+	nonce := evm.StateDB.GetNonce(caller.Address())
+	if nonce+1 < nonce {
+		return nil, common.Address{}, gas, ErrNonceUintOverflow
+	}
+	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	// We add this to the access list _before_ taking a snapshot. Even if the creation fails,
+	// the access-list change should not be rolled back
+	if evm.chainRules.IsBerlin {
+		evm.StateDB.AddAddressToAccessList(address)
+	}
+	// Ensure there's no existing contract already at the designated address
+	contractHash := evm.StateDB.GetCodeHash(address)
+	if evm.StateDB.GetNonce(address) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
+		return nil, common.Address{}, 0, ErrContractAddressCollision
+	}
+	// Create a new account on the state
+	snapshot := evm.StateDB.Snapshot()
+	evm.StateDB.CreateAccount(address)
+	if evm.chainRules.IsEIP158 {
+		evm.StateDB.SetNonce(address, 1)
+	}
+	evm.Context.Transfer(evm.StateDB, caller.Address(), address, value)
 
-    // Initialise a new contract and set the code that is to be used by the EVM.
-    // The contract is a scoped environment for this execution context only.
-    contract := NewContract(caller, AccountRef(address), value, gas)
-    contract.SetCodeOptionalHash(&address, codeAndHash)
+	// Initialise a new contract and set the code that is to be used by the EVM.
+	// The contract is a scoped environment for this execution context only.
+	contract := NewContract(caller, AccountRef(address), value, gas)
+	contract.SetCodeOptionalHash(&address, codeAndHash)
 
-    if evm.Config.Debug {
-        if evm.depth == 0 {
-            evm.Config.Tracer.CaptureStart(evm, caller.Address(), address, true, codeAndHash.code, gas, value)
-        } else {
-            evm.Config.Tracer.CaptureEnter(typ, caller.Address(), address, codeAndHash.code, gas, value)
-        }
-    }
+	if evm.Config.Debug {
+		if evm.depth == 0 {
+			evm.Config.Tracer.CaptureStart(evm, caller.Address(), address, true, codeAndHash.code, gas, value)
+		} else {
+			evm.Config.Tracer.CaptureEnter(typ, caller.Address(), address, codeAndHash.code, gas, value)
+		}
+	}
 
-    start := time.Now()
+	start := time.Now()
 
-    ret, err := evm.interpreter.Run(contract, nil, false)
+	ret, err := evm.interpreter.Run(contract, nil, false)
 
-    // Check whether the max code size has been exceeded, assign err if the case.
-    if err == nil && evm.chainRules.IsEIP158 && len(ret) > params.MaxCodeSize {
-        err = ErrMaxCodeSizeExceeded
-    }
+	// Check whether the max code size has been exceeded, assign err if the case.
+	if err == nil && evm.chainRules.IsEIP158 && len(ret) > params.MaxCodeSize {
+		err = ErrMaxCodeSizeExceeded
+	}
 
-    // Reject code starting with 0xEF if EIP-3541 is enabled.
-    if err == nil && len(ret) >= 1 && ret[0] == 0xEF && evm.chainRules.IsLondon {
-        err = ErrInvalidCode
-    }
+	// Reject code starting with 0xEF if EIP-3541 is enabled.
+	if err == nil && len(ret) >= 1 && ret[0] == 0xEF && evm.chainRules.IsLondon {
+		err = ErrInvalidCode
+	}
 
-    // if the contract creation ran successfully and no errors were returned
-    // calculate the gas required to store the code. If the code could not
-    // be stored due to not enough gas set an error and let it be handled
-    // by the error checking condition below.
-    if err == nil {
-        createDataGas := uint64(len(ret)) * params.CreateDataGas
-        if contract.UseGas(createDataGas) {
-            evm.StateDB.SetCode(address, ret)
-        } else {
-            err = ErrCodeStoreOutOfGas
-        }
-    }
+	// if the contract creation ran successfully and no errors were returned
+	// calculate the gas required to store the code. If the code could not
+	// be stored due to not enough gas set an error and let it be handled
+	// by the error checking condition below.
+	if err == nil {
+		createDataGas := uint64(len(ret)) * params.CreateDataGas
+		if contract.UseGas(createDataGas) {
+			evm.StateDB.SetCode(address, ret)
+		} else {
+			err = ErrCodeStoreOutOfGas
+		}
+	}
 
-    // When an error was returned by the EVM or when setting the creation code
-    // above we revert to the snapshot and consume any gas remaining. Additionally
-    // when we're in homestead this also counts for code storage gas errors.
-    if err != nil && (evm.chainRules.IsHomestead || err != ErrCodeStoreOutOfGas) {
-        evm.StateDB.RevertToSnapshot(snapshot)
-        if err != ErrExecutionReverted {
-            contract.UseGas(contract.Gas)
-        }
-    }
+	// When an error was returned by the EVM or when setting the creation code
+	// above we revert to the snapshot and consume any gas remaining. Additionally
+	// when we're in homestead this also counts for code storage gas errors.
+	if err != nil && (evm.chainRules.IsHomestead || err != ErrCodeStoreOutOfGas) {
+		evm.StateDB.RevertToSnapshot(snapshot)
+		if err != ErrExecutionReverted {
+			contract.UseGas(contract.Gas)
+		}
+	}
 
-    if evm.Config.Debug {
-        if evm.depth == 0 {
-            evm.Config.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
-        } else {
-            evm.Config.Tracer.CaptureExit(ret, gas-contract.Gas, err)
-        }
-    }
-    return ret, address, contract.Gas, err
+	if evm.Config.Debug {
+		if evm.depth == 0 {
+			evm.Config.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
+		} else {
+			evm.Config.Tracer.CaptureExit(ret, gas-contract.Gas, err)
+		}
+	}
+	return ret, address, contract.Gas, err
 }
 
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(caller.Address()))
-    return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr, CREATE)
+	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr, CREATE)
 }
 
 // Create creates a new contract using code as deployment code at the specified address.
 func (evm *EVM) CreateWithAddress(caller ContractRef, code []byte, gas uint64, value *big.Int, addr common.Address) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
-	return evm.create(caller, &codeAndHash{code: code}, gas, value, addr)
+	return evm.create(caller, &codeAndHash{code: code}, gas, value, addr, CREATE)
 }
 
 // Create2 creates a new contract using code as deployment code.
@@ -511,9 +511,9 @@ func (evm *EVM) CreateWithAddress(caller ContractRef, code []byte, gas uint64, v
 // The different between Create2 with Create is Create2 uses keccak256(0xff ++ msg.sender ++ salt ++ keccak256(init_code))[12:]
 // instead of the usual sender-and-nonce-hash as the address where the contract is initialized at.
 func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint256.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
-    codeAndHash := &codeAndHash{code: code}
-    contractAddr = crypto.CreateAddress2(caller.Address(), salt.Bytes32(), codeAndHash.Hash().Bytes())
-    return evm.create(caller, codeAndHash, gas, endowment, contractAddr, CREATE2)
+	codeAndHash := &codeAndHash{code: code}
+	contractAddr = crypto.CreateAddress2(caller.Address(), salt.Bytes32(), codeAndHash.Hash().Bytes())
+	return evm.create(caller, codeAndHash, gas, endowment, contractAddr, CREATE2)
 }
 
 // ChainConfig returns the environment's chain configuration

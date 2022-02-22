@@ -25,7 +25,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/crypto"
-	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -253,7 +252,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil}
 
 	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
@@ -292,7 +291,7 @@ var (
 		AutonityContractConfig: &TestAutonityContractConfig,
 	}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, new(EthashConfig), nil}
 
 	// AutonityTestChainConfig  Basic configuration for Tendermint, the Autonity Contract config needs still to be properly initialized.
 	AutonityTestChainConfig = &ChainConfig{ChainID: big.NewInt(1),
@@ -307,7 +306,7 @@ var (
 		AutonityContractConfig: &TestAutonityContractConfig,
 	}
 
-	TestRules = TestChainConfig.Rules(new(big.Int))
+	TestRules = TestChainConfig.Rules(new(big.Int), false)
 )
 
 func init() {
@@ -672,10 +671,6 @@ func (c *ChainConfig) Copy() *ChainConfig {
 	if c.PetersburgBlock != nil {
 		cfg.PetersburgBlock = big.NewInt(0).Set(c.PetersburgBlock)
 	}
-	if c.EWASMBlock != nil {
-		cfg.EWASMBlock = big.NewInt(0).Set(c.EWASMBlock)
-	}
-
 	return cfg
 }
 

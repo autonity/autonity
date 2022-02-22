@@ -20,6 +20,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/autonity"
 	"io"
 	"math/big"
 	"sort"
@@ -319,30 +320,29 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 			}
 		}
 	}
-	if chainConfig.Tendermint != nil {
 
-		if chainConfig.AutonityContractConfig == nil {
-			return nil, errors.New("Autonity contract config section missing from genesis config")
-		}
-
-		acConfig := bc.Config().AutonityContractConfig
-
-		var JSONString = acConfig.ABI
-		bytes, err := bc.GetKeyValue([]byte(autonity.ABISPEC))
-		if err == nil || bytes != nil {
-			JSONString = string(bytes)
-		}
-		if bc.autonityContract, err = autonity.NewAutonityContract(
-			bc,
-			acConfig.Operator,
-			acConfig.MinGasPrice,
-			JSONString,
-			&defaultEVMProvider{bc},
-		); err != nil {
-			return nil, err
-		}
-		bc.processor.SetAutonityContract(bc.autonityContract)
+	if chainConfig.AutonityContractConfig == nil {
+		return nil, errors.New("Autonity contract config section missing from genesis config")
 	}
+
+	acConfig := bc.Config().AutonityContractConfig
+
+	var JSONString = acConfig.ABI
+	bytes, err := bc.GetKeyValue([]byte(autonity.ABISPEC))
+	if err == nil || bytes != nil {
+		JSONString = string(bytes)
+	}
+	if bc.autonityContract, err = autonity.NewAutonityContract(
+		bc,
+		acConfig.Operator,
+		acConfig.MinGasPrice,
+		JSONString,
+		&defaultEVMProvider{bc},
+	); err != nil {
+		return nil, err
+	}
+	bc.processor.SetAutonityContract(bc.autonityContract)
+
 	// Ensure that a previous crash in SetHead doesn't leave extra ancients
 	if frozen, err := bc.db.Ancients(); err == nil && frozen > 0 {
 		var (
@@ -1413,7 +1413,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 	}
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
-	senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
+	bc.senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
 
 	var (
 		stats     = insertStats{startTime: mclock.Now()}

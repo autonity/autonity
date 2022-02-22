@@ -18,6 +18,8 @@
 package ethconfig
 
 import (
+	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/core/vm"
 	"math/big"
 	"os"
 	"os/user"
@@ -27,8 +29,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/beacon"
-	"github.com/clearmatics/autonity/consensus/clique"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth/downloader"
@@ -210,34 +210,31 @@ type Config struct {
 	OverrideTerminalTotalDifficulty *big.Int `toml:",omitempty"`
 }
 
-// CreateConsensusEngine creates a consensus engine for the given chain configuration.
-func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, config *ethash.Config, notify []string, noverify bool, db ethdb.Database) consensus.Engine {
-	// If proof-of-authority is requested, set it up
-	var engine consensus.Engine
-	if chainConfig.Clique != nil {
-		engine = clique.New(chainConfig.Clique, db)
-	} else {
-		switch config.PowMode {
+/// CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
+func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
+	if chainConfig.Ethash != nil {
+		ethConfig := config.Ethash
+		switch ethConfig.PowMode {
 		case ethash.ModeFake:
 			log.Warn("Ethash used in fake mode")
+			return ethash.NewFaker()
 		case ethash.ModeTest:
 			log.Warn("Ethash used in test mode")
-		case ethash.ModeShared:
-			log.Warn("Ethash used in shared mode")
+			return ethash.NewTester(nil, noverify)
+		default:
+			engine := ethash.New(ethash.Config{
+				CacheDir:         ctx.ResolvePath(ethConfig.CacheDir),
+				CachesInMem:      ethConfig.CachesInMem,
+				CachesOnDisk:     ethConfig.CachesOnDisk,
+				CachesLockMmap:   ethConfig.CachesLockMmap,
+				DatasetDir:       ethConfig.DatasetDir,
+				DatasetsInMem:    ethConfig.DatasetsInMem,
+				DatasetsOnDisk:   ethConfig.DatasetsOnDisk,
+				DatasetsLockMmap: ethConfig.DatasetsLockMmap,
+			}, notify, noverify)
+			engine.SetThreads(-1) // Disable CPU mining
+			return engine
 		}
-		engine = ethash.New(ethash.Config{
-			PowMode:          config.PowMode,
-			CacheDir:         stack.ResolvePath(config.CacheDir),
-			CachesInMem:      config.CachesInMem,
-			CachesOnDisk:     config.CachesOnDisk,
-			CachesLockMmap:   config.CachesLockMmap,
-			DatasetDir:       config.DatasetDir,
-			DatasetsInMem:    config.DatasetsInMem,
-			DatasetsOnDisk:   config.DatasetsOnDisk,
-			DatasetsLockMmap: config.DatasetsLockMmap,
-			NotifyFull:       config.NotifyFull,
-		}, notify, noverify)
-		engine.(*ethash.Ethash).SetThreads(-1) // Disable CPU mining
 	}
-	return beacon.New(engine)
+	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig)
 }

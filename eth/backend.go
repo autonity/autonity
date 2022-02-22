@@ -20,7 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/clearmatics/autonity/crypto"
 	"math/big"
 	"runtime"
 	"sync"
@@ -303,35 +303,6 @@ func makeExtraData(extra []byte) []byte {
 		extra = nil
 	}
 	return extra
-}
-
-// CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
-	if chainConfig.Ethash != nil {
-		ethConfig := config.Ethash
-		switch ethConfig.PowMode {
-		case ethash.ModeFake:
-			log.Warn("Ethash used in fake mode")
-			return ethash.NewFaker()
-		case ethash.ModeTest:
-			log.Warn("Ethash used in test mode")
-			return ethash.NewTester(nil, noverify)
-		default:
-			engine := ethash.New(ethash.Config{
-				CacheDir:         ctx.ResolvePath(ethConfig.CacheDir),
-				CachesInMem:      ethConfig.CachesInMem,
-				CachesOnDisk:     ethConfig.CachesOnDisk,
-				CachesLockMmap:   ethConfig.CachesLockMmap,
-				DatasetDir:       ethConfig.DatasetDir,
-				DatasetsInMem:    ethConfig.DatasetsInMem,
-				DatasetsOnDisk:   ethConfig.DatasetsOnDisk,
-				DatasetsLockMmap: ethConfig.DatasetsLockMmap,
-			}, notify, noverify)
-			engine.SetThreads(-1) // Disable CPU mining
-			return engine
-		}
-	}
-	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig)
 }
 
 // APIs return the collection of RPC services the ethereum package offers.

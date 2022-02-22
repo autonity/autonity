@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
