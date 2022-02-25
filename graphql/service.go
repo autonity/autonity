@@ -22,6 +22,7 @@ import (
 
 	"github.com/clearmatics/autonity/internal/ethapi"
 	"github.com/clearmatics/autonity/node"
+	"github.com/graph-gophers/graphql-go"
 )
 
 type handler struct {

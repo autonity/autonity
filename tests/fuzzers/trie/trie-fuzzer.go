@@ -70,14 +70,14 @@ func newDataSource(input []byte) *dataSource {
 	}
 }
 func (ds *dataSource) readByte() byte {
-    if b, err := ds.reader.ReadByte(); err != nil {
-        return 0
-    } else {
-        return b
-    }
+	if b, err := ds.reader.ReadByte(); err != nil {
+		return 0
+	} else {
+		return b
+	}
 }
 func (ds *dataSource) Read(buf []byte) (int, error) {
-    return ds.reader.Read(buf)
+	return ds.reader.Read(buf)
 }
 func (ds *dataSource) Ended() bool {
 	return ds.reader.Len() == 0
@@ -89,22 +89,22 @@ func Generate(input []byte) randTest {
 	r := newDataSource(input)
 	genKey := func() []byte {
 
-        if len(allKeys) < 2 || r.readByte() < 0x0f {
-            // new key
-            key := make([]byte, r.readByte()%50)
-            r.Read(key)
-            allKeys = append(allKeys, key)
-            return key
-        }
+		if len(allKeys) < 2 || r.readByte() < 0x0f {
+			// new key
+			key := make([]byte, r.readByte()%50)
+			r.Read(key)
+			allKeys = append(allKeys, key)
+			return key
+		}
 		// use existing key
-        return allKeys[int(r.readByte())%len(allKeys)]
+		return allKeys[int(r.readByte())%len(allKeys)]
 	}
 
 	var steps randTest
 
 	for i := 0; !r.Ended(); i++ {
 
-        step := randTestStep{op: int(r.readByte()) % opMax}
+		step := randTestStep{op: int(r.readByte()) % opMax}
 		switch step.op {
 		case opUpdate:
 			step.key = genKey()
@@ -112,14 +112,14 @@ func Generate(input []byte) randTest {
 			binary.BigEndian.PutUint64(step.value, uint64(i))
 		case opGet, opDelete, opProve:
 			step.key = genKey()
-        }
-        steps = append(steps, step)
-        if len(steps) > 500 {
-            break
-        }
-    }
+		}
+		steps = append(steps, step)
+		if len(steps) > 500 {
+			break
+		}
+	}
 
-    return steps
+	return steps
 }
 
 // The function must return
@@ -130,14 +130,14 @@ func Generate(input []byte) randTest {
 // 0  otherwise
 // other values are reserved for future use.
 func Fuzz(input []byte) int {
-    program := Generate(input)
-    if len(program) == 0 {
-        return 0
-    }
-    if err := runRandTest(program); err != nil {
-        panic(err)
-    }
-    return 1
+	program := Generate(input)
+	if len(program) == 0 {
+		return 0
+	}
+	if err := runRandTest(program); err != nil {
+		panic(err)
+	}
+	return 1
 }
 
 func runRandTest(rt randTest) error {
@@ -162,11 +162,11 @@ func runRandTest(rt randTest) error {
 				rt[i].err = fmt.Errorf("mismatch for key 0x%x, got 0x%x want 0x%x", step.key, v, want)
 			}
 		case opCommit:
-            _, _, rt[i].err = tr.Commit(nil)
+			_, _, rt[i].err = tr.Commit(nil)
 		case opHash:
 			tr.Hash()
 		case opReset:
-            hash, _, err := tr.Commit(nil)
+			hash, _, err := tr.Commit(nil)
 			if err != nil {
 				return err
 			}

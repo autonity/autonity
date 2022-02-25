@@ -285,7 +285,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 
 	// check bad block
 	if sb.HasBadProposal(block.Hash()) {
-		return 0, core.ErrBlacklistedHash
+		return 0, core.ErrBannedHash
 	}
 
 	// verify the header of proposed block
@@ -316,7 +316,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
 		// Instead only the transactions are applied to the copied state
 		for i, tx := range block.Transactions() {
-			state.Prepare(tx.Hash(), block.Hash(), i)
+			state.Prepare(tx.Hash(), i)
 			// Might be vulnerable to DoS Attack depending on gaslimit
 			// Todo : Double check
 			receipt, receiptErr := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig)
@@ -326,7 +326,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			receipts = append(receipts, receipt)
 		}
 
-		state.Prepare(common.ACHash(block.Number()), block.Hash(), len(block.Transactions()))
+		state.Prepare(common.ACHash(block.Number()), len(block.Transactions()))
 		committeeSet, receipt, err := sb.Finalize(sb.blockchain, header, state, block.Transactions(), nil, receipts)
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal

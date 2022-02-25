@@ -114,14 +114,14 @@ func (r *BlockRequest) Validate(db ethdb.Database, msg *Msg) error {
 		r.Header = rawdb.ReadHeader(db, r.Hash, r.Number)
 	}
 	if r.Header == nil {
-        return errHeaderUnavailable
-    }
-    if r.Header.TxHash != types.DeriveSha(types.Transactions(body.Transactions), trie.NewStackTrie(nil)) {
-        return errTxHashMismatch
-    }
-    if r.Header.UncleHash != types.CalcUncleHash(body.Uncles) {
-        return errUncleHashMismatch
-    }
+		return errHeaderUnavailable
+	}
+	if r.Header.TxHash != types.DeriveSha(types.Transactions(body.Transactions), trie.NewStackTrie(nil)) {
+		return errTxHashMismatch
+	}
+	if r.Header.UncleHash != types.CalcUncleHash(body.Uncles) {
+		return errUncleHashMismatch
+	}
 	// Validations passed, encode and store RLP
 	data, err := rlp.EncodeToBytes(body)
 	if err != nil {
@@ -171,12 +171,12 @@ func (r *ReceiptsRequest) Validate(db ethdb.Database, msg *Msg) error {
 	if r.Header == nil {
 		r.Header = rawdb.ReadHeader(db, r.Hash, r.Number)
 	}
-    if r.Header == nil {
-        return errHeaderUnavailable
-    }
-    if r.Header.ReceiptHash != types.DeriveSha(receipt, trie.NewStackTrie(nil)) {
-        return errReceiptHashMismatch
-    }
+	if r.Header == nil {
+		return errHeaderUnavailable
+	}
+	if r.Header.ReceiptHash != types.DeriveSha(receipt, trie.NewStackTrie(nil)) {
+		return errReceiptHashMismatch
+	}
 	// Validations passed, store and return
 	r.Receipts = receipt
 	return nil
@@ -291,13 +291,13 @@ func (r *CodeRequest) Validate(db ethdb.Database, msg *Msg) error {
 }
 
 const (
-    // helper trie type constants
-    htCanonical = iota // Canonical hash trie
-    htBloomBits        // BloomBits trie
+	// helper trie type constants
+	htCanonical = iota // Canonical hash trie
+	htBloomBits        // BloomBits trie
 
-    // helper trie auxiliary types
-    // htAuxNone = 1 ; deprecated number, used in les2/3 previously.
-    htAuxHeader = 2 // applicable for htCanonical, requests for relevant headers
+	// helper trie auxiliary types
+	// htAuxNone = 1 ; deprecated number, used in les2/3 previously.
+	htAuxHeader = 2 // applicable for htCanonical, requests for relevant headers
 )
 
 type HelperTrieReq struct {
@@ -326,7 +326,7 @@ func (r *ChtRequest) CanSend(peer *serverPeer) bool {
 	peer.lock.RLock()
 	defer peer.lock.RUnlock()
 
-    return peer.headInfo.Number >= r.Config.ChtConfirms && r.ChtNum <= (peer.headInfo.Number-r.Config.ChtConfirms)/r.Config.ChtSize
+	return peer.headInfo.Number >= r.Config.ChtConfirms && r.ChtNum <= (peer.headInfo.Number-r.Config.ChtConfirms)/r.Config.ChtSize
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)
@@ -335,11 +335,11 @@ func (r *ChtRequest) Request(reqID uint64, peer *serverPeer) error {
 	var encNum [8]byte
 	binary.BigEndian.PutUint64(encNum[:], r.BlockNum)
 	req := HelperTrieReq{
-        Type:    htCanonical,
-        TrieIdx: r.ChtNum,
-        Key:     encNum[:],
-        AuxReq:  htAuxHeader,
-    }
+		Type:    htCanonical,
+		TrieIdx: r.ChtNum,
+		Key:     encNum[:],
+		AuxReq:  htAuxHeader,
+	}
 	return peer.requestHelperTrieProofs(reqID, []HelperTrieReq{req})
 }
 
@@ -356,44 +356,44 @@ func (r *ChtRequest) Validate(db ethdb.Database, msg *Msg) error {
 	if len(resp.AuxData) != 1 {
 		return errInvalidEntryCount
 	}
-    nodeSet := resp.Proofs.NodeSet()
-    headerEnc := resp.AuxData[0]
-    if len(headerEnc) == 0 {
-        return errHeaderUnavailable
-    }
-    header := new(types.Header)
-    if err := rlp.DecodeBytes(headerEnc, header); err != nil {
-        return errHeaderUnavailable
-    }
-    // Verify the CHT
-    var (
-        node      light.ChtNode
-        encNumber [8]byte
-    )
-    binary.BigEndian.PutUint64(encNumber[:], r.BlockNum)
+	nodeSet := resp.Proofs.NodeSet()
+	headerEnc := resp.AuxData[0]
+	if len(headerEnc) == 0 {
+		return errHeaderUnavailable
+	}
+	header := new(types.Header)
+	if err := rlp.DecodeBytes(headerEnc, header); err != nil {
+		return errHeaderUnavailable
+	}
+	// Verify the CHT
+	var (
+		node      light.ChtNode
+		encNumber [8]byte
+	)
+	binary.BigEndian.PutUint64(encNumber[:], r.BlockNum)
 
-    reads := &readTraceDB{db: nodeSet}
-    value, err := trie.VerifyProof(r.ChtRoot, encNumber[:], reads)
-    if err != nil {
-        return fmt.Errorf("merkle proof verification failed: %v", err)
-    }
-    if len(reads.reads) != nodeSet.KeyCount() {
-        return errUselessNodes
-    }
-    if err := rlp.DecodeBytes(value, &node); err != nil {
-        return err
-    }
-    if node.Hash != header.Hash() {
-        return errCHTHashMismatch
-    }
-    if r.BlockNum != header.Number.Uint64() {
-        return errCHTNumberMismatch
-    }
-    // Verifications passed, store and return
-    r.Header = header
-    r.Proof = nodeSet
-    r.Td = node.Td
-    return nil
+	reads := &readTraceDB{db: nodeSet}
+	value, err := trie.VerifyProof(r.ChtRoot, encNumber[:], reads)
+	if err != nil {
+		return fmt.Errorf("merkle proof verification failed: %v", err)
+	}
+	if len(reads.reads) != nodeSet.KeyCount() {
+		return errUselessNodes
+	}
+	if err := rlp.DecodeBytes(value, &node); err != nil {
+		return err
+	}
+	if node.Hash != header.Hash() {
+		return errCHTHashMismatch
+	}
+	if r.BlockNum != header.Number.Uint64() {
+		return errCHTNumberMismatch
+	}
+	// Verifications passed, store and return
+	r.Header = header
+	r.Proof = nodeSet
+	r.Td = node.Td
+	return nil
 }
 
 type BloomReq struct {
@@ -487,7 +487,7 @@ func (r *TxStatusRequest) GetCost(peer *serverPeer) uint64 {
 
 // CanSend tells if a certain peer is suitable for serving the given request
 func (r *TxStatusRequest) CanSend(peer *serverPeer) bool {
-    return peer.txHistory != txIndexDisabled
+	return peer.txHistory != txIndexDisabled
 }
 
 // Request sends an ODR request to the LES network (implementation of LesOdrRequest)

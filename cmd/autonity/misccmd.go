@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	ethproto "github.com/clearmatics/autonity/eth/protocols/eth"
 	"os"
 	"runtime"
 	"strconv"
@@ -142,7 +143,7 @@ func version(ctx *cli.Context) error {
 		fmt.Println("Git Commit Date:", gitDate)
 	}
 	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Protocol Versions:", eth.ProtocolVersions)
+	fmt.Println("Protocol Versions:", ethproto.ProtocolVersions)
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))

@@ -334,12 +334,12 @@ func TestServerPeerLimits(t *testing.T) {
 
 func TestServerSetupConn(t *testing.T) {
 	var (
-        clientkey, srvkey = newkey(), newkey()
-        clientpub         = &clientkey.PublicKey
-        srvpub            = &srvkey.PublicKey
-        fooErr            = errors.New("foo")
-        readErr           = errors.New("read error")
-    )
+		clientkey, srvkey = newkey(), newkey()
+		clientpub         = &clientkey.PublicKey
+		srvpub            = &srvkey.PublicKey
+		fooErr            = errors.New("foo")
+		readErr           = errors.New("read error")
+	)
 	tests := []struct {
 		dontstart bool
 		tt        *setupTransport
@@ -355,12 +355,12 @@ func TestServerSetupConn(t *testing.T) {
 			wantCalls:    "close,",
 			wantCloseErr: errServerStopped,
 		},
-        {
-            tt:           &setupTransport{pubkey: clientpub, encHandshakeErr: readErr},
-            flags:        inboundConn,
-            wantCalls:    "doEncHandshake,close,",
-            wantCloseErr: readErr,
-        },
+		{
+			tt:           &setupTransport{pubkey: clientpub, encHandshakeErr: readErr},
+			flags:        inboundConn,
+			wantCalls:    "doEncHandshake,close,",
+			wantCloseErr: readErr,
+		},
 		{
 			tt:           &setupTransport{pubkey: clientpub, phs: protoHandshake{ID: randomID().Bytes()}},
 			dialDest:     enode.NewV4(clientpub, nil, 0, 0),
@@ -368,13 +368,13 @@ func TestServerSetupConn(t *testing.T) {
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: DiscUnexpectedIdentity,
 		},
-        {
-            tt:           &setupTransport{pubkey: clientpub, protoHandshakeErr: fooErr},
-            dialDest:     enode.NewV4(clientpub, nil, 0, 0),
-            flags:        dynDialedConn,
-            wantCalls:    "doEncHandshake,doProtoHandshake,close,",
-            wantCloseErr: fooErr,
-        },
+		{
+			tt:           &setupTransport{pubkey: clientpub, protoHandshakeErr: fooErr},
+			dialDest:     enode.NewV4(clientpub, nil, 0, 0),
+			flags:        dynDialedConn,
+			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
+			wantCloseErr: fooErr,
+		},
 		{
 			tt:           &setupTransport{pubkey: srvpub, phs: protoHandshake{ID: crypto.FromECDSAPub(srvpub)[1:]}},
 			flags:        inboundConn,
@@ -412,12 +412,12 @@ func TestServerSetupConn(t *testing.T) {
 			}
 			p1, _ := net.Pipe()
 			srv.SetupConn(p1, test.flags, test.dialDest)
-            if !errors.Is(test.tt.closeErr, test.wantCloseErr) {
-                t.Errorf("test %d: close error mismatch: got %q, want %q", i, test.tt.closeErr, test.wantCloseErr)
-            }
-            if test.tt.calls != test.wantCalls {
-                t.Errorf("test %d: calls mismatch: got %q, want %q", i, test.tt.calls, test.wantCalls)
-            }
+			if !errors.Is(test.tt.closeErr, test.wantCloseErr) {
+				t.Errorf("test %d: close error mismatch: got %q, want %q", i, test.tt.closeErr, test.wantCloseErr)
+			}
+			if test.tt.calls != test.wantCalls {
+				t.Errorf("test %d: calls mismatch: got %q, want %q", i, test.tt.calls, test.wantCalls)
+			}
 		})
 	}
 }

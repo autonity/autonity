@@ -196,11 +196,7 @@ func TestVerifyProposal(t *testing.T) {
 		}
 		block = block.WithSeal(header)
 
-		state, stateErr := blockchain.State()
-		if stateErr != nil {
-			t.Fatalf("could not retrieve state %d, err=%s", i, stateErr)
-		}
-		if status, errW := blockchain.WriteBlockWithState(block, nil, nil, state, false); status != core.CanonStatTy && errW != nil {
+		if _, errW := blockchain.InsertChain(types.Blocks{block}); errW != nil {
 			t.Fatalf("write block failure %d, err=%s", i, errW)
 		}
 		blocks[i] = block
@@ -623,7 +619,7 @@ func makeHeader(parent *types.Block) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
-		GasLimit:   core.CalcGasLimit(parent, 8000000, 8000000),
+		GasLimit:   core.CalcGasLimit(parent.GasLimit(), 8000000),
 		GasUsed:    0,
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(1)).Uint64(),

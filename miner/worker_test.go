@@ -19,7 +19,6 @@ package miner
 import (
 	"errors"
 	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	tendermint "github.com/clearmatics/autonity/consensus/tendermint/config"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
@@ -28,7 +27,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/clique"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -563,17 +561,6 @@ func TestGetSealingWorkEthash(t *testing.T) {
 	testGetSealingWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 
-func TestGetSealingWorkClique(t *testing.T) {
-	testGetSealingWork(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()), false)
-}
-
-func TestGetSealingWorkPostMerge(t *testing.T) {
-	local := new(params.ChainConfig)
-	*local = *ethashChainConfig
-	local.TerminalTotalDifficulty = big.NewInt(0)
-	testGetSealingWork(t, local, ethash.NewFaker(), true)
-}
-
 func testGetSealingWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, postMerge bool) {
 	defer engine.Close()
 
@@ -599,24 +586,18 @@ func testGetSealingWork(t *testing.T, chainConfig *params.ChainConfig, engine co
 		if len(block.Uncles()) != 0 {
 			t.Error("Unexpected uncle block")
 		}
-		_, isClique := engine.(*clique.Clique)
-		if !isClique {
-			if len(block.Extra()) != 0 {
-				t.Error("Unexpected extra field")
-			}
-			if block.Coinbase() != coinbase {
-				t.Errorf("Unexpected coinbase got %x want %x", block.Coinbase(), coinbase)
-			}
-		} else {
-			if block.Coinbase() != (common.Address{}) {
-				t.Error("Unexpected coinbase")
-			}
+
+		if len(block.Extra()) != 0 {
+			t.Error("Unexpected extra field")
 		}
-		if !isClique {
-			if block.MixDigest() != random {
-				t.Error("Unexpected mix digest")
-			}
+		if block.Coinbase() != coinbase {
+			t.Errorf("Unexpected coinbase got %x want %x", block.Coinbase(), coinbase)
 		}
+
+		if block.MixDigest() != random {
+			t.Error("Unexpected mix digest")
+		}
+
 		if block.Nonce() != 0 {
 			t.Error("Unexpected block nonce")
 		}

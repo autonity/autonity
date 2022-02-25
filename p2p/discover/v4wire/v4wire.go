@@ -47,28 +47,28 @@ const (
 // RPC request structures
 type (
 	Ping struct {
-        Version    uint
-        From, To   Endpoint
-        Expiration uint64
-        ENRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
+		Version    uint
+		From, To   Endpoint
+		Expiration uint64
+		ENRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
 
-        // Ignore additional fields (for forward compatibility).
-        Rest []rlp.RawValue `rlp:"tail"`
-    }
+		// Ignore additional fields (for forward compatibility).
+		Rest []rlp.RawValue `rlp:"tail"`
+	}
 
 	// Pong is the reply to ping.
 	Pong struct {
-        // This field should mirror the UDP envelope address
-        // of the ping packet, which provides a way to discover the
-        // the external address (after NAT).
-        To         Endpoint
-        ReplyTok   []byte // This contains the hash of the ping packet.
-        Expiration uint64 // Absolute timestamp at which the packet becomes invalid.
-        ENRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
+		// This field should mirror the UDP envelope address
+		// of the ping packet, which provides a way to discover the
+		// the external address (after NAT).
+		To         Endpoint
+		ReplyTok   []byte // This contains the hash of the ping packet.
+		Expiration uint64 // Absolute timestamp at which the packet becomes invalid.
+		ENRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
 
-        // Ignore additional fields (for forward compatibility).
-        Rest []rlp.RawValue `rlp:"tail"`
-    }
+		// Ignore additional fields (for forward compatibility).
+		Rest []rlp.RawValue `rlp:"tail"`
+	}
 
 	// Findnode is a query for nodes close to the given target.
 	Findnode struct {
@@ -156,14 +156,14 @@ func NewEndpoint(addr *net.UDPAddr, tcpPort uint16) Endpoint {
 		ip = ip4
 	} else if ip6 := addr.IP.To16(); ip6 != nil {
 		ip = ip6
-    }
-    return Endpoint{IP: ip, UDP: uint16(addr.Port), TCP: tcpPort}
+	}
+	return Endpoint{IP: ip, UDP: uint16(addr.Port), TCP: tcpPort}
 }
 
 type Packet interface {
-    // packet name and type for logging purposes.
-    Name() string
-    Kind() byte
+	// packet name and type for logging purposes.
+	Name() string
+	Kind() byte
 }
 
 func (req *Ping) Name() string { return "PING/v4" }

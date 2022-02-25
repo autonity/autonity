@@ -50,7 +50,7 @@ func BenchmarkFilters(b *testing.B) {
 
 	var (
 		db, _   = rawdb.NewLevelDBDatabase(dir, 0, 0, "", false)
-        backend = &testBackend{db: db}
+		backend = &testBackend{db: db}
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		addr2   = common.BytesToAddress([]byte("jeff"))
@@ -64,20 +64,20 @@ func BenchmarkFilters(b *testing.B) {
 		switch i {
 		case 2403:
 			receipt := makeReceipt(addr1)
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
 		case 1034:
 			receipt := makeReceipt(addr2)
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
 		case 34:
 			receipt := makeReceipt(addr3)
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
 		case 99999:
 			receipt := makeReceipt(addr4)
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
 
 		}
 	})
@@ -107,8 +107,8 @@ func TestFilters(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	var (
-        db, _   = rawdb.NewLevelDBDatabase(dir, 0, 0, "", false)
-        backend = &testBackend{db: db}
+		db, _   = rawdb.NewLevelDBDatabase(dir, 0, 0, "", false)
+		backend = &testBackend{db: db}
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr    = crypto.PubkeyToAddress(key1.PublicKey)
 
@@ -130,8 +130,8 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash1},
 				},
 			}
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, gen.BaseFee(), nil))
 		case 2:
 			receipt := types.NewReceipt(nil, false, 0)
 			receipt.Logs = []*types.Log{
@@ -140,8 +140,8 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash2},
 				},
 			}
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(2, common.HexToAddress("0x2"), big.NewInt(2), 2, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(2, common.HexToAddress("0x2"), big.NewInt(2), 2, gen.BaseFee(), nil))
 
 		case 998:
 			receipt := types.NewReceipt(nil, false, 0)
@@ -151,8 +151,8 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash3},
 				},
 			}
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(998, common.HexToAddress("0x998"), big.NewInt(998), 998, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(998, common.HexToAddress("0x998"), big.NewInt(998), 998, gen.BaseFee(), nil))
 		case 999:
 			receipt := types.NewReceipt(nil, false, 0)
 			receipt.Logs = []*types.Log{
@@ -161,8 +161,8 @@ func TestFilters(t *testing.T) {
 					Topics:  []common.Hash{hash4},
 				},
 			}
-            gen.AddUncheckedReceipt(receipt)
-            gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
+			gen.AddUncheckedReceipt(receipt)
+			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
 		}
 	})
 	for i, block := range chain {

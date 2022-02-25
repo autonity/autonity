@@ -24,7 +24,7 @@ import (
 // Just replace testString with the data in .quoted
 func TestReplicate(t *testing.T) {
 	testString := "\x20\x20\x20\x20\x20\x20\x20\x20\x80\x00\x00\x00\x20\x20\x20\x20\x00"
-    data := []byte(testString)
+	data := []byte(testString)
 	runFuzzer(data)
 }
 

@@ -40,12 +40,12 @@ const (
 var acceptedContentTypes = []string{contentType, "application/json-rpc", "application/jsonrequest"}
 
 type httpConn struct {
-    client    *http.Client
-    url       string
-    closeOnce sync.Once
-    closeCh   chan interface{}
-    mu        sync.Mutex // protects headers
-    headers   http.Header
+	client    *http.Client
+	url       string
+	closeOnce sync.Once
+	closeCh   chan interface{}
+	mu        sync.Mutex // protects headers
+	headers   http.Header
 }
 
 // httpConn implements ServerCodec, but it is treated specially by Client
@@ -53,20 +53,20 @@ type httpConn struct {
 // this special treatment is correct.
 
 func (hc *httpConn) writeJSON(context.Context, interface{}) error {
-    panic("writeJSON called on httpConn")
+	panic("writeJSON called on httpConn")
 }
 
 func (hc *httpConn) peerInfo() PeerInfo {
-    panic("peerInfo called on httpConn")
+	panic("peerInfo called on httpConn")
 }
 
 func (hc *httpConn) remoteAddr() string {
-    return hc.url
+	return hc.url
 }
 
 func (hc *httpConn) readBatch() ([]*jsonrpcMessage, bool, error) {
-    <-hc.closeCh
-    return nil, false, io.EOF
+	<-hc.closeCh
+	return nil, false, io.EOF
 }
 
 func (hc *httpConn) close() {
@@ -139,19 +139,19 @@ func DialHTTP(endpoint string) (*Client, error) {
 }
 
 func (c *Client) sendHTTP(ctx context.Context, op *requestOp, msg interface{}) error {
-    hc := c.writeConn.(*httpConn)
-    respBody, err := hc.doRequest(ctx, msg)
-    if err != nil {
-        return err
-    }
-    defer respBody.Close()
+	hc := c.writeConn.(*httpConn)
+	respBody, err := hc.doRequest(ctx, msg)
+	if err != nil {
+		return err
+	}
+	defer respBody.Close()
 
-    var respmsg jsonrpcMessage
-    if err := json.NewDecoder(respBody).Decode(&respmsg); err != nil {
-        return err
-    }
-    op.resp <- &respmsg
-    return nil
+	var respmsg jsonrpcMessage
+	if err := json.NewDecoder(respBody).Decode(&respmsg); err != nil {
+		return err
+	}
+	op.resp <- &respmsg
+	return nil
 }
 
 func (c *Client) sendBatchHTTP(ctx context.Context, op *requestOp, msgs []*jsonrpcMessage) error {
@@ -180,8 +180,8 @@ func (hc *httpConn) doRequest(ctx context.Context, msg interface{}) (io.ReadClos
 	if err != nil {
 		return nil, err
 	}
-    req.ContentLength = int64(len(body))
-    req.GetBody = func() (io.ReadCloser, error) { return ioutil.NopCloser(bytes.NewReader(body)), nil }
+	req.ContentLength = int64(len(body))
+	req.GetBody = func() (io.ReadCloser, error) { return ioutil.NopCloser(bytes.NewReader(body)), nil }
 
 	// set headers
 	hc.mu.Lock()
@@ -194,18 +194,18 @@ func (hc *httpConn) doRequest(ctx context.Context, msg interface{}) (io.ReadClos
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-        var buf bytes.Buffer
-        var body []byte
-        if _, err := buf.ReadFrom(resp.Body); err == nil {
-            body = buf.Bytes()
-        }
+		var buf bytes.Buffer
+		var body []byte
+		if _, err := buf.ReadFrom(resp.Body); err == nil {
+			body = buf.Bytes()
+		}
 
-        return nil, HTTPError{
-            Status:     resp.Status,
-            StatusCode: resp.StatusCode,
-            Body:       body,
-        }
-    }
+		return nil, HTTPError{
+			Status:     resp.Status,
+			StatusCode: resp.StatusCode,
+			Body:       body,
+		}
+	}
 	return resp.Body, nil
 }
 
@@ -235,32 +235,32 @@ func (t *httpServerConn) SetWriteDeadline(time.Time) error { return nil }
 
 // ServeHTTP serves JSON-RPC requests over HTTP.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    // Permit dumb empty requests for remote health-checks (AWS)
-    if r.Method == http.MethodGet && r.ContentLength == 0 && r.URL.RawQuery == "" {
-        w.WriteHeader(http.StatusOK)
-        return
-    }
-    if code, err := validateRequest(r); err != nil {
-        http.Error(w, err.Error(), code)
-        return
-    }
+	// Permit dumb empty requests for remote health-checks (AWS)
+	if r.Method == http.MethodGet && r.ContentLength == 0 && r.URL.RawQuery == "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if code, err := validateRequest(r); err != nil {
+		http.Error(w, err.Error(), code)
+		return
+	}
 
-    // Create request-scoped context.
-    connInfo := PeerInfo{Transport: "http", RemoteAddr: r.RemoteAddr}
-    connInfo.HTTP.Version = r.Proto
-    connInfo.HTTP.Host = r.Host
-    connInfo.HTTP.Origin = r.Header.Get("Origin")
-    connInfo.HTTP.UserAgent = r.Header.Get("User-Agent")
-    ctx := r.Context()
-    ctx = context.WithValue(ctx, peerInfoContextKey{}, connInfo)
+	// Create request-scoped context.
+	connInfo := PeerInfo{Transport: "http", RemoteAddr: r.RemoteAddr}
+	connInfo.HTTP.Version = r.Proto
+	connInfo.HTTP.Host = r.Host
+	connInfo.HTTP.Origin = r.Header.Get("Origin")
+	connInfo.HTTP.UserAgent = r.Header.Get("User-Agent")
+	ctx := r.Context()
+	ctx = context.WithValue(ctx, peerInfoContextKey{}, connInfo)
 
-    // All checks passed, create a codec that reads directly from the request body
-    // until EOF, writes the response to w, and orders the server to process a
-    // single request.
-    w.Header().Set("content-type", contentType)
-    codec := newHTTPServerConn(r, w)
-    defer codec.close()
-    s.serveSingleRequest(ctx, codec)
+	// All checks passed, create a codec that reads directly from the request body
+	// until EOF, writes the response to w, and orders the server to process a
+	// single request.
+	w.Header().Set("content-type", contentType)
+	codec := newHTTPServerConn(r, w)
+	defer codec.close()
+	s.serveSingleRequest(ctx, codec)
 }
 
 // validateRequest returns a non-zero response code and error message if the

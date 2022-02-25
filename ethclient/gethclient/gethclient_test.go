@@ -19,6 +19,7 @@ package gethclient
 import (
 	"bytes"
 	"context"
+	ethereum "github.com/clearmatics/autonity"
 	"math/big"
 	"testing"
 
@@ -53,7 +54,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	// Create Ethereum Service
 	config := &ethconfig.Config{Genesis: genesis}
 	config.Ethash.PowMode = ethash.ModeFake
-	ethservice, err := eth.New(n, config)
+	ethservice, err := eth.New(n, config, nil)
 	if err != nil {
 		t.Fatalf("can't create new ethereum service: %v", err)
 	}
@@ -80,7 +81,10 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
-	gblock := genesis.ToBlock(db)
+	gblock, err := genesis.ToBlock(db)
+	if err != nil {
+		panic("could not generate block")
+	}
 	engine := ethash.NewFaker()
 	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
 	blocks = append([]*types.Block{gblock}, blocks...)

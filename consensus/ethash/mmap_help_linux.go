@@ -20,9 +20,9 @@
 package ethash
 
 import (
-    "os"
+	"os"
 
-    "golang.org/x/sys/unix"
+	"golang.org/x/sys/unix"
 )
 
 // ensureSize expands the file to the given size. This is to prevent runtime
@@ -30,6 +30,6 @@ import (
 // even though it ostensibly is already expanded, but due to being sparse
 // does not actually occupy the full declared size on disk.
 func ensureSize(f *os.File, size int64) error {
-    // Docs: https://www.man7.org/linux/man-pages/man2/fallocate.2.html
-    return unix.Fallocate(int(f.Fd()), 0, 0, size)
+	// Docs: https://www.man7.org/linux/man-pages/man2/fallocate.2.html
+	return unix.Fallocate(int(f.Fd()), 0, 0, size)
 }

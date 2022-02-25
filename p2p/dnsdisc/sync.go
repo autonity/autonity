@@ -17,12 +17,12 @@
 package dnsdisc
 
 import (
-    "context"
-    "math/rand"
-    "time"
+	"context"
+	"math/rand"
+	"time"
 
-    "github.com/clearmatics/autonity/common/mclock"
-    "github.com/clearmatics/autonity/p2p/enode"
+	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/clearmatics/autonity/p2p/enode"
 )
 
 // This is the number of consecutive leaf requests that may fail before
@@ -31,12 +31,12 @@ const rootRecheckFailCount = 5
 
 // clientTree is a full tree being synced.
 type clientTree struct {
-    c   *Client
-    loc *linkEntry // link to this tree
+	c   *Client
+	loc *linkEntry // link to this tree
 
-    lastRootCheck mclock.AbsTime // last revalidation of root
-    leafFailCount int
-    rootFailCount int
+	lastRootCheck mclock.AbsTime // last revalidation of root
+	leafFailCount int
+	rootFailCount int
 
 	root  *rootEntry
 	enrs  *subtreeSync
@@ -79,40 +79,40 @@ func (ct *clientTree) syncRandom(ctx context.Context) (n *enode.Node, err error)
 		if err != nil {
 			ct.leafFailCount++
 		}
-    }()
+	}()
 
-    // Link tree sync has priority, run it to completion before syncing ENRs.
-    if !ct.links.done() {
-        err := ct.syncNextLink(ctx)
-        return nil, err
-    }
-    ct.gcLinks()
+	// Link tree sync has priority, run it to completion before syncing ENRs.
+	if !ct.links.done() {
+		err := ct.syncNextLink(ctx)
+		return nil, err
+	}
+	ct.gcLinks()
 
-    // Sync next random entry in ENR tree. Once every node has been visited, we simply
-    // start over. This is fine because entries are cached internally by the client LRU
-    // also by DNS resolvers.
-    if ct.enrs.done() {
-        ct.enrs = newSubtreeSync(ct.c, ct.loc, ct.root.eroot, false)
-    }
-    return ct.syncNextRandomENR(ctx)
+	// Sync next random entry in ENR tree. Once every node has been visited, we simply
+	// start over. This is fine because entries are cached internally by the client LRU
+	// also by DNS resolvers.
+	if ct.enrs.done() {
+		ct.enrs = newSubtreeSync(ct.c, ct.loc, ct.root.eroot, false)
+	}
+	return ct.syncNextRandomENR(ctx)
 }
 
 // canSyncRandom checks if any meaningful action can be performed by syncRandom.
 func (ct *clientTree) canSyncRandom() bool {
-    // Note: the check for non-zero leaf count is very important here.
-    // If we're done syncing all nodes, and no leaves were found, the tree
-    // is empty and we can't use it for sync.
-    return ct.rootUpdateDue() || !ct.links.done() || !ct.enrs.done() || ct.enrs.leaves != 0
+	// Note: the check for non-zero leaf count is very important here.
+	// If we're done syncing all nodes, and no leaves were found, the tree
+	// is empty and we can't use it for sync.
+	return ct.rootUpdateDue() || !ct.links.done() || !ct.enrs.done() || ct.enrs.leaves != 0
 }
 
 // gcLinks removes outdated links from the global link cache. GC runs once
 // when the link sync finishes.
 func (ct *clientTree) gcLinks() {
-    if !ct.links.done() || ct.root.lroot == ct.linkGCRoot {
-        return
-    }
-    ct.lc.resetLinks(ct.loc.str, ct.curLinks)
-    ct.linkGCRoot = ct.root.lroot
+	if !ct.links.done() || ct.root.lroot == ct.linkGCRoot {
+		return
+	}
+	ct.lc.resetLinks(ct.loc.str, ct.curLinks)
+	ct.linkGCRoot = ct.root.lroot
 }
 
 func (ct *clientTree) syncNextLink(ctx context.Context) error {
@@ -187,29 +187,29 @@ func (ct *clientTree) updateRoot(ctx context.Context) error {
 	if ct.enrs == nil || root.eroot != ct.enrs.root {
 		ct.enrs = newSubtreeSync(ct.c, ct.loc, root.eroot, false)
 	}
-    return nil
+	return nil
 }
 
 // rootUpdateDue returns true when a root update is needed.
 func (ct *clientTree) rootUpdateDue() bool {
-    tooManyFailures := ct.leafFailCount > rootRecheckFailCount
-    scheduledCheck := ct.c.clock.Now() >= ct.nextScheduledRootCheck()
-    return ct.root == nil || tooManyFailures || scheduledCheck
+	tooManyFailures := ct.leafFailCount > rootRecheckFailCount
+	scheduledCheck := ct.c.clock.Now() >= ct.nextScheduledRootCheck()
+	return ct.root == nil || tooManyFailures || scheduledCheck
 }
 
 func (ct *clientTree) nextScheduledRootCheck() mclock.AbsTime {
-    return ct.lastRootCheck.Add(ct.c.cfg.RecheckInterval)
+	return ct.lastRootCheck.Add(ct.c.cfg.RecheckInterval)
 }
 
 // slowdownRootUpdate applies a delay to root resolution if is tried
 // too frequently. This avoids busy polling when the client is offline.
 // Returns true if the timeout passed, false if sync was canceled.
 func (ct *clientTree) slowdownRootUpdate(ctx context.Context) bool {
-    var delay time.Duration
-    switch {
-    case ct.rootFailCount > 20:
-        delay = 10 * time.Second
-    case ct.rootFailCount > 5:
+	var delay time.Duration
+	switch {
+	case ct.rootFailCount > 20:
+		delay = 10 * time.Second
+	case ct.rootFailCount > 5:
 		delay = 5 * time.Second
 	default:
 		return true
@@ -226,16 +226,16 @@ func (ct *clientTree) slowdownRootUpdate(ctx context.Context) bool {
 
 // subtreeSync is the sync of an ENR or link subtree.
 type subtreeSync struct {
-    c       *Client
-    loc     *linkEntry
-    root    string
-    missing []string // missing tree node hashes
-    link    bool     // true if this sync is for the link tree
-    leaves  int      // counter of synced leaves
+	c       *Client
+	loc     *linkEntry
+	root    string
+	missing []string // missing tree node hashes
+	link    bool     // true if this sync is for the link tree
+	leaves  int      // counter of synced leaves
 }
 
 func newSubtreeSync(c *Client, loc *linkEntry, root string, link bool) *subtreeSync {
-    return &subtreeSync{c, loc, root, []string{root}, link, 0}
+	return &subtreeSync{c, loc, root, []string{root}, link, 0}
 }
 
 func (ts *subtreeSync) done() bool {
@@ -267,12 +267,12 @@ func (ts *subtreeSync) resolveNext(ctx context.Context, hash string) (entry, err
 		if ts.link {
 			return nil, errENRInLinkTree
 		}
-        ts.leaves++
+		ts.leaves++
 	case *linkEntry:
 		if !ts.link {
 			return nil, errLinkInENRTree
 		}
-        ts.leaves++
+		ts.leaves++
 	case *branchEntry:
 		ts.missing = append(ts.missing, e.children...)
 	}

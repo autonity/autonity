@@ -23,8 +23,8 @@ import (
 	"io"
 	"io/ioutil"
 	"math/big"
-    "runtime"
-    "sync"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/clearmatics/autonity/common/math"
@@ -35,14 +35,14 @@ type testEncoder struct {
 }
 
 func (e *testEncoder) EncodeRLP(w io.Writer) error {
-    if e == nil {
-        panic("EncodeRLP called on nil value")
-    }
-    if e.err != nil {
-        return e.err
-    }
-    w.Write([]byte{0, 1, 0, 1, 0, 1, 0, 1, 0, 1})
-    return nil
+	if e == nil {
+		panic("EncodeRLP called on nil value")
+	}
+	if e.err != nil {
+		return e.err
+	}
+	w.Write([]byte{0, 1, 0, 1, 0, 1, 0, 1, 0, 1})
+	return nil
 }
 
 type testEncoderValueMethod struct{}
@@ -121,34 +121,34 @@ var encTests = []encTest{
 	{val: big.NewInt(0xFFFFFFFFFFFFFF), output: "87FFFFFFFFFFFFFF"},
 	{
 		val:    big.NewInt(0).SetBytes(unhex("102030405060708090A0B0C0D0E0F2")),
-        output: "8F102030405060708090A0B0C0D0E0F2",
-    },
-    {
-        val:    big.NewInt(0).SetBytes(unhex("0100020003000400050006000700080009000A000B000C000D000E01")),
-        output: "9C0100020003000400050006000700080009000A000B000C000D000E01",
-    },
-    {
-        val:    big.NewInt(0).SetBytes(unhex("010000000000000000000000000000000000000000000000000000000000000000")),
-        output: "A1010000000000000000000000000000000000000000000000000000000000000000",
-    },
-    {
-        val:    veryBigInt,
-        output: "89FFFFFFFFFFFFFFFFFF",
-    },
-    {
-        val:    veryVeryBigInt,
-        output: "B848FFFFFFFFFFFFFFFFF800000000000000001BFFFFFFFFFFFFFFFFC8000000000000000045FFFFFFFFFFFFFFFFC800000000000000001BFFFFFFFFFFFFFFFFF8000000000000000001",
-    },
+		output: "8F102030405060708090A0B0C0D0E0F2",
+	},
+	{
+		val:    big.NewInt(0).SetBytes(unhex("0100020003000400050006000700080009000A000B000C000D000E01")),
+		output: "9C0100020003000400050006000700080009000A000B000C000D000E01",
+	},
+	{
+		val:    big.NewInt(0).SetBytes(unhex("010000000000000000000000000000000000000000000000000000000000000000")),
+		output: "A1010000000000000000000000000000000000000000000000000000000000000000",
+	},
+	{
+		val:    veryBigInt,
+		output: "89FFFFFFFFFFFFFFFFFF",
+	},
+	{
+		val:    veryVeryBigInt,
+		output: "B848FFFFFFFFFFFFFFFFF800000000000000001BFFFFFFFFFFFFFFFFC8000000000000000045FFFFFFFFFFFFFFFFC800000000000000001BFFFFFFFFFFFFFFFFF8000000000000000001",
+	},
 
-    // non-pointer big.Int
-    {val: *big.NewInt(0), output: "80"},
-    {val: *big.NewInt(0xFFFFFF), output: "83FFFFFF"},
+	// non-pointer big.Int
+	{val: *big.NewInt(0), output: "80"},
+	{val: *big.NewInt(0xFFFFFF), output: "83FFFFFF"},
 
-    // negative ints are not supported
-    {val: big.NewInt(-1), error: "rlp: cannot encode negative *big.Int"},
+	// negative ints are not supported
+	{val: big.NewInt(-1), error: "rlp: cannot encode negative *big.Int"},
 
-    // byte arrays
-    {val: [0]byte{}, output: "80"},
+	// byte arrays
+	{val: [0]byte{}, output: "80"},
 	{val: [1]byte{0}, output: "00"},
 	{val: [1]byte{1}, output: "01"},
 	{val: [1]byte{0x7F}, output: "7F"},
@@ -256,50 +256,50 @@ var encTests = []encTest{
 		output: "F90200CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376CF84617364668471776572847A786376",
 	},
 
-    // RawValue
-    {val: RawValue(unhex("01")), output: "01"},
-    {val: RawValue(unhex("82FFFF")), output: "82FFFF"},
-    {val: []RawValue{unhex("01"), unhex("02")}, output: "C20102"},
+	// RawValue
+	{val: RawValue(unhex("01")), output: "01"},
+	{val: RawValue(unhex("82FFFF")), output: "82FFFF"},
+	{val: []RawValue{unhex("01"), unhex("02")}, output: "C20102"},
 
-    // structs
-    {val: simplestruct{}, output: "C28080"},
-    {val: simplestruct{A: 3, B: "foo"}, output: "C50383666F6F"},
-    {val: &recstruct{5, nil}, output: "C205C0"},
-    {val: &recstruct{5, &recstruct{4, &recstruct{3, nil}}}, output: "C605C404C203C0"},
-    {val: &intField{X: 3}, error: "rlp: type int is not RLP-serializable (struct field rlp.intField.X)"},
+	// structs
+	{val: simplestruct{}, output: "C28080"},
+	{val: simplestruct{A: 3, B: "foo"}, output: "C50383666F6F"},
+	{val: &recstruct{5, nil}, output: "C205C0"},
+	{val: &recstruct{5, &recstruct{4, &recstruct{3, nil}}}, output: "C605C404C203C0"},
+	{val: &intField{X: 3}, error: "rlp: type int is not RLP-serializable (struct field rlp.intField.X)"},
 
-    // struct tag "-"
-    {val: &ignoredField{A: 1, B: 2, C: 3}, output: "C20103"},
+	// struct tag "-"
+	{val: &ignoredField{A: 1, B: 2, C: 3}, output: "C20103"},
 
-    // struct tag "tail"
-    {val: &tailRaw{A: 1, Tail: []RawValue{unhex("02"), unhex("03")}}, output: "C3010203"},
-    {val: &tailRaw{A: 1, Tail: []RawValue{unhex("02")}}, output: "C20102"},
-    {val: &tailRaw{A: 1, Tail: []RawValue{}}, output: "C101"},
-    {val: &tailRaw{A: 1, Tail: nil}, output: "C101"},
+	// struct tag "tail"
+	{val: &tailRaw{A: 1, Tail: []RawValue{unhex("02"), unhex("03")}}, output: "C3010203"},
+	{val: &tailRaw{A: 1, Tail: []RawValue{unhex("02")}}, output: "C20102"},
+	{val: &tailRaw{A: 1, Tail: []RawValue{}}, output: "C101"},
+	{val: &tailRaw{A: 1, Tail: nil}, output: "C101"},
 
-    // struct tag "optional"
-    {val: &optionalFields{}, output: "C180"},
-    {val: &optionalFields{A: 1}, output: "C101"},
-    {val: &optionalFields{A: 1, B: 2}, output: "C20102"},
-    {val: &optionalFields{A: 1, B: 2, C: 3}, output: "C3010203"},
-    {val: &optionalFields{A: 1, B: 0, C: 3}, output: "C3018003"},
-    {val: &optionalAndTailField{A: 1}, output: "C101"},
-    {val: &optionalAndTailField{A: 1, B: 2}, output: "C20102"},
-    {val: &optionalAndTailField{A: 1, Tail: []uint{5, 6}}, output: "C401800506"},
-    {val: &optionalAndTailField{A: 1, Tail: []uint{5, 6}}, output: "C401800506"},
-    {val: &optionalBigIntField{A: 1}, output: "C101"},
-    {val: &optionalPtrField{A: 1}, output: "C101"},
-    {val: &optionalPtrFieldNil{A: 1}, output: "C101"},
+	// struct tag "optional"
+	{val: &optionalFields{}, output: "C180"},
+	{val: &optionalFields{A: 1}, output: "C101"},
+	{val: &optionalFields{A: 1, B: 2}, output: "C20102"},
+	{val: &optionalFields{A: 1, B: 2, C: 3}, output: "C3010203"},
+	{val: &optionalFields{A: 1, B: 0, C: 3}, output: "C3018003"},
+	{val: &optionalAndTailField{A: 1}, output: "C101"},
+	{val: &optionalAndTailField{A: 1, B: 2}, output: "C20102"},
+	{val: &optionalAndTailField{A: 1, Tail: []uint{5, 6}}, output: "C401800506"},
+	{val: &optionalAndTailField{A: 1, Tail: []uint{5, 6}}, output: "C401800506"},
+	{val: &optionalBigIntField{A: 1}, output: "C101"},
+	{val: &optionalPtrField{A: 1}, output: "C101"},
+	{val: &optionalPtrFieldNil{A: 1}, output: "C101"},
 
-    // nil
-    {val: (*uint)(nil), output: "80"},
-    {val: (*string)(nil), output: "80"},
-    {val: (*[]byte)(nil), output: "80"},
-    {val: (*[10]byte)(nil), output: "80"},
-    {val: (*big.Int)(nil), output: "80"},
-    {val: (*[]string)(nil), output: "C0"},
-    {val: (*[10]string)(nil), output: "C0"},
-    {val: (*[]interface{})(nil), output: "C0"},
+	// nil
+	{val: (*uint)(nil), output: "80"},
+	{val: (*string)(nil), output: "80"},
+	{val: (*[]byte)(nil), output: "80"},
+	{val: (*[10]byte)(nil), output: "80"},
+	{val: (*big.Int)(nil), output: "80"},
+	{val: (*[]string)(nil), output: "C0"},
+	{val: (*[10]string)(nil), output: "C0"},
+	{val: (*[]interface{})(nil), output: "C0"},
 	{val: (*[]struct{ uint })(nil), output: "C0"},
 	{val: (*interface{})(nil), output: "C0"},
 
@@ -480,91 +480,91 @@ func BenchmarkEncodeBigInts(b *testing.B) {
 	}
 	out := bytes.NewBuffer(make([]byte, 0, 4096))
 	b.ResetTimer()
-    b.ReportAllocs()
+	b.ReportAllocs()
 
-    for i := 0; i < b.N; i++ {
-        out.Reset()
-        if err := Encode(out, ints); err != nil {
-            b.Fatal(err)
-        }
-    }
+	for i := 0; i < b.N; i++ {
+		out.Reset()
+		if err := Encode(out, ints); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func BenchmarkEncodeConcurrentInterface(b *testing.B) {
-    type struct1 struct {
-        A string
-        B *big.Int
-        C [20]byte
-    }
-    value := []interface{}{
-        uint(999),
-        &struct1{A: "hello", B: big.NewInt(0xFFFFFFFF)},
-        [10]byte{1, 2, 3, 4, 5, 6},
-        []string{"yeah", "yeah", "yeah"},
-    }
+	type struct1 struct {
+		A string
+		B *big.Int
+		C [20]byte
+	}
+	value := []interface{}{
+		uint(999),
+		&struct1{A: "hello", B: big.NewInt(0xFFFFFFFF)},
+		[10]byte{1, 2, 3, 4, 5, 6},
+		[]string{"yeah", "yeah", "yeah"},
+	}
 
-    var wg sync.WaitGroup
-    for cpu := 0; cpu < runtime.NumCPU(); cpu++ {
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
+	var wg sync.WaitGroup
+	for cpu := 0; cpu < runtime.NumCPU(); cpu++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-            var buffer bytes.Buffer
-            for i := 0; i < b.N; i++ {
-                buffer.Reset()
-                err := Encode(&buffer, value)
-                if err != nil {
-                    panic(err)
-                }
-            }
-        }()
-    }
-    wg.Wait()
+			var buffer bytes.Buffer
+			for i := 0; i < b.N; i++ {
+				buffer.Reset()
+				err := Encode(&buffer, value)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 type byteArrayStruct struct {
-    A [20]byte
-    B [32]byte
-    C [32]byte
+	A [20]byte
+	B [32]byte
+	C [32]byte
 }
 
 func BenchmarkEncodeByteArrayStruct(b *testing.B) {
-    var out bytes.Buffer
-    var value byteArrayStruct
+	var out bytes.Buffer
+	var value byteArrayStruct
 
-    b.ReportAllocs()
-    for i := 0; i < b.N; i++ {
-        out.Reset()
-        if err := Encode(&out, &value); err != nil {
-            b.Fatal(err)
-        }
-    }
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		out.Reset()
+		if err := Encode(&out, &value); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 type structSliceElem struct {
-    X uint64
-    Y uint64
-    Z uint64
+	X uint64
+	Y uint64
+	Z uint64
 }
 
 type structPtrSlice []*structSliceElem
 
 func BenchmarkEncodeStructPtrSlice(b *testing.B) {
-    var out bytes.Buffer
-    var value = structPtrSlice{
-        &structSliceElem{1, 1, 1},
-        &structSliceElem{2, 2, 2},
-        &structSliceElem{3, 3, 3},
-        &structSliceElem{5, 5, 5},
-        &structSliceElem{6, 6, 6},
-        &structSliceElem{7, 7, 7},
-    }
+	var out bytes.Buffer
+	var value = structPtrSlice{
+		&structSliceElem{1, 1, 1},
+		&structSliceElem{2, 2, 2},
+		&structSliceElem{3, 3, 3},
+		&structSliceElem{5, 5, 5},
+		&structSliceElem{6, 6, 6},
+		&structSliceElem{7, 7, 7},
+	}
 
-    b.ReportAllocs()
-    for i := 0; i < b.N; i++ {
-        out.Reset()
-        if err := Encode(&out, &value); err != nil {
-            b.Fatal(err)
-        }
-    }
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		out.Reset()
+		if err := Encode(&out, &value); err != nil {
+			b.Fatal(err)
+		}
+	}
 }

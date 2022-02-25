@@ -189,7 +189,7 @@ func (h *handler) cancelAllRequests(err error, inflightReq *requestOp) {
 	}
 	for id, sub := range h.clientSubs {
 		delete(h.clientSubs, id)
-        sub.close(err)
+		sub.close(err)
 	}
 }
 
@@ -239,8 +239,8 @@ func (h *handler) handleImmediate(msg *jsonrpcMessage) bool {
 		}
 		return false
 	case msg.isResponse():
-        h.handleResponse(msg)
-        h.log.Trace("Handled RPC response", "reqid", idForLog{msg.ID}, "duration", time.Since(start))
+		h.handleResponse(msg)
+		h.log.Trace("Handled RPC response", "reqid", idForLog{msg.ID}, "duration", time.Since(start))
 		return true
 	default:
 		return false
@@ -281,7 +281,7 @@ func (h *handler) handleResponse(msg *jsonrpcMessage) {
 		return
 	}
 	if op.err = json.Unmarshal(msg.Result, &op.sub.subid); op.err == nil {
-        go op.sub.run()
+		go op.sub.run()
 		h.clientSubs[op.sub.subid] = op.sub
 	}
 }
@@ -291,13 +291,13 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage) *jsonrpcMess
 	start := time.Now()
 	switch {
 	case msg.isNotification():
-        h.handleCall(ctx, msg)
-        h.log.Debug("Served "+msg.Method, "duration", time.Since(start))
+		h.handleCall(ctx, msg)
+		h.log.Debug("Served "+msg.Method, "duration", time.Since(start))
 		return nil
 	case msg.isCall():
 		resp := h.handleCall(ctx, msg)
 		var ctx []interface{}
-        ctx = append(ctx, "reqid", idForLog{msg.ID}, "duration", time.Since(start))
+		ctx = append(ctx, "reqid", idForLog{msg.ID}, "duration", time.Since(start))
 		if resp.Error != nil {
 			ctx = append(ctx, "err", resp.Error.Message)
 			if resp.Error.Data != nil {

@@ -67,28 +67,28 @@ func TestDifficulty(t *testing.T) {
 		ByzantiumBlock: big.NewInt(0),
 	})
 
-    dt.config("Frontier", *params.RopstenChainConfig)
-    dt.config("MainNetwork", mainnetChainConfig)
-    dt.config("CustomMainNetwork", mainnetChainConfig)
-    dt.config("Constantinople", params.ChainConfig{
-        ConstantinopleBlock: big.NewInt(0),
-    })
-    dt.config("EIP2384", params.ChainConfig{
-        MuirGlacierBlock: big.NewInt(0),
-    })
-    dt.config("EIP4345", params.ChainConfig{
-        ArrowGlacierBlock: big.NewInt(0),
-    })
-    dt.config("difficulty.json", mainnetChainConfig)
+	dt.config("Frontier", *params.RopstenChainConfig)
+	dt.config("MainNetwork", mainnetChainConfig)
+	dt.config("CustomMainNetwork", mainnetChainConfig)
+	dt.config("Constantinople", params.ChainConfig{
+		ConstantinopleBlock: big.NewInt(0),
+	})
+	dt.config("EIP2384", params.ChainConfig{
+		MuirGlacierBlock: big.NewInt(0),
+	})
+	dt.config("EIP4345", params.ChainConfig{
+		ArrowGlacierBlock: big.NewInt(0),
+	})
+	dt.config("difficulty.json", mainnetChainConfig)
 
-    dt.walk(t, difficultyTestDir, func(t *testing.T, name string, test *DifficultyTest) {
-        cfg := dt.findConfig(t)
-        if test.ParentDifficulty.Cmp(params.MinimumDifficulty) < 0 {
-            t.Skip("difficulty below minimum")
-            return
-        }
-        if err := dt.checkFailure(t, test.Run(cfg)); err != nil {
-            t.Error(err)
-        }
+	dt.walk(t, difficultyTestDir, func(t *testing.T, name string, test *DifficultyTest) {
+		cfg := dt.findConfig(t)
+		if test.ParentDifficulty.Cmp(params.MinimumDifficulty) < 0 {
+			t.Skip("difficulty below minimum")
+			return
+		}
+		if err := dt.checkFailure(t, test.Run(cfg)); err != nil {
+			t.Error(err)
+		}
 	})
 }

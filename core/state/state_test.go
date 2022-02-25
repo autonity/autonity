@@ -39,26 +39,26 @@ func newStateTest() *stateTest {
 }
 
 func TestDump(t *testing.T) {
-    db := rawdb.NewMemoryDatabase()
-    sdb, _ := New(common.Hash{}, NewDatabaseWithConfig(db, nil), nil)
-    s := &stateTest{db: db, state: sdb}
+	db := rawdb.NewMemoryDatabase()
+	sdb, _ := New(common.Hash{}, NewDatabaseWithConfig(db, nil), nil)
+	s := &stateTest{db: db, state: sdb}
 
-    // generate a few entries
-    obj1 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01}))
-    obj1.AddBalance(big.NewInt(22))
-    obj2 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01, 0x02}))
-    obj2.SetCode(crypto.Keccak256Hash([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
-    obj3 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x02}))
-    obj3.SetBalance(big.NewInt(44))
+	// generate a few entries
+	obj1 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01}))
+	obj1.AddBalance(big.NewInt(22))
+	obj2 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x01, 0x02}))
+	obj2.SetCode(crypto.Keccak256Hash([]byte{3, 3, 3, 3, 3, 3, 3}), []byte{3, 3, 3, 3, 3, 3, 3})
+	obj3 := s.state.GetOrNewStateObject(common.BytesToAddress([]byte{0x02}))
+	obj3.SetBalance(big.NewInt(44))
 
-    // write some of them to the trie
+	// write some of them to the trie
 	s.state.updateStateObject(obj1)
 	s.state.updateStateObject(obj2)
 	s.state.Commit(false)
 
 	// check that DumpToCollector contains the state objects that are in trie
-    got := string(s.state.Dump(nil))
-    want := `{
+	got := string(s.state.Dump(nil))
+	want := `{
     "root": "71edff0130dd2385947095001c73d9e28d862fc286fca2b922ca6f6f3cddfdd2",
     "accounts": {
         "0x0000000000000000000000000000000000000001": {
@@ -109,7 +109,7 @@ func TestNull(t *testing.T) {
 }
 
 func TestSnapshot(t *testing.T) {
-    stateobjaddr := common.BytesToAddress([]byte("aa"))
+	stateobjaddr := common.BytesToAddress([]byte("aa"))
 	var storageaddr common.Hash
 	data1 := common.BytesToHash([]byte{42})
 	data2 := common.BytesToHash([]byte{43})
@@ -149,20 +149,20 @@ func TestSnapshotEmpty(t *testing.T) {
 }
 
 func TestSnapshot2(t *testing.T) {
-    state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
+	state, _ := New(common.Hash{}, NewDatabase(rawdb.NewMemoryDatabase()), nil)
 
-    stateobjaddr0 := common.BytesToAddress([]byte("so0"))
-    stateobjaddr1 := common.BytesToAddress([]byte("so1"))
-    var storageaddr common.Hash
+	stateobjaddr0 := common.BytesToAddress([]byte("so0"))
+	stateobjaddr1 := common.BytesToAddress([]byte("so1"))
+	var storageaddr common.Hash
 
-    data0 := common.BytesToHash([]byte{17})
-    data1 := common.BytesToHash([]byte{18})
+	data0 := common.BytesToHash([]byte{17})
+	data1 := common.BytesToHash([]byte{18})
 
-    state.SetState(stateobjaddr0, storageaddr, data0)
-    state.SetState(stateobjaddr1, storageaddr, data1)
+	state.SetState(stateobjaddr0, storageaddr, data0)
+	state.SetState(stateobjaddr1, storageaddr, data1)
 
-    // db, trie are already non-empty values
-    so0 := state.getStateObject(stateobjaddr0)
+	// db, trie are already non-empty values
+	so0 := state.getStateObject(stateobjaddr0)
 	so0.SetBalance(big.NewInt(42))
 	so0.SetNonce(43)
 	so0.SetCode(crypto.Keccak256Hash([]byte{'c', 'a', 'f', 'e'}), []byte{'c', 'a', 'f', 'e'})
@@ -171,7 +171,7 @@ func TestSnapshot2(t *testing.T) {
 	state.setStateObject(so0)
 
 	root, _ := state.Commit(false)
-    state, _ = New(root, state.db, state.snaps)
+	state, _ = New(root, state.db, state.snaps)
 
 	// and one with deleted == true
 	so1 := state.getStateObject(stateobjaddr1)

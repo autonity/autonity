@@ -86,7 +86,7 @@ func (f *FullService) Protocols() []p2p.Protocol {
 			Name:    "test1",
 			Version: uint(1),
 		},
-        {
+		{
 			Name:    "test2",
 			Version: uint(2),
 		},

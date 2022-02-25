@@ -19,12 +19,11 @@ package eth
 import (
 	"context"
 	"errors"
-	"github.com/clearmatics/autonity/consensus"
-	"math/big"
-	"time"
-
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts"
+	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/bloombits"
 	"github.com/clearmatics/autonity/core/rawdb"
@@ -37,6 +36,8 @@ import (
 	"github.com/clearmatics/autonity/miner"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rpc"
+	"math/big"
+	"time"
 )
 
 // EthAPIBackend implements ethapi.Backend for full nodes

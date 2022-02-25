@@ -53,8 +53,8 @@ func Fuzz(input []byte) int {
 	if len(input) > 16*1024 {
 		return 0
 	}
-    verbose := false
-    r := bytes.NewReader(input)
+	verbose := false
+	r := bytes.NewReader(input)
 
 	// Reduce the problem space for certain fuzz runs. Small tx space is better
 	// for testing clashes and in general the fetcher, but we should still run
@@ -115,22 +115,22 @@ func Fuzz(input []byte) int {
 
 			var (
 				announceIdxs = make([]int, announce)
-                announces    = make([]common.Hash, announce)
-            )
-            for i := 0; i < len(announces); i++ {
-                annBuf := make([]byte, 2)
-                if n, err := r.Read(annBuf); err != nil || n != 2 {
-                    return 0
-                }
-                announceIdxs[i] = (int(annBuf[0])*256 + int(annBuf[1])) % len(txs)
-                announces[i] = txs[announceIdxs[i]].Hash()
-            }
-            if verbose {
-                fmt.Println("Notify", peer, announceIdxs)
-            }
-            if err := f.Notify(peer, announces); err != nil {
-                panic(err)
-            }
+				announces    = make([]common.Hash, announce)
+			)
+			for i := 0; i < len(announces); i++ {
+				annBuf := make([]byte, 2)
+				if n, err := r.Read(annBuf); err != nil || n != 2 {
+					return 0
+				}
+				announceIdxs[i] = (int(annBuf[0])*256 + int(annBuf[1])) % len(txs)
+				announces[i] = txs[announceIdxs[i]].Hash()
+			}
+			if verbose {
+				fmt.Println("Notify", peer, announceIdxs)
+			}
+			if err := f.Notify(peer, announces); err != nil {
+				panic(err)
+			}
 
 		case 1:
 			// Deliver a new set of transactions:
@@ -156,50 +156,50 @@ func Fuzz(input []byte) int {
 			for i := 0; i < len(deliveries); i++ {
 				deliverBuf := make([]byte, 2)
 				if n, err := r.Read(deliverBuf); err != nil || n != 2 {
-                    return 0
-                }
-                deliverIdxs[i] = (int(deliverBuf[0])*256 + int(deliverBuf[1])) % len(txs)
-                deliveries[i] = txs[deliverIdxs[i]]
-            }
-            directFlag, err := r.ReadByte()
-            if err != nil {
-                return 0
-            }
-            direct := (directFlag % 2) == 0
-            if verbose {
-                fmt.Println("Enqueue", peer, deliverIdxs, direct)
-            }
-            if err := f.Enqueue(peer, deliveries, direct); err != nil {
-                panic(err)
-            }
+					return 0
+				}
+				deliverIdxs[i] = (int(deliverBuf[0])*256 + int(deliverBuf[1])) % len(txs)
+				deliveries[i] = txs[deliverIdxs[i]]
+			}
+			directFlag, err := r.ReadByte()
+			if err != nil {
+				return 0
+			}
+			direct := (directFlag % 2) == 0
+			if verbose {
+				fmt.Println("Enqueue", peer, deliverIdxs, direct)
+			}
+			if err := f.Enqueue(peer, deliveries, direct); err != nil {
+				panic(err)
+			}
 
-        case 2:
-            // Drop a peer:
-            //   Byte 1: Peer index to drop
-            peerIdx, err := r.ReadByte()
-            if err != nil {
-                return 0
-            }
-            peer := peers[int(peerIdx)%len(peers)]
-            if verbose {
-                fmt.Println("Drop", peer)
-            }
-            if err := f.Drop(peer); err != nil {
-                panic(err)
-            }
+		case 2:
+			// Drop a peer:
+			//   Byte 1: Peer index to drop
+			peerIdx, err := r.ReadByte()
+			if err != nil {
+				return 0
+			}
+			peer := peers[int(peerIdx)%len(peers)]
+			if verbose {
+				fmt.Println("Drop", peer)
+			}
+			if err := f.Drop(peer); err != nil {
+				panic(err)
+			}
 
-        case 3:
-            // Move the simulated clock forward
-            //   Byte 1: 100ms increment to move forward
-            tickCnt, err := r.ReadByte()
-            if err != nil {
-                return 0
-            }
-            tick := time.Duration(tickCnt) * 100 * time.Millisecond
-            if verbose {
-                fmt.Println("Sleep", tick)
-            }
-            clock.Run(tick)
+		case 3:
+			// Move the simulated clock forward
+			//   Byte 1: 100ms increment to move forward
+			tickCnt, err := r.ReadByte()
+			if err != nil {
+				return 0
+			}
+			tick := time.Duration(tickCnt) * 100 * time.Millisecond
+			if verbose {
+				fmt.Println("Sleep", tick)
+			}
+			clock.Run(tick)
 		}
 	}
 }

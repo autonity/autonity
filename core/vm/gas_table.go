@@ -95,8 +95,8 @@ var (
 
 func gasSStore(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	var (
-        y, x    = stack.Back(1), stack.Back(0)
-        current = evm.StateDB.GetState(contract.Address(), x.Bytes32())
+		y, x    = stack.Back(1), stack.Back(0)
+		current = evm.StateDB.GetState(contract.Address(), x.Bytes32())
 	)
 	// The legacy gas metering only takes into consideration the current state
 	// Legacy rules should be applied if we are in Petersburg (removal of EIP-1283)
@@ -135,7 +135,7 @@ func gasSStore(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySi
 	if current == value { // noop (1)
 		return params.NetSstoreNoopGas, nil
 	}
-    original := evm.StateDB.GetCommittedState(contract.Address(), x.Bytes32())
+	original := evm.StateDB.GetCommittedState(contract.Address(), x.Bytes32())
 	if original == current {
 		if original == (common.Hash{}) { // create slot (2.1.1)
 			return params.NetSstoreInitGas, nil
@@ -182,15 +182,15 @@ func gasSStoreEIP2200(evm *EVM, contract *Contract, stack *Stack, mem *Memory, m
 	}
 	// Gas sentry honoured, do the actual gas calculation based on the stored value
 	var (
-        y, x    = stack.Back(1), stack.Back(0)
-        current = evm.StateDB.GetState(contract.Address(), x.Bytes32())
+		y, x    = stack.Back(1), stack.Back(0)
+		current = evm.StateDB.GetState(contract.Address(), x.Bytes32())
 	)
 	value := common.Hash(y.Bytes32())
 
 	if current == value { // noop (1)
 		return params.SloadGasEIP2200, nil
 	}
-    original := evm.StateDB.GetCommittedState(contract.Address(), x.Bytes32())
+	original := evm.StateDB.GetCommittedState(contract.Address(), x.Bytes32())
 	if original == current {
 		if original == (common.Hash{}) { // create slot (2.1.1)
 			return params.SstoreSetGasEIP2200, nil
@@ -248,20 +248,20 @@ func makeGasLog(n uint64) gasFunc {
 }
 
 func gasKeccak256(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
-    gas, err := memoryGasCost(mem, memorySize)
-    if err != nil {
-        return 0, err
-    }
-    wordGas, overflow := stack.Back(1).Uint64WithOverflow()
-    if overflow {
-        return 0, ErrGasUintOverflow
-    }
-    if wordGas, overflow = math.SafeMul(toWordSize(wordGas), params.Keccak256WordGas); overflow {
-        return 0, ErrGasUintOverflow
-    }
-    if gas, overflow = math.SafeAdd(gas, wordGas); overflow {
-        return 0, ErrGasUintOverflow
-    }
+	gas, err := memoryGasCost(mem, memorySize)
+	if err != nil {
+		return 0, err
+	}
+	wordGas, overflow := stack.Back(1).Uint64WithOverflow()
+	if overflow {
+		return 0, ErrGasUintOverflow
+	}
+	if wordGas, overflow = math.SafeMul(toWordSize(wordGas), params.Keccak256WordGas); overflow {
+		return 0, ErrGasUintOverflow
+	}
+	if gas, overflow = math.SafeAdd(gas, wordGas); overflow {
+		return 0, ErrGasUintOverflow
+	}
 	return gas, nil
 }
 
@@ -287,15 +287,15 @@ func gasCreate2(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memoryS
 		return 0, err
 	}
 	wordGas, overflow := stack.Back(2).Uint64WithOverflow()
-    if overflow {
-        return 0, ErrGasUintOverflow
-    }
-    if wordGas, overflow = math.SafeMul(toWordSize(wordGas), params.Keccak256WordGas); overflow {
-        return 0, ErrGasUintOverflow
-    }
-    if gas, overflow = math.SafeAdd(gas, wordGas); overflow {
-        return 0, ErrGasUintOverflow
-    }
+	if overflow {
+		return 0, ErrGasUintOverflow
+	}
+	if wordGas, overflow = math.SafeMul(toWordSize(wordGas), params.Keccak256WordGas); overflow {
+		return 0, ErrGasUintOverflow
+	}
+	if gas, overflow = math.SafeAdd(gas, wordGas); overflow {
+		return 0, ErrGasUintOverflow
+	}
 	return gas, nil
 }
 

@@ -27,7 +27,6 @@ import (
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/consensus/clique"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -161,8 +160,6 @@ func (i *bbInput) SealBlock(block *types.Block) (*types.Block, error) {
 	switch {
 	case i.Ethash:
 		return i.sealEthash(block)
-	case i.Clique != nil:
-		return i.sealClique(block)
 	default:
 		return block, nil
 	}
@@ -193,45 +190,6 @@ func (i *bbInput) sealEthash(block *types.Block) (*types.Block, error) {
 	}
 	found := <-results
 	return block.WithSeal(found.Header()), nil
-}
-
-// sealClique seals the given block using clique.
-func (i *bbInput) sealClique(block *types.Block) (*types.Block, error) {
-	// If any clique value overwrites an explicit header value, fail
-	// to avoid silently building a block with unexpected values.
-	if i.Header.Extra != nil {
-		return nil, NewError(ErrorConfig, fmt.Errorf("sealing with clique will overwrite provided extra data"))
-	}
-	header := block.Header()
-	if i.Clique.Voted != nil {
-		if i.Header.Coinbase != nil {
-			return nil, NewError(ErrorConfig, fmt.Errorf("sealing with clique and voting will overwrite provided coinbase"))
-		}
-		header.Coinbase = *i.Clique.Voted
-	}
-	if i.Clique.Authorize != nil {
-		if i.Header.Nonce != nil {
-			return nil, NewError(ErrorConfig, fmt.Errorf("sealing with clique and voting will overwrite provided nonce"))
-		}
-		if *i.Clique.Authorize {
-			header.Nonce = [8]byte{}
-		} else {
-			header.Nonce = [8]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-		}
-	}
-	// Extra is fixed 32 byte vanity and 65 byte signature
-	header.Extra = make([]byte, 32+65)
-	copy(header.Extra[0:32], i.Clique.Vanity.Bytes()[:])
-
-	// Sign the seal hash and fill in the rest of the extra data
-	h := clique.SealHash(header)
-	sighash, err := crypto.Sign(h[:], i.Clique.Key)
-	if err != nil {
-		return nil, err
-	}
-	copy(header.Extra[32:], sighash)
-	block = block.WithSeal(header)
-	return block, nil
 }
 
 // BuildBlock constructs a block from the given inputs.

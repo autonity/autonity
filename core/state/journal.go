@@ -25,26 +25,26 @@ import (
 // journalEntry is a modification entry in the state change journal that can be
 // reverted on demand.
 type journalEntry interface {
-    // revert undoes the changes introduced by this journal entry.
-    revert(*StateDB)
+	// revert undoes the changes introduced by this journal entry.
+	revert(*StateDB)
 
-    // dirtied returns the Ethereum address modified by this journal entry.
-    dirtied() *common.Address
+	// dirtied returns the Ethereum address modified by this journal entry.
+	dirtied() *common.Address
 }
 
 // journal contains the list of state modifications applied since the last state
 // commit. These are tracked to be able to be reverted in the case of an execution
 // exception or request for reversal.
 type journal struct {
-    entries []journalEntry         // Current changes tracked by the journal
-    dirties map[common.Address]int // Dirty accounts and the number of changes
+	entries []journalEntry         // Current changes tracked by the journal
+	dirties map[common.Address]int // Dirty accounts and the number of changes
 }
 
 // newJournal creates a new initialized journal.
 func newJournal() *journal {
-    return &journal{
-        dirties: make(map[common.Address]int),
-    }
+	return &journal{
+		dirties: make(map[common.Address]int),
+	}
 }
 
 // append inserts a new modification entry to the end of the change journal.
@@ -120,24 +120,24 @@ type (
 	// Changes to other state values.
 	refundChange struct {
 		prev uint64
-    }
-    addLogChange struct {
-        txhash common.Hash
-    }
-    addPreimageChange struct {
-        hash common.Hash
-    }
-    touchChange struct {
-        account *common.Address
-    }
-    // Changes to the access list
-    accessListAddAccountChange struct {
-        address *common.Address
-    }
-    accessListAddSlotChange struct {
-        address *common.Address
-        slot    *common.Hash
-    }
+	}
+	addLogChange struct {
+		txhash common.Hash
+	}
+	addPreimageChange struct {
+		hash common.Hash
+	}
+	touchChange struct {
+		account *common.Address
+	}
+	// Changes to the access list
+	accessListAddAccountChange struct {
+		address *common.Address
+	}
+	accessListAddSlotChange struct {
+		address *common.Address
+		slot    *common.Hash
+	}
 )
 
 func (ch createObjectChange) revert(s *StateDB) {
@@ -236,34 +236,34 @@ func (ch addLogChange) dirtied() *common.Address {
 }
 
 func (ch addPreimageChange) revert(s *StateDB) {
-    delete(s.preimages, ch.hash)
+	delete(s.preimages, ch.hash)
 }
 
 func (ch addPreimageChange) dirtied() *common.Address {
-    return nil
+	return nil
 }
 
 func (ch accessListAddAccountChange) revert(s *StateDB) {
-    /*
-    	One important invariant here, is that whenever a (addr, slot) is added, if the
-    	addr is not already present, the add causes two journal entries:
-    	- one for the address,
-    	- one for the (address,slot)
-    	Therefore, when unrolling the change, we can always blindly delete the
-    	(addr) at this point, since no storage adds can remain when come upon
-    	a single (addr) change.
-    */
-    s.accessList.DeleteAddress(*ch.address)
+	/*
+		One important invariant here, is that whenever a (addr, slot) is added, if the
+		addr is not already present, the add causes two journal entries:
+		- one for the address,
+		- one for the (address,slot)
+		Therefore, when unrolling the change, we can always blindly delete the
+		(addr) at this point, since no storage adds can remain when come upon
+		a single (addr) change.
+	*/
+	s.accessList.DeleteAddress(*ch.address)
 }
 
 func (ch accessListAddAccountChange) dirtied() *common.Address {
-    return nil
+	return nil
 }
 
 func (ch accessListAddSlotChange) revert(s *StateDB) {
-    s.accessList.DeleteSlot(*ch.address, *ch.slot)
+	s.accessList.DeleteSlot(*ch.address, *ch.slot)
 }
 
 func (ch accessListAddSlotChange) dirtied() *common.Address {
-    return nil
+	return nil
 }

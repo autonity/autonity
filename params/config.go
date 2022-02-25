@@ -287,6 +287,10 @@ var (
 		ConstantinopleBlock:    big.NewInt(0),
 		PetersburgBlock:        big.NewInt(0),
 		IstanbulBlock:          big.NewInt(0),
+		MuirGlacierBlock:       big.NewInt(0),
+		BerlinBlock:            big.NewInt(0),
+		LondonBlock:            big.NewInt(0),
+		ArrowGlacierBlock:      big.NewInt(0),
 		Ethash:                 new(EthashConfig),
 		AutonityContractConfig: &TestAutonityContractConfig,
 	}
@@ -303,6 +307,10 @@ var (
 		ConstantinopleBlock:    big.NewInt(0),
 		PetersburgBlock:        big.NewInt(0),
 		IstanbulBlock:          big.NewInt(0),
+		MuirGlacierBlock:       big.NewInt(0),
+		BerlinBlock:            big.NewInt(0),
+		LondonBlock:            big.NewInt(0),
+		ArrowGlacierBlock:      big.NewInt(0),
 		AutonityContractConfig: &TestAutonityContractConfig,
 	}
 
@@ -503,14 +511,6 @@ func (c *ChainConfig) IsLondon(num *big.Int) bool {
 // IsArrowGlacier returns whether num is either equal to the Arrow Glacier (EIP-4345) fork block or greater.
 func (c *ChainConfig) IsArrowGlacier(num *big.Int) bool {
 	return isForked(c.ArrowGlacierBlock, num)
-}
-
-// IsTerminalPoWBlock returns whether the given block is the last block of PoW stage.
-func (c *ChainConfig) IsTerminalPoWBlock(parentTotalDiff *big.Int, totalDiff *big.Int) bool {
-	if c.TerminalTotalDifficulty == nil {
-		return false
-	}
-	return parentTotalDiff.Cmp(c.TerminalTotalDifficulty) < 0 && totalDiff.Cmp(c.TerminalTotalDifficulty) >= 0
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported

@@ -30,12 +30,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/mclock"
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth"
+	ethproto "github.com/clearmatics/autonity/eth/protocols/eth"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/les"
 	"github.com/clearmatics/autonity/log"
@@ -470,14 +471,11 @@ func (s *Service) login(conn *connWrapper) error {
 	}
 	var network string
 	if info := infos.Protocols["eth"]; info != nil {
-		network = fmt.Sprintf("%d", info.(*eth.NodeInfo).Network)
-		protocol = fmt.Sprintf("eth/%d", eth.ProtocolVersions[0])
+		network = fmt.Sprintf("%d", info.(*ethproto.NodeInfo).Network)
 	} else if info := infos.Protocols["istanbul"]; info != nil {
-		network = fmt.Sprintf("%d", info.(*eth.NodeInfo).Network)
-		protocol = fmt.Sprintf("ibft/%d", eth.ProtocolVersions[0])
+		network = fmt.Sprintf("%d", info.(*ethproto.NodeInfo).Network)
 	} else if info := infos.Protocols["tendermint"]; info != nil {
-		network = fmt.Sprintf("%d", info.(*eth.NodeInfo).Network)
-		protocol = fmt.Sprintf("tdm/%d", eth.ProtocolVersions[0])
+		network = fmt.Sprintf("%d", info.(*ethproto.NodeInfo).Network)
 	} else {
 		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
 	}

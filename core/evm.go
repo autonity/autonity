@@ -28,61 +28,61 @@ import (
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
 type ChainContext interface {
-    // GetHeader returns the hash corresponding to their hash.
-    GetHeader(common.Hash, uint64) *types.Header
-    // Engine retrieves the chain's consensus engine.
-    Engine() consensus.Engine
+	// GetHeader returns the hash corresponding to their hash.
+	GetHeader(common.Hash, uint64) *types.Header
+	// Engine retrieves the chain's consensus engine.
+	Engine() consensus.Engine
 }
 
 // NewEVMBlockContext creates a new context for use in the EVM.
 func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common.Address) vm.BlockContext {
-    var (
-        beneficiary common.Address
-        baseFee     *big.Int
-        random      *common.Hash
-    )
+	var (
+		beneficiary common.Address
+		baseFee     *big.Int
+		random      *common.Hash
+	)
 
-    // If we don't have an explicit author (i.e. not mining), extract from the header
-    if author == nil {
-        beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
-    } else {
-        beneficiary = *author
-    }
-    if header.BaseFee != nil {
-        baseFee = new(big.Int).Set(header.BaseFee)
-    }
-    if header.Difficulty.Cmp(common.Big0) == 0 {
-        random = &header.MixDigest
-    }
-    return vm.BlockContext{
-        CanTransfer: CanTransfer,
-        Transfer:    Transfer,
-        GetHash:     GetHashFn(header, chain),
-        Coinbase:    beneficiary,
-        BlockNumber: new(big.Int).Set(header.Number),
-        Time:        new(big.Int).SetUint64(header.Time),
-        Difficulty:  new(big.Int).Set(header.Difficulty),
-        BaseFee:     baseFee,
-        GasLimit:    header.GasLimit,
-        Random:      random,
-    }
+	// If we don't have an explicit author (i.e. not mining), extract from the header
+	if author == nil {
+		beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
+	} else {
+		beneficiary = *author
+	}
+	if header.BaseFee != nil {
+		baseFee = new(big.Int).Set(header.BaseFee)
+	}
+	if header.Difficulty.Cmp(common.Big0) == 0 {
+		random = &header.MixDigest
+	}
+	return vm.BlockContext{
+		CanTransfer: CanTransfer,
+		Transfer:    Transfer,
+		GetHash:     GetHashFn(header, chain),
+		Coinbase:    beneficiary,
+		BlockNumber: new(big.Int).Set(header.Number),
+		Time:        new(big.Int).SetUint64(header.Time),
+		Difficulty:  new(big.Int).Set(header.Difficulty),
+		BaseFee:     baseFee,
+		GasLimit:    header.GasLimit,
+		Random:      random,
+	}
 }
 
 // NewEVMTxContext creates a new transaction context for a single transaction.
 func NewEVMTxContext(msg Message) vm.TxContext {
-    return vm.TxContext{
-        Origin:   msg.From(),
-        GasPrice: new(big.Int).Set(msg.GasPrice()),
-    }
+	return vm.TxContext{
+		Origin:   msg.From(),
+		GasPrice: new(big.Int).Set(msg.GasPrice()),
+	}
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
 func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
-    // Cache will initially contain [refHash.parent],
-    // Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
-    var cache []common.Hash
+	// Cache will initially contain [refHash.parent],
+	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
+	var cache []common.Hash
 
-    return func(n uint64) common.Hash {
+	return func(n uint64) common.Hash {
 		// If there's no hash cache yet, make one
 		if len(cache) == 0 {
 			cache = append(cache, ref.ParentHash)

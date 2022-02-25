@@ -77,8 +77,8 @@ func TestValueTracker(t *testing.T) {
 				node := rand.Intn(testNodeCount)
 				respTime := time.Duration((rand.Float64() + 1) * float64(time.Second) * float64(node+1) / testNodeCount)
 				totalAmount[reqType] += uint64(reqAmount)
-                nodes[node].Served([]ServedRequest{{uint32(reqType), uint32(reqAmount)}}, respTime)
-                clock.Run(time.Second)
+				nodes[node].Served([]ServedRequest{{uint32(reqType), uint32(reqAmount)}}, respTime)
+				clock.Run(time.Second)
 			}
 		} else {
 			clock.Run(time.Hour * 100)

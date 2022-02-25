@@ -755,33 +755,33 @@ func TestUnpackTuple(t *testing.T) {
 	abi, err := JSON(strings.NewReader(simpleTuple))
 	if err != nil {
 		t.Fatal(err)
-    }
-    buff := new(bytes.Buffer)
+	}
+	buff := new(bytes.Buffer)
 
-    buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // ret[a] = 1
-    buff.Write(common.Hex2Bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")) // ret[b] = -1
+	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // ret[a] = 1
+	buff.Write(common.Hex2Bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")) // ret[b] = -1
 
-    // If the result is single tuple, use struct as return value container directly.
-    type v struct {
-        A *big.Int
-        B *big.Int
-    }
-    type r struct {
-        Result v
-    }
-    var ret0 = new(r)
-    err = abi.UnpackIntoInterface(ret0, "tuple", buff.Bytes())
+	// If the result is single tuple, use struct as return value container directly.
+	type v struct {
+		A *big.Int
+		B *big.Int
+	}
+	type r struct {
+		Result v
+	}
+	var ret0 = new(r)
+	err = abi.UnpackIntoInterface(ret0, "tuple", buff.Bytes())
 
-    if err != nil {
-        t.Error(err)
-    } else {
-        if ret0.Result.A.Cmp(big.NewInt(1)) != 0 {
-            t.Errorf("unexpected value unpacked: want %x, got %x", 1, ret0.Result.A)
-        }
-        if ret0.Result.B.Cmp(big.NewInt(-1)) != 0 {
-            t.Errorf("unexpected value unpacked: want %x, got %x", -1, ret0.Result.B)
-        }
-    }
+	if err != nil {
+		t.Error(err)
+	} else {
+		if ret0.Result.A.Cmp(big.NewInt(1)) != 0 {
+			t.Errorf("unexpected value unpacked: want %x, got %x", 1, ret0.Result.A)
+		}
+		if ret0.Result.B.Cmp(big.NewInt(-1)) != 0 {
+			t.Errorf("unexpected value unpacked: want %x, got %x", -1, ret0.Result.B)
+		}
+	}
 
 	// Test nested tuple
 	const nestedTuple = `[{"name":"tuple","type":"function","outputs":[

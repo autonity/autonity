@@ -18,8 +18,11 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/core"
+	"github.com/davecgh/go-spew/spew"
 	"math/big"
 	"os"
 	"reflect"
@@ -84,14 +87,14 @@ type ethstatsConfig struct {
 	URL string `toml:",omitempty"`
 }
 
-type gethConfig struct {
+type autonityConfig struct {
 	Eth      ethconfig.Config
 	Node     node.Config
 	Ethstats ethstatsConfig
 	Metrics  metrics.Config
 }
 
-func loadConfig(file string, cfg *gethConfig) error {
+func loadConfig(file string, cfg *autonityConfig) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -117,9 +120,9 @@ func defaultNodeConfig() node.Config {
 }
 
 // makeConfigNode loads geth configuration and creates a blank node instance.
-func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
+func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	// Load defaults.
-	cfg := gethConfig{
+	cfg := autonityConfig{
 		Eth:     ethconfig.Defaults,
 		Node:    defaultNodeConfig(),
 		Metrics: metrics.DefaultConfig,
@@ -185,7 +188,7 @@ func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
 // database.
 func applyGenesis(genesis *core.Genesis, node *node.Node) error {
 	for _, name := range []string{"chaindata", "lightchaindata"} {
-		chaindb, err := node.OpenDatabase(name, 0, 0, "")
+		chaindb, err := node.OpenDatabase(name, 0, 0, "", false)
 		if err != nil {
 			return fmt.Errorf("failed to open database: %v", err)
 		}
@@ -268,7 +271,7 @@ func dumpConfig(ctx *cli.Context) error {
 	return nil
 }
 
-func applyMetricConfig(ctx *cli.Context, cfg *gethConfig) {
+func applyMetricConfig(ctx *cli.Context, cfg *autonityConfig) {
 	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
 		cfg.Metrics.Enabled = ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
 	}

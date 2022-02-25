@@ -254,7 +254,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 		TrieTimeout:             60 * time.Minute,
 		SnapshotCache:           5,
 	}
-	ethBackend, err := eth.New(stack, ethConf)
+	ethBackend, err := eth.New(stack, ethConf, nil)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}
@@ -312,7 +312,7 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 		SnapshotCache:           5,
 	}
 
-	ethBackend, err := eth.New(stack, ethConf)
+	ethBackend, err := eth.New(stack, ethConf, nil)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}

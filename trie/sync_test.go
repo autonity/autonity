@@ -115,8 +115,8 @@ func testIterativeSync(t *testing.T, count int, bypath bool) {
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
-    triedb := NewDatabase(diskdb)
-    sched := NewSync(srcTrie.Hash(), diskdb, nil)
+	triedb := NewDatabase(diskdb)
+	sched := NewSync(srcTrie.Hash(), diskdb, nil)
 
 	nodes, paths, codes := sched.Missing(count)
 	var (
@@ -176,8 +176,8 @@ func TestIterativeDelayedSync(t *testing.T) {
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
-    triedb := NewDatabase(diskdb)
-    sched := NewSync(srcTrie.Hash(), diskdb, nil)
+	triedb := NewDatabase(diskdb)
+	sched := NewSync(srcTrie.Hash(), diskdb, nil)
 
 	nodes, _, codes := sched.Missing(10000)
 	queue := append(append([]common.Hash{}, nodes...), codes...)
@@ -222,8 +222,8 @@ func testIterativeRandomSync(t *testing.T, count int) {
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
-    triedb := NewDatabase(diskdb)
-    sched := NewSync(srcTrie.Hash(), diskdb, nil)
+	triedb := NewDatabase(diskdb)
+	sched := NewSync(srcTrie.Hash(), diskdb, nil)
 
 	queue := make(map[common.Hash]struct{})
 	nodes, _, codes := sched.Missing(count)
@@ -270,8 +270,8 @@ func TestIterativeRandomDelayedSync(t *testing.T) {
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
-    triedb := NewDatabase(diskdb)
-    sched := NewSync(srcTrie.Hash(), diskdb, nil)
+	triedb := NewDatabase(diskdb)
+	sched := NewSync(srcTrie.Hash(), diskdb, nil)
 
 	queue := make(map[common.Hash]struct{})
 	nodes, _, codes := sched.Missing(10000)
@@ -323,8 +323,8 @@ func TestDuplicateAvoidanceSync(t *testing.T) {
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
-    triedb := NewDatabase(diskdb)
-    sched := NewSync(srcTrie.Hash(), diskdb, nil)
+	triedb := NewDatabase(diskdb)
+	sched := NewSync(srcTrie.Hash(), diskdb, nil)
 
 	nodes, _, codes := sched.Missing(0)
 	queue := append(append([]common.Hash{}, nodes...), codes...)
@@ -370,8 +370,8 @@ func TestIncompleteSync(t *testing.T) {
 
 	// Create a destination trie and sync with the scheduler
 	diskdb := memorydb.New()
-    triedb := NewDatabase(diskdb)
-    sched := NewSync(srcTrie.Hash(), diskdb, nil)
+	triedb := NewDatabase(diskdb)
+	sched := NewSync(srcTrie.Hash(), diskdb, nil)
 
 	var added []common.Hash
 
@@ -399,12 +399,12 @@ func TestIncompleteSync(t *testing.T) {
 		}
 		batch.Write()
 		for _, result := range results {
-            added = append(added, result.Hash)
-            // Check that all known sub-tries in the synced trie are complete
-            if err := checkTrieConsistency(triedb, result.Hash); err != nil {
-                t.Fatalf("trie inconsistent: %v", err)
-            }
-        }
+			added = append(added, result.Hash)
+			// Check that all known sub-tries in the synced trie are complete
+			if err := checkTrieConsistency(triedb, result.Hash); err != nil {
+				t.Fatalf("trie inconsistent: %v", err)
+			}
+		}
 		// Fetch the next batch to retrieve
 		nodes, _, codes = sched.Missing(1)
 		queue = append(append(queue[:0], nodes...), codes...)
@@ -430,8 +430,8 @@ func TestSyncOrdering(t *testing.T) {
 
 	// Create a destination trie and sync with the scheduler, tracking the requests
 	diskdb := memorydb.New()
-    triedb := NewDatabase(diskdb)
-    sched := NewSync(srcTrie.Hash(), diskdb, nil)
+	triedb := NewDatabase(diskdb)
+	sched := NewSync(srcTrie.Hash(), diskdb, nil)
 
 	nodes, paths, _ := sched.Missing(1)
 	queue := append([]common.Hash{}, nodes...)

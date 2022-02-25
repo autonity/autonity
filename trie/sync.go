@@ -132,41 +132,41 @@ type Sync struct {
 
 // NewSync creates a new trie data download scheduler.
 func NewSync(root common.Hash, database ethdb.KeyValueReader, callback LeafCallback) *Sync {
-    ts := &Sync{
-        database: database,
-        membatch: newSyncMemBatch(),
-        nodeReqs: make(map[common.Hash]*request),
-        codeReqs: make(map[common.Hash]*request),
-        queue:    prque.New(nil),
-        fetches:  make(map[int]int),
-    }
-    ts.AddSubTrie(root, nil, common.Hash{}, callback)
-    return ts
+	ts := &Sync{
+		database: database,
+		membatch: newSyncMemBatch(),
+		nodeReqs: make(map[common.Hash]*request),
+		codeReqs: make(map[common.Hash]*request),
+		queue:    prque.New(nil),
+		fetches:  make(map[int]int),
+	}
+	ts.AddSubTrie(root, nil, common.Hash{}, callback)
+	return ts
 }
 
 // AddSubTrie registers a new trie to the sync code, rooted at the designated parent.
 func (s *Sync) AddSubTrie(root common.Hash, path []byte, parent common.Hash, callback LeafCallback) {
-    // Short circuit if the trie is empty or already known
-    if root == emptyRoot {
-        return
-    }
-    if s.membatch.hasNode(root) {
-        return
-    }
-    // If database says this is a duplicate, then at least the trie node is
-    // present, and we hold the assumption that it's NOT legacy contract code.
-    if rawdb.HasTrieNode(s.database, root) {
-        return
-    }
-    // Assemble the new sub-trie sync request
-    req := &request{
-        path:     path,
-        hash:     root,
-        callback: callback,
-    }
-    // If this sub-trie has a designated parent, link them together
-    if parent != (common.Hash{}) {
-        ancestor := s.nodeReqs[parent]
+	// Short circuit if the trie is empty or already known
+	if root == emptyRoot {
+		return
+	}
+	if s.membatch.hasNode(root) {
+		return
+	}
+	// If database says this is a duplicate, then at least the trie node is
+	// present, and we hold the assumption that it's NOT legacy contract code.
+	if rawdb.HasTrieNode(s.database, root) {
+		return
+	}
+	// Assemble the new sub-trie sync request
+	req := &request{
+		path:     path,
+		hash:     root,
+		callback: callback,
+	}
+	// If this sub-trie has a designated parent, link them together
+	if parent != (common.Hash{}) {
+		ancestor := s.nodeReqs[parent]
 		if ancestor == nil {
 			panic(fmt.Sprintf("sub-trie ancestor not found: %x", parent))
 		}
@@ -180,30 +180,30 @@ func (s *Sync) AddSubTrie(root common.Hash, path []byte, parent common.Hash, cal
 // be interpreted as a trie node, but rather accepted and stored into the database
 // as is.
 func (s *Sync) AddCodeEntry(hash common.Hash, path []byte, parent common.Hash) {
-    // Short circuit if the entry is empty or already known
-    if hash == emptyState {
-        return
-    }
-    if s.membatch.hasCode(hash) {
-        return
-    }
-    // If database says duplicate, the blob is present for sure.
-    // Note we only check the existence with new code scheme, fast
-    // sync is expected to run with a fresh new node. Even there
-    // exists the code with legacy format, fetch and store with
-    // new scheme anyway.
-    if rawdb.HasCodeWithPrefix(s.database, hash) {
-        return
-    }
-    // Assemble the new sub-trie sync request
-    req := &request{
-        path: path,
-        hash: hash,
-        code: true,
-    }
-    // If this sub-trie has a designated parent, link them together
-    if parent != (common.Hash{}) {
-        ancestor := s.nodeReqs[parent] // the parent of codereq can ONLY be nodereq
+	// Short circuit if the entry is empty or already known
+	if hash == emptyState {
+		return
+	}
+	if s.membatch.hasCode(hash) {
+		return
+	}
+	// If database says duplicate, the blob is present for sure.
+	// Note we only check the existence with new code scheme, fast
+	// sync is expected to run with a fresh new node. Even there
+	// exists the code with legacy format, fetch and store with
+	// new scheme anyway.
+	if rawdb.HasCodeWithPrefix(s.database, hash) {
+		return
+	}
+	// Assemble the new sub-trie sync request
+	req := &request{
+		path: path,
+		hash: hash,
+		code: true,
+	}
+	// If this sub-trie has a designated parent, link them together
+	if parent != (common.Hash{}) {
+		ancestor := s.nodeReqs[parent] // the parent of codereq can ONLY be nodereq
 		if ancestor == nil {
 			panic(fmt.Sprintf("raw-entry ancestor not found: %x", parent))
 		}
@@ -223,7 +223,7 @@ func (s *Sync) Missing(max int) (nodes []common.Hash, paths []SyncPath, codes []
 		codeHashes []common.Hash
 	)
 	for !s.queue.Empty() && (max == 0 || len(nodeHashes)+len(codeHashes) < max) {
-        // Retrieve the next item in line
+		// Retrieve the next item in line
 		item, prio := s.queue.Peek()
 
 		// If we have too many already-pending tasks for this depth, throttle
@@ -379,38 +379,38 @@ func (s *Sync) children(req *request, object node) ([]*request, error) {
 		// Notify any external watcher of a new key/value node
 		if req.callback != nil {
 			if node, ok := (child.node).(valueNode); ok {
-                var paths [][]byte
-                if len(child.path) == 2*common.HashLength {
-                    paths = append(paths, hexToKeybytes(child.path))
-                } else if len(child.path) == 4*common.HashLength {
-                    paths = append(paths, hexToKeybytes(child.path[:2*common.HashLength]))
-                    paths = append(paths, hexToKeybytes(child.path[2*common.HashLength:]))
-                }
-                if err := req.callback(paths, child.path, node, req.hash); err != nil {
-                    return nil, err
-                }
-            }
+				var paths [][]byte
+				if len(child.path) == 2*common.HashLength {
+					paths = append(paths, hexToKeybytes(child.path))
+				} else if len(child.path) == 4*common.HashLength {
+					paths = append(paths, hexToKeybytes(child.path[:2*common.HashLength]))
+					paths = append(paths, hexToKeybytes(child.path[2*common.HashLength:]))
+				}
+				if err := req.callback(paths, child.path, node, req.hash); err != nil {
+					return nil, err
+				}
+			}
 		}
 		// If the child references another node, resolve or schedule
 		if node, ok := (child.node).(hashNode); ok {
-            // Try to resolve the node from the local database
-            hash := common.BytesToHash(node)
-            if s.membatch.hasNode(hash) {
-                continue
-            }
-            // If database says duplicate, then at least the trie node is present
-            // and we hold the assumption that it's NOT legacy contract code.
-            if rawdb.HasTrieNode(s.database, hash) {
-                continue
-            }
-            // Locally unknown node, schedule for retrieval
-            requests = append(requests, &request{
-                path:     child.path,
-                hash:     hash,
-                parents:  []*request{req},
-                callback: req.callback,
-            })
-        }
+			// Try to resolve the node from the local database
+			hash := common.BytesToHash(node)
+			if s.membatch.hasNode(hash) {
+				continue
+			}
+			// If database says duplicate, then at least the trie node is present
+			// and we hold the assumption that it's NOT legacy contract code.
+			if rawdb.HasTrieNode(s.database, hash) {
+				continue
+			}
+			// Locally unknown node, schedule for retrieval
+			requests = append(requests, &request{
+				path:     child.path,
+				hash:     hash,
+				parents:  []*request{req},
+				callback: req.callback,
+			})
+		}
 	}
 	return requests, nil
 }

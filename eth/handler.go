@@ -17,7 +17,9 @@
 package eth
 
 import (
+	"crypto/ecdsa"
 	"errors"
+	"github.com/clearmatics/autonity/crypto"
 	"math"
 	"math/big"
 	"sync"
@@ -26,7 +28,6 @@ import (
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/beacon"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
 	"github.com/clearmatics/autonity/core/types"
@@ -80,7 +81,6 @@ type handlerConfig struct {
 	Database   ethdb.Database            // Database for direct sync insertions
 	Chain      *core.BlockChain          // Blockchain to serve data from
 	TxPool     txPool                    // Transaction pool to propagate from
-	Merger     *consensus.Merger         // The manager for eth1/2 transition
 	Network    uint64                    // Network identifier to adfvertise
 	Sync       downloader.SyncMode       // Whether to snap or full sync
 	BloomCache uint64                    // Megabytes to alloc for snap sync bloom
@@ -108,7 +108,6 @@ type handler struct {
 	blockFetcher *fetcher.BlockFetcher
 	txFetcher    *fetcher.TxFetcher
 	peers        *peerSet
-	merger       *consensus.Merger
 
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
@@ -124,8 +123,7 @@ type handler struct {
 	wg        sync.WaitGroup
 	peerWG    sync.WaitGroup
 
-	engine consensus.Engine
-	pub    *ecdsa.PublicKey
+	pub *ecdsa.PublicKey
 }
 
 // newHandler returns a handler for all Ethereum chain management protocol.
@@ -142,7 +140,6 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		txpool:     config.TxPool,
 		chain:      config.Chain,
 		peers:      newPeerSet(),
-		merger:     config.Merger,
 		whitelist:  config.Whitelist,
 		quitSync:   make(chan struct{}),
 	}
@@ -181,41 +178,12 @@ func newHandler(config *handlerConfig) (*handler, error) {
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
-		// All the block fetcher activities should be disabled
-		// after the transition. Print the warning log.
-		if h.merger.PoSFinalized() {
-			log.Warn("Unexpected validation activity", "hash", header.Hash(), "number", header.Number)
-			return errors.New("unexpected behavior after transition")
-		}
-		// Reject all the PoS style headers in the first place. No matter
-		// the chain has finished the transition or not, the PoS headers
-		// should only come from the trusted consensus layer instead of
-		// p2p network.
-		if beacon, ok := h.chain.Engine().(*beacon.Beacon); ok {
-			if beacon.IsPoSHeader(header) {
-				return errors.New("unexpected post-merge header")
-			}
-		}
 		return h.chain.Engine().VerifyHeader(h.chain, header, true)
 	}
 	heighter := func() uint64 {
 		return h.chain.CurrentBlock().NumberU64()
 	}
 	inserter := func(blocks types.Blocks) (int, error) {
-		// All the block fetcher activities should be disabled
-		// after the transition. Print the warning log.
-		if h.merger.PoSFinalized() {
-			var ctx []interface{}
-			ctx = append(ctx, "blocks", len(blocks))
-			if len(blocks) > 0 {
-				ctx = append(ctx, "firsthash", blocks[0].Hash())
-				ctx = append(ctx, "firstnumber", blocks[0].Number())
-				ctx = append(ctx, "lasthash", blocks[len(blocks)-1].Hash())
-				ctx = append(ctx, "lastnumber", blocks[len(blocks)-1].Number())
-			}
-			log.Warn("Unexpected insertion activity", ctx...)
-			return 0, errors.New("unexpected behavior after transition")
-		}
 		// If sync hasn't reached the checkpoint yet, deny importing weird blocks.
 		//
 		// Ideally we would also compare the head block's timestamp and similarly reject
@@ -233,29 +201,6 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		// or not. This should be fixed if we figure out a solution.
 		if atomic.LoadUint32(&h.snapSync) == 1 {
 			log.Warn("Fast syncing, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
-			return 0, nil
-		}
-		if h.merger.TDDReached() {
-			// The blocks from the p2p network is regarded as untrusted
-			// after the transition. In theory block gossip should be disabled
-			// entirely whenever the transition is started. But in order to
-			// handle the transition boundary reorg in the consensus-layer,
-			// the legacy blocks are still accepted, but only for the terminal
-			// pow blocks. Spec: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md#halt-the-importing-of-pow-blocks
-			for i, block := range blocks {
-				ptd := h.chain.GetTd(block.ParentHash(), block.NumberU64()-1)
-				if ptd == nil {
-					return 0, nil
-				}
-				td := new(big.Int).Add(ptd, block.Difficulty())
-				if !h.chain.Config().IsTerminalPoWBlock(ptd, td) {
-					log.Info("Filtered out non-termimal pow block", "number", block.NumberU64(), "hash", block.Hash())
-					return 0, nil
-				}
-				if err := h.chain.InsertBlockWithoutSetHead(block); err != nil {
-					return i, err
-				}
-			}
 			return 0, nil
 		}
 		n, err := h.chain.InsertChain(blocks)
@@ -325,17 +270,11 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 			return p2p.DiscTooManyPeers
 		}
 	}
-	peer.Log().Debug("Ethereum peer connected", "name", peer.Name())
-
-	err := pm.IsInWhitelist(p.Node().ID(), p.td.Uint64(), p.Log())
-	if err != nil {
-		return err
-	}
-	// Todo : pause relaying if not whitelisted until full sync
+	peer.Log().Debug("Autonity peer connected", "name", peer.Name())
 
 	// Register the peer locally
 	if err := h.peers.registerPeer(peer, snap); err != nil {
-		peer.Log().Error("Ethereum peer registration failed", "err", err)
+		peer.Log().Error("Autonity peer registration failed", "err", err)
 		return err
 	}
 	defer h.unregisterPeer(peer.ID())
@@ -365,7 +304,7 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	dead := make(chan struct{})
 	defer close(dead)
 
-	if syncer, ok := pm.blockchain.Engine().(consensus.Syncer); ok {
+	if syncer, ok := h.chain.Engine().(consensus.Syncer); ok {
 		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
 		syncer.ResetPeerCache(address)
 	}
@@ -550,24 +489,13 @@ func (h *handler) Stop() {
 	log.Info("Ethereum protocol stopped")
 }
 
-func (pm *ProtocolManager) Enqueue(id string, block *types.Block) {
-	pm.blockFetcher.Enqueue(id, block)
+func (h *handler) Enqueue(id string, block *types.Block) {
+	h.blockFetcher.Enqueue(id, block)
 }
 
 // BroadcastBlock will either propagate a block to a subset of its peers, or
 // will only announce its availability (depending what's requested).
 func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
-	// Disable the block propagation if the chain has already entered the PoS
-	// stage. The block propagation is delegated to the consensus layer.
-	if h.merger.PoSFinalized() {
-		return
-	}
-	// Disable the block propagation if it's the post-merge block.
-	if beacon, ok := h.chain.Engine().(*beacon.Beacon); ok {
-		if beacon.IsPoSHeader(block.Header()) {
-			return
-		}
-	}
 	hash := block.Hash()
 	peers := h.peers.peersWithoutBlock(hash)
 
@@ -666,10 +594,10 @@ func (h *handler) txBroadcastLoop() {
 	}
 }
 
-func (pm *ProtocolManager) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
+func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
 	m := make(map[common.Address]consensus.Peer)
 
-	for _, p := range pm.peers.Peers() {
+	for _, p := range h.peers.peers {
 		addr := p.address
 		if _, ok := targets[addr]; ok {
 			m[addr] = p

@@ -261,14 +261,14 @@ func (ac *accountCache) scanAccounts() error {
 		addr := common.HexToAddress(key.Address)
 		switch {
 		case err != nil:
-            log.Debug("Failed to decode keystore key", "path", path, "err", err)
-        case addr == common.Address{}:
-            log.Debug("Failed to decode keystore key", "path", path, "err", "missing or zero address")
-        default:
-            return &accounts.Account{
-                Address: addr,
-                URL:     accounts.URL{Scheme: KeyStoreScheme, Path: path},
-            }
+			log.Debug("Failed to decode keystore key", "path", path, "err", err)
+		case addr == common.Address{}:
+			log.Debug("Failed to decode keystore key", "path", path, "err", "missing or zero address")
+		default:
+			return &accounts.Account{
+				Address: addr,
+				URL:     accounts.URL{Scheme: KeyStoreScheme, Path: path},
+			}
 		}
 		return nil
 	}

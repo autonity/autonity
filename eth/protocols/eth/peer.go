@@ -133,6 +133,12 @@ func (p *Peer) ID() string {
 	return p.id
 }
 
+// Send writes an RLP-encoded message with the given code.
+// data should encode as an RLP list.
+func (p *Peer) Send(msgcode uint64, data interface{}) error {
+	return p2p.Send(p.rw, msgcode, data)
+}
+
 // Version retrieves the peer's negoatiated `eth` protocol version.
 func (p *Peer) Version() uint {
 	return p.version

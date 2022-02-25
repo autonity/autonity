@@ -53,46 +53,46 @@ func (t *table) Get(key []byte) ([]byte, error) {
 // HasAncient is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) HasAncient(kind string, number uint64) (bool, error) {
-    return t.db.HasAncient(kind, number)
+	return t.db.HasAncient(kind, number)
 }
 
 // Ancient is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) Ancient(kind string, number uint64) ([]byte, error) {
-    return t.db.Ancient(kind, number)
+	return t.db.Ancient(kind, number)
 }
 
 // AncientRange is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) AncientRange(kind string, start, count, maxBytes uint64) ([][]byte, error) {
-    return t.db.AncientRange(kind, start, count, maxBytes)
+	return t.db.AncientRange(kind, start, count, maxBytes)
 }
 
 // Ancients is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) Ancients() (uint64, error) {
-    return t.db.Ancients()
+	return t.db.Ancients()
 }
 
 // AncientSize is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) AncientSize(kind string) (uint64, error) {
-    return t.db.AncientSize(kind)
+	return t.db.AncientSize(kind)
 }
 
 // ModifyAncients runs an ancient write operation on the underlying database.
 func (t *table) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (int64, error) {
-    return t.db.ModifyAncients(fn)
+	return t.db.ModifyAncients(fn)
 }
 
 func (t *table) ReadAncients(fn func(reader ethdb.AncientReader) error) (err error) {
-    return t.db.ReadAncients(fn)
+	return t.db.ReadAncients(fn)
 }
 
 // TruncateAncients is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) TruncateAncients(items uint64) error {
-    return t.db.TruncateAncients(items)
+	return t.db.TruncateAncients(items)
 }
 
 // Sync is a noop passthrough that just forwards the request to the underlying
@@ -138,29 +138,29 @@ func (t *table) Stat(property string) (string, error) {
 // will compact entire data store.
 func (t *table) Compact(start []byte, limit []byte) error {
 	// If no start was specified, use the table prefix as the first value
-    if start == nil {
-        start = []byte(t.prefix)
-    } else {
-        start = append([]byte(t.prefix), start...)
-    }
+	if start == nil {
+		start = []byte(t.prefix)
+	} else {
+		start = append([]byte(t.prefix), start...)
+	}
 	// If no limit was specified, use the first element not matching the prefix
 	// as the limit
 	if limit == nil {
 		limit = []byte(t.prefix)
 		for i := len(limit) - 1; i >= 0; i-- {
-            // Bump the current character, stopping if it doesn't overflow
-            limit[i]++
-            if limit[i] > 0 {
-                break
-            }
-            // Character overflown, proceed to the next or nil if the last
-            if i == 0 {
-                limit = nil
-            }
-        }
-    } else {
-        limit = append([]byte(t.prefix), limit...)
-    }
+			// Bump the current character, stopping if it doesn't overflow
+			limit[i]++
+			if limit[i] > 0 {
+				break
+			}
+			// Character overflown, proceed to the next or nil if the last
+			if i == 0 {
+				limit = nil
+			}
+		}
+	} else {
+		limit = append([]byte(t.prefix), limit...)
+	}
 	// Range correctly calculated based on table prefix, delegate down
 	return t.db.Compact(start, limit)
 }

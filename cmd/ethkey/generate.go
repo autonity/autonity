@@ -26,8 +26,8 @@ import (
 	"github.com/clearmatics/autonity/accounts/keystore"
 	"github.com/clearmatics/autonity/cmd/utils"
 	"github.com/clearmatics/autonity/crypto"
-    "github.com/google/uuid"
-    "gopkg.in/urfave/cli.v1"
+	"github.com/google/uuid"
+	"gopkg.in/urfave/cli.v1"
 )
 
 type outputGenerate struct {
@@ -76,30 +76,30 @@ If you want to encrypt an existing private key, it can be specified by setting
 			privateKey, err = crypto.LoadECDSA(file)
 			if err != nil {
 				utils.Fatalf("Can't load private key: %v", err)
-            }
-        } else {
-            // If not loaded, generate random.
-            privateKey, err = crypto.GenerateKey()
-            if err != nil {
-                utils.Fatalf("Failed to generate random private key: %v", err)
-            }
-        }
+			}
+		} else {
+			// If not loaded, generate random.
+			privateKey, err = crypto.GenerateKey()
+			if err != nil {
+				utils.Fatalf("Failed to generate random private key: %v", err)
+			}
+		}
 
-        // Create the keyfile object with a random UUID.
-        UUID, err := uuid.NewRandom()
-        if err != nil {
-            utils.Fatalf("Failed to generate random uuid: %v", err)
-        }
-        key := &keystore.Key{
-            Id:         UUID,
-            Address:    crypto.PubkeyToAddress(privateKey.PublicKey),
-            PrivateKey: privateKey,
-        }
+		// Create the keyfile object with a random UUID.
+		UUID, err := uuid.NewRandom()
+		if err != nil {
+			utils.Fatalf("Failed to generate random uuid: %v", err)
+		}
+		key := &keystore.Key{
+			Id:         UUID,
+			Address:    crypto.PubkeyToAddress(privateKey.PublicKey),
+			PrivateKey: privateKey,
+		}
 
-        // Encrypt key with passphrase.
-        passphrase := getPassphrase(ctx, true)
-        scryptN, scryptP := keystore.StandardScryptN, keystore.StandardScryptP
-        if ctx.Bool("lightkdf") {
+		// Encrypt key with passphrase.
+		passphrase := getPassphrase(ctx, true)
+		scryptN, scryptP := keystore.StandardScryptN, keystore.StandardScryptP
+		if ctx.Bool("lightkdf") {
 			scryptN, scryptP = keystore.LightScryptN, keystore.LightScryptP
 		}
 		keyjson, err := keystore.EncryptKey(key, passphrase, scryptN, scryptP)

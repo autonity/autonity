@@ -378,17 +378,17 @@ func BenchmarkJournal(b *testing.B) {
 			accounts[accountKey] = randomAccount()
 
 			accStorage := make(map[common.Hash][]byte)
-            for i := 0; i < 200; i++ {
-                value := make([]byte, 32)
-                rand.Read(value)
-                accStorage[randomHash()] = value
+			for i := 0; i < 200; i++ {
+				value := make([]byte, 32)
+				rand.Read(value)
+				accStorage[randomHash()] = value
 
-            }
-            storage[accountKey] = accStorage
-        }
-        return newDiffLayer(parent, common.Hash{}, destructs, accounts, storage)
-    }
-    layer := snapshot(emptyLayer())
+			}
+			storage[accountKey] = accStorage
+		}
+		return newDiffLayer(parent, common.Hash{}, destructs, accounts, storage)
+	}
+	layer := snapshot(emptyLayer())
 	for i := 1; i < 128; i++ {
 		layer = fill(layer)
 	}

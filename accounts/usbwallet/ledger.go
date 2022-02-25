@@ -49,16 +49,16 @@ type ledgerParam1 byte
 type ledgerParam2 byte
 
 const (
-    ledgerOpRetrieveAddress  ledgerOpcode = 0x02 // Returns the public key and Ethereum address for a given BIP 32 path
-    ledgerOpSignTransaction  ledgerOpcode = 0x04 // Signs an Ethereum transaction after having the user validate the parameters
-    ledgerOpGetConfiguration ledgerOpcode = 0x06 // Returns specific wallet application configuration
-    ledgerOpSignTypedMessage ledgerOpcode = 0x0c // Signs an Ethereum message following the EIP 712 specification
+	ledgerOpRetrieveAddress  ledgerOpcode = 0x02 // Returns the public key and Ethereum address for a given BIP 32 path
+	ledgerOpSignTransaction  ledgerOpcode = 0x04 // Signs an Ethereum transaction after having the user validate the parameters
+	ledgerOpGetConfiguration ledgerOpcode = 0x06 // Returns specific wallet application configuration
+	ledgerOpSignTypedMessage ledgerOpcode = 0x0c // Signs an Ethereum message following the EIP 712 specification
 
-    ledgerP1DirectlyFetchAddress    ledgerParam1 = 0x00 // Return address directly from the wallet
-    ledgerP1InitTypedMessageData    ledgerParam1 = 0x00 // First chunk of Typed Message data
-    ledgerP1InitTransactionData     ledgerParam1 = 0x00 // First transaction data block for signing
-    ledgerP1ContTransactionData     ledgerParam1 = 0x80 // Subsequent transaction data block for signing
-    ledgerP2DiscardAddressChainCode ledgerParam2 = 0x00 // Do not return the chain code along with the address
+	ledgerP1DirectlyFetchAddress    ledgerParam1 = 0x00 // Return address directly from the wallet
+	ledgerP1InitTypedMessageData    ledgerParam1 = 0x00 // First chunk of Typed Message data
+	ledgerP1InitTransactionData     ledgerParam1 = 0x00 // First transaction data block for signing
+	ledgerP1ContTransactionData     ledgerParam1 = 0x80 // Subsequent transaction data block for signing
+	ledgerP2DiscardAddressChainCode ledgerParam2 = 0x00 // Do not return the chain code along with the address
 )
 
 // errLedgerReplyInvalidHeader is the error message returned by a Ledger data exchange
@@ -162,14 +162,14 @@ func (w *ledgerDriver) SignTx(path accounts.DerivationPath, tx *types.Transactio
 	// If the Ethereum app doesn't run, abort
 	if w.offline() {
 		return common.Address{}, nil, accounts.ErrWalletClosed
-    }
-    // Ensure the wallet is capable of signing the given transaction
-    if chainID != nil && w.version[0] <= 1 && w.version[1] <= 0 && w.version[2] <= 2 {
-        //lint:ignore ST1005 brand name displayed on the console
-        return common.Address{}, nil, fmt.Errorf("Ledger v%d.%d.%d doesn't support signing this transaction, please update to v1.0.3 at least", w.version[0], w.version[1], w.version[2])
-    }
-    // All infos gathered and metadata checks out, request signing
-    return w.ledgerSign(path, tx, chainID)
+	}
+	// Ensure the wallet is capable of signing the given transaction
+	if chainID != nil && w.version[0] <= 1 && w.version[1] <= 0 && w.version[2] <= 2 {
+		//lint:ignore ST1005 brand name displayed on the console
+		return common.Address{}, nil, fmt.Errorf("Ledger v%d.%d.%d doesn't support signing this transaction, please update to v1.0.3 at least", w.version[0], w.version[1], w.version[2])
+	}
+	// All infos gathered and metadata checks out, request signing
+	return w.ledgerSign(path, tx, chainID)
 }
 
 // SignTypedMessage implements usbwallet.driver, sending the message to the Ledger and
@@ -177,17 +177,17 @@ func (w *ledgerDriver) SignTx(path accounts.DerivationPath, tx *types.Transactio
 //
 // Note: this was introduced in the ledger 1.5.0 firmware
 func (w *ledgerDriver) SignTypedMessage(path accounts.DerivationPath, domainHash []byte, messageHash []byte) ([]byte, error) {
-    // If the Ethereum app doesn't run, abort
-    if w.offline() {
-        return nil, accounts.ErrWalletClosed
-    }
-    // Ensure the wallet is capable of signing the given transaction
-    if w.version[0] < 1 && w.version[1] < 5 {
-        //lint:ignore ST1005 brand name displayed on the console
-        return nil, fmt.Errorf("Ledger version >= 1.5.0 required for EIP-712 signing (found version v%d.%d.%d)", w.version[0], w.version[1], w.version[2])
-    }
-    // All infos gathered and metadata checks out, request signing
-    return w.ledgerSignTypedMessage(path, domainHash, messageHash)
+	// If the Ethereum app doesn't run, abort
+	if w.offline() {
+		return nil, accounts.ErrWalletClosed
+	}
+	// Ensure the wallet is capable of signing the given transaction
+	if w.version[0] < 1 && w.version[1] < 5 {
+		//lint:ignore ST1005 brand name displayed on the console
+		return nil, fmt.Errorf("Ledger version >= 1.5.0 required for EIP-712 signing (found version v%d.%d.%d)", w.version[0], w.version[1], w.version[2])
+	}
+	// All infos gathered and metadata checks out, request signing
+	return w.ledgerSignTypedMessage(path, domainHash, messageHash)
 }
 
 // ledgerVersion retrieves the current version of the Ethereum wallet app running
@@ -377,14 +377,14 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, tx *types.Transaction
 		signature[64] -= byte(chainID.Uint64()*2 + 35)
 	}
 	signed, err := tx.WithSignature(signer, signature)
-    if err != nil {
-        return common.Address{}, nil, err
-    }
-    sender, err := types.Sender(signer, signed)
-    if err != nil {
-        return common.Address{}, nil, err
-    }
-    return sender, signed, nil
+	if err != nil {
+		return common.Address{}, nil, err
+	}
+	sender, err := types.Sender(signer, signed)
+	if err != nil {
+		return common.Address{}, nil, err
+	}
+	return sender, signed, nil
 }
 
 // ledgerSignTypedMessage sends the transaction to the Ledger wallet, and waits for the user
@@ -417,36 +417,36 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, tx *types.Transaction
 //   signature R | 32 bytes
 //   signature S | 32 bytes
 func (w *ledgerDriver) ledgerSignTypedMessage(derivationPath []uint32, domainHash []byte, messageHash []byte) ([]byte, error) {
-    // Flatten the derivation path into the Ledger request
-    path := make([]byte, 1+4*len(derivationPath))
-    path[0] = byte(len(derivationPath))
-    for i, component := range derivationPath {
-        binary.BigEndian.PutUint32(path[1+4*i:], component)
-    }
-    // Create the 712 message
-    payload := append(path, domainHash...)
-    payload = append(payload, messageHash...)
+	// Flatten the derivation path into the Ledger request
+	path := make([]byte, 1+4*len(derivationPath))
+	path[0] = byte(len(derivationPath))
+	for i, component := range derivationPath {
+		binary.BigEndian.PutUint32(path[1+4*i:], component)
+	}
+	// Create the 712 message
+	payload := append(path, domainHash...)
+	payload = append(payload, messageHash...)
 
-    // Send the request and wait for the response
-    var (
-        op    = ledgerP1InitTypedMessageData
-        reply []byte
-        err   error
-    )
+	// Send the request and wait for the response
+	var (
+		op    = ledgerP1InitTypedMessageData
+		reply []byte
+		err   error
+	)
 
-    // Send the message over, ensuring it's processed correctly
-    reply, err = w.ledgerExchange(ledgerOpSignTypedMessage, op, 0, payload)
+	// Send the message over, ensuring it's processed correctly
+	reply, err = w.ledgerExchange(ledgerOpSignTypedMessage, op, 0, payload)
 
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    // Extract the Ethereum signature and do a sanity validation
-    if len(reply) != crypto.SignatureLength {
-        return nil, errors.New("reply lacks signature")
-    }
-    signature := append(reply[1:], reply[0])
-    return signature, nil
+	// Extract the Ethereum signature and do a sanity validation
+	if len(reply) != crypto.SignatureLength {
+		return nil, errors.New("reply lacks signature")
+	}
+	signature := append(reply[1:], reply[0])
+	return signature, nil
 }
 
 // ledgerExchange performs a data exchange with the Ledger wallet, sending it a

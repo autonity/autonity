@@ -20,8 +20,8 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-    "strings"
-    "sync"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -73,24 +73,24 @@ func (testError) ErrorData() interface{} { return "testError data" }
 func (s *testService) NoArgsRets() {}
 
 func (s *testService) Echo(str string, i int, args *echoArgs) echoResult {
-    return echoResult{str, i, args}
+	return echoResult{str, i, args}
 }
 
 func (s *testService) EchoWithCtx(ctx context.Context, str string, i int, args *echoArgs) echoResult {
-    return echoResult{str, i, args}
+	return echoResult{str, i, args}
 }
 
 func (s *testService) PeerInfo(ctx context.Context) PeerInfo {
-    return PeerInfoFromContext(ctx)
+	return PeerInfoFromContext(ctx)
 }
 
 func (s *testService) Sleep(ctx context.Context, duration time.Duration) {
-    time.Sleep(duration)
+	time.Sleep(duration)
 }
 
 func (s *testService) Block(ctx context.Context) error {
-    <-ctx.Done()
-    return errors.New("context canceled in testservice_block")
+	<-ctx.Done()
+	return errors.New("context canceled in testservice_block")
 }
 
 func (s *testService) Rets() (string, error) {
@@ -190,21 +190,21 @@ func (s *notificationTestService) HangSubscription(ctx context.Context, val int)
 	if !supported {
 		return nil, ErrNotificationsUnsupported
 	}
-    s.gotHangSubscriptionReq <- struct{}{}
-    <-s.unblockHangSubscription
-    subscription := notifier.CreateSubscription()
+	s.gotHangSubscriptionReq <- struct{}{}
+	<-s.unblockHangSubscription
+	subscription := notifier.CreateSubscription()
 
-    go func() {
-        notifier.Notify(subscription.ID, val)
-    }()
-    return subscription, nil
+	go func() {
+		notifier.Notify(subscription.ID, val)
+	}()
+	return subscription, nil
 }
 
 // largeRespService generates arbitrary-size JSON responses.
 type largeRespService struct {
-    length int
+	length int
 }
 
 func (x largeRespService) LargeResp() string {
-    return strings.Repeat("x", x.length)
+	return strings.Repeat("x", x.length)
 }

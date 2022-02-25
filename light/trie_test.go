@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-    "math/big"
-    "testing"
+	"math/big"
+	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -35,15 +35,15 @@ import (
 )
 
 func TestNodeIterator(t *testing.T) {
-    var (
-        fulldb  = rawdb.NewMemoryDatabase()
-        lightdb = rawdb.NewMemoryDatabase()
-        gspec   = core.Genesis{
-            Alloc:   core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
-            BaseFee: big.NewInt(params.InitialBaseFee),
-        }
-        genesis = gspec.MustCommit(fulldb)
-    )
+	var (
+		fulldb  = rawdb.NewMemoryDatabase()
+		lightdb = rawdb.NewMemoryDatabase()
+		gspec   = core.Genesis{
+			Alloc:   core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
+			BaseFee: big.NewInt(params.InitialBaseFee),
+		}
+		genesis = gspec.MustCommit(fulldb)
+	)
 	gspec.MustCommit(lightdb)
 	blockchain, _ := core.NewBlockChain(fulldb, nil, params.AutonityTestChainConfig, ethash.NewFullFaker(), vm.Config{}, nil, core.NewTxSenderCacher(), nil)
 	gchain, _ := core.GenerateChain(params.AutonityTestChainConfig, genesis, ethash.NewFaker(), fulldb, 4, testChainGen)

@@ -20,11 +20,11 @@
 package crypto
 
 import (
-    "crypto/ecdsa"
-    "crypto/elliptic"
-    "errors"
-    "fmt"
-    "math/big"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"errors"
+	"fmt"
+	"math/big"
 
 	"github.com/btcsuite/btcd/btcec"
 )

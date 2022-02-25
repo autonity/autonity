@@ -181,7 +181,7 @@ func TestNodeOpenDatabaseFromLifecycleStart(t *testing.T) {
 	var err error
 	stack.RegisterLifecycle(&InstrumentedService{
 		startHook: func() {
-            db, err = stack.OpenDatabase("mydb", 0, 0, "", false)
+			db, err = stack.OpenDatabase("mydb", 0, 0, "", false)
 			if err != nil {
 				t.Fatal("can't open DB:", err)
 			}
@@ -202,7 +202,7 @@ func TestNodeOpenDatabaseFromLifecycleStop(t *testing.T) {
 
 	stack.RegisterLifecycle(&InstrumentedService{
 		stopHook: func() {
-            db, err := stack.OpenDatabase("mydb", 0, 0, "", false)
+			db, err := stack.OpenDatabase("mydb", 0, 0, "", false)
 			if err != nil {
 				t.Fatal("can't open DB:", err)
 			}
@@ -393,7 +393,7 @@ func TestLifecycleTerminationGuarantee(t *testing.T) {
 // on the given prefix
 func TestRegisterHandler_Successful(t *testing.T) {
 	node := createNode(t, 7878, 7979)
-    defer node.Close()
+	defer node.Close()
 	// create and mount handler
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("success"))
@@ -473,132 +473,132 @@ func TestWebsocketHTTPOnSeparatePort_WSRequest(t *testing.T) {
 		t.Fatalf("endpoints should not be the same")
 	}
 	// ensure ws endpoint matches the expected endpoint
-    if node.WSEndpoint() != ws {
-        t.Fatalf("ws endpoint is incorrect: expected %s, got %s", ws, node.WSEndpoint())
-    }
+	if node.WSEndpoint() != ws {
+		t.Fatalf("ws endpoint is incorrect: expected %s, got %s", ws, node.WSEndpoint())
+	}
 
-    if !checkRPC(ws) {
-        t.Fatalf("ws request failed")
-    }
-    if !checkRPC(node.HTTPEndpoint()) {
-        t.Fatalf("http request failed")
-    }
+	if !checkRPC(ws) {
+		t.Fatalf("ws request failed")
+	}
+	if !checkRPC(node.HTTPEndpoint()) {
+		t.Fatalf("http request failed")
+	}
 }
 
 type rpcPrefixTest struct {
-    httpPrefix, wsPrefix string
-    // These lists paths on which JSON-RPC should be served / not served.
-    wantHTTP   []string
-    wantNoHTTP []string
-    wantWS     []string
-    wantNoWS   []string
+	httpPrefix, wsPrefix string
+	// These lists paths on which JSON-RPC should be served / not served.
+	wantHTTP   []string
+	wantNoHTTP []string
+	wantWS     []string
+	wantNoWS   []string
 }
 
 func TestNodeRPCPrefix(t *testing.T) {
-    t.Parallel()
+	t.Parallel()
 
-    tests := []rpcPrefixTest{
-        // both off
-        {
-            httpPrefix: "", wsPrefix: "",
-            wantHTTP:   []string{"/", "/?p=1"},
-            wantNoHTTP: []string{"/test", "/test?p=1"},
-            wantWS:     []string{"/", "/?p=1"},
-            wantNoWS:   []string{"/test", "/test?p=1"},
-        },
-        // only http prefix
-        {
-            httpPrefix: "/testprefix", wsPrefix: "",
-            wantHTTP:   []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
-            wantNoHTTP: []string{"/", "/?p=1", "/test", "/test?p=1"},
-            wantWS:     []string{"/", "/?p=1"},
-            wantNoWS:   []string{"/testprefix", "/testprefix?p=1", "/test", "/test?p=1"},
-        },
-        // only ws prefix
-        {
-            httpPrefix: "", wsPrefix: "/testprefix",
-            wantHTTP:   []string{"/", "/?p=1"},
-            wantNoHTTP: []string{"/testprefix", "/testprefix?p=1", "/test", "/test?p=1"},
-            wantWS:     []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
-            wantNoWS:   []string{"/", "/?p=1", "/test", "/test?p=1"},
-        },
-        // both set
-        {
-            httpPrefix: "/testprefix", wsPrefix: "/testprefix",
-            wantHTTP:   []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
-            wantNoHTTP: []string{"/", "/?p=1", "/test", "/test?p=1"},
-            wantWS:     []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
-            wantNoWS:   []string{"/", "/?p=1", "/test", "/test?p=1"},
-        },
-    }
+	tests := []rpcPrefixTest{
+		// both off
+		{
+			httpPrefix: "", wsPrefix: "",
+			wantHTTP:   []string{"/", "/?p=1"},
+			wantNoHTTP: []string{"/test", "/test?p=1"},
+			wantWS:     []string{"/", "/?p=1"},
+			wantNoWS:   []string{"/test", "/test?p=1"},
+		},
+		// only http prefix
+		{
+			httpPrefix: "/testprefix", wsPrefix: "",
+			wantHTTP:   []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
+			wantNoHTTP: []string{"/", "/?p=1", "/test", "/test?p=1"},
+			wantWS:     []string{"/", "/?p=1"},
+			wantNoWS:   []string{"/testprefix", "/testprefix?p=1", "/test", "/test?p=1"},
+		},
+		// only ws prefix
+		{
+			httpPrefix: "", wsPrefix: "/testprefix",
+			wantHTTP:   []string{"/", "/?p=1"},
+			wantNoHTTP: []string{"/testprefix", "/testprefix?p=1", "/test", "/test?p=1"},
+			wantWS:     []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
+			wantNoWS:   []string{"/", "/?p=1", "/test", "/test?p=1"},
+		},
+		// both set
+		{
+			httpPrefix: "/testprefix", wsPrefix: "/testprefix",
+			wantHTTP:   []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
+			wantNoHTTP: []string{"/", "/?p=1", "/test", "/test?p=1"},
+			wantWS:     []string{"/testprefix", "/testprefix?p=1", "/testprefix/x", "/testprefix/x?p=1"},
+			wantNoWS:   []string{"/", "/?p=1", "/test", "/test?p=1"},
+		},
+	}
 
-    for _, test := range tests {
-        test := test
-        name := fmt.Sprintf("http=%s ws=%s", test.httpPrefix, test.wsPrefix)
-        t.Run(name, func(t *testing.T) {
-            cfg := &Config{
-                HTTPHost:       "127.0.0.1",
-                HTTPPathPrefix: test.httpPrefix,
-                WSHost:         "127.0.0.1",
-                WSPathPrefix:   test.wsPrefix,
-            }
-            node, err := New(cfg)
-            if err != nil {
-                t.Fatal("can't create node:", err)
-            }
-            defer node.Close()
-            if err := node.Start(); err != nil {
-                t.Fatal("can't start node:", err)
-            }
-            test.check(t, node)
-        })
-    }
+	for _, test := range tests {
+		test := test
+		name := fmt.Sprintf("http=%s ws=%s", test.httpPrefix, test.wsPrefix)
+		t.Run(name, func(t *testing.T) {
+			cfg := &Config{
+				HTTPHost:       "127.0.0.1",
+				HTTPPathPrefix: test.httpPrefix,
+				WSHost:         "127.0.0.1",
+				WSPathPrefix:   test.wsPrefix,
+			}
+			node, err := New(cfg)
+			if err != nil {
+				t.Fatal("can't create node:", err)
+			}
+			defer node.Close()
+			if err := node.Start(); err != nil {
+				t.Fatal("can't start node:", err)
+			}
+			test.check(t, node)
+		})
+	}
 }
 
 func (test rpcPrefixTest) check(t *testing.T, node *Node) {
-    t.Helper()
-    httpBase := "http://" + node.http.listenAddr()
-    wsBase := "ws://" + node.http.listenAddr()
+	t.Helper()
+	httpBase := "http://" + node.http.listenAddr()
+	wsBase := "ws://" + node.http.listenAddr()
 
-    if node.WSEndpoint() != wsBase+test.wsPrefix {
-        t.Errorf("Error: node has wrong WSEndpoint %q", node.WSEndpoint())
-    }
+	if node.WSEndpoint() != wsBase+test.wsPrefix {
+		t.Errorf("Error: node has wrong WSEndpoint %q", node.WSEndpoint())
+	}
 
-    for _, path := range test.wantHTTP {
-        resp := rpcRequest(t, httpBase+path)
-        if resp.StatusCode != 200 {
-            t.Errorf("Error: %s: bad status code %d, want 200", path, resp.StatusCode)
-        }
-    }
-    for _, path := range test.wantNoHTTP {
-        resp := rpcRequest(t, httpBase+path)
-        if resp.StatusCode != 404 {
-            t.Errorf("Error: %s: bad status code %d, want 404", path, resp.StatusCode)
-        }
-    }
-    for _, path := range test.wantWS {
-        err := wsRequest(t, wsBase+path, "")
-        if err != nil {
-            t.Errorf("Error: %s: WebSocket connection failed: %v", path, err)
-        }
-    }
-    for _, path := range test.wantNoWS {
-        err := wsRequest(t, wsBase+path, "")
-        if err == nil {
-            t.Errorf("Error: %s: WebSocket connection succeeded for path in wantNoWS", path)
-        }
+	for _, path := range test.wantHTTP {
+		resp := rpcRequest(t, httpBase+path)
+		if resp.StatusCode != 200 {
+			t.Errorf("Error: %s: bad status code %d, want 200", path, resp.StatusCode)
+		}
+	}
+	for _, path := range test.wantNoHTTP {
+		resp := rpcRequest(t, httpBase+path)
+		if resp.StatusCode != 404 {
+			t.Errorf("Error: %s: bad status code %d, want 404", path, resp.StatusCode)
+		}
+	}
+	for _, path := range test.wantWS {
+		err := wsRequest(t, wsBase+path, "")
+		if err != nil {
+			t.Errorf("Error: %s: WebSocket connection failed: %v", path, err)
+		}
+	}
+	for _, path := range test.wantNoWS {
+		err := wsRequest(t, wsBase+path, "")
+		if err == nil {
+			t.Errorf("Error: %s: WebSocket connection succeeded for path in wantNoWS", path)
+		}
 
-    }
+	}
 }
 
 func createNode(t *testing.T, httpPort, wsPort int) *Node {
-    conf := &Config{
-        HTTPHost: "127.0.0.1",
-        HTTPPort: httpPort,
-        WSHost:   "127.0.0.1",
-        WSPort:   wsPort,
-    }
-    node, err := New(conf)
+	conf := &Config{
+		HTTPHost: "127.0.0.1",
+		HTTPPort: httpPort,
+		WSHost:   "127.0.0.1",
+		WSPort:   wsPort,
+	}
+	node, err := New(conf)
 	if err != nil {
 		t.Fatalf("could not create a new node: %v", err)
 	}

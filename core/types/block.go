@@ -84,7 +84,7 @@ type Header struct {
 	MixDigest   common.Hash    `json:"mixHash"`
 	Nonce       BlockNonce     `json:"nonce"`
 	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
-	BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
+	BaseFee *big.Int `json:"baseFeePerGas"`
 
 	/*
 		PoS header fields, round & committedSeals not taken into account
@@ -250,6 +250,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.Time = origin.Time
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
+	h.BaseFee = origin.BaseFee
 
 	return nil
 }
@@ -299,6 +300,7 @@ func (h *Header) original() *originalHeader {
 		Number:      h.Number,
 		GasLimit:    h.GasLimit,
 		GasUsed:     h.GasUsed,
+		BaseFee:     h.BaseFee,
 		Time:        h.Time,
 		Extra:       h.Extra,
 		MixDigest:   h.MixDigest,

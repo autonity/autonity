@@ -18,8 +18,8 @@ package les
 
 import (
 	"context"
-    "math/rand"
-    "sync"
+	"math/rand"
+	"sync"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core/types"
@@ -27,8 +27,8 @@ import (
 )
 
 type lesTxRelay struct {
-    txSent       map[common.Hash]*types.Transaction
-    txPending    map[common.Hash]struct{}
+	txSent       map[common.Hash]*types.Transaction
+	txPending    map[common.Hash]struct{}
 	peerList     []*serverPeer
 	peerStartPos int
 	lock         sync.Mutex
@@ -39,11 +39,11 @@ type lesTxRelay struct {
 
 func newLesTxRelay(ps *serverPeerSet, retriever *retrieveManager) *lesTxRelay {
 	r := &lesTxRelay{
-        txSent:    make(map[common.Hash]*types.Transaction),
-        txPending: make(map[common.Hash]struct{}),
-        retriever: retriever,
-        stop:      make(chan struct{}),
-    }
+		txSent:    make(map[common.Hash]*types.Transaction),
+		txPending: make(map[common.Hash]struct{}),
+		retriever: retriever,
+		stop:      make(chan struct{}),
+	}
 	ps.subscribe(r)
 	return r
 }
@@ -86,29 +86,29 @@ func (ltrx *lesTxRelay) send(txs types.Transactions, count int) {
 	}
 
 	for _, tx := range txs {
-        hash := tx.Hash()
-        _, ok := ltrx.txSent[hash]
+		hash := tx.Hash()
+		_, ok := ltrx.txSent[hash]
 		if !ok {
-            ltrx.txSent[hash] = tx
-            ltrx.txPending[hash] = struct{}{}
+			ltrx.txSent[hash] = tx
+			ltrx.txPending[hash] = struct{}{}
 		}
 		if len(ltrx.peerList) > 0 {
 			cnt := count
 			pos := ltrx.peerStartPos
 			for {
-                peer := ltrx.peerList[pos]
-                sendTo[peer] = append(sendTo[peer], tx)
-                cnt--
-                if cnt == 0 {
-                    break // sent it to the desired number of peers
-                }
-                pos++
-                if pos == len(ltrx.peerList) {
-                    pos = 0
-                }
-                if pos == ltrx.peerStartPos {
-                    break // tried all available peers
-                }
+				peer := ltrx.peerList[pos]
+				sendTo[peer] = append(sendTo[peer], tx)
+				cnt--
+				if cnt == 0 {
+					break // sent it to the desired number of peers
+				}
+				pos++
+				if pos == len(ltrx.peerList) {
+					pos = 0
+				}
+				if pos == ltrx.peerStartPos {
+					break // tried all available peers
+				}
 			}
 		}
 	}
@@ -118,17 +118,17 @@ func (ltrx *lesTxRelay) send(txs types.Transactions, count int) {
 		ll := list
 		enc, _ := rlp.EncodeToBytes(ll)
 
-        reqID := rand.Uint64()
-        rq := &distReq{
-            getCost: func(dp distPeer) uint64 {
-                peer := dp.(*serverPeer)
-                return peer.getTxRelayCost(len(ll), len(enc))
-            },
-            canSend: func(dp distPeer) bool {
-                return !dp.(*serverPeer).onlyAnnounce && dp.(*serverPeer) == pp
-            },
-            request: func(dp distPeer) func() {
-                peer := dp.(*serverPeer)
+		reqID := rand.Uint64()
+		rq := &distReq{
+			getCost: func(dp distPeer) uint64 {
+				peer := dp.(*serverPeer)
+				return peer.getTxRelayCost(len(ll), len(enc))
+			},
+			canSend: func(dp distPeer) bool {
+				return !dp.(*serverPeer).onlyAnnounce && dp.(*serverPeer) == pp
+			},
+			request: func(dp distPeer) func() {
+				peer := dp.(*serverPeer)
 				cost := peer.getTxRelayCost(len(ll), len(enc))
 				peer.fcServer.QueuedRequest(reqID, cost)
 				return func() { peer.sendTxs(reqID, len(ll), enc) }
@@ -161,7 +161,7 @@ func (ltrx *lesTxRelay) NewHead(head common.Hash, mined []common.Hash, rollback 
 		txs := make(types.Transactions, len(ltrx.txPending))
 		i := 0
 		for hash := range ltrx.txPending {
-            txs[i] = ltrx.txSent[hash]
+			txs[i] = ltrx.txSent[hash]
 			i++
 		}
 		ltrx.send(txs, 1)

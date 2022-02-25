@@ -110,93 +110,93 @@ var (
 		Usage: "The transaction origin",
 	}
 	ReceiverFlag = cli.StringFlag{
-        Name:  "receiver",
-        Usage: "The transaction receiver (execution context)",
-    }
-    DisableMemoryFlag = cli.BoolTFlag{
-        Name:  "nomemory",
-        Usage: "disable memory output",
-    }
-    DisableStackFlag = cli.BoolFlag{
-        Name:  "nostack",
-        Usage: "disable stack output",
-    }
-    DisableStorageFlag = cli.BoolFlag{
-        Name:  "nostorage",
-        Usage: "disable storage output",
-    }
-    DisableReturnDataFlag = cli.BoolTFlag{
-        Name:  "noreturndata",
-        Usage: "enable return data output",
-    }
+		Name:  "receiver",
+		Usage: "The transaction receiver (execution context)",
+	}
+	DisableMemoryFlag = cli.BoolTFlag{
+		Name:  "nomemory",
+		Usage: "disable memory output",
+	}
+	DisableStackFlag = cli.BoolFlag{
+		Name:  "nostack",
+		Usage: "disable stack output",
+	}
+	DisableStorageFlag = cli.BoolFlag{
+		Name:  "nostorage",
+		Usage: "disable storage output",
+	}
+	DisableReturnDataFlag = cli.BoolTFlag{
+		Name:  "noreturndata",
+		Usage: "enable return data output",
+	}
 )
 
 var stateTransitionCommand = cli.Command{
-    Name:    "transition",
-    Aliases: []string{"t8n"},
-    Usage:   "executes a full state transition",
-    Action:  t8ntool.Transition,
-    Flags: []cli.Flag{
-        t8ntool.TraceFlag,
-        t8ntool.TraceDisableMemoryFlag,
-        t8ntool.TraceEnableMemoryFlag,
-        t8ntool.TraceDisableStackFlag,
-        t8ntool.TraceDisableReturnDataFlag,
-        t8ntool.TraceEnableReturnDataFlag,
-        t8ntool.OutputBasedir,
-        t8ntool.OutputAllocFlag,
-        t8ntool.OutputResultFlag,
-        t8ntool.OutputBodyFlag,
-        t8ntool.InputAllocFlag,
-        t8ntool.InputEnvFlag,
-        t8ntool.InputTxsFlag,
-        t8ntool.ForknameFlag,
-        t8ntool.ChainIDFlag,
-        t8ntool.RewardFlag,
-        t8ntool.VerbosityFlag,
-    },
+	Name:    "transition",
+	Aliases: []string{"t8n"},
+	Usage:   "executes a full state transition",
+	Action:  t8ntool.Transition,
+	Flags: []cli.Flag{
+		t8ntool.TraceFlag,
+		t8ntool.TraceDisableMemoryFlag,
+		t8ntool.TraceEnableMemoryFlag,
+		t8ntool.TraceDisableStackFlag,
+		t8ntool.TraceDisableReturnDataFlag,
+		t8ntool.TraceEnableReturnDataFlag,
+		t8ntool.OutputBasedir,
+		t8ntool.OutputAllocFlag,
+		t8ntool.OutputResultFlag,
+		t8ntool.OutputBodyFlag,
+		t8ntool.InputAllocFlag,
+		t8ntool.InputEnvFlag,
+		t8ntool.InputTxsFlag,
+		t8ntool.ForknameFlag,
+		t8ntool.ChainIDFlag,
+		t8ntool.RewardFlag,
+		t8ntool.VerbosityFlag,
+	},
 }
 var transactionCommand = cli.Command{
-    Name:    "transaction",
-    Aliases: []string{"t9n"},
-    Usage:   "performs transaction validation",
-    Action:  t8ntool.Transaction,
-    Flags: []cli.Flag{
-        t8ntool.InputTxsFlag,
-        t8ntool.ChainIDFlag,
-        t8ntool.ForknameFlag,
-        t8ntool.VerbosityFlag,
-    },
+	Name:    "transaction",
+	Aliases: []string{"t9n"},
+	Usage:   "performs transaction validation",
+	Action:  t8ntool.Transaction,
+	Flags: []cli.Flag{
+		t8ntool.InputTxsFlag,
+		t8ntool.ChainIDFlag,
+		t8ntool.ForknameFlag,
+		t8ntool.VerbosityFlag,
+	},
 }
 
 var blockBuilderCommand = cli.Command{
-    Name:    "block-builder",
-    Aliases: []string{"b11r"},
-    Usage:   "builds a block",
-    Action:  t8ntool.BuildBlock,
-    Flags: []cli.Flag{
-        t8ntool.OutputBasedir,
-        t8ntool.OutputBlockFlag,
-        t8ntool.InputHeaderFlag,
-        t8ntool.InputOmmersFlag,
-        t8ntool.InputTxsRlpFlag,
-        t8ntool.SealCliqueFlag,
-        t8ntool.SealEthashFlag,
-        t8ntool.SealEthashDirFlag,
-        t8ntool.SealEthashModeFlag,
-        t8ntool.VerbosityFlag,
-    },
+	Name:    "block-builder",
+	Aliases: []string{"b11r"},
+	Usage:   "builds a block",
+	Action:  t8ntool.BuildBlock,
+	Flags: []cli.Flag{
+		t8ntool.OutputBasedir,
+		t8ntool.OutputBlockFlag,
+		t8ntool.InputHeaderFlag,
+		t8ntool.InputOmmersFlag,
+		t8ntool.InputTxsRlpFlag,
+		t8ntool.SealCliqueFlag,
+		t8ntool.SealEthashFlag,
+		t8ntool.SealEthashDirFlag,
+		t8ntool.SealEthashModeFlag,
+		t8ntool.VerbosityFlag,
+	},
 }
 
 func init() {
-    app.Flags = []cli.Flag{
-        BenchFlag,
-        CreateFlag,
-        DebugFlag,
-        VerbosityFlag,
-        CodeFlag,
-        CodeFileFlag,
-        GasFlag,
+	app.Flags = []cli.Flag{
+		BenchFlag,
+		CreateFlag,
+		DebugFlag,
+		VerbosityFlag,
+		CodeFlag,
+		CodeFileFlag,
+		GasFlag,
 		PriceFlag,
 		ValueFlag,
 		DumpFlag,
@@ -215,14 +215,14 @@ func init() {
 		DisableReturnDataFlag,
 	}
 	app.Commands = []cli.Command{
-        compileCommand,
-        disasmCommand,
-        runCommand,
-        stateTestCommand,
-        stateTransitionCommand,
-        transactionCommand,
-        blockBuilderCommand,
-    }
+		compileCommand,
+		disasmCommand,
+		runCommand,
+		stateTestCommand,
+		stateTransitionCommand,
+		transactionCommand,
+		blockBuilderCommand,
+	}
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
 }
 
@@ -230,7 +230,7 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		code := 1
 		if ec, ok := err.(*t8ntool.NumberedError); ok {
-            code = ec.ExitCode()
+			code = ec.ExitCode()
 		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(code)

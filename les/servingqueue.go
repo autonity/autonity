@@ -123,17 +123,17 @@ func (t *servingTask) waitOrStop() bool {
 // newServingQueue returns a new servingQueue
 func newServingQueue(suspendBias int64, utilTarget float64) *servingQueue {
 	sq := &servingQueue{
-        queue:          prque.NewWrapAround(nil),
-        suspendBias:    suspendBias,
-        queueAddCh:     make(chan *servingTask, 100),
-        queueBestCh:    make(chan *servingTask),
-        stopThreadCh:   make(chan struct{}),
-        quit:           make(chan struct{}),
-        setThreadsCh:   make(chan int, 10),
-        burstLimit:     uint64(utilTarget * bufLimitRatio * 1200000),
-        burstDropLimit: uint64(utilTarget * bufLimitRatio * 1000000),
-        burstDecRate:   utilTarget,
-        lastUpdate:     mclock.Now(),
+		queue:          prque.NewWrapAround(nil),
+		suspendBias:    suspendBias,
+		queueAddCh:     make(chan *servingTask, 100),
+		queueBestCh:    make(chan *servingTask),
+		stopThreadCh:   make(chan struct{}),
+		quit:           make(chan struct{}),
+		setThreadsCh:   make(chan int, 10),
+		burstLimit:     uint64(utilTarget * bufLimitRatio * 1200000),
+		burstDropLimit: uint64(utilTarget * bufLimitRatio * 1000000),
+		burstDecRate:   utilTarget,
+		lastUpdate:     mclock.Now(),
 	}
 	sq.wg.Add(2)
 	go sq.queueLoop()
@@ -159,7 +159,7 @@ func (sq *servingQueue) newTask(peer *clientPeer, maxTime uint64, priority int64
 // run tokens from the token channel and allow the corresponding tasks to run
 // without entering the priority queue.
 func (sq *servingQueue) threadController() {
-    defer sq.wg.Done()
+	defer sq.wg.Done()
 	for {
 		token := make(runToken)
 		select {
@@ -173,9 +173,9 @@ func (sq *servingQueue) threadController() {
 		select {
 		case <-sq.stopThreadCh:
 			return
-        case <-sq.quit:
-            return
-        case <-token:
+		case <-sq.quit:
+			return
+		case <-token:
 		}
 	}
 }
@@ -273,14 +273,14 @@ func (sq *servingQueue) updateRecentTime() {
 
 // addTask inserts a task into the priority queue
 func (sq *servingQueue) addTask(task *servingTask) {
-    if sq.best == nil {
-        sq.best = task
-    } else if task.priority-sq.best.priority > 0 {
-        sq.queue.Push(sq.best, sq.best.priority)
-        sq.best = task
-    } else {
-        sq.queue.Push(task, task.priority)
-    }
+	if sq.best == nil {
+		sq.best = task
+	} else if task.priority-sq.best.priority > 0 {
+		sq.queue.Push(sq.best, sq.best.priority)
+		sq.best = task
+	} else {
+		sq.queue.Push(task, task.priority)
+	}
 	sq.updateRecentTime()
 	sq.queuedTime += task.expTime
 	sqServedGauge.Update(int64(sq.recentTime))
@@ -294,7 +294,7 @@ func (sq *servingQueue) addTask(task *servingTask) {
 // and always tries to send the highest priority task to queueBestCh. Successfully sent
 // tasks are removed from the queue.
 func (sq *servingQueue) queueLoop() {
-    defer sq.wg.Done()
+	defer sq.wg.Done()
 	for {
 		if sq.best != nil {
 			expTime := sq.best.expTime
@@ -330,7 +330,7 @@ func (sq *servingQueue) queueLoop() {
 // of active thread controller goroutines.
 func (sq *servingQueue) threadCountLoop() {
 	var threadCountTarget int
-    defer sq.wg.Done()
+	defer sq.wg.Done()
 	for {
 		for threadCountTarget > sq.threadCount {
 			sq.wg.Add(1)

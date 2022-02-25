@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/clearmatics/autonity/log"
+	"github.com/jedisct1/go-minisign"
 	"gopkg.in/urfave/cli.v1"
 )
 

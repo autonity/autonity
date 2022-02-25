@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
@@ -65,7 +66,7 @@ func newTester() *downloadTester {
 	}
 	core.GenesisBlockForTesting(db, testAddress, big.NewInt(1000000000000000))
 
-	chain, err := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil)
+	chain, err := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil)
 	if err != nil {
 		panic(err)
 	}

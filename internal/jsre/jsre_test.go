@@ -88,15 +88,15 @@ func TestNatto(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	val, err := jsre.Run("msg")
 	if err != nil {
-        t.Fatalf("expected no error, got %v", err)
+		t.Fatalf("expected no error, got %v", err)
 	}
 	if val.ExportType().Kind() != reflect.String {
-        t.Fatalf("expected string value, got %v", val)
+		t.Fatalf("expected string value, got %v", val)
 	}
 	exp := "testMsg"
 	got := val.ToString().String()
 	if exp != got {
-        t.Fatalf("expected '%v', got '%v'", exp, got)
+		t.Fatalf("expected '%v', got '%v'", exp, got)
 	}
 	jsre.Stop(false)
 }

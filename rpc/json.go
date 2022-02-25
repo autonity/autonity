@@ -192,26 +192,26 @@ func NewFuncCodec(conn deadlineCloser, encode, decode func(v interface{}) error)
 // NewCodec creates a codec on the given connection. If conn implements ConnRemoteAddr, log
 // messages will use it to include the remote address of the connection.
 func NewCodec(conn Conn) ServerCodec {
-    enc := json.NewEncoder(conn)
-    dec := json.NewDecoder(conn)
-    dec.UseNumber()
-    return NewFuncCodec(conn, enc.Encode, dec.Decode)
+	enc := json.NewEncoder(conn)
+	dec := json.NewDecoder(conn)
+	dec.UseNumber()
+	return NewFuncCodec(conn, enc.Encode, dec.Decode)
 }
 
 func (c *jsonCodec) peerInfo() PeerInfo {
-    // This returns "ipc" because all other built-in transports have a separate codec type.
-    return PeerInfo{Transport: "ipc", RemoteAddr: c.remote}
+	// This returns "ipc" because all other built-in transports have a separate codec type.
+	return PeerInfo{Transport: "ipc", RemoteAddr: c.remote}
 }
 
 func (c *jsonCodec) remoteAddr() string {
-    return c.remote
+	return c.remote
 }
 
 func (c *jsonCodec) readBatch() (messages []*jsonrpcMessage, batch bool, err error) {
-    // Decode the next JSON object in the input stream.
-    // This verifies basic syntax, etc.
-    var rawmsg json.RawMessage
-    if err := c.decode(&rawmsg); err != nil {
+	// Decode the next JSON object in the input stream.
+	// This verifies basic syntax, etc.
+	var rawmsg json.RawMessage
+	if err := c.decode(&rawmsg); err != nil {
 		return nil, false, err
 	}
 	messages, batch = parseMessage(rawmsg)

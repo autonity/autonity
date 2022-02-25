@@ -77,41 +77,41 @@ func (ns nodeSet) nodes() []*enode.Node {
 	for _, n := range ns {
 		result = append(result, n.N)
 	}
-    // Sort by ID.
-    sort.Slice(result, func(i, j int) bool {
-        return bytes.Compare(result[i].ID().Bytes(), result[j].ID().Bytes()) < 0
-    })
-    return result
+	// Sort by ID.
+	sort.Slice(result, func(i, j int) bool {
+		return bytes.Compare(result[i].ID().Bytes(), result[j].ID().Bytes()) < 0
+	})
+	return result
 }
 
 // add ensures the given nodes are present in the set.
 func (ns nodeSet) add(nodes ...*enode.Node) {
-    for _, n := range nodes {
-        v := ns[n.ID()]
-        v.N = n
-        v.Seq = n.Seq()
-        ns[n.ID()] = v
-    }
+	for _, n := range nodes {
+		v := ns[n.ID()]
+		v.N = n
+		v.Seq = n.Seq()
+		ns[n.ID()] = v
+	}
 }
 
 // topN returns the top n nodes by score as a new set.
 func (ns nodeSet) topN(n int) nodeSet {
-    if n >= len(ns) {
-        return ns
-    }
+	if n >= len(ns) {
+		return ns
+	}
 
-    byscore := make([]nodeJSON, 0, len(ns))
-    for _, v := range ns {
-        byscore = append(byscore, v)
-    }
-    sort.Slice(byscore, func(i, j int) bool {
-        return byscore[i].Score >= byscore[j].Score
-    })
-    result := make(nodeSet, n)
-    for _, v := range byscore[:n] {
-        result[v.N.ID()] = v
-    }
-    return result
+	byscore := make([]nodeJSON, 0, len(ns))
+	for _, v := range ns {
+		byscore = append(byscore, v)
+	}
+	sort.Slice(byscore, func(i, j int) bool {
+		return byscore[i].Score >= byscore[j].Score
+	})
+	result := make(nodeSet, n)
+	for _, v := range byscore[:n] {
+		result[v.N.ID()] = v
+	}
+	return result
 }
 
 // verify performs integrity checks on the node set.

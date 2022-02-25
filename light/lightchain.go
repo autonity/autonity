@@ -59,7 +59,7 @@ type LightChain struct {
 	chainHeadFeed event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
-    forker        *core.ForkChoice
+	forker        *core.ForkChoice
 
 	bodyCache    *lru.Cache // Cache for the most recent block bodies
 	bodyRLPCache *lru.Cache // Cache for the most recent block bodies in RLP encoded format
@@ -93,7 +93,7 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 		blockCache:    blockCache,
 		engine:        engine,
 	}
-    bc.forker = core.NewForkChoice(bc, nil)
+	bc.forker = core.NewForkChoice(bc, nil)
 	var err error
 	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
 	if err != nil {
@@ -361,50 +361,50 @@ func (lc *LightChain) postChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
 		case core.ChainEvent:
-            if lc.CurrentHeader().Hash() == ev.Hash {
-                lc.chainHeadFeed.Send(core.ChainHeadEvent{Block: ev.Block})
-            }
-            lc.chainFeed.Send(ev)
-        case core.ChainSideEvent:
-            lc.chainSideFeed.Send(ev)
-        }
-    }
+			if lc.CurrentHeader().Hash() == ev.Hash {
+				lc.chainHeadFeed.Send(core.ChainHeadEvent{Block: ev.Block})
+			}
+			lc.chainFeed.Send(ev)
+		case core.ChainSideEvent:
+			lc.chainSideFeed.Send(ev)
+		}
+	}
 }
 
 func (lc *LightChain) InsertHeader(header *types.Header) error {
-    // Verify the header first before obtaining the lock
-    headers := []*types.Header{header}
-    if _, err := lc.hc.ValidateHeaderChain(headers, 100); err != nil {
-        return err
-    }
-    // Make sure only one thread manipulates the chain at once
-    lc.chainmu.Lock()
-    defer lc.chainmu.Unlock()
+	// Verify the header first before obtaining the lock
+	headers := []*types.Header{header}
+	if _, err := lc.hc.ValidateHeaderChain(headers, 100); err != nil {
+		return err
+	}
+	// Make sure only one thread manipulates the chain at once
+	lc.chainmu.Lock()
+	defer lc.chainmu.Unlock()
 
-    lc.wg.Add(1)
-    defer lc.wg.Done()
+	lc.wg.Add(1)
+	defer lc.wg.Done()
 
-    _, err := lc.hc.WriteHeaders(headers)
-    log.Info("Inserted header", "number", header.Number, "hash", header.Hash())
-    return err
+	_, err := lc.hc.WriteHeaders(headers)
+	log.Info("Inserted header", "number", header.Number, "hash", header.Hash())
+	return err
 }
 
 func (lc *LightChain) SetChainHead(header *types.Header) error {
-    lc.chainmu.Lock()
-    defer lc.chainmu.Unlock()
+	lc.chainmu.Lock()
+	defer lc.chainmu.Unlock()
 
-    lc.wg.Add(1)
-    defer lc.wg.Done()
+	lc.wg.Add(1)
+	defer lc.wg.Done()
 
-    if err := lc.hc.Reorg([]*types.Header{header}); err != nil {
-        return err
-    }
-    // Emit events
-    block := types.NewBlockWithHeader(header)
-    lc.chainFeed.Send(core.ChainEvent{Block: block, Hash: block.Hash()})
-    lc.chainHeadFeed.Send(core.ChainHeadEvent{Block: block})
-    log.Info("Set the chain head", "number", block.Number(), "hash", block.Hash())
-    return nil
+	if err := lc.hc.Reorg([]*types.Header{header}); err != nil {
+		return err
+	}
+	// Emit events
+	block := types.NewBlockWithHeader(header)
+	lc.chainFeed.Send(core.ChainEvent{Block: block, Hash: block.Hash()})
+	lc.chainHeadFeed.Send(core.ChainHeadEvent{Block: block})
+	log.Info("Set the chain head", "number", block.Number(), "hash", block.Hash())
+	return nil
 }
 
 // InsertHeaderChain attempts to insert the given header chain in to the local
@@ -424,34 +424,34 @@ func (lc *LightChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	}
 	start := time.Now()
 	if i, err := lc.hc.ValidateHeaderChain(chain, checkFreq); err != nil {
-        return i, err
-    }
+		return i, err
+	}
 
-    // Make sure only one thread manipulates the chain at once
-    lc.chainmu.Lock()
-    defer lc.chainmu.Unlock()
+	// Make sure only one thread manipulates the chain at once
+	lc.chainmu.Lock()
+	defer lc.chainmu.Unlock()
 
-    lc.wg.Add(1)
-    defer lc.wg.Done()
+	lc.wg.Add(1)
+	defer lc.wg.Done()
 
-    status, err := lc.hc.InsertHeaderChain(chain, start, lc.forker)
-    if err != nil || len(chain) == 0 {
-        return 0, err
-    }
+	status, err := lc.hc.InsertHeaderChain(chain, start, lc.forker)
+	if err != nil || len(chain) == 0 {
+		return 0, err
+	}
 
-    // Create chain event for the new head block of this insertion.
-    var (
-        lastHeader = chain[len(chain)-1]
-        block      = types.NewBlockWithHeader(lastHeader)
-    )
-    switch status {
-    case core.CanonStatTy:
-        lc.chainFeed.Send(core.ChainEvent{Block: block, Hash: block.Hash()})
-        lc.chainHeadFeed.Send(core.ChainHeadEvent{Block: block})
-    case core.SideStatTy:
-        lc.chainSideFeed.Send(core.ChainSideEvent{Block: block})
-    }
-    return 0, err
+	// Create chain event for the new head block of this insertion.
+	var (
+		lastHeader = chain[len(chain)-1]
+		block      = types.NewBlockWithHeader(lastHeader)
+	)
+	switch status {
+	case core.CanonStatTy:
+		lc.chainFeed.Send(core.ChainEvent{Block: block, Hash: block.Hash()})
+		lc.chainHeadFeed.Send(core.ChainHeadEvent{Block: block})
+	case core.SideStatTy:
+		lc.chainSideFeed.Send(core.ChainSideEvent{Block: block})
+	}
+	return 0, err
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

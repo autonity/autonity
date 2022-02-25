@@ -436,9 +436,9 @@ func TestUDPv5_talkHandling(t *testing.T) {
 
 	var recvMessage []byte
 	test.udp.RegisterTalkHandler("test", func(id enode.ID, addr *net.UDPAddr, message []byte) []byte {
-        recvMessage = message
-        return []byte("test response")
-    })
+		recvMessage = message
+		return []byte("test response")
+	})
 
 	// Successful case:
 	test.packetIn(&v5wire.TalkRequest{
@@ -587,57 +587,57 @@ func TestUDPv5_LocalNode(t *testing.T) {
 	testVal := [4]byte{'A', 'B', 'C', 'D'}
 	localNd.Set(enr.WithEntry("testing", &testVal))
 
-    // retrieve the value from self to make sure it matches.
-    outputVal := [4]byte{}
-    if err := node.Self().Load(enr.WithEntry("testing", &outputVal)); err != nil {
-        t.Errorf("Could not load value from record: %v", err)
-    }
-    if testVal != outputVal {
-        t.Errorf("Wanted %#x to be retrieved from the record but instead got %#x", testVal, outputVal)
-    }
+	// retrieve the value from self to make sure it matches.
+	outputVal := [4]byte{}
+	if err := node.Self().Load(enr.WithEntry("testing", &outputVal)); err != nil {
+		t.Errorf("Could not load value from record: %v", err)
+	}
+	if testVal != outputVal {
+		t.Errorf("Wanted %#x to be retrieved from the record but instead got %#x", testVal, outputVal)
+	}
 }
 
 func TestUDPv5_PingWithIPV4MappedAddress(t *testing.T) {
-    t.Parallel()
-    test := newUDPV5Test(t)
-    defer test.close()
+	t.Parallel()
+	test := newUDPV5Test(t)
+	defer test.close()
 
-    rawIP := net.IPv4(0xFF, 0x12, 0x33, 0xE5)
-    test.remoteaddr = &net.UDPAddr{
-        IP:   rawIP.To16(),
-        Port: 0,
-    }
-    remote := test.getNode(test.remotekey, test.remoteaddr).Node()
-    done := make(chan struct{}, 1)
+	rawIP := net.IPv4(0xFF, 0x12, 0x33, 0xE5)
+	test.remoteaddr = &net.UDPAddr{
+		IP:   rawIP.To16(),
+		Port: 0,
+	}
+	remote := test.getNode(test.remotekey, test.remoteaddr).Node()
+	done := make(chan struct{}, 1)
 
-    // This handler will truncate the ipv4-mapped in ipv6 address.
-    go func() {
-        test.udp.handlePing(&v5wire.Ping{ENRSeq: 1}, remote.ID(), test.remoteaddr)
-        done <- struct{}{}
-    }()
-    test.waitPacketOut(func(p *v5wire.Pong, addr *net.UDPAddr, _ v5wire.Nonce) {
-        if len(p.ToIP) == net.IPv6len {
-            t.Error("Received untruncated ip address")
-        }
-        if len(p.ToIP) != net.IPv4len {
-            t.Errorf("Received ip address with incorrect length: %d", len(p.ToIP))
-        }
-        if !p.ToIP.Equal(rawIP) {
-            t.Errorf("Received incorrect ip address: wanted %s but received %s", rawIP.String(), p.ToIP.String())
-        }
-    })
-    <-done
+	// This handler will truncate the ipv4-mapped in ipv6 address.
+	go func() {
+		test.udp.handlePing(&v5wire.Ping{ENRSeq: 1}, remote.ID(), test.remoteaddr)
+		done <- struct{}{}
+	}()
+	test.waitPacketOut(func(p *v5wire.Pong, addr *net.UDPAddr, _ v5wire.Nonce) {
+		if len(p.ToIP) == net.IPv6len {
+			t.Error("Received untruncated ip address")
+		}
+		if len(p.ToIP) != net.IPv4len {
+			t.Errorf("Received ip address with incorrect length: %d", len(p.ToIP))
+		}
+		if !p.ToIP.Equal(rawIP) {
+			t.Errorf("Received incorrect ip address: wanted %s but received %s", rawIP.String(), p.ToIP.String())
+		}
+	})
+	<-done
 }
 
 // udpV5Test is the framework for all tests above.
 // It runs the UDPv5 transport on a virtual socket and allows testing outgoing packets.
 type udpV5Test struct {
-    t                   *testing.T
-    pipe                *dgramPipe
-    table               *Table
-    db                  *enode.DB
-    udp                 *UDPv5
-    localkey, remotekey *ecdsa.PrivateKey
+	t                   *testing.T
+	pipe                *dgramPipe
+	table               *Table
+	db                  *enode.DB
+	udp                 *UDPv5
+	localkey, remotekey *ecdsa.PrivateKey
 	remoteaddr          *net.UDPAddr
 	nodesByID           map[enode.ID]*enode.LocalNode
 	nodesByIP           map[string]*enode.LocalNode

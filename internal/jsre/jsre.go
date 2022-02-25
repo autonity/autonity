@@ -20,8 +20,8 @@ package jsre
 import (
 	crand "crypto/rand"
 	"encoding/binary"
-    "errors"
-    "fmt"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -223,32 +223,32 @@ loop:
 // Do executes the given function on the JS event loop.
 // When the runtime is stopped, fn will not execute.
 func (re *JSRE) Do(fn func(*goja.Runtime)) {
-    done := make(chan bool)
-    req := &evalReq{fn, done}
-    select {
-    case re.evalQueue <- req:
-        <-done
-    case <-re.closed:
-    }
+	done := make(chan bool)
+	req := &evalReq{fn, done}
+	select {
+	case re.evalQueue <- req:
+		<-done
+	case <-re.closed:
+	}
 }
 
 // Stop terminates the event loop, optionally waiting for all timers to expire.
 func (re *JSRE) Stop(waitForCallbacks bool) {
-    timeout := time.NewTimer(10 * time.Millisecond)
-    defer timeout.Stop()
+	timeout := time.NewTimer(10 * time.Millisecond)
+	defer timeout.Stop()
 
-    for {
-        select {
-        case <-re.closed:
-            return
-        case re.stopEventLoop <- waitForCallbacks:
-            <-re.closed
-            return
-        case <-timeout.C:
-            // JS is blocked, interrupt and try again.
-            re.vm.Interrupt(errors.New("JS runtime stopped"))
-        }
-    }
+	for {
+		select {
+		case <-re.closed:
+			return
+		case re.stopEventLoop <- waitForCallbacks:
+			<-re.closed
+			return
+		case <-timeout.C:
+			// JS is blocked, interrupt and try again.
+			re.vm.Interrupt(errors.New("JS runtime stopped"))
+		}
+	}
 }
 
 // Exec(file) loads and runs the contents of a file
@@ -287,38 +287,38 @@ func MakeCallback(vm *goja.Runtime, fn func(Call) (goja.Value, error)) goja.Valu
 // Evaluate executes code and pretty prints the result to the specified output stream.
 func (re *JSRE) Evaluate(code string, w io.Writer) {
 	re.Do(func(vm *goja.Runtime) {
-        val, err := vm.RunString(code)
-        if err != nil {
-            prettyError(vm, err, w)
-        } else {
-            prettyPrint(vm, val, w)
-        }
-        fmt.Fprintln(w)
-    })
+		val, err := vm.RunString(code)
+		if err != nil {
+			prettyError(vm, err, w)
+		} else {
+			prettyPrint(vm, val, w)
+		}
+		fmt.Fprintln(w)
+	})
 }
 
 // Interrupt stops the current JS evaluation.
 func (re *JSRE) Interrupt(v interface{}) {
-    done := make(chan bool)
-    noop := func(*goja.Runtime) {}
+	done := make(chan bool)
+	noop := func(*goja.Runtime) {}
 
-    select {
-    case re.evalQueue <- &evalReq{noop, done}:
-        // event loop is not blocked.
-    default:
-        re.vm.Interrupt(v)
-    }
+	select {
+	case re.evalQueue <- &evalReq{noop, done}:
+		// event loop is not blocked.
+	default:
+		re.vm.Interrupt(v)
+	}
 }
 
 // Compile compiles and then runs a piece of JS code.
 func (re *JSRE) Compile(filename string, src string) (err error) {
-    re.Do(func(vm *goja.Runtime) { _, err = compileAndRun(vm, filename, src) })
-    return err
+	re.Do(func(vm *goja.Runtime) { _, err = compileAndRun(vm, filename, src) })
+	return err
 }
 
 // loadScript loads and executes a JS file.
 func (re *JSRE) loadScript(call Call) (goja.Value, error) {
-    file := call.Argument(0).ToString().String()
+	file := call.Argument(0).ToString().String()
 	file = common.AbsolutePath(re.assetPath, file)
 	source, err := ioutil.ReadFile(file)
 	if err != nil {

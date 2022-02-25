@@ -23,5 +23,5 @@ import "reflect"
 
 // byteArrayBytes returns a slice of the byte array v.
 func byteArrayBytes(v reflect.Value, length int) []byte {
-    return v.Slice(0, length).Bytes()
+	return v.Slice(0, length).Bytes()
 }

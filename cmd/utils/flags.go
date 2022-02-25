@@ -20,10 +20,8 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	ethcatalyst "github.com/clearmatics/autonity/eth/catalyst"
 	"github.com/clearmatics/autonity/eth/ethconfig"
 	"github.com/clearmatics/autonity/eth/tracers"
-	lescatalyst "github.com/clearmatics/autonity/les/catalyst"
 	"io"
 	"io/ioutil"
 	"math"
@@ -43,7 +41,6 @@ import (
 	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/crypto"
 	"github.com/clearmatics/autonity/eth"
@@ -825,14 +822,6 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
-	case ctx.GlobalBool(RopstenFlag.Name):
-		urls = params.RopstenBootnodes
-	case ctx.GlobalBool(SepoliaFlag.Name):
-		urls = params.SepoliaBootnodes
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case ctx.GlobalBool(GoerliFlag.Name):
-		urls = params.GoerliBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1185,9 +1174,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}
-	if ctx.GlobalIsSet(DeveloperFlag.Name) {
-		cfg.UseLightweightKDF = true
-	}
 	if ctx.GlobalIsSet(LightKDFFlag.Name) {
 		cfg.UseLightweightKDF = ctx.GlobalBool(LightKDFFlag.Name)
 	}
@@ -1410,9 +1396,8 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Avoid conflicting network flags
-	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, RopstenFlag, RinkebyFlag, GoerliFlag, SepoliaFlag)
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
-	CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
+	CheckExclusive(ctx, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 	if ctx.GlobalString(GCModeFlag.Name) == "archive" && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
 		ctx.GlobalSet(TxLookupLimitFlag.Name, "0")
 		log.Warn("Disable transaction unindexing for archive node")
@@ -1541,95 +1526,97 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		}
 	}
 	// Override any default configs for hard coded networks.
-	switch {
-	case ctx.GlobalBool(MainnetFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 1
-		}
-		cfg.Genesis = core.DefaultGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
-	case ctx.GlobalBool(RopstenFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 3
-		}
-		cfg.Genesis = core.DefaultRopstenGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.RopstenGenesisHash)
-	case ctx.GlobalBool(SepoliaFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 11155111
-		}
-		cfg.Genesis = core.DefaultSepoliaGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.SepoliaGenesisHash)
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 4
-		}
-		cfg.Genesis = core.DefaultRinkebyGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.RinkebyGenesisHash)
-	case ctx.GlobalBool(GoerliFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 5
-		}
-		cfg.Genesis = core.DefaultGoerliGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.GoerliGenesisHash)
-	case ctx.GlobalBool(DeveloperFlag.Name):
-		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 1337
-		}
-		cfg.SyncMode = downloader.FullSync
-		// Create new developer account or reuse existing one
-		var (
-			developer  accounts.Account
-			passphrase string
-			err        error
-		)
-		if list := MakePasswordList(ctx); len(list) > 0 {
-			// Just take the first value. Although the function returns a possible multiple values and
-			// some usages iterate through them as attempts, that doesn't make sense in this setting,
-			// when we're definitely concerned with only one account.
-			passphrase = list[0]
-		}
-		// setEtherbase has been called above, configuring the miner address from command line flags.
-		if cfg.Miner.Etherbase != (common.Address{}) {
-			developer = accounts.Account{Address: cfg.Miner.Etherbase}
-		} else if accs := ks.Accounts(); len(accs) > 0 {
-			developer = ks.Accounts()[0]
-		} else {
-			developer, err = ks.NewAccount(passphrase)
-			if err != nil {
-				Fatalf("Failed to create developer account: %v", err)
+	/*
+		switch {
+		case ctx.GlobalBool(MainnetFlag.Name):
+			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+				cfg.NetworkId = 1
 			}
-		}
-		if err := ks.Unlock(developer, passphrase); err != nil {
-			Fatalf("Failed to unlock developer account: %v", err)
-		}
-		log.Info("Using developer account", "address", developer.Address)
-
-		// Create a new developer genesis block or reuse existing one
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), ctx.GlobalUint64(DeveloperGasLimitFlag.Name), developer.Address)
-		if ctx.GlobalIsSet(DataDirFlag.Name) {
-			// If datadir doesn't exist we need to open db in write-mode
-			// so leveldb can create files.
-			readonly := true
-			if !common.FileExist(stack.ResolvePath("chaindata")) {
-				readonly = false
-			}
-			// Check if we have an already initialized chain and fall back to
-			// that if so. Otherwise we need to generate a new genesis spec.
-			chaindb := MakeChainDatabase(ctx, stack, readonly)
-			if rawdb.ReadCanonicalHash(chaindb, 0) != (common.Hash{}) {
-				cfg.Genesis = nil // fallback to db content
-			}
-			chaindb.Close()
-		}
-		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) {
-			cfg.Miner.GasPrice = big.NewInt(1)
-		}
-	default:
-		if cfg.NetworkId == 1 {
+			cfg.Genesis = core.DefaultGenesisBlock()
 			SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
+		case ctx.GlobalBool(RopstenFlag.Name):
+			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+				cfg.NetworkId = 3
+			}
+			cfg.Genesis = core.DefaultRopstenGenesisBlock()
+			SetDNSDiscoveryDefaults(cfg, params.RopstenGenesisHash)
+		case ctx.GlobalBool(SepoliaFlag.Name):
+			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+				cfg.NetworkId = 11155111
+			}
+			cfg.Genesis = core.DefaultSepoliaGenesisBlock()
+			SetDNSDiscoveryDefaults(cfg, params.SepoliaGenesisHash)
+		case ctx.GlobalBool(RinkebyFlag.Name):
+			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+				cfg.NetworkId = 4
+			}
+			cfg.Genesis = core.DefaultRinkebyGenesisBlock()
+			SetDNSDiscoveryDefaults(cfg, params.RinkebyGenesisHash)
+		case ctx.GlobalBool(GoerliFlag.Name):
+			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+				cfg.NetworkId = 5
+			}
+			cfg.Genesis = core.DefaultGoerliGenesisBlock()
+			SetDNSDiscoveryDefaults(cfg, params.GoerliGenesisHash)
+		case ctx.GlobalBool(DeveloperFlag.Name):
+			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+				cfg.NetworkId = 1337
+			}
+			cfg.SyncMode = downloader.FullSync
+			// Create new developer account or reuse existing one
+			var (
+				developer  accounts.Account
+				passphrase string
+				err        error
+			)
+			if list := MakePasswordList(ctx); len(list) > 0 {
+				// Just take the first value. Although the function returns a possible multiple values and
+				// some usages iterate through them as attempts, that doesn't make sense in this setting,
+				// when we're definitely concerned with only one account.
+				passphrase = list[0]
+			}
+			// setEtherbase has been called above, configuring the miner address from command line flags.
+			if cfg.Miner.Etherbase != (common.Address{}) {
+				developer = accounts.Account{Address: cfg.Miner.Etherbase}
+			} else if accs := ks.Accounts(); len(accs) > 0 {
+				developer = ks.Accounts()[0]
+			} else {
+				developer, err = ks.NewAccount(passphrase)
+				if err != nil {
+					Fatalf("Failed to create developer account: %v", err)
+				}
+			}
+			if err := ks.Unlock(developer, passphrase); err != nil {
+				Fatalf("Failed to unlock developer account: %v", err)
+			}
+			log.Info("Using developer account", "address", developer.Address)
+
+			// Create a new developer genesis block or reuse existing one
+			cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), ctx.GlobalUint64(DeveloperGasLimitFlag.Name), developer.Address)
+			if ctx.GlobalIsSet(DataDirFlag.Name) {
+				// If datadir doesn't exist we need to open db in write-mode
+				// so leveldb can create files.
+				readonly := true
+				if !common.FileExist(stack.ResolvePath("chaindata")) {
+					readonly = false
+				}
+				// Check if we have an already initialized chain and fall back to
+				// that if so. Otherwise we need to generate a new genesis spec.
+				chaindb := MakeChainDatabase(ctx, stack, readonly)
+				if rawdb.ReadCanonicalHash(chaindb, 0) != (common.Hash{}) {
+					cfg.Genesis = nil // fallback to db content
+				}
+				chaindb.Close()
+			}
+			if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) {
+				cfg.Miner.GasPrice = big.NewInt(1)
+			}
+		default:
+			if cfg.NetworkId == 1 {
+				SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
+			}
 		}
-	}
+	*/
 }
 
 // SetDNSDiscoveryDefaults configures DNS discovery with the given URL if
@@ -1658,14 +1645,9 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 			Fatalf("Failed to register the Ethereum service: %v", err)
 		}
 		stack.RegisterAPIs(tracers.APIs(backend.ApiBackend))
-		if backend.BlockChain().Config().TerminalTotalDifficulty != nil {
-			if err := lescatalyst.Register(stack, backend); err != nil {
-				Fatalf("Failed to register the catalyst service: %v", err)
-			}
-		}
 		return backend.ApiBackend, nil
 	}
-	backend, err := eth.New(stack, cfg)
+	backend, err := eth.New(stack, cfg, nil)
 	if err != nil {
 		Fatalf("Failed to register the Ethereum service: %v", err)
 	}
@@ -1673,11 +1655,6 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 		_, err := les.NewLesServer(stack, backend, cfg)
 		if err != nil {
 			Fatalf("Failed to create the LES server: %v", err)
-		}
-	}
-	if backend.BlockChain().Config().TerminalTotalDifficulty != nil {
-		if err := ethcatalyst.Register(stack, backend); err != nil {
-			Fatalf("Failed to register the catalyst service: %v", err)
 		}
 	}
 	stack.RegisterAPIs(tracers.APIs(backend.APIBackend))
@@ -1798,22 +1775,24 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) ethdb.
 }
 
 func MakeGenesis(ctx *cli.Context) *core.Genesis {
-	var genesis *core.Genesis
-	switch {
-	case ctx.GlobalBool(MainnetFlag.Name):
-		genesis = core.DefaultGenesisBlock()
-	case ctx.GlobalBool(RopstenFlag.Name):
-		genesis = core.DefaultRopstenGenesisBlock()
-	case ctx.GlobalBool(SepoliaFlag.Name):
-		genesis = core.DefaultSepoliaGenesisBlock()
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		genesis = core.DefaultRinkebyGenesisBlock()
-	case ctx.GlobalBool(GoerliFlag.Name):
-		genesis = core.DefaultGoerliGenesisBlock()
-	case ctx.GlobalBool(DeveloperFlag.Name):
-		Fatalf("Developer chains are ephemeral")
-	}
-	return genesis
+	/*
+		var genesis *core.Genesis
+		switch {
+		case ctx.GlobalBool(MainnetFlag.Name):
+			genesis = core.DefaultGenesisBlock()
+		case ctx.GlobalBool(RopstenFlag.Name):
+			genesis = core.DefaultRopstenGenesisBlock()
+		case ctx.GlobalBool(SepoliaFlag.Name):
+			genesis = core.DefaultSepoliaGenesisBlock()
+		case ctx.GlobalBool(RinkebyFlag.Name):
+			genesis = core.DefaultRinkebyGenesisBlock()
+		case ctx.GlobalBool(GoerliFlag.Name):
+			genesis = core.DefaultGoerliGenesisBlock()
+		case ctx.GlobalBool(DeveloperFlag.Name):
+			Fatalf("Developer chains are ephemeral")
+		}
+	*/
+	return nil
 }
 
 // MakeChain creates a chain manager from set command line flags.
@@ -1825,23 +1804,21 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		Fatalf("%v", err)
 	}
 	var engine consensus.Engine
-	if config.Clique != nil {
-		engine = clique.New(config.Clique, chainDb)
-	} else {
-		engine = ethash.NewFaker()
-		if !ctx.GlobalBool(FakePoWFlag.Name) {
-			engine = ethash.New(ethash.Config{
-				CacheDir:         stack.ResolvePath(ethconfig.Defaults.Ethash.CacheDir),
-				CachesInMem:      ethconfig.Defaults.Ethash.CachesInMem,
-				CachesOnDisk:     ethconfig.Defaults.Ethash.CachesOnDisk,
-				CachesLockMmap:   ethconfig.Defaults.Ethash.CachesLockMmap,
-				DatasetDir:       stack.ResolvePath(ethconfig.Defaults.Ethash.DatasetDir),
-				DatasetsInMem:    ethconfig.Defaults.Ethash.DatasetsInMem,
-				DatasetsOnDisk:   ethconfig.Defaults.Ethash.DatasetsOnDisk,
-				DatasetsLockMmap: ethconfig.Defaults.Ethash.DatasetsLockMmap,
-			}, nil, false)
-		}
+
+	engine = ethash.NewFaker()
+	if !ctx.GlobalBool(FakePoWFlag.Name) {
+		engine = ethash.New(ethash.Config{
+			CacheDir:         stack.ResolvePath(ethconfig.Defaults.Ethash.CacheDir),
+			CachesInMem:      ethconfig.Defaults.Ethash.CachesInMem,
+			CachesOnDisk:     ethconfig.Defaults.Ethash.CachesOnDisk,
+			CachesLockMmap:   ethconfig.Defaults.Ethash.CachesLockMmap,
+			DatasetDir:       stack.ResolvePath(ethconfig.Defaults.Ethash.DatasetDir),
+			DatasetsInMem:    ethconfig.Defaults.Ethash.DatasetsInMem,
+			DatasetsOnDisk:   ethconfig.Defaults.Ethash.DatasetsOnDisk,
+			DatasetsLockMmap: ethconfig.Defaults.Ethash.DatasetsLockMmap,
+		}, nil, false)
 	}
+
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
@@ -1871,7 +1848,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 
 	// TODO(rjl493456442) disable snapshot generation/wiping if the chain is read only.
 	// Disable transaction indexing/unindexing by default.
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, nil)
+	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, &core.TxSenderCacher{}, nil)
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}

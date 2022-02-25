@@ -32,10 +32,8 @@ var (
 		Name:    "autonity",
 		Version: params.Version,
 		P2P: p2p.Config{
-			MaxPeers:              100,
-			DialHistoryExpiration: time.Millisecond,
+			MaxPeers: 100,
 		},
-		NoUSB:    true,
 		HTTPHost: "0.0.0.0",
 		WSHost:   "0.0.0.0",
 	}

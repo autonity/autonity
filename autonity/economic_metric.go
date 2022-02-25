@@ -64,11 +64,11 @@ const (
 
 // refer to autonity contract abt spec, keep in same meta.
 type EconomicMetaData struct {
-	Accounts        []common.Address `abi:"accounts"`
-	Usertypes       []uint8          `abi:"usertypes"`
-	Stakes          []*big.Int       `abi:"stakes"`
-	Mingasprice     *big.Int         `abi:"mingasprice"`
-	Stakesupply     *big.Int         `abi:"stakesupply"`
+	Accounts    []common.Address `abi:"accounts"`
+	Usertypes   []uint8          `abi:"usertypes"`
+	Stakes      []*big.Int       `abi:"stakes"`
+	Mingasprice *big.Int         `abi:"mingasprice"`
+	Stakesupply *big.Int         `abi:"stakesupply"`
 }
 
 // refer to autonity contract abi spec, keep in same meta.

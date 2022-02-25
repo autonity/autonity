@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts/abi"
 	"github.com/clearmatics/autonity/accounts/abi/bind"
 	"github.com/clearmatics/autonity/common"

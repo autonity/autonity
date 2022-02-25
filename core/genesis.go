@@ -22,6 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/accounts/abi"
+	"github.com/clearmatics/autonity/autonity"
+	"github.com/clearmatics/autonity/core/vm"
 	"math/big"
 	"sort"
 	"strings"
@@ -320,7 +323,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		return nil, err
 	}
 	root := statedb.IntermediateRoot(false)
-
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -353,25 +355,28 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
+	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil)), nil
 }
 
 func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
 
-	evmContext := vm.Context{
+	evmContext := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
 		GetHash:     func(n uint64) common.Hash { return common.Hash{} },
-		Origin:      autonity.Deployer,
 		Coinbase:    genesis.Coinbase,
 		BlockNumber: big.NewInt(0),
 		Time:        new(big.Int).SetUint64(genesis.Timestamp),
 		GasLimit:    genesis.GasLimit,
 		Difficulty:  genesis.Difficulty,
-		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
 
-	return vm.NewEVM(evmContext, statedb, genesis.Config, vm.Config{})
+	txContext := vm.TxContext{
+		Origin:   autonity.Deployer,
+		GasPrice: new(big.Int).SetUint64(0x0),
+	}
+
+	return vm.NewEVM(evmContext, txContext, statedb, genesis.Config, vm.Config{})
 }
 
 // Commit writes the block and state of a genesis specification to the database.

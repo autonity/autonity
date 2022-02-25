@@ -18,6 +18,7 @@ package core
 
 import (
 	"errors"
+	"github.com/clearmatics/autonity/autonity"
 	"math"
 	"math/big"
 	"sort"
@@ -269,6 +270,7 @@ type TxPool struct {
 	initDoneCh      chan struct{}  // is closed once the pool is initialized (for tests)
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
+	senderCacher      *TxSenderCacher
 }
 
 type txpoolResetRequest struct {

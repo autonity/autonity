@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"

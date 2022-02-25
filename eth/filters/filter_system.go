@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"

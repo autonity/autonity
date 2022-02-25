@@ -20,6 +20,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/autonity"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -662,7 +663,7 @@ func TestTransactionPostponing(t *testing.T) {
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	blockchain := &testBlockChain{1000000, statedb, new(event.Feed)}
 
-	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain)
+	pool := NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, &TxSenderCacher{})
 	defer pool.Stop()
 
 	// Create two test accounts to produce different gap profiles with
@@ -879,7 +880,7 @@ func testTransactionQueueGlobalLimiting(t *testing.T, nolocals bool) {
 	config.NoLocals = nolocals
 	config.GlobalQueue = config.AccountQueue*3 - 1 // reduce the queue limits to shorten test time (-1 to make it non divisible)
 
-	pool := NewTxPool(config, params.TestChainConfig, blockchain)
+	pool := NewTxPool(config, params.TestChainConfig, blockchain, &TxSenderCacher{})
 	defer pool.Stop()
 
 	// Create a number of test accounts and fund them (last one will be the local)
@@ -2333,7 +2334,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	pool.Stop()
 
 	statedb.SetNonce(crypto.PubkeyToAddress(local.PublicKey), 1)
-	blockchain = &testBlockChain{statedb, 1000000, new(event.Feed)}
+	blockchain = &testBlockChain{1000000, statedb, new(event.Feed)}
 	pool = NewTxPool(config, params.AutonityTestChainConfig, blockchain, NewTxSenderCacher())
 
 	pending, queued = pool.Stats()

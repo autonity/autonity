@@ -33,7 +33,6 @@ import (
 	"github.com/clearmatics/autonity/accounts/abi/bind/backends"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/consensus"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/contracts/checkpointoracle/contract"
 	"github.com/clearmatics/autonity/core"
@@ -240,7 +239,6 @@ func newTestClientHandler(backend *backends.SimulatedBackend, odr *LesOdr, index
 		engine:     engine,
 		blockchain: chain,
 		eventMux:   evmux,
-		merger:     consensus.NewMerger(rawdb.NewMemoryDatabase()),
 	}
 	client.handler = newClientHandler(ulcServers, ulcFraction, nil, client)
 
@@ -265,13 +263,14 @@ func newTestServerHandler(blocks int, indexers []*core.ChainIndexer, db ethdb.Da
 	)
 	genesis := gspec.MustCommit(db)
 
+	txSenderCacher := &core.TxSenderCacher{}
 	// create a simulation backend and pre-commit several customized block to the database.
-	simulation := backends.NewSimulatedBackendWithDatabase(db, gspec.Alloc, 100000000)
+	simulation := backends.NewSimulatedBackendWithDatabase(db, gspec.Alloc, 100000000, txSenderCacher)
 	prepare(blocks, simulation)
 
 	txpoolConfig := core.DefaultTxPoolConfig
 	txpoolConfig.Journal = ""
-	txpool := core.NewTxPool(txpoolConfig, gspec.Config, simulation.Blockchain())
+	txpool := core.NewTxPool(txpoolConfig, gspec.Config, simulation.Blockchain(), txSenderCacher)
 	if indexers != nil {
 		checkpointConfig := &params.CheckpointOracleConfig{
 			Address:   crypto.CreateAddress(bankAddr, 0),

@@ -36,17 +36,17 @@ import (
 
 // httpConfig is the JSON-RPC/HTTP configuration.
 type httpConfig struct {
-    Modules            []string
-    CorsAllowedOrigins []string
-    Vhosts             []string
-    prefix             string // path prefix on which to mount http handler
+	Modules            []string
+	CorsAllowedOrigins []string
+	Vhosts             []string
+	prefix             string // path prefix on which to mount http handler
 }
 
 // wsConfig is the JSON-RPC/Websocket configuration
 type wsConfig struct {
-    Origins []string
-    Modules []string
-    prefix  string // path prefix on which to mount ws handler
+	Origins []string
+	Modules []string
+	prefix  string // path prefix on which to mount ws handler
 }
 
 type rpcHandler struct {
@@ -134,34 +134,34 @@ func (h *httpServer) start() error {
 
 	// Start the server.
 	listener, err := net.Listen("tcp", h.endpoint)
-    if err != nil {
-        // If the server fails to start, we need to clear out the RPC and WS
-        // configuration so they can be configured another time.
-        h.disableRPC()
-        h.disableWS()
-        return err
-    }
-    h.listener = listener
-    go h.server.Serve(listener)
+	if err != nil {
+		// If the server fails to start, we need to clear out the RPC and WS
+		// configuration so they can be configured another time.
+		h.disableRPC()
+		h.disableWS()
+		return err
+	}
+	h.listener = listener
+	go h.server.Serve(listener)
 
-    if h.wsAllowed() {
-        url := fmt.Sprintf("ws://%v", listener.Addr())
-        if h.wsConfig.prefix != "" {
-            url += h.wsConfig.prefix
-        }
-        h.log.Info("WebSocket enabled", "url", url)
-    }
-    // if server is websocket only, return after logging
-    if !h.rpcAllowed() {
-        return nil
-    }
-    // Log http endpoint.
-    h.log.Info("HTTP server started",
-        "endpoint", listener.Addr(),
-        "prefix", h.httpConfig.prefix,
-        "cors", strings.Join(h.httpConfig.CorsAllowedOrigins, ","),
-        "vhosts", strings.Join(h.httpConfig.Vhosts, ","),
-    )
+	if h.wsAllowed() {
+		url := fmt.Sprintf("ws://%v", listener.Addr())
+		if h.wsConfig.prefix != "" {
+			url += h.wsConfig.prefix
+		}
+		h.log.Info("WebSocket enabled", "url", url)
+	}
+	// if server is websocket only, return after logging
+	if !h.rpcAllowed() {
+		return nil
+	}
+	// Log http endpoint.
+	h.log.Info("HTTP server started",
+		"endpoint", listener.Addr(),
+		"prefix", h.httpConfig.prefix,
+		"cors", strings.Join(h.httpConfig.CorsAllowedOrigins, ","),
+		"vhosts", strings.Join(h.httpConfig.Vhosts, ","),
+	)
 
 	// Log all handlers mounted on server.
 	var paths []string
@@ -181,67 +181,67 @@ func (h *httpServer) start() error {
 }
 
 func (h *httpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    // check if ws request and serve if ws enabled
-    ws := h.wsHandler.Load().(*rpcHandler)
-    if ws != nil && isWebsocket(r) {
-        if checkPath(r, h.wsConfig.prefix) {
-            ws.ServeHTTP(w, r)
-        }
-        return
-    }
-    // if http-rpc is enabled, try to serve request
-    rpc := h.httpHandler.Load().(*rpcHandler)
-    if rpc != nil {
-        // First try to route in the mux.
-        // Requests to a path below root are handled by the mux,
-        // which has all the handlers registered via Node.RegisterHandler.
-        // These are made available when RPC is enabled.
-        muxHandler, pattern := h.mux.Handler(r)
-        if pattern != "" {
-            muxHandler.ServeHTTP(w, r)
-            return
-        }
+	// check if ws request and serve if ws enabled
+	ws := h.wsHandler.Load().(*rpcHandler)
+	if ws != nil && isWebsocket(r) {
+		if checkPath(r, h.wsConfig.prefix) {
+			ws.ServeHTTP(w, r)
+		}
+		return
+	}
+	// if http-rpc is enabled, try to serve request
+	rpc := h.httpHandler.Load().(*rpcHandler)
+	if rpc != nil {
+		// First try to route in the mux.
+		// Requests to a path below root are handled by the mux,
+		// which has all the handlers registered via Node.RegisterHandler.
+		// These are made available when RPC is enabled.
+		muxHandler, pattern := h.mux.Handler(r)
+		if pattern != "" {
+			muxHandler.ServeHTTP(w, r)
+			return
+		}
 
-        if checkPath(r, h.httpConfig.prefix) {
-            rpc.ServeHTTP(w, r)
-            return
-        }
-    }
-    w.WriteHeader(http.StatusNotFound)
+		if checkPath(r, h.httpConfig.prefix) {
+			rpc.ServeHTTP(w, r)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNotFound)
 }
 
 // checkPath checks whether a given request URL matches a given path prefix.
 func checkPath(r *http.Request, path string) bool {
-    // if no prefix has been specified, request URL must be on root
-    if path == "" {
-        return r.URL.Path == "/"
-    }
-    // otherwise, check to make sure prefix matches
-    return len(r.URL.Path) >= len(path) && r.URL.Path[:len(path)] == path
+	// if no prefix has been specified, request URL must be on root
+	if path == "" {
+		return r.URL.Path == "/"
+	}
+	// otherwise, check to make sure prefix matches
+	return len(r.URL.Path) >= len(path) && r.URL.Path[:len(path)] == path
 }
 
 // validatePrefix checks if 'path' is a valid configuration value for the RPC prefix option.
 func validatePrefix(what, path string) error {
-    if path == "" {
-        return nil
-    }
-    if path[0] != '/' {
-        return fmt.Errorf(`%s RPC path prefix %q does not contain leading "/"`, what, path)
-    }
-    if strings.ContainsAny(path, "?#") {
-        // This is just to avoid confusion. While these would match correctly (i.e. they'd
-        // match if URL-escaped into path), it's not easy to understand for users when
-        // setting that on the command line.
-        return fmt.Errorf("%s RPC path prefix %q contains URL meta-characters", what, path)
-    }
-    return nil
+	if path == "" {
+		return nil
+	}
+	if path[0] != '/' {
+		return fmt.Errorf(`%s RPC path prefix %q does not contain leading "/"`, what, path)
+	}
+	if strings.ContainsAny(path, "?#") {
+		// This is just to avoid confusion. While these would match correctly (i.e. they'd
+		// match if URL-escaped into path), it's not easy to understand for users when
+		// setting that on the command line.
+		return fmt.Errorf("%s RPC path prefix %q contains URL meta-characters", what, path)
+	}
+	return nil
 }
 
 // stop shuts down the HTTP server.
 func (h *httpServer) stop() {
-    h.mu.Lock()
-    defer h.mu.Unlock()
-    h.doStop()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.doStop()
 }
 
 func (h *httpServer) doStop() {
@@ -250,8 +250,8 @@ func (h *httpServer) doStop() {
 	}
 
 	// Shut down the server.
-    httpHandler := h.httpHandler.Load().(*rpcHandler)
-    wsHandler := h.wsHandler.Load().(*rpcHandler)
+	httpHandler := h.httpHandler.Load().(*rpcHandler)
+	wsHandler := h.wsHandler.Load().(*rpcHandler)
 	if httpHandler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		httpHandler.server.Stop()
@@ -280,9 +280,9 @@ func (h *httpServer) enableRPC(apis []rpc.API, config httpConfig) error {
 
 	// Create RPC server and handler.
 	srv := rpc.NewServer()
-    if err := RegisterApis(apis, config.Modules, srv, false); err != nil {
-        return err
-    }
+	if err := RegisterApis(apis, config.Modules, srv, false); err != nil {
+		return err
+	}
 	h.httpConfig = config
 	h.httpHandler.Store(&rpcHandler{
 		Handler: NewHTTPHandlerStack(srv, config.CorsAllowedOrigins, config.Vhosts),
@@ -312,9 +312,9 @@ func (h *httpServer) enableWS(apis []rpc.API, config wsConfig) error {
 
 	// Create RPC server and handler.
 	srv := rpc.NewServer()
-    if err := RegisterApis(apis, config.Modules, srv, false); err != nil {
-        return err
-    }
+	if err := RegisterApis(apis, config.Modules, srv, false); err != nil {
+		return err
+	}
 	h.wsConfig = config
 	h.wsHandler.Store(&rpcHandler{
 		Handler: srv.WebsocketHandler(config.Origins),
@@ -493,7 +493,7 @@ func (is *ipcServer) start(apis []rpc.API) error {
 	}
 	listener, srv, err := rpc.StartIPCEndpoint(is.endpoint, apis)
 	if err != nil {
-        is.log.Warn("IPC opening failed", "url", is.endpoint, "error", err)
+		is.log.Warn("IPC opening failed", "url", is.endpoint, "error", err)
 		return err
 	}
 	is.log.Info("IPC endpoint opened", "url", is.endpoint)
@@ -518,21 +518,21 @@ func (is *ipcServer) stop() error {
 // RegisterApis checks the given modules' availability, generates an allowlist based on the allowed modules,
 // and then registers all of the APIs exposed by the services.
 func RegisterApis(apis []rpc.API, modules []string, srv *rpc.Server, exposeAll bool) error {
-    if bad, available := checkModuleAvailability(modules, apis); len(bad) > 0 {
-        log.Error("Unavailable modules in HTTP API list", "unavailable", bad, "available", available)
-    }
-    // Generate the allow list based on the allowed modules
-    allowList := make(map[string]bool)
-    for _, module := range modules {
-        allowList[module] = true
-    }
-    // Register all the APIs exposed by the services
-    for _, api := range apis {
-        if exposeAll || allowList[api.Namespace] || (len(allowList) == 0 && api.Public) {
-            if err := srv.RegisterName(api.Namespace, api.Service); err != nil {
-                return err
-            }
-        }
+	if bad, available := checkModuleAvailability(modules, apis); len(bad) > 0 {
+		log.Error("Unavailable modules in HTTP API list", "unavailable", bad, "available", available)
+	}
+	// Generate the allow list based on the allowed modules
+	allowList := make(map[string]bool)
+	for _, module := range modules {
+		allowList[module] = true
+	}
+	// Register all the APIs exposed by the services
+	for _, api := range apis {
+		if exposeAll || allowList[api.Namespace] || (len(allowList) == 0 && api.Public) {
+			if err := srv.RegisterName(api.Namespace, api.Service); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

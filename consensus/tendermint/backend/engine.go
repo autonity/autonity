@@ -334,7 +334,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 
-	statedb.Prepare(common.ACHash(header.Number), common.Hash{}, len(txs))
+	statedb.Prepare(common.ACHash(header.Number), len(txs))
 	committeeSet, receipt, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
 	if err != nil {
 		return nil, err

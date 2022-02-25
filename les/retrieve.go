@@ -143,34 +143,34 @@ func (rm *retrieveManager) sendReq(reqID uint64, req *distReq, val validatorFunc
 		r.lock.Lock()
 		r.sentTo[p] = sentReqToPeer{delivered: false, frozen: false, event: make(chan int, 1)}
 		r.lock.Unlock()
-        return request(p)
-    }
-    rm.lock.Lock()
-    rm.sentReqs[reqID] = r
-    rm.lock.Unlock()
+		return request(p)
+	}
+	rm.lock.Lock()
+	rm.sentReqs[reqID] = r
+	rm.lock.Unlock()
 
-    go r.retrieveLoop()
-    return r
+	go r.retrieveLoop()
+	return r
 }
 
 // requested reports whether the request with given reqid is sent by the retriever.
 func (rm *retrieveManager) requested(reqId uint64) bool {
-    rm.lock.RLock()
-    defer rm.lock.RUnlock()
+	rm.lock.RLock()
+	defer rm.lock.RUnlock()
 
-    _, ok := rm.sentReqs[reqId]
-    return ok
+	_, ok := rm.sentReqs[reqId]
+	return ok
 }
 
 // deliver is called by the LES protocol manager to deliver reply messages to waiting requests
 func (rm *retrieveManager) deliver(peer distPeer, msg *Msg) error {
-    rm.lock.RLock()
-    req, ok := rm.sentReqs[msg.ReqID]
-    rm.lock.RUnlock()
+	rm.lock.RLock()
+	req, ok := rm.sentReqs[msg.ReqID]
+	rm.lock.RUnlock()
 
-    if ok {
-        return req.deliver(peer, msg)
-    }
+	if ok {
+		return req.deliver(peer, msg)
+	}
 	return errResp(ErrUnexpectedResponse, "reqID = %v", msg.ReqID)
 }
 

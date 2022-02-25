@@ -71,10 +71,10 @@ func BenchmarkGenerator(b *testing.B) {
 				b.Fatalf("failed to create bloombit generator: %v", err)
 			}
 			for j, bloom := range &input {
-                if err := gen.AddBloom(uint(j), bloom); err != nil {
-                    b.Fatalf("bloom %d: failed to add: %v", i, err)
-                }
-            }
+				if err := gen.AddBloom(uint(j), bloom); err != nil {
+					b.Fatalf("bloom %d: failed to add: %v", i, err)
+				}
+			}
 		}
 	})
 	for i := 0; i < types.BloomBitLength; i++ {
@@ -89,11 +89,11 @@ func BenchmarkGenerator(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to create bloombit generator: %v", err)
 			}
-            for j, bloom := range &input {
-                if err := gen.AddBloom(uint(j), bloom); err != nil {
-                    b.Fatalf("bloom %d: failed to add: %v", i, err)
-                }
-            }
+			for j, bloom := range &input {
+				if err := gen.AddBloom(uint(j), bloom); err != nil {
+					b.Fatalf("bloom %d: failed to add: %v", i, err)
+				}
+			}
 		}
 	})
 }

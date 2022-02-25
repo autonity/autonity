@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
-    "errors"
-    "flag"
+	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -555,9 +555,9 @@ func (n *handshakeTestNode) expectDecode(t *testing.T, ptype byte, p []byte) Pac
 
 func (n *handshakeTestNode) expectDecodeErr(t *testing.T, wantErr error, p []byte) {
 	t.Helper()
-    if _, err := n.decode(p); !errors.Is(err, wantErr) {
-        t.Fatal(fmt.Errorf("(%s) got err %q, want %q", n.ln.ID().TerminalString(), err, wantErr))
-    }
+	if _, err := n.decode(p); !errors.Is(err, wantErr) {
+		t.Fatal(fmt.Errorf("(%s) got err %q, want %q", n.ln.ID().TerminalString(), err, wantErr))
+	}
 }
 
 func (n *handshakeTestNode) decode(input []byte) (Packet, error) {

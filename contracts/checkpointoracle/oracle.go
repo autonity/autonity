@@ -63,11 +63,11 @@ func (oracle *CheckpointOracle) LookupCheckpointEvents(blockLogs [][]*types.Log,
 		for _, log := range logs {
 			event, err := oracle.contract.ParseNewCheckpointVote(*log)
 			if err != nil {
-                continue
-            }
-            if event.Index == section && event.CheckpointHash == hash {
-                votes = append(votes, event)
-            }
+				continue
+			}
+			if event.Index == section && event.CheckpointHash == hash {
+				votes = append(votes, event)
+			}
 		}
 	}
 	return votes

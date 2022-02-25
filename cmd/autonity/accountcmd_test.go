@@ -18,6 +18,7 @@ package main
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -332,12 +333,12 @@ func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
 	dir, jsonFile := tmpDataDirWithGenesisFile(t)
 	defer os.RemoveAll(dir)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
-	autonity := runMinimalGeth(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystore(t),
+	autonity := runMinimalAutonity(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystoreAndGenesisFile(t),
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--keystore",
 		store, "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 
 	defer autonity.ExpectExit()
-	autonity := runAutonity(t,
+	autonity = runAutonity(t,
 		"--datadir", dir, "--genesis", jsonFile, "--keystore", store, "--nat", "none", "--nodiscover",
 		"--maxpeers", "0", "--port", "0", "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 	defer autonity.ExpectExit()

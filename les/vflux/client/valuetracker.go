@@ -43,22 +43,22 @@ var (
 
 // NodeValueTracker collects service value statistics for a specific server node
 type NodeValueTracker struct {
-    lock sync.Mutex
+	lock sync.Mutex
 
-    vt                   *ValueTracker
-    rtStats, lastRtStats ResponseTimeStats
-    lastTransfer         mclock.AbsTime
-    basket               serverBasket
-    reqCosts             []uint64
-    reqValues            []float64
+	vt                   *ValueTracker
+	rtStats, lastRtStats ResponseTimeStats
+	lastTransfer         mclock.AbsTime
+	basket               serverBasket
+	reqCosts             []uint64
+	reqValues            []float64
 }
 
 // UpdateCosts updates the node value tracker's request cost table
 func (nv *NodeValueTracker) UpdateCosts(reqCosts []uint64) {
-    nv.vt.lock.Lock()
-    defer nv.vt.lock.Unlock()
+	nv.vt.lock.Lock()
+	defer nv.vt.lock.Unlock()
 
-    nv.updateCosts(reqCosts, nv.vt.refBasket.reqValues, nv.vt.refBasket.reqValueFactor(reqCosts))
+	nv.updateCosts(reqCosts, nv.vt.refBasket.reqValues, nv.vt.refBasket.reqValueFactor(reqCosts))
 }
 
 // updateCosts updates the request cost table of the server. The request value factor
@@ -66,12 +66,12 @@ func (nv *NodeValueTracker) UpdateCosts(reqCosts []uint64) {
 // Note that the contents of the referenced reqValues slice will not change; a new
 // reference is passed if the values are updated by ValueTracker.
 func (nv *NodeValueTracker) updateCosts(reqCosts []uint64, reqValues []float64, rvFactor float64) {
-    nv.lock.Lock()
-    defer nv.lock.Unlock()
+	nv.lock.Lock()
+	defer nv.lock.Unlock()
 
-    nv.reqCosts = reqCosts
-    nv.reqValues = reqValues
-    nv.basket.updateRvFactor(rvFactor)
+	nv.reqCosts = reqCosts
+	nv.reqValues = reqValues
+	nv.basket.updateRvFactor(rvFactor)
 }
 
 // transferStats returns request basket and response time statistics that should be
@@ -85,44 +85,44 @@ func (nv *NodeValueTracker) transferStats(now mclock.AbsTime, transferRate float
 	defer nv.lock.Unlock()
 
 	dt := now - nv.lastTransfer
-    nv.lastTransfer = now
-    if dt < 0 {
-        dt = 0
-    }
-    recentRtStats := nv.rtStats
-    recentRtStats.SubStats(&nv.lastRtStats)
-    nv.lastRtStats = nv.rtStats
-    return nv.basket.transfer(-math.Expm1(-transferRate * float64(dt))), recentRtStats
+	nv.lastTransfer = now
+	if dt < 0 {
+		dt = 0
+	}
+	recentRtStats := nv.rtStats
+	recentRtStats.SubStats(&nv.lastRtStats)
+	nv.lastRtStats = nv.rtStats
+	return nv.basket.transfer(-math.Expm1(-transferRate * float64(dt))), recentRtStats
 }
 
 type ServedRequest struct {
-    ReqType, Amount uint32
+	ReqType, Amount uint32
 }
 
 // Served adds a served request to the node's statistics. An actual request may be composed
 // of one or more request types (service vector indices).
 func (nv *NodeValueTracker) Served(reqs []ServedRequest, respTime time.Duration) {
-    nv.vt.statsExpLock.RLock()
-    expFactor := nv.vt.statsExpFactor
-    nv.vt.statsExpLock.RUnlock()
+	nv.vt.statsExpLock.RLock()
+	expFactor := nv.vt.statsExpFactor
+	nv.vt.statsExpLock.RUnlock()
 
-    nv.lock.Lock()
-    defer nv.lock.Unlock()
+	nv.lock.Lock()
+	defer nv.lock.Unlock()
 
-    var value float64
-    for _, r := range reqs {
-        nv.basket.add(r.ReqType, r.Amount, nv.reqCosts[r.ReqType]*uint64(r.Amount), expFactor)
-        value += nv.reqValues[r.ReqType] * float64(r.Amount)
-    }
-    nv.rtStats.Add(respTime, value, expFactor)
+	var value float64
+	for _, r := range reqs {
+		nv.basket.add(r.ReqType, r.Amount, nv.reqCosts[r.ReqType]*uint64(r.Amount), expFactor)
+		value += nv.reqValues[r.ReqType] * float64(r.Amount)
+	}
+	nv.rtStats.Add(respTime, value, expFactor)
 }
 
 // RtStats returns the node's own response time distribution statistics
 func (nv *NodeValueTracker) RtStats() ResponseTimeStats {
-    nv.lock.Lock()
-    defer nv.lock.Unlock()
+	nv.lock.Lock()
+	defer nv.lock.Unlock()
 
-    return nv.rtStats
+	return nv.rtStats
 }
 
 // ValueTracker coordinates service value calculation for individual servers and updates
@@ -345,22 +345,22 @@ func (vt *ValueTracker) Stop() {
 
 // Register adds a server node to the value tracker
 func (vt *ValueTracker) Register(id enode.ID) *NodeValueTracker {
-    vt.lock.Lock()
-    defer vt.lock.Unlock()
+	vt.lock.Lock()
+	defer vt.lock.Unlock()
 
-    if vt.connected == nil {
-        // ValueTracker has already been stopped
-        return nil
-    }
-    nv := vt.loadOrNewNode(id)
-    reqTypeCount := len(vt.refBasket.reqValues)
-    nv.reqCosts = make([]uint64, reqTypeCount)
-    nv.lastTransfer = vt.clock.Now()
-    nv.reqValues = vt.refBasket.reqValues
-    nv.basket.init(reqTypeCount)
+	if vt.connected == nil {
+		// ValueTracker has already been stopped
+		return nil
+	}
+	nv := vt.loadOrNewNode(id)
+	reqTypeCount := len(vt.refBasket.reqValues)
+	nv.reqCosts = make([]uint64, reqTypeCount)
+	nv.lastTransfer = vt.clock.Now()
+	nv.reqValues = vt.refBasket.reqValues
+	nv.basket.init(reqTypeCount)
 
-    vt.connected[id] = nv
-    return nv
+	vt.connected[id] = nv
+	return nv
 }
 
 // Unregister removes a server node from the value tracker
@@ -389,8 +389,8 @@ func (vt *ValueTracker) loadOrNewNode(id enode.ID) *NodeValueTracker {
 	if nv, ok := vt.connected[id]; ok {
 		return nv
 	}
-    nv := &NodeValueTracker{vt: vt, lastTransfer: vt.clock.Now()}
-    enc, err := vt.db.Get(append(vtNodeKey, id[:]...))
+	nv := &NodeValueTracker{vt: vt, lastTransfer: vt.clock.Now()}
+	enc, err := vt.db.Get(append(vtNodeKey, id[:]...))
 	if err != nil {
 		return nv
 	}
@@ -476,7 +476,7 @@ func (vt *ValueTracker) periodicUpdate() {
 	vt.refBasket.normalize()
 	vt.refBasket.updateReqValues()
 	for _, nv := range vt.connected {
-        nv.updateCosts(nv.reqCosts, vt.refBasket.reqValues, vt.refBasket.reqValueFactor(nv.reqCosts))
+		nv.updateCosts(nv.reqCosts, vt.refBasket.reqValues, vt.refBasket.reqValueFactor(nv.reqCosts))
 	}
 	vt.saveToDb()
 }

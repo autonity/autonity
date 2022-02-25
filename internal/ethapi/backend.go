@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/accounts"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/core"

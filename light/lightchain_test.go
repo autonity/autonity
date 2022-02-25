@@ -18,8 +18,8 @@ package light
 
 import (
 	"context"
-    "errors"
-    "math/big"
+	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/clearmatics/autonity/common"
@@ -94,42 +94,42 @@ func testFork(t *testing.T, LightChain *LightChain, i, n int, comparator func(td
 	var hash1, hash2 common.Hash
 	hash1 = LightChain.GetHeaderByNumber(uint64(i)).Hash()
 	hash2 = LightChain2.GetHeaderByNumber(uint64(i)).Hash()
-    if hash1 != hash2 {
-        t.Errorf("chain content mismatch at %d: have hash %v, want hash %v", i, hash2, hash1)
-    }
-    // Extend the newly created chain
-    headerChainB := makeHeaderChain(LightChain2.CurrentHeader(), n, db, forkSeed)
-    if _, err := LightChain2.InsertHeaderChain(headerChainB, 1); err != nil {
-        t.Fatalf("failed to insert forking chain: %v", err)
-    }
-    // Sanity check that the forked chain can be imported into the original
-    var tdPre, tdPost *big.Int
-    cur := LightChain.CurrentHeader()
-    tdPre = LightChain.GetTd(cur.Hash(), cur.Number.Uint64())
-    if err := testHeaderChainImport(headerChainB, LightChain); err != nil {
-        t.Fatalf("failed to import forked header chain: %v", err)
-    }
-    last := headerChainB[len(headerChainB)-1]
-    tdPost = LightChain.GetTd(last.Hash(), last.Number.Uint64())
-    // Compare the total difficulties of the chains
-    comparator(tdPre, tdPost)
+	if hash1 != hash2 {
+		t.Errorf("chain content mismatch at %d: have hash %v, want hash %v", i, hash2, hash1)
+	}
+	// Extend the newly created chain
+	headerChainB := makeHeaderChain(LightChain2.CurrentHeader(), n, db, forkSeed)
+	if _, err := LightChain2.InsertHeaderChain(headerChainB, 1); err != nil {
+		t.Fatalf("failed to insert forking chain: %v", err)
+	}
+	// Sanity check that the forked chain can be imported into the original
+	var tdPre, tdPost *big.Int
+	cur := LightChain.CurrentHeader()
+	tdPre = LightChain.GetTd(cur.Hash(), cur.Number.Uint64())
+	if err := testHeaderChainImport(headerChainB, LightChain); err != nil {
+		t.Fatalf("failed to import forked header chain: %v", err)
+	}
+	last := headerChainB[len(headerChainB)-1]
+	tdPost = LightChain.GetTd(last.Hash(), last.Number.Uint64())
+	// Compare the total difficulties of the chains
+	comparator(tdPre, tdPost)
 }
 
 // testHeaderChainImport tries to process a chain of header, writing them into
 // the database if successful.
 func testHeaderChainImport(chain []*types.Header, lightchain *LightChain) error {
 	for _, header := range chain {
-        // Try and validate the header
-        if err := lightchain.engine.VerifyHeader(lightchain.hc, header, true); err != nil {
-            return err
-        }
-        // Manually insert the header into the database, but don't reorganize (allows subsequent testing)
-        lightchain.chainmu.Lock()
-        rawdb.WriteTd(lightchain.chainDb, header.Hash(), header.Number.Uint64(),
-            new(big.Int).Add(header.Difficulty, lightchain.GetTd(header.ParentHash, header.Number.Uint64()-1)))
-        rawdb.WriteHeader(lightchain.chainDb, header)
-        lightchain.chainmu.Unlock()
-    }
+		// Try and validate the header
+		if err := lightchain.engine.VerifyHeader(lightchain.hc, header, true); err != nil {
+			return err
+		}
+		// Manually insert the header into the database, but don't reorganize (allows subsequent testing)
+		lightchain.chainmu.Lock()
+		rawdb.WriteTd(lightchain.chainDb, header.Hash(), header.Number.Uint64(),
+			new(big.Int).Add(header.Difficulty, lightchain.GetTd(header.ParentHash, header.Number.Uint64()-1)))
+		rawdb.WriteHeader(lightchain.chainDb, header)
+		lightchain.chainmu.Unlock()
+	}
 	return nil
 }
 
@@ -311,22 +311,22 @@ func testReorg(t *testing.T, first, second []int, td int64) {
 	}
 	// Make sure the chain total difficulty is the correct one
 	want := new(big.Int).Add(bc.genesisBlock.Difficulty(), big.NewInt(td))
-    if have := bc.GetTd(bc.CurrentHeader().Hash(), bc.CurrentHeader().Number.Uint64()); have.Cmp(want) != 0 {
-        t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
-    }
+	if have := bc.GetTd(bc.CurrentHeader().Hash(), bc.CurrentHeader().Number.Uint64()); have.Cmp(want) != 0 {
+		t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
+	}
 }
 
 // Tests that the insertion functions detect banned hashes.
 func TestBadHeaderHashes(t *testing.T) {
-    bc := newTestLightChain()
+	bc := newTestLightChain()
 
-    // Create a chain, ban a hash and try to import
-    var err error
-    headers := makeHeaderChainWithDiff(bc.genesisBlock, []int{1, 2, 4}, 10)
-    core.BadHashes[headers[2].Hash()] = true
-    if _, err = bc.InsertHeaderChain(headers, 1); !errors.Is(err, core.ErrBannedHash) {
-        t.Errorf("error mismatch: have: %v, want %v", err, core.ErrBannedHash)
-    }
+	// Create a chain, ban a hash and try to import
+	var err error
+	headers := makeHeaderChainWithDiff(bc.genesisBlock, []int{1, 2, 4}, 10)
+	core.BadHashes[headers[2].Hash()] = true
+	if _, err = bc.InsertHeaderChain(headers, 1); !errors.Is(err, core.ErrBannedHash) {
+		t.Errorf("error mismatch: have: %v, want %v", err, core.ErrBannedHash)
+	}
 }
 
 // Tests that bad hashes are detected on boot, and the chan rolled back to a

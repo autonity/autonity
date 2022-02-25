@@ -20,6 +20,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/clearmatics/autonity"
 	"github.com/clearmatics/autonity/event"
 	"github.com/clearmatics/autonity/rpc"
 )

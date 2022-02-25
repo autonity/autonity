@@ -262,32 +262,32 @@ func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrErr
 func accountCreate(ctx *cli.Context) error {
 	cfg := autonityConfig{Node: defaultNodeConfig()}
 	// Load config file.
-    if file := ctx.GlobalString(configFileFlag.Name); file != "" {
-        if err := loadConfig(file, &cfg); err != nil {
-            utils.Fatalf("%v", err)
-        }
-    }
-    utils.SetNodeConfig(ctx, &cfg.Node)
-    keydir, err := cfg.Node.KeyDirConfig()
-    if err != nil {
-        utils.Fatalf("Failed to read configuration: %v", err)
-    }
-    scryptN := keystore.StandardScryptN
-    scryptP := keystore.StandardScryptP
-    if cfg.Node.UseLightweightKDF {
-        scryptN = keystore.LightScryptN
-        scryptP = keystore.LightScryptP
-    }
+	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
+		if err := loadConfig(file, &cfg); err != nil {
+			utils.Fatalf("%v", err)
+		}
+	}
+	utils.SetNodeConfig(ctx, &cfg.Node)
+	keydir, err := cfg.Node.KeyDirConfig()
+	if err != nil {
+		utils.Fatalf("Failed to read configuration: %v", err)
+	}
+	scryptN := keystore.StandardScryptN
+	scryptP := keystore.StandardScryptP
+	if cfg.Node.UseLightweightKDF {
+		scryptN = keystore.LightScryptN
+		scryptP = keystore.LightScryptP
+	}
 
-    password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
+	password := utils.GetPassPhraseWithList("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
 
-    account, err := keystore.StoreKey(keydir, password, scryptN, scryptP)
+	account, err := keystore.StoreKey(keydir, password, scryptN, scryptP)
 
-    if err != nil {
-        utils.Fatalf("Failed to create account: %v", err)
-    }
-    fmt.Printf("\nYour new key was generated\n\n")
-    fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
+	if err != nil {
+		utils.Fatalf("Failed to create account: %v", err)
+	}
+	fmt.Printf("\nYour new key was generated\n\n")
+	fmt.Printf("Public address of the key:   %s\n", account.Address.Hex())
 	fmt.Printf("Path of the secret key file: %s\n\n", account.URL.Path)
 	fmt.Printf("- You can share your public address with anyone. Others need it to interact with you.\n")
 	fmt.Printf("- You must NEVER share the secret key with anyone! The key controls access to your funds!\n")

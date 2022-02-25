@@ -18,8 +18,8 @@ package rpc
 
 import (
 	"encoding/json"
-    "reflect"
-    "testing"
+	"reflect"
+	"testing"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
@@ -114,42 +114,42 @@ func TestBlockNumberOrHash_UnmarshalJSON(t *testing.T) {
 		}
 		hash, hashOk := bnh.Hash()
 		expectedHash, expectedHashOk := test.expected.Hash()
-        num, numOk := bnh.Number()
-        expectedNum, expectedNumOk := test.expected.Number()
-        if bnh.RequireCanonical != test.expected.RequireCanonical ||
-            hash != expectedHash || hashOk != expectedHashOk ||
-            num != expectedNum || numOk != expectedNumOk {
-            t.Errorf("Test %d got unexpected value, want %v, got %v", i, test.expected, bnh)
-        }
-    }
+		num, numOk := bnh.Number()
+		expectedNum, expectedNumOk := test.expected.Number()
+		if bnh.RequireCanonical != test.expected.RequireCanonical ||
+			hash != expectedHash || hashOk != expectedHashOk ||
+			num != expectedNum || numOk != expectedNumOk {
+			t.Errorf("Test %d got unexpected value, want %v, got %v", i, test.expected, bnh)
+		}
+	}
 }
 
 func TestBlockNumberOrHash_WithNumber_MarshalAndUnmarshal(t *testing.T) {
-    tests := []struct {
-        name   string
-        number int64
-    }{
-        {"max", math.MaxInt64},
-        {"pending", int64(PendingBlockNumber)},
-        {"latest", int64(LatestBlockNumber)},
-        {"earliest", int64(EarliestBlockNumber)},
-    }
-    for _, test := range tests {
-        test := test
-        t.Run(test.name, func(t *testing.T) {
-            bnh := BlockNumberOrHashWithNumber(BlockNumber(test.number))
-            marshalled, err := json.Marshal(bnh)
-            if err != nil {
-                t.Fatal("cannot marshal:", err)
-            }
-            var unmarshalled BlockNumberOrHash
-            err = json.Unmarshal(marshalled, &unmarshalled)
-            if err != nil {
-                t.Fatal("cannot unmarshal:", err)
-            }
-            if !reflect.DeepEqual(bnh, unmarshalled) {
-                t.Fatalf("wrong result: expected %v, got %v", bnh, unmarshalled)
-            }
-        })
-    }
+	tests := []struct {
+		name   string
+		number int64
+	}{
+		{"max", math.MaxInt64},
+		{"pending", int64(PendingBlockNumber)},
+		{"latest", int64(LatestBlockNumber)},
+		{"earliest", int64(EarliestBlockNumber)},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			bnh := BlockNumberOrHashWithNumber(BlockNumber(test.number))
+			marshalled, err := json.Marshal(bnh)
+			if err != nil {
+				t.Fatal("cannot marshal:", err)
+			}
+			var unmarshalled BlockNumberOrHash
+			err = json.Unmarshal(marshalled, &unmarshalled)
+			if err != nil {
+				t.Fatal("cannot unmarshal:", err)
+			}
+			if !reflect.DeepEqual(bnh, unmarshalled) {
+				t.Fatalf("wrong result: expected %v, got %v", bnh, unmarshalled)
+			}
+		})
+	}
 }

@@ -147,7 +147,7 @@ func (c *Contract) GetOp(n uint64) OpCode {
 		return OpCode(c.Code[n])
 	}
 
-    return STOP
+	return STOP
 }
 
 // Caller returns the caller of the contract.

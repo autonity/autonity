@@ -17,7 +17,7 @@
 package vm
 
 func memoryKeccak256(stack *Stack) (uint64, bool) {
-    return calcMemSize64(stack.Back(0), stack.Back(1))
+	return calcMemSize64(stack.Back(0), stack.Back(1))
 }
 
 func memoryCallDataCopy(stack *Stack) (uint64, bool) {

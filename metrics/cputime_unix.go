@@ -20,9 +20,9 @@
 package metrics
 
 import (
-    syscall "golang.org/x/sys/unix"
+	syscall "golang.org/x/sys/unix"
 
-    "github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/log"
 )
 
 // getProcessCPUTime retrieves the process' CPU time since program startup.

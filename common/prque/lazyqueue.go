@@ -48,22 +48,22 @@ type LazyQueue struct {
 }
 
 type (
-    PriorityCallback    func(data interface{}) int64                       // actual priority callback
-    MaxPriorityCallback func(data interface{}, until mclock.AbsTime) int64 // estimated maximum priority callback
+	PriorityCallback    func(data interface{}) int64                       // actual priority callback
+	MaxPriorityCallback func(data interface{}, until mclock.AbsTime) int64 // estimated maximum priority callback
 )
 
 // NewLazyQueue creates a new lazy queue
 func NewLazyQueue(setIndex SetIndexCallback, priority PriorityCallback, maxPriority MaxPriorityCallback, clock mclock.Clock, refreshPeriod time.Duration) *LazyQueue {
 	q := &LazyQueue{
-        popQueue:     newSstack(nil, false),
-        setIndex:     setIndex,
-        priority:     priority,
-        maxPriority:  maxPriority,
-        clock:        clock,
-        period:       refreshPeriod,
-        lastRefresh1: clock.Now(),
-        lastRefresh2: clock.Now(),
-    }
+		popQueue:     newSstack(nil, false),
+		setIndex:     setIndex,
+		priority:     priority,
+		maxPriority:  maxPriority,
+		clock:        clock,
+		period:       refreshPeriod,
+		lastRefresh1: clock.Now(),
+		lastRefresh2: clock.Now(),
+	}
 	q.Reset()
 	q.refresh(clock.Now())
 	return q
@@ -71,8 +71,8 @@ func NewLazyQueue(setIndex SetIndexCallback, priority PriorityCallback, maxPrior
 
 // Reset clears the contents of the queue
 func (q *LazyQueue) Reset() {
-    q.queue[0] = newSstack(q.setIndex0, false)
-    q.queue[1] = newSstack(q.setIndex1, false)
+	q.queue[0] = newSstack(q.setIndex0, false)
+	q.queue[1] = newSstack(q.setIndex1, false)
 }
 
 // Refresh performs queue re-evaluation if necessary
@@ -141,8 +141,8 @@ func (q *LazyQueue) peekIndex() int {
 func (q *LazyQueue) MultiPop(callback func(data interface{}, priority int64) bool) {
 	nextIndex := q.peekIndex()
 	for nextIndex != -1 {
-        data := heap.Pop(q.queue[nextIndex]).(*item).value
-        heap.Push(q.popQueue, &item{data, q.priority(data)})
+		data := heap.Pop(q.queue[nextIndex]).(*item).value
+		heap.Push(q.popQueue, &item{data, q.priority(data)})
 		nextIndex = q.peekIndex()
 		for q.popQueue.Len() != 0 && (nextIndex == -1 || q.queue[nextIndex].blocks[0][0].priority < q.popQueue.blocks[0][0].priority) {
 			i := heap.Pop(q.popQueue).(*item)

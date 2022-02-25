@@ -78,6 +78,18 @@ var genesis = `{
 			}
 		}`
 
+// spawns geth with the given command line args, using a set of flags to minimise
+// memory and disk IO. If the args don't set --datadir, the
+// child g gets a temporary data directory.
+func runMinimalAutonity(t *testing.T, args ...string) *testautonity {
+	// --ropsten to make the 'writing genesis to disk' faster (no accounts)
+	// --networkid=1337 to avoid cache bump
+	// --syncmode=full to avoid allocating fast sync bloom
+	allArgs := []string{"--syncmode=full", "--port", "0",
+		"--nat", "none", "--nodiscover", "--maxpeers", "0", "--cache", "64"}
+	return runAutonity(t, append(allArgs, args...)...)
+}
+
 func tmpGenesisFile(t *testing.T, dir string) string {
 	genesisFile := filepath.Join(dir, "genesis.json")
 	if err := ioutil.WriteFile(genesisFile, []byte(genesis), 0600); err != nil {

@@ -98,69 +98,69 @@ type NodeConfig struct {
 	DataDir string
 
 	// Lifecycles are the names of the service lifecycles which should be run when
-    // starting the node (for SimNodes it should be the names of service lifecycles
-    // contained in SimAdapter.lifecycles, for other nodes it should be
-    // service lifecycles registered by calling the RegisterLifecycle function)
-    Lifecycles []string
+	// starting the node (for SimNodes it should be the names of service lifecycles
+	// contained in SimAdapter.lifecycles, for other nodes it should be
+	// service lifecycles registered by calling the RegisterLifecycle function)
+	Lifecycles []string
 
-    // Properties are the names of the properties this node should hold
-    // within running services (e.g. "bootnode", "lightnode" or any custom values)
-    // These values need to be checked and acted upon by node Services
-    Properties []string
+	// Properties are the names of the properties this node should hold
+	// within running services (e.g. "bootnode", "lightnode" or any custom values)
+	// These values need to be checked and acted upon by node Services
+	Properties []string
 
-    // ExternalSigner specifies an external URI for a clef-type signer
-    ExternalSigner string
+	// ExternalSigner specifies an external URI for a clef-type signer
+	ExternalSigner string
 
-    // Enode
-    node *enode.Node
+	// Enode
+	node *enode.Node
 
-    // ENR Record with entries to overwrite
-    Record enr.Record
+	// ENR Record with entries to overwrite
+	Record enr.Record
 
-    // function to sanction or prevent suggesting a peer
-    Reachable func(id enode.ID) bool
+	// function to sanction or prevent suggesting a peer
+	Reachable func(id enode.ID) bool
 
-    Port uint16
+	Port uint16
 
-    // LogFile is the log file name of the p2p node at runtime.
-    //
-    // The default value is empty so that the default log writer
-    // is the system standard output.
-    LogFile string
+	// LogFile is the log file name of the p2p node at runtime.
+	//
+	// The default value is empty so that the default log writer
+	// is the system standard output.
+	LogFile string
 
-    // LogVerbosity is the log verbosity of the p2p node at runtime.
-    //
-    // The default verbosity is INFO.
-    LogVerbosity log.Lvl
+	// LogVerbosity is the log verbosity of the p2p node at runtime.
+	//
+	// The default verbosity is INFO.
+	LogVerbosity log.Lvl
 }
 
 // nodeConfigJSON is used to encode and decode NodeConfig as JSON by encoding
 // all fields as strings
 type nodeConfigJSON struct {
-    ID              string   `json:"id"`
-    PrivateKey      string   `json:"private_key"`
-    Name            string   `json:"name"`
-    Lifecycles      []string `json:"lifecycles"`
-    Properties      []string `json:"properties"`
-    EnableMsgEvents bool     `json:"enable_msg_events"`
-    Port            uint16   `json:"port"`
-    LogFile         string   `json:"logfile"`
-    LogVerbosity    int      `json:"log_verbosity"`
+	ID              string   `json:"id"`
+	PrivateKey      string   `json:"private_key"`
+	Name            string   `json:"name"`
+	Lifecycles      []string `json:"lifecycles"`
+	Properties      []string `json:"properties"`
+	EnableMsgEvents bool     `json:"enable_msg_events"`
+	Port            uint16   `json:"port"`
+	LogFile         string   `json:"logfile"`
+	LogVerbosity    int      `json:"log_verbosity"`
 }
 
 // MarshalJSON implements the json.Marshaler interface by encoding the config
 // fields as strings
 func (n *NodeConfig) MarshalJSON() ([]byte, error) {
 	confJSON := nodeConfigJSON{
-        ID:              n.ID.String(),
-        Name:            n.Name,
-        Lifecycles:      n.Lifecycles,
-        Properties:      n.Properties,
-        Port:            n.Port,
-        EnableMsgEvents: n.EnableMsgEvents,
-        LogFile:         n.LogFile,
-        LogVerbosity:    int(n.LogVerbosity),
-    }
+		ID:              n.ID.String(),
+		Name:            n.Name,
+		Lifecycles:      n.Lifecycles,
+		Properties:      n.Properties,
+		Port:            n.Port,
+		EnableMsgEvents: n.EnableMsgEvents,
+		LogFile:         n.LogFile,
+		LogVerbosity:    int(n.LogVerbosity),
+	}
 	if n.PrivateKey != nil {
 		confJSON.PrivateKey = hex.EncodeToString(crypto.FromECDSA(n.PrivateKey))
 	}
@@ -188,20 +188,20 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) error {
 		}
 		privKey, err := crypto.ToECDSA(key)
 		if err != nil {
-            return err
-        }
-        n.PrivateKey = privKey
-    }
+			return err
+		}
+		n.PrivateKey = privKey
+	}
 
-    n.Name = confJSON.Name
-    n.Lifecycles = confJSON.Lifecycles
-    n.Properties = confJSON.Properties
-    n.Port = confJSON.Port
-    n.EnableMsgEvents = confJSON.EnableMsgEvents
-    n.LogFile = confJSON.LogFile
-    n.LogVerbosity = log.Lvl(confJSON.LogVerbosity)
+	n.Name = confJSON.Name
+	n.Lifecycles = confJSON.Lifecycles
+	n.Properties = confJSON.Properties
+	n.Port = confJSON.Port
+	n.EnableMsgEvents = confJSON.EnableMsgEvents
+	n.LogFile = confJSON.LogFile
+	n.LogVerbosity = log.Lvl(confJSON.LogVerbosity)
 
-    return nil
+	return nil
 }
 
 // Node returns the node descriptor represented by the config.
@@ -224,13 +224,13 @@ func RandomNodeConfig() *NodeConfig {
 
 	enodId := enode.PubkeyToIDV4(&prvkey.PublicKey)
 	return &NodeConfig{
-        PrivateKey:      prvkey,
-        ID:              enodId,
-        Name:            fmt.Sprintf("node_%s", enodId.String()),
-        Port:            port,
-        EnableMsgEvents: true,
-        LogVerbosity:    log.LvlInfo,
-    }
+		PrivateKey:      prvkey,
+		ID:              enodId,
+		Name:            fmt.Sprintf("node_%s", enodId.String()),
+		Port:            port,
+		EnableMsgEvents: true,
+		LogVerbosity:    log.LvlInfo,
+	}
 }
 
 func assignTCPPort() (uint16, error) {
@@ -243,7 +243,7 @@ func assignTCPPort() (uint16, error) {
 	if err != nil {
 		return 0, err
 	}
-    p, err := strconv.ParseUint(port, 10, 16)
+	p, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
 		return 0, err
 	}
