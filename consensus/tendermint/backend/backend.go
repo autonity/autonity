@@ -331,6 +331,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal
 		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
+			sb.logger.Error("block proposed, bad root state", err)
 			return 0, err
 		}
 

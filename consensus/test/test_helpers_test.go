@@ -21,7 +21,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -126,28 +125,8 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 		})
 	}
 
-	//generate one sh
-	shKey, err := keygenerator.Next()
-	if err != nil {
-		log.Error("Make genesis error", "err", err)
-	}
-
-	stakeNode, err := newNode(shKey, stakeholderName)
-	if err != nil {
-		log.Error("Make genesis error while adding a stakeholder", "err", err)
-	}
-
-	address := crypto.PubkeyToAddress(shKey.PublicKey)
-	stakeHolder := params.Validator{
-		Address:     &address,
-		Enode:       stakeNode.url,
-		Treasury:    &common.Address{},
-		BondedStake: big.NewInt(200),
-	}
-
-	validators = append(validators, &stakeHolder)
 	genesis.Config.AutonityContractConfig.Validators = validators
-	err = genesis.Config.AutonityContractConfig.Prepare()
+	err := genesis.Config.AutonityContractConfig.Prepare()
 	require.NoError(t, err)
 	return genesis
 }
@@ -171,6 +150,7 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 			MaxPeers:    25,
 			PrivateKey:  nodekey,
 		},
+		NoUSB: true,
 	}
 	configNode.HTTPHost = "127.0.0.1"
 	configNode.HTTPPort = rpcPort

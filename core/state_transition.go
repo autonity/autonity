@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/autonity"
 	"math"
 	"math/big"
 
@@ -337,17 +338,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		effectiveTip = cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 	}
 	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
+	st.state.AddBalance(autonity.ContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
 
-	/*
-		Autonity Contract Logic
-		st.refundGas()
-		address := st.evm.Coinbase
-
-		if st.evm.ChainConfig().AutonityContractConfig != nil && st.evm.ChainConfig().Tendermint != nil {
-			address = autonity.ContractAddress
-		}
-		st.state.AddBalance(address, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-	*/
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),
 		Err:        vmerr,

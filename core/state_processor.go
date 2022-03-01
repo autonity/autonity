@@ -19,6 +19,7 @@ package core
 import (
 	"fmt"
 	"github.com/clearmatics/autonity/autonity"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -78,6 +79,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number), header.BaseFee)
@@ -93,8 +95,18 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+	statedb.Prepare(common.ACHash(block.Number()), len(block.Transactions()))
 
+	_, receipt, err := p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+	if err != nil {
+		log.Error("could not finalize block", err)
+		return nil, nil, 0, err
+	}
+
+	if receipt != nil {
+		receipts = append(receipts, receipt)
+		allLogs = append(allLogs, receipt.Logs...)
+	}
 	return receipts, allLogs, *usedGas, nil
 }
 

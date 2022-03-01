@@ -108,8 +108,8 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 		return nil, nil, nil
 	}
 	blockGas := new(big.Int)
-	for i, tx := range transactions {
-		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
+	for i := range transactions {
+		blockGas.Add(blockGas, new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
 
 	log.Debug("Finalizing block",
