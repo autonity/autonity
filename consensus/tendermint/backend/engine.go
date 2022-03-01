@@ -17,10 +17,11 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/misc"
+	"github.com/clearmatics/autonity/params"
 	"math/big"
 	"time"
 
@@ -93,13 +94,13 @@ func (sb *Backend) Author(header *types.Header) (common.Address, error) {
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
 func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, _ bool) error {
-	return sb.verifyHeader(header, chain.GetHeaderByHash(header.ParentHash))
+	return sb.verifyHeader(chain, header, chain.GetHeaderByHash(header.ParentHash))
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It
 // expects the parent header to be provided unless header is the genesis
 // header.
-func (sb *Backend) verifyHeader(header, parent *types.Header) error {
+func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -112,7 +113,7 @@ func (sb *Backend) verifyHeader(header, parent *types.Header) error {
 	}
 
 	// Ensure that the coinbase is valid
-	if header.Nonce != (emptyNonce) && !bytes.Equal(header.Nonce[:], nonceAuthVote) && !bytes.Equal(header.Nonce[:], nonceDropVote) {
+	if header.Nonce != emptyNonce {
 		return errInvalidNonce
 	}
 	// Ensure that the mix digest is zero as we don't have fork protection currently
@@ -126,6 +127,23 @@ func (sb *Backend) verifyHeader(header, parent *types.Header) error {
 	// Ensure that the block's difficulty is meaningful (may not be correct at this point)
 	if header.Difficulty == nil || header.Difficulty.Cmp(defaultDifficulty) != 0 {
 		return errInvalidDifficulty
+	}
+	// Verify that the gas limit is <= 2^63-1
+	if header.GasLimit > params.MaxGasLimit {
+		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, params.MaxGasLimit)
+	}
+	// Verify that the gasUsed is <= gasLimit
+	if header.GasUsed > header.GasLimit {
+		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
+	}
+
+	if header.BaseFee != nil {
+		return fmt.Errorf("invalid baseFee before fork: have %d, expected 'nil'", header.BaseFee)
+	}
+
+	if err := misc.VerifyEip1559Header(chain.Config(), parent, header); err != nil {
+		// Verify the header's EIP-1559 attributes.
+		return err
 	}
 
 	// If this is the genesis block there is no further verification to be
@@ -172,7 +190,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			case i == 0:
 				parent = chain.GetHeaderByHash(header.ParentHash)
 			}
-			err := sb.verifyHeader(header, parent)
+			err := sb.verifyHeader(chain, header, parent)
 			select {
 			case <-abort:
 				return
