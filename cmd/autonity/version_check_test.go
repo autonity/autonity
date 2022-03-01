@@ -19,6 +19,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jedisct1/go-minisign"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"

@@ -175,15 +175,13 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,
 		gasPrice:          config.Miner.GasPrice,
-		etherbase:         config.Miner.Etherbase,
+		etherbase:         crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey),
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 		chainHeadCh:       make(chan core.ChainHeadEvent),
 	}
-
-	eth.etherbase = crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey)
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
@@ -381,18 +379,6 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 	if etherbase != (common.Address{}) {
 		return etherbase, nil
 	}
-	if wallets := s.AccountManager().Wallets(); len(wallets) > 0 {
-		if accounts := wallets[0].Accounts(); len(accounts) > 0 {
-			etherbase := accounts[0].Address
-
-			s.lock.Lock()
-			s.etherbase = etherbase
-			s.lock.Unlock()
-
-			log.Info("Etherbase automatically configured", "address", etherbase)
-			return etherbase, nil
-		}
-	}
 	return common.Address{}, fmt.Errorf("etherbase must be explicitly specified")
 }
 
@@ -447,20 +433,6 @@ func (s *Ethereum) shouldPreserve(header *types.Header) bool {
 	return s.isLocalBlock(header)
 }
 
-// SetEtherbase sets the mining reward address.
-func (s *Ethereum) SetEtherbase(etherbase common.Address) {
-	if _, ok := s.engine.(consensus.BFT); ok {
-		log.Error("Cannot set etherbase in BFT consensus")
-		return
-	}
-
-	s.lock.Lock()
-	s.etherbase = etherbase
-	s.lock.Unlock()
-
-	s.miner.SetEtherbase(etherbase)
-}
-
 // StartMining starts the miner with the given number of CPU threads. If mining
 // is already running, this method adjust the number of threads allowed to use
 // and updates the minimum price required by the transaction pool.
@@ -485,8 +457,7 @@ func (s *Ethereum) StartMining(threads int) error {
 		s.txPool.SetGasPrice(price)
 
 		// Configure the local mining address
-		eb, err := s.Etherbase()
-		if err != nil {
+		if _, err := s.Etherbase(); err != nil {
 			log.Error("Cannot start mining without etherbase", "err", err)
 			return fmt.Errorf("etherbase missing: %v", err)
 		}
@@ -495,7 +466,7 @@ func (s *Ethereum) StartMining(threads int) error {
 		// introduced to speed sync times.
 		atomic.StoreUint32(&s.handler.acceptTxs, 1)
 
-		go s.miner.Start(eb)
+		go s.miner.Start()
 	}
 	return nil
 }
@@ -595,7 +566,7 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 	currentBlock := s.blockchain.CurrentBlock()
 	if currentBlock.Header().CommitteeMember(localAddress) != nil {
 		updateConsensusEnodes(currentBlock)
-		s.miner.Start(common.Address{})
+		s.miner.Start()
 		log.Info("Starting node as validator")
 		wasValidating = true
 	}
@@ -621,7 +592,7 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
 				log.Info("Local node detected part of the consensus committee, mining started")
-				s.miner.Start(common.Address{})
+				s.miner.Start()
 			}
 			wasValidating = true
 		// Err() channel will be closed when unsubscribing.

@@ -27,6 +27,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/clearmatics/autonity/eth/ethconfig"
 	"html/template"
 	"io/ioutil"
 	"math"
@@ -250,7 +251,6 @@ func newFaucet(genesis *core.Genesis, port int, enodes []*enode.Node, network ui
 	cfg.SyncMode = downloader.LightSync
 	cfg.NetworkId = network
 	cfg.Genesis = genesis
-	utils.SetDNSDiscoveryDefaults(&cfg, genesis.ToBlock(nil).Hash())
 
 	block, err := genesis.ToBlock(nil)
 	if err != nil {
@@ -259,7 +259,7 @@ func newFaucet(genesis *core.Genesis, port int, enodes []*enode.Node, network ui
 	utils.SetDNSDiscoveryDefaults(&cfg, block.Hash())
 	lesBackend, err := les.New(stack, &cfg)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to register the Ethereum service: %w", err)
+		return nil, fmt.Errorf("Failed to register the Autonity service: %w", err)
 	}
 
 	// Assemble the ethstats monitoring and reporting service'

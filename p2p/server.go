@@ -412,7 +412,7 @@ func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 			}
 		}
 		if !found {
-			log.Debug("connecting to newly authorized node", "enode", whitelistedEnode.String())
+			log.Debug("connecting to validator", "enode", whitelistedEnode.String())
 			src.AddTrustedPeer(whitelistedEnode)
 			src.AddPeer(whitelistedEnode)
 		}

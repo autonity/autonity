@@ -18,13 +18,12 @@
 package miner
 
 import (
-	"errors"
 	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/params"
 	"testing"
 	"time"
 
 	"github.com/clearmatics/autonity/common"
+	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
@@ -33,6 +32,7 @@ import (
 	"github.com/clearmatics/autonity/eth/downloader"
 	"github.com/clearmatics/autonity/ethdb/memorydb"
 	"github.com/clearmatics/autonity/event"
+	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/trie"
 )
 
@@ -47,17 +47,16 @@ func NewMockBackend(bc *core.BlockChain, txPool *core.TxPool) *mockBackend {
 		txPool: txPool,
 	}
 }
-
 func (m *mockBackend) BlockChain() *core.BlockChain {
 	return m.bc
 }
 
-func (m *mockBackend) TxPool() *core.TxPool {
-	return m.txPool
+func (m *mockBackend) StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error) {
+	return m.bc.StateAt(block.Hash())
 }
 
-func (m *mockBackend) StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error) {
-	return nil, errors.New("not supported")
+func (m *mockBackend) TxPool() *core.TxPool {
+	return m.txPool
 }
 
 type testBlockChain struct {
@@ -77,7 +76,7 @@ func (bc *testBlockChain) Config() *params.ChainConfig {
 func (bc *testBlockChain) CurrentBlock() *types.Block {
 	return types.NewBlock(&types.Header{
 		GasLimit: bc.gasLimit,
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	}, nil, nil, nil, new(trie.Trie))
 }
 
 func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
@@ -93,8 +92,7 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent)
 }
 
 func TestMiner(t *testing.T) {
-	miner, mux, cleanup := createMiner(t)
-	defer cleanup(false)
+	miner, mux := createMiner(t)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	// Start the downloader
@@ -121,8 +119,7 @@ func TestMiner(t *testing.T) {
 // An initial FailedEvent should allow mining to stop on a subsequent
 // downloader StartEvent.
 func TestMinerDownloaderFirstFails(t *testing.T) {
-	miner, mux, cleanup := createMiner(t)
-	defer cleanup(false)
+	miner, mux := createMiner(t)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	// Start the downloader
@@ -153,8 +150,8 @@ func TestMinerDownloaderFirstFails(t *testing.T) {
 }
 
 func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
-	miner, mux, cleanup := createMiner(t)
-	defer cleanup(false)
+	miner, mux := createMiner(t)
+
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	// Start the downloader
@@ -176,8 +173,7 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 }
 
 func TestStartWhileDownload(t *testing.T) {
-	miner, mux, cleanup := createMiner(t)
-	defer cleanup(false)
+	miner, mux := createMiner(t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -190,19 +186,16 @@ func TestStartWhileDownload(t *testing.T) {
 }
 
 func TestStartStopMiner(t *testing.T) {
-	miner, _, cleanup := createMiner(t)
-	defer cleanup(false)
+	miner, _ := createMiner(t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
 	miner.Stop()
 	waitForMiningState(t, miner, false)
-
 }
 
 func TestCloseMiner(t *testing.T) {
-	miner, _, cleanup := createMiner(t)
-	defer cleanup(true)
+	miner, _ := createMiner(t)
 	waitForMiningState(t, miner, false)
 	miner.Start(common.HexToAddress("0x12345"))
 	waitForMiningState(t, miner, true)
@@ -214,8 +207,7 @@ func TestCloseMiner(t *testing.T) {
 // TestMinerSetEtherbase checks that etherbase becomes set even if mining isn't
 // possible at the moment
 func TestMinerSetEtherbase(t *testing.T) {
-	miner, mux, cleanup := createMiner(t)
-	defer cleanup(false)
+	miner, mux := createMiner(t)
 	// Start with a 'bad' mining address
 	miner.Start(common.HexToAddress("0xdead"))
 	waitForMiningState(t, miner, true)
@@ -250,7 +242,7 @@ func waitForMiningState(t *testing.T, m *Miner, mining bool) {
 	t.Fatalf("Mining() == %t, want %t", state, mining)
 }
 
-func createMiner(t *testing.T) (*Miner, *event.TypeMux, func(skipMiner bool)) {
+func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create Ethash config
 	config := Config{
 		Etherbase: common.HexToAddress("123456789"),
@@ -258,34 +250,32 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux, func(skipMiner bool)) {
 	// Create chainConfig
 	memdb := memorydb.New()
 	chainDB := rawdb.NewDatabase(memdb)
-	genesis := core.DeveloperGenesisBlock(15, 11_500_000, common.HexToAddress("12345"))
+	genesis := core.DefaultGenesisBlock()
 	chainConfig, _, err := core.SetupGenesisBlock(chainDB, genesis)
 	if err != nil {
 		t.Fatalf("can't create new chain config: %v", err)
 	}
+	// Create event Mux
+	mux := new(event.TypeMux)
 	// Create consensus engine
-	engine := clique.New(chainConfig.Clique, chainDB)
+	engine := ethash.New(ethash.Config{}, []string{}, false)
+	engine.SetThreads(-1)
+	// Create isLocalBlock
+	isLocalBlock := func(block *types.Header) bool {
+		return true
+	}
 	// Create Ethereum backend
-	bc, err := core.NewBlockChain(chainDB, nil, chainConfig, engine, vm.Config{}, nil, &TxSenderCacher{}, nil)
+	limit := uint64(1000)
+	senderCacher := new(core.TxSenderCacher)
+	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), chainConfig, engine, vm.Config{}, isLocalBlock, senderCacher, &limit)
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(chainDB), nil)
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
 
-	pool := core.NewTxPool(testTxPoolConfig, chainConfig, blockchain)
+	pool := core.NewTxPool(testTxPoolConfig, params.AutonityTestChainConfig, blockchain, senderCacher)
 	backend := NewMockBackend(bc, pool)
-	// Create event Mux
-	mux := new(event.TypeMux)
 	// Create Miner
-	miner := New(backend, &config, chainConfig, mux, engine, nil)
-	cleanup := func(skipMiner bool) {
-		bc.Stop()
-		engine.Close()
-		pool.Stop()
-		if !skipMiner {
-			miner.Close()
-		}
-	}
-	return miner, mux, cleanup
+	return New(backend, &config, chainConfig, mux, engine, isLocalBlock), mux
 }

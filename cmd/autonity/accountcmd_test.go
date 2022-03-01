@@ -333,7 +333,7 @@ func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
 	dir, jsonFile := tmpDataDirWithGenesisFile(t)
 	defer os.RemoveAll(dir)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
-	autonity := runMinimalAutonity(t, "--port", "0", "--ipcdisable", "--datadir", tmpDatadirWithKeystoreAndGenesisFile(t),
+	autonity := runMinimalAutonity(t, "--port", "0", "--ipcdisable", "--datadir", dir,
 		"--unlock", "f466859ead1932d743d622cb74fc058882e8648a", "--keystore",
 		store, "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 

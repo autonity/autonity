@@ -112,7 +112,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
 
-	log.Debug("ApplyFinalize",
+	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(ContractAddress),
 		"block", header.Number.Uint64(),
 		"gas", blockGas.Uint64())
@@ -132,7 +132,7 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	log.Debug("ApplyFinalize", "upgradeContract", upgradeContract)
+	log.Debug("Finalizing block", "contract upgrade", upgradeContract)
 
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.

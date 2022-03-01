@@ -279,7 +279,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	var committee types.Committee
 	if g.Config.AutonityContractConfig == nil {
-		return nil, fmt.Errorf("autonity contract config section missing in genesis")
+		return nil, fmt.Errorf("autonity config section missing in genesis")
 	}
 	g.mu.Lock()
 	if g.Difficulty == nil {

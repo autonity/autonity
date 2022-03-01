@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/clearmatics/autonity/signer/core/apitypes"
 	"os"
 	"strings"
 

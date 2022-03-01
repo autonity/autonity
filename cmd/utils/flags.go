@@ -440,11 +440,6 @@ var (
 		Usage: "Minimum gas price for mining a transaction",
 		Value: ethconfig.Defaults.Miner.GasPrice,
 	}
-	MinerEtherbaseFlag = cli.StringFlag{
-		Name:  "miner.etherbase",
-		Usage: "Public address for block mining rewards (default = first account)",
-		Value: "0",
-	}
 	MinerExtraDataFlag = cli.StringFlag{
 		Name:  "miner.extradata",
 		Usage: "Block extra data set by the miner (default = client version)",
@@ -1051,26 +1046,9 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 	return accs[index], nil
 }
 
-// setEtherbase retrieves the etherbase either from the directly specified
-// command line flags or from the keystore if CLI indexed.
-func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *ethconfig.Config) {
-	// Extract the current etherbase
-	var etherbase string
-	if ctx.GlobalIsSet(MinerEtherbaseFlag.Name) {
-		etherbase = ctx.GlobalString(MinerEtherbaseFlag.Name)
-	}
-	// Convert the etherbase into an address and configure it
-	if etherbase != "" {
-		if ks != nil {
-			account, err := MakeAddress(ks, etherbase)
-			if err != nil {
-				Fatalf("Invalid miner etherbase: %v", err)
-			}
-			cfg.Miner.Etherbase = account.Address
-		} else {
-			Fatalf("No etherbase configured")
-		}
-	}
+// setEtherbase retrieves the is setting the coinbase to the local address
+func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *ethconfig.Config, ncfg *node.Config) {
+	cfg.Miner.Etherbase = crypto.PubkeyToAddress(ncfg.NodeKey().PublicKey)
 }
 
 // MakePasswordList reads password lines from the file specified by the global --password flag.
@@ -1409,7 +1387,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	if keystores := stack.AccountManager().Backends(keystore.KeyStoreType); len(keystores) > 0 {
 		ks = keystores[0].(*keystore.KeyStore)
 	}
-	setEtherbase(ctx, ks, cfg)
+	setEtherbase(ctx, ks, cfg, stack.Config())
 	setGPO(ctx, &cfg.GPO, ctx.GlobalString(SyncModeFlag.Name) == "light")
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
@@ -1642,14 +1620,14 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 	if cfg.SyncMode == downloader.LightSync {
 		backend, err := les.New(stack, cfg)
 		if err != nil {
-			Fatalf("Failed to register the Ethereum service: %v", err)
+			Fatalf("Failed to register the Autonity service: %v", err)
 		}
 		stack.RegisterAPIs(tracers.APIs(backend.ApiBackend))
 		return backend.ApiBackend, nil
 	}
 	backend, err := eth.New(stack, cfg, nil)
 	if err != nil {
-		Fatalf("Failed to register the Ethereum service: %v", err)
+		Fatalf("Failed to register the Autonity service: %v", err)
 	}
 	if cfg.LightServ > 0 {
 		_, err := les.NewLesServer(stack, backend, cfg)

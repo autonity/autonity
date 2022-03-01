@@ -430,10 +430,10 @@ func NewAdapter(adapterType string, services adapters.LifecycleConstructors) (ad
 		teardown = func() { os.RemoveAll(baseDir) }
 		adapter = adapters.NewExecAdapter(baseDir)
 	/*case "docker":
-	adapter, err = adapters.NewDockerAdapter()
-	if err != nil {
-		return nil, teardown, err
-	}*/
+	  adapter, err = adapters.NewDockerAdapter()
+	  if err != nil {
+	  	return nil, teardown, err
+	  }*/
 	default:
 		return nil, teardown, errors.New("adapter needs to be one of sim, socket, exec, docker")
 	}
@@ -505,7 +505,7 @@ func newLesServerService(ctx *adapters.ServiceContext, stack *node.Node) (node.L
 	config.SyncMode = (ethdownloader.SyncMode)(downloader.FullSync)
 	config.LightServ = testServerCapacity
 	config.LightPeers = testMaxClients
-	ethereum, err := eth.New(stack, &config)
+	ethereum, err := eth.New(stack, &config, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -64,7 +64,7 @@ type Miner struct {
 	eth      Backend
 	engine   consensus.Engine
 	exitCh   chan struct{}
-	startCh  chan common.Address
+	startCh  chan struct{}
 	stopCh   chan struct{}
 
 	wg sync.WaitGroup
@@ -76,7 +76,7 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 		mux:     mux,
 		engine:  engine,
 		exitCh:  make(chan struct{}),
-		startCh: make(chan common.Address),
+		startCh: make(chan struct{}),
 		stopCh:  make(chan struct{}),
 		worker:  newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
 	}
@@ -123,20 +123,17 @@ func (miner *Miner) update() {
 			case downloader.FailedEvent:
 				canStart = true
 				if shouldStart {
-					miner.SetEtherbase(miner.coinbase)
 					miner.worker.start()
 				}
 			case downloader.DoneEvent:
 				canStart = true
 				if shouldStart {
-					miner.SetEtherbase(miner.coinbase)
 					miner.worker.start()
 				}
 				// Stop reacting to downloader events
 				events.Unsubscribe()
 			}
-		case addr := <-miner.startCh:
-			miner.SetEtherbase(addr)
+		case <-miner.startCh:
 			if canStart {
 				miner.worker.start()
 			}
@@ -153,8 +150,8 @@ func (miner *Miner) update() {
 
 // Start starts the miner mining, unless it has been paused by the downloader
 // during sync, in which case it will start mining once the sync has completed.
-func (miner *Miner) Start(coinbase common.Address) {
-	miner.startCh <- coinbase
+func (miner *Miner) Start() {
+	miner.startCh <- struct{}{}
 }
 
 func (miner *Miner) Stop() {
@@ -207,11 +204,6 @@ func (miner *Miner) PendingBlock() *types.Block {
 // PendingBlockAndReceipts returns the currently pending block and corresponding receipts.
 func (miner *Miner) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
 	return miner.worker.pendingBlockAndReceipts()
-}
-
-func (miner *Miner) SetEtherbase(addr common.Address) {
-	miner.coinbase = addr
-	miner.worker.setEtherbase(addr)
 }
 
 // SetGasCeil sets the gaslimit to strive for when mining blocks post 1559.

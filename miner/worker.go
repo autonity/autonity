@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/tendermint/backend"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -251,6 +252,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	worker := &worker{
 		config:             config,
 		chainConfig:        chainConfig,
+		coinbase:           config.Etherbase,
 		engine:             engine,
 		eth:                eth,
 		mux:                mux,
@@ -296,13 +298,6 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		worker.startCh <- struct{}{}
 	}
 	return worker
-}
-
-// setEtherbase sets the etherbase used to initialize the block coinbase field.
-func (w *worker) setEtherbase(addr common.Address) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.coinbase = addr
 }
 
 func (w *worker) setGasCeil(ceil uint64) {
@@ -367,7 +362,7 @@ func (w *worker) pendingBlockAndReceipts() (*types.Block, types.Receipts) {
 func (w *worker) start() {
 	if pos, ok := w.engine.(consensus.BFT); ok {
 		err := pos.Start(context.Background())
-		if err != nil {
+		if err != nil && err != backend.ErrStartedEngine {
 			log.Error("Error starting Consensus Engine", "block", w.chain.CurrentBlock(), "error", err)
 		}
 	}

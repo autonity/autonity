@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"github.com/clearmatics/autonity/miner"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -187,6 +188,7 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		DatabaseCache:   256,
 		DatabaseHandles: 256,
 		TxPool:          core.DefaultTxPoolConfig,
+		Miner:           miner.Config{Etherbase: crypto.PubkeyToAddress(nodekey.PublicKey)},
 	}
 	return configNode, ethConfig
 }
