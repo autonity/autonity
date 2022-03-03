@@ -18,6 +18,7 @@ package misc
 
 import (
 	"fmt"
+	"github.com/clearmatics/autonity/log"
 	"math/big"
 
 	"github.com/clearmatics/autonity/common"
@@ -26,10 +27,14 @@ import (
 	"github.com/clearmatics/autonity/params"
 )
 
+type BaseFeeGetter interface {
+	GetMinBaseFee(header *types.Header) (*big.Int, error)
+}
+
 // VerifyEip1559Header verifies some header attributes which were changed in EIP-1559,
 // - gas limit check
 // - basefee check
-func VerifyEip1559Header(config *params.ChainConfig, parent, header *types.Header) error {
+func VerifyEip1559Header(config *params.ChainConfig, feeGetter BaseFeeGetter, parent, header *types.Header) error {
 	// Verify that the gas limit remains within allowed bounds
 	parentGasLimit := parent.GasLimit
 	if !config.IsLondon(parent.Number) {
@@ -43,16 +48,18 @@ func VerifyEip1559Header(config *params.ChainConfig, parent, header *types.Heade
 		return fmt.Errorf("header is missing baseFee")
 	}
 	// Verify the baseFee is correct based on the parent header.
-	expectedBaseFee := CalcBaseFee(config, parent)
-	if header.BaseFee.Cmp(expectedBaseFee) != 0 {
-		return fmt.Errorf("invalid baseFee: have %s, want %s, parentBaseFee %s, parentGasUsed %d",
-			expectedBaseFee, header.BaseFee, parent.BaseFee, parent.GasUsed)
+	if feeGetter != nil {
+		expectedBaseFee := CalcBaseFee(config, parent, feeGetter)
+		if header.BaseFee.Cmp(expectedBaseFee) != 0 {
+			return fmt.Errorf("invalid baseFee: have %s, want %s, parentBaseFee %s, parentGasUsed %d",
+				expectedBaseFee, header.BaseFee, parent.BaseFee, parent.GasUsed)
+		}
 	}
 	return nil
 }
 
 // CalcBaseFee calculates the basefee of the header.
-func CalcBaseFee(config *params.ChainConfig, parent *types.Header) *big.Int {
+func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter BaseFeeGetter) *big.Int {
 	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 	if !config.IsLondon(parent.Number) {
 		return new(big.Int).SetUint64(params.InitialBaseFee)
@@ -76,7 +83,6 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header) *big.Int {
 			x.Div(y, baseFeeChangeDenominator),
 			common.Big1,
 		)
-
 		return x.Add(parent.BaseFee, baseFeeDelta)
 	} else {
 		// Otherwise if the parent block used less gas than its target, the baseFee should decrease.
@@ -84,10 +90,13 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header) *big.Int {
 		x := new(big.Int).Mul(parent.BaseFee, gasUsedDelta)
 		y := x.Div(x, parentGasTargetBig)
 		baseFeeDelta := x.Div(y, baseFeeChangeDenominator)
-
+		minBaseFee, err := feeGetter.GetMinBaseFee(parent)
+		if err != nil {
+			log.Crit("could not calculate minimum base fee...", err)
+		}
 		return math.BigMax(
 			x.Sub(parent.BaseFee, baseFeeDelta),
-			common.Big0,
+			minBaseFee,
 		)
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/clearmatics/autonity/consensus/misc"
 	"sync"
 	"time"
 
@@ -302,6 +303,11 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			parent         = sb.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 		)
 
+		// Verify London hard fork attributes including min base fee
+		if err := misc.VerifyEip1559Header(sb.blockchain.Config(), sb.blockchain, parent.Header(), header); err != nil {
+			// Verify the header's EIP-1559 attributes.
+			return 0, err
+		}
 		// We need to process all of the transaction to get the latest state to get the latest committee
 		state, stateErr := sb.blockchain.StateAt(parent.Root())
 		if stateErr != nil {

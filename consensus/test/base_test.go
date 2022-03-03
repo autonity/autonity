@@ -17,7 +17,7 @@ func TestTendermintSuccess(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "no malicious",
-			numValidators: 1,
+			numValidators: 5,
 			numBlocks:     5,
 			txPerPeer:     1,
 		},

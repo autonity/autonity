@@ -68,18 +68,26 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 			nonce,
 			toAddr,
 			big.NewInt(1),
-			210000000,
-			big.NewInt(100000000000+int64(randEth.Uint64())),
+			21000,
+			big.NewInt(200000000000+int64(randEth.Uint64())),
 			nil,
 		),
 		types.HomesteadSigner{}, key)
+	/*
+	   return types.SignTx(types.NewTx(&types.DynamicFeeTx{
+	       Nonce: nonce,
+	       Gas:   21000,
+	       To:    &toAddr,
+	       Value: big.NewInt(100000000000 + int64(randEth.Uint64())),
+	   }), types.NewLondonSigner(big.NewInt(1)), key) */
+
 }
 
 func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
-	genesis.GasLimit = math.MaxUint64 - 1
+	genesis.GasLimit = 30_000_000
 	genesis.GasUsed = 0
 	genesis.Difficulty = big.NewInt(1)
 	genesis.Timestamp = 0
@@ -710,7 +718,7 @@ func peerSendExternalTransaction(addresses []addressesList, test *testCase, vali
 func checkNodesDontContainMaliciousBlock(t *testing.T, minHeight uint64, validators map[string]*testNode, test *testCase) {
 	// check that all nodes got the same blocks
 	for i := uint64(1); i <= minHeight; i++ {
-		blockHash := validators["V1"].blocks[i].hash
+		blockHash := validators["V0"].blocks[i].hash
 
 		for index, validator := range validators {
 			if isExternalUser(index) {

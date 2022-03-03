@@ -260,7 +260,7 @@ var (
 	TestAutonityContractConfig = AutonityContractGenesis{
 		Bytecode:        "",
 		ABI:             "",
-		MinGasPrice:     0,
+		MinBaseFee:      0,
 		EpochPeriod:     0,
 		UnbondingPeriod: 0,
 		BlockPeriod:     0,
@@ -295,7 +295,7 @@ var (
 		AutonityContractConfig: &TestAutonityContractConfig,
 	}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
 
 	// AutonityTestChainConfig  Basic configuration for Tendermint, the Autonity Contract config needs still to be properly initialized.
 	AutonityTestChainConfig = &ChainConfig{ChainID: big.NewInt(1),

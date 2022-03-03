@@ -57,6 +57,7 @@ type OracleBackend interface {
 	PendingBlockAndReceipts() (*types.Block, types.Receipts)
 	ChainConfig() *params.ChainConfig
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
+	GetMinBaseFee(header *types.Header) (*big.Int, error)
 }
 
 // Oracle recommends gas prices based on the content of recent

@@ -149,6 +149,7 @@ type blockChain interface {
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 	GetAutonityContract() *autonity.Contract
+	GetMinBaseFee(header *types.Header) (*big.Int, error)
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -645,14 +646,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return err
 	}
 
-	if pool.chain.GetAutonityContract() != nil {
-		if gp, err := pool.chain.GetAutonityContract().GetMinimumGasPrice(pool.chain.CurrentBlock(), pool.currentState); err == nil {
-			if new(big.Int).SetUint64(gp).Cmp(tx.GasPrice()) > 0 {
-				return errors.New("transaction gas price is less than Autonity evmContract minimum gas price")
-			}
-		} else {
-			return err
+	if gp, err := pool.chain.GetAutonityContract().GetMinimumBaseFee(pool.chain.CurrentBlock().Header(), pool.currentState); err == nil {
+		if new(big.Int).SetUint64(gp).Cmp(tx.GasPrice()) > 0 {
+			return errors.New("fee cap less than Autonity minimum base fee")
 		}
+	} else {
+		return err
 	}
 
 	if tx.Gas() < intrGas {
@@ -1195,7 +1194,7 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	if reset != nil {
 		pool.demoteUnexecutables()
 		if reset.newHead != nil && pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
-			pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead)
+			pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead, pool.chain)
 			pool.priced.SetBaseFee(pendingBaseFee)
 		}
 		// Update all accounts to the latest known pending nonce

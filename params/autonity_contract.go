@@ -21,7 +21,7 @@ type AutonityContractGenesis struct {
 	Bytecode string `json:"bytecode,omitempty" toml:",omitempty"`
 	// Json ABI of the contract
 	ABI             string         `json:"abi,omitempty" toml:",omitempty"`
-	MinGasPrice     uint64         `json:"minGasPrice"`
+	MinBaseFee      uint64         `json:"minBaseFee"`
 	EpochPeriod     uint64         `json:"epochPeriod"`
 	UnbondingPeriod uint64         `json:"unbondingPeriod"`
 	BlockPeriod     uint64         `json:"blockPeriod"`

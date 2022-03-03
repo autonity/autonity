@@ -108,7 +108,7 @@ func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 	// Set the min gas price on the mining pool config, otherwise the miner
 	// starts with a default min gas price. Which causes transactions to be
 	// dropped.
-	ec.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinGasPrice)
+	ec.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinBaseFee)
 	ec.Genesis = genesis
 	ec.NetworkId = genesis.Config.ChainID.Uint64()
 

@@ -87,9 +87,9 @@ func NewGenesis(minGasPrice uint64, validators []*Validator) (*core.Genesis, err
 			PetersburgBlock:     big.NewInt(0),
 			IstanbulBlock:       big.NewInt(0),
 			AutonityContractConfig: &params.AutonityContractGenesis{
-				MinGasPrice: minGasPrice,
-				Operator:    *operatorAddress,
-				Validators:  genesisValidators,
+				MinBaseFee: minGasPrice,
+				Operator:   *operatorAddress,
+				Validators: genesisValidators,
 			},
 		},
 	}

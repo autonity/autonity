@@ -322,6 +322,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		return nil, errors.New("Autonity contract config section missing from genesis config")
 	}
 
+	/* TODO : refactor */
 	acConfig := bc.Config().AutonityContractConfig
 
 	var JSONString = acConfig.ABI
@@ -332,7 +333,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if bc.autonityContract, err = autonity.NewAutonityContract(
 		bc,
 		acConfig.Operator,
-		acConfig.MinGasPrice,
+		acConfig.MinBaseFee,
 		JSONString,
 		&defaultEVMProvider{bc},
 	); err != nil {
@@ -2334,35 +2335,21 @@ func (bc *BlockChain) GetKeyValue(key []byte) ([]byte, error) {
 	return rawdb.GetKeyValue(bc.db, key)
 }
 
-func (bc *BlockChain) GetMinGasPrice(blockNumber ...uint64) (*big.Int, error) {
+func (bc *BlockChain) GetMinBaseFee(header *types.Header) (*big.Int, error) {
 	if bc.autonityContract == nil {
 		return nil, errors.New("the autonity contract is not specified")
 	}
-
-	var block *types.Block
-	if len(blockNumber) > 0 {
-		block = bc.GetBlockByNumber(blockNumber[0])
-		if block == nil {
-			return nil, fmt.Errorf("there is no block for number %d", blockNumber[0])
-		}
-	} else {
-		block = bc.CurrentBlock()
-	}
-
-	statedb, err := state.New(block.Root(), bc.stateCache, nil)
+	statedb, err := state.New(header.Root, bc.stateCache, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	var contractMinGasPrice = new(big.Int)
-	minGasPrice, err := bc.autonityContract.GetMinimumGasPrice(block, statedb)
+	var contractBaseFee = new(big.Int)
+	minBaseFee, err := bc.autonityContract.GetMinimumBaseFee(header, statedb)
 	if err != nil {
 		return nil, err
 	}
-
-	contractMinGasPrice.SetUint64(minGasPrice)
-
-	return contractMinGasPrice, nil
+	contractBaseFee.SetUint64(minBaseFee)
+	return contractBaseFee, nil
 }
 
 // HasBadBlock returns whether the block with the hash is a bad block

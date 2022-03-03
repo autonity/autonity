@@ -33,13 +33,13 @@ type Blockchainer interface {
 }
 
 type Contract struct {
-	evmProvider        EVMProvider
-	operator           common.Address
-	initialMinGasPrice uint64
-	contractABI        *abi.ABI
-	stringABI          string
-	bc                 Blockchainer
-	metrics            EconomicMetrics
+	evmProvider       EVMProvider
+	operator          common.Address
+	initialMinBaseFee uint64
+	contractABI       *abi.ABI
+	stringABI         string
+	bc                Blockchainer
+	metrics           EconomicMetrics
 
 	sync.RWMutex
 }
@@ -52,11 +52,11 @@ func NewAutonityContract(
 	evmProvider EVMProvider,
 ) (*Contract, error) {
 	contract := Contract{
-		stringABI:          ABI,
-		operator:           operator,
-		initialMinGasPrice: minGasPrice,
-		bc:                 bc,
-		evmProvider:        evmProvider,
+		stringABI:         ABI,
+		operator:          operator,
+		initialMinBaseFee: minGasPrice,
+		bc:                bc,
+		evmProvider:       evmProvider,
 	}
 	err := contract.upgradeAbiCache(ABI)
 	return &contract, err
@@ -83,24 +83,24 @@ func (ac *Contract) GetCommitteeEnodes(block *types.Block, db *state.StateDB) (*
 	return ac.callGetCommitteeEnodes(db, block.Header())
 }
 
-func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
-	if block.Number().Uint64() <= 1 {
-		return ac.initialMinGasPrice, nil
+func (ac *Contract) GetMinimumBaseFee(block *types.Header, db *state.StateDB) (uint64, error) {
+	if block.Number.Uint64() <= 1 {
+		return ac.initialMinBaseFee, nil
 	}
 
-	return ac.callGetMinimumGasPrice(db, block.Header())
+	return ac.callGetMinimumBaseFee(db, block)
 }
 
 func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, height uint64, round int64) common.Address {
 	return ac.callGetProposer(db, header, height, round)
 }
 
-func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {
+func (ac *Contract) SetMinimumBaseFee(block *types.Block, db *state.StateDB, price *big.Int) error {
 	if block.Number().Uint64() <= 1 {
 		return nil
 	}
 
-	return ac.callSetMinimumGasPrice(db, block.Header(), price)
+	return ac.callSetMinimumBaseFee(db, block.Header(), price)
 }
 
 func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {

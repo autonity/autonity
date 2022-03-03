@@ -94,7 +94,16 @@ func (sb *Backend) Author(header *types.Header) (common.Address, error) {
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
 func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, _ bool) error {
-	return sb.verifyHeader(chain, header, chain.GetHeaderByHash(header.ParentHash))
+	// Short circuit if the header is known, or its parent not
+	number := header.Number.Uint64()
+	if chain.GetHeader(header.Hash(), number) != nil {
+		return nil
+	}
+	parent := chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	return sb.verifyHeader(chain, header, parent)
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It
@@ -136,12 +145,9 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	if header.GasUsed > header.GasLimit {
 		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
 	}
-
-	if header.BaseFee != nil {
-		return fmt.Errorf("invalid baseFee before fork: have %d, expected 'nil'", header.BaseFee)
-	}
-
-	if err := misc.VerifyEip1559Header(chain.Config(), parent, header); err != nil {
+	// Verify London hard fork attributes
+	// minbasefee is only checked when processing a proposal
+	if err := misc.VerifyEip1559Header(chain.Config(), nil, parent, header); err != nil {
 		// Verify the header's EIP-1559 attributes.
 		return err
 	}

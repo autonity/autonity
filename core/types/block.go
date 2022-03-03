@@ -424,14 +424,11 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	/* PoS fields deep copy section*/
-	committee := make([]CommitteeMember, 0)
-	if len(h.Committee) > 0 {
-		committee = make([]CommitteeMember, len(h.Committee))
-		for i, val := range h.Committee {
-			committee[i] = CommitteeMember{
-				Address:     val.Address,
-				VotingPower: new(big.Int).Set(val.VotingPower),
-			}
+	committee := make([]CommitteeMember, len(h.Committee))
+	for i, val := range h.Committee {
+		committee[i] = CommitteeMember{
+			Address:     val.Address,
+			VotingPower: new(big.Int).Set(val.VotingPower),
 		}
 	}
 

@@ -62,6 +62,8 @@ type ChainReader interface {
 
 	// Engine retrieves the chain's consensus engine.
 	Engine() Engine
+
+	GetMinBaseFee(header *types.Header) (*big.Int, error)
 }
 
 // Engine is an algorithm agnostic consensus engine.
