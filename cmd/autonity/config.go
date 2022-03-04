@@ -214,6 +214,20 @@ func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
 		if err != nil {
 			utils.Fatalf("failed to validate genesis file: %v", err)
 		}
+		// Set default hardforks
+		genesis.Config.ByzantiumBlock = new(big.Int)
+		genesis.Config.HomesteadBlock = new(big.Int)
+		genesis.Config.ConstantinopleBlock = new(big.Int)
+		genesis.Config.PetersburgBlock = new(big.Int)
+		genesis.Config.IstanbulBlock = new(big.Int)
+		genesis.Config.MuirGlacierBlock = new(big.Int)
+		genesis.Config.BerlinBlock = new(big.Int)
+		genesis.Config.LondonBlock = new(big.Int)
+		genesis.Config.ArrowGlacierBlock = new(big.Int)
+		genesis.Config.EIP158Block = new(big.Int)
+		genesis.Config.EIP150Block = new(big.Int)
+		genesis.Config.EIP155Block = new(big.Int)
+
 		err = applyGenesis(genesis, stack)
 		if err != nil {
 			utils.Fatalf("failed to apply genesis file: %v", err)
@@ -223,6 +237,7 @@ func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
 
 func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
+	initGenesisBlockOnStart(ctx, stack)
 	if ctx.GlobalIsSet(utils.OverrideArrowGlacierFlag.Name) {
 		cfg.Eth.OverrideArrowGlacier = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideArrowGlacierFlag.Name))
 	}
