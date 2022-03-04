@@ -626,7 +626,7 @@ func TestEip2929Cases(t *testing.T) {
 
 // TestColdAccountAccessCost test that the cold account access cost is reported
 // correctly
-// see: https://github.com/clearmatics/autonity/issues/22649
+// see: https://github.com/ethereum/go-ethereum/issues/22649
 func TestColdAccountAccessCost(t *testing.T) {
 	for i, tc := range []struct {
 		code []byte
@@ -634,12 +634,12 @@ func TestColdAccountAccessCost(t *testing.T) {
 		want uint64
 	}{
 		{ // EXTCODEHASH(0xff)
-			code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.EXTCODEHASH), byte(vm.POP)},
+			code: []byte{byte(vm.PUSH1), 0xFE, byte(vm.EXTCODEHASH), byte(vm.POP)},
 			step: 1,
 			want: 2600,
 		},
 		{ // BALANCE(0xff)
-			code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.BALANCE), byte(vm.POP)},
+			code: []byte{byte(vm.PUSH1), 0xFE, byte(vm.BALANCE), byte(vm.POP)},
 			step: 1,
 			want: 2600,
 		},
@@ -647,41 +647,41 @@ func TestColdAccountAccessCost(t *testing.T) {
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xFE, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
 			},
 			step: 7,
-			want: 2855,
+			want: 2854,
 		},
 		{ // CALLCODE(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
+				byte(vm.PUSH1), 0xfe, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
 			},
 			step: 7,
-			want: 2855,
+			want: 2854,
 		},
 		{ // DELEGATECALL(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xfe, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
 			},
 			step: 6,
-			want: 2855,
+			want: 2854,
 		},
 		{ // STATICCALL(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xfe, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
 			},
 			step: 6,
-			want: 2855,
+			want: 2854,
 		},
 		{ // SELFDESTRUCT(0xff)
 			code: []byte{
-				byte(vm.PUSH1), 0xff, byte(vm.SELFDESTRUCT),
+				byte(vm.PUSH1), 0xfe, byte(vm.SELFDESTRUCT),
 			},
 			step: 1,
 			want: 7600,
@@ -699,7 +699,7 @@ func TestColdAccountAccessCost(t *testing.T) {
 			for ii, op := range tracer.StructLogs() {
 				t.Logf("%d: %v %d", ii, op.OpName(), op.GasCost)
 			}
-			t.Fatalf("tescase %d, gas report wrong, step %d, have %d want %d", i, tc.step, have, want)
+			t.Errorf("tescase %d, gas report wrong, step %d, have %d want %d", i, tc.step, have, want)
 		}
 	}
 }
@@ -826,7 +826,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 				// outsize, outoffset, insize, inoffset
 				byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.PUSH1), 0,
 				byte(vm.PUSH1), 0, // value
-				byte(vm.PUSH1), 0xff, //address
+				byte(vm.PUSH1), 0xfe, //address
 				byte(vm.GAS), // gas
 				byte(vm.CALL),
 				byte(vm.POP),
@@ -852,7 +852,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 			statedb.SetCode(common.HexToAddress("0xcc"), calleeCode)
 			statedb.SetCode(common.HexToAddress("0xdd"), calleeCode)
 			statedb.SetCode(common.HexToAddress("0xee"), calleeCode)
-			statedb.SetCode(common.HexToAddress("0xff"), depressedCode)
+			statedb.SetCode(common.HexToAddress("0xfe"), depressedCode)
 
 			tracer, err := tracers.New(jsTracer, new(tracers.Context))
 			if err != nil {

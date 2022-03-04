@@ -18,9 +18,11 @@ package miner
 
 import (
 	"github.com/clearmatics/autonity/core/state"
+	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"math/big"
 	"math/rand"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -68,27 +70,28 @@ var (
 	newTxs     []*types.Transaction
 
 	testConfig = &Config{
-		Recommit: time.Second,
-		GasFloor: params.GenesisGasLimit,
-		GasCeil:  params.GenesisGasLimit,
+		Etherbase: testUserAddress,
+		Recommit:  time.Second,
+		GasFloor:  params.GenesisGasLimit,
+		GasCeil:   params.GenesisGasLimit,
 	}
 )
 
 func init() {
 	testTxPoolConfig = core.DefaultTxPoolConfig
 	testTxPoolConfig.Journal = ""
-	ethashChainConfig = params.AllEthashProtocolChangesWithAutonity
+	ethashChainConfig = params.TestChainConfig
 	ethashChainConfig.AutonityContractConfig.Prepare()
 
-	tendermintChainConfig = params.AllEthashProtocolChangesWithAutonity
-
+	tendermintChainConfig = params.TestChainConfig
+	tendermintChainConfig.Ethash = nil
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Address = &testUserAddress
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Enode = enode.NewV4(&testUserKey.PublicKey, nil, 0, 0).URLv4()
 	tendermintChainConfig.AutonityContractConfig.Prepare()
 
-	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
 	pendingTxs = append(pendingTxs, tx1)
-	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
 	newTxs = append(newTxs, tx2)
 	rand.Seed(time.Now().UnixNano())
 }
@@ -107,7 +110,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	var gspec = core.Genesis{
 		Config:     chainConfig,
 		Alloc:      core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
-		Difficulty: big.NewInt(1),
+		Difficulty: big.NewInt(0),
 	}
 
 	switch engine.(type) {
@@ -205,16 +208,19 @@ func TestGenerateBlockAndImportTendermint(t *testing.T) {
 }
 
 func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
 	var (
 		engine      consensus.Engine
 		chainConfig *params.ChainConfig
 		db          = rawdb.NewMemoryDatabase()
 	)
-	chainConfig = tendermintChainConfig
 
 	if isTendermint {
+		chainConfig = tendermintChainConfig
 		engine = tendermintBackend.New(testUserKey, &vm.Config{})
 	} else {
+		chainConfig = ethashChainConfig
 		engine = ethash.NewFaker()
 	}
 
@@ -224,7 +230,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	// This test chain imports the mined blocks.
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
+	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, core.NewTxSenderCacher(1), nil)
 	defer chain.Stop()
 
 	// Ignore empty commit here for less noise.
@@ -379,7 +385,7 @@ func TestRegenerateMiningBlockTendermint(t *testing.T) {
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
 	defer engine.Close()
-
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	w, b := newTestWorker(t, chainConfig, engine, rawdb.NewMemoryDatabase(), 0)
 	defer w.close()
 

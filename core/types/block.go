@@ -412,9 +412,10 @@ func CopyHeader(h *Header) *Header {
 	if h.Number != nil {
 		number.Set(h.Number)
 	}
-	baseFee := big.NewInt(0)
+
+	var baseFee *big.Int
 	if h.BaseFee != nil {
-		baseFee.Set(h.BaseFee)
+		baseFee = new(big.Int).Set(h.BaseFee)
 	}
 
 	extra := make([]byte, 0)

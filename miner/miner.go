@@ -58,14 +58,13 @@ type Config struct {
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
-	mux      *event.TypeMux
-	worker   *worker
-	coinbase common.Address
-	eth      Backend
-	engine   consensus.Engine
-	exitCh   chan struct{}
-	startCh  chan struct{}
-	stopCh   chan struct{}
+	mux     *event.TypeMux
+	worker  *worker
+	eth     Backend
+	engine  consensus.Engine
+	exitCh  chan struct{}
+	startCh chan struct{}
+	stopCh  chan struct{}
 
 	wg sync.WaitGroup
 }

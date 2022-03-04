@@ -37,14 +37,15 @@ func TestHeaderHash(t *testing.T) {
 		GasLimit:    1338,
 		GasUsed:     1338,
 		Time:        1338,
+		BaseFee:     big.NewInt(0),
 		Extra:       []byte("Extra data Extra data Extra data  Extra data  Extra data  Extra data  Extra data Extra data"),
 		MixDigest:   common.HexToHash("0x0000H45H"),
 	}
 	PosHeader := originalHeader
 	PosHeader.MixDigest = BFTDigest
 
-	originalHeaderHash := common.HexToHash("0x44381ab449d77774874aca34634cb53bc21bd22aef2d3d4cf40e51176cb585ec")
-	posHeaderHash := common.HexToHash("0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c")
+	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
+	posHeaderHash := common.HexToHash("0x0a86281e49b390cd8347b1f2522a0f854da572d11b27f690814ec81259e59127")
 
 	testCases := []struct {
 		header Header
@@ -94,13 +95,13 @@ func TestHeaderHash(t *testing.T) {
 					},
 				},
 			}),
-			common.HexToHash("0xdf95f3ce4042e30ce57b2bcab9d9ebff1612035ef8abfe2213e6aa77f6e43abc"),
+			common.HexToHash("0x237d49922d13665728ce0835f62a43d7e568445f759581e168f9b06a2a0b46d4"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0x9acfd617b26d948236857039f3e63d48f23cfc6c8693c7a564ce1e67df0f587c"),
+			common.HexToHash("0x0a86281e49b390cd8347b1f2522a0f854da572d11b27f690814ec81259e59127"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{

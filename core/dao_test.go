@@ -41,7 +41,7 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	proDb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(proDb)
 
-	proConf := *params.AutonityTestChainConfig
+	proConf := *params.TestChainConfig
 	proConf.DAOForkBlock = forkBlock
 	proConf.DAOForkSupport = true
 
@@ -51,7 +51,7 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	conDb := rawdb.NewMemoryDatabase()
 	gspec.MustCommit(conDb)
 
-	conConf := *params.AutonityTestChainConfig
+	conConf := *params.TestChainConfig
 	conConf.DAOForkBlock = forkBlock
 	conConf.DAOForkSupport = false
 

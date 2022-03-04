@@ -63,7 +63,7 @@ web3._extend({
 const AdminJs = `
 web3._extend({
 	property: 'admin',
-	methods: [	"clique":   CliqueJs,
+	methods: [
 		new web3._extend.Method({
 			name: 'addPeer',
 			call: 'admin_addPeer',

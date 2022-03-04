@@ -90,9 +90,14 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter Bas
 		x := new(big.Int).Mul(parent.BaseFee, gasUsedDelta)
 		y := x.Div(x, parentGasTargetBig)
 		baseFeeDelta := x.Div(y, baseFeeChangeDenominator)
-		minBaseFee, err := feeGetter.GetMinBaseFee(parent)
-		if err != nil {
-			log.Crit("could not calculate minimum base fee...", err)
+
+		minBaseFee := big.NewInt(0)
+		if feeGetter != nil {
+			var err error
+			minBaseFee, err = feeGetter.GetMinBaseFee(parent)
+			if err != nil {
+				log.Crit("could not calculate minimum base fee...", err)
+			}
 		}
 		return math.BigMax(
 			x.Sub(parent.BaseFee, baseFeeDelta),

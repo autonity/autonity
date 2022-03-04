@@ -273,46 +273,12 @@ var (
 				Address:        &ValidatorAddress,
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
-				BondedStake:    new(big.Int).SetUint64(1),
+				BondedStake:    new(big.Int).SetUint64(1000),
 			},
 		},
 	}
 
-	AllEthashProtocolChangesWithAutonity = &ChainConfig{ChainID: big.NewInt(1337),
-		HomesteadBlock:         big.NewInt(0),
-		EIP150Block:            big.NewInt(0),
-		EIP155Block:            big.NewInt(0),
-		EIP158Block:            big.NewInt(0),
-		ByzantiumBlock:         big.NewInt(0),
-		ConstantinopleBlock:    big.NewInt(0),
-		PetersburgBlock:        big.NewInt(0),
-		IstanbulBlock:          big.NewInt(0),
-		MuirGlacierBlock:       big.NewInt(0),
-		BerlinBlock:            big.NewInt(0),
-		LondonBlock:            big.NewInt(0),
-		ArrowGlacierBlock:      big.NewInt(0),
-		Ethash:                 new(EthashConfig),
-		AutonityContractConfig: &TestAutonityContractConfig,
-	}
-
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
-
-	// AutonityTestChainConfig  Basic configuration for Tendermint, the Autonity Contract config needs still to be properly initialized.
-	AutonityTestChainConfig = &ChainConfig{ChainID: big.NewInt(1),
-		HomesteadBlock:         big.NewInt(0),
-		EIP150Block:            big.NewInt(0),
-		EIP155Block:            big.NewInt(0),
-		EIP158Block:            big.NewInt(0),
-		ByzantiumBlock:         big.NewInt(0),
-		ConstantinopleBlock:    big.NewInt(0),
-		PetersburgBlock:        big.NewInt(0),
-		IstanbulBlock:          big.NewInt(0),
-		MuirGlacierBlock:       big.NewInt(0),
-		BerlinBlock:            big.NewInt(0),
-		LondonBlock:            big.NewInt(0),
-		ArrowGlacierBlock:      big.NewInt(0),
-		AutonityContractConfig: &TestAutonityContractConfig,
-	}
+	TestChainConfig = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), &TestAutonityContractConfig}
 
 	TestRules = TestChainConfig.Rules(new(big.Int), false)
 )

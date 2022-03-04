@@ -122,30 +122,23 @@ class NetworkPlanner(object):
         #   The following parameters should not be modified unless you know what you're doing.   #
         genesis = {
             "config": {
-                "homesteadBlock": 0,
-                "eip150Block": 0,
-                "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-                "eip155Block": 0,
-                "eip158Block": 0,
-                "byzantiumBlock": 0,
-                "istanbulBlock": 0,
-                "constantinopleBlock": 0,
-                "petersburgBlock": 0,
-                "tendermint": {
-                    "policy": 1,
-                    "block-period": 1,
-                },
+                "chainId": 1,
                 "autonityContract": {
                     "bytecode": "",
                     "abi": "",
-                    "minGasPrice": 5000,
-                    "users": [],
+                    "minBaseFee": 5000,
+                    "blockPeriod": 1,
+                    "unbondingPeriod": 120,
+                    "epochPeriod": 30,
+                    "treasuryFee": 150000000,
+                    "validators": [],
                 }
             },
             "nonce": "0x0",
             "timestamp": "0x0",
+            "baseFee": "15000000000",
             "gasLimit": "10000000000",
-            "difficulty": "0x1",
+            "difficulty": "0x0",
             "coinbase": "0x0000000000000000000000000000000000000000",
             "number": "0x0",
             "gasUsed": "0x0",
@@ -156,21 +149,20 @@ class NetworkPlanner(object):
         # Default balance
         starting_balance = "0x000000000000000000100000000000000000000000000000000000000000000"
         genesis["alloc"] = {}
-        genesis["validators"] = []
         genesis["config"]["autonityContract"]["operator"] = "0x{}".format(self.clients[0].coin_base)
-        genesis["config"]["autonityContract"]["deployer"] = "0x{}".format(self.clients[0].coin_base)
-        genesis["config"]["chainId"] = 1  # can be assigned freely
+        genesis["config"]["autonityContract"]["treasury"] = "0x{}".format(self.clients[0].coin_base)
 
         for index, client in enumerate(self.clients):
             coinbase = "0x{}".format(client.coin_base)
-            user = {
+            validator = {
+                "treasury": coinbase,
                 "enode": client.e_node,
-                "address": coinbase,
-                "type": client.role,
-                "stake": 2 if client.role == "validator" else 1,
+                "bondedStake": 10000  if client.role  == "validator" else 5000,
+                "commissionRate": 10000,
+                "extra": "",
             }
             genesis["alloc"][coinbase] = {"balance": starting_balance}
-            genesis["config"]["autonityContract"]["users"].append(user)
+            genesis["config"]["autonityContract"]["validators"].append(validator)
 
         with open("./network-data/genesis.json", 'w') as out:
             out.write(json.dumps(genesis, indent=4) + '\n')

@@ -40,8 +40,8 @@ func TestInvalidCliqueConfig(t *testing.T) {
 
 func TestSetupGenesis(t *testing.T) {
 	t.Skip("depreciated with autonity")
-	chainConfig := params.AutonityTestChainConfig
-	oldChainConfig := params.AutonityTestChainConfig
+	chainConfig := params.TestChainConfig
+	oldChainConfig := params.TestChainConfig
 	chainConfig.IstanbulBlock = big.NewInt(3)
 	oldChainConfig.IstanbulBlock = big.NewInt(2)
 	var (
@@ -68,7 +68,7 @@ func TestSetupGenesis(t *testing.T) {
 				return SetupGenesisBlock(db, new(Genesis))
 			},
 			wantErr:    errGenesisNoConfig,
-			wantConfig: params.AllEthashProtocolChanges,
+			wantConfig: params.TestChainConfig,
 		},
 		{
 			name: "no block in DB, genesis == nil",
@@ -122,7 +122,7 @@ func TestSetupGenesis(t *testing.T) {
 				// Advance to block #4, past the homestead transition block of customg.
 				genesis := oldcustomg.MustCommit(db)
 
-				bc, _ := NewBlockChain(db, nil, oldcustomg.Config, ethash.NewFullFaker(), vm.Config{}, nil, &TxSenderCacher{}, nil)
+				bc, _ := NewBlockChain(db, nil, oldcustomg.Config, ethash.NewFullFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil)
 				defer bc.Stop()
 
 				blocks, _ := GenerateChain(oldcustomg.Config, genesis, ethash.NewFaker(), db, 4, nil)
@@ -168,6 +168,7 @@ func TestSetupGenesis(t *testing.T) {
 // TestGenesisHashes checks the congruity of default genesis data to
 // corresponding hardcoded genesis hash values.
 func TestGenesisHashes(t *testing.T) {
+	t.Skip("not supported with autonity")
 	for i, c := range []struct {
 		genesis *Genesis
 		want    common.Hash
@@ -205,7 +206,7 @@ func TestGenesis_Commit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if genesis.Difficulty != nil {
+	if big.NewInt(0).Cmp(genesis.Difficulty) != 0 {
 		t.Fatalf("assumption wrong")
 	}
 

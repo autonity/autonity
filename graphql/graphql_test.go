@@ -239,9 +239,10 @@ func createGQLService(t *testing.T, stack *node.Node) {
 	// create backend
 	ethConf := &ethconfig.Config{
 		Genesis: &core.Genesis{
-			Config:     params.AllEthashProtocolChanges,
+			Config:     params.TestChainConfig,
 			GasLimit:   11500000,
-			Difficulty: big.NewInt(1048576),
+			Difficulty: big.NewInt(0),
+			BaseFee:    big.NewInt(params.InitialBaseFee),
 		},
 		Ethash: ethash.Config{
 			PowMode: ethash.ModeFake,
@@ -259,7 +260,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 		t.Fatalf("could not create eth backend: %v", err)
 	}
 	// Create some blocks and import them
-	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
+	chain, _ := core.GenerateChain(params.TestChainConfig, ethBackend.BlockChain().Genesis(),
 		ethash.NewFaker(), ethBackend.ChainDb(), 10, func(i int, gen *core.BlockGen) {})
 	_, err = ethBackend.BlockChain().InsertChain(chain)
 	if err != nil {
@@ -281,9 +282,9 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 
 	ethConf := &ethconfig.Config{
 		Genesis: &core.Genesis{
-			Config:     params.AllEthashProtocolChanges,
+			Config:     params.TestChainConfig,
 			GasLimit:   11500000,
-			Difficulty: big.NewInt(1048576),
+			Difficulty: big.NewInt(0),
 			Alloc: core.GenesisAlloc{
 				address: {Balance: funds},
 				// The address 0xdad sloads 0x00 and 0x01
@@ -339,7 +340,7 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 	})
 
 	// Create some blocks and import them
-	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
+	chain, _ := core.GenerateChain(params.TestChainConfig, ethBackend.BlockChain().Genesis(),
 		ethash.NewFaker(), ethBackend.ChainDb(), 1, func(i int, b *core.BlockGen) {
 			b.SetCoinbase(common.Address{1})
 			b.AddTx(legacyTx)

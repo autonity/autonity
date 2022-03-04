@@ -18,7 +18,6 @@ package eth
 
 import (
 	"errors"
-	"github.com/clearmatics/autonity/crypto"
 	"math/big"
 	"sync"
 
@@ -147,8 +146,7 @@ func (ps *peerSet) registerPeer(peer *eth.Peer, ext *snap.Peer) error {
 		return errPeerAlreadyRegistered
 	}
 	eth := &ethPeer{
-		Peer:    peer,
-		address: crypto.PubkeyToAddress(*peer.Node().Pubkey()),
+		Peer: peer,
 	}
 	if ext != nil {
 		eth.snapExt = &snapPeer{ext}

@@ -103,7 +103,7 @@ func TestRemoteSealer(t *testing.T) {
 
 	api := &API{ethash}
 	if _, err := api.GetWork(); err != errNoMiningWork {
-		t.Error("expect to return an error indicate there is no mining work")
+		t.Error("expect to return an error indicate there is no mining work", "error", err)
 	}
 	header := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(100)}
 	block := types.NewBlockWithHeader(header)

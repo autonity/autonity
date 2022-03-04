@@ -287,8 +287,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 	g.mu.Unlock()
 
-	if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
-		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
+	if g.Difficulty.Cmp(big.NewInt(0)) != 0 {
+		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 0, instead got %v", g.Difficulty)
 	}
 	var err error
 	committee, err = extractCommittee(g.Config.AutonityContractConfig.GetValidators())
@@ -383,7 +383,7 @@ func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if g.Config == nil {
-		g.Config = params.AllEthashProtocolChangesWithAutonity
+		g.Config = params.TestChainConfig
 	}
 
 	if err := g.Config.CheckConfigForkOrder(); err != nil {
@@ -463,19 +463,20 @@ func (g *Genesis) SetExtraData(extraData []byte) {
 func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
 	g := Genesis{
 		Alloc:   GenesisAlloc{addr: {Balance: balance}},
+		Config:  params.TestChainConfig,
 		BaseFee: big.NewInt(params.InitialBaseFee),
 	}
 	return g.MustCommit(db)
 }
 
-// DefaultGenesisBlock returns the Ethereum main net genesis block.
+// DefaultGenesisBlock returns a default genesis block for testing purposes.
 func DefaultGenesisBlock() *Genesis {
 	return &Genesis{
-		Config:     params.MainnetChainConfig,
+		Config:     params.TestChainConfig,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"),
 		GasLimit:   5000,
-		Difficulty: big.NewInt(17179869184),
+		Difficulty: big.NewInt(0),
 		Alloc:      decodePrealloc(mainnetAllocData),
 	}
 }

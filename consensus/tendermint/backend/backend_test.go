@@ -21,9 +21,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/clearmatics/autonity/consensus/misc"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"math"
 	"math/big"
+	"os"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -546,6 +548,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	memDB := rawdb.NewMemoryDatabase()
 	// Use the first key as private key
 	b := New(nodeKeys[0], &vm.Config{})
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)
 	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
@@ -576,9 +579,10 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	// generate genesis block
 
 	genesis.Config = params.TestChainConfig
+	genesis.Config.Ethash = nil
 	genesis.GasLimit = 10000000
 	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	genesis.Difficulty = defaultDifficulty
+	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.BFTDigest
 	genesis.Timestamp = 1
@@ -621,6 +625,7 @@ func makeHeader(parent *types.Block) *types.Header {
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent.GasLimit(), 8000000),
 		GasUsed:    0,
+		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent.Header(), nil),
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(1)).Uint64(),
 		Difficulty: defaultDifficulty,
@@ -657,13 +662,13 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	//add a few txs
 	txs := make(types.Transactions, 5)
 	nonce := state.GetNonce(engine.address)
-	gasPrice := new(big.Int).SetUint64(1000000)
+	gasPrice := new(big.Int).Set(header.BaseFee)
 	gasPool := new(core.GasPool).AddGas(header.GasLimit)
 	var receipts []*types.Receipt
 	for i := range txs {
 		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
 		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
-		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), engine.privateKey)
+		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1337)), engine.privateKey)
 		if err != nil {
 			return nil, err
 		}

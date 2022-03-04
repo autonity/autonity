@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/common"
 	"math/big"
 
 	"github.com/clearmatics/autonity/eth/protocols/eth"
@@ -35,7 +34,6 @@ type ethPeerInfo struct {
 // ethPeer is a wrapper around eth.Peer to maintain a few extra metadata.
 type ethPeer struct {
 	*eth.Peer
-	address  common.Address
 	snapExt  *snapPeer     // Satellite `snap` connection
 	snapWait chan struct{} // Notification channel for snap connections
 }

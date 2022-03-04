@@ -188,10 +188,10 @@ var (
 )
 
 var genesis = &core.Genesis{
-	Config:    params.AllEthashProtocolChanges,
+	Config:    params.TestChainConfig,
 	Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
-	ExtraData: []byte("test genesis"),
 	Timestamp: 9000,
+	Mixhash:   types.BFTDigest,
 	BaseFee:   big.NewInt(params.InitialBaseFee),
 }
 
@@ -338,6 +338,9 @@ func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {
 			if got != nil && got.Number != nil && got.Number.Sign() == 0 {
 				got.Number = big.NewInt(0) // hack to make DeepEqual work
 			}
+			// workaround DeepEqual
+			got.CommitteeMember(common.Address{})
+			tt.want.CommitteeMember(common.Address{})
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("HeaderByNumber(%v)\n   = %v\nwant %v", tt.block, got, tt.want)
 			}

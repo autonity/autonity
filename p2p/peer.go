@@ -134,7 +134,9 @@ func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 		protos[i].Version = cap.Version
 	}
 	pipe, _ := net.Pipe()
-	node := enode.SignNull(new(enr.Record), id)
+	key, _ := crypto.GenerateKey()
+	node := enode.NewV4(&key.PublicKey, net.IP{}, 0, 0)
+	//node := enode.SignNull(new(enr.Record), id)
 	conn := &conn{fd: pipe, transport: nil, node: node, caps: caps, name: name}
 	peer := newPeer(log.Root(), conn, protos)
 	close(peer.closed) // ensures Disconnect doesn't block

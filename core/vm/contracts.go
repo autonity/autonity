@@ -1065,15 +1065,18 @@ func (c checkEnode) RequiredGas(_ []byte) uint64 {
 }
 func (c checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		panic(fmt.Errorf("invalid enode - empty"))
+		return nil, fmt.Errorf("invalid enode - empty")
 	}
+	// TODO: Use ABI parsing here
 	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
 	nodeStr := string(input)
 	out := make([]byte, 64)
+
+	// resolveFunc is dummy as we're only looking to parse the enode via
+	// via ParseV4CustomResolve.
 	resolveFunc := func(host string) ([]net.IP, error) {
 		return []net.IP{{127, 0, 0, 1}}, nil
 	}
-
 	node, err := enode.ParseV4CustomResolve(nodeStr, resolveFunc)
 	if err != nil {
 		copy(out[32:], true32Byte)

@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"github.com/clearmatics/autonity/crypto"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -66,7 +67,8 @@ func max(a, b int) int {
 
 // Peer is a collection of relevant information we have about a `eth` peer.
 type Peer struct {
-	id string // Unique ID for the peer, cached
+	id      string // Unique ID for the peer, cached
+	address common.Address
 
 	*p2p.Peer                   // The embedded P2P package peer
 	rw        p2p.MsgReadWriter // Input/output streams for snap
@@ -97,6 +99,7 @@ type Peer struct {
 func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool TxPool) *Peer {
 	peer := &Peer{
 		id:              p.ID().String(),
+		address:         crypto.PubkeyToAddress(*p.Node().Pubkey()),
 		Peer:            p,
 		rw:              rw,
 		version:         version,
@@ -130,7 +133,12 @@ func (p *Peer) Close() {
 
 // ID retrieves the peer's unique identifier.
 func (p *Peer) ID() string {
+
 	return p.id
+}
+
+func (p *Peer) Address() common.Address {
+	return p.address
 }
 
 // Send writes an RLP-encoded message with the given code.

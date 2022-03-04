@@ -35,7 +35,7 @@ var genesisTest = struct {
 	genesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
-			"difficulty" : "0x1",
+			"difficulty" : "0x0",
 			"extraData"  : "",
 			"gasLimit"   : "0x2fefd8",
 			"nonce"      : "0x0000000000001339",
@@ -43,17 +43,6 @@ var genesisTest = struct {
 			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"timestamp"  : "0x00",
 			"config"     : {
-				"homesteadBlock" : 0,
-				"daoForkBlock"   : 0,
-				"daoForkSupport" : true,
-				"homesteadBlock": 0,
-				"eip150Block": 0,
-				"eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-				"eip155Block": 0,
-				"eip158Block": 0,
-				"byzantiumBlock": 0,
-				"constantinopleBlock": 0,
-				"petersburgBlock": 0,
 				"autonityContract"    : {
             		"treasury": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
             		"treasuryFee": 150000000,
@@ -75,7 +64,7 @@ var genesisTest = struct {
 	misMatchGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
-			"difficulty" : "0x1",
+			"difficulty" : "0x0",
 			"extraData"  : "",
 			"gasLimit"   : "0x2fefd8",
 			"nonce"      : "0x0000000000001339",
@@ -115,7 +104,7 @@ var genesisTest = struct {
 	inCompatibleGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
-			"difficulty" : "0x1",
+			"difficulty" : "0x0",
 			"extraData"  : "",
 			"gasLimit"   : "0x2fefd8",
 			"nonce"      : "0x0000000000001339",
@@ -158,7 +147,6 @@ var genesisTest = struct {
 // Tests that initializing Autonity with a custom genesis block and chain definitions
 // work properly.
 func TestCustomGenesis(t *testing.T) {
-	coinbase := "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 	ipcEndpoint := func(t *testing.T) (ipc string, ws string) {
 		ws = tmpdir(t)
 		ipc = filepath.Join(ws, "autonity.ipc")
@@ -173,7 +161,7 @@ func TestCustomGenesis(t *testing.T) {
 		// Start node with genesis.
 		autonity := runAutonity(t,
 			"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-			"--etherbase", coinbase, "--ipcpath", ipc, "--datadir", datadir, "--genesis", json)
+			"--ipcpath", ipc, "--datadir", datadir, "--genesis", json)
 		return autonity
 	}
 

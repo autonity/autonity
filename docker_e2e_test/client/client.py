@@ -129,11 +129,11 @@ class Client(object):
                    "[Service]\n" \
                    "Type=simple\n" \
                    "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
-                   "--http.port {} --http --http.addr '0.0.0.0' --ws --wsport {} --rpccorsdomain '*' "\
-                   "--rpcapi 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
-                   "--gasprice '0' --allow-insecure-unlock --graphql " \
+                   "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' "\
+                   "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                   "--allow-insecure-unlock --graphql " \
                    "--unlock 0x{} --password {} " \
-                   "--debug --mine --minerthreads '1' --etherbase 0x{} --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
+                   "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
                    "KillMode=process\n" \
                    "KillSignal=SIGINT\n" \
                    "TimeoutStopSec=1\n" \
@@ -157,7 +157,7 @@ class Client(object):
         password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
 
         content = template_remote.format(bin_path, genesis_path, data_dir, boot_key_file, p2p_port, rpc_port, ws_port,
-                                         coin_base, password_file, coin_base)
+                                         coin_base, password_file)
         with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
             out.write(content)
 
@@ -342,7 +342,7 @@ class Client(object):
                 self.rpc_client.session.headers.update({"Content-type": "application/json"})
             # send transaction
             tx_hash = self.rpc_client.send_transaction(_from="0x{}".format(self.coin_base), to=to,
-                                                       gas=gas, gas_price=gas_price, value=value, data=data)
+                                                       gas=gas, value=value, data=data)
             return tx_hash
         except Exception as e:
             self.logger.warn("send tx failed due to exception: %s", e)

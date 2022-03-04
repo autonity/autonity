@@ -39,7 +39,6 @@ type Contract struct {
 	contractABI       *abi.ABI
 	stringABI         string
 	bc                Blockchainer
-	metrics           EconomicMetrics
 
 	sync.RWMutex
 }
@@ -47,14 +46,14 @@ type Contract struct {
 func NewAutonityContract(
 	bc Blockchainer,
 	operator common.Address,
-	minGasPrice uint64,
+	minBaseFee uint64,
 	ABI string,
 	evmProvider EVMProvider,
 ) (*Contract, error) {
 	contract := Contract{
 		stringABI:         ABI,
 		operator:          operator,
-		initialMinBaseFee: minGasPrice,
+		initialMinBaseFee: minBaseFee,
 		bc:                bc,
 		evmProvider:       evmProvider,
 	}

@@ -35,6 +35,7 @@ var (
 )
 
 func TestEthSuite(t *testing.T) {
+	//t.Skip("tests depending on non-compatible testdata with Autonity")
 	geth, err := runGeth()
 	if err != nil {
 		t.Fatalf("could not run geth: %v", err)

@@ -285,7 +285,7 @@ func makeBenchBlock() *Block {
 func TestRlpDecodeParentHash(t *testing.T) {
 	// A minimum one
 	want := common.HexToHash("0x112233445566778899001122334455667788990011223344556677889900aabb")
-	if rlpData, err := rlp.EncodeToBytes(Header{ParentHash: want}); err != nil {
+	if rlpData, err := rlp.EncodeToBytes(&Header{ParentHash: want}); err != nil {
 		t.Fatal(err)
 	} else {
 		if have := HeaderParentHashFromRLP(rlpData); have != want {
@@ -299,7 +299,7 @@ func TestRlpDecodeParentHash(t *testing.T) {
 	// | BaseFee     | dynamic| *big.Int       | 64 bits               |
 	mainnetTd := new(big.Int)
 	mainnetTd.SetString("5ad3c2c71bbff854908", 16)
-	if rlpData, err := rlp.EncodeToBytes(Header{
+	if rlpData, err := rlp.EncodeToBytes(&Header{
 		ParentHash: want,
 		Difficulty: mainnetTd,
 		Number:     new(big.Int).SetUint64(math.MaxUint64),
@@ -320,7 +320,7 @@ func TestRlpDecodeParentHash(t *testing.T) {
 			ParentHash: want,
 			Extra:      make([]byte, 65041),
 		}
-		if rlpData, err := rlp.EncodeToBytes(h); err != nil {
+		if rlpData, err := rlp.EncodeToBytes(&h); err != nil {
 			t.Fatal(err)
 		} else {
 			if have := HeaderParentHashFromRLP(rlpData); have != want {

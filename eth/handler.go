@@ -19,7 +19,6 @@ package eth
 import (
 	"crypto/ecdsa"
 	"errors"
-	"github.com/clearmatics/autonity/crypto"
 	"math"
 	"math/big"
 	"sync"
@@ -211,6 +210,10 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	}
 	h.blockFetcher = fetcher.NewBlockFetcher(false, nil, h.chain.GetBlockByHash, validator, h.BroadcastBlock, heighter, nil, inserter, h.removePeer)
 
+	if handler, ok := h.chain.Engine().(consensus.Handler); ok {
+		handler.SetBroadcaster(h)
+	}
+
 	fetchTx := func(peer string, hashes []common.Hash) error {
 		p := h.peers.peer(peer)
 		if p == nil {
@@ -303,11 +306,6 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 	// Create a notification channel for pending requests if the peer goes down
 	dead := make(chan struct{})
 	defer close(dead)
-
-	if syncer, ok := h.chain.Engine().(consensus.Syncer); ok {
-		address := crypto.PubkeyToAddress(*p.Node().Pubkey())
-		syncer.ResetPeerCache(address)
-	}
 
 	// If we have a trusted CHT, reject all peers below that (avoid fast sync eclipse)
 	if h.checkpointHash != (common.Hash{}) {
@@ -445,6 +443,10 @@ func (h *handler) unregisterPeer(id string) {
 	}
 	h.downloader.UnregisterPeer(id)
 	h.txFetcher.Drop(id)
+
+	if syncer, ok := h.chain.Engine().(consensus.Syncer); ok {
+		syncer.ResetPeerCache(peer.Address())
+	}
 
 	if err := h.peers.unregisterPeer(id); err != nil {
 		logger.Error("Ethereum peer removal failed", "err", err)
@@ -598,7 +600,7 @@ func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Addr
 	m := make(map[common.Address]consensus.Peer)
 
 	for _, p := range h.peers.peers {
-		addr := p.address
+		addr := p.Address()
 		if _, ok := targets[addr]; ok {
 			m[addr] = p
 		}

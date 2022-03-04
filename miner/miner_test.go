@@ -19,6 +19,7 @@ package miner
 
 import (
 	"github.com/clearmatics/autonity/autonity"
+	"math/big"
 	"testing"
 	"time"
 
@@ -65,6 +66,10 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
+func (bc *testBlockChain) GetMinBaseFee(header *types.Header) (*big.Int, error) {
+	return new(big.Int), nil
+}
+
 func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {
 	return nil
 }
@@ -93,7 +98,7 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent)
 
 func TestMiner(t *testing.T) {
 	miner, mux := createMiner(t)
-	miner.Start(common.HexToAddress("0x12345"))
+	miner.Start()
 	waitForMiningState(t, miner, true)
 	// Start the downloader
 	mux.Post(downloader.StartEvent{})
@@ -120,7 +125,7 @@ func TestMiner(t *testing.T) {
 // downloader StartEvent.
 func TestMinerDownloaderFirstFails(t *testing.T) {
 	miner, mux := createMiner(t)
-	miner.Start(common.HexToAddress("0x12345"))
+	miner.Start()
 	waitForMiningState(t, miner, true)
 	// Start the downloader
 	mux.Post(downloader.StartEvent{})
@@ -152,7 +157,7 @@ func TestMinerDownloaderFirstFails(t *testing.T) {
 func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 	miner, mux := createMiner(t)
 
-	miner.Start(common.HexToAddress("0x12345"))
+	miner.Start()
 	waitForMiningState(t, miner, true)
 	// Start the downloader
 	mux.Post(downloader.StartEvent{})
@@ -165,7 +170,7 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 	miner.Stop()
 	waitForMiningState(t, miner, false)
 
-	miner.Start(common.HexToAddress("0x678910"))
+	miner.Start()
 	waitForMiningState(t, miner, true)
 
 	miner.Stop()
@@ -175,20 +180,20 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 func TestStartWhileDownload(t *testing.T) {
 	miner, mux := createMiner(t)
 	waitForMiningState(t, miner, false)
-	miner.Start(common.HexToAddress("0x12345"))
+	miner.Start()
 	waitForMiningState(t, miner, true)
 	// Stop the downloader and wait for the update loop to run
 	mux.Post(downloader.StartEvent{})
 	waitForMiningState(t, miner, false)
 	// Starting the miner after the downloader should not work
-	miner.Start(common.HexToAddress("0x12345"))
+	miner.Start()
 	waitForMiningState(t, miner, false)
 }
 
 func TestStartStopMiner(t *testing.T) {
 	miner, _ := createMiner(t)
 	waitForMiningState(t, miner, false)
-	miner.Start(common.HexToAddress("0x12345"))
+	miner.Start()
 	waitForMiningState(t, miner, true)
 	miner.Stop()
 	waitForMiningState(t, miner, false)
@@ -197,33 +202,11 @@ func TestStartStopMiner(t *testing.T) {
 func TestCloseMiner(t *testing.T) {
 	miner, _ := createMiner(t)
 	waitForMiningState(t, miner, false)
-	miner.Start(common.HexToAddress("0x12345"))
+	miner.Start()
 	waitForMiningState(t, miner, true)
 	// Terminate the miner and wait for the update loop to run
 	miner.Close()
 	waitForMiningState(t, miner, false)
-}
-
-// TestMinerSetEtherbase checks that etherbase becomes set even if mining isn't
-// possible at the moment
-func TestMinerSetEtherbase(t *testing.T) {
-	miner, mux := createMiner(t)
-	// Start with a 'bad' mining address
-	miner.Start(common.HexToAddress("0xdead"))
-	waitForMiningState(t, miner, true)
-	// Start the downloader
-	mux.Post(downloader.StartEvent{})
-	waitForMiningState(t, miner, false)
-	// Now user tries to configure proper mining address
-	miner.Start(common.HexToAddress("0x1337"))
-	// Stop the downloader and wait for the update loop to run
-	mux.Post(downloader.DoneEvent{})
-
-	waitForMiningState(t, miner, true)
-	// The miner should now be using the good address
-	if got, exp := miner.coinbase, common.HexToAddress("0x1337"); got != exp {
-		t.Fatalf("Wrong coinbase, got %x expected %x", got, exp)
-	}
 }
 
 // waitForMiningState waits until either
@@ -274,7 +257,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
 
-	pool := core.NewTxPool(testTxPoolConfig, params.AutonityTestChainConfig, blockchain, senderCacher)
+	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, senderCacher)
 	backend := NewMockBackend(bc, pool)
 	// Create Miner
 	return New(backend, &config, chainConfig, mux, engine, isLocalBlock), mux

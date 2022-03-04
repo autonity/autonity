@@ -482,6 +482,7 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 	if config.PowMode == ModeShared {
 		ethash.shared = sharedEthash
 	}
+	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash
 }
 
@@ -549,7 +550,12 @@ func NewShared() *Ethash {
 // Close closes the exit channel to notify all backend threads exiting.
 func (ethash *Ethash) Close() error {
 	ethash.closeOnce.Do(func() {
-
+		// Short circuit if the exit channel is not allocated.
+		if ethash.remote == nil {
+			return
+		}
+		close(ethash.remote.requestExit)
+		<-ethash.remote.exitCh
 	})
 	return nil
 }
@@ -648,6 +654,13 @@ func (ethash *Ethash) Hashrate() float64 {
 		return ethash.hashrate.Rate1()
 	}
 	var res = make(chan uint64, 1)
+
+	select {
+	case ethash.remote.fetchRateCh <- res:
+	case <-ethash.remote.exitCh:
+		// Return local hashrate only if ethash is stopped.
+		return ethash.hashrate.Rate1()
+	}
 
 	// Gather total submitted hash rate of remote sealers.
 	return ethash.hashrate.Rate1() + float64(<-res)
