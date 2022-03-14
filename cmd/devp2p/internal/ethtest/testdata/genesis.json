@@ -1,0 +1,52 @@
+{
+  "config": {
+    "chainId": 19763,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "constantinopleBlock": 0,
+    "muirGlacierBlock": 0,
+    "berlinBlock": 0,
+    "londonBlock": 0,
+    "ethash": {},
+    "autonityContract": {
+      "bytecode": "",
+      "abi": "",
+      "minBaseFee": 10000000000,
+      "blockPeriod": 1,
+      "unbondingPeriod": 120,
+      "epochPeriod": 30,
+      "treasury": "0x135D05367Fc70C6c3a605072b72E9a9D5a74b455",
+      "treasuryFee": 150000000,
+      "operator": "0xef4b0D6b4426B14De55751922a84b2C96c45D1E0",
+      "validators": [
+        {
+          "treasury": "0xef4b0D6b4426B14De55751922a84b2C96c45D1E0",
+          "enode": "enode://6b7d214673c6a44e2675cd9804e98d7ac96640312c98d5a20157e7eab20c2d1687157ec2bbbaf08b047cab9be4412e2f2c6b0fd16857f6283c817d081303f2f8@127.0.0.1:5000",
+          "bondedStake": 10000,
+          "commissionRate": 10000,
+          "extra": "local node 0"
+        }
+      ]
+    }
+  },
+  "nonce": "0xdeadbeefdeadbeef",
+  "timestamp": "0x0",
+  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "gasLimit": "0x80000000",
+  "difficulty": "0",
+  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "alloc": {
+    "71562b71999873db5b286df957af199ec94617f7": {
+      "balance": "0xffffffffffffffffffffffffff"
+    }
+  },
+  "number": "0x0",
+  "gasUsed": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}

@@ -22,11 +22,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/rand"
 	mrand "math/rand"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/clearmatics/autonity/common/mclock"
@@ -79,7 +77,7 @@ var (
 	errAlreadyDialing   = errors.New("already dialing")
 	errAlreadyConnected = errors.New("already connected")
 	errRecentlyDialed   = errors.New("recently dialed")
-	errNotWhitelisted   = errors.New("not contained in netrestrict whitelist")
+	errNetRestrict      = errors.New("not contained in netrestrict list")
 	errNoPort           = errors.New("node does not provide TCP port")
 )
 
@@ -109,7 +107,7 @@ type dialScheduler struct {
 	// Everything below here belongs to loop and
 	// should only be accessed by code on the loop goroutine.
 	dialing   map[enode.ID]*dialTask // active tasks
-	peers     map[enode.ID]connFlag  // all connected peers
+	peers     map[enode.ID]struct{}  // all connected peers
 	dialPeers int                    // current number of dialed peers
 
 	// The static map tracks all static dial tasks. The subset of usable static dial tasks
@@ -132,16 +130,15 @@ type dialScheduler struct {
 type dialSetupFunc func(net.Conn, connFlag, *enode.Node) error
 
 type dialConfig struct {
-	self                  enode.ID         // our own ID
-	maxDialPeers          int              // maximum number of dialed peers
-	maxActiveDials        int              // maximum number of active dials
-	netRestrict           *netutil.Netlist // IP whitelist, disabled if nil
-	resolver              nodeResolver
-	dialer                NodeDialer
-	log                   log.Logger
-	clock                 mclock.Clock
-	rand                  *mrand.Rand
-	dialHistoryExpiration time.Duration // DialHistoryExpiration is the time window to re-dial to the same source peer.
+	self           enode.ID         // our own ID
+	maxDialPeers   int              // maximum number of dialed peers
+	maxActiveDials int              // maximum number of active dials
+	netRestrict    *netutil.Netlist // IP netrestrict list, disabled if nil
+	resolver       nodeResolver
+	dialer         NodeDialer
+	log            log.Logger
+	clock          mclock.Clock
+	rand           *mrand.Rand
 }
 
 func (cfg dialConfig) withDefaults() dialConfig {
@@ -160,20 +157,16 @@ func (cfg dialConfig) withDefaults() dialConfig {
 		seed := int64(binary.BigEndian.Uint64(seedb))
 		cfg.rand = mrand.New(mrand.NewSource(seed))
 	}
-	if cfg.dialHistoryExpiration == 0 {
-		cfg.dialHistoryExpiration = dialHistoryExpiration
-	}
 	return cfg
 }
 
 func newDialScheduler(config dialConfig, it enode.Iterator, setupFunc dialSetupFunc) *dialScheduler {
-	config.log = log.New("self", config.self)
 	d := &dialScheduler{
 		dialConfig:  config.withDefaults(),
 		setupFunc:   setupFunc,
 		dialing:     make(map[enode.ID]*dialTask),
 		static:      make(map[enode.ID]*dialTask),
-		peers:       make(map[enode.ID]connFlag),
+		peers:       make(map[enode.ID]struct{}),
 		doneCh:      make(chan *dialTask),
 		nodesIn:     make(chan *enode.Node),
 		addStaticCh: make(chan *enode.Node),
@@ -266,7 +259,7 @@ loop:
 				d.dialPeers++
 			}
 			id := c.node.ID()
-			d.peers[id] = connFlag(atomic.LoadInt32((*int32)(&c.flags)))
+			d.peers[id] = struct{}{}
 			// Remove from static pool because the node is now connected.
 			task := d.static[id]
 			if task != nil && task.staticPoolIndex >= 0 {
@@ -284,7 +277,7 @@ loop:
 		case node := <-d.addStaticCh:
 			id := node.ID()
 			_, exists := d.static[id]
-			d.log.Trace("Adding static node", "id", id, "ip", node.IP(), "port", node.TCP(), "added", !exists)
+			d.log.Trace("Adding static node", "id", id, "ip", node.IP(), "added", !exists)
 			if exists {
 				continue loop
 			}
@@ -409,7 +402,7 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 		return errAlreadyConnected
 	}
 	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) {
-		return errNotWhitelisted
+		return errNetRestrict
 	}
 	if d.history.contains(string(n.ID().Bytes())) {
 		return errRecentlyDialed
@@ -422,16 +415,6 @@ func (d *dialScheduler) startStaticDials(n int) (started int) {
 	for started = 0; started < n && len(d.staticPool) > 0; started++ {
 		idx := d.rand.Intn(len(d.staticPool))
 		task := d.staticPool[idx]
-
-		// Add this task to the history so we don't go crazy trying to redial it
-		//
-		// The task history is consulted before dialling and if an entry found it
-		// is not dialled. Entries expire and when they do they send an event
-		// on the expiry channel that kicks off another round of dialing.
-		hkey := string(task.dest.ID().Bytes())
-		// We add a bit of randomness to the expiration to try and interleave cross-dials.
-		d.history.add(hkey, d.clock.Now().Add(time.Millisecond*time.Duration(10+rand.Intn(10))))
-
 		d.startDial(task)
 		d.removeFromStaticPool(idx)
 	}
@@ -470,7 +453,7 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 func (d *dialScheduler) startDial(task *dialTask) {
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
 	hkey := string(task.dest.ID().Bytes())
-	d.history.add(hkey, d.clock.Now().Add(d.dialConfig.dialHistoryExpiration))
+	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
 	d.dialing[task.dest.ID()] = task
 	go func() {
 		task.run(d)
@@ -501,16 +484,8 @@ func (t *dialTask) run(d *dialScheduler) {
 	if t.needResolve() && !t.resolve(d) {
 		return
 	}
-	err := t.dest.ResolveHost()
-	if err != nil {
-		d.log.Trace(fmt.Sprintf(
-			"Failed to resolve IP for host %q, dialing with previously resolved IP %q, err: %v",
-			t.dest.Host(),
-			t.dest.IP().String(),
-			err,
-		))
-	}
-	err = t.dial(d, t.dest)
+
+	err := t.dial(d, t.dest)
 	if err != nil {
 		// For static nodes, resolve one more time if dialing fails.
 		if _, ok := err.(*dialError); ok && t.flags&staticDialedConn != 0 {

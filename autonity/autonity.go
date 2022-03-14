@@ -33,13 +33,12 @@ type Blockchainer interface {
 }
 
 type Contract struct {
-	evmProvider        EVMProvider
-	operator           common.Address
-	initialMinGasPrice uint64
-	contractABI        *abi.ABI
-	stringABI          string
-	bc                 Blockchainer
-	metrics            EconomicMetrics
+	evmProvider       EVMProvider
+	operator          common.Address
+	initialMinBaseFee uint64
+	contractABI       *abi.ABI
+	stringABI         string
+	bc                Blockchainer
 
 	sync.RWMutex
 }
@@ -47,16 +46,16 @@ type Contract struct {
 func NewAutonityContract(
 	bc Blockchainer,
 	operator common.Address,
-	minGasPrice uint64,
+	minBaseFee uint64,
 	ABI string,
 	evmProvider EVMProvider,
 ) (*Contract, error) {
 	contract := Contract{
-		stringABI:          ABI,
-		operator:           operator,
-		initialMinGasPrice: minGasPrice,
-		bc:                 bc,
-		evmProvider:        evmProvider,
+		stringABI:         ABI,
+		operator:          operator,
+		initialMinBaseFee: minBaseFee,
+		bc:                bc,
+		evmProvider:       evmProvider,
 	}
 	err := contract.upgradeAbiCache(ABI)
 	return &contract, err
@@ -83,24 +82,24 @@ func (ac *Contract) GetCommitteeEnodes(block *types.Block, db *state.StateDB) (*
 	return ac.callGetCommitteeEnodes(db, block.Header())
 }
 
-func (ac *Contract) GetMinimumGasPrice(block *types.Block, db *state.StateDB) (uint64, error) {
-	if block.Number().Uint64() <= 1 {
-		return ac.initialMinGasPrice, nil
+func (ac *Contract) GetMinimumBaseFee(block *types.Header, db *state.StateDB) (uint64, error) {
+	if block.Number.Uint64() <= 1 {
+		return ac.initialMinBaseFee, nil
 	}
 
-	return ac.callGetMinimumGasPrice(db, block.Header())
+	return ac.callGetMinimumBaseFee(db, block)
 }
 
 func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, height uint64, round int64) common.Address {
 	return ac.callGetProposer(db, header, height, round)
 }
 
-func (ac *Contract) SetMinimumGasPrice(block *types.Block, db *state.StateDB, price *big.Int) error {
+func (ac *Contract) SetMinimumBaseFee(block *types.Block, db *state.StateDB, price *big.Int) error {
 	if block.Number().Uint64() <= 1 {
 		return nil
 	}
 
-	return ac.callSetMinimumGasPrice(db, block.Header(), price)
+	return ac.callSetMinimumBaseFee(db, block.Header(), price)
 }
 
 func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
@@ -108,11 +107,11 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 		return nil, nil, nil
 	}
 	blockGas := new(big.Int)
-	for i, tx := range transactions {
-		blockGas.Add(blockGas, new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipts[i].GasUsed)))
+	for i := range transactions {
+		blockGas.Add(blockGas, new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
 
-	log.Debug("ApplyFinalize",
+	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(ContractAddress),
 		"block", header.Number.Uint64(),
 		"gas", blockGas.Uint64())
@@ -126,13 +125,13 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 	receipt := types.NewReceipt(nil, false, 0)
 	receipt.TxHash = common.ACHash(header.Number)
 	receipt.GasUsed = 0
-	receipt.Logs = statedb.GetLogs(receipt.TxHash)
+	receipt.Logs = statedb.GetLogs(receipt.TxHash, header.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	receipt.BlockHash = statedb.BlockHash()
+	receipt.BlockHash = header.Hash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
-	log.Debug("ApplyFinalize", "upgradeContract", upgradeContract)
+	log.Debug("Finalizing block", "contract upgrade", upgradeContract)
 
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.

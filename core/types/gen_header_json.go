@@ -37,6 +37,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		ProposerSeal   hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round          hexutil.Uint64     `json:"round"               gencodec:"required"`
 		CommittedSeals []hexutil.Bytes    `json:"committedSeals"      gencodec:"required"`
+		BaseFee        *hexutil.Big       `json:"baseFeePerGas" rlp:"optional"`
 		Hash           common.Hash        `json:"hash"`
 	}
 	var enc Header
@@ -55,6 +56,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.Extra = h.Extra
 	enc.MixDigest = h.MixDigest
 	enc.Nonce = h.Nonce
+	enc.BaseFee = (*hexutil.Big)(h.BaseFee)
 	enc.ProposerSeal = h.ProposerSeal
 	enc.Round = hexutil.Uint64(h.Round)
 	if h.CommittedSeals != nil {
@@ -98,6 +100,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Extra          *hexutil.Bytes     `json:"extraData"        gencodec:"required"`
 		MixDigest      *common.Hash       `json:"mixHash"`
 		Nonce          *BlockNonce        `json:"nonce"`
+		BaseFee        *hexutil.Big       `json:"baseFeePerGas" rlp:"optional"`
 		Committee      []MarshalledMember `json:"committee"           gencodec:"required"`
 		ProposerSeal   *hexutil.Bytes     `json:"proposerSeal"        gencodec:"required"`
 		Round          *hexutil.Uint64    `json:"round"               gencodec:"required"`
@@ -164,6 +167,9 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	if dec.Nonce != nil {
 		h.Nonce = *dec.Nonce
+	}
+	if dec.BaseFee != nil {
+		h.BaseFee = (*big.Int)(dec.BaseFee)
 	}
 	if dec.Committee == nil {
 		return errors.New("missing required field 'committee' for Header")

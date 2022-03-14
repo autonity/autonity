@@ -142,19 +142,18 @@ func (b *bridge) OpenWallet(call jsre.Call) (goja.Value, error) {
 		}
 		passwd = call.VM.ToValue(input)
 		if val, err = openWallet(goja.Null(), wallet, passwd); err != nil {
-			if !strings.HasSuffix(err.Error(), scwallet.ErrPINNeeded.Error()) {
-				return nil, err
-			} else {
-				// PIN input requested, fetch from the user and call open again
-				input, err := b.prompter.PromptPassword("Please enter current PIN: ")
-				if err != nil {
-					return nil, err
-				}
-				if val, err = openWallet(goja.Null(), wallet, call.VM.ToValue(input)); err != nil {
-					return nil, err
-				}
-			}
-		}
+            if !strings.HasSuffix(err.Error(), scwallet.ErrPINNeeded.Error()) {
+                return nil, err
+            }
+            // PIN input requested, fetch from the user and call open again
+            input, err := b.prompter.PromptPassword("Please enter current PIN: ")
+            if err != nil {
+                return nil, err
+            }
+            if val, err = openWallet(goja.Null(), wallet, call.VM.ToValue(input)); err != nil {
+                return nil, err
+            }
+        }
 
 	case strings.HasSuffix(err.Error(), scwallet.ErrPINUnblockNeeded.Error()):
 		// PIN unblock requested, fetch PUK and new PIN from the user

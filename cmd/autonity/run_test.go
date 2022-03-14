@@ -71,12 +71,12 @@ func runAutonity(t *testing.T, args ...string) *testautonity {
 	tt := &testautonity{}
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
 	for i, arg := range args {
-		switch {
-		case arg == "-datadir" || arg == "--datadir":
+		switch arg {
+		case "--datadir":
 			if i < len(args)-1 {
 				tt.Datadir = args[i+1]
 			}
-		case arg == "-etherbase" || arg == "--etherbase":
+		case "--miner.etherbase":
 			if i < len(args)-1 {
 				tt.Etherbase = args[i+1]
 			}
@@ -85,7 +85,7 @@ func runAutonity(t *testing.T, args ...string) *testautonity {
 	if tt.Datadir == "" {
 		tt.Datadir = tmpdir(t)
 		tt.Cleanup = func() { os.RemoveAll(tt.Datadir) }
-		args = append([]string{"-datadir", tt.Datadir}, args...)
+		args = append([]string{"--datadir", tt.Datadir}, args...)
 		// Remove the temporary datadir if something fails below.
 		defer func() {
 			if t.Failed() {

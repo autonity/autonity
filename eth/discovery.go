@@ -19,8 +19,6 @@ package eth
 import (
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/dnsdisc"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/rlp"
 )
@@ -62,13 +60,4 @@ func (eth *Ethereum) startEthEntryUpdate(ln *enode.LocalNode) {
 func (eth *Ethereum) currentEthEntry() *ethEntry {
 	return &ethEntry{ForkID: forkid.NewID(eth.blockchain.Config(), eth.blockchain.Genesis().Hash(),
 		eth.blockchain.CurrentHeader().Number.Uint64())}
-}
-
-// setupDiscovery creates the node discovery source for the eth protocol.
-func (eth *Ethereum) setupDiscovery(cfg *p2p.Config) (enode.Iterator, error) {
-	if cfg.NoDiscovery || len(eth.config.DiscoveryURLs) == 0 {
-		return nil, nil
-	}
-	client := dnsdisc.NewClient(dnsdisc.Config{})
-	return client.NewIterator(eth.config.DiscoveryURLs...)
 }

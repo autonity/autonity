@@ -21,7 +21,7 @@ type AutonityContractGenesis struct {
 	Bytecode string `json:"bytecode,omitempty" toml:",omitempty"`
 	// Json ABI of the contract
 	ABI             string         `json:"abi,omitempty" toml:",omitempty"`
-	MinGasPrice     uint64         `json:"minGasPrice"`
+	MinBaseFee      uint64         `json:"minBaseFee"`
 	EpochPeriod     uint64         `json:"epochPeriod"`
 	UnbondingPeriod uint64         `json:"unbondingPeriod"`
 	BlockPeriod     uint64         `json:"blockPeriod"`
@@ -32,7 +32,7 @@ type AutonityContractGenesis struct {
 }
 
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.
-// It returns an error if the configuration is invalid.
+// It returns an error if the configuration isinvalid.
 func (ac *AutonityContractGenesis) Prepare() error {
 
 	if len(ac.Bytecode) == 0 && len(ac.ABI) > 0 ||
@@ -41,11 +41,11 @@ func (ac *AutonityContractGenesis) Prepare() error {
 	}
 
 	if len(ac.Bytecode) == 0 && len(ac.ABI) == 0 {
-		log.Info("Network economics: Autonity Delegated Proof-of-Stake protocol")
+		log.Info("Setting up Autonity default dPoS contract")
 		ac.ABI = acdefault.ABI()
 		ac.Bytecode = acdefault.Bytecode()
 	} else {
-		log.Info("Network economics: Custom protocol contract")
+		log.Info("Setting up custom Autonity protocol contract")
 	}
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
 		ac.Operator = acdefault.Governance()

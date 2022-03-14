@@ -21,20 +21,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/clearmatics/autonity/core"
+	"github.com/davecgh/go-spew/spew"
+	"math/big"
 	"os"
 	"reflect"
 	"unicode"
 
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/log"
-	"github.com/davecgh/go-spew/spew"
+	"gopkg.in/urfave/cli.v1"
 
-	cli "gopkg.in/urfave/cli.v1"
-
+	"github.com/clearmatics/autonity/accounts/external"
+	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/clearmatics/autonity/accounts/scwallet"
+	"github.com/clearmatics/autonity/accounts/usbwallet"
 	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/eth"
+	"github.com/clearmatics/autonity/eth/ethconfig"
 	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/log"
+	"github.com/clearmatics/autonity/metrics"
 	"github.com/clearmatics/autonity/node"
 	"github.com/clearmatics/autonity/params"
 	"github.com/naoina/toml"
@@ -84,7 +88,7 @@ type ethstatsConfig struct {
 }
 
 type autonityConfig struct {
-	Eth      eth.Config
+	Eth      ethconfig.Config
 	Node     node.Config
 	Ethstats ethstatsConfig
 	Metrics  metrics.Config
@@ -115,10 +119,11 @@ func defaultNodeConfig() node.Config {
 	return cfg
 }
 
+// makeConfigNode loads geth configuration and creates a blank node instance.
 func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	// Load defaults.
 	cfg := autonityConfig{
-		Eth:     eth.DefaultConfig,
+		Eth:     ethconfig.Defaults,
 		Node:    defaultNodeConfig(),
 		Metrics: metrics.DefaultConfig,
 	}
@@ -136,6 +141,11 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	if err != nil {
 		utils.Fatalf("Failed to create the protocol stack: %v", err)
 	}
+	// Node doesn't by default populate account manager backends
+	if err := setAccountManagerBackends(stack); err != nil {
+		utils.Fatalf("Failed to set account manager backends: %v", err)
+	}
+
 	utils.SetEthConfig(ctx, stack, &cfg.Eth)
 	if ctx.GlobalIsSet(utils.EthStatsURLFlag.Name) {
 		cfg.Ethstats.URL = ctx.GlobalString(utils.EthStatsURLFlag.Name)
@@ -178,7 +188,7 @@ func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
 // database.
 func applyGenesis(genesis *core.Genesis, node *node.Node) error {
 	for _, name := range []string{"chaindata", "lightchaindata"} {
-		chaindb, err := node.OpenDatabase(name, 0, 0, "")
+		chaindb, err := node.OpenDatabase(name, 0, 0, "", false)
 		if err != nil {
 			return fmt.Errorf("failed to open database: %v", err)
 		}
@@ -204,6 +214,20 @@ func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
 		if err != nil {
 			utils.Fatalf("failed to validate genesis file: %v", err)
 		}
+		// Set default hardforks
+		genesis.Config.ByzantiumBlock = new(big.Int)
+		genesis.Config.HomesteadBlock = new(big.Int)
+		genesis.Config.ConstantinopleBlock = new(big.Int)
+		genesis.Config.PetersburgBlock = new(big.Int)
+		genesis.Config.IstanbulBlock = new(big.Int)
+		genesis.Config.MuirGlacierBlock = new(big.Int)
+		genesis.Config.BerlinBlock = new(big.Int)
+		genesis.Config.LondonBlock = new(big.Int)
+		genesis.Config.ArrowGlacierBlock = new(big.Int)
+		genesis.Config.EIP158Block = new(big.Int)
+		genesis.Config.EIP150Block = new(big.Int)
+		genesis.Config.EIP155Block = new(big.Int)
+
 		err = applyGenesis(genesis, stack)
 		if err != nil {
 			utils.Fatalf("failed to apply genesis file: %v", err)
@@ -213,11 +237,14 @@ func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
 
 func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
-
-	// Combine init genesis on node start up.
 	initGenesisBlockOnStart(ctx, stack)
-
-	backend := utils.RegisterEthService(stack, &cfg.Eth)
+	if ctx.GlobalIsSet(utils.OverrideArrowGlacierFlag.Name) {
+		cfg.Eth.OverrideArrowGlacier = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideArrowGlacierFlag.Name))
+	}
+	if ctx.GlobalIsSet(utils.OverrideTerminalTotalDifficulty.Name) {
+		cfg.Eth.OverrideTerminalTotalDifficulty = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideTerminalTotalDifficulty.Name))
+	}
+	backend, _ := utils.RegisterEthService(stack, &cfg.Eth)
 
 	// Configure GraphQL if requested
 	if ctx.GlobalIsSet(utils.GraphQLEnabledFlag.Name) {
@@ -313,4 +340,63 @@ func deprecated(field string) bool {
 	default:
 		return false
 	}
+}
+
+func setAccountManagerBackends(stack *node.Node) error {
+	conf := stack.Config()
+	am := stack.AccountManager()
+	keydir := stack.KeyStoreDir()
+	scryptN := keystore.StandardScryptN
+	scryptP := keystore.StandardScryptP
+	if conf.UseLightweightKDF {
+		scryptN = keystore.LightScryptN
+		scryptP = keystore.LightScryptP
+	}
+
+	// Assemble the supported backends
+	if len(conf.ExternalSigner) > 0 {
+		log.Info("Using external signer", "url", conf.ExternalSigner)
+		if extapi, err := external.NewExternalBackend(conf.ExternalSigner); err == nil {
+			am.AddBackend(extapi)
+			return nil
+		} else {
+			return fmt.Errorf("error connecting to external signer: %v", err)
+		}
+	}
+
+	// For now, we're using EITHER external signer OR local signers.
+	// If/when we implement some form of lockfile for USB and keystore wallets,
+	// we can have both, but it's very confusing for the user to see the same
+	// accounts in both externally and locally, plus very racey.
+	am.AddBackend(keystore.NewKeyStore(keydir, scryptN, scryptP))
+	if conf.USB {
+		// Start a USB hub for Ledger hardware wallets
+		if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
+			log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
+		} else {
+			am.AddBackend(ledgerhub)
+		}
+		// Start a USB hub for Trezor hardware wallets (HID version)
+		if trezorhub, err := usbwallet.NewTrezorHubWithHID(); err != nil {
+			log.Warn(fmt.Sprintf("Failed to start HID Trezor hub, disabling: %v", err))
+		} else {
+			am.AddBackend(trezorhub)
+		}
+		// Start a USB hub for Trezor hardware wallets (WebUSB version)
+		if trezorhub, err := usbwallet.NewTrezorHubWithWebUSB(); err != nil {
+			log.Warn(fmt.Sprintf("Failed to start WebUSB Trezor hub, disabling: %v", err))
+		} else {
+			am.AddBackend(trezorhub)
+		}
+	}
+	if len(conf.SmartCardDaemonPath) > 0 {
+		// Start a smart card hub
+		if schub, err := scwallet.NewHub(conf.SmartCardDaemonPath, scwallet.Scheme, keydir); err != nil {
+			log.Warn(fmt.Sprintf("Failed to start smart card hub, disabling: %v", err))
+		} else {
+			am.AddBackend(schub)
+		}
+	}
+
+	return nil
 }

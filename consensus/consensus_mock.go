@@ -23,6 +23,14 @@ type MockChainReader struct {
 	recorder *MockChainReaderMockRecorder
 }
 
+func (m *MockChainReader) GetTd(hash common.Hash, number uint64) *big.Int {
+	panic("implement me")
+}
+
+func (m *MockChainReader) GetMinBaseFee(header *types.Header) (*big.Int, error) {
+	panic("implement me")
+}
+
 // MockChainReaderMockRecorder is the mock recorder for MockChainReader
 type MockChainReaderMockRecorder struct {
 	mock *MockChainReader

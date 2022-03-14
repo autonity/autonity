@@ -17,13 +17,9 @@
 package core
 
 import (
-	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/consensus/ethash"
@@ -31,40 +27,34 @@ import (
 	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/params"
+	"github.com/davecgh/go-spew/spew"
 )
 
-func TestDefaultGenesisBlock(t *testing.T) {
-	t.Skip("unsupported because of autonity contract")
-	block, err := DefaultGenesisBlock().ToBlock(nil)
-	assert.NoError(t, err)
-	if block.Hash() != params.MainnetGenesisHash {
-		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), params.MainnetGenesisHash)
-	}
-	block, err = DefaultRopstenGenesisBlock().ToBlock(nil)
-	assert.NoError(t, err)
-	if block.Hash() != params.RopstenGenesisHash {
-		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash(), params.RopstenGenesisHash)
+func TestInvalidCliqueConfig(t *testing.T) {
+	block := DefaultGoerliGenesisBlock()
+	block.ExtraData = []byte{}
+	if _, err := block.Commit(nil); err == nil {
+		t.Fatal("Expected error on invalid clique config")
 	}
 }
 
 func TestSetupGenesis(t *testing.T) {
 	t.Skip("depreciated with autonity")
-	chainConfig := params.AutonityTestChainConfig
-	oldChainConfig := params.AutonityTestChainConfig
+	chainConfig := params.TestChainConfig
+	oldChainConfig := params.TestChainConfig
 	chainConfig.IstanbulBlock = big.NewInt(3)
 	oldChainConfig.IstanbulBlock = big.NewInt(2)
 	var (
 		customghash = common.HexToHash("0x89c99d90b79719238d2645c7642f2c9295246e80775b38cfd162b696817fbd50")
-
-		customg = Genesis{
-			Config: chainConfig,
+		customg     = Genesis{
+			Config: &params.ChainConfig{HomesteadBlock: big.NewInt(3)},
 			Alloc: GenesisAlloc{
 				{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.Hash{{1}: {1}}},
 			},
 		}
 		oldcustomg = customg
 	)
-	oldcustomg.Config = oldChainConfig
+	oldcustomg.Config = &params.ChainConfig{HomesteadBlock: big.NewInt(2)}
 	tests := []struct {
 		name       string
 		fn         func(ethdb.Database) (*params.ChainConfig, common.Hash, error)
@@ -73,14 +63,21 @@ func TestSetupGenesis(t *testing.T) {
 		wantErr    error
 	}{
 		{
+			name: "genesis without ChainConfig",
+			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
+				return SetupGenesisBlock(db, new(Genesis))
+			},
+			wantErr:    errGenesisNoConfig,
+			wantConfig: params.TestChainConfig,
+		},
+		{
 			name: "no block in DB, genesis == nil",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock(db, nil)
 			},
-			wantErr:    fmt.Errorf("DB has no genesis block and there is no genesis file set by user"),
-			wantHash:   common.Hash{},
-			wantConfig: nil,
-		}, /**
+			wantHash:   params.MainnetGenesisHash,
+			wantConfig: params.MainnetChainConfig,
+		},
 		{
 			name: "mainnet block in DB, genesis == nil",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
@@ -89,7 +86,7 @@ func TestSetupGenesis(t *testing.T) {
 			},
 			wantHash:   params.MainnetGenesisHash,
 			wantConfig: params.MainnetChainConfig,
-		},**/
+		},
 		{
 			name: "custom block in DB, genesis == nil",
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
@@ -145,7 +142,7 @@ func TestSetupGenesis(t *testing.T) {
 		},
 	}
 
-	for i, test := range tests {
+	for _, test := range tests {
 		db := rawdb.NewMemoryDatabase()
 		config, hash, err := test.fn(db)
 		// Check the return values.
@@ -161,13 +158,67 @@ func TestSetupGenesis(t *testing.T) {
 		} else if err == nil {
 			// Check database content.
 			stored := rawdb.ReadBlock(db, test.wantHash, 0)
-			if stored == nil {
-				t.Fatalf("Test #%d %s: DB has nil block, want %s", i, test.name, test.wantHash.String())
-			}
 			if stored.Hash() != test.wantHash {
-				t.Errorf("Test #%d %s: block in DB has hash %s, want %s", i, test.name, stored.Hash().String(), test.wantHash.String())
+				t.Errorf("%s: block in DB has hash %s, want %s", test.name, stored.Hash(), test.wantHash)
 			}
 		}
-		db.Close()
+	}
+}
+
+// TestGenesisHashes checks the congruity of default genesis data to
+// corresponding hardcoded genesis hash values.
+func TestGenesisHashes(t *testing.T) {
+	t.Skip("not supported with autonity")
+	for i, c := range []struct {
+		genesis *Genesis
+		want    common.Hash
+	}{
+		{DefaultGenesisBlock(), params.MainnetGenesisHash},
+		{DefaultGoerliGenesisBlock(), params.GoerliGenesisHash},
+		{DefaultRopstenGenesisBlock(), params.RopstenGenesisHash},
+		{DefaultRinkebyGenesisBlock(), params.RinkebyGenesisHash},
+	} {
+		// Test via MustCommit
+		if have := c.genesis.MustCommit(rawdb.NewMemoryDatabase()).Hash(); have != c.want {
+			t.Errorf("case: %d a), want: %s, got: %s", i, c.want.Hex(), have.Hex())
+		}
+		// Test via ToBlock
+		block, err := c.genesis.ToBlock(nil)
+		if err != nil {
+			t.Fatal("error get block", err)
+		}
+		if have := block.Hash(); have != c.want {
+			t.Errorf("case: %d a), want: %s, got: %s", i, c.want.Hex(), have.Hex())
+		}
+	}
+}
+
+func TestGenesis_Commit(t *testing.T) {
+	genesis := &Genesis{
+		BaseFee: big.NewInt(params.InitialBaseFee),
+		Config:  params.TestChainConfig,
+		// difficulty is nil
+	}
+
+	db := rawdb.NewMemoryDatabase()
+	genesisBlock, err := genesis.Commit(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if big.NewInt(0).Cmp(genesis.Difficulty) != 0 {
+		t.Fatalf("assumption wrong")
+	}
+
+	// This value should have been set as default in the ToBlock method.
+	if genesisBlock.Difficulty().Cmp(params.GenesisDifficulty) != 0 {
+		t.Errorf("assumption wrong: want: %d, got: %v", params.GenesisDifficulty, genesisBlock.Difficulty())
+	}
+
+	// Expect the stored total difficulty to be the difficulty of the genesis block.
+	stored := rawdb.ReadTd(db, genesisBlock.Hash(), genesisBlock.NumberU64())
+
+	if stored.Cmp(genesisBlock.Difficulty()) != 0 {
+		t.Errorf("inequal difficulty; stored: %v, genesisBlock: %v", stored, genesisBlock.Difficulty())
 	}
 }

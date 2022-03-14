@@ -1,12 +1,8 @@
-# Note: This makefile should refrain from using docker in any build step
-# required by the 'autonity' rule. This is so that it remains possible to run
-# 'make autonity' inside a docker build.
+# This Makefile is meant to be used by people that do not usually work
+# with Go source code. If you know what GOPATH is then you probably
+# don't need to bother with make.
 
 .PHONY: autonity embed-autonity-contract android ios autonity-cross evm all test clean lint lint-deps mock-gen test-fast
-.PHONY: autonity-linux autonity-linux-386 autonity-linux-amd64 autonity-linux-mips64 autonity-linux-mips64le
-.PHONY: autonity-linux-arm autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
-.PHONY: autonity-darwin autonity-darwin-386 autonity-darwin-amd64
-.PHONY: autonity-windows autonity-windows-386 autonity-windows-amd64
 
 NPMBIN= $(shell npm bin)
 BINDIR = ./build/bin
@@ -94,7 +90,9 @@ all: embed-autonity-contract
 android:
 	go run build/ci.go aar --local
 	@echo "Done building."
-	@echo "Import \"$(BINDIR)/autonity.aar\" to use the library."
+	@echo "Import \"$(GOBIN)/geth.aar\" to use the library."
+	@echo "Import \"$(GOBIN)/geth-sources.jar\" to add javadocs"
+	@echo "For more info see https://stackoverflow.com/questions/20994336/android-studio-how-to-attach-javadoc"
 
 ios:
 	go run build/ci.go xcode --local
@@ -194,95 +192,3 @@ devtools:
 	@type "npm" 2> /dev/null || echo 'Please install node.js and npm'
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
-
-# Cross Compilation Targets (xgo)
-
-autonity-cross: autonity-linux autonity-darwin autonity-windows autonity-android autonity-ios
-	@echo "Full cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-*
-
-autonity-linux: autonity-linux-386 autonity-linux-amd64 autonity-linux-arm autonity-linux-mips64 autonity-linux-mips64le
-	@echo "Linux cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-*
-
-autonity-linux-386:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/386 -v ./cmd/autonity
-	@echo "Linux 386 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep 386
-
-autonity-linux-amd64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/amd64 -v ./cmd/autonity
-	@echo "Linux amd64 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep amd64
-
-autonity-linux-arm: autonity-linux-arm-5 autonity-linux-arm-6 autonity-linux-arm-7 autonity-linux-arm64
-	@echo "Linux ARM cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep arm
-
-autonity-linux-arm-5:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/arm-5 -v ./cmd/autonity
-	@echo "Linux ARMv5 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep arm-5
-
-autonity-linux-arm-6:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/arm-6 -v ./cmd/autonity
-	@echo "Linux ARMv6 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep arm-6
-
-autonity-linux-arm-7:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/arm-7 -v ./cmd/autonity
-	@echo "Linux ARMv7 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep arm-7
-
-autonity-linux-arm64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/arm64 -v ./cmd/autonity
-	@echo "Linux ARM64 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep arm64
-
-autonity-linux-mips:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips --ldflags '-extldflags "-static"' -v ./cmd/autonity
-	@echo "Linux MIPS cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep mips
-
-autonity-linux-mipsle:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mipsle --ldflags '-extldflags "-static"' -v ./cmd/autonity
-	@echo "Linux MIPSle cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep mipsle
-
-autonity-linux-mips64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips64 --ldflags '-extldflags "-static"' -v ./cmd/autonity
-	@echo "Linux MIPS64 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep mips64
-
-autonity-linux-mips64le:
-	go run build/ci.go xgo -- --go=$(GO) --targets=linux/mips64le --ldflags '-extldflags "-static"' -v ./cmd/autonity
-	@echo "Linux MIPS64le cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-linux-* | grep mips64le
-
-autonity-darwin: autonity-darwin-386 autonity-darwin-amd64
-	@echo "Darwin cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-darwin-*
-
-autonity-darwin-386:
-	go run build/ci.go xgo -- --go=$(GO) --targets=darwin/386 -v ./cmd/autonity
-	@echo "Darwin 386 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-darwin-* | grep 386
-
-autonity-darwin-amd64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=darwin/amd64 -v ./cmd/autonity
-	@echo "Darwin amd64 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-darwin-* | grep amd64
-
-autonity-windows: autonity-windows-386 autonity-windows-amd64
-	@echo "Windows cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-windows-*
-
-autonity-windows-386:
-	go run build/ci.go xgo -- --go=$(GO) --targets=windows/386 -v ./cmd/autonity
-	@echo "Windows 386 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-windows-* | grep 386
-
-autonity-windows-amd64:
-	go run build/ci.go xgo -- --go=$(GO) --targets=windows/amd64 -v ./cmd/autonity
-	@echo "Windows amd64 cross compilation done:"
-	@ls -ld $(BINDIR)/autonity-windows-* | grep amd64

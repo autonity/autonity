@@ -72,7 +72,7 @@ func NewGenesis(minGasPrice uint64, validators []*Validator) (*core.Genesis, err
 		// Autonity relies on the difficulty always being 1 so that we can
 		// compare chain length by comparing total difficulty during peer
 		// connection handshake.
-		Difficulty: big.NewInt(1),
+		Difficulty: big.NewInt(0),
 
 		Alloc: genesisAlloc,
 
@@ -87,9 +87,9 @@ func NewGenesis(minGasPrice uint64, validators []*Validator) (*core.Genesis, err
 			PetersburgBlock:     big.NewInt(0),
 			IstanbulBlock:       big.NewInt(0),
 			AutonityContractConfig: &params.AutonityContractGenesis{
-				MinGasPrice: minGasPrice,
-				Operator:    *operatorAddress,
-				Validators:  genesisValidators,
+				MinBaseFee: minGasPrice,
+				Operator:   *operatorAddress,
+				Validators: genesisValidators,
 			},
 		},
 	}

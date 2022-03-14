@@ -28,7 +28,7 @@ func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis
 	constructorParams, err := abi.Pack("",
 		vals,
 		autonityConfig.Operator,
-		new(big.Int).SetUint64(autonityConfig.MinGasPrice),
+		new(big.Int).SetUint64(autonityConfig.MinBaseFee),
 		defaultCommitteeSize,
 		defaultVersion,
 		new(big.Int).SetUint64(autonityConfig.EpochPeriod),
@@ -121,13 +121,13 @@ func (ac *Contract) callGetCommitteeEnodes(state *state.StateDB, header *types.H
 	return types.NewNodes(returnedEnodes), nil
 }
 
-func (ac *Contract) callGetMinimumGasPrice(state *state.StateDB, header *types.Header) (uint64, error) {
-	minGasPrice := new(big.Int)
-	err := ac.AutonityContractCall(state, header, "getMinimumGasPrice", &minGasPrice)
+func (ac *Contract) callGetMinimumBaseFee(state *state.StateDB, header *types.Header) (uint64, error) {
+	minBaseFee := new(big.Int)
+	err := ac.AutonityContractCall(state, header, "getMinimumBaseFee", &minBaseFee)
 	if err != nil {
 		return 0, err
 	}
-	return minGasPrice.Uint64(), nil
+	return minBaseFee.Uint64(), nil
 }
 
 func (ac *Contract) callGetProposer(state *state.StateDB, header *types.Header, height uint64, round int64) common.Address {
@@ -178,7 +178,7 @@ func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Hea
 	return bytecode, abi, nil
 }
 
-func (ac *Contract) callSetMinimumGasPrice(state *state.StateDB, header *types.Header, price *big.Int) error {
+func (ac *Contract) callSetMinimumBaseFee(state *state.StateDB, header *types.Header, price *big.Int) error {
 	// Needs to be refactored somehow
 	gas := uint64(0xFFFFFFFF)
 	evm := ac.evmProvider.EVM(header, Deployer, state)

@@ -23,9 +23,9 @@ import (
 	"strings"
 
 	"github.com/clearmatics/autonity/internal/ethapi"
+	"github.com/clearmatics/autonity/internal/jsre/deps"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/signer/core"
-	"github.com/clearmatics/autonity/signer/rules/deps"
 	"github.com/clearmatics/autonity/signer/storage"
 	"github.com/dop251/goja"
 )

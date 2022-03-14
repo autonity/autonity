@@ -81,11 +81,11 @@ type (
 
 	// PONG is the reply to PING.
 	Pong struct {
-		ReqID  []byte
-		ENRSeq uint64
-		ToIP   net.IP // These fields should mirror the UDP envelope address of the ping
-		ToPort uint16 // packet, which provides a way to discover the the external address (after NAT).
-	}
+        ReqID  []byte
+        ENRSeq uint64
+        ToIP   net.IP // These fields should mirror the UDP envelope address of the ping
+        ToPort uint16 // packet, which provides a way to discover the external address (after NAT).
+    }
 
 	// FINDNODE is a query for nodes in the given bucket.
 	Findnode struct {

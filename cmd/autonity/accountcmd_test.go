@@ -105,6 +105,7 @@ func TestAccountImport(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			importAccountWithExpect(t, test.key, test.output)
@@ -122,7 +123,7 @@ func importAccountWithExpect(t *testing.T, key string, expected string) {
 	if err := ioutil.WriteFile(passwordFile, []byte("foobar"), 0600); err != nil {
 		t.Error(err)
 	}
-	geth := runAutonity(t, "account", "import", keyfile, "-password", passwordFile)
+	geth := runAutonity(t, "--lightkdf", "account", "import", keyfile, "-password", passwordFile)
 	defer geth.ExpectExit()
 	geth.Expect(expected)
 }
@@ -332,8 +333,9 @@ func TestUnlockFlagAmbiguousWrongPassword(t *testing.T) {
 	dir, jsonFile := tmpDataDirWithGenesisFile(t)
 	defer os.RemoveAll(dir)
 	store := filepath.Join("..", "..", "accounts", "keystore", "testdata", "dupes")
+
 	autonity := runAutonity(t,
-		"--datadir", dir, "--genesis", jsonFile, "--keystore", store, "--nat", "none", "--nodiscover",
+		"--datadir", dir, "--keystore", store, "--nat", "none", "--nodiscover", "--genesis", jsonFile,
 		"--maxpeers", "0", "--port", "0", "--unlock", "f466859ead1932d743d622cb74fc058882e8648a")
 	defer autonity.ExpectExit()
 

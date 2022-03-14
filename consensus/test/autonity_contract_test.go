@@ -118,7 +118,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 				"VD": case1After,
 			},
 			genesisHook: func(g *core.Genesis) *core.Genesis {
-				g.Config.AutonityContractConfig.MinGasPrice = DefaultTestGasPrice - 100
+				g.Config.AutonityContractConfig.MinBaseFee = DefaultTestGasPrice - 100
 				return g
 			},
 		},

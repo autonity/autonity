@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"sync"
 	"time"
@@ -445,18 +444,17 @@ func (net *Network) GetNodeIDs(excludeIDs ...enode.ID) []enode.ID {
 }
 
 func (net *Network) getNodeIDs(excludeIDs []enode.ID) []enode.ID {
-	// Get all current nodeIDs
-	nodeIDs := make([]enode.ID, 0, len(net.nodeMap))
-	for id := range net.nodeMap {
-		nodeIDs = append(nodeIDs, id)
-	}
+    // Get all current nodeIDs
+    nodeIDs := make([]enode.ID, 0, len(net.nodeMap))
+    for id := range net.nodeMap {
+        nodeIDs = append(nodeIDs, id)
+    }
 
-	if len(excludeIDs) > 0 {
-		// Return the difference of nodeIDs and excludeIDs
-		return filterIDs(nodeIDs, excludeIDs)
-	} else {
-		return nodeIDs
-	}
+    if len(excludeIDs) > 0 {
+        // Return the difference of nodeIDs and excludeIDs
+        return filterIDs(nodeIDs, excludeIDs)
+    }
+    return nodeIDs
 }
 
 // GetNodes returns the existing nodes.
@@ -469,12 +467,11 @@ func (net *Network) GetNodes(excludeIDs ...enode.ID) []*Node {
 }
 
 func (net *Network) getNodes(excludeIDs []enode.ID) []*Node {
-	if len(excludeIDs) > 0 {
-		nodeIDs := net.getNodeIDs(excludeIDs)
-		return net.getNodesByID(nodeIDs)
-	} else {
-		return net.Nodes
-	}
+    if len(excludeIDs) > 0 {
+        nodeIDs := net.getNodeIDs(excludeIDs)
+        return net.getNodesByID(nodeIDs)
+    }
+    return net.Nodes
 }
 
 // GetNodesByID returns existing nodes with the given enode.IDs.
@@ -696,12 +693,6 @@ func (net *Network) Shutdown() {
 		log.Debug("Stopping node", "id", node.ID())
 		if err := node.Stop(); err != nil {
 			log.Warn("Can't stop node", "id", node.ID(), "err", err)
-		}
-		// If the node has the close method, call it.
-		if closer, ok := node.Node.(io.Closer); ok {
-			if err := closer.Close(); err != nil {
-				log.Warn("Can't close node", "id", node.ID(), "err", err)
-			}
 		}
 	}
 	close(net.quitc)
@@ -1096,9 +1087,8 @@ func (net *Network) executeNodeEvent(e *Event) error {
 }
 
 func (net *Network) executeConnEvent(e *Event) error {
-	if e.Conn.Up {
-		return net.Connect(e.Conn.One, e.Conn.Other)
-	} else {
-		return net.Disconnect(e.Conn.One, e.Conn.Other)
-	}
+    if e.Conn.Up {
+        return net.Connect(e.Conn.One, e.Conn.Other)
+    }
+    return net.Disconnect(e.Conn.One, e.Conn.Other)
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.3;
+
 import "./interfaces/IERC20.sol";
 import "./Liquid.sol";
 import "./Precompiled.sol";
@@ -8,7 +9,7 @@ import "./Precompiled.sol";
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20 {
 
-    enum ValidatorState { enabled, disabling, disabled}
+    enum ValidatorState {enabled, disabling, disabled}
     struct Validator {
         address payable treasury;
         address addr;
@@ -45,7 +46,7 @@ contract Autonity is IERC20 {
     address public operatorAccount;
     address payable public treasuryAccount;
     uint256 public treasuryFee;
-    uint256 private minGasPrice;
+    uint256 private minBaseFee;
     uint256 public committeeSize;
     string private contractVersion;
 
@@ -60,22 +61,22 @@ contract Autonity is IERC20 {
     uint256 public totalRedistributed;
     uint256 public epochReward;
     string[] private committeeNodes;
-    mapping (address => mapping (address => uint256)) private allowances;
+    mapping(address => mapping(address => uint256)) private allowances;
 
     /*
     Keep track of bonding and unbonding requests.
     Absolutely unsure if this is the most efficient way to do it...
     */
-    mapping (uint256 => Staking) private bondingMap;
+    mapping(uint256 => Staking) private bondingMap;
     uint256 public tailBondingID;
     uint256 public headBondingID;// not needed
-    mapping (uint256 => Staking) private unbondingMap;
+    mapping(uint256 => Staking) private unbondingMap;
     uint256 public tailUnbondingID;
     uint256 public headUnbondingID;
 
     /* State data that will be recomputed during a contract upgrade. */
-    mapping (address => uint256) private accounts;
-    mapping (address => Validator) private validators;
+    mapping(address => uint256) private accounts;
+    mapping(address => Validator) private validators;
     uint256 private stakeSupply;
 
     /*
@@ -104,7 +105,7 @@ contract Autonity is IERC20 {
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
      * Note that `gasPrice` may be zero.
      */
-    event MinimumGasPriceUpdated(uint256 gasPrice);
+    event MinimumBaseFeeUpdated(uint256 gasPrice);
 
     /**
      * @dev Emitted when the Autonity Contract was upgraded to a new version (`version`).
@@ -114,7 +115,7 @@ contract Autonity is IERC20 {
     // TODO : accounts too
     constructor (Validator[] memory _validators,
         address _operatorAccount,
-        uint256 _minGasPrice,
+        uint256 _minBaseFee,
         uint256 _committeeSize,
         string memory _contractVersion,
         uint256 _epochPeriod,
@@ -125,7 +126,7 @@ contract Autonity is IERC20 {
         uint256 _treasuryFee
     ) {
         operatorAccount = _operatorAccount;
-        minGasPrice = _minGasPrice;
+        minBaseFee = _minBaseFee;
         contractVersion = _contractVersion;
         committeeSize = _committeeSize;
         deployer = msg.sender;
@@ -202,7 +203,7 @@ contract Autonity is IERC20 {
             _commissionRate, // validator commission rate
             0, // bonded stake
             0, // self bonded stake
-            0,  // total slashed
+            0, // total slashed
             Liquid(address(0)), // liquid token contract
             0, // liquid token supply
             _extra,
@@ -210,7 +211,7 @@ contract Autonity is IERC20 {
             ValidatorState.enabled
         );
 
-         _registerValidator(_val);
+        _registerValidator(_val);
         emit RegisteredValidator(msg.sender, _val.addr, _enode, address(_val.liquidContract));
     }
 
@@ -244,18 +245,19 @@ contract Autonity is IERC20 {
     /**
     * @notice Set the minimum gas price. Restricted to the operator account.
     * @param _price Positive integer.
-    * @dev Emit a {MinimumGasPriceUpdated} event.
+    * @dev Emit a {MinimumBaseFeeUpdated} event.
     */
-    function setMinimumGasPrice(uint256 _price) public onlyOperator {
-        minGasPrice = _price;
-        emit MinimumGasPriceUpdated(_price);
+    function setMinimumBaseFee(uint256 _price) public onlyOperator {
+        minBaseFee = _price;
+        emit MinimumBaseFeeUpdated(_price);
     }
 
     /*
     * @notice Set the maximum size of the consensus committee. Restricted to the Operator account.
-    *
+    * @param _size Positive integer.
     */
     function setCommitteeSize(uint256 _size) public onlyOperator {
+        require(_size > 0, "committee size can't be 0");
         committeeSize = _size;
     }
 
@@ -357,8 +359,8 @@ contract Autonity is IERC20 {
     }
 
     function upgradeContract(string memory _bytecode,
-                             string memory _abi,
-                             string memory _version) public onlyOperator returns(bool) {
+        string memory _abi,
+        string memory _version) public onlyOperator returns (bool) {
         bytecode = _bytecode;
         contractAbi = _abi;
         contractVersion = _version;
@@ -378,7 +380,7 @@ contract Autonity is IERC20 {
     * @return committee The next block consensus committee.
     */
     function finalize(uint256 amount) external onlyProtocol
-        returns(bool , CommitteeMember[] memory) {
+    returns (bool, CommitteeMember[] memory) {
         bool _updateAvailable = bytes(bytecode).length != 0;
         epochReward += amount;
         if (lastEpochBlock + epochPeriod == block.number) {
@@ -405,7 +407,7 @@ contract Autonity is IERC20 {
          have to calculate the required size in advance
         */
         uint _len = 0;
-        for (uint256 i = 0;i < validatorList.length; i++) {
+        for (uint256 i = 0; i < validatorList.length; i++) {
             if (validators[validatorList[i]].state == ValidatorState.enabled &&
                 validators[validatorList[i]].bondedStake > 0) {
                 _len++;
@@ -421,7 +423,7 @@ contract Autonity is IERC20 {
         // since Push function does not apply to fix length array, introduce a index j to prevent the overflow,
         // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
         uint j = 0;
-        for (uint256 i = 0;i < validatorList.length; i++) {
+        for (uint256 i = 0; i < validatorList.length; i++) {
             if (validators[validatorList[i]].state == ValidatorState.enabled &&
                 validators[validatorList[i]].bondedStake > 0) {
                 // Perform a copy of the validator object
@@ -449,8 +451,8 @@ contract Autonity is IERC20 {
         // Update committee in persistent storage
         delete committee;
         delete committeeNodes;
-        epochTotalBondedStake =0;
-        for (uint256 _k =0 ; _k < _committeeLength; _k++) {
+        epochTotalBondedStake = 0;
+        for (uint256 _k = 0; _k < _committeeLength; _k++) {
             CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].bondedStake);
             committee.push(_member);
             committeeNodes.push(_committeeList[_k].enode);
@@ -506,7 +508,7 @@ contract Autonity is IERC20 {
     * @return Returns a user object with the `_account` parameter. The returned data
     * object might be empty if there is no user associated.
     */
-    function getValidator(address _addr) external view returns(Validator memory) {
+    function getValidator(address _addr) external view returns (Validator memory) {
         //TODO : coreturn an error if no user was found.
         return validators[_addr];
     }
@@ -514,14 +516,14 @@ contract Autonity is IERC20 {
     /**
     * @return Returns the maximum size of the consensus committee.
     */
-    function getMaxCommitteeSize() external view returns(uint256) {
+    function getMaxCommitteeSize() external view returns (uint256) {
         return committeeSize;
     }
 
     /**
     * @return Returns the maximum size of the consensus committee.
     */
-    function getCommitteeEnodes() external view returns(string[] memory) {
+    function getCommitteeEnodes() external view returns (string[] memory) {
         return committeeNodes;
     }
 
@@ -529,8 +531,8 @@ contract Autonity is IERC20 {
     * @return Returns the minimum gas price.
     * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
     */
-    function getMinimumGasPrice() external view returns(uint256) {
-        return minGasPrice;
+    function getMinimumBaseFee() external view returns (uint256) {
+        return minBaseFee;
     }
 
 
@@ -539,7 +541,7 @@ contract Autonity is IERC20 {
      * @return `bytecode` the new contract bytecode.
      * @return `contractAbi` the new contract ABI.
      */
-    function getNewContract() external view returns(string memory, string memory) {
+    function getNewContract() external view returns (string memory, string memory) {
         return (bytecode, contractAbi);
     }
 
@@ -551,7 +553,7 @@ contract Autonity is IERC20 {
     * always select the same address, given the same height, round and contract
     * state.
     */
-    function getProposer(uint256 height, uint256 round) external view returns(address) {
+    function getProposer(uint256 height, uint256 round) external view returns (address) {
         // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
         uint256 total_voting_power = 0;
         for (uint256 i = 0; i < committee.length; i++) {
@@ -582,14 +584,14 @@ contract Autonity is IERC20 {
     * The returned data will be passed directly to the constructor of the new contract at deployment.
     * THIS WILL BE DEPRECIATED WITH NEW PROXY-LIKE UPGRADE MECHANISM.
     */
-    function getState() external view returns(
+    function getState() external view returns (
         address _operatorAccount,
-        uint256 _minGasPrice,
+        uint256 _minBaseFee,
         uint256 _committeeSize,
         string memory _contractVersion) {
 
         _operatorAccount = operatorAccount;
-        _minGasPrice = minGasPrice;
+        _minBaseFee = minBaseFee;
         _committeeSize = committeeSize;
         _contractVersion = contractVersion;
     }
@@ -597,15 +599,16 @@ contract Autonity is IERC20 {
     // lastId not included
     function getBondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
         Staking[] memory _results = new Staking[](lastId - startId);
-        for(uint256 i = 0; i< lastId - startId ; i++){
-            _results[i] = bondingMap[startId +i];
+        for (uint256 i = 0; i < lastId - startId; i++) {
+            _results[i] = bondingMap[startId + i];
         }
         return _results;
     }
+
     function getUnbondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
         Staking[] memory _results = new Staking[](lastId - startId);
-        for(uint256 i = 0; i< lastId - startId ; i++){
-            _results[i] = unbondingMap[startId +i];
+        for (uint256 i = 0; i < lastId - startId; i++) {
+            _results[i] = unbondingMap[startId + i];
         }
         return _results;
     }
@@ -651,11 +654,11 @@ contract Autonity is IERC20 {
     * pro-rata the amount of stake held.
     * @dev Emit a {BlockReward} event for every account that collected rewards.
     */
-    function _performRedistribution(uint256 _amount) internal  {
+    function _performRedistribution(uint256 _amount) internal {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         // take treasury fee.
 
-        uint256 _treasuryReward = (treasuryFee * _amount) / 10**9;
+        uint256 _treasuryReward = (treasuryFee * _amount) / 10 ** 9;
         if (_treasuryReward > 0) {
             treasuryAccount.transfer(_treasuryReward);
             _amount -= _treasuryReward;
@@ -664,8 +667,8 @@ contract Autonity is IERC20 {
         for (uint256 i = 0; i < committee.length; i++) {
             Validator storage _val = validators[committee[i].addr];
             uint256 _reward = (_val.bondedStake * _amount) / epochTotalBondedStake;
-            if(_reward > 0) {
-                _val.liquidContract.redistribute{value: _reward}();
+            if (_reward > 0) {
+                _val.liquidContract.redistribute{value : _reward}();
             }
             emit Rewarded(_val.addr, _reward);
         }
@@ -699,12 +702,12 @@ contract Autonity is IERC20 {
         // _enode can't be empty and needs to be well-formed.
         uint _err;
         (_validator.addr, _err) = Precompiled.enodeCheck(_validator.enode);
-        require( _err == 0, "enode error");
-        require(validators[_validator.addr].addr ==  address(0), "validator already registered");
+        require(_err == 0, "enode error");
+        require(validators[_validator.addr].addr == address(0), "validator already registered");
         require(_validator.commissionRate <= 10 ** 9, "invalid commission rate");
 
         // step 2: deploy liquid stake contract
-        if (address(_validator.liquidContract) == address(0)){
+        if (address(_validator.liquidContract) == address(0)) {
             _validator.liquidContract = new Liquid(_validator.addr,
                 _validator.treasury,
                 _validator.commissionRate);
@@ -740,7 +743,7 @@ contract Autonity is IERC20 {
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
         accounts[_recipient] -= _amount;
-        Staking memory _bonding = Staking( _recipient, _validator, _amount, block.number);
+        Staking memory _bonding = Staking(_recipient, _validator, _amount, block.number);
         bondingMap[headBondingID] = _bonding;
         headBondingID++;
     }
@@ -752,15 +755,15 @@ contract Autonity is IERC20 {
         /* The conversion rate is equal to the ratio of issued liquid tokens
              over the total amount of bonded staked tokens. */
         uint256 _liquidAmount;
-        if (_validator.bondedStake == 0 ) {
-            _liquidAmount =  _bonding.amount;
+        if (_validator.bondedStake == 0) {
+            _liquidAmount = _bonding.amount;
         } else {
             _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _validator.bondedStake;
         }
 
         _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
         _validator.bondedStake += _bonding.amount;
-        if(_bonding.delegator == _validator.treasury) {
+        if (_bonding.delegator == _validator.treasury) {
             _validator.selfBondedStake += _bonding.amount;
         }
         _validator.liquidSupply += _liquidAmount;
@@ -771,7 +774,7 @@ contract Autonity is IERC20 {
         require(liqBalance >= _amount, "insufficient Liquid Newton balance");
 
         validators[_validator].liquidContract.burn(_recipient, _amount);
-        Staking memory _unbonding = Staking( _recipient, _validator, _amount, block.number);
+        Staking memory _unbonding = Staking(_recipient, _validator, _amount, block.number);
         unbondingMap[headUnbondingID] = _unbonding;
         headUnbondingID++;
     }
@@ -783,7 +786,7 @@ contract Autonity is IERC20 {
         uint256 _newtonAmount = (_unbonding.amount * validator.bondedStake) / validator.liquidSupply;
 
         validator.bondedStake -= _newtonAmount;
-        if(_unbonding.delegator == validator.treasury) {
+        if (_unbonding.delegator == validator.treasury) {
             validator.selfBondedStake -= _newtonAmount;
         }
         validator.liquidSupply -= _unbonding.amount;
@@ -792,14 +795,14 @@ contract Autonity is IERC20 {
 
     /* Should be called at every epoch */
     function _stakingTransitions() internal {
-        for(uint256 i = tailBondingID; i < headBondingID; i++){
+        for (uint256 i = tailBondingID; i < headBondingID; i++) {
             _applyBonding(i);
         }
         tailBondingID = headBondingID;
 
         uint256 _processedId = tailUnbondingID;
-        for(uint256 i = tailUnbondingID; i < headUnbondingID; i++){
-            if(unbondingMap[i].startBlock + unbondingPeriod <= block.number){
+        for (uint256 i = tailUnbondingID; i < headUnbondingID; i++) {
+            if (unbondingMap[i].startBlock + unbondingPeriod <= block.number) {
                 _applyUnbonding(i);
                 _processedId += 1;
             } else {
@@ -823,7 +826,7 @@ contract Autonity is IERC20 {
 
         int _i = _low;
         int _j = _high;
-        if (_i==_j) return;
+        if (_i == _j) return;
         uint _pivot = _users[uint(_low + (_high - _low) / 2)].bondedStake;
         // Set the pivot element in its right sorted index in the array
         while (_i <= _j) {
@@ -845,7 +848,7 @@ contract Autonity is IERC20 {
         }
     }
 
-    function _compareStringsbyBytes(string memory s1, string memory s2) internal pure returns(bool){
+    function _compareStringsbyBytes(string memory s1, string memory s2) internal pure returns (bool){
         return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
     }
 

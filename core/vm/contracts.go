@@ -63,7 +63,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{2}): &sha256hash{},
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
-	common.BytesToAddress([]byte{5}): &bigModExp{},
+	common.BytesToAddress([]byte{5}): &bigModExp{eip2565: false},
 	common.BytesToAddress([]byte{6}): &bn256AddByzantium{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
@@ -78,7 +78,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{2}): &sha256hash{},
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
-	common.BytesToAddress([]byte{5}): &bigModExp{},
+	common.BytesToAddress([]byte{5}): &bigModExp{eip2565: false},
 	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
@@ -87,18 +87,25 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
-// PrecompiledContractsYoloV1 contains the default set of pre-compiled Ethereum
-// contracts used in the Yolo v1 test release.
-var PrecompiledContractsYoloV1 = map[common.Address]PrecompiledContract{
-	common.BytesToAddress([]byte{1}):  &ecrecover{},
-	common.BytesToAddress([]byte{2}):  &sha256hash{},
-	common.BytesToAddress([]byte{3}):  &ripemd160hash{},
-	common.BytesToAddress([]byte{4}):  &dataCopy{},
-	common.BytesToAddress([]byte{5}):  &bigModExp{},
-	common.BytesToAddress([]byte{6}):  &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}):  &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}):  &bn256PairingIstanbul{},
-	common.BytesToAddress([]byte{9}):  &blake2F{},
+// PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
+// contracts used in the Berlin release.
+var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
+	common.BytesToAddress([]byte{1}): &ecrecover{},
+	common.BytesToAddress([]byte{2}): &sha256hash{},
+	common.BytesToAddress([]byte{3}): &ripemd160hash{},
+	common.BytesToAddress([]byte{4}): &dataCopy{},
+	common.BytesToAddress([]byte{5}): &bigModExp{eip2565: true},
+	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{9}): &blake2F{},
+
+	common.BytesToAddress([]byte{255}): &checkEnode{},
+}
+
+// PrecompiledContractsBLS contains the set of pre-compiled Ethereum
+// contracts specified in EIP-2537. These are exported for testing purposes.
+var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{10}): &bls12381G1Add{},
 	common.BytesToAddress([]byte{11}): &bls12381G1Mul{},
 	common.BytesToAddress([]byte{12}): &bls12381G1MultiExp{},
@@ -110,6 +117,42 @@ var PrecompiledContractsYoloV1 = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
+}
+
+var (
+	PrecompiledAddressesBerlin    []common.Address
+	PrecompiledAddressesIstanbul  []common.Address
+	PrecompiledAddressesByzantium []common.Address
+	PrecompiledAddressesHomestead []common.Address
+)
+
+func init() {
+	for k := range PrecompiledContractsHomestead {
+		PrecompiledAddressesHomestead = append(PrecompiledAddressesHomestead, k)
+	}
+	for k := range PrecompiledContractsByzantium {
+		PrecompiledAddressesByzantium = append(PrecompiledAddressesByzantium, k)
+	}
+	for k := range PrecompiledContractsIstanbul {
+		PrecompiledAddressesIstanbul = append(PrecompiledAddressesIstanbul, k)
+	}
+	for k := range PrecompiledContractsBerlin {
+		PrecompiledAddressesBerlin = append(PrecompiledAddressesBerlin, k)
+	}
+}
+
+// ActivePrecompiles returns the precompiles enabled with the current configuration.
+func ActivePrecompiles(rules params.Rules) []common.Address {
+	switch {
+	case rules.IsBerlin:
+		return PrecompiledAddressesBerlin
+	case rules.IsIstanbul:
+		return PrecompiledAddressesIstanbul
+	case rules.IsByzantium:
+		return PrecompiledAddressesByzantium
+	default:
+		return PrecompiledAddressesHomestead
+	}
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -211,14 +254,19 @@ func (c *dataCopy) Run(in []byte) ([]byte, error) {
 }
 
 // bigModExp implements a native big integer exponential modular operation.
-type bigModExp struct{}
+type bigModExp struct {
+	eip2565 bool
+}
 
 var (
 	big0      = big.NewInt(0)
 	big1      = big.NewInt(1)
+	big3      = big.NewInt(3)
 	big4      = big.NewInt(4)
+	big7      = big.NewInt(7)
 	big8      = big.NewInt(8)
 	big16     = big.NewInt(16)
+	big20     = big.NewInt(20)
 	big32     = big.NewInt(32)
 	big64     = big.NewInt(64)
 	big96     = big.NewInt(96)
@@ -227,6 +275,34 @@ var (
 	big3072   = big.NewInt(3072)
 	big199680 = big.NewInt(199680)
 )
+
+// modexpMultComplexity implements bigModexp multComplexity formula, as defined in EIP-198
+//
+// def mult_complexity(x):
+//    if x <= 64: return x ** 2
+//    elif x <= 1024: return x ** 2 // 4 + 96 * x - 3072
+//    else: return x ** 2 // 16 + 480 * x - 199680
+//
+// where is x is max(length_of_MODULUS, length_of_BASE)
+func modexpMultComplexity(x *big.Int) *big.Int {
+	switch {
+	case x.Cmp(big64) <= 0:
+		x.Mul(x, x) // x ** 2
+	case x.Cmp(big1024) <= 0:
+		// (x ** 2 // 4 ) + ( 96 * x - 3072)
+		x = new(big.Int).Add(
+			new(big.Int).Div(new(big.Int).Mul(x, x), big4),
+			new(big.Int).Sub(new(big.Int).Mul(big96, x), big3072),
+		)
+	default:
+		// (x ** 2 // 16) + (480 * x - 199680)
+		x = new(big.Int).Add(
+			new(big.Int).Div(new(big.Int).Mul(x, x), big16),
+			new(big.Int).Sub(new(big.Int).Mul(big480, x), big199680),
+		)
+	}
+	return x
+}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bigModExp) RequiredGas(input []byte) uint64 {
@@ -262,25 +338,36 @@ func (c *bigModExp) RequiredGas(input []byte) uint64 {
 		adjExpLen.Mul(big8, adjExpLen)
 	}
 	adjExpLen.Add(adjExpLen, big.NewInt(int64(msb)))
-
 	// Calculate the gas cost of the operation
 	gas := new(big.Int).Set(math.BigMax(modLen, baseLen))
-	switch {
-	case gas.Cmp(big64) <= 0:
+	if c.eip2565 {
+		// EIP-2565 has three changes
+		// 1. Different multComplexity (inlined here)
+		// in EIP-2565 (https://eips.ethereum.org/EIPS/eip-2565):
+		//
+		// def mult_complexity(x):
+		//    ceiling(x/8)^2
+		//
+		//where is x is max(length_of_MODULUS, length_of_BASE)
+		gas = gas.Add(gas, big7)
+		gas = gas.Div(gas, big8)
 		gas.Mul(gas, gas)
-	case gas.Cmp(big1024) <= 0:
-		gas = new(big.Int).Add(
-			new(big.Int).Div(new(big.Int).Mul(gas, gas), big4),
-			new(big.Int).Sub(new(big.Int).Mul(big96, gas), big3072),
-		)
-	default:
-		gas = new(big.Int).Add(
-			new(big.Int).Div(new(big.Int).Mul(gas, gas), big16),
-			new(big.Int).Sub(new(big.Int).Mul(big480, gas), big199680),
-		)
+
+		gas.Mul(gas, math.BigMax(adjExpLen, big1))
+		// 2. Different divisor (`GQUADDIVISOR`) (3)
+		gas.Div(gas, big3)
+		if gas.BitLen() > 64 {
+			return math.MaxUint64
+		}
+		// 3. Minimum price of 200 gas
+		if gas.Uint64() < 200 {
+			return 200
+		}
+		return gas.Uint64()
 	}
+	gas = modexpMultComplexity(gas)
 	gas.Mul(gas, math.BigMax(adjExpLen, big1))
-	gas.Div(gas, new(big.Int).SetUint64(params.ModExpQuadCoeffDiv))
+	gas.Div(gas, big20)
 
 	if gas.BitLen() > 64 {
 		return math.MaxUint64
@@ -978,15 +1065,18 @@ func (c checkEnode) RequiredGas(_ []byte) uint64 {
 }
 func (c checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
-		panic(fmt.Errorf("invalid enode - empty"))
+		return nil, fmt.Errorf("invalid enode - empty")
 	}
+	// TODO: Use ABI parsing here
 	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
 	nodeStr := string(input)
 	out := make([]byte, 64)
+
+	// resolveFunc is dummy as we're only looking to parse the enode via
+	// via ParseV4CustomResolve.
 	resolveFunc := func(host string) ([]net.IP, error) {
 		return []net.IP{{127, 0, 0, 1}}, nil
 	}
-
 	node, err := enode.ParseV4CustomResolve(nodeStr, resolveFunc)
 	if err != nil {
 		copy(out[32:], true32Byte)

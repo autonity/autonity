@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
+	"github.com/clearmatics/autonity/miner"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -20,7 +21,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/keygenerator"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/core/types"
 	"github.com/clearmatics/autonity/crypto"
@@ -68,18 +68,26 @@ func generateRandomTx(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey
 			nonce,
 			toAddr,
 			big.NewInt(1),
-			210000000,
-			big.NewInt(100000000000+int64(randEth.Uint64())),
+			21000,
+			big.NewInt(200000000000+int64(randEth.Uint64())),
 			nil,
 		),
 		types.HomesteadSigner{}, key)
+	/*
+	   return types.SignTx(types.NewTx(&types.DynamicFeeTx{
+	       Nonce: nonce,
+	       Gas:   21000,
+	       To:    &toAddr,
+	       Value: big.NewInt(100000000000 + int64(randEth.Uint64())),
+	   }), types.NewLondonSigner(big.NewInt(1)), key) */
+
 }
 
 func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
-	genesis.GasLimit = math.MaxUint64 - 1
+	genesis.GasLimit = 30_000_000
 	genesis.GasUsed = 0
 	genesis.Difficulty = big.NewInt(1)
 	genesis.Timestamp = 0
@@ -125,28 +133,8 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 		})
 	}
 
-	//generate one sh
-	shKey, err := keygenerator.Next()
-	if err != nil {
-		log.Error("Make genesis error", "err", err)
-	}
-
-	stakeNode, err := newNode(shKey, stakeholderName)
-	if err != nil {
-		log.Error("Make genesis error while adding a stakeholder", "err", err)
-	}
-
-	address := crypto.PubkeyToAddress(shKey.PublicKey)
-	stakeHolder := params.Validator{
-		Address:     &address,
-		Enode:       stakeNode.url,
-		Treasury:    &common.Address{},
-		BondedStake: big.NewInt(200),
-	}
-
-	validators = append(validators, &stakeHolder)
 	genesis.Config.AutonityContractConfig.Validators = validators
-	err = genesis.Config.AutonityContractConfig.Prepare()
+	err := genesis.Config.AutonityContractConfig.Prepare()
 	require.NoError(t, err)
 	return genesis
 }
@@ -165,11 +153,10 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		Version: params.Version,
 		DataDir: datadir,
 		P2P: p2p.Config{
-			ListenAddr:            listenAddr,
-			NoDiscovery:           true,
-			MaxPeers:              25,
-			PrivateKey:            nodekey,
-			DialHistoryExpiration: time.Millisecond,
+			ListenAddr:  listenAddr,
+			NoDiscovery: true,
+			MaxPeers:    25,
+			PrivateKey:  nodekey,
 		},
 		NoUSB: true,
 	}
@@ -189,6 +176,7 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		DatabaseCache:   256,
 		DatabaseHandles: 256,
 		TxPool:          core.DefaultTxPoolConfig,
+		Miner:           miner.Config{Etherbase: crypto.PubkeyToAddress(nodekey.PublicKey)},
 	}
 	return configNode, ethConfig
 }
@@ -730,7 +718,7 @@ func peerSendExternalTransaction(addresses []addressesList, test *testCase, vali
 func checkNodesDontContainMaliciousBlock(t *testing.T, minHeight uint64, validators map[string]*testNode, test *testCase) {
 	// check that all nodes got the same blocks
 	for i := uint64(1); i <= minHeight; i++ {
-		blockHash := validators["V1"].blocks[i].hash
+		blockHash := validators["V0"].blocks[i].hash
 
 		for index, validator := range validators {
 			if isExternalUser(index) {

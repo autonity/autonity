@@ -32,7 +32,9 @@ import (
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/consensus/ethash"
 	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/eth/downloader"
+	ethdownloader "github.com/clearmatics/autonity/eth/downloader"
+	"github.com/clearmatics/autonity/eth/ethconfig"
+	"github.com/clearmatics/autonity/les/downloader"
 	"github.com/clearmatics/autonity/les/flowcontrol"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/node"
@@ -428,10 +430,10 @@ func NewAdapter(adapterType string, services adapters.LifecycleConstructors) (ad
 		teardown = func() { os.RemoveAll(baseDir) }
 		adapter = adapters.NewExecAdapter(baseDir)
 	/*case "docker":
-	adapter, err = adapters.NewDockerAdapter()
-	if err != nil {
-		return nil, teardown, err
-	}*/
+	  adapter, err = adapters.NewDockerAdapter()
+	  if err != nil {
+	  	return nil, teardown, err
+	  }*/
 	default:
 		return nil, teardown, errors.New("adapter needs to be one of sim, socket, exec, docker")
 	}
@@ -492,15 +494,15 @@ func testSim(t *testing.T, serverCount, clientCount int, serverDir, clientDir []
 }
 
 func newLesClientService(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
-	config := eth.DefaultConfig
-	config.SyncMode = downloader.LightSync
+	config := ethconfig.Defaults
+	config.SyncMode = (ethdownloader.SyncMode)(downloader.LightSync)
 	config.Ethash.PowMode = ethash.ModeFake
 	return New(stack, &config)
 }
 
 func newLesServerService(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
-	config := eth.DefaultConfig
-	config.SyncMode = downloader.FullSync
+	config := ethconfig.Defaults
+	config.SyncMode = (ethdownloader.SyncMode)(downloader.FullSync)
 	config.LightServ = testServerCapacity
 	config.LightPeers = testMaxClients
 	ethereum, err := eth.New(stack, &config, nil)

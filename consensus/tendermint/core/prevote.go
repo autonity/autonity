@@ -158,6 +158,7 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		"type", "Prevote",
 		"totalVotes", c.curRoundMessages.PrevotesTotalPower(),
 		"totalNilVotes", c.curRoundMessages.PrevotesPower(common.Hash{}),
+		"quorum", c.committee.Quorum(),
 		"VoteProposedBlock", c.curRoundMessages.PrevotesPower(currentProposalHash),
 	)
 }

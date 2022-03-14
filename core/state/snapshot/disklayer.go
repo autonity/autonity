@@ -30,18 +30,18 @@ import (
 
 // diskLayer is a low level persistent snapshot built on top of a key-value store.
 type diskLayer struct {
-	diskdb ethdb.KeyValueStore // Key-value store containing the base snapshot
-	triedb *trie.Database      // Trie node cache for reconstuction purposes
-	cache  *fastcache.Cache    // Cache to avoid hitting the disk for direct access
+    diskdb ethdb.KeyValueStore // Key-value store containing the base snapshot
+    triedb *trie.Database      // Trie node cache for reconstruction purposes
+    cache  *fastcache.Cache    // Cache to avoid hitting the disk for direct access
 
-	root  common.Hash // Root hash of the base snapshot
-	stale bool        // Signals that the layer became stale (state progressed)
+    root  common.Hash // Root hash of the base snapshot
+    stale bool        // Signals that the layer became stale (state progressed)
 
-	genMarker  []byte                    // Marker for the state that's indexed during initial layer generation
-	genPending chan struct{}             // Notification channel when generation is done (test synchronicity)
-	genAbort   chan chan *generatorStats // Notification channel to abort generating the snapshot in this layer
+    genMarker  []byte                    // Marker for the state that's indexed during initial layer generation
+    genPending chan struct{}             // Notification channel when generation is done (test synchronicity)
+    genAbort   chan chan *generatorStats // Notification channel to abort generating the snapshot in this layer
 
-	lock sync.RWMutex
+    lock sync.RWMutex
 }
 
 // Root returns  root hash for which this snapshot was made.

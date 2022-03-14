@@ -40,7 +40,7 @@ const (
 var genesis = `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
-			"difficulty" : "0x1",
+			"difficulty" : "0x0",
 			"extraData"  : "",
 			"gasLimit"   : "0x2fefd8",
 			"nonce"      : "0x0000000000001339",
@@ -48,19 +48,8 @@ var genesis = `{
 			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"timestamp"  : "0x00",
 			"config"     : {
-				"homesteadBlock" : 0,
-				"daoForkBlock"   : 0,
-				"daoForkSupport" : true,
-				"homesteadBlock": 0,
-				"eip150Block": 0,
-				"eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-				"eip155Block": 0,
-				"eip158Block": 0,
-				"byzantiumBlock": 0,
-				"constantinopleBlock": 0,
-				"petersburgBlock": 0,
 				"autonityContract"    : {
-					"minGasPrice" : 5000,
+					"minBaseFee" : 5000,
 					"blockPeriod" : 1,
 		            "treasury": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
 					"treasuryFee": 150000000,
@@ -77,6 +66,18 @@ var genesis = `{
 				}
 			}
 		}`
+
+// spawns geth with the given command line args, using a set of flags to minimise
+// memory and disk IO. If the args don't set --datadir, the
+// child g gets a temporary data directory.
+func runMinimalAutonity(t *testing.T, args ...string) *testautonity {
+	// --ropsten to make the 'writing genesis to disk' faster (no accounts)
+	// --networkid=1337 to avoid cache bump
+	// --syncmode=full to avoid allocating fast sync bloom
+	allArgs := []string{"--syncmode=full", "--port", "0",
+		"--nat", "none", "--nodiscover", "--maxpeers", "0", "--cache", "64"}
+	return runAutonity(t, append(allArgs, args...)...)
+}
 
 func tmpGenesisFile(t *testing.T, dir string) string {
 	genesisFile := filepath.Join(dir, "genesis.json")
@@ -137,6 +138,7 @@ at block: 0 ({{niltime}})
  datadir: {{.Datadir}}
  modules: {{apis}}
 
+To exit, press ctrl-d or type exit
 > {{.InputLine "exit"}}
 `)
 	autonity.ExpectExit()
@@ -192,7 +194,7 @@ func TestWSAttachWelcome(t *testing.T) {
 	defer os.RemoveAll(dir)
 	autonity := runAutonity(t,
 		"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none",
-		"--ws", "--wsport", port, "--datadir", dir, "--genesis", jsonFile)
+		"--ws", "--ws.port", port, "--datadir", dir, "--genesis", jsonFile)
 
 	defer func() {
 		autonity.Interrupt()
@@ -236,6 +238,7 @@ at block: 0 ({{niltime}}){{if ipc}}
  datadir: {{datadir}}{{end}}
  modules: {{apis}}
 
+To exit, press ctrl-d or type exit
 > {{.InputLine "exit" }}
 `)
 	attach.ExpectExit()

@@ -42,8 +42,9 @@ func ExampleGenerateChain() {
 
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
-		Config: params.AutonityTestChainConfig,
-		Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Config:  params.TestChainConfig,
+		BaseFee: big.NewInt(0),
+		Alloc:   GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 	}
 	genesis := gspec.MustCommit(db)
 

@@ -31,6 +31,7 @@ import (
 	"github.com/clearmatics/autonity/console/prompt"
 	"github.com/clearmatics/autonity/core"
 	"github.com/clearmatics/autonity/eth"
+	"github.com/clearmatics/autonity/eth/ethconfig"
 	"github.com/clearmatics/autonity/internal/jsre"
 	"github.com/clearmatics/autonity/miner"
 	"github.com/clearmatics/autonity/node"
@@ -85,7 +86,7 @@ type tester struct {
 
 // newTester creates a test environment based on which the console can operate.
 // Please ensure you call Close() on the returned tester to avoid leaks.
-func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
+func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
 	// Create a temporary storage for the node keys and initialize it
 	workspace, err := ioutil.TempDir("", "console-tester-")
 	if err != nil {
@@ -97,7 +98,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
 	}
-	ethConf := &eth.Config{
+	ethConf := &ethconfig.Config{
 		Genesis: core.DefaultGenesisBlock(),
 		Miner: miner.Config{
 			Etherbase: common.HexToAddress(testAddress),
@@ -111,7 +112,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 	}
 	ethBackend, err := eth.New(stack, ethConf, nil)
 	if err != nil {
-		t.Fatalf("failed to register Ethereum protocol: %v", err)
+		t.Fatalf("failed to register Autonity protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
 	if err = stack.Start(); err != nil {

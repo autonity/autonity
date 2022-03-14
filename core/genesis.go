@@ -23,24 +23,24 @@ import (
 	"errors"
 	"fmt"
 	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/clearmatics/autonity/autonity"
+	"github.com/clearmatics/autonity/core/vm"
 	"math/big"
 	"sort"
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/autonity"
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/hexutil"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/core/rawdb"
 	"github.com/clearmatics/autonity/core/state"
 	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/log"
 	"github.com/clearmatics/autonity/params"
 	"github.com/clearmatics/autonity/rlp"
+	"github.com/clearmatics/autonity/trie"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -67,7 +67,8 @@ type Genesis struct {
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 
-	mu sync.RWMutex
+	mu      sync.RWMutex
+	BaseFee *big.Int `json:"baseFeePerGas"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -103,6 +104,7 @@ type genesisSpecMarshaling struct {
 	GasUsed    math.HexOrDecimal64
 	Number     math.HexOrDecimal64
 	Difficulty *math.HexOrDecimal256
+	BaseFee    *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
 
 	VotingPowers []math.HexOrDecimal64
@@ -161,6 +163,13 @@ func (e *GenesisMismatchError) Error() string {
 //
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
+	return SetupGenesisBlockWithOverride(db, genesis, nil, nil)
+}
+
+func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, overrideArrowGlacier, overrideTerminalTotalDifficulty *big.Int) (*params.ChainConfig, common.Hash, error) {
+	if genesis != nil && genesis.Config == nil {
+		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+	}
 	// Just commit the new block if there is no stored genesis block.
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
@@ -176,11 +185,10 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 		}
 		return genesis.Config, block.Hash(), nil
 	}
-
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
 	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithCache(db, 0, ""), nil); err != nil {
+	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil {
 		if genesis == nil {
 			genesis = DefaultGenesisBlock()
 		}
@@ -199,7 +207,6 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 		}
 		return genesis.Config, block.Hash(), nil
 	}
-
 	// Check whether the genesis block is already written.
 	if genesis != nil {
 		b, err := genesis.ToBlock(nil)
@@ -211,9 +218,14 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
 	}
-
 	// Get the existing chain configuration.
 	newcfg := genesis.configOrDefault(stored)
+	if overrideArrowGlacier != nil {
+		newcfg.ArrowGlacierBlock = overrideArrowGlacier
+	}
+	if overrideTerminalTotalDifficulty != nil {
+		newcfg.TerminalTotalDifficulty = overrideTerminalTotalDifficulty
+	}
 	if err := newcfg.CheckConfigForkOrder(); err != nil {
 		return newcfg, common.Hash{}, err
 	}
@@ -229,7 +241,6 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	if genesis == nil && stored != params.MainnetGenesisHash {
 		return storedcfg, stored, nil
 	}
-
 	// Check config compatibility and write the config. Compatibility errors
 	// are returned to the caller unless we're already at block zero.
 	height := rawdb.ReadHeaderNumber(db, rawdb.ReadHeadHeaderHash(db))
@@ -252,12 +263,12 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return params.MainnetChainConfig
 	case ghash == params.RopstenGenesisHash:
 		return params.RopstenChainConfig
+	case ghash == params.SepoliaGenesisHash:
+		return params.SepoliaChainConfig
 	case ghash == params.RinkebyGenesisHash:
 		return params.RinkebyChainConfig
 	case ghash == params.GoerliGenesisHash:
 		return params.GoerliChainConfig
-	case ghash == params.YoloV1GenesisHash:
-		return params.YoloV1ChainConfig
 	default:
 		return params.AllEthashProtocolChanges
 	}
@@ -268,7 +279,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	var committee types.Committee
 	if g.Config.AutonityContractConfig == nil {
-		return nil, fmt.Errorf("autonity contract config section missing in genesis")
+		return nil, fmt.Errorf("autonity config section missing in genesis")
 	}
 	g.mu.Lock()
 	if g.Difficulty == nil {
@@ -276,8 +287,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 	g.mu.Unlock()
 
-	if g.Difficulty.Cmp(big.NewInt(1)) != 0 {
-		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 1, instead got %v", g.Difficulty)
+	if g.Difficulty.Cmp(big.NewInt(0)) != 0 {
+		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 0, instead got %v", g.Difficulty)
 	}
 	var err error
 	committee, err = extractCommittee(g.Config.AutonityContractConfig.GetValidators())
@@ -287,7 +298,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	statedb, err := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	if err != nil {
+		panic(err)
+	}
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
@@ -309,7 +323,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		return nil, err
 	}
 	root := statedb.IntermediateRoot(false)
-
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -318,6 +331,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Extra:      g.GetExtraData(),
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
+		BaseFee:    g.BaseFee,
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
@@ -328,35 +342,48 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
+	if g.Difficulty == nil && g.Mixhash == (common.Hash{}) {
+		head.Difficulty = params.GenesisDifficulty
+	}
+	if g.Config != nil && g.Config.IsLondon(common.Big0) {
+		if g.BaseFee != nil {
+			head.BaseFee = g.BaseFee
+		} else {
+			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
+		}
+	}
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true, nil)
 
-	return types.NewBlock(head, nil, nil, nil, new(trie.Trie)), nil
+	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil)), nil
 }
 
 func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
 
-	evmContext := vm.Context{
+	evmContext := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
 		GetHash:     func(n uint64) common.Hash { return common.Hash{} },
-		Origin:      autonity.Deployer,
 		Coinbase:    genesis.Coinbase,
 		BlockNumber: big.NewInt(0),
 		Time:        new(big.Int).SetUint64(genesis.Timestamp),
 		GasLimit:    genesis.GasLimit,
 		Difficulty:  genesis.Difficulty,
-		GasPrice:    new(big.Int).SetUint64(0x0),
 	}
 
-	return vm.NewEVM(evmContext, statedb, genesis.Config, vm.Config{})
+	txContext := vm.TxContext{
+		Origin:   autonity.Deployer,
+		GasPrice: new(big.Int).SetUint64(0x0),
+	}
+
+	return vm.NewEVM(evmContext, txContext, statedb, genesis.Config, vm.Config{})
 }
 
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if g.Config == nil {
-		g.Config = params.AllEthashProtocolChangesWithAutonity
+		g.Config = params.TestChainConfig
 	}
 
 	if err := g.Config.CheckConfigForkOrder(); err != nil {
@@ -369,7 +396,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	}
 
 	if block.Number().Sign() != 0 {
-		return nil, fmt.Errorf("can't commit genesis block with number > 0")
+		return nil, errors.New("can't commit genesis block with number > 0")
 	}
 
 	g.mu.RLock()
@@ -434,19 +461,22 @@ func (g *Genesis) SetExtraData(extraData []byte) {
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{Alloc: GenesisAlloc{addr: {Balance: balance}}, Config: params.AutonityTestChainConfig}
+	g := Genesis{
+		Alloc:   GenesisAlloc{addr: {Balance: balance}},
+		Config:  params.TestChainConfig,
+		BaseFee: big.NewInt(params.InitialBaseFee),
+	}
 	return g.MustCommit(db)
 }
 
-// DefaultGenesisBlock returns the Autonity main net genesis block.
-// todo : fill
+// DefaultGenesisBlock returns a default genesis block for testing purposes.
 func DefaultGenesisBlock() *Genesis {
 	return &Genesis{
-		Config:     params.AutonityTestChainConfig,
+		Config:     params.TestChainConfig,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"),
 		GasLimit:   5000,
-		Difficulty: big.NewInt(1),
+		Difficulty: big.NewInt(0),
 		Alloc:      decodePrealloc(mainnetAllocData),
 	}
 }

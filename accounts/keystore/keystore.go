@@ -268,19 +268,17 @@ func (ks *KeyStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
 
 // SignTx signs the given transaction with the requested account.
 func (ks *KeyStore) SignTx(a accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	// Look up the key to sign with and abort if it cannot be found
-	ks.mu.RLock()
-	defer ks.mu.RUnlock()
+    // Look up the key to sign with and abort if it cannot be found
+    ks.mu.RLock()
+    defer ks.mu.RUnlock()
 
-	unlockedKey, found := ks.unlocked[a.Address]
-	if !found {
-		return nil, ErrLocked
-	}
-	// Depending on the presence of the chain ID, sign with EIP155 or homestead
-	if chainID != nil {
-		return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
-	}
-	return types.SignTx(tx, types.HomesteadSigner{}, unlockedKey.PrivateKey)
+    unlockedKey, found := ks.unlocked[a.Address]
+    if !found {
+        return nil, ErrLocked
+    }
+    // Depending on the presence of the chain ID, sign with 2718 or homestead
+    signer := types.LatestSignerForChainID(chainID)
+    return types.SignTx(tx, signer, unlockedKey.PrivateKey)
 }
 
 // SignHashWithPassphrase signs hash if the private key matching the given address
@@ -298,17 +296,14 @@ func (ks *KeyStore) SignHashWithPassphrase(a accounts.Account, passphrase string
 // SignTxWithPassphrase signs the transaction if the private key matching the
 // given address can be decrypted with the given passphrase.
 func (ks *KeyStore) SignTxWithPassphrase(a accounts.Account, passphrase string, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	_, key, err := ks.getDecryptedKey(a, passphrase)
-	if err != nil {
-		return nil, err
-	}
-	defer zeroKey(key.PrivateKey)
-
-	// Depending on the presence of the chain ID, sign with EIP155 or homestead
-	if chainID != nil {
-		return types.SignTx(tx, types.NewEIP155Signer(chainID), key.PrivateKey)
-	}
-	return types.SignTx(tx, types.HomesteadSigner{}, key.PrivateKey)
+    _, key, err := ks.getDecryptedKey(a, passphrase)
+    if err != nil {
+        return nil, err
+    }
+    defer zeroKey(key.PrivateKey)
+    // Depending on the presence of the chain ID, sign with or without replay protection.
+    signer := types.LatestSignerForChainID(chainID)
+    return types.SignTx(tx, signer, key.PrivateKey)
 }
 
 // Unlock unlocks the given account indefinitely.

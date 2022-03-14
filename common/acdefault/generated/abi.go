@@ -77,7 +77,7 @@ const Abi = `[
          },
          {
             "internalType" : "uint256",
-            "name" : "_minGasPrice",
+            "name" : "_minBaseFee",
             "type" : "uint256"
          },
          {
@@ -191,7 +191,7 @@ const Abi = `[
             "type" : "uint256"
          }
       ],
-      "name" : "MinimumGasPriceUpdated",
+      "name" : "MinimumBaseFeeUpdated",
       "type" : "event"
    },
    {
@@ -641,7 +641,7 @@ const Abi = `[
    },
    {
       "inputs" : [],
-      "name" : "getMinimumGasPrice",
+      "name" : "getMinimumBaseFee",
       "outputs" : [
          {
             "internalType" : "uint256",
@@ -705,7 +705,7 @@ const Abi = `[
          },
          {
             "internalType" : "uint256",
-            "name" : "_minGasPrice",
+            "name" : "_minBaseFee",
             "type" : "uint256"
          },
          {
@@ -1028,7 +1028,7 @@ const Abi = `[
             "type" : "uint256"
          }
       ],
-      "name" : "setMinimumGasPrice",
+      "name" : "setMinimumBaseFee",
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"

@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/eth"
+	"github.com/clearmatics/autonity/eth/ethconfig"
 	"github.com/clearmatics/autonity/ethdb"
 	"github.com/clearmatics/autonity/les/flowcontrol"
 	"github.com/clearmatics/autonity/log"
@@ -137,7 +137,7 @@ type costTracker struct {
 
 // newCostTracker creates a cost tracker and loads the cost factor statistics from the database.
 // It also returns the minimum capacity that can be assigned to any peer.
-func newCostTracker(db ethdb.Database, config *eth.Config) (*costTracker, uint64) {
+func newCostTracker(db ethdb.Database, config *ethconfig.Config) (*costTracker, uint64) {
 	utilTarget := float64(config.LightServ) * flowcontrol.FixedPointMultiplier / 100
 	ct := &costTracker{
 		db:         db,
@@ -367,7 +367,6 @@ func (ct *costTracker) gfLoop() {
 				}
 				recentServedGauge.Update(int64(recentTime))
 				recentEstimatedGauge.Update(int64(recentAvg))
-				totalRechargeGauge.Update(int64(totalRecharge))
 
 			case <-saveTicker.C:
 				saveCostFactor()
