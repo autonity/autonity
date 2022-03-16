@@ -48,19 +48,20 @@ var genesis = `{
 			"parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
 			"timestamp"  : "0x00",
 			"config"     : {
-				"autonityContract"    : {
+				"autonity"    : {
 					"minBaseFee" : 5000,
 					"blockPeriod" : 1,
 		            "treasury": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
 					"treasuryFee": 150000000,
     	    	    "unbondingPeriod": 120,
+					"delegationRate" : 1000,
+					"maxCommitteeSize" : 7,
 	    	        "epochPeriod": 30,
 					"validators" : [
 						{
 							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
 							"treasury" : "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
-							"bondedStake" : 1,
-							"commissionRate" : 5000
+							"bondedStake" : 1
 						}
 					]
 				}

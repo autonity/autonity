@@ -20,19 +20,21 @@ type AutonityContractGenesis struct {
 	// would like this type to be []byte but the unmarshalling is not working
 	Bytecode string `json:"bytecode,omitempty" toml:",omitempty"`
 	// Json ABI of the contract
-	ABI             string         `json:"abi,omitempty" toml:",omitempty"`
-	MinBaseFee      uint64         `json:"minBaseFee"`
-	EpochPeriod     uint64         `json:"epochPeriod"`
-	UnbondingPeriod uint64         `json:"unbondingPeriod"`
-	BlockPeriod     uint64         `json:"blockPeriod"`
-	Operator        common.Address `json:"operator"`
-	Treasury        common.Address `json:"treasury"`
-	TreasuryFee     uint64         `json:"treasuryFee"`
-	Validators      []*Validator   `json:"validators"`
+	ABI              string         `json:"abi,omitempty" toml:",omitempty"`
+	MinBaseFee       uint64         `json:"minBaseFee"`
+	EpochPeriod      uint64         `json:"epochPeriod"`
+	UnbondingPeriod  uint64         `json:"unbondingPeriod"`
+	BlockPeriod      uint64         `json:"blockPeriod"`
+	MaxCommitteeSize uint64         `json:"maxCommitteeSize"`
+	Operator         common.Address `json:"operator"`
+	Treasury         common.Address `json:"treasury"`
+	TreasuryFee      uint64         `json:"treasuryFee"`
+	DelegationRate   uint64         `json:"delegationRate"`
+	Validators       []*Validator   `json:"validators"`
 }
 
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.
-// It returns an error if the configuration isinvalid.
+// It returns an error if the configuration is invalid.
 func (ac *AutonityContractGenesis) Prepare() error {
 
 	if len(ac.Bytecode) == 0 && len(ac.ABI) > 0 ||
@@ -73,7 +75,6 @@ type Validator struct {
 	TotalSlashed      *big.Int        `abi:"totalSlashed"`
 	LiquidContract    *common.Address `abi:"liquidContract"`
 	LiquidSupply      *big.Int        `abi:"liquidSupply"`
-	Extra             *string         `abi:"extra"`
 	RegistrationBlock *big.Int        `abi:"registrationBlock"`
 	State             *uint8          `abi:"state"`
 }
@@ -118,9 +119,6 @@ func (u *Validator) Validate() error {
 	if u.CommissionRate == nil {
 		u.CommissionRate = new(big.Int)
 	}
-	if u.Extra == nil {
-		u.Extra = new(string)
-	}
 	if u.RegistrationBlock == nil {
 		u.RegistrationBlock = new(big.Int)
 	}
@@ -129,6 +127,9 @@ func (u *Validator) Validate() error {
 	}
 	if u.State == nil {
 		u.State = new(uint8)
+	}
+	if u.CommissionRate != nil && u.CommissionRate.Cmp(big.NewInt(0)) != 0 {
+		return fmt.Errorf("commission rate for enode %q not allowed", a.String())
 	}
 	return nil
 }

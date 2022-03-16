@@ -51,11 +51,6 @@ const Abi = `[
                   "type" : "uint256"
                },
                {
-                  "internalType" : "string",
-                  "name" : "extra",
-                  "type" : "string"
-               },
-               {
                   "internalType" : "uint256",
                   "name" : "registrationBlock",
                   "type" : "uint256"
@@ -71,54 +66,61 @@ const Abi = `[
             "type" : "tuple[]"
          },
          {
-            "internalType" : "address",
-            "name" : "_operatorAccount",
-            "type" : "address"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_minBaseFee",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_committeeSize",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "string",
-            "name" : "_contractVersion",
-            "type" : "string"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_epochPeriod",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_epochId",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_lastEpochBlock",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_unbondingPeriod",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "address payable",
-            "name" : "_treasuryAccount",
-            "type" : "address"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_treasuryFee",
-            "type" : "uint256"
+            "components" : [
+               {
+                  "internalType" : "address",
+                  "name" : "operatorAccount",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address payable",
+                  "name" : "treasuryAccount",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "treasuryFee",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "minBaseFee",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "delegationRate",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "epochPeriod",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "unbondingPeriod",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "committeeSize",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "string",
+                  "name" : "contractVersion",
+                  "type" : "string"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "blockPeriod",
+                  "type" : "uint256"
+               }
+            ],
+            "internalType" : "struct Autonity.Config",
+            "name" : "_config",
+            "type" : "tuple"
          }
       ],
       "stateMutability" : "nonpayable",
@@ -373,19 +375,6 @@ const Abi = `[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "blockPeriod",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "address",
@@ -423,22 +412,67 @@ const Abi = `[
    },
    {
       "inputs" : [],
-      "name" : "committeeSize",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
+      "name" : "computeCommittee",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
       "inputs" : [],
-      "name" : "computeCommittee",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
+      "name" : "config",
+      "outputs" : [
+         {
+            "internalType" : "address",
+            "name" : "operatorAccount",
+            "type" : "address"
+         },
+         {
+            "internalType" : "address payable",
+            "name" : "treasuryAccount",
+            "type" : "address"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "treasuryFee",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "minBaseFee",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "delegationRate",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "epochPeriod",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "unbondingPeriod",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "committeeSize",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "string",
+            "name" : "contractVersion",
+            "type" : "string"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "blockPeriod",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
       "type" : "function"
    },
    {
@@ -457,19 +491,6 @@ const Abi = `[
    {
       "inputs" : [],
       "name" : "epochID",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "epochPeriod",
       "outputs" : [
          {
             "internalType" : "uint256",
@@ -695,34 +716,6 @@ const Abi = `[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "getState",
-      "outputs" : [
-         {
-            "internalType" : "address",
-            "name" : "_operatorAccount",
-            "type" : "address"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_minBaseFee",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_committeeSize",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "string",
-            "name" : "_contractVersion",
-            "type" : "string"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "uint256",
@@ -824,11 +817,6 @@ const Abi = `[
                   "internalType" : "uint256",
                   "name" : "liquidSupply",
                   "type" : "uint256"
-               },
-               {
-                  "internalType" : "string",
-                  "name" : "extra",
-                  "type" : "string"
                },
                {
                   "internalType" : "uint256",
@@ -946,33 +934,10 @@ const Abi = `[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "operatorAccount",
-      "outputs" : [
-         {
-            "internalType" : "address",
-            "name" : "",
-            "type" : "address"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "string",
             "name" : "_enode",
-            "type" : "string"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_commissionRate",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "string",
-            "name" : "_extra",
             "type" : "string"
          }
       ],
@@ -1204,32 +1169,6 @@ const Abi = `[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "treasuryAccount",
-      "outputs" : [
-         {
-            "internalType" : "address payable",
-            "name" : "",
-            "type" : "address"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "treasuryFee",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "address",
@@ -1245,19 +1184,6 @@ const Abi = `[
       "name" : "unbond",
       "outputs" : [],
       "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "unbondingPeriod",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
       "type" : "function"
    },
    {

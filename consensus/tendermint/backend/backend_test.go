@@ -172,7 +172,6 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not create block %d, err=%s", i, errBlock)
 		}
 		header := block.Header()
-
 		seal, errS := backend.Sign(types.SigHash(header).Bytes())
 		if errS != nil {
 			t.Fatalf("could not sign %d, err=%s", i, errS)
@@ -188,7 +187,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
 		// VerifyProposal dont need committed seals
-		committedSeal, errSC := backend.Sign(PrepareCommittedSeal(block.Hash()))
+		committedSeal, errSC := backend.Sign(tendermintCore.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 		if errSC != nil {
 			t.Fatalf("could not sign commit %d, err=%s", i, errS)
 		}
@@ -545,6 +544,7 @@ func (slice Keys) Swap(i, j int) {
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
+
 	memDB := rawdb.NewMemoryDatabase()
 	// Use the first key as private key
 	b := New(nodeKeys[0], &vm.Config{})
@@ -556,7 +556,6 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		panic(err)
 	}
 	b.SetBlockchain(blockchain)
-
 	err = b.Start(context.Background())
 	if err != nil {
 		panic(err)
@@ -579,10 +578,9 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	// generate genesis block
 
 	genesis.Config = params.TestChainConfig
+	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Config.Ethash = nil
 	genesis.GasLimit = 10000000
-	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
-	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.BFTDigest
 	genesis.Timestamp = 1
@@ -695,12 +693,4 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	}
 
 	return block, nil
-}
-
-// PrepareCommittedSeal returns a committed seal for the given hash
-func PrepareCommittedSeal(hash common.Hash) []byte {
-	var buf bytes.Buffer
-	buf.Write(hash.Bytes())
-	buf.Write([]byte{byte(2)})
-	return buf.Bytes()
 }

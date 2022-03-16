@@ -258,15 +258,16 @@ var (
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
 	ValidatorEnode             = enode.NewV4(&ValidatorKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	TestAutonityContractConfig = AutonityContractGenesis{
-		Bytecode:        "",
-		ABI:             "",
-		MinBaseFee:      0,
-		EpochPeriod:     0,
-		UnbondingPeriod: 0,
-		BlockPeriod:     0,
-		Operator:        common.Address{},
-		Treasury:        common.Address{},
-		TreasuryFee:     0,
+		Bytecode:         "",
+		ABI:              "",
+		MinBaseFee:       0,
+		EpochPeriod:      5,
+		MaxCommitteeSize: 7,
+		UnbondingPeriod:  5,
+		BlockPeriod:      1,
+		Operator:         common.Address{},
+		Treasury:         common.Address{},
+		TreasuryFee:      0,
 		Validators: []*Validator{
 			{
 				Treasury:       &common.Address{},
@@ -371,7 +372,7 @@ type ChainConfig struct {
 
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
-	AutonityContractConfig *AutonityContractGenesis `json:"autonityContract,omitempty"`
+	AutonityContractConfig *AutonityContractGenesis `json:"autonity,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.

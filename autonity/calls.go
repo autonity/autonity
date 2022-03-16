@@ -17,26 +17,40 @@ import (
 
 type raw []byte
 
-func DeployContract(abi *abi.ABI, autonityConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
+type Config struct {
+	OperatorAccount common.Address `abi:"operatorAccount"`
+	TreasuryAccount common.Address `abi:"treasuryAccount"`
+	TreasuryFee     *big.Int       `abi:"treasuryFee"`
+	MinBaseFee      *big.Int       `abi:"minBaseFee"`
+	DelegationRate  *big.Int       `abi:"delegationRate"`
+	EpochPeriod     *big.Int       `abi:"epochPeriod"`
+	UnbondingPeriod *big.Int       `abi:"unbondingPeriod"`
+	CommitteeSize   *big.Int       `abi:"committeeSize"`
+	ContractVersion string         `abi:"contractVersion"`
+	BlockPeriod     *big.Int       `abi:"blockPeriod"`
+}
+
+func DeployContract(abi *abi.ABI, genesisConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
 	// Convert the contract bytecode from hex into bytes
-	contractBytecode := common.Hex2Bytes(autonityConfig.Bytecode)
-
-	defaultCommitteeSize := big.NewInt(21)
+	contractBytecode := common.Hex2Bytes(genesisConfig.Bytecode)
 	defaultVersion := "v0.0.0"
-	vals := autonityConfig.GetValidatorsCopy()
 
-	constructorParams, err := abi.Pack("",
-		vals,
-		autonityConfig.Operator,
-		new(big.Int).SetUint64(autonityConfig.MinBaseFee),
-		defaultCommitteeSize,
-		defaultVersion,
-		new(big.Int).SetUint64(autonityConfig.EpochPeriod),
-		new(big.Int).SetUint64(0),
-		new(big.Int).SetUint64(0),
-		new(big.Int).SetUint64(autonityConfig.UnbondingPeriod),
-		autonityConfig.Treasury,
-		new(big.Int).SetUint64(autonityConfig.TreasuryFee))
+	contractConfig := Config{
+		OperatorAccount: genesisConfig.Operator,
+		TreasuryAccount: genesisConfig.Treasury,
+		TreasuryFee:     new(big.Int).SetUint64(genesisConfig.TreasuryFee),
+		MinBaseFee:      new(big.Int).SetUint64(genesisConfig.MinBaseFee),
+		DelegationRate:  new(big.Int).SetUint64(genesisConfig.DelegationRate),
+		EpochPeriod:     new(big.Int).SetUint64(genesisConfig.EpochPeriod),
+		UnbondingPeriod: new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
+		CommitteeSize:   new(big.Int).SetUint64(genesisConfig.MaxCommitteeSize),
+		ContractVersion: defaultVersion,
+		BlockPeriod:     new(big.Int).SetUint64(genesisConfig.BlockPeriod),
+	}
+
+	vals := genesisConfig.GetValidatorsCopy()
+
+	constructorParams, err := abi.Pack("", vals, contractConfig)
 	if err != nil {
 		log.Error("contractABI.Pack returns err", "err", err)
 		return err
