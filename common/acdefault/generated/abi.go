@@ -692,6 +692,19 @@ const Abi = `[
       "type" : "function"
    },
    {
+      "inputs" : [],
+      "name" : "getOperator",
+      "outputs" : [
+         {
+            "internalType" : "address",
+            "name" : "",
+            "type" : "address"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
       "inputs" : [
          {
             "internalType" : "uint256",

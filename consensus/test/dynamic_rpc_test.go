@@ -13,24 +13,19 @@ import (
 
 var (
 	dynamicRpcs = []string{
-		"aut_operatorAccount",
-		"aut_committeeSize",
+		"aut_getOperator",
+		"aut_getMaxCommitteeSize",
 		"aut_deployer",
 		"aut_allowance",
 		"aut_getNewContract",
-		"aut_getState",
 		"aut_getVersion",
 		"aut_getCommittee",
 		"aut_getValidators",
-		"aut_getStakeholders",
-		"aut_getWhitelist",
 		"aut_balanceOf",
 		"aut_totalSupply",
-		"aut_getUser",
 		"aut_getMaxCommitteeSize",
-		"aut_getMinimumGasPrice",
+		"aut_getMinimumBaseFee",
 		"aut_getProposer",
-		"aut_dumpEconomicMetrics",
 	}
 )
 
@@ -42,7 +37,7 @@ func TestDynamicRpcs(t *testing.T) {
 		numValidators: 1,
 		numBlocks:     1,
 		finalAssert: func(t *testing.T, validators map[string]*testNode) {
-			n := validators["VA"]
+			n := validators["V0"]
 			validatorAddress := n.EthAddress().String()
 			ep := n.node.HTTPEndpoint()
 			for _, method := range dynamicRpcs {

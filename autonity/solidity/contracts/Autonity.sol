@@ -527,7 +527,7 @@ contract Autonity is IERC20 {
     }
 
     /**
-    * @return Returns the maximum size of the consensus committee.
+    * @return Returns the consensus committee enodes.
     */
     function getCommitteeEnodes() external view returns (string[] memory) {
         return committeeNodes;
@@ -541,6 +541,12 @@ contract Autonity is IERC20 {
         return config.minBaseFee;
     }
 
+    /**
+     * @notice Returns the current operator account.
+    */
+    function getOperator() external view returns (address) {
+        return config.operatorAccount;
+    }
 
     /**
      * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.

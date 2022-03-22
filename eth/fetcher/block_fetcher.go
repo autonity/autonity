@@ -236,6 +236,7 @@ func (f *BlockFetcher) Start() {
 // operations.
 func (f *BlockFetcher) Stop() {
 	close(f.quit)
+	close(f.done)
 }
 
 // Notify announces the fetcher of the potential availability of a new block in

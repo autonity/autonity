@@ -89,14 +89,13 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 	genesis.ExtraData = nil
 	genesis.GasLimit = 30_000_000
 	genesis.GasUsed = 0
-	genesis.Difficulty = big.NewInt(1)
 	genesis.Timestamp = 0
 	genesis.Nonce = 0
 	genesis.Mixhash = types.BFTDigest
 
 	genesis.Config = params.TestChainConfig
 	genesis.Config.Ethash = nil
-	genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
+	genesis.Config.AutonityContractConfig.Validators = nil
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, validator := range nodes {

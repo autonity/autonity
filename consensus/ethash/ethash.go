@@ -57,15 +57,6 @@ var (
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
 )
 
-func init() {
-	sharedConfig := Config{
-		PowMode:       ModeNormal,
-		CachesInMem:   3,
-		DatasetsInMem: 1,
-	}
-	sharedEthash = New(sharedConfig, nil, false)
-}
-
 // isLittleEndian returns whether the local system is running in little or big
 // endian byte order.
 func isLittleEndian() bool {

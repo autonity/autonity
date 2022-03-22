@@ -76,7 +76,11 @@ func (api *PublicFilterAPI) timeoutLoop(timeout time.Duration) {
 	ticker := time.NewTicker(timeout)
 	defer ticker.Stop()
 	for {
-		<-ticker.C
+		select {
+		case <-api.events.chainSub.Err():
+			return
+		case <-ticker.C:
+		}
 		api.filtersMu.Lock()
 		for id, f := range api.filters {
 			select {

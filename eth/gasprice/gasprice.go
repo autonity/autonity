@@ -117,14 +117,19 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 
 	cache, _ := lru.New(2048)
 	headEvent := make(chan core.ChainHeadEvent, 1)
-	backend.SubscribeChainHeadEvent(headEvent)
+	chainHeadEventSub := backend.SubscribeChainHeadEvent(headEvent)
 	go func() {
 		var lastHead common.Hash
-		for ev := range headEvent {
-			if ev.Block.ParentHash() != lastHead {
-				cache.Purge()
+		for {
+			select {
+			case ev := <-headEvent:
+				if ev.Block.ParentHash() != lastHead {
+					cache.Purge()
+				}
+				lastHead = ev.Block.Hash()
+			case <-chainHeadEventSub.Err():
+				return
 			}
-			lastHead = ev.Block.Hash()
 		}
 	}()
 
