@@ -147,12 +147,6 @@ func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, rec
 func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types.Header) error {
 	log.Warn("Initiating Autonity Contract upgrade", "header", header.Number.Uint64())
 
-	// dump contract stateBefore first.
-	stateBefore, errState := ac.callRetrieveState(statedb, header)
-	if errState != nil {
-		return errState
-	}
-
 	// get contract binary and abi set by system operator before.
 	bytecode, newAbi, errContract := ac.callRetrieveContract(statedb, header)
 	if errContract != nil {
@@ -162,10 +156,7 @@ func (ac *Contract) performContractUpgrade(statedb *state.StateDB, header *types
 	// take snapshot in case of roll back to former view.
 	snapshot := statedb.Snapshot()
 
-	// Create account will delete previous the AC stateobject and carry over the balance
-	statedb.CreateAccount(ContractAddress)
-
-	if err := ac.updateAutonityContract(header, statedb, bytecode, stateBefore); err != nil {
+	if err := ac.updateAutonityContract(header, statedb, bytecode); err != nil {
 		statedb.RevertToSnapshot(snapshot)
 		return err
 	}

@@ -71,13 +71,11 @@ func DeployContract(abi *abi.ABI, genesisConfig *params.AutonityContractGenesis,
 	return nil
 }
 
-func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string, state []byte) error {
+func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string) error {
 	evm := ac.evmProvider.EVM(header, Deployer, statedb)
 	contractBytecode := common.Hex2Bytes(bytecode)
-	data := append(contractBytecode, state...)
-	gas := uint64(0xFFFFFFFF)
-	value := new(big.Int).SetUint64(0x00)
-	_, _, _, vmerr := evm.CreateWithAddress(vm.AccountRef(Deployer), data, gas, value, ContractAddress)
+	data := append(contractBytecode)
+	_, _, _, vmerr := evm.Replace(vm.AccountRef(Deployer), data, ContractAddress)
 	if vmerr != nil {
 		log.Error("updateAutonityContract evm.Create", "err", vmerr)
 		return vmerr
@@ -169,17 +167,6 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blo
 	// submit the final reward distribution metrics.
 	//ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
 	return updateReady, committee, nil
-}
-
-func (ac *Contract) callRetrieveState(statedb *state.StateDB, header *types.Header) ([]byte, error) {
-	var state raw
-
-	err := ac.AutonityContractCall(statedb, header, "getState", &state)
-	if err != nil {
-		return nil, err
-	}
-
-	return state, nil
 }
 
 func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) (string, string, error) {
