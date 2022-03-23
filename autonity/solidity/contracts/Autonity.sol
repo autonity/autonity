@@ -654,7 +654,7 @@ contract Autonity is IERC20 {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         // take treasury fee.
 
-        uint256 _treasuryReward = (config.treasuryFee * _amount) / 10 ** 9;
+        uint256 _treasuryReward = (config.treasuryFee * _amount) / 10 ** 18;
         if (_treasuryReward > 0) {
             config.treasuryAccount.transfer(_treasuryReward);
             _amount -= _treasuryReward;

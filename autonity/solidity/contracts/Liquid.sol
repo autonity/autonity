@@ -55,7 +55,7 @@ contract Liquid is IERC20 {
 
     function redistribute() public payable onlyAutonity  {
         uint256 _totalFees = msg.value;
-        uint256 _validatorFees = (_totalFees  * commissionRate) / (10**9);
+        uint256 _validatorFees = (_totalFees  * commissionRate) / (10**4);
         // Step 1 : transfer entitled amount of fees to validator's treasury account.
         treasury.transfer(_validatorFees);
         _totalFees -= _validatorFees;
