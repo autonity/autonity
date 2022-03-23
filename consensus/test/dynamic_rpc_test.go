@@ -17,6 +17,8 @@ var (
 		"aut_getMaxCommitteeSize",
 		"aut_deployer",
 		"aut_allowance",
+		"aut_name",
+		"aut_symbol",
 		"aut_getNewContract",
 		"aut_getVersion",
 		"aut_getCommittee",

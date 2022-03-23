@@ -621,14 +621,13 @@ type AutonityContractAPI struct {
 // able to fit into the current approach taken for registering rpc services.
 // See rpc.Server.RegisterName().
 func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.Contract) *AutonityContractAPI {
-	var viewMethodStr = "view"
 	var contractABI = ac.ABI()
 	var contractViewMethods = make(map[string]reflect.Value)
 
 	for n, m := range contractABI.Methods {
 		functionName := n
 		// Only expose read-only functions.
-		if m.StateMutability == viewMethodStr {
+		if m.IsConstant() {
 			// The RPC service expect the first argument of an API method to be the receiver object.
 			inArgs := []reflect.Type{reflect.TypeOf(&AutonityContractAPI{})}
 			inArgs = append(inArgs, m.Inputs.Types()...)
