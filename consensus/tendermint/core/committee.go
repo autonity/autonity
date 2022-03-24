@@ -168,6 +168,7 @@ func (w *weightedRandomSamplingCommittee) Committee() types.Committee {
 func (w *weightedRandomSamplingCommittee) SetLastBlock(block *types.Block) {
 	w.previousHeader = block.Header()
 	w.previousBlockStateRoot = block.Root()
+	w.cachedProposer = make(map[int64]types.CommitteeMember)
 }
 
 // Get validator by index

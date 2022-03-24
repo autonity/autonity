@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/crypto"
 	"math/big"
 	"sort"
 
@@ -352,21 +351,46 @@ func ReadHeaderRange(db ethdb.Reader, number uint64, count uint64) []rlp.RawValu
 }
 
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
-func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValue {
+func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) (rlp.RawValue, *types.Header) {
 	var data []byte
+	var header *types.Header
 	db.ReadAncients(func(reader ethdb.AncientReader) error {
 		// First try to look up the data in ancient database. Extra hash
 		// comparison is necessary since ancient database only maintains
 		// the canonical data.
 		data, _ = reader.Ancient(freezerHeaderTable, number)
-		if len(data) > 0 && crypto.Keccak256Hash(data) == hash {
-			return nil
+		if len(data) > 0 {
+			var ok bool
+			if ok, header = compareHeaderHash(data, hash); ok {
+				return nil
+			}
 		}
 		// If not, try reading from leveldb
 		data, _ = db.Get(headerKey(number, hash))
+		if len(data) > 0 {
+			header = decodeHeader(data)
+		}
 		return nil
 	})
-	return data
+	return data, header
+}
+
+func compareHeaderHash(data []byte, h common.Hash) (bool, *types.Header) {
+	header := decodeHeader(data)
+	if header.Hash() == h {
+		return true, header
+	}
+	return false, nil
+}
+
+func decodeHeader(data []byte) *types.Header {
+	var header types.Header
+	err := rlp.DecodeBytes(data, &header)
+	if err != nil {
+		log.Error("Invalid block header RLP", "err", err)
+		return nil
+	}
+	return &header
 }
 
 // HasHeader verifies the existence of a block header corresponding to the hash.
@@ -382,13 +406,8 @@ func HasHeader(db ethdb.Reader, hash common.Hash, number uint64) bool {
 
 // ReadHeader retrieves the block header corresponding to the hash.
 func ReadHeader(db ethdb.Reader, hash common.Hash, number uint64) *types.Header {
-	data := ReadHeaderRLP(db, hash, number)
+	data, header := ReadHeaderRLP(db, hash, number)
 	if len(data) == 0 {
-		return nil
-	}
-	header := new(types.Header)
-	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
-		log.Error("Invalid block header RLP", "hash", hash, "err", err)
 		return nil
 	}
 	return header

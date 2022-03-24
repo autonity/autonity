@@ -539,7 +539,7 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 			if hash == (common.Hash{}) {
 				return fmt.Errorf("canonical hash missing, can't freeze block %d", number)
 			}
-			header := ReadHeaderRLP(nfdb, hash, number)
+			header, _ := ReadHeaderRLP(nfdb, hash, number)
 			if len(header) == 0 {
 				return fmt.Errorf("block header missing, can't freeze block %d", number)
 			}

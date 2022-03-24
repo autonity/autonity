@@ -51,7 +51,7 @@ func TestHeaderStorage(t *testing.T) {
 	} else if entry.Hash() != header.Hash() {
 		t.Fatalf("Retrieved header mismatch: have %v, want %v", entry, header)
 	}
-	if entry := ReadHeaderRLP(db, header.Hash(), header.Number.Uint64()); entry == nil {
+	if entry, _ := ReadHeaderRLP(db, header.Hash(), header.Number.Uint64()); entry == nil {
 		t.Fatalf("Stored header RLP not found")
 	} else {
 		hasher := sha3.NewLegacyKeccak256()
@@ -456,7 +456,7 @@ func TestAncientStorage(t *testing.T) {
 	})
 	// Ensure nothing non-existent will be read
 	hash, number := block.Hash(), block.NumberU64()
-	if blob := ReadHeaderRLP(db, hash, number); len(blob) > 0 {
+	if blob, _ := ReadHeaderRLP(db, hash, number); len(blob) > 0 {
 		t.Fatalf("non existent header returned")
 	}
 	if blob := ReadBodyRLP(db, hash, number); len(blob) > 0 {
@@ -472,7 +472,7 @@ func TestAncientStorage(t *testing.T) {
 	// Write and verify the header in the database
 	WriteAncientBlocks(db, []*types.Block{block}, []types.Receipts{nil}, big.NewInt(100))
 
-	if blob := ReadHeaderRLP(db, hash, number); len(blob) == 0 {
+	if blob, _ := ReadHeaderRLP(db, hash, number); len(blob) == 0 {
 		t.Fatalf("no header returned")
 	}
 	if blob := ReadBodyRLP(db, hash, number); len(blob) == 0 {
@@ -487,7 +487,7 @@ func TestAncientStorage(t *testing.T) {
 
 	// Use a fake hash for data retrieval, nothing should be returned.
 	fakeHash := common.BytesToHash([]byte{0x01, 0x02, 0x03})
-	if blob := ReadHeaderRLP(db, fakeHash, number); len(blob) != 0 {
+	if blob, _ := ReadHeaderRLP(db, fakeHash, number); len(blob) != 0 {
 		t.Fatalf("invalid header returned")
 	}
 	if blob := ReadBodyRLP(db, fakeHash, number); len(blob) != 0 {
