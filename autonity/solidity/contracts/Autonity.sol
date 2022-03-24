@@ -269,12 +269,14 @@ contract Autonity is IERC20 {
     }
 
     /*
+    Currently not supported
     * @notice Set the block period. Restricted to the Operator account.
     * @param _period Positive integer.
-    */
+
     function setBlockPeriod(uint256 _period) public onlyOperator {
         config.blockPeriod = _period;
     }
+     */
 
     /*
     * @notice Set the global treasury account. Restricted to the Operator account.

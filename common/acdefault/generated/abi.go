@@ -963,19 +963,6 @@ const Abi = `[
       "inputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_period",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setBlockPeriod",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
             "name" : "_size",
             "type" : "uint256"
          }
