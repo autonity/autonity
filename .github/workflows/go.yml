@@ -16,7 +16,7 @@ env:
   # purpose of defining them here.
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
-  GO_VERSION: 1.14 # 1.15 seems to cause tests to fail
+  GO_VERSION: 1.17 # 1.15 seems to cause tests to fail
 
 jobs:
 
@@ -48,7 +48,7 @@ jobs:
         # everything that may be needed so that they fill the go modules cache
         # and go-build dir.
       - name: Fill cache
-        if:  steps.gocache.outputs.cache-hit != 'true'
+        if: steps.gocache.outputs.cache-hit != 'true'
         run: |
           go mod download -x
           make autonity
@@ -69,13 +69,14 @@ jobs:
         # negative grep to get most of the test packages for the main tests
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
-        tests: [[main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test|/core$|/e2e_test")],
-                [slow-tests, $(go list ./les/... ./p2p/... ./eth/... | grep -E -v "/p2p/simulations")],
-                # These tests do not seem to work when run with other tests.
-                [problematic-tests, -p 1 ./p2p/simulations/... ./core],
-                [tendermint-tests, ./consensus/tendermint/... -timeout 5m -race],
-                [e2e-tests, ./consensus/test/... -v],
-                [new-e2e-tests, ./e2e_test -v -race]]
+        tests: [ [ main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test|/core$|/e2e_test") ],
+                 [ slow-tests, $(go list ./les/... ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") ],
+          # These tests do not seem to work when run with other tests.
+                 [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
+                 [ tendermint-tests, ./consensus/tendermint/... -timeout 5m -race ],
+                 [ e2e-tests, ./consensus/test/... -v ] #,
+          #[ new-e2e-tests, ./e2e_test -v -race ]
+        ]
 
     name: ${{ matrix.tests[0] }}
 
@@ -162,26 +163,27 @@ jobs:
 
   # contract-tests runs our suite of truffle tests against the autonity
   # contract.
-  contract-tests:
-    runs-on: ubuntu-latest
-    needs: prepare-cache
-    steps:
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '10.19.0'
 
-      - uses: actions/checkout@v2
-
-      - name: Go cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Run contract tests
-        run: make test-contracts
+  #  contract-tests:
+  #    runs-on: ubuntu-latest
+  #    needs: prepare-cache
+  #    steps:
+  #      - uses: actions/setup-node@v1
+  #        with:
+  #          node-version: '10.19.0'
+  #
+  #      - uses: actions/checkout@v2
+  #
+  #      - name: Go cache
+  #        uses: actions/cache@v2
+  #        with:
+  #          path: |
+  #            ${{ env.GO_CACHE }}
+  #            ${{ env.GO_MODULES_CACHE }}
+  #          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+  #
+  #      - name: Run contract tests
+  #        run: make test-contracts
 
   # These are the end to end tests run with a block time of 1 second, they are
   # only run on merges to develop.

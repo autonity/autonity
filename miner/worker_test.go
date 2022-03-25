@@ -89,9 +89,9 @@ func init() {
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Enode = enode.NewV4(&testUserKey.PublicKey, nil, 0, 0).URLv4()
 	tendermintChainConfig.AutonityContractConfig.Prepare()
 
-	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
+	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, big.NewInt(params.InitialBaseFee), nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
 	pendingTxs = append(pendingTxs, tx1)
-	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
+	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, big.NewInt(params.InitialBaseFee), nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
 	newTxs = append(newTxs, tx2)
 	rand.Seed(time.Now().UnixNano())
 }
@@ -109,6 +109,7 @@ type testWorkerBackend struct {
 func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, n int) *testWorkerBackend {
 	var gspec = core.Genesis{
 		Config:     chainConfig,
+		BaseFee:    big.NewInt(params.InitialBaseFee),
 		Alloc:      core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
 		Difficulty: big.NewInt(0),
 	}
@@ -185,9 +186,9 @@ func (b *testWorkerBackend) newRandomUncle() *types.Block {
 func (b *testWorkerBackend) newRandomTx(creation bool) *types.Transaction {
 	var tx *types.Transaction
 	if creation {
-		tx, _ = types.SignTx(types.NewContractCreation(b.txPool.Nonce(testBankAddress), big.NewInt(0), testGas, nil, common.FromHex(testCode)), types.HomesteadSigner{}, testBankKey)
+		tx, _ = types.SignTx(types.NewContractCreation(b.txPool.Nonce(testBankAddress), big.NewInt(0), testGas, new(big.Int).SetUint64(params.InitialBaseFee*2), common.FromHex(testCode)), types.HomesteadSigner{}, testBankKey)
 	} else {
-		tx, _ = types.SignTx(types.NewTransaction(b.txPool.Nonce(testBankAddress), testUserAddress, big.NewInt(1000), params.TxGas, nil, nil), types.HomesteadSigner{}, testBankKey)
+		tx, _ = types.SignTx(types.NewTransaction(b.txPool.Nonce(testBankAddress), testUserAddress, big.NewInt(1000), params.TxGas, new(big.Int).SetUint64(params.InitialBaseFee*2), nil), types.HomesteadSigner{}, testBankKey)
 	}
 	return tx
 }
@@ -287,16 +288,13 @@ func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consens
 		taskCh    = make(chan struct{}, 1)
 	)
 	checkEqual := func(t *testing.T, task *task, index int) {
-		receiptLen, balance := 1, big.NewInt(1000)
+		receiptLen := 1
 		if isTendermint {
 			// With tendermint there is an additional transaction receipt for the block finalization function.
-			receiptLen, balance = 2, big.NewInt(1000)
+			receiptLen = 2
 		}
 		if len(task.receipts) != receiptLen {
 			t.Fatalf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
-		}
-		if task.state.GetBalance(testUserAddress).Cmp(balance) != 0 {
-			t.Fatalf("account balance mismatch: have %d, want %d", task.state.GetBalance(testUserAddress), balance)
 		}
 	}
 	w.newTaskHook = func(task *task) {
@@ -398,15 +396,12 @@ func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, en
 			// one has 1 pending tx, the third one has 2 txs
 			// For Tendermint, we don't have the first empty task.
 			if (taskIndex == 2 && !isTendermint) || (isTendermint && taskIndex == 1) {
-				receiptLen, balance := 2, big.NewInt(2000)
+				receiptLen := 2
 				if isTendermint {
 					receiptLen += 1 // Autonity Contract Finalize additional receipt
 				}
 				if len(task.receipts) != receiptLen {
 					t.Errorf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
-				}
-				if task.state.GetBalance(testUserAddress).Cmp(balance) != 0 {
-					t.Errorf("account balance mismatch: have %d, want %d", task.state.GetBalance(testUserAddress), balance)
 				}
 			}
 			taskCh <- struct{}{}

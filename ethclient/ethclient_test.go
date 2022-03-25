@@ -326,6 +326,7 @@ func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {
 		},
 	}
 	for name, tt := range tests {
+		tt := tt
 		t.Run(name, func(t *testing.T) {
 			ec := NewClient(client)
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -335,13 +336,22 @@ func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("HeaderByNumber(%v) error = %q, want %q", tt.block, err, tt.wantErr)
 			}
+			if tt.wantErr == ethereum.NotFound {
+				return
+			}
 			if got != nil && got.Number != nil && got.Number.Sign() == 0 {
 				got.Number = big.NewInt(0) // hack to make DeepEqual work
 			}
 			// workaround DeepEqual
-			got.CommitteeMember(common.Address{})
-			tt.want.CommitteeMember(common.Address{})
-			if !reflect.DeepEqual(got, tt.want) {
+			gotRLP := &bytes.Buffer{}
+			if err := got.EncodeRLP(gotRLP); err != nil {
+				t.Fatal("encoding fail")
+			}
+			wantRLP := &bytes.Buffer{}
+			if err := tt.want.EncodeRLP(wantRLP); err != nil {
+				t.Fatal("encoding fail")
+			}
+			if !reflect.DeepEqual(gotRLP.Bytes(), wantRLP.Bytes()) {
 				t.Fatalf("HeaderByNumber(%v)\n   = %v\nwant %v", tt.block, got, tt.want)
 			}
 		})

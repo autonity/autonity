@@ -25,13 +25,13 @@ func TestPrepareAutonityContract(t *testing.T) {
 		Operator: common.HexToAddress("0xff"),
 		Validators: []*Validator{
 			{
-				Treasury:    &common.Address{},
+				Treasury:    common.Address{},
 				Enode:       node1.String(),
 				Address:     &addr1,
 				BondedStake: big.NewInt(1),
 			},
 			{
-				Treasury:    &common.Address{},
+				Treasury:    common.Address{},
 				Enode:       node2.String(),
 				Address:     &addr2,
 				BondedStake: big.NewInt(1),
@@ -46,25 +46,11 @@ func TestPrepareAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 		Operator: common.HexToAddress("0xff"),
 		Validators: []*Validator{
 			{
-				Treasury: &common.Address{},
+				Treasury: common.Address{},
 				Enode:    "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
 			},
 		},
 	}
-	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
-}
-
-func TestPrepareAutonityContract_TreasuryMissed_Fail(t *testing.T) {
-	contractConfig := AutonityContractGenesis{
-		Operator: common.HexToAddress("0xff"),
-		Validators: []*Validator{
-			{
-				Enode:       "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				BondedStake: big.NewInt(1),
-			},
-		},
-	}
-
 	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
 }
 
@@ -79,7 +65,7 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 				Address:     &address,
 				Enode:       "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
 				BondedStake: big.NewInt(10),
-				Treasury:    &common.Address{},
+				Treasury:    common.Address{},
 			},
 		},
 	}
@@ -96,7 +82,7 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	contractConfig := &AutonityContractGenesis{
 		Validators: []*Validator{
 			{
-				Treasury:    &common.Address{},
+				Treasury:    common.Address{},
 				Enode:       "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
 				BondedStake: big.NewInt(1),
 			},
