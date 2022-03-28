@@ -17,17 +17,14 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/clearmatics/autonity/log"
 	"github.com/jedisct1/go-minisign"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var gethPubKeys []string = []string{
@@ -51,62 +48,6 @@ type vulnJson struct {
 	Severity    string
 	Check       string
 	CVE         string
-}
-
-func versionCheck(ctx *cli.Context) error {
-	url := ctx.String(VersionCheckUrlFlag.Name)
-	version := ctx.String(VersionCheckVersionFlag.Name)
-	log.Info("Checking vulnerabilities", "version", version, "url", url)
-	return checkCurrent(url, version)
-}
-
-func checkCurrent(url, current string) error {
-	var (
-		data []byte
-		sig  []byte
-		err  error
-	)
-	if data, err = fetch(url); err != nil {
-		return fmt.Errorf("could not retrieve data: %w", err)
-	}
-	if sig, err = fetch(fmt.Sprintf("%v.minisig", url)); err != nil {
-		return fmt.Errorf("could not retrieve signature: %w", err)
-	}
-	if err = verifySignature(gethPubKeys, data, sig); err != nil {
-		return err
-	}
-	var vulns []vulnJson
-	if err = json.Unmarshal(data, &vulns); err != nil {
-		return err
-	}
-	allOk := true
-	for _, vuln := range vulns {
-		r, err := regexp.Compile(vuln.Check)
-		if err != nil {
-			return err
-		}
-		if r.MatchString(current) {
-			allOk = false
-			fmt.Printf("## Vulnerable to %v (%v)\n\n", vuln.Uid, vuln.Name)
-			fmt.Printf("Severity: %v\n", vuln.Severity)
-			fmt.Printf("Summary : %v\n", vuln.Summary)
-			fmt.Printf("Fixed in: %v\n", vuln.Fixed)
-			if len(vuln.CVE) > 0 {
-				fmt.Printf("CVE: %v\n", vuln.CVE)
-			}
-			if len(vuln.Links) > 0 {
-				fmt.Printf("References:\n")
-				for _, ref := range vuln.Links {
-					fmt.Printf("\t- %v\n", ref)
-				}
-			}
-			fmt.Println()
-		}
-	}
-	if allOk {
-		fmt.Println("No vulnerabilities found")
-	}
-	return nil
 }
 
 // fetch makes an HTTP request to the given url and returns the response body
