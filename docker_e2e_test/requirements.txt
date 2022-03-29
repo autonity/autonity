@@ -27,7 +27,7 @@ jsonschema==3.2.0
 lru-dict==1.1.6
 multiaddr==0.0.9
 netaddr==0.7.19
-paramiko==2.7.1
+paramiko==2.10.1
 parsimonious==0.8.1
 protobuf==3.11.3
 pycparser==2.20
