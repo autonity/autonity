@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/clearmatics/autonity/cmd/utils"
@@ -123,6 +124,9 @@ func remoteConsole(ctx *cli.Context) error {
 		path := node.DefaultDataDir()
 		if ctx.GlobalIsSet(utils.DataDirFlag.Name) {
 			path = ctx.GlobalString(utils.DataDirFlag.Name)
+		}
+		if path != "" && ctx.GlobalBool(utils.PiccadillyFlag.Name) {
+			path = filepath.Join(path, "piccadilly")
 		}
 		endpoint = fmt.Sprintf("%s/autonity.ipc", path)
 	}

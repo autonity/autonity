@@ -93,6 +93,17 @@ func ParseV4(rawurl string) (*Node, error) {
 	return ParseV4CustomResolve(rawurl, V4ResolveFunc)
 }
 
+// ParseV4NoResolve returns a node object without attempting to resolve. Useful to manipulate
+// a enode string.
+func ParseV4NoResolve(rawurl string) (*Node, error) {
+	// resolveFunc is dummy as we're only looking to parse the enode via
+	// via ParseV4CustomResolve.
+	resolveFunc := func(host string) ([]net.IP, error) {
+		return []net.IP{{127, 0, 0, 1}}, nil
+	}
+	return ParseV4CustomResolve(rawurl, resolveFunc)
+}
+
 func ParseV4CustomResolve(rawurl string, resolve func(host string) ([]net.IP, error)) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey(m[1])

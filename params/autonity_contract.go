@@ -66,7 +66,7 @@ func (ac *AutonityContractGenesis) Prepare() error {
 
 //User - is used to put predefined accounts to genesis
 type Validator struct {
-	Treasury          *common.Address `abi:"treasury"`
+	Treasury          common.Address  `abi:"treasury"`
 	Address           *common.Address `abi:"addr"`
 	Enode             string          `abi:"enode"`
 	CommissionRate    *big.Int        `abi:"commissionRate"`
@@ -81,7 +81,7 @@ type Validator struct {
 
 // getAddressFromEnode gets the account address from the user enode.
 func (u *Validator) getAddressFromEnode() (common.Address, error) {
-	n, err := enode.ParseV4(u.Enode)
+	n, err := enode.ParseV4NoResolve(u.Enode)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to parse enode %q, error:%v", u.Enode, err)
 	}
@@ -91,9 +91,6 @@ func (u *Validator) getAddressFromEnode() (common.Address, error) {
 func (u *Validator) Validate() error {
 	if len(u.Enode) == 0 {
 		return errors.New("enode must be specified")
-	}
-	if u.Treasury == nil {
-		return errors.New("treasury account must be specified")
 	}
 	if u.BondedStake == nil || u.BondedStake.Cmp(new(big.Int)) == 0 {
 		return errors.New("bonded stake must be specified")

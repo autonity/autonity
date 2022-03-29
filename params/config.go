@@ -57,6 +57,56 @@ var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
 }
 
 var (
+
+	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
+	PiccaddillyChainConfig = &ChainConfig{
+		ChainID:                 big.NewInt(112_105),
+		HomesteadBlock:          common.Big0,
+		DAOForkBlock:            common.Big0,
+		DAOForkSupport:          true,
+		EIP150Block:             common.Big0,
+		EIP150Hash:              common.Hash{},
+		EIP155Block:             common.Big0,
+		EIP158Block:             common.Big0,
+		ByzantiumBlock:          common.Big0,
+		ConstantinopleBlock:     common.Big0,
+		PetersburgBlock:         common.Big0,
+		IstanbulBlock:           common.Big0,
+		MuirGlacierBlock:        common.Big0,
+		BerlinBlock:             common.Big0,
+		LondonBlock:             common.Big0,
+		ArrowGlacierBlock:       common.Big0,
+		MergeForkBlock:          nil,
+		TerminalTotalDifficulty: nil,
+		Ethash:                  nil,
+		AutonityContractConfig: &AutonityContractGenesis{
+			Bytecode:         "",
+			ABI:              "",
+			MinBaseFee:       InitialBaseFee,
+			EpochPeriod:      30 * 60,
+			UnbondingPeriod:  6 * 60 * 60,
+			BlockPeriod:      1,
+			MaxCommitteeSize: 100,
+			Operator:         common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
+			Treasury:         common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
+			TreasuryFee:      10_000_000_000_000_000,
+			DelegationRate:   1000,
+			Validators: []*Validator{{
+				Treasury:    common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
+				Enode:       "enode://3c7f26eb85a7fc37d5ea64c07598a28dd58f507477a88b2144179a4a162c6cba9407389d39c76386126f0604dd53141680d8075b6d210a22cc38c3a8dd877711@35.246.7.21:30303",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
+				Enode:       "enode://08e2ed9ca80772ce32e3b56fba3469e33a034a66780e4852586e38db657658fdc610cfb7345543a01277eb53af458ef7cac0b66570ac1982011f24d3832d782c@34.100.165.124:30303", //GCP - Asia
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
+				Enode:       "enode://d820e4d53f1e47443c23f2db28b251ca8b8dc207a1b0a0e36ae1bbeb63d0cea4f00dabb61e5daf27468f022adc8780dfd181c57ce0db16a9668dd72e18ecac6b@159.203.156.236:30303", // DO
+				BondedStake: big.NewInt(10_000),
+			}},
+		},
+	}
+
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
 		ChainID:             big.NewInt(1),
@@ -270,7 +320,7 @@ var (
 		TreasuryFee:      0,
 		Validators: []*Validator{
 			{
-				Treasury:       &common.Address{},
+				Treasury:       common.Address{},
 				Address:        &ValidatorAddress,
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
@@ -286,6 +336,7 @@ var (
 
 func init() {
 	TestAutonityContractConfig.Prepare()
+	PiccaddillyChainConfig.AutonityContractConfig.Prepare()
 }
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and

@@ -149,7 +149,7 @@ func generateValidatorState(validators []*Validator) (
 		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
 		gu := params.Validator{
 			Enode:       e.String(),
-			Treasury:    new(common.Address),
+			Treasury:    common.Address{},
 			BondedStake: new(big.Int).SetUint64(u.Stake),
 		}
 		err := gu.Validate()

@@ -21,9 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
-	"net"
-
 	"github.com/clearmatics/autonity/common"
 	"github.com/clearmatics/autonity/common/math"
 	"github.com/clearmatics/autonity/crypto"
@@ -32,6 +29,7 @@ import (
 	"github.com/clearmatics/autonity/crypto/bn256"
 	"github.com/clearmatics/autonity/p2p/enode"
 	"github.com/clearmatics/autonity/params"
+	"math/big"
 
 	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
@@ -1072,12 +1070,7 @@ func (c checkEnode) Run(input []byte) ([]byte, error) {
 	nodeStr := string(input)
 	out := make([]byte, 64)
 
-	// resolveFunc is dummy as we're only looking to parse the enode via
-	// via ParseV4CustomResolve.
-	resolveFunc := func(host string) ([]net.IP, error) {
-		return []net.IP{{127, 0, 0, 1}}, nil
-	}
-	node, err := enode.ParseV4CustomResolve(nodeStr, resolveFunc)
+	node, err := enode.ParseV4NoResolve(nodeStr)
 	if err != nil {
 		copy(out[32:], true32Byte)
 		return out, nil

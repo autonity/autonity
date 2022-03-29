@@ -140,6 +140,7 @@ var (
 		utils.GpoMaxGasPriceFlag,
 		utils.GpoIgnoreGasPriceFlag,
 		utils.MinerNotifyFullFlag,
+		utils.PiccadillyFlag,
 		configFileFlag,
 	}
 
@@ -249,6 +250,8 @@ func main() {
 func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
+	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
+		log.Info("Starting Autonity on Piccadilly testnet...")
 	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
 		log.Info("Starting Autonity...")
 	}

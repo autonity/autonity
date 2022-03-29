@@ -27,6 +27,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"path/filepath"
 	godebug "runtime/debug"
 	"strconv"
 	"strings"
@@ -169,6 +170,10 @@ var (
 	IterativeOutputFlag = cli.BoolTFlag{
 		Name:  "iterative",
 		Usage: "Print streaming JSON iteratively, delimited by newlines",
+	}
+	PiccadillyFlag = cli.BoolFlag{
+		Name:  "piccadilly",
+		Usage: "Piccadilly network: pre-configured Autonity test network",
 	}
 	ExcludeStorageFlag = cli.BoolFlag{
 		Name:  "nostorage",
@@ -732,6 +737,9 @@ var (
 // then a subdirectory of the specified datadir will be used.
 func MakeDataDir(ctx *cli.Context) string {
 	if path := ctx.GlobalString(DataDirFlag.Name); path != "" {
+		if ctx.GlobalBool(PiccadillyFlag.Name) {
+			return filepath.Join(path, "piccadilly")
+		}
 		return path
 	}
 	Fatalf("Cannot determine default data directory, please set manually (--datadir)")
@@ -778,6 +786,8 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
+	case ctx.GlobalBool(PiccadillyFlag.Name):
+		urls = params.PiccadillyBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1150,8 +1160,11 @@ func setSmartCard(ctx *cli.Context, cfg *node.Config) {
 }
 
 func setDataDir(ctx *cli.Context, cfg *node.Config) {
-	if ctx.GlobalIsSet(DataDirFlag.Name) {
+	switch {
+	case ctx.GlobalIsSet(DataDirFlag.Name):
 		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
+	case ctx.GlobalBool(PiccadillyFlag.Name):
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "piccadilly")
 	}
 }
 
@@ -1311,7 +1324,6 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Avoid conflicting network flags
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
-	CheckExclusive(ctx, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 	if ctx.GlobalString(GCModeFlag.Name) == "archive" && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
 		ctx.GlobalSet(TxLookupLimitFlag.Name, "0")
 		log.Warn("Disable transaction unindexing for archive node")
@@ -1439,97 +1451,12 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		}
 	}
 	// Override any default configs for hard coded networks.
-	/*
-		switch {
-		case ctx.GlobalBool(MainnetFlag.Name):
-			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-				cfg.NetworkId = 1
-			}
-			cfg.Genesis = core.DefaultGenesisBlock()
-			SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
-		case ctx.GlobalBool(RopstenFlag.Name):
-			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-				cfg.NetworkId = 3
-			}
-			cfg.Genesis = core.DefaultRopstenGenesisBlock()
-			SetDNSDiscoveryDefaults(cfg, params.RopstenGenesisHash)
-		case ctx.GlobalBool(SepoliaFlag.Name):
-			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-				cfg.NetworkId = 11155111
-			}
-			cfg.Genesis = core.DefaultSepoliaGenesisBlock()
-			SetDNSDiscoveryDefaults(cfg, params.SepoliaGenesisHash)
-		case ctx.GlobalBool(RinkebyFlag.Name):
-			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-				cfg.NetworkId = 4
-			}
-			cfg.Genesis = core.DefaultRinkebyGenesisBlock()
-			SetDNSDiscoveryDefaults(cfg, params.RinkebyGenesisHash)
-		case ctx.GlobalBool(GoerliFlag.Name):
-			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-				cfg.NetworkId = 5
-			}
-			cfg.Genesis = core.DefaultGoerliGenesisBlock()
-			SetDNSDiscoveryDefaults(cfg, params.GoerliGenesisHash)
-		case ctx.GlobalBool(DeveloperFlag.Name):
-			if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-				cfg.NetworkId = 1337
-			}
-			cfg.SyncMode = downloader.FullSync
-			// Create new developer account or reuse existing one
-			var (
-				developer  accounts.Account
-				passphrase string
-				err        error
-			)
-			if list := MakePasswordList(ctx); len(list) > 0 {
-				// Just take the first value. Although the function returns a possible multiple values and
-				// some usages iterate through them as attempts, that doesn't make sense in this setting,
-				// when we're definitely concerned with only one account.
-				passphrase = list[0]
-			}
-			// setEtherbase has been called above, configuring the miner address from command line flags.
-			if cfg.Miner.Etherbase != (common.Address{}) {
-				developer = accounts.Account{Address: cfg.Miner.Etherbase}
-			} else if accs := ks.Accounts(); len(accs) > 0 {
-				developer = ks.Accounts()[0]
-			} else {
-				developer, err = ks.NewAccount(passphrase)
-				if err != nil {
-					Fatalf("Failed to create developer account: %v", err)
-				}
-			}
-			if err := ks.Unlock(developer, passphrase); err != nil {
-				Fatalf("Failed to unlock developer account: %v", err)
-			}
-			log.Info("Using developer account", "address", developer.Address)
-
-			// Create a new developer genesis block or reuse existing one
-			cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), ctx.GlobalUint64(DeveloperGasLimitFlag.Name), developer.Address)
-			if ctx.GlobalIsSet(DataDirFlag.Name) {
-				// If datadir doesn't exist we need to open db in write-mode
-				// so leveldb can create files.
-				readonly := true
-				if !common.FileExist(stack.ResolvePath("chaindata")) {
-					readonly = false
-				}
-				// Check if we have an already initialized chain and fall back to
-				// that if so. Otherwise we need to generate a new genesis spec.
-				chaindb := MakeChainDatabase(ctx, stack, readonly)
-				if rawdb.ReadCanonicalHash(chaindb, 0) != (common.Hash{}) {
-					cfg.Genesis = nil // fallback to db content
-				}
-				chaindb.Close()
-			}
-			if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) {
-				cfg.Miner.GasPrice = big.NewInt(1)
-			}
-		default:
-			if cfg.NetworkId == 1 {
-				SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
-			}
+	if ctx.GlobalBool(PiccadillyFlag.Name) {
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 112_105
 		}
-	*/
+		cfg.Genesis = core.DefaultPiccadillyGenesisBlock()
+	}
 }
 
 // SetDNSDiscoveryDefaults configures DNS discovery with the given URL if
@@ -1688,23 +1615,11 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) ethdb.
 }
 
 func MakeGenesis(ctx *cli.Context) *core.Genesis {
-	/*
-		var genesis *core.Genesis
-		switch {
-		case ctx.GlobalBool(MainnetFlag.Name):
-			genesis = core.DefaultGenesisBlock()
-		case ctx.GlobalBool(RopstenFlag.Name):
-			genesis = core.DefaultRopstenGenesisBlock()
-		case ctx.GlobalBool(SepoliaFlag.Name):
-			genesis = core.DefaultSepoliaGenesisBlock()
-		case ctx.GlobalBool(RinkebyFlag.Name):
-			genesis = core.DefaultRinkebyGenesisBlock()
-		case ctx.GlobalBool(GoerliFlag.Name):
-			genesis = core.DefaultGoerliGenesisBlock()
-		case ctx.GlobalBool(DeveloperFlag.Name):
-			Fatalf("Developer chains are ephemeral")
-		}
-	*/
+
+	if ctx.GlobalBool(PiccadillyFlag.Name) {
+		return core.DefaultPiccadillyGenesisBlock()
+	}
+
 	return nil
 }
 

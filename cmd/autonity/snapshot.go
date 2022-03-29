@@ -61,6 +61,7 @@ var (
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.AncientFlag,
+					utils.PiccadillyFlag,
 					utils.CacheTrieJournalFlag,
 					utils.BloomFilterSizeFlag,
 				},
@@ -88,6 +89,7 @@ the trie clean cache with default directory will be deleted.
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.AncientFlag,
+					utils.PiccadillyFlag,
 				},
 				Description: `
 geth snapshot verify-state <state-root>
@@ -105,6 +107,7 @@ In other words, this command does the snapshot to trie conversion.
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.AncientFlag,
+					utils.PiccadillyFlag,
 				},
 				Description: `
 geth snapshot traverse-state <state-root>
@@ -124,6 +127,7 @@ It's also usable without snapshot enabled.
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.AncientFlag,
+					utils.PiccadillyFlag,
 				},
 				Description: `
 geth snapshot traverse-rawstate <state-root>
@@ -144,6 +148,7 @@ It's also usable without snapshot enabled.
 				Flags: []cli.Flag{
 					utils.DataDirFlag,
 					utils.AncientFlag,
+					utils.PiccadillyFlag,
 					utils.ExcludeCodeFlag,
 					utils.ExcludeStorageFlag,
 					utils.StartKeyFlag,
