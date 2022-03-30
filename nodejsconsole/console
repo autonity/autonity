@@ -27,11 +27,10 @@ cd "$scriptdir";
 
 # Npm list returns a 0 exit code only if the packate is installed.
 if ! npm list web3 > /dev/null 2>&1; then
-	echo "installing web3"
-	npm install web3
+	npm install web3 --package-lock=false
+else
+	npm update web3 --package-lock=false
 fi
-
-echo
 
 # Note the --experimental-repl-await doesn't take effect for the code executed with eval.
 node --experimental-repl-await --eval "
