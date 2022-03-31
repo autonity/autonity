@@ -338,8 +338,14 @@ func ReadHeaderRange(db ethdb.Reader, number uint64, count uint64) []rlp.RawValu
 	if count == 0 {
 		return rlpHeaders
 	}
-	// read remaining from ancients
-	max := count * 700
+
+	maxHeaderSize := 700 + // original ethereum london fork max header size
+		8 + 32 + // Proposer seal and Round
+		200* // max consensus committee size
+			(60+ // voting power and address
+				70) // precommit seals
+	//read remaining from ancients
+	max := count * uint64(maxHeaderSize)
 	data, err := db.AncientRange(freezerHeaderTable, i+1-count, count, max)
 	if err == nil && uint64(len(data)) == count {
 		// the data is on the order [h, h+1, .., n] -- reordering needed
