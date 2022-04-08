@@ -1065,10 +1065,8 @@ func (c checkEnode) Run(input []byte) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, fmt.Errorf("invalid enode - empty")
 	}
-	// TODO: Use ABI parsing here
-	input = common.TrimPrefixAndSuffix(input, []byte("enode:"), []byte{'\x00'})
-	nodeStr := string(input)
 	out := make([]byte, 64)
+	nodeStr := string(input)
 
 	node, err := enode.ParseV4NoResolve(nodeStr)
 	if err != nil {

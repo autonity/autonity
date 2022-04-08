@@ -377,7 +377,6 @@ contract Autonity is IERC20 {
         return true;
     }
 
-
     /** @dev finalize is the block state finalisation function. It is called
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
