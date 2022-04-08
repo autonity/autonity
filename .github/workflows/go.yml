@@ -70,11 +70,11 @@ jobs:
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
         tests: [ [ main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test|/core$|/e2e_test") ],
-                 [ slow-tests, $(go list ./les/... ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") ],
+                 [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 20m ],
           # These tests do not seem to work when run with other tests.
                  [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
-                 [ tendermint-tests, ./consensus/tendermint/... -timeout 5m -race ],
-                 [ e2e-tests, ./consensus/test/... -v ] #,
+                 [ tendermint-tests, ./consensus/tendermint/... -timeout 15m -race ] #,
+          #[ e2e-tests, ./consensus/test/... -v ] #,
           #[ new-e2e-tests, ./e2e_test -v -race ]
         ]
 

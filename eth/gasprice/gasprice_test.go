@@ -92,7 +92,7 @@ func (b *testBackend) ChainConfig() *params.ChainConfig {
 }
 
 func (b *testBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
-	return nil
+	return b.chain.SubscribeChainHeadEvent(ch)
 }
 
 func (b *testBackend) GetMinBaseFee(header *types.Header) (*big.Int, error) {

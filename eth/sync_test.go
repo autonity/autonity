@@ -51,14 +51,14 @@ func testSnapSyncDisabling(t *testing.T, ethVer uint, snapVer uint) {
 	defer full.close()
 
 	// Sync up the two handlers via both `eth` and `snap`
-	caps := []p2p.Cap{{Name: "eth", Version: ethVer}, {Name: "snap", Version: snapVer}}
+	caps := []p2p.Cap{{Name: "aut", Version: ethVer}, {Name: "snap", Version: snapVer}}
 
 	emptyPipeEth, fullPipeEth := p2p.MsgPipe()
 	defer emptyPipeEth.Close()
 	defer fullPipeEth.Close()
-
-	emptyPeerEth := eth.NewPeer(ethVer, p2p.NewPeer(enode.ID{1}, "", caps), emptyPipeEth, empty.txpool)
-	fullPeerEth := eth.NewPeer(ethVer, p2p.NewPeer(enode.ID{2}, "", caps), fullPipeEth, full.txpool)
+	emptyP2PPeer, fullP2PPeer := p2p.NewPeer(enode.ID{1}, "", caps), p2p.NewPeer(enode.ID{2}, "", caps)
+	emptyPeerEth := eth.NewPeer(ethVer, emptyP2PPeer, emptyPipeEth, empty.txpool)
+	fullPeerEth := eth.NewPeer(ethVer, fullP2PPeer, fullPipeEth, full.txpool)
 	defer emptyPeerEth.Close()
 	defer fullPeerEth.Close()
 
@@ -73,8 +73,8 @@ func testSnapSyncDisabling(t *testing.T, ethVer uint, snapVer uint) {
 	defer emptyPipeSnap.Close()
 	defer fullPipeSnap.Close()
 
-	emptyPeerSnap := snap.NewPeer(snapVer, p2p.NewPeer(enode.ID{1}, "", caps), emptyPipeSnap)
-	fullPeerSnap := snap.NewPeer(snapVer, p2p.NewPeer(enode.ID{2}, "", caps), fullPipeSnap)
+	emptyPeerSnap := snap.NewPeer(snapVer, emptyP2PPeer, emptyPipeSnap)
+	fullPeerSnap := snap.NewPeer(snapVer, fullP2PPeer, fullPipeSnap)
 
 	go empty.handler.runSnapExtension(emptyPeerSnap, func(peer *snap.Peer) error {
 		return snap.Handle((*snapHandler)(empty.handler), peer)

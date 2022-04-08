@@ -48,7 +48,7 @@ type testEthHandler struct {
 	txBroadcasts    event.Feed
 }
 
-func (h *testEthHandler) Chain() *core.BlockChain              { panic("no backing chain") }
+func (h *testEthHandler) Chain() *core.BlockChain              { return new(core.BlockChain) }
 func (h *testEthHandler) TxPool() eth.TxPool                   { panic("no backing tx pool") }
 func (h *testEthHandler) AcceptTxs() bool                      { return true }
 func (h *testEthHandler) RunPeer(*eth.Peer, eth.Handler) error { panic("not used in tests") }
@@ -84,17 +84,14 @@ func TestForkIDSplit66(t *testing.T) { testForkIDSplit(t, eth.ETH66) }
 func testForkIDSplit(t *testing.T, protocol uint) {
 	t.Parallel()
 
+	configProFork := new(params.ChainConfig)
+	*configProFork = *params.TestChainConfig
+	configProFork.ArrowGlacierBlock = big.NewInt(2)
 	var (
 		engine = ethash.NewFaker()
 
-		configNoFork  = &params.ChainConfig{HomesteadBlock: big.NewInt(1)}
-		configProFork = &params.ChainConfig{
-			HomesteadBlock: big.NewInt(1),
-			EIP150Block:    big.NewInt(2),
-			EIP155Block:    big.NewInt(2),
-			EIP158Block:    big.NewInt(2),
-			ByzantiumBlock: big.NewInt(3),
-		}
+		configNoFork = params.TestChainConfig
+
 		dbNoFork  = rawdb.NewMemoryDatabase()
 		dbProFork = rawdb.NewMemoryDatabase()
 
@@ -567,7 +564,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
 			} else {
-				responseRlp, _ := rlp.EncodeToBytes(types.Header{Number: response.Number})
+				responseRlp, _ := rlp.EncodeToBytes(&types.Header{Number: response.Number})
 				if err := remote.ReplyBlockHeadersRLP(request.RequestId, []rlp.RawValue{responseRlp}); err != nil {
 					t.Fatalf("failed to answer challenge: %v", err)
 				}
