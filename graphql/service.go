@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/node"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/node"
 	"github.com/graph-gophers/graphql-go"
 )
 

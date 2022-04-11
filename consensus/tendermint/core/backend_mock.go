@@ -6,11 +6,11 @@ package core
 
 import (
 	context "context"
-	autonity "github.com/clearmatics/autonity/autonity"
-	common "github.com/clearmatics/autonity/common"
-	ethcore "github.com/clearmatics/autonity/core"
-	types "github.com/clearmatics/autonity/core/types"
-	event "github.com/clearmatics/autonity/event"
+	autonity "github.com/autonity/autonity/autonity"
+	common "github.com/autonity/autonity/common"
+	ethcore "github.com/autonity/autonity/core"
+	types "github.com/autonity/autonity/core/types"
+	event "github.com/autonity/autonity/event"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 	time "time"

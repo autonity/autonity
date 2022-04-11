@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 	natpmp "github.com/jackpal/go-nat-pmp"
 )
 
@@ -215,12 +215,12 @@ func (n *autodisc) ExternalIP() (net.IP, error) {
 }
 
 func (n *autodisc) String() string {
-    n.mu.Lock()
-    defer n.mu.Unlock()
-    if n.found == nil {
-        return n.what
-    }
-    return n.found.String()
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.found == nil {
+		return n.what
+	}
+	return n.found.String()
 }
 
 // wait blocks until auto-discovery has been performed.

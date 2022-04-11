@@ -23,12 +23,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/eth/ethconfig"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/les/flowcontrol"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/les/flowcontrol"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 const makeCostStats = false // make request cost statistics during operation

@@ -2,7 +2,7 @@ package core
 
 import (
 	"bytes"
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 	"gotest.tools/assert"
 	"testing"
 )

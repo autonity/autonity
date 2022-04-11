@@ -27,8 +27,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
 )
 

@@ -22,14 +22,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/signer/core"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
-	"github.com/clearmatics/autonity/signer/storage"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/signer/core"
+	"github.com/autonity/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/signer/storage"
 )
 
 const JS = `

@@ -23,13 +23,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
 )
 
 func makeReceipt(addr common.Address) *types.Receipt {

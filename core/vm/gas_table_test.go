@@ -21,11 +21,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/params"
 )
 
 func TestMemoryGasCost(t *testing.T) {

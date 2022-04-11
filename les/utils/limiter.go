@@ -20,7 +20,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 const maxSelectionWeight = 1000000000 // maximum selection weight of each individual node/address group

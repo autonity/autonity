@@ -26,7 +26,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 var (

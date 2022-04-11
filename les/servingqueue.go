@@ -21,8 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/common/prque"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/common/prque"
 )
 
 // servingQueue allows running tasks in a limited number of threads and puts the

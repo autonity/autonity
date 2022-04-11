@@ -19,8 +19,8 @@ package client
 import (
 	"io"
 
-	"github.com/clearmatics/autonity/les/utils"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/les/utils"
+	"github.com/autonity/autonity/rlp"
 )
 
 const basketFactor = 1000000 // reference basket amount and value scale factor

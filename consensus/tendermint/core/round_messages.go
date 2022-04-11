@@ -3,7 +3,7 @@ package core
 import (
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // "messagesMap" for a lack of better name.

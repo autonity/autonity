@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"gopkg.in/urfave/cli.v1"
 )
 

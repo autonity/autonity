@@ -5,8 +5,8 @@ Maintainer: {{.Author}}
 Build-Depends: debhelper (>= 8.0.0), {{.GoBootPackage}}
 Standards-Version: 3.9.5
 Homepage: https://ethereum.org
-Vcs-Git: git://github.com/clearmatics/autonity.git
-Vcs-Browser: https://github.com/clearmatics/autonity
+Vcs-Git: git://github.com/autonity/autonity.git
+Vcs-Browser: https://github.com/autonity/autonity
 
 Package: {{.Name}}
 Architecture: any

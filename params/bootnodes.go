@@ -16,7 +16,7 @@
 
 package params
 
-import "github.com/clearmatics/autonity/common"
+import "github.com/autonity/autonity/common"
 
 // Piccadilly testnet bootnodes from the Autonity Foundation
 var PiccadillyBootnodes = []string{

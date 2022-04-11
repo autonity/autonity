@@ -3,7 +3,7 @@ package core
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func TestMessageSetAddVote(t *testing.T) {

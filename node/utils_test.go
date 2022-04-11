@@ -20,8 +20,8 @@
 package node
 
 import (
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/rpc"
 )
 
 // NoopLifecycle is a trivial implementation of the Service interface.

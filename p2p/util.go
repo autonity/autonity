@@ -19,7 +19,7 @@ package p2p
 import (
 	"container/heap"
 
-	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/autonity/autonity/common/mclock"
 )
 
 // expHeap tracks strings and their expiry time.

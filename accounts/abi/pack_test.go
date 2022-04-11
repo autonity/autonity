@@ -27,7 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // TestPack tests the general pack/unpack tests in packing_test.go

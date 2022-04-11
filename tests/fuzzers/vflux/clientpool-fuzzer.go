@@ -24,14 +24,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
-	"github.com/clearmatics/autonity/les/vflux"
-	vfs "github.com/clearmatics/autonity/les/vflux/server"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/ethdb/memorydb"
+	"github.com/autonity/autonity/les/vflux"
+	vfs "github.com/autonity/autonity/les/vflux/server"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rlp"
 )
 
 var (

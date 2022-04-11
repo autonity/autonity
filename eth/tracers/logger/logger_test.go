@@ -20,10 +20,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/params"
 )
 
 type dummyContractRef struct {

@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
-	"github.com/clearmatics/autonity/miner"
+	"github.com/autonity/autonity/miner"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -20,16 +20,16 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/eth/downloader"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/eth"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/params"
 )
 
 func sendTx(service *eth.Ethereum, key *ecdsa.PrivateKey, fromAddr common.Address, toAddr common.Address, transactionGenerator func(nonce uint64, toAddr common.Address, key *ecdsa.PrivateKey) (*types.Transaction, error)) (*types.Transaction, error) {

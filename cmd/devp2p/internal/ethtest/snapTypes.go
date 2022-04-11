@@ -1,6 +1,6 @@
 package ethtest
 
-import "github.com/clearmatics/autonity/eth/protocols/snap"
+import "github.com/autonity/autonity/eth/protocols/snap"
 
 // GetAccountRange represents an account range query.
 type GetAccountRange snap.GetAccountRangePacket

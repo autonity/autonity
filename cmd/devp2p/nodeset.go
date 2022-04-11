@@ -25,8 +25,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 const jsonIndent = "    "

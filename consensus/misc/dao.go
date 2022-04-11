@@ -21,9 +21,9 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
 )
 
 var (

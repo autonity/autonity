@@ -20,9 +20,9 @@ import (
 	"container/ring"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 )
 
 // chainRetriever is used by the unconfirmed block set to verify whether a previously

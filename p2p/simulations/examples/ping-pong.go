@@ -25,12 +25,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations"
-	"github.com/clearmatics/autonity/p2p/simulations/adapters"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations"
+	"github.com/autonity/autonity/p2p/simulations/adapters"
 )
 
 var adapterType = flag.String("adapter", "sim", `node adapter to use (one of "sim", "exec" or "docker")`)

@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/clearmatics/autonity/cmd/devp2p/internal/ethtest"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/internal/utesting"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/rlpx"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/cmd/devp2p/internal/ethtest"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/utesting"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/rlpx"
+	"github.com/autonity/autonity/rlp"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 func TestULCAnnounceThresholdLes2(t *testing.T) { testULCAnnounceThreshold(t, 2) }

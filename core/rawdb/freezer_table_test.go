@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/metrics"
 	"github.com/stretchr/testify/require"
 )
 

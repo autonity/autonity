@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/rpc"
 )
 
 func TestUnmarshalJSONNewFilterArgs(t *testing.T) {

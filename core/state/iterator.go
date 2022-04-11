@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/trie"
 )
 
 // NodeIterator is an iterator to traverse the entire state trie post-order,

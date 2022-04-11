@@ -27,14 +27,14 @@ import (
 	"testing"
 	"time"
 
-	ethereum "github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
+	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
 )
 
 func TestSimulatedBackend(t *testing.T) {

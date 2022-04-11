@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/p2p/enr"
 )
 
 func TestReadNodes(t *testing.T) {

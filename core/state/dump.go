@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/trie"
 )
 
 // DumpConfig is a set of options to control what portions of the statewill be

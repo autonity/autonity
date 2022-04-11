@@ -22,11 +22,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/p2p/nodestate"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/p2p/nodestate"
 )
 
 const defaultConnectedBias = time.Minute * 3

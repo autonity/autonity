@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/les/utils"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/les/utils"
 )
 
 // requestDistributor implements a mechanism that distributes requests to

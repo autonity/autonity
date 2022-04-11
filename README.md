@@ -61,7 +61,7 @@ website [here](https://musical-chainsaw-80f50d3e.pages.github.io/howto/run-aut/#
 
 The Autonity NodeJS Console is distributed as part of the Autonity Go Client Release in the `nodejsconsole` sub
 directory. For users who only require a console, it is also available as a standalone binary from
-the [Autonity Releases Archive](https://github.com/clearmatics/autonity/releases)
+the [Autonity Releases Archive](https://github.com/autonity/autonity/releases)
 - `nodejsconsole-linux-amd64-<RELEASE_VERSION>.tar.gz`.
 
 To run the Console and connect to a node, specify WebSockets as the transport and the IP address and port 8546 of the

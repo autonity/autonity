@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rlp"
 )
 
 func testSetup(flagPersist []bool, fieldType []reflect.Type) (*Setup, []Flags, []Field) {
@@ -237,11 +237,11 @@ func TestSetState(t *testing.T) {
 }
 
 func uint64FieldEnc(field interface{}) ([]byte, error) {
-    if u, ok := field.(uint64); ok {
-        enc, err := rlp.EncodeToBytes(&u)
-        return enc, err
-    }
-    return nil, errors.New("invalid field type")
+	if u, ok := field.(uint64); ok {
+		enc, err := rlp.EncodeToBytes(&u)
+		return enc, err
+	}
+	return nil, errors.New("invalid field type")
 }
 
 func uint64FieldDec(enc []byte) (interface{}, error) {
@@ -251,10 +251,10 @@ func uint64FieldDec(enc []byte) (interface{}, error) {
 }
 
 func stringFieldEnc(field interface{}) ([]byte, error) {
-    if s, ok := field.(string); ok {
-        return []byte(s), nil
-    }
-    return nil, errors.New("invalid field type")
+	if s, ok := field.(string); ok {
+		return []byte(s), nil
+	}
+	return nil, errors.New("invalid field type")
 }
 
 func stringFieldDec(enc []byte) (interface{}, error) {

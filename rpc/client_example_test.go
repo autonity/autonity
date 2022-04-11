@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/rpc"
 )
 
 // In this example, our client wishes to track the latest 'block number'

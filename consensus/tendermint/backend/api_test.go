@@ -7,12 +7,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/acdefault"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rpc"
 )
 
 func TestGetCommittee(t *testing.T) {

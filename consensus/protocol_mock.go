@@ -5,8 +5,8 @@
 package consensus
 
 import (
-	common "github.com/clearmatics/autonity/common"
-	types "github.com/clearmatics/autonity/core/types"
+	common "github.com/autonity/autonity/common"
+	types "github.com/autonity/autonity/core/types"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )

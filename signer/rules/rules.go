@@ -22,11 +22,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/internal/jsre/deps"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/signer/core"
-	"github.com/clearmatics/autonity/signer/storage"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/internal/jsre/deps"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/signer/core"
+	"github.com/autonity/autonity/signer/storage"
 	"github.com/dop251/goja"
 )
 

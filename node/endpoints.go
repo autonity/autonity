@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rpc"
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint.

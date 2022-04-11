@@ -26,9 +26,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core/types"
 )
 
 // prepare converts an ethash cache or dataset from a byte stream into the internal
@@ -727,18 +727,18 @@ func TestConcurrentDiskCacheGeneration(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		pend.Add(1)
 		go func(idx int) {
-            defer pend.Done()
+			defer pend.Done()
 
-            config := Config{
-                CacheDir:     cachedir,
-                CachesOnDisk: 1,
-            }
-            ethash := New(config, nil, false)
-            defer ethash.Close()
-            if err := ethash.verifySeal(nil, block.Header(), false); err != nil {
-                t.Errorf("proc %d: block verification failed: %v", idx, err)
-            }
-        }(i)
+			config := Config{
+				CacheDir:     cachedir,
+				CachesOnDisk: 1,
+			}
+			ethash := New(config, nil, false)
+			defer ethash.Close()
+			if err := ethash.verifySeal(nil, block.Header(), false); err != nil {
+				t.Errorf("proc %d: block verification failed: %v", idx, err)
+			}
+		}(i)
 	}
 	pend.Wait()
 }

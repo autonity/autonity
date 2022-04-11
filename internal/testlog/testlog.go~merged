@@ -20,8 +20,8 @@
 package validator
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/config"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/config"
 )
 
 func New(addr common.Address) *defaultValidator {
@@ -51,9 +51,9 @@ import (
 	"testing"
 
 <<<<<<< HEAD
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 =======
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 >>>>>>> upstream/master
 )
 

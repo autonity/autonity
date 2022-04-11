@@ -26,7 +26,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 // ipcListen will create a Unix socket on the given endpoint.

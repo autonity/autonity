@@ -20,9 +20,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/rpc"
 )
 
 // PublicDownloaderAPI provides an API which gives information about the current synchronisation status.

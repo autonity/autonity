@@ -19,12 +19,12 @@ package tests
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
 )
 
 // TransactionTest checks RLP decoding and sender derivation of transactions.

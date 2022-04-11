@@ -17,15 +17,15 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"math/rand"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/rlp"
 	mapset "github.com/deckarep/golang-set"
 )
 

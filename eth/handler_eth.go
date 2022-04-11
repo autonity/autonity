@@ -22,11 +22,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 // ethHandler implements the eth.Backend interface to handle the various network

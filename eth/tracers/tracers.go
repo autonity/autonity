@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/vm"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/vm"
 )
 
 // Context contains some contextual infos for a transaction execution that is not

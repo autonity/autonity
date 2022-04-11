@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/clearmatics/autonity/node"
+	"github.com/autonity/autonity/node"
 )
 
 // SampleLifecycle is a trivial network service that can be attached to a node for

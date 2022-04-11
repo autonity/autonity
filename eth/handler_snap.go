@@ -17,9 +17,9 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/eth/protocols/snap"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/eth/protocols/snap"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 // snapHandler implements the snap.Backend interface to handle the various network

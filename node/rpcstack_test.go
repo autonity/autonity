@@ -25,9 +25,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/internal/testlog"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/internal/testlog"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rpc"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 )

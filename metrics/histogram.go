@@ -20,27 +20,27 @@ type Histogram interface {
 // GetOrRegisterHistogram returns an existing Histogram or constructs and
 // registers a new StandardHistogram.
 func GetOrRegisterHistogram(name string, r Registry, s Sample) Histogram {
-    if nil == r {
-        r = DefaultRegistry
-    }
-    return r.GetOrRegister(name, func() Histogram { return NewHistogram(s) }).(Histogram)
+	if nil == r {
+		r = DefaultRegistry
+	}
+	return r.GetOrRegister(name, func() Histogram { return NewHistogram(s) }).(Histogram)
 }
 
 // GetOrRegisterHistogramLazy returns an existing Histogram or constructs and
 // registers a new StandardHistogram.
 func GetOrRegisterHistogramLazy(name string, r Registry, s func() Sample) Histogram {
-    if nil == r {
-        r = DefaultRegistry
-    }
-    return r.GetOrRegister(name, func() Histogram { return NewHistogram(s()) }).(Histogram)
+	if nil == r {
+		r = DefaultRegistry
+	}
+	return r.GetOrRegister(name, func() Histogram { return NewHistogram(s()) }).(Histogram)
 }
 
 // NewHistogram constructs a new StandardHistogram from a Sample.
 func NewHistogram(s Sample) Histogram {
-    if !Enabled {
-        return NilHistogram{}
-    }
-    return &StandardHistogram{sample: s}
+	if !Enabled {
+		return NilHistogram{}
+	}
+	return &StandardHistogram{sample: s}
 }
 
 // NewRegisteredHistogram constructs and registers a new StandardHistogram from

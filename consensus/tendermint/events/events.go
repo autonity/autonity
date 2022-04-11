@@ -17,8 +17,8 @@
 package events
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
 // NewUnminedBlockEvent is posted to propose a proposal

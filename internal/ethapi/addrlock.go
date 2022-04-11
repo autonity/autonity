@@ -19,7 +19,7 @@ package ethapi
 import (
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 type AddrLocker struct {

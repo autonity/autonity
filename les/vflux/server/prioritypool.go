@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/common/prque"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/nodestate"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/common/prque"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/nodestate"
 )
 
 const (

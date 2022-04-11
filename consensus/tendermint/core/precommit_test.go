@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/crypto/secp256k1"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/secp256k1"
 	"github.com/stretchr/testify/require"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 	"github.com/golang/mock/gomock"
 )
 

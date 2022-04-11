@@ -24,13 +24,13 @@ import (
 	"io/ioutil"
 	"math/big"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/external"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/accounts/external"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 )
 
 // ErrNoChainID is returned whenever the user failed to specify a chain id.

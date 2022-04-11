@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/eth/downloader"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/eth/protocols/snap"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/eth/protocols/snap"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 // Tests that snap sync is disabled after a successful sync cycle.

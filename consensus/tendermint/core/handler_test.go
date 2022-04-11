@@ -7,12 +7,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rlp"
 	"github.com/golang/mock/gomock"
 )
 

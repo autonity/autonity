@@ -20,11 +20,11 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/signer/core/apitypes"
 )
 
 type AuditLogger struct {

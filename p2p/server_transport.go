@@ -3,10 +3,10 @@ package p2p
 import (
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"github.com/clearmatics/autonity/p2p/rlpx"
+	"github.com/autonity/autonity/p2p/rlpx"
 	"net"
 
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 )
 
 type testTransport struct {

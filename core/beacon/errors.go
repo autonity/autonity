@@ -16,7 +16,7 @@
 
 package beacon
 
-import "github.com/clearmatics/autonity/rpc"
+import "github.com/autonity/autonity/rpc"
 
 var (
 	VALID              = GenericStringResponse{"VALID"}

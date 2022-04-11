@@ -19,10 +19,10 @@ package shutdowncheck
 import (
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
 )
 
 // ShutdownTracker is a service that reports previous unclean shutdowns

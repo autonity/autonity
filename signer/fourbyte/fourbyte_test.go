@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/common"
 )
 
 // Tests that all the selectors contained in the 4byte database are valid.

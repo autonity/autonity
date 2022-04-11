@@ -28,12 +28,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/internal/testlog"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/discover/v5wire"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/internal/testlog"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/discover/v5wire"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Real sockets, real crypto: this test checks end-to-end connectivity for UDPv5.

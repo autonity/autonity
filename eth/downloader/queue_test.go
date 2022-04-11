@@ -24,14 +24,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/trie"
 )
 
 var (

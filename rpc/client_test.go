@@ -34,7 +34,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 func TestClientRequest(t *testing.T) {
@@ -355,7 +355,7 @@ func TestClientSubscribeClose(t *testing.T) {
 	}
 }
 
-// This test reproduces https://github.com/clearmatics/autonity/issues/17837 where the
+// This test reproduces https://github.com/autonity/autonity/issues/17837 where the
 // client hangs during shutdown when Unsubscribe races with Client.Close.
 func TestClientCloseUnsubscribeRace(t *testing.T) {
 	server := newTestServer()
@@ -439,7 +439,7 @@ func TestClientSubscriptionUnsubscribeServer(t *testing.T) {
 }
 
 // This checks that the subscribed channel can be closed after Unsubscribe.
-// It is the reproducer for https://github.com/clearmatics/autonity/issues/22322
+// It is the reproducer for https://github.com/autonity/autonity/issues/22322
 func TestClientSubscriptionChannelClose(t *testing.T) {
 	t.Parallel()
 

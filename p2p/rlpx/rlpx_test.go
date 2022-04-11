@@ -28,10 +28,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/crypto/ecies"
-	"github.com/clearmatics/autonity/p2p/simulations/pipes"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/ecies"
+	"github.com/autonity/autonity/p2p/simulations/pipes"
+	"github.com/autonity/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 )

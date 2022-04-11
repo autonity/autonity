@@ -24,11 +24,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/discover/v5wire"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/discover/v5wire"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
 )
 
 // readError represents an error during packet reading.

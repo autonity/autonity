@@ -21,8 +21,8 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/cmd/utils"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 

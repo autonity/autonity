@@ -19,9 +19,9 @@ package vm
 import (
 	"hash"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/log"
 )
 
 // Config are the configuration options for the Interpreter

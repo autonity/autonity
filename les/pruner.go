@@ -20,10 +20,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
 )
 
 // pruner is responsible for pruning historical light chain data.

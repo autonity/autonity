@@ -29,16 +29,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/discover"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/p2p/nat"
-	"github.com/clearmatics/autonity/p2p/netutil"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/discover"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/p2p/nat"
+	"github.com/autonity/autonity/p2p/netutil"
 )
 
 const (

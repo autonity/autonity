@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/metrics"
 )
 
 var (

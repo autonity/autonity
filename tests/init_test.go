@@ -30,7 +30,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/params"
 )
 
 var (

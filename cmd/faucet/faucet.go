@@ -27,7 +27,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/clearmatics/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"html/template"
 	"io/ioutil"
 	"math"
@@ -42,22 +42,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth/downloader"
-	"github.com/clearmatics/autonity/ethclient"
-	"github.com/clearmatics/autonity/ethstats"
-	"github.com/clearmatics/autonity/les"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/nat"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/ethclient"
+	"github.com/autonity/autonity/ethstats"
+	"github.com/autonity/autonity/les"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/nat"
+	"github.com/autonity/autonity/params"
 	"github.com/gorilla/websocket"
 )
 
@@ -473,7 +473,7 @@ func (f *faucet) apiHandler(w http.ResponseWriter, r *http.Request) {
 			id = username
 		default:
 			//lint:ignore ST1005 This error is to be displayed in the browser
-			err = errors.New("Something funky happened, please open an issue at https://github.com/clearmatics/autonity/issues")
+			err = errors.New("Something funky happened, please open an issue at https://github.com/autonity/autonity/issues")
 		}
 		if err != nil {
 			if err = sendError(wsconn, err); err != nil {

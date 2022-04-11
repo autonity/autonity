@@ -19,7 +19,7 @@ package vm
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/params"
 )
 
 type (

@@ -25,9 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Msg defines the structure of a p2p message.

@@ -26,12 +26,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/prque"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/prque"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/trie"
 )
 
 const (

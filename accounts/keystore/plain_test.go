@@ -27,8 +27,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
 )
 
 func tmpKeyStoreIface(t *testing.T, encrypted bool) (dir string, ks keyStore) {

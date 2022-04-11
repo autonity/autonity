@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/davecgh/go-spew/spew"
 )
 

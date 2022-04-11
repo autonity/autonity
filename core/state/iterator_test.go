@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/ethdb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/ethdb"
 )
 
 // Tests that the node iterator indeed walks over the entire database contents.

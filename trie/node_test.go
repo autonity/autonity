@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/rlp"
 )
 
 func newTestFullNode(v []byte) []interface{} {

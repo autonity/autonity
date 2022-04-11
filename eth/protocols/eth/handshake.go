@@ -21,9 +21,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/p2p"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/forkid"
+	"github.com/autonity/autonity/p2p"
 )
 
 const (

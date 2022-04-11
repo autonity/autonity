@@ -21,14 +21,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/trie"
 )
 
 var (

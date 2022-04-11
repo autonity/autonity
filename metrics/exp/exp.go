@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/metrics/prometheus"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/metrics/prometheus"
 )
 
 type exp struct {

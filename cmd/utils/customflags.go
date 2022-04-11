@@ -26,7 +26,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/clearmatics/autonity/common/math"
+	"github.com/autonity/autonity/common/math"
 	"gopkg.in/urfave/cli.v1"
 )
 

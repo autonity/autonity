@@ -23,12 +23,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rpc"
 )
 
 // TransactionArgs represents the arguments to construct a new transaction
@@ -45,7 +45,7 @@ type TransactionArgs struct {
 
 	// We accept "data" and "input" for backwards-compatibility reasons.
 	// "input" is the newer name and should be preferred by clients.
-	// Issue detail: https://github.com/clearmatics/autonity/issues/15628
+	// Issue detail: https://github.com/autonity/autonity/issues/15628
 	Data  *hexutil.Bytes `json:"data"`
 	Input *hexutil.Bytes `json:"input"`
 

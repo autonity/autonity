@@ -21,7 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/core/types"
 )
 
 // resultStore implements a structure for maintaining fetchResults, tracking their

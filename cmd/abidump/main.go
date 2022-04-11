@@ -20,11 +20,11 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/signer/core/apitypes"
 	"os"
 	"strings"
 
-	"github.com/clearmatics/autonity/signer/fourbyte"
+	"github.com/autonity/autonity/signer/fourbyte"
 )
 
 func init() {

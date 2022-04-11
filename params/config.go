@@ -19,12 +19,12 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enode"
 	"math/big"
 	"net"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
 	"golang.org/x/crypto/sha3"
 )
 

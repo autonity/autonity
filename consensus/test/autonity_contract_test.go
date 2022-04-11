@@ -12,27 +12,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/common/graph"
-	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common/acdefault"
+	"github.com/autonity/autonity/common/graph"
+	"github.com/autonity/autonity/common/keygenerator"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/ethclient"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/ethclient"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 )
 
 const DefaultTestGasPrice = 100000000000
 
 func TestCheckBlockWithSmallFee(t *testing.T) {
-	t.Skip("This test is unreliable - https://github.com/clearmatics/autonity/issues/750")
+	t.Skip("This test is unreliable - https://github.com/autonity/autonity/issues/750")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -133,7 +133,7 @@ func TestCheckBlockWithSmallFee(t *testing.T) {
 }
 
 func TestRemoveFromValidatorsList(t *testing.T) {
-	// to be tracked by https://github.com/clearmatics/autonity/issues/604
+	// to be tracked by https://github.com/autonity/autonity/issues/604
 	t.Skip("skipping test since the upstream update cause local e2e test framework go routine leak.")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
@@ -346,7 +346,7 @@ func TestContractUpgrade_Success(t *testing.T) {
 }
 
 func TestContractUpgradeSeveralUpgrades(t *testing.T) {
-	t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
+	t.Skip("test is flaky - https://github.com/autonity/autonity/issues/496")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -438,7 +438,7 @@ func TestContractUpgradeSeveralUpgradesOnBusTopology(t *testing.T) {
 }
 
 func TestContractUpgradeSeveralUpgradesOnStarTopology(t *testing.T) {
-	t.Skip("test is flaky - https://github.com/clearmatics/autonity/issues/496")
+	t.Skip("test is flaky - https://github.com/autonity/autonity/issues/496")
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}

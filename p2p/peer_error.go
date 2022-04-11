@@ -90,8 +90,8 @@ var discReasonToString = [...]string{
 
 func (d DiscReason) String() string {
 	if len(discReasonToString) <= int(d) {
-        return fmt.Sprintf("unknown disconnect reason %d", d)
-    }
+		return fmt.Sprintf("unknown disconnect reason %d", d)
+	}
 	return discReasonToString[d]
 }
 

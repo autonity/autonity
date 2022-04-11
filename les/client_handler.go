@@ -24,16 +24,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/les/downloader"
-	"github.com/clearmatics/autonity/light"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/core/forkid"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/les/downloader"
+	"github.com/autonity/autonity/light"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/params"
 )
 
 // clientHandler is responsible for receiving and processing all incoming server

@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/rlp"
 )
 
 // randomHash generates a random blob of data and returns it as a hash.

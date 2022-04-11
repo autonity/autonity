@@ -21,8 +21,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
 )
 
 func TestBlockNumberJSONUnmarshal(t *testing.T) {

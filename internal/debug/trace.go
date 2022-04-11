@@ -20,11 +20,11 @@
 package debug
 
 import (
-    "errors"
-    "os"
-    "runtime/trace"
+	"errors"
+	"os"
+	"runtime/trace"
 
-    "github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 // StartGoTrace turns on tracing, writing to the given file.

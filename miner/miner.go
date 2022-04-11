@@ -23,16 +23,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth/downloader"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 )
 
 // Backend wraps all methods required for mining. Only full node is capable

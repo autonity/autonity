@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/light"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/light"
+	"github.com/autonity/autonity/params"
 )
 
 // Test light syncing which will download all headers from genesis.
@@ -196,7 +196,7 @@ func testMissOracleBackend(t *testing.T, hasCheckpoint bool, protocol int) {
 	// that user wants to unlock something which blocks the oracle backend
 	// initialisation. But at the same time syncing starts.
 	//
-	// See https://github.com/clearmatics/autonity/issues/20097 for more detail.
+	// See https://github.com/autonity/autonity/issues/20097 for more detail.
 	//
 	// In this case, client should run light sync or legacy checkpoint sync
 	// if hardcoded checkpoint is configured.

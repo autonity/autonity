@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/eth"
-	"github.com/clearmatics/autonity/eth/ethconfig"
-	"github.com/clearmatics/autonity/internal/utesting"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p"
+	"github.com/autonity/autonity/eth"
+	"github.com/autonity/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/internal/utesting"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p"
 )
 
 var (

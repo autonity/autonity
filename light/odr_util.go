@@ -22,11 +22,11 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rlp"
 )
 
 // errNonCanonicalHash is returned if the requested chain data doesn't belong

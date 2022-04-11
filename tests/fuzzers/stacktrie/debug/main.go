@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/clearmatics/autonity/tests/fuzzers/stacktrie"
+	"github.com/autonity/autonity/tests/fuzzers/stacktrie"
 )
 
 func main() {

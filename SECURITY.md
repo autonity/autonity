@@ -2,8 +2,8 @@
 
 ## Supported Versions
 
-Please see [Releases](https://github.com/clearmatics/autonity/releases). We recommend using
-the [most recently released version](https://github.com/clearmatics/autonity/releases/latest).
+Please see [Releases](https://github.com/autonity/autonity/releases). We recommend using
+the [most recently released version](https://github.com/autonity/autonity/releases/latest).
 
 ## Reporting a Vulnerability
 

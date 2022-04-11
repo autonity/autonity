@@ -25,13 +25,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/trie"
 )
 
 func TestNodeIterator(t *testing.T) {

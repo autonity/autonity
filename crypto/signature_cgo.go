@@ -20,12 +20,12 @@
 package crypto
 
 import (
-    "crypto/ecdsa"
-    "crypto/elliptic"
-    "fmt"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"fmt"
 
-    "github.com/clearmatics/autonity/common/math"
-    "github.com/clearmatics/autonity/crypto/secp256k1"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/crypto/secp256k1"
 )
 
 // Ecrecover returns the uncompressed public key that created the given signature.

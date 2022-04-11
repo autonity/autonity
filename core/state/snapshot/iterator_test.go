@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
 )
 
 // TestAccountIteratorBasics tests some simple single-layer(diff and disk) iteration

@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/les/utils"
+	"github.com/autonity/autonity/les/utils"
 )
 
 func TestTransition(t *testing.T) {

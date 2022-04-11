@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/JekaMas/notify"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 type watcher struct {

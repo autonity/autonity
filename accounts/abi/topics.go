@@ -23,8 +23,8 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
 )
 
 // MakeTopics converts a filter query argument list into a filter topic set.

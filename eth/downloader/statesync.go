@@ -19,8 +19,8 @@ package downloader
 import (
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/log"
 )
 
 // syncState starts downloading state with the given root hash.

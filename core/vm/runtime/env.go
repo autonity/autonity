@@ -17,26 +17,26 @@
 package runtime
 
 import (
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/vm"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/vm"
 )
 
 func NewEnv(cfg *Config) *vm.EVM {
-    txContext := vm.TxContext{
-        Origin:   cfg.Origin,
-        GasPrice: cfg.GasPrice,
-    }
-    blockContext := vm.BlockContext{
-        CanTransfer: core.CanTransfer,
-        Transfer:    core.Transfer,
-        GetHash:     cfg.GetHashFn,
-        Coinbase:    cfg.Coinbase,
-        BlockNumber: cfg.BlockNumber,
-        Time:        cfg.Time,
-        Difficulty:  cfg.Difficulty,
-        GasLimit:    cfg.GasLimit,
-        BaseFee:     cfg.BaseFee,
-    }
+	txContext := vm.TxContext{
+		Origin:   cfg.Origin,
+		GasPrice: cfg.GasPrice,
+	}
+	blockContext := vm.BlockContext{
+		CanTransfer: core.CanTransfer,
+		Transfer:    core.Transfer,
+		GetHash:     cfg.GetHashFn,
+		Coinbase:    cfg.Coinbase,
+		BlockNumber: cfg.BlockNumber,
+		Time:        cfg.Time,
+		Difficulty:  cfg.Difficulty,
+		GasLimit:    cfg.GasLimit,
+		BaseFee:     cfg.BaseFee,
+	}
 
-    return vm.NewEVM(blockContext, txContext, cfg.State, cfg.ChainConfig, cfg.EVMConfig)
+	return vm.NewEVM(blockContext, txContext, cfg.State, cfg.ChainConfig, cfg.EVMConfig)
 }

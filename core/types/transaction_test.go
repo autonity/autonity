@@ -27,9 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/rlp"
 )
 
 // The values in those tests are from the Transaction Tests

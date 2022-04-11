@@ -20,9 +20,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/state/snapshot"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/state/snapshot"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Constants to match up protocol versions and messages

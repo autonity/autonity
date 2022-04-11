@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/p2p"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/p2p"
 	"github.com/stretchr/testify/assert"
 )
 

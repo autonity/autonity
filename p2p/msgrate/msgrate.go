@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 // measurementImpact is the impact a single measurement has on a peer's final

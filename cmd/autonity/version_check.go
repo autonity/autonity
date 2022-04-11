@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 	"github.com/jedisct1/go-minisign"
 )
 

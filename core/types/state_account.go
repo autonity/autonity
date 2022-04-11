@@ -19,7 +19,7 @@ package types
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // StateAccount is the Ethereum consensus representation of accounts.

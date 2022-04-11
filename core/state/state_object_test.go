@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func BenchmarkCutOriginal(b *testing.B) {

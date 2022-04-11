@@ -24,8 +24,8 @@ import (
 	"github.com/cloudflare/cloudflare-go"
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/dnsdisc"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/dnsdisc"
 )
 
 var (

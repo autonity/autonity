@@ -27,9 +27,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/common"
 	"github.com/cespare/cp"
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/common"
 	"github.com/davecgh/go-spew/spew"
 )
 

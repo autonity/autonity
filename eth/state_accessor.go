@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/trie"
 )
 
 // StateAtBlock retrieves the state database associated with a certain block.

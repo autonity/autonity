@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/test"
+	"github.com/autonity/autonity/test"
 	"github.com/stretchr/testify/require"
 )
 

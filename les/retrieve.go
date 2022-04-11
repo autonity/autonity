@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/light"
+	"github.com/autonity/autonity/light"
 )
 
 var (

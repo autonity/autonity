@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func (g *G2) one() *PointG2 {

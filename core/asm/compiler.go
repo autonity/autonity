@@ -22,8 +22,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core/vm"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/vm"
 )
 
 // Compiler contains information about the parsed source

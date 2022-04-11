@@ -18,8 +18,8 @@
 package consensus
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer

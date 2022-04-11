@@ -19,7 +19,7 @@ package types
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 //go:generate gencodec -type AccessTuple -out gen_access_tuple.go

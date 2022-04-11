@@ -24,11 +24,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/ethdb/leveldb"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/ethdb/leveldb"
+	"github.com/autonity/autonity/ethdb/memorydb"
+	"github.com/autonity/autonity/log"
 	"github.com/olekukonko/tablewriter"
 )
 

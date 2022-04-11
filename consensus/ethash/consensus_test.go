@@ -25,10 +25,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
 )
 
 type diffTest struct {

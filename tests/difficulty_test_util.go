@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
 )
 
 //go:generate gencodec -type DifficultyTest -field-override difficultyTestMarshaling -out gen_difficultytest.go

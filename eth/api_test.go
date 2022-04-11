@@ -26,10 +26,10 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/crypto"
 )
 
 var dumper = spew.ConfigState{Indent: "    "}

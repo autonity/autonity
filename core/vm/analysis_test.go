@@ -20,7 +20,7 @@ import (
 	"math/bits"
 	"testing"
 
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 )
 
 func TestJumpDestAnalysis(t *testing.T) {

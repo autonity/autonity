@@ -27,11 +27,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/msgrate"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/msgrate"
 )
 
 const (

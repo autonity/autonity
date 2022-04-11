@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/p2p"
+	"github.com/autonity/autonity/p2p"
 )
 
 var (

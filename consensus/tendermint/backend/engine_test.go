@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/consensus"
-	tendermintCore "github.com/clearmatics/autonity/consensus/tendermint/core"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/consensus"
+	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/golang/mock/gomock"
 )
 

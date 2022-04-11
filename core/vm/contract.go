@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 	"github.com/holiman/uint256"
 )
 

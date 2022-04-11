@@ -18,8 +18,8 @@
 package ethconfig
 
 import (
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/core/vm"
+	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/core/vm"
 	"math/big"
 	"os"
 	"os/user"
@@ -27,17 +27,17 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/eth/downloader"
-	"github.com/clearmatics/autonity/eth/gasprice"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/miner"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/gasprice"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/miner"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/params"
 )
 
 // FullNodeGPO contains default gasprice oracle settings for full node.

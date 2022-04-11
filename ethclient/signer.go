@@ -20,8 +20,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
 // senderFromServer is a types.Signer that remembers the sender address returned by the RPC
@@ -46,16 +46,16 @@ func (s *senderFromServer) Equal(other types.Signer) bool {
 
 func (s *senderFromServer) Sender(tx *types.Transaction) (common.Address, error) {
 	if s.addr == (common.Address{}) {
-        return common.Address{}, errNotCached
-    }
+		return common.Address{}, errNotCached
+	}
 	return s.addr, nil
 }
 
 func (s *senderFromServer) ChainID() *big.Int {
-    panic("can't sign with senderFromServer")
+	panic("can't sign with senderFromServer")
 }
 func (s *senderFromServer) Hash(tx *types.Transaction) common.Hash {
-    panic("can't sign with senderFromServer")
+	panic("can't sign with senderFromServer")
 }
 func (s *senderFromServer) SignatureValues(tx *types.Transaction, sig []byte) (R, S, V *big.Int, err error) {
 	panic("can't sign with senderFromServer")

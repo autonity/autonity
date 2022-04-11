@@ -21,9 +21,9 @@ import (
 	"container/heap"
 	"errors"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Iterator is a key-value trie iterator that traverses a Trie.

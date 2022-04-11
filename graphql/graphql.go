@@ -24,15 +24,15 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth/filters"
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/filters"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/rpc"
 )
 
 var (

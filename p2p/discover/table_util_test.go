@@ -27,10 +27,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
 )
 
 var nullNode *enode.Node

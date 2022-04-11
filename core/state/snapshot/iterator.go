@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/ethdb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/ethdb"
 )
 
 // Iterator is an iterator to step over all the accounts or the specific

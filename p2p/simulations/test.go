@@ -19,10 +19,10 @@ package simulations
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rpc"
 )
 
 // NoopService is the service that does not do anything

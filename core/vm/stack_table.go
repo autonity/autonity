@@ -17,7 +17,7 @@
 package vm
 
 import (
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/params"
 )
 
 func minSwapStack(n int) int {

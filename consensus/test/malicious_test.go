@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 )
 
 func TestTendermintOneMalicious(t *testing.T) {

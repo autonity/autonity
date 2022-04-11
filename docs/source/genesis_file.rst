@@ -63,7 +63,7 @@ please note that comments are not permitted in valid JSON_.
  '// ' and then line wrapping to 80 chars and then prepending each line with
  '// '
 
- TODO link enode description to documentation - https://github.com/clearmatics/autonity/issues/528
+ TODO link enode description to documentation - https://github.com/autonity/autonity/issues/528
 
 .. code-block:: text
 

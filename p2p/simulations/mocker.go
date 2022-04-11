@@ -24,9 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations/adapters"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations/adapters"
 )
 
 //a map of mocker names to its function
@@ -124,12 +124,12 @@ func probabilistic(net *Network, quit chan struct{}, nodeCount int) {
 		rand1 := rand.Intn(nodeCount - 1)
 		rand2 := rand.Intn(nodeCount - 1)
 		if rand1 <= rand2 {
-            lowid = rand1
-            highid = rand2
-        } else if rand1 > rand2 {
-            highid = rand1
-            lowid = rand2
-        }
+			lowid = rand1
+			highid = rand2
+		} else if rand1 > rand2 {
+			highid = rand1
+			lowid = rand2
+		}
 		var steps = highid - lowid
 		wg.Add(steps)
 		for i := lowid; i < highid; i++ {

@@ -4,16 +4,16 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/trie"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	tcrypto "github.com/clearmatics/autonity/consensus/tendermint/crypto"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	tcrypto "github.com/autonity/autonity/consensus/tendermint/crypto"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -455,7 +455,7 @@ func TestNewProposal(t *testing.T) {
 // The following tests aim to test lines 28 - 33 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestOldProposal(t *testing.T) {
-	t.Skip("Broken for some random values https://github.com/clearmatics/autonity/issues/715")
+	t.Skip("Broken for some random values https://github.com/autonity/autonity/issues/715")
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
 	members := committeeSet.Committee()
@@ -590,7 +590,7 @@ func TestOldProposal(t *testing.T) {
 
 	// line 28 check upon condition on prevote handler.
 	/*
-		Please refer to the discussion history: https://github.com/clearmatics/autonity/pull/615
+		Please refer to the discussion history: https://github.com/autonity/autonity/pull/615
 		This test case validates the need for the upon condition defined in line 28 of the tendermint
 		white paper, which addresses the scenario laid out below.
 

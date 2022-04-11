@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"mime"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/signer/core/apitypes"
 )
 
 // sign receives a request and produces a signature
@@ -223,7 +223,7 @@ func (api *SignerAPI) EcRecover(ctx context.Context, data hexutil.Bytes, sig hex
 	// Note, the signature must conform to the secp256k1 curve R, S and V values, where
 	// the V value must be be 27 or 28 for legacy reasons.
 	//
-	// https://github.com/clearmatics/autonity/wiki/Management-APIs#personal_ecRecover
+	// https://github.com/autonity/autonity/wiki/Management-APIs#personal_ecRecover
 	if len(sig) != 65 {
 		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
 	}

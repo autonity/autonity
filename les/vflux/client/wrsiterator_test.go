@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/p2p/nodestate"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/p2p/nodestate"
 )
 
 var (

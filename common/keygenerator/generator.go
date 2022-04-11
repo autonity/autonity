@@ -2,7 +2,7 @@ package keygenerator
 
 import (
 	"crypto/ecdsa"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 )
 
 func init() {

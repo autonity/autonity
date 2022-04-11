@@ -1,6 +1,6 @@
 package gwait_test
 
-import "github.com/clearmatics/autonity/common/gwait"
+import "github.com/autonity/autonity/common/gwait"
 
 func ExampleWaiter() {
 	w := gwait.NewWaiter()

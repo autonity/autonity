@@ -35,7 +35,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 	"github.com/hashicorp/go-bexpr"
 )
 

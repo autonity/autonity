@@ -42,7 +42,7 @@ import (
 	"fmt"
 	"hash"
 
-	ethcrypto "github.com/clearmatics/autonity/crypto"
+	ethcrypto "github.com/autonity/autonity/crypto"
 )
 
 var (

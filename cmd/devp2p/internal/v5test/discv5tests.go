@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/internal/utesting"
-	"github.com/clearmatics/autonity/p2p/discover/v5wire"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/netutil"
+	"github.com/autonity/autonity/internal/utesting"
+	"github.com/autonity/autonity/p2p/discover/v5wire"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/netutil"
 )
 
 // Suite is the discv5 test suite.

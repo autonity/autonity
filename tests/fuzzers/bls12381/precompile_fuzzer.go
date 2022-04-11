@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/vm"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/vm"
 )
 
 const (

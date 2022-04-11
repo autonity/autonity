@@ -29,11 +29,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations/adapters"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations/adapters"
+	"github.com/autonity/autonity/rpc"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 )

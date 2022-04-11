@@ -21,10 +21,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 )
 
 // WaitMined waits for tx to be mined on the blockchain.

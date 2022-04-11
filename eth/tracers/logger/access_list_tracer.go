@@ -20,9 +20,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
 )
 
 // accessList is an accumulator for the set of accounts and storage slots an EVM

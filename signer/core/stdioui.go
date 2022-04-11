@@ -19,9 +19,9 @@ package core
 import (
 	"context"
 
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rpc"
 )
 
 type StdIOUI struct {

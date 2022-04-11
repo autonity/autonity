@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/nat"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/nat"
+	"github.com/autonity/autonity/rpc"
 )
 
 const (

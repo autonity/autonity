@@ -24,15 +24,15 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state/snapshot"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state/snapshot"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/trie"
 )
 
 type revision struct {
@@ -660,7 +660,7 @@ func (s *StateDB) Copy() *StateDB {
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
-		// As documented [here](https://github.com/clearmatics/autonity/pull/16485#issuecomment-380438527),
+		// As documented [here](https://github.com/autonity/autonity/pull/16485#issuecomment-380438527),
 		// and in the Finalise-method, there is a case where an object is in the journal but not
 		// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
 		// nil

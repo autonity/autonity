@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/internal/debug"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/debug"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/rpc"
 )
 
 // apis returns the collection of built-in RPC APIs.

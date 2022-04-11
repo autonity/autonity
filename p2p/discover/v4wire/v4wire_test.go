@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
 )
 

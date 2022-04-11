@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
 )

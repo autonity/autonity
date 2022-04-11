@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 // wipeKeyRange deletes a range of keys from the database starting with prefix

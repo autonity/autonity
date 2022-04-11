@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.

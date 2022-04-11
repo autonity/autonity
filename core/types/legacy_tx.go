@@ -19,7 +19,7 @@ package types
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // LegacyTx is the transaction data of regular Ethereum transactions.

@@ -19,7 +19,7 @@ package rlp
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 // TestIterator tests some basic things about the ListIterator. A more

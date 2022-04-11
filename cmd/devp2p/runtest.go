@@ -19,9 +19,9 @@ package main
 import (
 	"os"
 
-	"github.com/clearmatics/autonity/cmd/devp2p/internal/v4test"
-	"github.com/clearmatics/autonity/internal/utesting"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/cmd/devp2p/internal/v4test"
+	"github.com/autonity/autonity/internal/utesting"
+	"github.com/autonity/autonity/log"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -25,11 +25,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/console/prompt"
-	"github.com/clearmatics/autonity/p2p/dnsdisc"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/console/prompt"
+	"github.com/autonity/autonity/p2p/dnsdisc"
+	"github.com/autonity/autonity/p2p/enode"
 	"gopkg.in/urfave/cli.v1"
 )
 

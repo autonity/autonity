@@ -26,13 +26,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/signer/core"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/signer/core"
+	"github.com/autonity/autonity/signer/core/apitypes"
 )
 
 var typesStandard = apitypes.Types{

@@ -6,12 +6,12 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/acdefault"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/acdefault"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 // Autonity contract config. It'is used for deployment.

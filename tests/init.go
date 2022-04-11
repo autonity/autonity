@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/params"
 )
 
 // Forks table defines supported forks and their chain config.

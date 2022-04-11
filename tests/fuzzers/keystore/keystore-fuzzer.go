@@ -19,7 +19,7 @@ package keystore
 import (
 	"os"
 
-	"github.com/clearmatics/autonity/accounts/keystore"
+	"github.com/autonity/autonity/accounts/keystore"
 )
 
 func Fuzz(input []byte) int {

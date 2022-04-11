@@ -7,9 +7,9 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/math"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/math"
 )
 
 var _ = (*genesisAccountMarshaling)(nil)

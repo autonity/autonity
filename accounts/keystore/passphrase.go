@@ -38,10 +38,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/crypto"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
@@ -121,7 +121,7 @@ func (ks keyStorePassphrase) StoreKey(filename string, key *Key, auth string) er
 				"This indicates that the keystore is corrupted. \n" +
 				"The corrupted file is stored at \n%v\n" +
 				"Please file a ticket at:\n\n" +
-				"https://github.com/clearmatics/autonity/issues." +
+				"https://github.com/autonity/autonity/issues." +
 				"The error was : %s"
 			//lint:ignore ST1005 This is a message for the user
 			return fmt.Errorf(msg, tmpName, err)

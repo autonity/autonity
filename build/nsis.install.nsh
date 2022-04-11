@@ -3,9 +3,9 @@ InstallDir "$InstDir"
 OutFile "${OUTPUTFILE}" # set through command line arguments
 
 # Links for "Add/Remove Programs"
-!define HELPURL "https://github.com/clearmatics/autonity/issues"
-!define UPDATEURL "https://github.com/clearmatics/autonity/releases"
-!define ABOUTURL "https://github.com/clearmatics/autonity#ethereum-go"
+!define HELPURL "https://github.com/autonity/autonity/issues"
+!define UPDATEURL "https://github.com/autonity/autonity/releases"
+!define ABOUTURL "https://github.com/autonity/autonity#ethereum-go"
 !define /date NOW "%Y%m%d"
 
 PageEx license

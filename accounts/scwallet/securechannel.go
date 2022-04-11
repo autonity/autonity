@@ -26,7 +26,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 	pcsc "github.com/gballet/go-libpcsclite"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/text/unicode/norm"

@@ -8,9 +8,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 )
 
 func TestSendPrevote(t *testing.T) {

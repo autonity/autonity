@@ -1,4 +1,4 @@
-module github.com/clearmatics/autonity
+module github.com/autonity/autonity
 
 go 1.17
 

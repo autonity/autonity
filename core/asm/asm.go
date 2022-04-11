@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/clearmatics/autonity/core/vm"
+	"github.com/autonity/autonity/core/vm"
 )
 
 // Iterator for disassembled EVM instructions

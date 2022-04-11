@@ -30,9 +30,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
 // Tests that the account management snippets work correctly.

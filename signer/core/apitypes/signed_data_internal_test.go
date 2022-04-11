@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 func TestBytesPadding(t *testing.T) {

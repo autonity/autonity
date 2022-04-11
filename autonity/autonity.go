@@ -7,13 +7,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 )
 
 var ErrAutonityContract = errors.New("could not call Autonity contract")

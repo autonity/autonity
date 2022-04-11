@@ -22,9 +22,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core/vm"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/vm"
 )
 
 type JSONLogger struct {

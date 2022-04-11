@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 type MyType [5]byte

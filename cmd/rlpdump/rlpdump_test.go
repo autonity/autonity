@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 func TestRoundtrip(t *testing.T) {

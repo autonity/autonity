@@ -24,11 +24,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rpc"
 )
 
 // Client defines typed wrappers for the Ethereum RPC API.

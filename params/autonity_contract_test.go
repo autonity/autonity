@@ -5,9 +5,9 @@ import (
 	"net"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

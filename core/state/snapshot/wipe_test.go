@@ -20,60 +20,60 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/ethdb/memorydb"
 )
 
 // Tests that given a database with random data content, all parts of a snapshot
 // can be crrectly wiped without touching anything else.
 func TestWipe(t *testing.T) {
-    // Create a database with some random snapshot data
-    db := memorydb.New()
-    for i := 0; i < 128; i++ {
-        rawdb.WriteAccountSnapshot(db, randomHash(), randomHash().Bytes())
-    }
-    // Add some random non-snapshot data too to make wiping harder
-    for i := 0; i < 500; i++ {
-        // Generate keys with wrong length for a state snapshot item
-        keysuffix := make([]byte, 31)
-        rand.Read(keysuffix)
-        db.Put(append(rawdb.SnapshotAccountPrefix, keysuffix...), randomHash().Bytes())
-        keysuffix = make([]byte, 33)
-        rand.Read(keysuffix)
-        db.Put(append(rawdb.SnapshotAccountPrefix, keysuffix...), randomHash().Bytes())
-    }
-    count := func() (items int) {
-        it := db.NewIterator(rawdb.SnapshotAccountPrefix, nil)
-        defer it.Release()
-        for it.Next() {
-            if len(it.Key()) == len(rawdb.SnapshotAccountPrefix)+common.HashLength {
-                items++
-            }
-        }
-        return items
-    }
-    // Sanity check that all the keys are present
-    if items := count(); items != 128 {
-        t.Fatalf("snapshot size mismatch: have %d, want %d", items, 128)
-    }
-    // Wipe the accounts
-    if err := wipeKeyRange(db, "accounts", rawdb.SnapshotAccountPrefix, nil, nil,
-        len(rawdb.SnapshotAccountPrefix)+common.HashLength, snapWipedAccountMeter, true); err != nil {
-        t.Fatal(err)
-    }
-    // Iterate over the database end ensure no snapshot information remains
-    if items := count(); items != 0 {
-        t.Fatalf("snapshot size mismatch: have %d, want %d", items, 0)
-    }
-    // Iterate over the database and ensure miscellaneous items are present
-    items := 0
-    it := db.NewIterator(nil, nil)
-    defer it.Release()
-    for it.Next() {
-        items++
-    }
-    if items != 1000 {
-        t.Fatalf("misc item count mismatch: have %d, want %d", items, 1000)
-    }
+	// Create a database with some random snapshot data
+	db := memorydb.New()
+	for i := 0; i < 128; i++ {
+		rawdb.WriteAccountSnapshot(db, randomHash(), randomHash().Bytes())
+	}
+	// Add some random non-snapshot data too to make wiping harder
+	for i := 0; i < 500; i++ {
+		// Generate keys with wrong length for a state snapshot item
+		keysuffix := make([]byte, 31)
+		rand.Read(keysuffix)
+		db.Put(append(rawdb.SnapshotAccountPrefix, keysuffix...), randomHash().Bytes())
+		keysuffix = make([]byte, 33)
+		rand.Read(keysuffix)
+		db.Put(append(rawdb.SnapshotAccountPrefix, keysuffix...), randomHash().Bytes())
+	}
+	count := func() (items int) {
+		it := db.NewIterator(rawdb.SnapshotAccountPrefix, nil)
+		defer it.Release()
+		for it.Next() {
+			if len(it.Key()) == len(rawdb.SnapshotAccountPrefix)+common.HashLength {
+				items++
+			}
+		}
+		return items
+	}
+	// Sanity check that all the keys are present
+	if items := count(); items != 128 {
+		t.Fatalf("snapshot size mismatch: have %d, want %d", items, 128)
+	}
+	// Wipe the accounts
+	if err := wipeKeyRange(db, "accounts", rawdb.SnapshotAccountPrefix, nil, nil,
+		len(rawdb.SnapshotAccountPrefix)+common.HashLength, snapWipedAccountMeter, true); err != nil {
+		t.Fatal(err)
+	}
+	// Iterate over the database end ensure no snapshot information remains
+	if items := count(); items != 0 {
+		t.Fatalf("snapshot size mismatch: have %d, want %d", items, 0)
+	}
+	// Iterate over the database and ensure miscellaneous items are present
+	items := 0
+	it := db.NewIterator(nil, nil)
+	defer it.Release()
+	for it.Next() {
+		items++
+	}
+	if items != 1000 {
+		t.Fatalf("misc item count mismatch: have %d, want %d", items, 1000)
+	}
 }

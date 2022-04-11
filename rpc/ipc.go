@@ -20,8 +20,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/netutil"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/netutil"
 )
 
 // ServeListener accepts connections on l, serving JSON-RPC on them.

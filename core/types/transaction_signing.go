@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
 )
 
 var ErrInvalidChainId = errors.New("invalid chain id for signer")

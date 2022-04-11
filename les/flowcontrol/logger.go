@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/autonity/autonity/common/mclock"
 )
 
 // logger collects events in string format and discards events older than the

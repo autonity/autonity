@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/cmd/devp2p/internal/v5test"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/p2p/discover"
+	"github.com/autonity/autonity/cmd/devp2p/internal/v5test"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/p2p/discover"
 	"gopkg.in/urfave/cli.v1"
 )
 

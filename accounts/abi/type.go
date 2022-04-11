@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // Type enumerator

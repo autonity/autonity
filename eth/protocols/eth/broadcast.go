@@ -19,8 +19,8 @@ package eth
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
 const (

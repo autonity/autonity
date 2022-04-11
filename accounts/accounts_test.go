@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 func TestTextHash(t *testing.T) {

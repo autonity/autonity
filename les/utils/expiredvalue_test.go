@@ -19,7 +19,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/autonity/autonity/common/mclock"
 )
 
 func TestValueExpiration(t *testing.T) {

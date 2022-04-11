@@ -23,13 +23,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/internal/utesting"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/rlpx"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/internal/utesting"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/rlpx"
 	"github.com/davecgh/go-spew/spew"
 )
 

@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/common"
-	ethcore "github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/event"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	ethcore "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/event"
 )
 
 // Backend provides application specific functions for Istanbul core

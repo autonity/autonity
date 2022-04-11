@@ -21,13 +21,13 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/bloombits"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/bloombits"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/rpc"
 )
 
 type Backend interface {

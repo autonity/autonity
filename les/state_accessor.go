@@ -21,11 +21,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/light"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/light"
 )
 
 // stateAtBlock retrieves the state database associated with a certain block.

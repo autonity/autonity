@@ -19,9 +19,9 @@ package downloader
 import (
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/log"
 )
 
 // receiptQueue implements typedQueue and is a type adapter between the generic

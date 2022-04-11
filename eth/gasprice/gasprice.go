@@ -22,13 +22,13 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rpc"
 	lru "github.com/hashicorp/golang-lru"
 )
 

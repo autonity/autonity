@@ -19,8 +19,8 @@ package eth
 import (
 	"time"
 
-	"github.com/clearmatics/autonity/common/bitutil"
-	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/core/rawdb"
 )
 
 const (

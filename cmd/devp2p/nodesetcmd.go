@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/core/forkid"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
 	"gopkg.in/urfave/cli.v1"
 )
 

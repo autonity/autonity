@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/clearmatics/autonity/ethdb"
+	"github.com/autonity/autonity/ethdb"
 )
 
 func TestTableDatabase(t *testing.T)            { testTableDatabase(t, "prefix") }

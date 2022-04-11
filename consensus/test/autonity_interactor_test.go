@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethclient"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethclient"
 )
 
 // interact is the starting point to constructing a tool to interact with

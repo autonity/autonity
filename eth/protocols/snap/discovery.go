@@ -17,7 +17,7 @@
 package snap
 
 import (
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/rlp"
 )
 
 // enrEntry is the ENR entry which advertises `snap` protocol on the discovery.

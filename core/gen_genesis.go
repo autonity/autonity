@@ -7,10 +7,10 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/params"
 )
 
 var _ = (*genesisSpecMarshaling)(nil)

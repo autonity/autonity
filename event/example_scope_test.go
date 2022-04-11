@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearmatics/autonity/event"
+	"github.com/autonity/autonity/event"
 )
 
 // This example demonstrates how SubscriptionScope can be used to control the lifetime of

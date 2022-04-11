@@ -34,9 +34,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/crypto/ecies"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/ecies"
+	"github.com/autonity/autonity/rlp"
 	"github.com/golang/snappy"
 	"golang.org/x/crypto/sha3"
 )

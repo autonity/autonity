@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb/memorydb"
 )
 
 func init() {

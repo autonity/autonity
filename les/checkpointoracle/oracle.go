@@ -25,12 +25,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/contracts/checkpointoracle"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/contracts/checkpointoracle"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 )
 
 // CheckpointOracle is responsible for offering the latest stable checkpoint

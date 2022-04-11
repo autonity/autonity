@@ -21,8 +21,8 @@ package secp256k1
 import (
 	"fmt"
 
+	"github.com/autonity/autonity/crypto/secp256k1"
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/clearmatics/autonity/crypto/secp256k1"
 	fuzz "github.com/google/gofuzz"
 )
 

@@ -28,10 +28,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/rpc"
 
 	"github.com/stretchr/testify/assert"
 )

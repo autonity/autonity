@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/light"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/light"
 )
 
 func TestLightPruner(t *testing.T) {

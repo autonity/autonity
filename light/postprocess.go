@@ -25,16 +25,16 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/bitutil"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/trie"
 	mapset "github.com/deckarep/golang-set"
 )
 
@@ -144,14 +144,14 @@ type ChtIndexerBackend struct {
 func NewChtIndexer(db ethdb.Database, odr OdrBackend, size, confirms uint64, disablePruning bool) *core.ChainIndexer {
 	trieTable := rawdb.NewTable(db, ChtTablePrefix)
 	backend := &ChtIndexerBackend{
-        diskdb:         db,
-        odr:            odr,
-        trieTable:      trieTable,
-        triedb:         trie.NewDatabaseWithConfig(trieTable, &trie.Config{Cache: 1}), // Use a tiny cache only to keep memory down
-        trieset:        mapset.NewSet(),
-        sectionSize:    size,
-        disablePruning: disablePruning,
-    }
+		diskdb:         db,
+		odr:            odr,
+		trieTable:      trieTable,
+		triedb:         trie.NewDatabaseWithConfig(trieTable, &trie.Config{Cache: 1}), // Use a tiny cache only to keep memory down
+		trieset:        mapset.NewSet(),
+		sectionSize:    size,
+		disablePruning: disablePruning,
+	}
 	return core.NewChainIndexer(db, rawdb.NewTable(db, "chtIndexV2-"), backend, size, confirms, time.Millisecond*100, "cht")
 }
 
@@ -217,7 +217,7 @@ func (c *ChtIndexerBackend) Process(ctx context.Context, header *types.Header) e
 
 // Commit implements core.ChainIndexerBackend
 func (c *ChtIndexerBackend) Commit() error {
-    root, _, err := c.trie.Commit(nil)
+	root, _, err := c.trie.Commit(nil)
 	if err != nil {
 		return err
 	}
@@ -337,15 +337,15 @@ type BloomTrieIndexerBackend struct {
 func NewBloomTrieIndexer(db ethdb.Database, odr OdrBackend, parentSize, size uint64, disablePruning bool) *core.ChainIndexer {
 	trieTable := rawdb.NewTable(db, BloomTrieTablePrefix)
 	backend := &BloomTrieIndexerBackend{
-        diskdb:         db,
-        odr:            odr,
-        trieTable:      trieTable,
-        triedb:         trie.NewDatabaseWithConfig(trieTable, &trie.Config{Cache: 1}), // Use a tiny cache only to keep memory down
-        trieset:        mapset.NewSet(),
-        parentSize:     parentSize,
-        size:           size,
-        disablePruning: disablePruning,
-    }
+		diskdb:         db,
+		odr:            odr,
+		trieTable:      trieTable,
+		triedb:         trie.NewDatabaseWithConfig(trieTable, &trie.Config{Cache: 1}), // Use a tiny cache only to keep memory down
+		trieset:        mapset.NewSet(),
+		parentSize:     parentSize,
+		size:           size,
+		disablePruning: disablePruning,
+	}
 	backend.bloomTrieRatio = size / parentSize
 	backend.sectionHeads = make([]common.Hash, backend.bloomTrieRatio)
 	return core.NewChainIndexer(db, rawdb.NewTable(db, "bltIndex-"), backend, size, 0, time.Millisecond*100, "bloomtrie")
@@ -454,7 +454,7 @@ func (b *BloomTrieIndexerBackend) Commit() error {
 			b.trie.Delete(encKey[:])
 		}
 	}
-    root, _, err := b.trie.Commit(nil)
+	root, _, err := b.trie.Commit(nil)
 	if err != nil {
 		return err
 	}

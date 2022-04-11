@@ -6,13 +6,13 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/eth/downloader"
-	"github.com/clearmatics/autonity/eth/gasprice"
-	"github.com/clearmatics/autonity/miner"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/gasprice"
+	"github.com/autonity/autonity/miner"
+	"github.com/autonity/autonity/params"
 )
 
 // MarshalTOML marshals as TOML.

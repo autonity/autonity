@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/metrics"
 )
 
 // The fields below define the low level database schema prefixing.

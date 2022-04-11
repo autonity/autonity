@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
 )
 
 type bytesBacked interface {

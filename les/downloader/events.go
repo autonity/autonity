@@ -16,7 +16,7 @@
 
 package downloader
 
-import "github.com/clearmatics/autonity/core/types"
+import "github.com/autonity/autonity/core/types"
 
 type DoneEvent struct {
 	Latest *types.Header

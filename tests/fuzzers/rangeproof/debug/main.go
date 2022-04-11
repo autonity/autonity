@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/clearmatics/autonity/tests/fuzzers/rangeproof"
+	"github.com/autonity/autonity/tests/fuzzers/rangeproof"
 )
 
 func main() {

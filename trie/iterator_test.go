@@ -23,10 +23,10 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/ethdb/memorydb"
 )
 
 func TestIterator(t *testing.T) {

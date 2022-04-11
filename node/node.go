@@ -26,13 +26,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/rpc"
 	"github.com/prometheus/tsdb/fileutil"
 )
 

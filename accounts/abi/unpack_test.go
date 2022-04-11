@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 	"github.com/stretchr/testify/require"
 )
 

@@ -16,7 +16,7 @@
 
 package bind
 
-import "github.com/clearmatics/autonity/accounts/abi"
+import "github.com/autonity/autonity/accounts/abi"
 
 // tmplData is the data structure required to fill the binding template.
 type tmplData struct {
@@ -92,12 +92,12 @@ import (
 	"strings"
 	"errors"
 
-	ethereum "github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/event"
+	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/event"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

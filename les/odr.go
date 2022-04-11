@@ -22,10 +22,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/light"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/light"
 )
 
 // LesOdr implements light.OdrBackend

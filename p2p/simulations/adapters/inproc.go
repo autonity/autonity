@@ -24,13 +24,13 @@ import (
 	"net"
 	"sync"
 
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations/pipes"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations/pipes"
+	"github.com/autonity/autonity/rpc"
 	"github.com/gorilla/websocket"
 )
 
@@ -92,16 +92,16 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 	}
 
 	n, err := node.New(&node.Config{
-        P2P: p2p.Config{
-            PrivateKey:      config.PrivateKey,
-            MaxPeers:        math.MaxInt32,
-            NoDiscovery:     true,
-            Dialer:          s,
-            EnableMsgEvents: config.EnableMsgEvents,
-        },
-        ExternalSigner: config.ExternalSigner,
-        Logger:         log.New("node.id", id.String()),
-    })
+		P2P: p2p.Config{
+			PrivateKey:      config.PrivateKey,
+			MaxPeers:        math.MaxInt32,
+			NoDiscovery:     true,
+			Dialer:          s,
+			EnableMsgEvents: config.EnableMsgEvents,
+		},
+		ExternalSigner: config.ExternalSigner,
+		Logger:         log.New("node.id", id.String()),
+	})
 	if err != nil {
 		return nil, err
 	}

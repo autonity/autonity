@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/common"
 )
 
 func verify(t *testing.T, jsondata, calldata string, exp []interface{}) {

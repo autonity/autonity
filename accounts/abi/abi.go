@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
 )
 
 // The ABI holds information about a contract's context and available

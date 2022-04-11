@@ -200,15 +200,15 @@ func TestConvertType(t *testing.T) {
 	// Create on-the-fly structure
 	var fields []reflect.StructField
 	fields = append(fields, reflect.StructField{
-        Name: "X",
-        Type: reflect.TypeOf(new(big.Int)),
-        Tag:  "json:\"" + "x" + "\"",
-    })
+		Name: "X",
+		Type: reflect.TypeOf(new(big.Int)),
+		Tag:  "json:\"" + "x" + "\"",
+	})
 	fields = append(fields, reflect.StructField{
-        Name: "Y",
-        Type: reflect.TypeOf(new(big.Int)),
-        Tag:  "json:\"" + "y" + "\"",
-    })
+		Name: "Y",
+		Type: reflect.TypeOf(new(big.Int)),
+		Tag:  "json:\"" + "y" + "\"",
+	})
 	val := reflect.New(reflect.StructOf(fields))
 	val.Elem().Field(0).Set(reflect.ValueOf(big.NewInt(1)))
 	val.Elem().Field(1).Set(reflect.ValueOf(big.NewInt(2)))

@@ -29,13 +29,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations/adapters"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations/adapters"
+	"github.com/autonity/autonity/rpc"
 	"github.com/mattn/go-colorable"
 )
 

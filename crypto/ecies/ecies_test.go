@@ -39,7 +39,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 )
 
 func TestKDF(t *testing.T) {

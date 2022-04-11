@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/rpc"
 )
 
 func TestFeeHistory(t *testing.T) {

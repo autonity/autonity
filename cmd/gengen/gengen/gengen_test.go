@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

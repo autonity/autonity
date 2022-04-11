@@ -24,10 +24,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/console/prompt"
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/console/prompt"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/log"
 )
 
 type CommandlineUI struct {

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func TestHeaderHash(t *testing.T) {

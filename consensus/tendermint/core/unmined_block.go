@@ -3,8 +3,8 @@ package core
 import (
 	context "context"
 
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core/types"
 )
 
 func (c *core) storeUnminedBlockMsg(ctx context.Context, unminedBlock *types.Block) {

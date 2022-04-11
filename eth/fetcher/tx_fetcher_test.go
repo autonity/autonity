@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
 )
 
 var (

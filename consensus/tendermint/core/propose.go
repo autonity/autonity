@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core/types"
 )
 
 func (c *core) sendProposal(ctx context.Context, p *types.Block) {

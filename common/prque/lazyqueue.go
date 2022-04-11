@@ -20,7 +20,7 @@ import (
 	"container/heap"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/autonity/autonity/common/mclock"
 )
 
 // LazyQueue is a priority queue data structure where priorities can change over

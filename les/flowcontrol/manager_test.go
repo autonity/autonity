@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/autonity/autonity/common/mclock"
 )
 
 type testNode struct {

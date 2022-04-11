@@ -26,15 +26,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/state/snapshot"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state/snapshot"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/trie"
 )
 
 // Reduce some of the parameters to make the tester faster.

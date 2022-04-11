@@ -19,10 +19,10 @@ package keystore
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 )
 
 // keystoreWallet implements the accounts.Wallet interface for the original

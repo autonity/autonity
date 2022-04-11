@@ -17,9 +17,9 @@
 package snap
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 )
 
 // Peer is a collection of relevant information we have about a `snap` peer.

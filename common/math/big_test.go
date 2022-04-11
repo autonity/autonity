@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func TestHexOrDecimal256(t *testing.T) {

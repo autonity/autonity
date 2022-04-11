@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearmatics/autonity/common/gwait"
+	"github.com/autonity/autonity/common/gwait"
 	"github.com/stretchr/testify/assert"
 )
 

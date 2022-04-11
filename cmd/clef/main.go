@@ -24,7 +24,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/clearmatics/autonity/internal/flags"
+	"github.com/autonity/autonity/internal/flags"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -36,23 +36,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/internal/ethapi"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rpc"
-	"github.com/clearmatics/autonity/signer/core"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
-	"github.com/clearmatics/autonity/signer/fourbyte"
-	"github.com/clearmatics/autonity/signer/rules"
-	"github.com/clearmatics/autonity/signer/storage"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/ethapi"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rpc"
+	"github.com/autonity/autonity/signer/core"
+	"github.com/autonity/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/signer/fourbyte"
+	"github.com/autonity/autonity/signer/rules"
+	"github.com/autonity/autonity/signer/storage"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"gopkg.in/urfave/cli.v1"
@@ -794,7 +794,7 @@ func checkFile(filename string) error {
 	}
 	// Check the unix permission bits
 	// However, on windows, we cannot use the unix perm-bits, see
-	// https://github.com/clearmatics/autonity/issues/20123
+	// https://github.com/autonity/autonity/issues/20123
 	if runtime.GOOS != "windows" && info.Mode().Perm()&0377 != 0 {
 		return fmt.Errorf("file (%v) has insecure file permissions (%v)", filename, info.Mode().String())
 	}

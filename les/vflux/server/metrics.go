@@ -17,7 +17,7 @@
 package server
 
 import (
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/metrics"
 )
 
 var (

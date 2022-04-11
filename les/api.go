@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/mclock"
-	vfs "github.com/clearmatics/autonity/les/vflux/server"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/mclock"
+	vfs "github.com/autonity/autonity/les/vflux/server"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 var (

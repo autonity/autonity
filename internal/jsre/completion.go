@@ -45,8 +45,8 @@ func getCompletions(vm *goja.Runtime, line string) (results []string) {
 	for i := 0; i < len(parts)-1; i++ {
 		v := obj.Get(parts[i])
 		if v == nil || goja.IsNull(v) || goja.IsUndefined(v) {
-            return nil // No object was found
-        }
+			return nil // No object was found
+		}
 		obj = v.ToObject(vm)
 	}
 

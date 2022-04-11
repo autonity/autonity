@@ -1,4 +1,5 @@
 // we're disabling race flag due to oom issues with travis CI
+//go:build !race
 // +build !race
 
 package backend
@@ -10,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func TestUnhandledMsgs(t *testing.T) {

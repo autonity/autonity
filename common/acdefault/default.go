@@ -1,8 +1,8 @@
 package acdefault
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/acdefault/generated"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/acdefault/generated"
 )
 
 func Governance() common.Address {

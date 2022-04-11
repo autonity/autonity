@@ -23,9 +23,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/eth/tracers"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/eth/tracers"
 )
 
 func init() {

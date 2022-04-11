@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func TestPairingExpected(t *testing.T) {

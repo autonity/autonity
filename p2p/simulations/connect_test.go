@@ -19,9 +19,9 @@ package simulations
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations/adapters"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations/adapters"
 )
 
 func newTestNetwork(t *testing.T, nodeCount int) (*Network, []enode.ID) {

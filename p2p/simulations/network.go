@@ -26,11 +26,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations/adapters"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations/adapters"
 )
 
 var DialBanTimeout = 200 * time.Millisecond
@@ -444,17 +444,17 @@ func (net *Network) GetNodeIDs(excludeIDs ...enode.ID) []enode.ID {
 }
 
 func (net *Network) getNodeIDs(excludeIDs []enode.ID) []enode.ID {
-    // Get all current nodeIDs
-    nodeIDs := make([]enode.ID, 0, len(net.nodeMap))
-    for id := range net.nodeMap {
-        nodeIDs = append(nodeIDs, id)
-    }
+	// Get all current nodeIDs
+	nodeIDs := make([]enode.ID, 0, len(net.nodeMap))
+	for id := range net.nodeMap {
+		nodeIDs = append(nodeIDs, id)
+	}
 
-    if len(excludeIDs) > 0 {
-        // Return the difference of nodeIDs and excludeIDs
-        return filterIDs(nodeIDs, excludeIDs)
-    }
-    return nodeIDs
+	if len(excludeIDs) > 0 {
+		// Return the difference of nodeIDs and excludeIDs
+		return filterIDs(nodeIDs, excludeIDs)
+	}
+	return nodeIDs
 }
 
 // GetNodes returns the existing nodes.
@@ -467,11 +467,11 @@ func (net *Network) GetNodes(excludeIDs ...enode.ID) []*Node {
 }
 
 func (net *Network) getNodes(excludeIDs []enode.ID) []*Node {
-    if len(excludeIDs) > 0 {
-        nodeIDs := net.getNodeIDs(excludeIDs)
-        return net.getNodesByID(nodeIDs)
-    }
-    return net.Nodes
+	if len(excludeIDs) > 0 {
+		nodeIDs := net.getNodeIDs(excludeIDs)
+		return net.getNodesByID(nodeIDs)
+	}
+	return net.Nodes
 }
 
 // GetNodesByID returns existing nodes with the given enode.IDs.
@@ -1087,8 +1087,8 @@ func (net *Network) executeNodeEvent(e *Event) error {
 }
 
 func (net *Network) executeConnEvent(e *Event) error {
-    if e.Conn.Up {
-        return net.Connect(e.Conn.One, e.Conn.Other)
-    }
-    return net.Disconnect(e.Conn.One, e.Conn.Other)
+	if e.Conn.Up {
+		return net.Connect(e.Conn.One, e.Conn.Other)
+	}
+	return net.Disconnect(e.Conn.One, e.Conn.Other)
 }

@@ -26,7 +26,7 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/clearmatics/autonity/crypto/bls12381"
+	"github.com/autonity/autonity/crypto/bls12381"
 	gnark "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"

@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/rpc"
 	"github.com/stretchr/testify/assert"
 )
 

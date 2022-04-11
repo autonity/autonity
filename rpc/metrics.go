@@ -19,7 +19,7 @@ package rpc
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/metrics"
 )
 
 var (

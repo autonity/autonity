@@ -19,8 +19,8 @@ package runtime_test
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/vm/runtime"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/vm/runtime"
 )
 
 func ExampleExecute() {

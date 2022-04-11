@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
 )
 
 func filledStateDB() *StateDB {

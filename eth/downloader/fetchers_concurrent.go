@@ -21,10 +21,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/prque"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/prque"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/log"
 )
 
 // timeoutGracePeriod is the amount of time to allow for a peer to deliver a

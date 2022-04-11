@@ -22,10 +22,10 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/forkid"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Constants to match up protocol versions and messages

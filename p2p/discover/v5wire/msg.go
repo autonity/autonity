@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Packet is implemented by all message types.
@@ -81,11 +81,11 @@ type (
 
 	// PONG is the reply to PING.
 	Pong struct {
-        ReqID  []byte
-        ENRSeq uint64
-        ToIP   net.IP // These fields should mirror the UDP envelope address of the ping
-        ToPort uint16 // packet, which provides a way to discover the external address (after NAT).
-    }
+		ReqID  []byte
+		ENRSeq uint64
+		ToIP   net.IP // These fields should mirror the UDP envelope address of the ping
+		ToPort uint16 // packet, which provides a way to discover the external address (after NAT).
+	}
 
 	// FINDNODE is a query for nodes in the given bucket.
 	Findnode struct {

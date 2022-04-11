@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 // handler handles JSON-RPC messages. There is one handler per connection. Note that

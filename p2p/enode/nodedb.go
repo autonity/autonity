@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"

@@ -22,9 +22,9 @@ import (
 	"io"
 	"sort"
 
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/internal/debug"
-	"github.com/clearmatics/autonity/internal/flags"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/internal/debug"
+	"github.com/autonity/autonity/internal/flags"
 	"gopkg.in/urfave/cli.v1"
 )
 

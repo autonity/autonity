@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/clearmatics/autonity/tests/fuzzers/snap"
+	"github.com/autonity/autonity/tests/fuzzers/snap"
 )
 
 func main() {

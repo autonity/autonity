@@ -21,7 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 // Tests that data bitset encoding and decoding works and is bijective.

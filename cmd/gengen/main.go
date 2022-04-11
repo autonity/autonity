@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/clearmatics/autonity/cmd/gengen/gengen"
+	"github.com/autonity/autonity/cmd/gengen/gengen"
 )
 
 func main() {

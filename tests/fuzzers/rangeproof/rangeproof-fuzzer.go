@@ -23,9 +23,9 @@ import (
 	"io"
 	"sort"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/ethdb/memorydb"
+	"github.com/autonity/autonity/trie"
 )
 
 type kv struct {

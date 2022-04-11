@@ -19,7 +19,7 @@ package console
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/internal/jsre"
+	"github.com/autonity/autonity/internal/jsre"
 	"github.com/dop251/goja"
 )
 

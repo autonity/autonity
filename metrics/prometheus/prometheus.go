@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 // Handler returns an HTTP handler which dump metrics in Prometheus format.

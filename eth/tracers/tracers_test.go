@@ -20,16 +20,16 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/eth/tracers/logger"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/tests"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/eth/tracers/logger"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/tests"
 )
 
 // callTrace is the result of a callTracer run.

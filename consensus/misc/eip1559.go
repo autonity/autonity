@@ -18,13 +18,13 @@ package misc
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
 )
 
 type BaseFeeGetter interface {

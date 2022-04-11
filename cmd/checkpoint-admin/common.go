@@ -19,15 +19,15 @@ package main
 import (
 	"strconv"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/accounts/external"
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/contracts/checkpointoracle"
-	"github.com/clearmatics/autonity/ethclient"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/accounts/external"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/contracts/checkpointoracle"
+	"github.com/autonity/autonity/ethclient"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rpc"
 	"gopkg.in/urfave/cli.v1"
 )
 

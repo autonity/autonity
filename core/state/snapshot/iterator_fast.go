@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // weightedIterator is a iterator with an assigned weight. It is used to prioritise

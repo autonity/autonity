@@ -27,11 +27,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rlp"
 )
 
 // RPC packet types

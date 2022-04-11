@@ -18,18 +18,18 @@ package external
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/signer/core/apitypes"
 	"math/big"
 	"sync"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rpc"
 )
 
 type ExternalBackend struct {

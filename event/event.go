@@ -20,7 +20,7 @@ package event
 import (
 	"errors"
 	"fmt"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 	"reflect"
 	"sync"
 	"time"

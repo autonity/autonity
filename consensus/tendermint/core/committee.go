@@ -5,14 +5,14 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/tendermint/bft"
-	ethcore "github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	ethcore "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 )
 
 type committee interface {
@@ -204,7 +204,7 @@ func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 		return w.previousHeader.Committee[round%int64(len(w.previousHeader.Committee))]
 	}
 	// state.New has started taking a snapshot.Tree but it seems to be only for
-	// performance, see - https://github.com/clearmatics/autonity/pull/20152
+	// performance, see - https://github.com/autonity/autonity/pull/20152
 	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache(), nil)
 	if err != nil {
 		log.Error("cannot load state from block chain.")

@@ -20,7 +20,7 @@ package utils
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/console/prompt"
+	"github.com/autonity/autonity/console/prompt"
 )
 
 // GetPassPhrase displays the given text(prompt) to the user and requests some textual

@@ -19,8 +19,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/common"
 	"gopkg.in/urfave/cli.v1"
 )
 

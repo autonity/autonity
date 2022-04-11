@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/clearmatics/autonity/internal/debug"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/internal/debug"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

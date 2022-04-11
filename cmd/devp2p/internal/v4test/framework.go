@@ -22,9 +22,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/discover/v4wire"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/discover/v4wire"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 const waitTime = 300 * time.Millisecond

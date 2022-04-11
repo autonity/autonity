@@ -22,9 +22,9 @@ import (
 	"encoding/binary"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/hashicorp/golang-lru/simplelru"
 )
 

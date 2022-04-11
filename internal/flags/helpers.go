@@ -20,7 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

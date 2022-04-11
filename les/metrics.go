@@ -17,8 +17,8 @@
 package les
 
 import (
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/p2p"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/p2p"
 )
 
 var (

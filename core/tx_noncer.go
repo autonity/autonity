@@ -17,71 +17,71 @@
 package core
 
 import (
-	"sync"
+    "sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/state"
+    "github.com/autonity/autonity/common"
+    "github.com/autonity/autonity/core/state"
 )
 
 // txNoncer is a tiny virtual state database to manage the executable nonces of
 // accounts in the pool, falling back to reading from a real state database if
 // an account is unknown.
 type txNoncer struct {
-	fallback *state.StateDB
-	nonces   map[common.Address]uint64
-	lock     sync.Mutex
+    fallback *state.StateDB
+    nonces   map[common.Address]uint64
+    lock     sync.Mutex
 }
 
 // newTxNoncer creates a new virtual state database to track the pool nonces.
 func newTxNoncer(statedb *state.StateDB) *txNoncer {
-	return &txNoncer{
-		fallback: statedb.Copy(),
-		nonces:   make(map[common.Address]uint64),
-	}
+    return &txNoncer{
+        fallback: statedb.Copy(),
+        nonces:   make(map[common.Address]uint64),
+    }
 }
 
 // get returns the current nonce of an account, falling back to a real state
 // database if the account is unknown.
 func (txn *txNoncer) get(addr common.Address) uint64 {
-	// We use mutex for get operation is the underlying
-	// state will mutate db even for read access.
-	txn.lock.Lock()
-	defer txn.lock.Unlock()
+    // We use mutex for get operation is the underlying
+    // state will mutate db even for read access.
+    txn.lock.Lock()
+    defer txn.lock.Unlock()
 
-	if _, ok := txn.nonces[addr]; !ok {
-		txn.nonces[addr] = txn.fallback.GetNonce(addr)
-	}
-	return txn.nonces[addr]
+    if _, ok := txn.nonces[addr]; !ok {
+        txn.nonces[addr] = txn.fallback.GetNonce(addr)
+    }
+    return txn.nonces[addr]
 }
 
 // set inserts a new virtual nonce into the virtual state database to be returned
 // whenever the pool requests it instead of reaching into the real state database.
 func (txn *txNoncer) set(addr common.Address, nonce uint64) {
-	txn.lock.Lock()
-	defer txn.lock.Unlock()
+    txn.lock.Lock()
+    defer txn.lock.Unlock()
 
-	txn.nonces[addr] = nonce
+    txn.nonces[addr] = nonce
 }
 
 // setIfLower updates a new virtual nonce into the virtual state database if the
 // the new one is lower.
 func (txn *txNoncer) setIfLower(addr common.Address, nonce uint64) {
-	txn.lock.Lock()
-	defer txn.lock.Unlock()
+    txn.lock.Lock()
+    defer txn.lock.Unlock()
 
-	if _, ok := txn.nonces[addr]; !ok {
-		txn.nonces[addr] = txn.fallback.GetNonce(addr)
-	}
-	if txn.nonces[addr] <= nonce {
-		return
-	}
-	txn.nonces[addr] = nonce
+    if _, ok := txn.nonces[addr]; !ok {
+        txn.nonces[addr] = txn.fallback.GetNonce(addr)
+    }
+    if txn.nonces[addr] <= nonce {
+        return
+    }
+    txn.nonces[addr] = nonce
 }
 
 // setAll sets the nonces for all accounts to the given map.
 func (txn *txNoncer) setAll(all map[common.Address]uint64) {
-	txn.lock.Lock()
-	defer txn.lock.Unlock()
+    txn.lock.Lock()
+    defer txn.lock.Unlock()
 
-	txn.nonces = all
+    txn.nonces = all
 }

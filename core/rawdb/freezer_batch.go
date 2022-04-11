@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/rlp"
 	"github.com/golang/snappy"
 )
 

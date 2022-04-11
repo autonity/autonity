@@ -21,8 +21,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 // This is the number of consecutive leaf requests that may fail before

@@ -23,8 +23,8 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core/types"
 )
 
 type fuzzer struct {

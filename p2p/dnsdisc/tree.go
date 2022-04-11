@@ -26,10 +26,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -145,9 +145,9 @@ The number `370` is used to have some margin for extra overhead (for example, th
 may be larger - more subdomains).
 */
 const (
-    hashAbbrevSize = 1 + 16*13/8          // Size of an encoded hash (plus comma)
-    maxChildren    = 370 / hashAbbrevSize // 13 children
-    minHashLength  = 12
+	hashAbbrevSize = 1 + 16*13/8          // Size of an encoded hash (plus comma)
+	maxChildren    = 370 / hashAbbrevSize // 13 children
+	minHashLength  = 12
 )
 
 // MakeTree creates a tree containing the given nodes and links.

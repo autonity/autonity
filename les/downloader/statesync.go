@@ -21,12 +21,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/trie"
 	"golang.org/x/crypto/sha3"
 )
 

@@ -23,9 +23,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
 	"github.com/karalabe/usb"
 )
 

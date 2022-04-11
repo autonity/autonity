@@ -40,7 +40,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/rlp"
 )
 
 const SizeLimit = 300 // maximum encoded size of a node record in bytes

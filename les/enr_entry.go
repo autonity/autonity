@@ -17,10 +17,10 @@
 package les
 
 import (
-	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/p2p/dnsdisc"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/core/forkid"
+	"github.com/autonity/autonity/p2p/dnsdisc"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/rlp"
 )
 
 // lesEntry is the "les" ENR entry. This is set for LES servers only.

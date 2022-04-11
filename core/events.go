@@ -17,8 +17,8 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
+    "github.com/autonity/autonity/common"
+    "github.com/autonity/autonity/core/types"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -31,13 +31,13 @@ type NewMinedBlockEvent struct{ Block *types.Block }
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
 type ChainEvent struct {
-	Block *types.Block
-	Hash  common.Hash
-	Logs  []*types.Log
+    Block *types.Block
+    Hash  common.Hash
+    Logs  []*types.Log
 }
 
 type ChainSideEvent struct {
-	Block *types.Block
+    Block *types.Block
 }
 
 type ChainHeadEvent struct{ Block *types.Block }

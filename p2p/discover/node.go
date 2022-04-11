@@ -24,9 +24,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 // node represents a host on the network.

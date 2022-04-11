@@ -19,7 +19,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/params"
 )
 
 func TestTransaction(t *testing.T) {

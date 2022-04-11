@@ -19,7 +19,7 @@ package abi
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 type packUnpackTest struct {

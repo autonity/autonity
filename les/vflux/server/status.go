@@ -19,7 +19,7 @@ package server
 import (
 	"reflect"
 
-	"github.com/clearmatics/autonity/p2p/nodestate"
+	"github.com/autonity/autonity/p2p/nodestate"
 )
 
 type peerWrapper struct{ clientPeer } // the NodeStateMachine type system needs this wrapper

@@ -20,7 +20,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/clearmatics/autonity/common/mclock"
+	"github.com/autonity/autonity/common/mclock"
 )
 
 // ExpiredValue is a scalar value that is continuously expired (decreased
@@ -86,17 +86,17 @@ func (e *ExpiredValue) Add(amount int64, logOffset Fixed64) int64 {
 		e.Exp = integer
 	}
 	if base >= 0 || uint64(-base) <= e.Base {
-        // The conversion from negative float64 to
-        // uint64 is undefined in golang, and doesn't
-        // work with ARMv8. More details at:
-        // https://github.com/golang/go/issues/43047
-        if base >= 0 {
-            e.Base += uint64(base)
-        } else {
-            e.Base -= uint64(-base)
-        }
-        return amount
-    }
+		// The conversion from negative float64 to
+		// uint64 is undefined in golang, and doesn't
+		// work with ARMv8. More details at:
+		// https://github.com/golang/go/issues/43047
+		if base >= 0 {
+			e.Base += uint64(base)
+		} else {
+			e.Base -= uint64(-base)
+		}
+		return amount
+	}
 	net := int64(-float64(e.Base) / factor)
 	e.Base = 0
 	return net

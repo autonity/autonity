@@ -27,12 +27,12 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/internal/testlog"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/testlog"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
 )
 
 const (

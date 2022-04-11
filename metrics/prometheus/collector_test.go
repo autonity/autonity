@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/metrics"
 )
 
 func TestMain(m *testing.M) {

@@ -27,9 +27,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enr"
 )
 
 var (
@@ -46,7 +46,7 @@ var (
 
 	// V4ResolveFunc is required only by tests so that they may ovveride the
 	// default resolver.
-	// TODO https://github.com/clearmatics/autonity/issues/544 remove this
+	// TODO https://github.com/autonity/autonity/issues/544 remove this
 	// field and all ability to provide custom resolve funcs.  Rather than the
 	// tests using special hostnames that indicate what type of participant the
 	// nodes are, they can have valid hostnames/IP and we can setup a print

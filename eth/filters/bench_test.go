@@ -22,13 +22,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/bitutil"
-	"github.com/clearmatics/autonity/core/bloombits"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/node"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/core/bloombits"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/node"
 )
 
 func BenchmarkBloomBits512(b *testing.B) {

@@ -19,8 +19,8 @@ package trie
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/ethdb/memorydb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/ethdb/memorydb"
 )
 
 // Tests that the trie database returns a missing trie node error if attempting

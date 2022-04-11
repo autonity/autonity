@@ -25,8 +25,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/crypto"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
 )

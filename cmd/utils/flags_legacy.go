@@ -19,7 +19,7 @@ package utils
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"gopkg.in/urfave/cli.v1"
 )
 

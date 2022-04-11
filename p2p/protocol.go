@@ -19,8 +19,8 @@ package p2p
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enr"
 )
 
 // Protocol represents a P2P subprotocol implementation.

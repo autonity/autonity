@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 // API describes the set of methods offered over the RPC interface

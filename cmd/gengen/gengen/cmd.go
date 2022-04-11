@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/crypto"
 	"github.com/spf13/cobra"
 )
 

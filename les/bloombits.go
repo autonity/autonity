@@ -19,8 +19,8 @@ package les
 import (
 	"time"
 
-	"github.com/clearmatics/autonity/common/bitutil"
-	"github.com/clearmatics/autonity/light"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/light"
 )
 
 const (

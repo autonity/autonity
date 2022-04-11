@@ -21,14 +21,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/les/utils"
-	"github.com/clearmatics/autonity/les/vflux"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/nodestate"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/les/utils"
+	"github.com/autonity/autonity/les/vflux"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/nodestate"
+	"github.com/autonity/autonity/rlp"
 )
 
 var (

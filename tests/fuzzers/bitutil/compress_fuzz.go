@@ -19,7 +19,7 @@ package bitutil
 import (
 	"bytes"
 
-	"github.com/clearmatics/autonity/common/bitutil"
+	"github.com/autonity/autonity/common/bitutil"
 )
 
 // Fuzz implements a go-fuzz fuzzer method to test various encoding method

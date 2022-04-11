@@ -1,15 +1,15 @@
 package backend
 
 import (
-	"github.com/clearmatics/autonity/trie"
+	"github.com/autonity/autonity/trie"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
 )
 
 type ModifyCommitteeEngine struct {

@@ -24,12 +24,12 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.

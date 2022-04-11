@@ -27,7 +27,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 	"github.com/dop251/goja"
 )
 

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
+//go:build none
 // +build none
 
 /*
@@ -77,7 +78,7 @@ var (
 		"signer/rules/deps",
 
 		// skip special licenses
-		"crypto/secp256k1", // Relicensed to BSD-3 via https://github.com/clearmatics/autonity/pull/17225
+		"crypto/secp256k1", // Relicensed to BSD-3 via https://github.com/autonity/autonity/pull/17225
 	}
 
 	// paths with this prefix are licensed as GPL. all other files are LGPL.

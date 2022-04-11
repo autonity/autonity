@@ -58,10 +58,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/autonity/autonity/crypto/signify"
+	"github.com/autonity/autonity/internal/build"
+	"github.com/autonity/autonity/params"
 	"github.com/cespare/cp"
-	"github.com/clearmatics/autonity/crypto/signify"
-	"github.com/clearmatics/autonity/internal/build"
-	"github.com/clearmatics/autonity/params"
 )
 
 var (
@@ -1005,7 +1005,7 @@ func doAndroidArchive(cmdline []string) {
 	build.MustRun(tc.Go("mod", "download"))
 
 	// Build the Android archive and Maven resources
-	build.MustRun(gomobileTool("bind", "-ldflags", "-s -w", "--target", "android", "--javapkg", "org.ethereum", "-v", "github.com/clearmatics/autonity/mobile"))
+	build.MustRun(gomobileTool("bind", "-ldflags", "-s -w", "--target", "android", "--javapkg", "org.ethereum", "-v", "github.com/autonity/autonity/mobile"))
 
 	if *local {
 		// If we're building locally, copy bundle to build dir and skip Maven
@@ -1134,7 +1134,7 @@ func doXCodeFramework(cmdline []string) {
 	build.MustRun(tc.Go("mod", "download"))
 
 	// Build the iOS XCode framework
-	bind := gomobileTool("bind", "-ldflags", "-s -w", "--target", "ios", "-v", "github.com/clearmatics/autonity/mobile")
+	bind := gomobileTool("bind", "-ldflags", "-s -w", "--target", "ios", "-v", "github.com/autonity/autonity/mobile")
 
 	if *local {
 		// If we're building locally, use the build folder and stop afterwards

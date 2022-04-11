@@ -21,8 +21,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/event"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/event"
 )
 
 // managerSubBufferSize determines how many incoming wallet events

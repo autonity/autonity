@@ -17,7 +17,7 @@
 // Package bind generates Ethereum contract Go bindings.
 //
 // Detailed usage document and tutorial available on the go-ethereum Wiki page:
-// https://github.com/clearmatics/autonity/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts
+// https://github.com/autonity/autonity/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts
 package bind
 
 import (
@@ -30,8 +30,8 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/log"
 )
 
 // Lang is a target programming language selector to generate bindings for.

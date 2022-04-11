@@ -19,22 +19,22 @@ package ethapi
 
 import (
 	"context"
-	"github.com/clearmatics/autonity/consensus"
+	"github.com/autonity/autonity/consensus"
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity"
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/bloombits"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/bloombits"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rpc"
 )
 
 // Backend interface provides the common API services (that are provided by

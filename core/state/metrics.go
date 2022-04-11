@@ -16,7 +16,7 @@
 
 package state
 
-import "github.com/clearmatics/autonity/metrics"
+import "github.com/autonity/autonity/metrics"
 
 var (
 	accountUpdatedMeter   = metrics.NewRegisteredMeter("state/update/account", nil)

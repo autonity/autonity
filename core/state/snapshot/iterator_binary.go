@@ -19,7 +19,7 @@ package snapshot
 import (
 	"bytes"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // binaryIterator is a simplistic iterator to step over the accounts or storage

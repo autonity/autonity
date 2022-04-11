@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/rlp"
 )
 
 // TestExport does basic sanity checks on the export/import functionality

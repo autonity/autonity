@@ -45,12 +45,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/simulations"
-	"github.com/clearmatics/autonity/p2p/simulations/adapters"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/simulations"
+	"github.com/autonity/autonity/p2p/simulations/adapters"
+	"github.com/autonity/autonity/rpc"
 	"gopkg.in/urfave/cli.v1"
 )
 

@@ -18,18 +18,18 @@ package core
 
 import (
 	"fmt"
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/log"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/consensus/misc"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning

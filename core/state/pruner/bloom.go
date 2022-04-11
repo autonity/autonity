@@ -21,9 +21,9 @@ import (
 	"errors"
 	"os"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/log"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
 

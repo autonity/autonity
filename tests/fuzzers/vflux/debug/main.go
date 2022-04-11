@@ -21,8 +21,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/tests/fuzzers/vflux"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/tests/fuzzers/vflux"
 )
 
 func main() {

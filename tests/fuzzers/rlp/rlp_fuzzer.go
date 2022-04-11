@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rlp"
 )
 
 func decodeEncode(input []byte, val interface{}, i int) {

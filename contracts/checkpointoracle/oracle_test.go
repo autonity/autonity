@@ -27,13 +27,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/accounts/abi/bind/backends"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/contracts/checkpointoracle/contract"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/contracts/checkpointoracle/contract"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
 )
 
 var (

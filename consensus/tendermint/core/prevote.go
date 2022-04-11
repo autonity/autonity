@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func (c *core) sendPrevote(ctx context.Context, isNil bool) {

@@ -20,10 +20,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/prque"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/ethdb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/prque"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/ethdb"
 )
 
 // ErrNotRequested is returned by the trie sync when it's requested to process a

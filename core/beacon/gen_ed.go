@@ -7,8 +7,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 var _ = (*executableDataMarshaling)(nil)

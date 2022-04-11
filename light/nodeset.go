@@ -20,10 +20,10 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/rlp"
 )
 
 // NodeSet stores a set of trie nodes. It implements trie.Database and can also

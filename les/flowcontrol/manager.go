@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/common/prque"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/common/prque"
 )
 
 // cmNodeFields are ClientNode fields used by the client manager
@@ -107,11 +107,11 @@ type ClientManager struct {
 // any moment.
 func NewClientManager(curve PieceWiseLinear, clock mclock.Clock) *ClientManager {
 	cm := &ClientManager{
-        clock:         clock,
-        rcQueue:       prque.NewWrapAround(func(a interface{}, i int) { a.(*ClientNode).queueIndex = i }),
-        capLastUpdate: clock.Now(),
-        stop:          make(chan chan struct{}),
-    }
+		clock:         clock,
+		rcQueue:       prque.NewWrapAround(func(a interface{}, i int) { a.(*ClientNode).queueIndex = i }),
+		capLastUpdate: clock.Now(),
+		stop:          make(chan chan struct{}),
+	}
 	if curve != nil {
 		cm.SetRechargeCurve(curve)
 	}

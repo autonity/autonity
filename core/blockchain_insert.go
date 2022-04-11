@@ -17,20 +17,20 @@
 package core
 
 import (
-	"time"
+    "time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/log"
+    "github.com/autonity/autonity/common"
+    "github.com/autonity/autonity/common/mclock"
+    "github.com/autonity/autonity/core/types"
+    "github.com/autonity/autonity/log"
 )
 
 // insertStats tracks and reports on block insertion.
 type insertStats struct {
-	queued, processed, ignored int
-	usedGas                    uint64
-	lastIndex                  int
-	startTime                  mclock.AbsTime
+    queued, processed, ignored int
+    usedGas                    uint64
+    lastIndex                  int
+    startTime                  mclock.AbsTime
 }
 
 // statsReportLimit is the time limit during import and export after which we
@@ -40,85 +40,85 @@ const statsReportLimit = 8 * time.Second
 // report prints statistics if some number of blocks have been processed
 // or more than a few seconds have passed since the last message.
 func (st *insertStats) report(chain []*types.Block, index int, dirty common.StorageSize) {
-	// Fetch the timings for the batch
-	var (
-		now     = mclock.Now()
+    // Fetch the timings for the batch
+    var (
+        now     = mclock.Now()
         elapsed = now.Sub(st.startTime)
-	)
-	// If we're at the last block of the batch or report period reached, log
-	if index == len(chain)-1 || elapsed >= statsReportLimit {
-		// Count the number of transactions in this segment
-		var txs int
-		for _, block := range chain[st.lastIndex : index+1] {
-			txs += len(block.Transactions())
-		}
-		end := chain[index]
+    )
+    // If we're at the last block of the batch or report period reached, log
+    if index == len(chain)-1 || elapsed >= statsReportLimit {
+        // Count the number of transactions in this segment
+        var txs int
+        for _, block := range chain[st.lastIndex : index+1] {
+            txs += len(block.Transactions())
+        }
+        end := chain[index]
 
-		// Assemble the log context and send it to the logger
-		context := []interface{}{
-			"blocks", st.processed, "txs", txs, "mgas", float64(st.usedGas) / 1000000,
-			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
-			"number", end.Number(), "hash", end.Hash(),
-		}
-		if timestamp := time.Unix(int64(end.Time()), 0); time.Since(timestamp) > time.Minute {
-			context = append(context, []interface{}{"age", common.PrettyAge(timestamp)}...)
-		}
-		context = append(context, []interface{}{"dirty", dirty}...)
+        // Assemble the log context and send it to the logger
+        context := []interface{}{
+            "blocks", st.processed, "txs", txs, "mgas", float64(st.usedGas) / 1000000,
+            "elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
+            "number", end.Number(), "hash", end.Hash(),
+        }
+        if timestamp := time.Unix(int64(end.Time()), 0); time.Since(timestamp) > time.Minute {
+            context = append(context, []interface{}{"age", common.PrettyAge(timestamp)}...)
+        }
+        context = append(context, []interface{}{"dirty", dirty}...)
 
-		if st.queued > 0 {
-			context = append(context, []interface{}{"queued", st.queued}...)
-		}
-		if st.ignored > 0 {
-			context = append(context, []interface{}{"ignored", st.ignored}...)
-		}
-		log.Info("Imported new chain segment", context...)
+        if st.queued > 0 {
+            context = append(context, []interface{}{"queued", st.queued}...)
+        }
+        if st.ignored > 0 {
+            context = append(context, []interface{}{"ignored", st.ignored}...)
+        }
+        log.Info("Imported new chain segment", context...)
 
-		// Bump the stats reported to the next section
-		*st = insertStats{startTime: now, lastIndex: index + 1}
-	}
+        // Bump the stats reported to the next section
+        *st = insertStats{startTime: now, lastIndex: index + 1}
+    }
 }
 
 // insertIterator is a helper to assist during chain import.
 type insertIterator struct {
-	chain types.Blocks // Chain of blocks being iterated over
+    chain types.Blocks // Chain of blocks being iterated over
 
-	results <-chan error // Verification result sink from the consensus engine
-	errors  []error      // Header verification errors for the blocks
+    results <-chan error // Verification result sink from the consensus engine
+    errors  []error      // Header verification errors for the blocks
 
-	index     int       // Current offset of the iterator
-	validator Validator // Validator to run if verification succeeds
+    index     int       // Current offset of the iterator
+    validator Validator // Validator to run if verification succeeds
 }
 
 // newInsertIterator creates a new iterator based on the given blocks, which are
 // assumed to be a contiguous chain.
 func newInsertIterator(chain types.Blocks, results <-chan error, validator Validator) *insertIterator {
-	return &insertIterator{
-		chain:     chain,
-		results:   results,
-		errors:    make([]error, 0, len(chain)),
-		index:     -1,
-		validator: validator,
-	}
+    return &insertIterator{
+        chain:     chain,
+        results:   results,
+        errors:    make([]error, 0, len(chain)),
+        index:     -1,
+        validator: validator,
+    }
 }
 
 // next returns the next block in the iterator, along with any potential validation
 // error for that block. When the end is reached, it will return (nil, nil).
 func (it *insertIterator) next() (*types.Block, error) {
-	// If we reached the end of the chain, abort
-	if it.index+1 >= len(it.chain) {
-		it.index = len(it.chain)
-		return nil, nil
-	}
-	// Advance the iterator and wait for verification result if not yet done
-	it.index++
-	if len(it.errors) <= it.index {
-		it.errors = append(it.errors, <-it.results)
-	}
-	if it.errors[it.index] != nil {
-		return it.chain[it.index], it.errors[it.index]
-	}
-	// Block header valid, run body validation and return
-	return it.chain[it.index], it.validator.ValidateBody(it.chain[it.index])
+    // If we reached the end of the chain, abort
+    if it.index+1 >= len(it.chain) {
+        it.index = len(it.chain)
+        return nil, nil
+    }
+    // Advance the iterator and wait for verification result if not yet done
+    it.index++
+    if len(it.errors) <= it.index {
+        it.errors = append(it.errors, <-it.results)
+    }
+    if it.errors[it.index] != nil {
+        return it.chain[it.index], it.errors[it.index]
+    }
+    // Block header valid, run body validation and return
+    return it.chain[it.index], it.validator.ValidateBody(it.chain[it.index])
 }
 
 // peek returns the next block in the iterator, along with any potential validation
@@ -127,19 +127,19 @@ func (it *insertIterator) next() (*types.Block, error) {
 // Both header and body validation errors (nil too) is cached into the iterator
 // to avoid duplicating work on the following next() call.
 func (it *insertIterator) peek() (*types.Block, error) {
-	// If we reached the end of the chain, abort
-	if it.index+1 >= len(it.chain) {
-		return nil, nil
-	}
-	// Wait for verification result if not yet done
-	if len(it.errors) <= it.index+1 {
-		it.errors = append(it.errors, <-it.results)
-	}
-	if it.errors[it.index+1] != nil {
-		return it.chain[it.index+1], it.errors[it.index+1]
-	}
-	// Block header valid, ignore body validation since we don't have a parent anyway
-	return it.chain[it.index+1], nil
+    // If we reached the end of the chain, abort
+    if it.index+1 >= len(it.chain) {
+        return nil, nil
+    }
+    // Wait for verification result if not yet done
+    if len(it.errors) <= it.index+1 {
+        it.errors = append(it.errors, <-it.results)
+    }
+    if it.errors[it.index+1] != nil {
+        return it.chain[it.index+1], it.errors[it.index+1]
+    }
+    // Block header valid, ignore body validation since we don't have a parent anyway
+    return it.chain[it.index+1], nil
 }
 
 // previous returns the previous header that was being processed, or nil.
@@ -170,5 +170,5 @@ func (it *insertIterator) remaining() int {
 
 // processed returns the number of processed blocks.
 func (it *insertIterator) processed() int {
-	return it.index + 1
+    return it.index + 1
 }

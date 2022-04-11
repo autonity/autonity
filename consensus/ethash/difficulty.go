@@ -19,7 +19,7 @@ package ethash
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/core/types"
 	"github.com/holiman/uint256"
 )
 

@@ -21,8 +21,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enr"
 	"github.com/stretchr/testify/assert"
 )
 

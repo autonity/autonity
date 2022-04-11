@@ -5,10 +5,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearmatics/autonity/autonity"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus/tendermint/crypto"
-	"github.com/clearmatics/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/crypto"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 )
 
 // Start implements core.Tendermint.Start

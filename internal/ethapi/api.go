@@ -25,26 +25,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearmatics/autonity/accounts"
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/accounts/keystore"
-	"github.com/clearmatics/autonity/accounts/scwallet"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/common/math"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/consensus/misc"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/state"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/eth/tracers/logger"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/accounts/keystore"
+	"github.com/autonity/autonity/accounts/scwallet"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/eth/tracers/logger"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/rpc"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tyler-smith/go-bip39"
 )
@@ -513,7 +513,7 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args Transactio
 //
 // The key used to calculate the signature is decrypted with the given password.
 //
-// https://github.com/clearmatics/autonity/wiki/Management-APIs#personal_sign
+// https://github.com/autonity/autonity/wiki/Management-APIs#personal_sign
 func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr common.Address, passwd string) (hexutil.Bytes, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: addr}
@@ -541,7 +541,7 @@ func (s *PrivateAccountAPI) Sign(ctx context.Context, data hexutil.Bytes, addr c
 // Note, the signature must conform to the secp256k1 curve R, S and V values, where
 // the V value must be 27 or 28 for legacy reasons.
 //
-// https://github.com/clearmatics/autonity/wiki/Management-APIs#personal_ecRecover
+// https://github.com/autonity/autonity/wiki/Management-APIs#personal_ecRecover
 func (s *PrivateAccountAPI) EcRecover(ctx context.Context, data, sig hexutil.Bytes) (common.Address, error) {
 	if len(sig) != crypto.SignatureLength {
 		return common.Address{}, fmt.Errorf("signature must be %d bytes long", crypto.SignatureLength)

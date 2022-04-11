@@ -22,8 +22,8 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/math"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
 )
 
 // packBytesSlice packs the given bytes as [L, V] as the canonical representation

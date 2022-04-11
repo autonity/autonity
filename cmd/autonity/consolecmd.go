@@ -21,10 +21,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/console"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/console"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/rpc"
 	"gopkg.in/urfave/cli.v1"
 )
 

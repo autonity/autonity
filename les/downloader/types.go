@@ -19,7 +19,7 @@ package downloader
 import (
 	"fmt"
 
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/core/types"
 )
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.

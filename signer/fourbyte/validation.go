@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/signer/core/apitypes"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/signer/core/apitypes"
 )
 
 // ValidateTransaction does a number of checks on the supplied transaction, and
@@ -49,7 +49,7 @@ func (db *Database) ValidateTransaction(selector *string, tx *apitypes.SendTxArg
 	if tx.To == nil {
 		// Contract creation should contain sufficient data to deploy a contract. A
 		// typical error is omitting sender due to some quirk in the javascript call
-		// e.g. https://github.com/clearmatics/autonity/issues/16106.
+		// e.g. https://github.com/autonity/autonity/issues/16106.
 		if len(data) == 0 {
 			// Prevent sending ether into black hole (show stopper)
 			if tx.Value.ToInt().Cmp(big.NewInt(0)) > 0 {

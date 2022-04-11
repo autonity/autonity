@@ -12,19 +12,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/fdlimit"
-	"github.com/clearmatics/autonity/common/graph"
-	"github.com/clearmatics/autonity/common/keygenerator"
-	"github.com/clearmatics/autonity/consensus"
-	tendermintBackend "github.com/clearmatics/autonity/consensus/tendermint/backend"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fdlimit"
+	"github.com/autonity/autonity/common/graph"
+	"github.com/autonity/autonity/common/keygenerator"
+	"github.com/autonity/autonity/consensus"
+	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
@@ -131,13 +131,13 @@ func runTest(t *testing.T, test *testCase) {
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify.(*nonrecursiveTree).internal"),
 			goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
 			goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
-			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).loop"),
-			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).updater"),
-			goleak.IgnoreTopFunction("github.com/clearmatics/autonity/miner.(*worker).newWorkLoop.func1"),
+			goleak.IgnoreTopFunction("github.com/autonity/autonity/miner.(*worker).loop"),
+			goleak.IgnoreTopFunction("github.com/autonity/autonity/miner.(*worker).updater"),
+			goleak.IgnoreTopFunction("github.com/autonity/autonity/miner.(*worker).newWorkLoop.func1"),
 		)
 	}
 
-	// needed to prevent go-routine leak at github.com/clearmatics/autonity/metrics.(*meterArbiter).tick
+	// needed to prevent go-routine leak at github.com/autonity/autonity/metrics.(*meterArbiter).tick
 	// see: metrics/meter.go:55
 	defer metrics.DefaultRegistry.UnregisterAll()
 

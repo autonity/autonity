@@ -19,12 +19,12 @@ package accounts
 
 import (
 	"fmt"
-	ethereum "github.com/clearmatics/autonity"
+	ethereum "github.com/autonity/autonity"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/event"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/event"
 	"golang.org/x/crypto/sha3"
 )
 

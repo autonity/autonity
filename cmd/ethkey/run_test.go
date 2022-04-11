@@ -21,7 +21,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/clearmatics/autonity/internal/cmdtest"
+	"github.com/autonity/autonity/internal/cmdtest"
 	"github.com/docker/docker/pkg/reexec"
 )
 

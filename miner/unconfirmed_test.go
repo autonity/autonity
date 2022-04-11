@@ -19,7 +19,7 @@ package miner
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/core/types"
 )
 
 // noopChainRetriever is an implementation of headerRetriever that always

@@ -18,15 +18,15 @@ package main
 
 import (
 	"fmt"
-	ethproto "github.com/clearmatics/autonity/eth/protocols/eth"
+	ethproto "github.com/autonity/autonity/eth/protocols/eth"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
 
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/consensus/ethash"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

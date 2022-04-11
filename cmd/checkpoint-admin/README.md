@@ -19,7 +19,7 @@ However, from a security perspective, the most critical step in a synchronizatio
 #### Hardcoded checkpoint
 
 There are several hardcoded checkpoints in
-the [source code](https://github.com/clearmatics/autonity/blob/master/params/config.go#L38) of the go-ethereum project.
+the [source code](https://github.com/autonity/autonity/blob/master/params/config.go#L38) of the go-ethereum project.
 These checkpoints are updated by go-ethereum developers when new versions of software are released. Because light client
 users trust Geth developers to some extent, hardcoded checkpoints in the code can also be considered correct.
 
@@ -38,7 +38,7 @@ Checkpoint-admin is a command line tool designed for checkpoint oracle. Users ca
 #### Install
 
 ```shell
-go get github.com/clearmatics/autonity/cmd/checkpoint-admin
+go get github.com/autonity/autonity/cmd/checkpoint-admin
 ```
 
 #### Deploy
@@ -70,7 +70,7 @@ checkpoint-admin sign --clef <CLEF_ENDPOINT> --signer <SIGNER_TO_SIGN_CHECKPOINT
 ```
 
 *CHECKPOINT_HASH is obtained based on
-this [calculation method](https://github.com/clearmatics/autonity/blob/master/params/config.go#L251).*
+this [calculation method](https://github.com/autonity/autonity/blob/master/params/config.go#L251).*
 
 #### Publish
 

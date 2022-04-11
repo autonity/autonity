@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 var _ = (*payloadAttributesMarshaling)(nil)

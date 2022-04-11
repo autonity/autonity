@@ -22,9 +22,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/params"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
 )
 
 // TestCreation tests that different genesis and fork rule combinations result in

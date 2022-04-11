@@ -28,8 +28,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/rlp"
 )
 
 var (

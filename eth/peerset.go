@@ -21,10 +21,10 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/eth/protocols/snap"
-	"github.com/clearmatics/autonity/p2p"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/eth/protocols/snap"
+	"github.com/autonity/autonity/p2p"
 )
 
 var (

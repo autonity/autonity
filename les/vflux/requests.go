@@ -21,7 +21,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/rlp"
 )
 
 var ErrNoReply = errors.New("no reply for given request")

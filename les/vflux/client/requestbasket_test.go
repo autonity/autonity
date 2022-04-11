@@ -20,7 +20,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/clearmatics/autonity/les/utils"
+	"github.com/autonity/autonity/les/utils"
 )
 
 func checkU64(t *testing.T, name string, value, exp uint64) {

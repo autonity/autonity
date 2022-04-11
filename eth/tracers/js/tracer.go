@@ -28,14 +28,14 @@ import (
 	"unicode"
 	"unsafe"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/vm"
-	"github.com/clearmatics/autonity/crypto"
-	tracers2 "github.com/clearmatics/autonity/eth/tracers"
-	"github.com/clearmatics/autonity/eth/tracers/js/internal/tracers"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	tracers2 "github.com/autonity/autonity/eth/tracers"
+	"github.com/autonity/autonity/eth/tracers/js/internal/tracers"
+	"github.com/autonity/autonity/log"
 	"gopkg.in/olebedev/go-duktape.v3"
 )
 

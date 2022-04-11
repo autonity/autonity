@@ -22,8 +22,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 func TestParseRoot(t *testing.T) {

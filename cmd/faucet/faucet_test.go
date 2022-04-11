@@ -19,7 +19,7 @@ package main
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func TestFacebook(t *testing.T) {

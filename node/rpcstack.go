@@ -29,8 +29,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/rpc"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rpc"
 	"github.com/rs/cors"
 )
 

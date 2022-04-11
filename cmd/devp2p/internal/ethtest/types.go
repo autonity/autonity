@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/p2p"
-	"github.com/clearmatics/autonity/p2p/rlpx"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/rlpx"
+	"github.com/autonity/autonity/rlp"
 )
 
 type Message interface {

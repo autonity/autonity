@@ -18,7 +18,7 @@ package main
 
 import (
 	"crypto/rand"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -29,7 +29,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/params"
 )
 
 const (

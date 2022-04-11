@@ -20,7 +20,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/log"
 )
 
 // StartIPCEndpoint starts an IPC endpoint.

@@ -5,8 +5,8 @@ import (
 	uurl "net/url"
 	"time"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 	"github.com/influxdata/influxdb/client"
 )
 

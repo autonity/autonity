@@ -37,7 +37,7 @@ package native
 import (
 	"errors"
 
-	"github.com/clearmatics/autonity/eth/tracers"
+	"github.com/autonity/autonity/eth/tracers"
 )
 
 // init registers itself this packages as a lookup for tracers.

@@ -22,16 +22,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/consensus"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/ethdb"
-	"github.com/clearmatics/autonity/les/fetcher"
-	"github.com/clearmatics/autonity/light"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/les/fetcher"
+	"github.com/autonity/autonity/light"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 const (

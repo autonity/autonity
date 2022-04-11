@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 	"sync"
 )
 

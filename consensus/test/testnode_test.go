@@ -7,16 +7,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/consensus"
+	"github.com/autonity/autonity/consensus"
 
-	"github.com/clearmatics/autonity/event"
-	"github.com/clearmatics/autonity/node"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p/enode"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/eth"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/eth"
 )
 
 type networkRate struct {

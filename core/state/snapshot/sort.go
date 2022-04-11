@@ -19,7 +19,7 @@ package snapshot
 import (
 	"bytes"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // hashes is a helper to implement sort.Interface.

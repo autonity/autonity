@@ -19,7 +19,7 @@ package snap
 import (
 	"testing"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // Tests that given a starting hash and a density, the hash ranger can correctly

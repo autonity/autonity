@@ -6,12 +6,12 @@ package consensus
 
 import (
 	context "context"
-	common "github.com/clearmatics/autonity/common"
-	state "github.com/clearmatics/autonity/core/state"
-	types "github.com/clearmatics/autonity/core/types"
-	p2p "github.com/clearmatics/autonity/p2p"
-	params "github.com/clearmatics/autonity/params"
-	rpc "github.com/clearmatics/autonity/rpc"
+	common "github.com/autonity/autonity/common"
+	state "github.com/autonity/autonity/core/state"
+	types "github.com/autonity/autonity/core/types"
+	p2p "github.com/autonity/autonity/p2p"
+	params "github.com/autonity/autonity/params"
+	rpc "github.com/autonity/autonity/rpc"
 	gomock "github.com/golang/mock/gomock"
 	big "math/big"
 	reflect "reflect"

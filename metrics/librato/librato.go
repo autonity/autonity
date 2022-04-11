@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/metrics"
 )
 
 // a regexp for extracting the unit from time.Duration.String

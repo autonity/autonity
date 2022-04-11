@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 func (h *Header) IsGenesis() bool {

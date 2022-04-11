@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/clearmatics/autonity/tests/fuzzers/les"
+	"github.com/autonity/autonity/tests/fuzzers/les"
 )
 
 func main() {

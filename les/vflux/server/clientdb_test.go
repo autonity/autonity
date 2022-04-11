@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/core/rawdb"
-	"github.com/clearmatics/autonity/les/utils"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/les/utils"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 func expval(v uint64) utils.ExpiredValue {

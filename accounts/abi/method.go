@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/crypto"
 )
 
 // FunctionType represents different types of functions a contract might have.

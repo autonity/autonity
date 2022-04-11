@@ -24,7 +24,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/rlp"
 )
 
 // RLPTest is the JSON structure of a single RLP test.

@@ -1,9 +1,9 @@
 package core
 
 import (
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/metrics"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 	"math/big"
 	"testing"
 )

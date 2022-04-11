@@ -19,8 +19,8 @@ package eth
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/eth/protocols/eth"
-	"github.com/clearmatics/autonity/eth/protocols/snap"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/eth/protocols/snap"
 )
 
 // ethPeerInfo represents a short summary of the `eth` sub-protocol metadata known

@@ -21,7 +21,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Entry is implemented by known node record entry types.

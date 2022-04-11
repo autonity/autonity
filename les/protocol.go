@@ -23,12 +23,12 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/core/types"
-	"github.com/clearmatics/autonity/crypto"
-	vfc "github.com/clearmatics/autonity/les/vflux/client"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	vfc "github.com/autonity/autonity/les/vflux/client"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/rlp"
 )
 
 // Constants to match up protocol versions and messages

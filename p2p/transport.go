@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/bitutil"
-	"github.com/clearmatics/autonity/metrics"
-	"github.com/clearmatics/autonity/p2p/rlpx"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/p2p/rlpx"
+	"github.com/autonity/autonity/rlp"
 )
 
 const (

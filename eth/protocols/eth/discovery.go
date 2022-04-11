@@ -17,10 +17,10 @@
 package eth
 
 import (
-	"github.com/clearmatics/autonity/core"
-	"github.com/clearmatics/autonity/core/forkid"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/forkid"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/rlp"
 )
 
 // enrEntry is the ENR entry which advertises `eth` protocol on the discovery.

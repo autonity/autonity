@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/rlp"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/rlp"
 	"golang.org/x/crypto/sha3"
 )
 

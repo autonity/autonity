@@ -18,13 +18,13 @@ package discover
 
 import (
 	"crypto/ecdsa"
-	"github.com/clearmatics/autonity/common/mclock"
-	"github.com/clearmatics/autonity/p2p/enr"
+	"github.com/autonity/autonity/common/mclock"
+	"github.com/autonity/autonity/p2p/enr"
 	"net"
 
-	"github.com/clearmatics/autonity/log"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/p2p/netutil"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/netutil"
 )
 
 // UDPConn is a network connection on which discovery can operate.
@@ -37,16 +37,16 @@ type UDPConn interface {
 
 // Config holds settings for the discovery listener.
 type Config struct {
-    // These settings are required and configure the UDP listener:
-    PrivateKey *ecdsa.PrivateKey
+	// These settings are required and configure the UDP listener:
+	PrivateKey *ecdsa.PrivateKey
 
-    // These settings are optional:
-    NetRestrict  *netutil.Netlist   // list of allowed IP networks
-    Bootnodes    []*enode.Node      // list of bootstrap nodes
-    Unhandled    chan<- ReadPacket  // unhandled packets are sent on this channel
-    Log          log.Logger         // if set, log messages go here
-    ValidSchemes enr.IdentityScheme // allowed identity schemes
-    Clock        mclock.Clock
+	// These settings are optional:
+	NetRestrict  *netutil.Netlist   // list of allowed IP networks
+	Bootnodes    []*enode.Node      // list of bootstrap nodes
+	Unhandled    chan<- ReadPacket  // unhandled packets are sent on this channel
+	Log          log.Logger         // if set, log messages go here
+	ValidSchemes enr.IdentityScheme // allowed identity schemes
+	Clock        mclock.Clock
 }
 
 func (cfg Config) withDefaults() Config {

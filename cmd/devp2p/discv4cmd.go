@@ -22,12 +22,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearmatics/autonity/cmd/devp2p/internal/v4test"
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/discover"
-	"github.com/clearmatics/autonity/p2p/enode"
-	"github.com/clearmatics/autonity/params"
+	"github.com/autonity/autonity/cmd/devp2p/internal/v4test"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/discover"
+	"github.com/autonity/autonity/p2p/enode"
+	"github.com/autonity/autonity/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

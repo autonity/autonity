@@ -27,10 +27,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/common/bitutil"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"golang.org/x/crypto/sha3"
 )
 

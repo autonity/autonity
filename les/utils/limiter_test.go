@@ -20,7 +20,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 const (

@@ -19,7 +19,7 @@ package state
 import (
 	"math/big"
 
-	"github.com/clearmatics/autonity/common"
+	"github.com/autonity/autonity/common"
 )
 
 // journalEntry is a modification entry in the state change journal that can be

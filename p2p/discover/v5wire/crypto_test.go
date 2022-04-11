@@ -25,9 +25,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/common/hexutil"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/p2p/enode"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 func TestVector_ECDH(t *testing.T) {

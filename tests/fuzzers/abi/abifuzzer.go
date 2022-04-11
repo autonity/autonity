@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/clearmatics/autonity/accounts/abi"
+	"github.com/autonity/autonity/accounts/abi"
 	fuzz "github.com/google/gofuzz"
 )
 

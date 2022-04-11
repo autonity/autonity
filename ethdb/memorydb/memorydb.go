@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/ethdb"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/ethdb"
 )
 
 var (

@@ -27,7 +27,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearmatics/autonity/common/math"
+	"github.com/autonity/autonity/common/math"
 )
 
 type testEncoder struct {

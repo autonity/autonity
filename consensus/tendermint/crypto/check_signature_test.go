@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearmatics/autonity/core/types"
+	"github.com/autonity/autonity/core/types"
 
-	"github.com/clearmatics/autonity/common"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
 )
 
 func TestCheckValidatorSignature(t *testing.T) {

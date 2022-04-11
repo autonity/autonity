@@ -23,9 +23,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/internal/utesting"
-	"github.com/clearmatics/autonity/p2p/discover/v4wire"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/utesting"
+	"github.com/autonity/autonity/p2p/discover/v4wire"
 )
 
 const (

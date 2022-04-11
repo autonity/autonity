@@ -25,13 +25,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/clearmatics/autonity/accounts/abi"
-	"github.com/clearmatics/autonity/accounts/abi/bind"
-	"github.com/clearmatics/autonity/cmd/utils"
-	"github.com/clearmatics/autonity/common/compiler"
-	"github.com/clearmatics/autonity/crypto"
-	"github.com/clearmatics/autonity/internal/flags"
-	"github.com/clearmatics/autonity/log"
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/cmd/utils"
+	"github.com/autonity/autonity/common/compiler"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/flags"
+	"github.com/autonity/autonity/log"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -95,9 +95,9 @@ var (
 		Value: "go",
 	}
 	aliasFlag = cli.StringFlag{
-        Name:  "alias",
-        Usage: "Comma separated aliases for function and event renaming, e.g. original1=alias1, original2=alias2",
-    }
+		Name:  "alias",
+		Usage: "Comma separated aliases for function and event renaming, e.g. original1=alias1, original2=alias2",
+	}
 )
 
 func init() {

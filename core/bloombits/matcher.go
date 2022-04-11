@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearmatics/autonity/common/bitutil"
-	"github.com/clearmatics/autonity/crypto"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/crypto"
 )
 
 // bloomIndexes represents the bit indexes inside the bloom filter that belong
@@ -505,16 +505,16 @@ func (m *Matcher) distributor(dist chan *request, session *MatcherSession) {
 // MatcherSession is returned by a started matcher to be used as a terminator
 // for the actively running matching operation.
 type MatcherSession struct {
-    matcher *Matcher
+	matcher *Matcher
 
-    closer sync.Once     // Sync object to ensure we only ever close once
-    quit   chan struct{} // Quit channel to request pipeline termination
+	closer sync.Once     // Sync object to ensure we only ever close once
+	quit   chan struct{} // Quit channel to request pipeline termination
 
-    ctx     context.Context // Context used by the light client to abort filtering
-    err     error           // Global error to track retrieval failures deep in the chain
-    errLock sync.Mutex
+	ctx     context.Context // Context used by the light client to abort filtering
+	err     error           // Global error to track retrieval failures deep in the chain
+	errLock sync.Mutex
 
-    pend sync.WaitGroup
+	pend sync.WaitGroup
 }
 
 // Close stops the matching process and waits for all subprocesses to terminate
@@ -530,10 +530,10 @@ func (s *MatcherSession) Close() {
 
 // Error returns any failure encountered during the matching session.
 func (s *MatcherSession) Error() error {
-    s.errLock.Lock()
-    defer s.errLock.Unlock()
+	s.errLock.Lock()
+	defer s.errLock.Unlock()
 
-    return s.err
+	return s.err
 }
 
 // allocateRetrieval assigns a bloom bit index to a client process that can either
@@ -631,11 +631,11 @@ func (s *MatcherSession) Multiplex(batch int, wait time.Duration, mux chan chan 
 
 			result := <-request
 			if result.Error != nil {
-                s.errLock.Lock()
-                s.err = result.Error
-                s.errLock.Unlock()
-                s.Close()
-            }
+				s.errLock.Lock()
+				s.err = result.Error
+				s.errLock.Unlock()
+				s.Close()
+			}
 			s.deliverSections(result.Bit, result.Sections, result.Bitsets)
 		}
 	}
