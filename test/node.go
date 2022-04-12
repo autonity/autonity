@@ -368,7 +368,7 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.Validato
 
 // Genesis creates a genesis instance from the provided users.
 func Genesis(users []*gengen.Validator) (*core.Genesis, error) {
-	g, err := gengen.NewGenesis(1, users)
+	g, err := gengen.NewGenesis(users)
 	if err != nil {
 		return nil, err
 	}
