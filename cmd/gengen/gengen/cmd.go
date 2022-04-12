@@ -16,15 +16,13 @@ import (
 )
 
 const (
-	minGasPriceFlag = "min-gas-price"
-	validatorFlag   = "validator"
-	outFileFlag     = "out-file"
+	validatorFlag = "validator"
+	outFileFlag   = "out-file"
 )
 
 var (
-	minGasPrice uint64
-	validators  []string
-	outFile     string
+	validators []string
+	outFile    string
 
 	// Note in order to achieve a consistent output formatting for the flag
 	// descriptions we need to de-indent lines such that they have no leading
@@ -36,15 +34,6 @@ var (
 
 	helpDescription = `
 Help for gengen`
-
-	minGasPriceDescription = `
-A 64 bit non negative integer that sets the minimum gas price in wei (1 ETH is
-10^18 wei) for submitting transactions to the network. Transactions submitted
-with a gas price lower than this will be ignored. This is what will determine
-the minimum cost for users to interact with the network. And consequently how
-much gas validators will receive for running the network. Depending on how
-GasLimit is set there may or may not be an incentive to submit transactions
-with higher gas prices than the minimum.`
 
 	validatorDescription = `
 Specifies the parameters for a user. Can be specified multiple times, once for
@@ -58,7 +47,7 @@ negative 256 bit integer value. This can be specified with decimal, scientific
 or hex notation, the max value specified in scientific notation would be
 1.1579209e77.
 
-User type - One of p (participant), s (stakeholder) or v (validator).
+User type - One of p (participant) or v (validator).
 
 Stake - The stake this user holds in the system, a non negative 64 bit integer.
 This can be specified with decimal, scientific or hex notation, the max value
@@ -76,7 +65,7 @@ not exist then a private secp256k1 ecdsa key will be generated and stored with
 hex encoding at the given path.
 
 So an example of a user string could be "10,v,1,:3030,key1" or
-"8,s,1,133.433.654.777:3030,key2". An example of an invalid user string would
+"8,v,1,133.433.654.777:3030,key2". An example of an invalid user string would
 be "10,p,1,:7070,key3" since the stake value is 1 and participants cannot have
 stake.`
 
@@ -100,7 +89,7 @@ func NewCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "gengen",
 		Short:   gengenDescription,
-		Example: `./gengen --min-gas-price 10 --validator 1e12,v,1,:6789 --validator 1e12,v,1,:6799 --validator-keys validatorkeys`,
+		Example: `./gengen --validator 1e12,v,1,:6789,key1 --validator 1e12,v,1,:6799,key2 --out-file genesis.json`,
 		RunE:    generateGenesis,
 	}
 
@@ -113,14 +102,14 @@ func NewCmd() *cobra.Command {
 
 	// We panic on making these flags required since the error returned
 	// indicates a programming error.
-	flags.Uint64Var(&minGasPrice, minGasPriceFlag, 0, minGasPriceDescription)
+	/*flags.Uint64Var(&minGasPrice, minGasPriceFlag, 0, minGasPriceDescription)
 	err := rootCmd.MarkPersistentFlagRequired("min-gas-price")
 	if err != nil {
 		panic(err)
 	}
-
+	*/
 	flags.StringArrayVar(&validators, validatorFlag, nil, validatorDescription)
-	err = rootCmd.MarkPersistentFlagRequired("validator")
+	err := rootCmd.MarkPersistentFlagRequired("validator")
 	if err != nil {
 		panic(err)
 	}
@@ -141,7 +130,7 @@ func generateGenesis(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	genesis, err := NewGenesis(minGasPrice, parsed)
+	genesis, err := NewGenesis(parsed)
 	if err != nil {
 		return fmt.Errorf("failed to generate genesis: %v", err)
 	}
@@ -212,12 +201,21 @@ func writeKeys(validators []*Validator) error {
 }
 
 // writeGenesis writes a json encoded representation of genesis to path.
-func writeGenesis(path string, genesis *core.Genesis) error {
+func writeGenesis(path string, genesis *core.Genesis) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create genesis file: %v", err)
 	}
-	defer f.Close()
+
+	defer func() {
+		cerr := f.Close()
+		if err == nil {
+			// if there was no error in execution update err
+			// by return value from close
+			err = cerr
+		}
+	}()
+
 	e := json.NewEncoder(f)
 	e.SetIndent("", "  ")
 	err = e.Encode(genesis)

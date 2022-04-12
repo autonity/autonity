@@ -52,6 +52,11 @@ func (ac *AutonityContractGenesis) Prepare() error {
 	if reflect.DeepEqual(ac.Operator, common.Address{}) {
 		ac.Operator = acdefault.Governance()
 	}
+
+	if ac.MaxCommitteeSize == 0 {
+		return errors.New("Invalid MaxCommitteSize")
+	}
+
 	if len(ac.GetValidators()) == 0 {
 		return errors.New("no initial validators")
 	}
