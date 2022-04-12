@@ -54,7 +54,7 @@ func (ac *AutonityContractGenesis) Prepare() error {
 	}
 
 	if ac.MaxCommitteeSize == 0 {
-		return errors.New("Invalid MaxCommitteSize")
+		return errors.New("invalid max committee size")
 	}
 
 	if len(ac.GetValidators()) == 0 {
