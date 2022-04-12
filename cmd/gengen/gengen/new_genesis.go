@@ -40,7 +40,7 @@ type Validator struct {
 // generated keys will be returned. See gengen command help for a description
 // of userStrings and userKeys, userKeys must either have a key for each user
 // or be nil.
-func NewGenesis(minGasPrice uint64, validators []*Validator) (*core.Genesis, error) {
+func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 	if len(validators) < 1 {
 		return nil, fmt.Errorf("at least one user must be specified")
 	}
@@ -66,8 +66,8 @@ func NewGenesis(minGasPrice uint64, validators []*Validator) (*core.Genesis, err
 		// hexutil.Bytes which marshals nil to '0x' and '0x' subsequently
 		// unmarshals to an empty slice.
 		ExtraData: []byte{},
-
-		GasLimit: math.MaxUint64,
+		GasLimit:  10000000000,
+		BaseFee:   big.NewInt(15000000000),
 
 		// Autonity relies on the difficulty always being 1 so that we can
 		// compare chain length by comparing total difficulty during peer
@@ -86,10 +86,19 @@ func NewGenesis(minGasPrice uint64, validators []*Validator) (*core.Genesis, err
 			ConstantinopleBlock: big.NewInt(0),
 			PetersburgBlock:     big.NewInt(0),
 			IstanbulBlock:       big.NewInt(0),
+			MuirGlacierBlock:    big.NewInt(0),
+			BerlinBlock:         big.NewInt(0),
+			LondonBlock:         big.NewInt(0),
+			ArrowGlacierBlock:   big.NewInt(0),
 			AutonityContractConfig: &params.AutonityContractGenesis{
-				MinBaseFee: minGasPrice,
-				Operator:   *operatorAddress,
-				Validators: genesisValidators,
+				MaxCommitteeSize: 21,
+				BlockPeriod:      1,
+				UnbondingPeriod:  120,
+				EpochPeriod:      30,
+				DelegationRate:   1000,
+				MinBaseFee:       10000000000,
+				Operator:         *operatorAddress,
+				Validators:       genesisValidators,
 			},
 		},
 	}
