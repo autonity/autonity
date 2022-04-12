@@ -102,12 +102,6 @@ func NewCmd() *cobra.Command {
 
 	// We panic on making these flags required since the error returned
 	// indicates a programming error.
-	/*flags.Uint64Var(&minGasPrice, minGasPriceFlag, 0, minGasPriceDescription)
-	err := rootCmd.MarkPersistentFlagRequired("min-gas-price")
-	if err != nil {
-		panic(err)
-	}
-	*/
 	flags.StringArrayVar(&validators, validatorFlag, nil, validatorDescription)
 	err := rootCmd.MarkPersistentFlagRequired("validator")
 	if err != nil {
