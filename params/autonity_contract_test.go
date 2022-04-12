@@ -22,7 +22,8 @@ func TestPrepareAutonityContract(t *testing.T) {
 	node2 := enode.NewV4(&key2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
 
 	contractConfig := AutonityContractGenesis{
-		Operator: common.HexToAddress("0xff"),
+		Operator:         common.HexToAddress("0xff"),
+		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
 				Treasury:    common.Address{},
@@ -43,7 +44,8 @@ func TestPrepareAutonityContract(t *testing.T) {
 
 func TestPrepareAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Operator: common.HexToAddress("0xff"),
+		Operator:         common.HexToAddress("0xff"),
+		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
 				Treasury: common.Address{},
@@ -58,8 +60,8 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 	t.Skip("Do we need it?")
 	address := common.HexToAddress("0x123")
 	contractConfig := AutonityContractGenesis{
-		Operator: common.HexToAddress("0xff"),
-
+		Operator:         common.HexToAddress("0xff"),
+		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
 				Address:     &address,
@@ -74,12 +76,14 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 
 func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Validators: []*Validator{},
+		MaxCommitteeSize: 21,
+		Validators:       []*Validator{},
 	}
 	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
 }
 func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	contractConfig := &AutonityContractGenesis{
+		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
 				Treasury:    common.Address{},
@@ -90,4 +94,12 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	}
 	require.NoError(t, contractConfig.Prepare())
 	assert.NotNil(t, contractConfig.Validators[0].Address, "Failed to add user address")
+}
+
+func TestPrepareAutonityContract_CommitteSizeNotProvided_Fail(t *testing.T) {
+	contractConfig := AutonityContractGenesis{
+		Operator:   common.HexToAddress("0xff"),
+		Validators: []*Validator{},
+	}
+	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
 }
