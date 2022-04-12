@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	validValidators = []string{"1e12,v,1,:6789,key1", "1e12,s,1,:6799,key2", "1e12,p,1,:6780,key3"}
+	validValidators = []string{"1e12,v,1,:6789,key1", "1e12,p,1,:6780,key3"}
 )
 
 // This test runs the command and checks that the output is can be json
@@ -49,8 +49,6 @@ func TestGenesisCommand(t *testing.T) {
 
 	args := []string{
 		"",
-		"--" + minGasPriceFlag,
-		"10",
 		"--" + validatorFlag,
 		validator1,
 		"--" + validatorFlag,
@@ -84,7 +82,7 @@ func TestEncodeDecodeConsistency(t *testing.T) {
 	k, ok := validators[0].Key.(*ecdsa.PrivateKey)
 	require.True(t, ok, "key should be an *ecdsa.PrivateKey")
 	validators[0].Key = &k.PublicKey
-	g, err := NewGenesis(10, validators)
+	g, err := NewGenesis(validators)
 	require.NoError(t, err)
 	encoded, err := json.Marshal(g)
 	require.NoError(t, err)
@@ -97,7 +95,7 @@ func TestEncodeDecodeConsistency(t *testing.T) {
 
 func TestGenesisCreationErrors(t *testing.T) {
 	// nil validators
-	_, err := NewGenesis(10, nil)
+	_, err := NewGenesis(nil)
 	assert.Error(t, err, "no validators provided")
 
 	// Validator with nil key
@@ -105,7 +103,7 @@ func TestGenesisCreationErrors(t *testing.T) {
 	require.NoError(t, err)
 	validators[0].Key = nil
 
-	_, err = NewGenesis(10, validators)
+	_, err = NewGenesis(validators)
 	assert.Error(t, err, "validator had nil key")
 
 	// Validator with key of invalid type
@@ -113,7 +111,7 @@ func TestGenesisCreationErrors(t *testing.T) {
 	require.NoError(t, err)
 	validators[0].Key = "I am not a key"
 
-	_, err = NewGenesis(10, validators)
+	_, err = NewGenesis(validators)
 	assert.Error(t, err, "validator had invalid type of key")
 
 	// Invalid validator type
