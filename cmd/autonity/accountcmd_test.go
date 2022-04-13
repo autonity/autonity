@@ -157,31 +157,6 @@ Repeat password: {{.InputLine "foobar2"}}
 `)
 }
 
-func TestWalletImport(t *testing.T) {
-	autonity := runAutonity(t, "wallet", "import", "--lightkdf", "testdata/guswallet.json")
-	defer autonity.ExpectExit()
-	autonity.Expect(`
-!! Unsupported terminal, password will be echoed.
-Password: {{.InputLine "foo"}}
-Address: {d4584b5f6229b7be90727b0fc8c6b91bb427821f}
-`)
-
-	files, err := ioutil.ReadDir(filepath.Join(autonity.Datadir, "keystore"))
-	if len(files) != 1 {
-		t.Errorf("expected one key file in keystore directory, found %d files (error: %v)", len(files), err)
-	}
-}
-
-func TestWalletImportBadPassword(t *testing.T) {
-	autonity := runAutonity(t, "wallet", "import", "--lightkdf", "testdata/guswallet.json")
-	defer autonity.ExpectExit()
-	autonity.Expect(`
-!! Unsupported terminal, password will be echoed.
-Password: {{.InputLine "wrong"}}
-Fatal: could not decrypt key with given password
-`)
-}
-
 func TestUnlockFlag(t *testing.T) {
 	datadir, jsonFile := tmpDatadirWithKeystoreAndGenesisFile(t)
 	defer os.RemoveAll(datadir)
