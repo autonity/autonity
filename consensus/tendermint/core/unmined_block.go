@@ -27,26 +27,26 @@ func (c *core) storeUnminedBlockMsg(ctx context.Context, unminedBlock *types.Blo
 func (c *core) updatePendingUnminedBlocks(ctx context.Context, unminedBlock *types.Block) {
 	c.pendingUnminedBlocksMu.Lock()
 	defer c.pendingUnminedBlocksMu.Unlock()
-
-	// Get all heights from c.pendingUnminedBlocks and remove previous height unmined blocks
-	var heights = make([]uint64, 0)
-	for h := range c.pendingUnminedBlocks {
-		heights = append(heights, h)
-	}
-	for _, ub := range heights {
-		if ub < c.Height().Uint64() {
-			delete(c.pendingUnminedBlocks, ub)
-		}
-	}
-
-	if c.isWaitingForUnminedBlock {
-		select {
-		case c.pendingUnminedBlockCh <- unminedBlock:
-		case <-ctx.Done():
-		}
-		c.isWaitingForUnminedBlock = false
-	}
 	c.pendingUnminedBlocks[unminedBlock.NumberU64()] = unminedBlock
+	if c.isWaitingForUnminedBlock {
+		// if mainEventLoop is blocking at startRound() as a proposer waiting for the unMinedBlock of a height,
+		//get the corresponding block from buffer, and forward the one that startRound() is waiting for.
+		waitForBlock := c.pendingUnminedBlocks[c.Height().Uint64()]
+		if waitForBlock != nil {
+			select {
+			case c.pendingUnminedBlockCh <- unminedBlock:
+			case <-ctx.Done():
+			}
+			c.isWaitingForUnminedBlock = false
+		}
+	}
+
+	// release buffered un-mined blocks before the height of waitForBlock
+	for height := range c.pendingUnminedBlocks {
+		if height < c.Height().Uint64() {
+			delete(c.pendingUnminedBlocks, height)
+		}
+	}
 }
 
 func (c *core) getUnminedBlock() *types.Block {
@@ -61,7 +61,6 @@ func (c *core) getUnminedBlock() *types.Block {
 
 	c.isWaitingForUnminedBlock = true
 	return nil
-
 }
 
 // check request step
