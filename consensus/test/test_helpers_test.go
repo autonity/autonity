@@ -87,7 +87,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
-	genesis.GasLimit = 30_000_000
+	genesis.GasLimit = 200_000_000
 	genesis.GasUsed = 0
 	genesis.Timestamp = 0
 	genesis.Nonce = 0

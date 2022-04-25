@@ -169,6 +169,7 @@ func (t *transactor) unbond(validator common.Address, amount *big.Int) (*types.T
 func (t *transactor) upgradeContract(byteCode string, abi string, version string) (*types.Transaction, error) {
 	var msg *types.Transaction
 	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
+		opts.GasLimit = 100000000
 		tx, e := instance.UpgradeContract(opts, byteCode, abi, version)
 		msg = tx
 		return e

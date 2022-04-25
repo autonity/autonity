@@ -594,6 +594,7 @@ func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode) {
 func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	n := netNode{
 		privateKey: privateKey,
+		address:    crypto.PubkeyToAddress(privateKey.PublicKey),
 	}
 
 	//port
@@ -611,7 +612,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	n.listener = append(n.listener, listener)
 
 	port := strings.Split(n.listener[0].Addr().String(), ":")[1]
-	n.address = fmt.Sprintf("%s:%s", addr, port)
+	n.host = fmt.Sprintf("%s:%s", addr, port)
 	n.port, _ = strconv.Atoi(port)
 
 	rpcListener := n.listener[1]
@@ -628,7 +629,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 
 	n.url = enode.V4DNSUrl(
 		n.privateKey.PublicKey,
-		n.address,
+		n.host,
 		n.port,
 		n.port,
 	)

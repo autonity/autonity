@@ -51,7 +51,8 @@ type testNode struct {
 type netNode struct {
 	listener   []net.Listener
 	privateKey *ecdsa.PrivateKey
-	address    string
+	host       string
+	address    common.Address
 	port       int
 	url        string
 	rpcPort    int
