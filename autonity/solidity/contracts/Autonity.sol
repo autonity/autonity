@@ -121,6 +121,7 @@ contract Autonity is IERC20 {
     Config memory _config
     ) {
         config = _config;
+        deployer = msg.sender;
 
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
@@ -134,6 +135,7 @@ contract Autonity is IERC20 {
             _validators[i].liquidSupply = 0;
             _validators[i].liquidContract = Liquid(address(0));
             _validators[i].bondedStake = 0;
+            _validators[i].selfBondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].state = ValidatorState.enabled;
             // Autonity doesn't handle voting power over 64 bits.
@@ -473,6 +475,13 @@ contract Autonity is IERC20 {
         Getters
     ============================================================
     */
+
+    /**
+    * @notice Returns the last epoch's end block height.
+    */
+    function getLastEpochBlock() external view returns (uint256) {
+        return lastEpochBlock;
+    }
 
     /**
     * @notice Returns the current contract version.

@@ -162,27 +162,26 @@ jobs:
 
   # contract-tests runs our suite of truffle tests against the autonity
   # contract.
+  contract-tests:
+    runs-on: ubuntu-latest
+    needs: prepare-cache
+    steps:
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.0.0'
 
-  #  contract-tests:
-  #    runs-on: ubuntu-latest
-  #    needs: prepare-cache
-  #    steps:
-  #      - uses: actions/setup-node@v1
-  #        with:
-  #          node-version: '10.19.0'
-  #
-  #      - uses: actions/checkout@v2
-  #
-  #      - name: Go cache
-  #        uses: actions/cache@v2
-  #        with:
-  #          path: |
-  #            ${{ env.GO_CACHE }}
-  #            ${{ env.GO_MODULES_CACHE }}
-  #          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-  #
-  #      - name: Run contract tests
-  #        run: make test-contracts
+      - uses: actions/checkout@v2
+
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Run contract tests
+        run: make test-contracts
 
   # These are the end to end tests run with a block time of 1 second, they are
   # only run on merges to develop.

@@ -20,14 +20,14 @@ $AUTONITY \
   --nodekey $NODEKEY \
   --keystore $KEYSTORE \
   --ws \
-  --wsaddr $WS_ADDR \
-  --wsport $WS_PORT \
-  --wsapi "$WS_API" \
-  --rpc \
-  --rpcaddr $RPC_ADDR \
-  --rpcport $RPC_PORT \
-  --rpcapi "$RPC_API" \
-  --rpccorsdomain "*" \
+  --ws.addr $WS_ADDR \
+  --ws.port $WS_PORT \
+  --ws.api "$WS_API" \
+  --http \
+  --http.addr $RPC_ADDR \
+  --http.port $RPC_PORT \
+  --http.api "$RPC_API" \
+  --http.corsdomain "*" \
   --syncmode "full" \
   --mine \
   --allow-insecure-unlock \

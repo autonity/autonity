@@ -1,8 +1,8 @@
 const Autonity = artifacts.require("Autonity.sol");
 
 
-const deployContract = async (accounts, enodes, userTypes, stakes, sysOperator, minGasPrice, committeeSize, version, msgSender) => {
-    return Autonity.new(accounts, enodes, userTypes, stakes, sysOperator, minGasPrice, committeeSize, version, msgSender);
+const deployContract = async (validators, config, msgSender) => {
+    return Autonity.new(validators, config, msgSender);
 };
 
 

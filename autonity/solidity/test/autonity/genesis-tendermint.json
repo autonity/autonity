@@ -1,33 +1,32 @@
 {
   "config": {
-    "homesteadBlock": 0,
-    "eip150Block": 0,
-    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0,
-    "constantinopleBlock": 0,
-    "petersburgBlock": 0,
-    "istanbulBlock": 0,
-    "tendermint": {
-      "policy": 0,
-      "block-period": 0
-    },
-    "chainId": 1488,
-    "autonityContract": {
+    "chainId": 1,
+    "autonity": {
       "bytecode": "",
       "abi": "",
-      "minGasPrice": 5000,
+      "minBaseFee": 5000,
+      "delegationRate": 1000,
+      "blockPeriod": 1,
+      "maxCommitteeSize": 7,
+      "unbondingPeriod": 120,
+      "epochPeriod": 30,
+      "treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
+      "treasuryFee": 150000000,
       "operator": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
-      "users": [
-        { "enode": "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303", "type": "validator", "stake": 10000 }
+      "validators": [
+        {
+          "enode": "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+          "treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
+          "bondedStake": 10000
+        }
       ]
     }
   },
   "nonce": "0x0",
   "timestamp": "0x0",
-  "gasLimit": "0xffffffff",
-  "difficulty": "0x1",
+  "baseFee": "15000000000",
+  "gasLimit": "0xffffffffffff",
+  "difficulty": "0x0",
   "coinbase": "0x0000000000000000000000000000000000000000",
   "number": "0x0",
   "gasUsed": "0x0",
