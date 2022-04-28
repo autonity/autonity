@@ -592,9 +592,11 @@ contract Autonity is IERC20 {
         revert("There is no validator left in the network");
     }
 
-
     // lastId not included
     function getBondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
+        // todo: limit the range, otherwise client might rise attack to the memory resource scheduling by [0, 9999999)
+        // todo: it not only lift memory allocation but also move empty items from the storage, we'd better to respect
+        // the total length of bonding sets.
         Staking[] memory _results = new Staking[](lastId - startId);
         for (uint256 i = 0; i < lastId - startId; i++) {
             _results[i] = bondingMap[startId + i];
@@ -604,6 +606,9 @@ contract Autonity is IERC20 {
 
     function getUnbondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
         Staking[] memory _results = new Staking[](lastId - startId);
+        // todo: limit the range, otherwise client might rise attack to the memory resource scheduling by [0, 9999999)
+        // todo: it not only lift memory allocation but also move empty items from the storage, we'd better to respect
+        // the total length of bonding sets.
         for (uint256 i = 0; i < lastId - startId; i++) {
             _results[i] = unbondingMap[startId + i];
         }

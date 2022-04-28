@@ -4,6 +4,7 @@
 package test
 
 import (
+	"errors"
 	"math/big"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 
 // Reference imports to suppress errors if they are not otherwise used.
 var (
+	_ = errors.New
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
@@ -30,6 +32,20 @@ var (
 type AutonityCommitteeMember struct {
 	Addr        common.Address
 	VotingPower *big.Int
+}
+
+// AutonityConfig is an auto generated low-level Go binding around an user-defined struct.
+type AutonityConfig struct {
+	OperatorAccount common.Address
+	TreasuryAccount common.Address
+	TreasuryFee     *big.Int
+	MinBaseFee      *big.Int
+	DelegationRate  *big.Int
+	EpochPeriod     *big.Int
+	UnbondingPeriod *big.Int
+	CommitteeSize   *big.Int
+	ContractVersion string
+	BlockPeriod     *big.Int
 }
 
 // AutonityStaking is an auto generated low-level Go binding around an user-defined struct.
@@ -51,13 +67,18 @@ type AutonityValidator struct {
 	TotalSlashed      *big.Int
 	LiquidContract    common.Address
 	LiquidSupply      *big.Int
-	Extra             string
 	RegistrationBlock *big.Int
 	State             uint8
 }
 
+// AutonityMetaData contains all meta data concerning the Autonity contract.
+var AutonityMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"bondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfBondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalSlashed\",\"type\":\"uint256\"},{\"internalType\":\"contractLiquid\",\"name\":\"liquidContract\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidSupply\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"registrationBlock\",\"type\":\"uint256\"},{\"internalType\":\"enumAutonity.ValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"internalType\":\"structAutonity.Validator[]\",\"name\":\"_validators\",\"type\":\"tuple[]\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"operatorAccount\",\"type\":\"address\"},{\"internalType\":\"addresspayable\",\"name\":\"treasuryAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"treasuryFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minBaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"delegationRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"epochPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"committeeSize\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"contractVersion\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"blockPeriod\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Config\",\"name\":\"_config\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"BurnedStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"version\",\"type\":\"string\"}],\"name\":\"ContractUpgraded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasPrice\",\"type\":\"uint256\"}],\"name\":\"MinimumBaseFeeUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"MintedStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"liquidContract\",\"type\":\"address\"}],\"name\":\"RegisteredValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"RemovedValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Rewarded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"bond\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"computeCommittee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"config\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"operatorAccount\",\"type\":\"address\"},{\"internalType\":\"addresspayable\",\"name\":\"treasuryAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"treasuryFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minBaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"delegationRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"epochPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"committeeSize\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"contractVersion\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"blockPeriod\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"deployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochReward\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochTotalBondedStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"finalize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"lastId\",\"type\":\"uint256\"}],\"name\":\"getBondingReq\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"delegator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegatee\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Staking[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommittee\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommitteeEnodes\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMaxCommitteeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinimumBaseFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewContract\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOperator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"height\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"}],\"name\":\"getProposer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"lastId\",\"type\":\"uint256\"}],\"name\":\"getUnbondingReq\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"delegator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegatee\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Staking[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"getValidator\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"bondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfBondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalSlashed\",\"type\":\"uint256\"},{\"internalType\":\"contractLiquid\",\"name\":\"liquidContract\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidSupply\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"registrationBlock\",\"type\":\"uint256\"},{\"internalType\":\"enumAutonity.ValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"internalType\":\"structAutonity.Validator\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"headBondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"headUnbondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastEpochBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"}],\"name\":\"registerValidator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_size\",\"type\":\"uint256\"}],\"name\":\"setCommitteeSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_period\",\"type\":\"uint256\"}],\"name\":\"setEpochPeriod\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_price\",\"type\":\"uint256\"}],\"name\":\"setMinimumBaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setOperatorAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setTreasuryAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_treasuryFee\",\"type\":\"uint256\"}],\"name\":\"setTreasuryFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_period\",\"type\":\"uint256\"}],\"name\":\"setUnbondingPeriod\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"tailBondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"tailUnbondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalRedistributed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unbond\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_bytecode\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_abi\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_version\",\"type\":\"string\"}],\"name\":\"upgradeContract\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+}
+
 // AutonityABI is the input ABI used to generate the binding from.
-const AutonityABI = "[{\"inputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"bondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfBondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalSlashed\",\"type\":\"uint256\"},{\"internalType\":\"contractLiquid\",\"name\":\"liquidContract\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidSupply\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"extra\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"registrationBlock\",\"type\":\"uint256\"},{\"internalType\":\"enumAutonity.ValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"internalType\":\"structAutonity.Validator[]\",\"name\":\"_validators\",\"type\":\"tuple[]\"},{\"internalType\":\"address\",\"name\":\"_operatorAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_minGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_committeeSize\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_contractVersion\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"_epochPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_epochId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_lastEpochBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_unbondingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"addresspayable\",\"name\":\"_treasuryAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_treasuryFee\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"BurnedStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"version\",\"type\":\"string\"}],\"name\":\"ContractUpgraded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasPrice\",\"type\":\"uint256\"}],\"name\":\"MinimumGasPriceUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"MintedStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"liquidContract\",\"type\":\"address\"}],\"name\":\"RegisteredValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"RemovedValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Rewarded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"blockPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"bond\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"committeeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"computeCommittee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"deployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"disableValidator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochReward\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochTotalBondedStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"finalize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"lastId\",\"type\":\"uint256\"}],\"name\":\"getBondingReq\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"delegator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegatee\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Staking[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommittee\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommitteeEnodes\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMaxCommitteeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinimumGasPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewContract\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"height\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"}],\"name\":\"getProposer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getState\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"_operatorAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_minGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_committeeSize\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_contractVersion\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"lastId\",\"type\":\"uint256\"}],\"name\":\"getUnbondingReq\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"delegator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegatee\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Staking[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"getValidator\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"bondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfBondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalSlashed\",\"type\":\"uint256\"},{\"internalType\":\"contractLiquid\",\"name\":\"liquidContract\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidSupply\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"extra\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"registrationBlock\",\"type\":\"uint256\"},{\"internalType\":\"enumAutonity.ValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"internalType\":\"structAutonity.Validator\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"headBondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"headUnbondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastEpochBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"operatorAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"_commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_extra\",\"type\":\"string\"}],\"name\":\"registerValidator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"size\",\"type\":\"uint256\"}],\"name\":\"setCommitteeSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_price\",\"type\":\"uint256\"}],\"name\":\"setMinimumGasPrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"tailBondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"tailUnbondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalRedistributed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"treasuryAccount\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"treasuryFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unbond\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unbondingPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_bytecode\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_abi\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_version\",\"type\":\"string\"}],\"name\":\"upgradeContract\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]"
+// Deprecated: Use AutonityMetaData.ABI instead.
+var AutonityABI = AutonityMetaData.ABI
 
 // Autonity is an auto generated Go binding around an Ethereum contract.
 type Autonity struct {
@@ -263,66 +284,89 @@ func (_Autonity *AutonityCallerSession) BalanceOf(_addr common.Address) (*big.In
 	return _Autonity.Contract.BalanceOf(&_Autonity.CallOpts, _addr)
 }
 
-// BlockPeriod is a free data retrieval call binding the contract method 0xaf0dfd3e.
+// Config is a free data retrieval call binding the contract method 0x79502c55.
 //
-// Solidity: function blockPeriod() view returns(uint256)
-func (_Autonity *AutonityCaller) BlockPeriod(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function config() view returns(address operatorAccount, address treasuryAccount, uint256 treasuryFee, uint256 minBaseFee, uint256 delegationRate, uint256 epochPeriod, uint256 unbondingPeriod, uint256 committeeSize, string contractVersion, uint256 blockPeriod)
+func (_Autonity *AutonityCaller) Config(opts *bind.CallOpts) (struct {
+	OperatorAccount common.Address
+	TreasuryAccount common.Address
+	TreasuryFee     *big.Int
+	MinBaseFee      *big.Int
+	DelegationRate  *big.Int
+	EpochPeriod     *big.Int
+	UnbondingPeriod *big.Int
+	CommitteeSize   *big.Int
+	ContractVersion string
+	BlockPeriod     *big.Int
+}, error) {
 	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "blockPeriod")
+	err := _Autonity.contract.Call(opts, &out, "config")
 
+	outstruct := new(struct {
+		OperatorAccount common.Address
+		TreasuryAccount common.Address
+		TreasuryFee     *big.Int
+		MinBaseFee      *big.Int
+		DelegationRate  *big.Int
+		EpochPeriod     *big.Int
+		UnbondingPeriod *big.Int
+		CommitteeSize   *big.Int
+		ContractVersion string
+		BlockPeriod     *big.Int
+	})
 	if err != nil {
-		return *new(*big.Int), err
+		return *outstruct, err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.OperatorAccount = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.TreasuryAccount = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
+	outstruct.TreasuryFee = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.MinBaseFee = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.DelegationRate = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.EpochPeriod = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	outstruct.UnbondingPeriod = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
+	outstruct.CommitteeSize = *abi.ConvertType(out[7], new(*big.Int)).(**big.Int)
+	outstruct.ContractVersion = *abi.ConvertType(out[8], new(string)).(*string)
+	outstruct.BlockPeriod = *abi.ConvertType(out[9], new(*big.Int)).(**big.Int)
 
-	return out0, err
-
-}
-
-// BlockPeriod is a free data retrieval call binding the contract method 0xaf0dfd3e.
-//
-// Solidity: function blockPeriod() view returns(uint256)
-func (_Autonity *AutonitySession) BlockPeriod() (*big.Int, error) {
-	return _Autonity.Contract.BlockPeriod(&_Autonity.CallOpts)
-}
-
-// BlockPeriod is a free data retrieval call binding the contract method 0xaf0dfd3e.
-//
-// Solidity: function blockPeriod() view returns(uint256)
-func (_Autonity *AutonityCallerSession) BlockPeriod() (*big.Int, error) {
-	return _Autonity.Contract.BlockPeriod(&_Autonity.CallOpts)
-}
-
-// CommitteeSize is a free data retrieval call binding the contract method 0x9cf4364b.
-//
-// Solidity: function committeeSize() view returns(uint256)
-func (_Autonity *AutonityCaller) CommitteeSize(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "committeeSize")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
+	return *outstruct, err
 
 }
 
-// CommitteeSize is a free data retrieval call binding the contract method 0x9cf4364b.
+// Config is a free data retrieval call binding the contract method 0x79502c55.
 //
-// Solidity: function committeeSize() view returns(uint256)
-func (_Autonity *AutonitySession) CommitteeSize() (*big.Int, error) {
-	return _Autonity.Contract.CommitteeSize(&_Autonity.CallOpts)
+// Solidity: function config() view returns(address operatorAccount, address treasuryAccount, uint256 treasuryFee, uint256 minBaseFee, uint256 delegationRate, uint256 epochPeriod, uint256 unbondingPeriod, uint256 committeeSize, string contractVersion, uint256 blockPeriod)
+func (_Autonity *AutonitySession) Config() (struct {
+	OperatorAccount common.Address
+	TreasuryAccount common.Address
+	TreasuryFee     *big.Int
+	MinBaseFee      *big.Int
+	DelegationRate  *big.Int
+	EpochPeriod     *big.Int
+	UnbondingPeriod *big.Int
+	CommitteeSize   *big.Int
+	ContractVersion string
+	BlockPeriod     *big.Int
+}, error) {
+	return _Autonity.Contract.Config(&_Autonity.CallOpts)
 }
 
-// CommitteeSize is a free data retrieval call binding the contract method 0x9cf4364b.
+// Config is a free data retrieval call binding the contract method 0x79502c55.
 //
-// Solidity: function committeeSize() view returns(uint256)
-func (_Autonity *AutonityCallerSession) CommitteeSize() (*big.Int, error) {
-	return _Autonity.Contract.CommitteeSize(&_Autonity.CallOpts)
+// Solidity: function config() view returns(address operatorAccount, address treasuryAccount, uint256 treasuryFee, uint256 minBaseFee, uint256 delegationRate, uint256 epochPeriod, uint256 unbondingPeriod, uint256 committeeSize, string contractVersion, uint256 blockPeriod)
+func (_Autonity *AutonityCallerSession) Config() (struct {
+	OperatorAccount common.Address
+	TreasuryAccount common.Address
+	TreasuryFee     *big.Int
+	MinBaseFee      *big.Int
+	DelegationRate  *big.Int
+	EpochPeriod     *big.Int
+	UnbondingPeriod *big.Int
+	CommitteeSize   *big.Int
+	ContractVersion string
+	BlockPeriod     *big.Int
+}, error) {
+	return _Autonity.Contract.Config(&_Autonity.CallOpts)
 }
 
 // Deployer is a free data retrieval call binding the contract method 0xd5f39488.
@@ -385,37 +429,6 @@ func (_Autonity *AutonitySession) EpochID() (*big.Int, error) {
 // Solidity: function epochID() view returns(uint256)
 func (_Autonity *AutonityCallerSession) EpochID() (*big.Int, error) {
 	return _Autonity.Contract.EpochID(&_Autonity.CallOpts)
-}
-
-// EpochPeriod is a free data retrieval call binding the contract method 0xb5b7a184.
-//
-// Solidity: function epochPeriod() view returns(uint256)
-func (_Autonity *AutonityCaller) EpochPeriod(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "epochPeriod")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// EpochPeriod is a free data retrieval call binding the contract method 0xb5b7a184.
-//
-// Solidity: function epochPeriod() view returns(uint256)
-func (_Autonity *AutonitySession) EpochPeriod() (*big.Int, error) {
-	return _Autonity.Contract.EpochPeriod(&_Autonity.CallOpts)
-}
-
-// EpochPeriod is a free data retrieval call binding the contract method 0xb5b7a184.
-//
-// Solidity: function epochPeriod() view returns(uint256)
-func (_Autonity *AutonityCallerSession) EpochPeriod() (*big.Int, error) {
-	return _Autonity.Contract.EpochPeriod(&_Autonity.CallOpts)
 }
 
 // EpochReward is a free data retrieval call binding the contract method 0x1604e416.
@@ -604,12 +617,12 @@ func (_Autonity *AutonityCallerSession) GetMaxCommitteeSize() (*big.Int, error) 
 	return _Autonity.Contract.GetMaxCommitteeSize(&_Autonity.CallOpts)
 }
 
-// GetMinimumGasPrice is a free data retrieval call binding the contract method 0xf918379a.
+// GetMinimumBaseFee is a free data retrieval call binding the contract method 0x11220633.
 //
-// Solidity: function getMinimumGasPrice() view returns(uint256)
-func (_Autonity *AutonityCaller) GetMinimumGasPrice(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function getMinimumBaseFee() view returns(uint256)
+func (_Autonity *AutonityCaller) GetMinimumBaseFee(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "getMinimumGasPrice")
+	err := _Autonity.contract.Call(opts, &out, "getMinimumBaseFee")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -621,18 +634,18 @@ func (_Autonity *AutonityCaller) GetMinimumGasPrice(opts *bind.CallOpts) (*big.I
 
 }
 
-// GetMinimumGasPrice is a free data retrieval call binding the contract method 0xf918379a.
+// GetMinimumBaseFee is a free data retrieval call binding the contract method 0x11220633.
 //
-// Solidity: function getMinimumGasPrice() view returns(uint256)
-func (_Autonity *AutonitySession) GetMinimumGasPrice() (*big.Int, error) {
-	return _Autonity.Contract.GetMinimumGasPrice(&_Autonity.CallOpts)
+// Solidity: function getMinimumBaseFee() view returns(uint256)
+func (_Autonity *AutonitySession) GetMinimumBaseFee() (*big.Int, error) {
+	return _Autonity.Contract.GetMinimumBaseFee(&_Autonity.CallOpts)
 }
 
-// GetMinimumGasPrice is a free data retrieval call binding the contract method 0xf918379a.
+// GetMinimumBaseFee is a free data retrieval call binding the contract method 0x11220633.
 //
-// Solidity: function getMinimumGasPrice() view returns(uint256)
-func (_Autonity *AutonityCallerSession) GetMinimumGasPrice() (*big.Int, error) {
-	return _Autonity.Contract.GetMinimumGasPrice(&_Autonity.CallOpts)
+// Solidity: function getMinimumBaseFee() view returns(uint256)
+func (_Autonity *AutonityCallerSession) GetMinimumBaseFee() (*big.Int, error) {
+	return _Autonity.Contract.GetMinimumBaseFee(&_Autonity.CallOpts)
 }
 
 // GetNewContract is a free data retrieval call binding the contract method 0xb66b3e79.
@@ -667,6 +680,37 @@ func (_Autonity *AutonityCallerSession) GetNewContract() (string, string, error)
 	return _Autonity.Contract.GetNewContract(&_Autonity.CallOpts)
 }
 
+// GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
+//
+// Solidity: function getOperator() view returns(address)
+func (_Autonity *AutonityCaller) GetOperator(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Autonity.contract.Call(opts, &out, "getOperator")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
+//
+// Solidity: function getOperator() view returns(address)
+func (_Autonity *AutonitySession) GetOperator() (common.Address, error) {
+	return _Autonity.Contract.GetOperator(&_Autonity.CallOpts)
+}
+
+// GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
+//
+// Solidity: function getOperator() view returns(address)
+func (_Autonity *AutonityCallerSession) GetOperator() (common.Address, error) {
+	return _Autonity.Contract.GetOperator(&_Autonity.CallOpts)
+}
+
 // GetProposer is a free data retrieval call binding the contract method 0x5f7d3949.
 //
 // Solidity: function getProposer(uint256 height, uint256 round) view returns(address)
@@ -696,58 +740,6 @@ func (_Autonity *AutonitySession) GetProposer(height *big.Int, round *big.Int) (
 // Solidity: function getProposer(uint256 height, uint256 round) view returns(address)
 func (_Autonity *AutonityCallerSession) GetProposer(height *big.Int, round *big.Int) (common.Address, error) {
 	return _Autonity.Contract.GetProposer(&_Autonity.CallOpts, height, round)
-}
-
-// GetState is a free data retrieval call binding the contract method 0x1865c57d.
-//
-// Solidity: function getState() view returns(address _operatorAccount, uint256 _minGasPrice, uint256 _committeeSize, string _contractVersion)
-func (_Autonity *AutonityCaller) GetState(opts *bind.CallOpts) (struct {
-	OperatorAccount common.Address
-	MinGasPrice     *big.Int
-	CommitteeSize   *big.Int
-	ContractVersion string
-}, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "getState")
-
-	outstruct := new(struct {
-		OperatorAccount common.Address
-		MinGasPrice     *big.Int
-		CommitteeSize   *big.Int
-		ContractVersion string
-	})
-
-	outstruct.OperatorAccount = out[0].(common.Address)
-	outstruct.MinGasPrice = out[1].(*big.Int)
-	outstruct.CommitteeSize = out[2].(*big.Int)
-	outstruct.ContractVersion = out[3].(string)
-
-	return *outstruct, err
-
-}
-
-// GetState is a free data retrieval call binding the contract method 0x1865c57d.
-//
-// Solidity: function getState() view returns(address _operatorAccount, uint256 _minGasPrice, uint256 _committeeSize, string _contractVersion)
-func (_Autonity *AutonitySession) GetState() (struct {
-	OperatorAccount common.Address
-	MinGasPrice     *big.Int
-	CommitteeSize   *big.Int
-	ContractVersion string
-}, error) {
-	return _Autonity.Contract.GetState(&_Autonity.CallOpts)
-}
-
-// GetState is a free data retrieval call binding the contract method 0x1865c57d.
-//
-// Solidity: function getState() view returns(address _operatorAccount, uint256 _minGasPrice, uint256 _committeeSize, string _contractVersion)
-func (_Autonity *AutonityCallerSession) GetState() (struct {
-	OperatorAccount common.Address
-	MinGasPrice     *big.Int
-	CommitteeSize   *big.Int
-	ContractVersion string
-}, error) {
-	return _Autonity.Contract.GetState(&_Autonity.CallOpts)
 }
 
 // GetUnbondingReq is a free data retrieval call binding the contract method 0x55230e93.
@@ -783,7 +775,7 @@ func (_Autonity *AutonityCallerSession) GetUnbondingReq(startId *big.Int, lastId
 
 // GetValidator is a free data retrieval call binding the contract method 0x1904bb2e.
 //
-// Solidity: function getValidator(address _addr) view returns((address,address,string,uint256,uint256,uint256,uint256,address,uint256,string,uint256,uint8))
+// Solidity: function getValidator(address _addr) view returns((address,address,string,uint256,uint256,uint256,uint256,address,uint256,uint256,uint8))
 func (_Autonity *AutonityCaller) GetValidator(opts *bind.CallOpts, _addr common.Address) (AutonityValidator, error) {
 	var out []interface{}
 	err := _Autonity.contract.Call(opts, &out, "getValidator", _addr)
@@ -800,14 +792,14 @@ func (_Autonity *AutonityCaller) GetValidator(opts *bind.CallOpts, _addr common.
 
 // GetValidator is a free data retrieval call binding the contract method 0x1904bb2e.
 //
-// Solidity: function getValidator(address _addr) view returns((address,address,string,uint256,uint256,uint256,uint256,address,uint256,string,uint256,uint8))
+// Solidity: function getValidator(address _addr) view returns((address,address,string,uint256,uint256,uint256,uint256,address,uint256,uint256,uint8))
 func (_Autonity *AutonitySession) GetValidator(_addr common.Address) (AutonityValidator, error) {
 	return _Autonity.Contract.GetValidator(&_Autonity.CallOpts, _addr)
 }
 
 // GetValidator is a free data retrieval call binding the contract method 0x1904bb2e.
 //
-// Solidity: function getValidator(address _addr) view returns((address,address,string,uint256,uint256,uint256,uint256,address,uint256,string,uint256,uint8))
+// Solidity: function getValidator(address _addr) view returns((address,address,string,uint256,uint256,uint256,uint256,address,uint256,uint256,uint8))
 func (_Autonity *AutonityCallerSession) GetValidator(_addr common.Address) (AutonityValidator, error) {
 	return _Autonity.Contract.GetValidator(&_Autonity.CallOpts, _addr)
 }
@@ -998,37 +990,6 @@ func (_Autonity *AutonityCallerSession) Name() (string, error) {
 	return _Autonity.Contract.Name(&_Autonity.CallOpts)
 }
 
-// OperatorAccount is a free data retrieval call binding the contract method 0x2801643d.
-//
-// Solidity: function operatorAccount() view returns(address)
-func (_Autonity *AutonityCaller) OperatorAccount(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "operatorAccount")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// OperatorAccount is a free data retrieval call binding the contract method 0x2801643d.
-//
-// Solidity: function operatorAccount() view returns(address)
-func (_Autonity *AutonitySession) OperatorAccount() (common.Address, error) {
-	return _Autonity.Contract.OperatorAccount(&_Autonity.CallOpts)
-}
-
-// OperatorAccount is a free data retrieval call binding the contract method 0x2801643d.
-//
-// Solidity: function operatorAccount() view returns(address)
-func (_Autonity *AutonityCallerSession) OperatorAccount() (common.Address, error) {
-	return _Autonity.Contract.OperatorAccount(&_Autonity.CallOpts)
-}
-
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
 //
 // Solidity: function symbol() pure returns(string)
@@ -1184,99 +1145,6 @@ func (_Autonity *AutonityCallerSession) TotalSupply() (*big.Int, error) {
 	return _Autonity.Contract.TotalSupply(&_Autonity.CallOpts)
 }
 
-// TreasuryAccount is a free data retrieval call binding the contract method 0x339b2cff.
-//
-// Solidity: function treasuryAccount() view returns(address)
-func (_Autonity *AutonityCaller) TreasuryAccount(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "treasuryAccount")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// TreasuryAccount is a free data retrieval call binding the contract method 0x339b2cff.
-//
-// Solidity: function treasuryAccount() view returns(address)
-func (_Autonity *AutonitySession) TreasuryAccount() (common.Address, error) {
-	return _Autonity.Contract.TreasuryAccount(&_Autonity.CallOpts)
-}
-
-// TreasuryAccount is a free data retrieval call binding the contract method 0x339b2cff.
-//
-// Solidity: function treasuryAccount() view returns(address)
-func (_Autonity *AutonityCallerSession) TreasuryAccount() (common.Address, error) {
-	return _Autonity.Contract.TreasuryAccount(&_Autonity.CallOpts)
-}
-
-// TreasuryFee is a free data retrieval call binding the contract method 0xcc32d176.
-//
-// Solidity: function treasuryFee() view returns(uint256)
-func (_Autonity *AutonityCaller) TreasuryFee(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "treasuryFee")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// TreasuryFee is a free data retrieval call binding the contract method 0xcc32d176.
-//
-// Solidity: function treasuryFee() view returns(uint256)
-func (_Autonity *AutonitySession) TreasuryFee() (*big.Int, error) {
-	return _Autonity.Contract.TreasuryFee(&_Autonity.CallOpts)
-}
-
-// TreasuryFee is a free data retrieval call binding the contract method 0xcc32d176.
-//
-// Solidity: function treasuryFee() view returns(uint256)
-func (_Autonity *AutonityCallerSession) TreasuryFee() (*big.Int, error) {
-	return _Autonity.Contract.TreasuryFee(&_Autonity.CallOpts)
-}
-
-// UnbondingPeriod is a free data retrieval call binding the contract method 0x6cf6d675.
-//
-// Solidity: function unbondingPeriod() view returns(uint256)
-func (_Autonity *AutonityCaller) UnbondingPeriod(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "unbondingPeriod")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// UnbondingPeriod is a free data retrieval call binding the contract method 0x6cf6d675.
-//
-// Solidity: function unbondingPeriod() view returns(uint256)
-func (_Autonity *AutonitySession) UnbondingPeriod() (*big.Int, error) {
-	return _Autonity.Contract.UnbondingPeriod(&_Autonity.CallOpts)
-}
-
-// UnbondingPeriod is a free data retrieval call binding the contract method 0x6cf6d675.
-//
-// Solidity: function unbondingPeriod() view returns(uint256)
-func (_Autonity *AutonityCallerSession) UnbondingPeriod() (*big.Int, error) {
-	return _Autonity.Contract.UnbondingPeriod(&_Autonity.CallOpts)
-}
-
 // Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
 //
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
@@ -1361,27 +1229,6 @@ func (_Autonity *AutonityTransactorSession) ComputeCommittee() (*types.Transacti
 	return _Autonity.Contract.ComputeCommittee(&_Autonity.TransactOpts)
 }
 
-// DisableValidator is a paid mutator transaction binding the contract method 0x1fe97684.
-//
-// Solidity: function disableValidator(address _address) returns()
-func (_Autonity *AutonityTransactor) DisableValidator(opts *bind.TransactOpts, _address common.Address) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "disableValidator", _address)
-}
-
-// DisableValidator is a paid mutator transaction binding the contract method 0x1fe97684.
-//
-// Solidity: function disableValidator(address _address) returns()
-func (_Autonity *AutonitySession) DisableValidator(_address common.Address) (*types.Transaction, error) {
-	return _Autonity.Contract.DisableValidator(&_Autonity.TransactOpts, _address)
-}
-
-// DisableValidator is a paid mutator transaction binding the contract method 0x1fe97684.
-//
-// Solidity: function disableValidator(address _address) returns()
-func (_Autonity *AutonityTransactorSession) DisableValidator(_address common.Address) (*types.Transaction, error) {
-	return _Autonity.Contract.DisableValidator(&_Autonity.TransactOpts, _address)
-}
-
 // Finalize is a paid mutator transaction binding the contract method 0x05261aea.
 //
 // Solidity: function finalize(uint256 amount) returns(bool, (address,uint256)[])
@@ -1424,67 +1271,172 @@ func (_Autonity *AutonityTransactorSession) Mint(_addr common.Address, _amount *
 	return _Autonity.Contract.Mint(&_Autonity.TransactOpts, _addr, _amount)
 }
 
-// RegisterValidator is a paid mutator transaction binding the contract method 0x308271a1.
+// RegisterValidator is a paid mutator transaction binding the contract method 0xa416aa06.
 //
-// Solidity: function registerValidator(string _enode, uint256 _commissionRate, string _extra) returns()
-func (_Autonity *AutonityTransactor) RegisterValidator(opts *bind.TransactOpts, _enode string, _commissionRate *big.Int, _extra string) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "registerValidator", _enode, _commissionRate, _extra)
+// Solidity: function registerValidator(string _enode) returns()
+func (_Autonity *AutonityTransactor) RegisterValidator(opts *bind.TransactOpts, _enode string) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "registerValidator", _enode)
 }
 
-// RegisterValidator is a paid mutator transaction binding the contract method 0x308271a1.
+// RegisterValidator is a paid mutator transaction binding the contract method 0xa416aa06.
 //
-// Solidity: function registerValidator(string _enode, uint256 _commissionRate, string _extra) returns()
-func (_Autonity *AutonitySession) RegisterValidator(_enode string, _commissionRate *big.Int, _extra string) (*types.Transaction, error) {
-	return _Autonity.Contract.RegisterValidator(&_Autonity.TransactOpts, _enode, _commissionRate, _extra)
+// Solidity: function registerValidator(string _enode) returns()
+func (_Autonity *AutonitySession) RegisterValidator(_enode string) (*types.Transaction, error) {
+	return _Autonity.Contract.RegisterValidator(&_Autonity.TransactOpts, _enode)
 }
 
-// RegisterValidator is a paid mutator transaction binding the contract method 0x308271a1.
+// RegisterValidator is a paid mutator transaction binding the contract method 0xa416aa06.
 //
-// Solidity: function registerValidator(string _enode, uint256 _commissionRate, string _extra) returns()
-func (_Autonity *AutonityTransactorSession) RegisterValidator(_enode string, _commissionRate *big.Int, _extra string) (*types.Transaction, error) {
-	return _Autonity.Contract.RegisterValidator(&_Autonity.TransactOpts, _enode, _commissionRate, _extra)
-}
-
-// SetCommitteeSize is a paid mutator transaction binding the contract method 0x8bac7dad.
-//
-// Solidity: function setCommitteeSize(uint256 size) returns()
-func (_Autonity *AutonityTransactor) SetCommitteeSize(opts *bind.TransactOpts, size *big.Int) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "setCommitteeSize", size)
+// Solidity: function registerValidator(string _enode) returns()
+func (_Autonity *AutonityTransactorSession) RegisterValidator(_enode string) (*types.Transaction, error) {
+	return _Autonity.Contract.RegisterValidator(&_Autonity.TransactOpts, _enode)
 }
 
 // SetCommitteeSize is a paid mutator transaction binding the contract method 0x8bac7dad.
 //
-// Solidity: function setCommitteeSize(uint256 size) returns()
-func (_Autonity *AutonitySession) SetCommitteeSize(size *big.Int) (*types.Transaction, error) {
-	return _Autonity.Contract.SetCommitteeSize(&_Autonity.TransactOpts, size)
+// Solidity: function setCommitteeSize(uint256 _size) returns()
+func (_Autonity *AutonityTransactor) SetCommitteeSize(opts *bind.TransactOpts, _size *big.Int) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setCommitteeSize", _size)
 }
 
 // SetCommitteeSize is a paid mutator transaction binding the contract method 0x8bac7dad.
 //
-// Solidity: function setCommitteeSize(uint256 size) returns()
-func (_Autonity *AutonityTransactorSession) SetCommitteeSize(size *big.Int) (*types.Transaction, error) {
-	return _Autonity.Contract.SetCommitteeSize(&_Autonity.TransactOpts, size)
+// Solidity: function setCommitteeSize(uint256 _size) returns()
+func (_Autonity *AutonitySession) SetCommitteeSize(_size *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetCommitteeSize(&_Autonity.TransactOpts, _size)
 }
 
-// SetMinimumGasPrice is a paid mutator transaction binding the contract method 0xd249b31c.
+// SetCommitteeSize is a paid mutator transaction binding the contract method 0x8bac7dad.
 //
-// Solidity: function setMinimumGasPrice(uint256 _price) returns()
-func (_Autonity *AutonityTransactor) SetMinimumGasPrice(opts *bind.TransactOpts, _price *big.Int) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "setMinimumGasPrice", _price)
+// Solidity: function setCommitteeSize(uint256 _size) returns()
+func (_Autonity *AutonityTransactorSession) SetCommitteeSize(_size *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetCommitteeSize(&_Autonity.TransactOpts, _size)
 }
 
-// SetMinimumGasPrice is a paid mutator transaction binding the contract method 0xd249b31c.
+// SetEpochPeriod is a paid mutator transaction binding the contract method 0x6b5f444c.
 //
-// Solidity: function setMinimumGasPrice(uint256 _price) returns()
-func (_Autonity *AutonitySession) SetMinimumGasPrice(_price *big.Int) (*types.Transaction, error) {
-	return _Autonity.Contract.SetMinimumGasPrice(&_Autonity.TransactOpts, _price)
+// Solidity: function setEpochPeriod(uint256 _period) returns()
+func (_Autonity *AutonityTransactor) SetEpochPeriod(opts *bind.TransactOpts, _period *big.Int) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setEpochPeriod", _period)
 }
 
-// SetMinimumGasPrice is a paid mutator transaction binding the contract method 0xd249b31c.
+// SetEpochPeriod is a paid mutator transaction binding the contract method 0x6b5f444c.
 //
-// Solidity: function setMinimumGasPrice(uint256 _price) returns()
-func (_Autonity *AutonityTransactorSession) SetMinimumGasPrice(_price *big.Int) (*types.Transaction, error) {
-	return _Autonity.Contract.SetMinimumGasPrice(&_Autonity.TransactOpts, _price)
+// Solidity: function setEpochPeriod(uint256 _period) returns()
+func (_Autonity *AutonitySession) SetEpochPeriod(_period *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetEpochPeriod(&_Autonity.TransactOpts, _period)
+}
+
+// SetEpochPeriod is a paid mutator transaction binding the contract method 0x6b5f444c.
+//
+// Solidity: function setEpochPeriod(uint256 _period) returns()
+func (_Autonity *AutonityTransactorSession) SetEpochPeriod(_period *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetEpochPeriod(&_Autonity.TransactOpts, _period)
+}
+
+// SetMinimumBaseFee is a paid mutator transaction binding the contract method 0xcb696f54.
+//
+// Solidity: function setMinimumBaseFee(uint256 _price) returns()
+func (_Autonity *AutonityTransactor) SetMinimumBaseFee(opts *bind.TransactOpts, _price *big.Int) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setMinimumBaseFee", _price)
+}
+
+// SetMinimumBaseFee is a paid mutator transaction binding the contract method 0xcb696f54.
+//
+// Solidity: function setMinimumBaseFee(uint256 _price) returns()
+func (_Autonity *AutonitySession) SetMinimumBaseFee(_price *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetMinimumBaseFee(&_Autonity.TransactOpts, _price)
+}
+
+// SetMinimumBaseFee is a paid mutator transaction binding the contract method 0xcb696f54.
+//
+// Solidity: function setMinimumBaseFee(uint256 _price) returns()
+func (_Autonity *AutonityTransactorSession) SetMinimumBaseFee(_price *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetMinimumBaseFee(&_Autonity.TransactOpts, _price)
+}
+
+// SetOperatorAccount is a paid mutator transaction binding the contract method 0x520fdbbc.
+//
+// Solidity: function setOperatorAccount(address _account) returns()
+func (_Autonity *AutonityTransactor) SetOperatorAccount(opts *bind.TransactOpts, _account common.Address) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setOperatorAccount", _account)
+}
+
+// SetOperatorAccount is a paid mutator transaction binding the contract method 0x520fdbbc.
+//
+// Solidity: function setOperatorAccount(address _account) returns()
+func (_Autonity *AutonitySession) SetOperatorAccount(_account common.Address) (*types.Transaction, error) {
+	return _Autonity.Contract.SetOperatorAccount(&_Autonity.TransactOpts, _account)
+}
+
+// SetOperatorAccount is a paid mutator transaction binding the contract method 0x520fdbbc.
+//
+// Solidity: function setOperatorAccount(address _account) returns()
+func (_Autonity *AutonityTransactorSession) SetOperatorAccount(_account common.Address) (*types.Transaction, error) {
+	return _Autonity.Contract.SetOperatorAccount(&_Autonity.TransactOpts, _account)
+}
+
+// SetTreasuryAccount is a paid mutator transaction binding the contract method 0xd886f8a2.
+//
+// Solidity: function setTreasuryAccount(address _account) returns()
+func (_Autonity *AutonityTransactor) SetTreasuryAccount(opts *bind.TransactOpts, _account common.Address) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setTreasuryAccount", _account)
+}
+
+// SetTreasuryAccount is a paid mutator transaction binding the contract method 0xd886f8a2.
+//
+// Solidity: function setTreasuryAccount(address _account) returns()
+func (_Autonity *AutonitySession) SetTreasuryAccount(_account common.Address) (*types.Transaction, error) {
+	return _Autonity.Contract.SetTreasuryAccount(&_Autonity.TransactOpts, _account)
+}
+
+// SetTreasuryAccount is a paid mutator transaction binding the contract method 0xd886f8a2.
+//
+// Solidity: function setTreasuryAccount(address _account) returns()
+func (_Autonity *AutonityTransactorSession) SetTreasuryAccount(_account common.Address) (*types.Transaction, error) {
+	return _Autonity.Contract.SetTreasuryAccount(&_Autonity.TransactOpts, _account)
+}
+
+// SetTreasuryFee is a paid mutator transaction binding the contract method 0x77e741c7.
+//
+// Solidity: function setTreasuryFee(uint256 _treasuryFee) returns()
+func (_Autonity *AutonityTransactor) SetTreasuryFee(opts *bind.TransactOpts, _treasuryFee *big.Int) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setTreasuryFee", _treasuryFee)
+}
+
+// SetTreasuryFee is a paid mutator transaction binding the contract method 0x77e741c7.
+//
+// Solidity: function setTreasuryFee(uint256 _treasuryFee) returns()
+func (_Autonity *AutonitySession) SetTreasuryFee(_treasuryFee *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetTreasuryFee(&_Autonity.TransactOpts, _treasuryFee)
+}
+
+// SetTreasuryFee is a paid mutator transaction binding the contract method 0x77e741c7.
+//
+// Solidity: function setTreasuryFee(uint256 _treasuryFee) returns()
+func (_Autonity *AutonityTransactorSession) SetTreasuryFee(_treasuryFee *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetTreasuryFee(&_Autonity.TransactOpts, _treasuryFee)
+}
+
+// SetUnbondingPeriod is a paid mutator transaction binding the contract method 0x114eaf55.
+//
+// Solidity: function setUnbondingPeriod(uint256 _period) returns()
+func (_Autonity *AutonityTransactor) SetUnbondingPeriod(opts *bind.TransactOpts, _period *big.Int) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "setUnbondingPeriod", _period)
+}
+
+// SetUnbondingPeriod is a paid mutator transaction binding the contract method 0x114eaf55.
+//
+// Solidity: function setUnbondingPeriod(uint256 _period) returns()
+func (_Autonity *AutonitySession) SetUnbondingPeriod(_period *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetUnbondingPeriod(&_Autonity.TransactOpts, _period)
+}
+
+// SetUnbondingPeriod is a paid mutator transaction binding the contract method 0x114eaf55.
+//
+// Solidity: function setUnbondingPeriod(uint256 _period) returns()
+func (_Autonity *AutonityTransactorSession) SetUnbondingPeriod(_period *big.Int) (*types.Transaction, error) {
+	return _Autonity.Contract.SetUnbondingPeriod(&_Autonity.TransactOpts, _period)
 }
 
 // Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
@@ -1763,6 +1715,7 @@ func (_Autonity *AutonityFilterer) ParseApproval(log types.Log) (*AutonityApprov
 	if err := _Autonity.contract.UnpackLog(event, "Approval", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1897,6 +1850,7 @@ func (_Autonity *AutonityFilterer) ParseBurnedStake(log types.Log) (*AutonityBur
 	if err := _Autonity.contract.UnpackLog(event, "BurnedStake", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2030,12 +1984,13 @@ func (_Autonity *AutonityFilterer) ParseContractUpgraded(log types.Log) (*Autoni
 	if err := _Autonity.contract.UnpackLog(event, "ContractUpgraded", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
-// AutonityMinimumGasPriceUpdatedIterator is returned from FilterMinimumGasPriceUpdated and is used to iterate over the raw logs and unpacked data for MinimumGasPriceUpdated events raised by the Autonity contract.
-type AutonityMinimumGasPriceUpdatedIterator struct {
-	Event *AutonityMinimumGasPriceUpdated // Event containing the contract specifics and raw log
+// AutonityMinimumBaseFeeUpdatedIterator is returned from FilterMinimumBaseFeeUpdated and is used to iterate over the raw logs and unpacked data for MinimumBaseFeeUpdated events raised by the Autonity contract.
+type AutonityMinimumBaseFeeUpdatedIterator struct {
+	Event *AutonityMinimumBaseFeeUpdated // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -2049,7 +2004,7 @@ type AutonityMinimumGasPriceUpdatedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *AutonityMinimumGasPriceUpdatedIterator) Next() bool {
+func (it *AutonityMinimumBaseFeeUpdatedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -2058,7 +2013,7 @@ func (it *AutonityMinimumGasPriceUpdatedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(AutonityMinimumGasPriceUpdated)
+			it.Event = new(AutonityMinimumBaseFeeUpdated)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2073,7 +2028,7 @@ func (it *AutonityMinimumGasPriceUpdatedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(AutonityMinimumGasPriceUpdated)
+		it.Event = new(AutonityMinimumBaseFeeUpdated)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2089,41 +2044,41 @@ func (it *AutonityMinimumGasPriceUpdatedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *AutonityMinimumGasPriceUpdatedIterator) Error() error {
+func (it *AutonityMinimumBaseFeeUpdatedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *AutonityMinimumGasPriceUpdatedIterator) Close() error {
+func (it *AutonityMinimumBaseFeeUpdatedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// AutonityMinimumGasPriceUpdated represents a MinimumGasPriceUpdated event raised by the Autonity contract.
-type AutonityMinimumGasPriceUpdated struct {
+// AutonityMinimumBaseFeeUpdated represents a MinimumBaseFeeUpdated event raised by the Autonity contract.
+type AutonityMinimumBaseFeeUpdated struct {
 	GasPrice *big.Int
 	Raw      types.Log // Blockchain specific contextual infos
 }
 
-// FilterMinimumGasPriceUpdated is a free log retrieval operation binding the contract event 0x58841da31675d02939f5efa0add356e7af0a24703fe398e1eba9ea4ea4db253a.
+// FilterMinimumBaseFeeUpdated is a free log retrieval operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
 //
-// Solidity: event MinimumGasPriceUpdated(uint256 gasPrice)
-func (_Autonity *AutonityFilterer) FilterMinimumGasPriceUpdated(opts *bind.FilterOpts) (*AutonityMinimumGasPriceUpdatedIterator, error) {
+// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+func (_Autonity *AutonityFilterer) FilterMinimumBaseFeeUpdated(opts *bind.FilterOpts) (*AutonityMinimumBaseFeeUpdatedIterator, error) {
 
-	logs, sub, err := _Autonity.contract.FilterLogs(opts, "MinimumGasPriceUpdated")
+	logs, sub, err := _Autonity.contract.FilterLogs(opts, "MinimumBaseFeeUpdated")
 	if err != nil {
 		return nil, err
 	}
-	return &AutonityMinimumGasPriceUpdatedIterator{contract: _Autonity.contract, event: "MinimumGasPriceUpdated", logs: logs, sub: sub}, nil
+	return &AutonityMinimumBaseFeeUpdatedIterator{contract: _Autonity.contract, event: "MinimumBaseFeeUpdated", logs: logs, sub: sub}, nil
 }
 
-// WatchMinimumGasPriceUpdated is a free log subscription operation binding the contract event 0x58841da31675d02939f5efa0add356e7af0a24703fe398e1eba9ea4ea4db253a.
+// WatchMinimumBaseFeeUpdated is a free log subscription operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
 //
-// Solidity: event MinimumGasPriceUpdated(uint256 gasPrice)
-func (_Autonity *AutonityFilterer) WatchMinimumGasPriceUpdated(opts *bind.WatchOpts, sink chan<- *AutonityMinimumGasPriceUpdated) (event.Subscription, error) {
+// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+func (_Autonity *AutonityFilterer) WatchMinimumBaseFeeUpdated(opts *bind.WatchOpts, sink chan<- *AutonityMinimumBaseFeeUpdated) (event.Subscription, error) {
 
-	logs, sub, err := _Autonity.contract.WatchLogs(opts, "MinimumGasPriceUpdated")
+	logs, sub, err := _Autonity.contract.WatchLogs(opts, "MinimumBaseFeeUpdated")
 	if err != nil {
 		return nil, err
 	}
@@ -2133,8 +2088,8 @@ func (_Autonity *AutonityFilterer) WatchMinimumGasPriceUpdated(opts *bind.WatchO
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(AutonityMinimumGasPriceUpdated)
-				if err := _Autonity.contract.UnpackLog(event, "MinimumGasPriceUpdated", log); err != nil {
+				event := new(AutonityMinimumBaseFeeUpdated)
+				if err := _Autonity.contract.UnpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2155,14 +2110,15 @@ func (_Autonity *AutonityFilterer) WatchMinimumGasPriceUpdated(opts *bind.WatchO
 	}), nil
 }
 
-// ParseMinimumGasPriceUpdated is a log parse operation binding the contract event 0x58841da31675d02939f5efa0add356e7af0a24703fe398e1eba9ea4ea4db253a.
+// ParseMinimumBaseFeeUpdated is a log parse operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
 //
-// Solidity: event MinimumGasPriceUpdated(uint256 gasPrice)
-func (_Autonity *AutonityFilterer) ParseMinimumGasPriceUpdated(log types.Log) (*AutonityMinimumGasPriceUpdated, error) {
-	event := new(AutonityMinimumGasPriceUpdated)
-	if err := _Autonity.contract.UnpackLog(event, "MinimumGasPriceUpdated", log); err != nil {
+// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+func (_Autonity *AutonityFilterer) ParseMinimumBaseFeeUpdated(log types.Log) (*AutonityMinimumBaseFeeUpdated, error) {
+	event := new(AutonityMinimumBaseFeeUpdated)
+	if err := _Autonity.contract.UnpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2297,6 +2253,7 @@ func (_Autonity *AutonityFilterer) ParseMintedStake(log types.Log) (*AutonityMin
 	if err := _Autonity.contract.UnpackLog(event, "MintedStake", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2433,6 +2390,7 @@ func (_Autonity *AutonityFilterer) ParseRegisteredValidator(log types.Log) (*Aut
 	if err := _Autonity.contract.UnpackLog(event, "RegisteredValidator", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2566,6 +2524,7 @@ func (_Autonity *AutonityFilterer) ParseRemovedValidator(log types.Log) (*Autoni
 	if err := _Autonity.contract.UnpackLog(event, "RemovedValidator", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2700,6 +2659,7 @@ func (_Autonity *AutonityFilterer) ParseRewarded(log types.Log) (*AutonityReward
 	if err := _Autonity.contract.UnpackLog(event, "Rewarded", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2853,5 +2813,6 @@ func (_Autonity *AutonityFilterer) ParseTransfer(log types.Log) (*AutonityTransf
 	if err := _Autonity.contract.UnpackLog(event, "Transfer", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }

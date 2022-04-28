@@ -127,7 +127,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, stakeholderName strin
 		validators = append(validators, &params.Validator{
 			Address:     &address,
 			Enode:       node.url,
-			Treasury:    common.Address{},
+			Treasury:    address,
 			BondedStake: stake,
 		})
 	}

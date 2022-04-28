@@ -11,6 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
+//  simple and stable than the legacy one.
+
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
 func TestSendingValue(t *testing.T) {
