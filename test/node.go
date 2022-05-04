@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -28,7 +29,7 @@ import (
 )
 
 var (
-	baseNodeConfig *node.Config = &node.Config{
+	baseNodeConfig = &node.Config{
 		Name:    "autonity",
 		Version: params.Version,
 		P2P: p2p.Config{
@@ -50,6 +51,7 @@ var (
 // *node.Node is embedded so that its api is available through Node.
 type Node struct {
 	*node.Node
+	isRunning bool
 	Config    *node.Config
 	Eth       *eth.Ethereum
 	EthConfig *eth.Config
@@ -112,7 +114,7 @@ func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 	ec.Genesis = genesis
 	ec.NetworkId = genesis.Config.ChainID.Uint64()
 
-	node := &Node{
+	n := &Node{
 		Config:    c,
 		EthConfig: ec,
 		Key:       k,
@@ -120,17 +122,31 @@ func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 		Tracker:   NewTransactionTracker(),
 	}
 
-	return node, node.Start()
+	return n, nil
+}
+
+func (n *Node) Running() bool {
+	return n.isRunning
 }
 
 // This creates the node.Node and eth.Ethereum and starts the node.Node and
 // starts eth.Ethereum mining.
 func (n *Node) Start() error {
+	if n.isRunning {
+		return nil
+	}
+
+	var err error
+	defer func() {
+		if err == nil {
+			n.isRunning = true
+		}
+	}()
 	// Provide a copy of the config to node.New, so that we can rely on
 	// Node.Config field not being manipulated by node and hence use our copy
 	// for black box testing.
 	nodeConfigCopy := &node.Config{}
-	err := copyNodeConfig(n.Config, nodeConfigCopy)
+	err = copyNodeConfig(n.Config, nodeConfigCopy)
 	if err != nil {
 		return err
 	}
@@ -153,6 +169,8 @@ func (n *Node) Start() error {
 	if err != nil {
 		return err
 	}
+	// setting EtherBase for miner
+	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(n.Node.Config().NodeKey().PublicKey)
 	n.Eth, err = eth.New(n.Node, ethConfigCopy, nil)
 	if err != nil {
 		return err
@@ -184,7 +202,16 @@ func (n *Node) Start() error {
 // unless an error is returned, in which case there is no guarantee that all
 // resources are released.
 func (n *Node) Close() error {
-	err := n.Tracker.StopTracking()
+	if !n.isRunning {
+		return nil
+	}
+	var err error
+	defer func() {
+		if err == nil {
+			n.isRunning = false
+		}
+	}()
+	err = n.Tracker.StopTracking()
 	if err != nil {
 		return err
 	}
@@ -213,6 +240,7 @@ func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64)
 		n.Address,
 		recipient,
 		n.Nonce,
+		n.EthConfig,
 		big.NewInt(value))
 
 	if err != nil {
@@ -254,15 +282,127 @@ func (n *Node) TxFee(ctx context.Context, tx *types.Transaction) (*big.Int, erro
 	return big.NewInt(0).Mul(new(big.Int).SetUint64(r.GasUsed), tx.GasPrice()), nil
 }
 
+func (n *Node) GetChainHeight() uint64 {
+	return n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+}
+
+func (n *Node) IsSyncComplete() bool {
+	syncResult := n.Eth.APIBackend.SyncProgress()
+	return syncResult.CurrentBlock >= syncResult.HighestBlock
+}
+
 // Network represents a network of nodes and provides funtionality to easily
 // create, start and stop a collection of nodes.
 type Network []*Node
+
+// WaitForSyncComplete waits for sync to be completed
+// for all running nodes in the quorum
+func (nw Network) WaitForSyncComplete() error {
+	// we will wait maximum one minute for All nodes be synced completely
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// ticker to periodically check for sync
+	syncTicker := time.NewTicker(1 * time.Second)
+	opCh := make(chan error)
+	quit := make(chan bool)
+	count := 0
+	for _, n := range nw {
+		if !n.isRunning {
+			continue
+		}
+		// count of the all spawned goroutines
+		count++
+		go func(n *Node) {
+			for {
+				select {
+				case <-syncTicker.C:
+					if n.IsSyncComplete() {
+						opCh <- nil
+						return
+					}
+					// context expired, send error on error channel
+				case <-ctx.Done():
+					opCh <- ctx.Err()
+					return
+				case <-quit:
+					return
+				}
+			}
+		}(n)
+	}
+
+	for err := range opCh {
+		if err != nil {
+			// we will close the quit to channel to signal
+			// all goroutines to exit before returning error
+			close(quit)
+			return err
+		}
+		count--
+		// We have received from all goroutines
+		if count == 0 {
+			return nil
+		}
+	}
+	return nil
+}
+
+func (nw Network) isNetworkLive(chainHeights []uint64) bool {
+	// compare the current chain heights with the previously recorded chain height
+	count := 0
+	for _, n := range nw {
+		// skipping nodes which are not running
+		if !n.isRunning {
+			continue
+		}
+		currHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+		if currHeight <= chainHeights[count] {
+			// this node is not mining blocks with in the block period
+			return false
+		}
+		count++
+	}
+	return true
+}
+
+// WaitForNetworkToStartMining waits for all nodes to advance
+// their chain heights after new blocks are mined
+func (nw Network) WaitForNetworkToStartMining() error {
+	// we will wait maximum one minute for network to be live again
+	// and start mining blocks
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// cache current chain height for all nodes
+	chainHeights := make([]uint64, 0, len(nw))
+	runningCount := 0
+	for _, n := range nw {
+		if n.isRunning {
+			runningCount++
+			chainHeights = append(chainHeights, n.Eth.BlockChain().CurrentHeader().Number.Uint64())
+		}
+	}
+	// return if none of the nodes are running
+	if runningCount == 0 {
+		return fmt.Errorf("can't mine new blocks, there are no running nodes in the quorum")
+	}
+	syncTicker := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-syncTicker.C:
+			if nw.isNetworkLive(chainHeights) {
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
 
 // NewNetworkFromUsers generates a network of nodes that are running and
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromUsers(users []*gengen.Validator) (Network, error) {
+func NewNetworkFromUsers(users []*gengen.Validator, start bool) (Network, error) {
 	g, err := Genesis(users)
 	if err != nil {
 		return nil, err
@@ -272,6 +412,13 @@ func NewNetworkFromUsers(users []*gengen.Validator) (Network, error) {
 		n, err := NewNode(u, g)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build node for network: %v", err)
+		}
+
+		if start {
+			err = n.Start()
+			if err != nil {
+				return nil, fmt.Errorf("failed to start node for network: %v", err)
+			}
 		}
 		network[i] = n
 	}
@@ -292,12 +439,12 @@ func NewNetwork(count int, formatString string, startingPort int) (Network, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to build users: %v", err)
 	}
-	return NewNetworkFromUsers(users)
+	return NewNetworkFromUsers(users, true)
 }
 
 // AwaitTransactions ensures that the entire network has processed the provided transactions.
-func (n Network) AwaitTransactions(ctx context.Context, txs ...*types.Transaction) error {
-	for _, node := range n {
+func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transaction) error {
+	for _, node := range nw {
 		err := node.AwaitTransactions(ctx, txs...)
 		if err != nil {
 			return err
@@ -308,9 +455,9 @@ func (n Network) AwaitTransactions(ctx context.Context, txs ...*types.Transactio
 
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
-func (n Network) Shutdown() {
-	for _, node := range n {
-		if node != nil {
+func (nw Network) Shutdown() {
+	for _, node := range nw {
+		if node != nil && node.isRunning {
 			err := node.Close()
 			if err != nil {
 				fmt.Printf("error shutting down node %v: %v", node.Address.String(), err)
@@ -322,7 +469,12 @@ func (n Network) Shutdown() {
 // ValueTransferTransaction builds a signed value transfer transaction from the
 // sender to the recipient with the given value and nonce, it uses the client
 // to suggest a gas price and to estimate the gas.
-func ValueTransferTransaction(client *ethclient.Client, senderKey *ecdsa.PrivateKey, sender, recipient common.Address, nonce uint64, value *big.Int) (*types.Transaction, error) {
+func ValueTransferTransaction(client *ethclient.Client,
+	senderKey *ecdsa.PrivateKey,
+	sender, recipient common.Address,
+	nonce uint64,
+	ethConfig *ethconfig.Config,
+	value *big.Int) (*types.Transaction, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 	// Figure out the gas allowance and gas price values
@@ -339,7 +491,7 @@ func ValueTransferTransaction(client *ethclient.Client, senderKey *ecdsa.Private
 
 	// Create the transaction and sign it
 	rawTx := types.NewTransaction(nonce, recipient, value, gasLimit, gasPrice, nil)
-	signed, err := types.SignTx(rawTx, types.HomesteadSigner{}, senderKey)
+	signed, err := types.SignTx(rawTx, types.LatestSigner(ethConfig.Genesis.Config), senderKey)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +525,9 @@ func Genesis(users []*gengen.Validator) (*core.Genesis, error) {
 		return nil, err
 	}
 	// Make the tests fast
-	g.Config.AutonityContractConfig.BlockPeriod = 0
+	if err := g.Config.AutonityContractConfig.Prepare(); err != nil {
+		return nil, err
+	}
 	return g, nil
 }
 

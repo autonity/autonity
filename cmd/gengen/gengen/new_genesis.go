@@ -2,14 +2,12 @@ package gengen
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
 	"fmt"
 	"math/big"
 	"net"
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -50,7 +48,7 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 		return nil, fmt.Errorf("failed to construct initial user state: %v", err)
 	}
 
-	chainID, err := rand.Int(rand.Reader, math.MaxBig256)
+	chainID := big.NewInt(1234)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random chainID: %v", err)
 	}
@@ -94,8 +92,8 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 				MaxCommitteeSize: 21,
 				BlockPeriod:      1,
 				UnbondingPeriod:  120,
-				EpochPeriod:      30,
-				DelegationRate:   1000,
+				EpochPeriod:      30,   //seconds
+				DelegationRate:   1000, // 10%
 				MinBaseFee:       10000000000,
 				Operator:         *operatorAddress,
 				Validators:       genesisValidators,
@@ -156,9 +154,11 @@ func generateValidatorState(validators []*Validator) (
 			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
 		}
 		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
+		treasKey, _ := crypto.GenerateKey()
+		treasuryAddress := crypto.PubkeyToAddress(treasKey.PublicKey)
 		gu := params.Validator{
 			Enode:       e.String(),
-			Treasury:    common.Address{},
+			Treasury:    treasuryAddress, // rewards goes here
 			BondedStake: new(big.Int).SetUint64(u.Stake),
 		}
 		err := gu.Validate()
@@ -166,7 +166,6 @@ func generateValidatorState(validators []*Validator) (
 			return nil, nil, nil, fmt.Errorf("invalid user: %v", err)
 		}
 		genesisValidators[i] = &gu
-
 		userAddress := crypto.PubkeyToAddress(*pk)
 		if i == 0 {
 			operatorAddress = &userAddress

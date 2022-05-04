@@ -73,8 +73,8 @@ jobs:
                  [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 20m ],
                  [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
                  [ tendermint-tests, ./consensus/tendermint/... -timeout 15m -race ],
-                 [ local-e2e-tests, ./consensus/test/... -v -timeout 20m ] #,
-          #[ new-e2e-tests, ./e2e_test -v -race ]
+                 [ local-e2e-tests, ./consensus/test/... -v -timeout 20m ],
+                 [ new-e2e-tests, ./e2e_test -v -race ]
         ]
 
     name: ${{ matrix.tests[0] }}

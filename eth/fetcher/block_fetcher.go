@@ -236,7 +236,6 @@ func (f *BlockFetcher) Start() {
 // operations.
 func (f *BlockFetcher) Stop() {
 	close(f.quit)
-	close(f.done)
 }
 
 // Notify announces the fetcher of the potential availability of a new block in
@@ -787,7 +786,13 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 	log.Debug("Importing propagated header", "peer", peer, "number", header.Number, "hash", hash)
 
 	go func() {
-		defer func() { f.done <- hash }()
+		defer func() {
+			select {
+			case <-f.quit:
+			case f.done <- hash:
+			}
+		}()
+
 		// If the parent's unknown, abort insertion
 		parent := f.getHeader(header.ParentHash)
 		if parent == nil {
@@ -821,7 +826,12 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {
-		defer func() { f.done <- hash }()
+		defer func() {
+			select {
+			case <-f.quit:
+			case f.done <- hash:
+			}
+		}()
 
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
