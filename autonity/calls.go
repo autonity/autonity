@@ -71,11 +71,9 @@ func DeployContract(abi *abi.ABI, genesisConfig *params.AutonityContractGenesis,
 	return nil
 }
 
-func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode string) error {
+func (ac *Contract) updateAutonityContract(header *types.Header, statedb *state.StateDB, bytecode []byte) error {
 	evm := ac.evmProvider.EVM(header, Deployer, statedb)
-	contractBytecode := common.Hex2Bytes(bytecode)
-	data := append(contractBytecode)
-	_, _, _, vmerr := evm.Replace(vm.AccountRef(Deployer), data, ContractAddress)
+	_, _, _, vmerr := evm.Replace(vm.AccountRef(Deployer), bytecode, ContractAddress)
 	if vmerr != nil {
 		log.Error("updateAutonityContract evm.Create", "err", vmerr)
 		return vmerr
@@ -169,12 +167,12 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blo
 	return updateReady, committee, nil
 }
 
-func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) (string, string, error) {
-	var bytecode string
+func (ac *Contract) callRetrieveContract(state *state.StateDB, header *types.Header) ([]byte, string, error) {
+	var bytecode []byte
 	var abi string
 	err := ac.AutonityContractCall(state, header, "getNewContract", &[]interface{}{&bytecode, &abi})
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 	return bytecode, abi, nil
 }

@@ -131,7 +131,11 @@ func (t *transactor) execute(action func(instance *Autonity, opts *bind.Transact
 	if t.err != nil {
 		return t.err
 	}
-	return action(t.i.instance, t.opts)
+	if err := action(t.i.instance, t.opts); err != nil {
+		return err
+	}
+	t.opts.Nonce.Add(t.opts.Nonce, common.Big1)
+	return nil
 }
 
 // public writers
@@ -166,11 +170,21 @@ func (t *transactor) unbond(validator common.Address, amount *big.Int) (*types.T
 }
 
 // system operator writers
-func (t *transactor) upgradeContract(byteCode string, abi string, version string) (*types.Transaction, error) {
+func (t *transactor) upgradeContract(byteCode []byte, abi string) (*types.Transaction, error) {
 	var msg *types.Transaction
 	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
 		opts.GasLimit = 100000000
-		tx, e := instance.UpgradeContract(opts, byteCode, abi, version)
+		tx, e := instance.UpgradeContract(opts, byteCode, abi)
+		msg = tx
+		return e
+	})
+	return msg, err
+}
+
+func (t *transactor) completeContractUpgrade() (*types.Transaction, error) {
+	var msg *types.Transaction
+	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
+		tx, e := instance.CompleteContractUpgrade(opts)
 		msg = tx
 		return e
 	})
@@ -451,8 +465,8 @@ func (c *caller) getOperator() (common.Address, error) {
 	return operator, err
 }
 
-func (c *caller) getNewContract() (string, string, error) {
-	var byteCode string
+func (c *caller) getNewContract() ([]byte, string, error) {
+	var byteCode []byte
 	var abi string
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
 		b, a, err := instance.GetNewContract(opts)

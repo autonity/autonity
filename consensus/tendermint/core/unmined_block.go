@@ -16,7 +16,7 @@ func (c *core) storeUnminedBlockMsg(ctx context.Context, unminedBlock *types.Blo
 		}
 
 		if err == errOldHeightMessage {
-			c.logger.Error("NewUnminedBlockEvent: old height unminedBlock", "err", err)
+			c.logger.Debug("NewUnminedBlockEvent: old height unminedBlock", "err", err)
 			return
 		}
 	}

@@ -175,19 +175,6 @@ const Abi = `[
       "inputs" : [
          {
             "indexed" : false,
-            "internalType" : "string",
-            "name" : "version",
-            "type" : "string"
-         }
-      ],
-      "name" : "ContractUpgraded",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : false,
             "internalType" : "uint256",
             "name" : "gasPrice",
             "type" : "uint256"
@@ -406,6 +393,13 @@ const Abi = `[
          }
       ],
       "name" : "burn",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "completeContractUpgrade",
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"
@@ -649,6 +643,19 @@ const Abi = `[
    },
    {
       "inputs" : [],
+      "name" : "getLastEpochBlock",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
       "name" : "getMaxCommitteeSize",
       "outputs" : [
          {
@@ -678,9 +685,9 @@ const Abi = `[
       "name" : "getNewContract",
       "outputs" : [
          {
-            "internalType" : "string",
+            "internalType" : "bytes",
             "name" : "",
-            "type" : "string"
+            "type" : "bytes"
          },
          {
             "internalType" : "string",
@@ -960,6 +967,13 @@ const Abi = `[
       "type" : "function"
    },
    {
+      "inputs" : [],
+      "name" : "resetContractUpgrade",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
       "inputs" : [
          {
             "internalType" : "uint256",
@@ -1189,29 +1203,18 @@ const Abi = `[
    {
       "inputs" : [
          {
-            "internalType" : "string",
+            "internalType" : "bytes",
             "name" : "_bytecode",
-            "type" : "string"
+            "type" : "bytes"
          },
          {
             "internalType" : "string",
             "name" : "_abi",
             "type" : "string"
-         },
-         {
-            "internalType" : "string",
-            "name" : "_version",
-            "type" : "string"
          }
       ],
       "name" : "upgradeContract",
-      "outputs" : [
-         {
-            "internalType" : "bool",
-            "name" : "",
-            "type" : "bool"
-         }
-      ],
+      "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"
    },

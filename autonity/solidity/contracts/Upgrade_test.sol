@@ -4,10 +4,11 @@ pragma solidity ^0.8.3;
 
 import "./interfaces/IERC20.sol";
 import "./Liquid.sol";
+import "./Upgradeable.sol";
 import "./Precompiled.sol";
 
-/** @title Autonity contract test upgrade contract */
-contract AutonityUpgradeTest is IERC20 {
+/** @title Proof-of-Stake Autonity Contract */
+contract AutonityUpgradeTest is IERC20, Upgradeable {
 
     enum ValidatorState {enabled, disabling, disabled}
     struct Validator {
@@ -90,14 +91,6 @@ contract AutonityUpgradeTest is IERC20 {
     */
     address public deployer;
 
-    /*
-     Binary code and ABI of a new contract, the default value is "" when the contract is deployed.
-     If the bytecode is not empty then a contract upgrade will be triggered automatically.
-    */
-    string newContractBytecode;
-    string newContractABI;
-    string newContractVersion;
-
     /* Events */
     event MintedStake(address addr, uint256 amount);
     event BurnedStake(address addr, uint256 amount);
@@ -111,19 +104,14 @@ contract AutonityUpgradeTest is IERC20 {
      */
     event MinimumBaseFeeUpdated(uint256 gasPrice);
 
-    /**
-     * @dev Emitted when the Autonity Contract was upgraded to a new version (`version`).
-     */
-    event ContractUpgraded(string version);
-
-
+    // TODO : accounts too
     constructor () {
         validators[validatorList[1]].bondedStake =  validators[validatorList[1]].bondedStake / 2;
         config.contractVersion = "2.0.0";
         accounts[config.operatorAccount] = 1000;
-        newContractBytecode = "";
-        newContractABI ="";
-        newContractVersion ="";
+        delete newContractBytecode;
+        delete newContractABI;
+        contractUpgradeReady = false;
     }
 
     /**
@@ -343,16 +331,6 @@ contract AutonityUpgradeTest is IERC20 {
         return allowances[owner][spender];
     }
 
-    function upgradeContract(string memory _bytecode,
-        string memory _abi,
-        string memory _version) public onlyOperator returns (bool) {
-        newContractBytecode = _bytecode;
-        newContractABI = _abi;
-        newContractVersion = _version;
-        emit ContractUpgraded(newContractVersion);
-        return true;
-    }
-
     /** @dev finalize is the block state finalisation function. It is called
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
@@ -363,7 +341,6 @@ contract AutonityUpgradeTest is IERC20 {
     */
     function finalize(uint256 amount) external onlyProtocol
     returns (bool, CommitteeMember[] memory) {
-        bool _updateAvailable = bytes(newContractBytecode).length != 0;
         epochReward += amount;
         if (lastEpochBlock + config.epochPeriod == block.number) {
             // - slashing should come here first -
@@ -374,9 +351,8 @@ contract AutonityUpgradeTest is IERC20 {
             lastEpochBlock = block.number;
             epochID += 1;
         }
-        return (_updateAvailable, committee);
+        return (contractUpgradeReady, committee);
     }
-
 
     /**
     * @notice update the current committee by selecting top staking validators.
@@ -451,6 +427,13 @@ contract AutonityUpgradeTest is IERC20 {
     */
 
     /**
+    * @notice Returns the last epoch's end block height.
+    */
+    function getLastEpochBlock() external view returns (uint256) {
+        return lastEpochBlock;
+    }
+
+    /**
     * @notice Returns the current contract version.
     */
     function getVersion() external view returns (string memory) {
@@ -504,14 +487,6 @@ contract AutonityUpgradeTest is IERC20 {
     }
 
     /**
-    * @return Returns the double of the maximum size of the consensus committee.
-    * only for testing purposes...
-    */
-    function getDoubleMaxCommitteeSize() external view returns (uint256) {
-        return 2 * config.committeeSize;
-    }
-
-    /**
     * @return Returns the consensus committee enodes.
     */
     function getCommitteeEnodes() external view returns (string[] memory) {
@@ -534,12 +509,11 @@ contract AutonityUpgradeTest is IERC20 {
     }
 
     /**
-     * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.
-     * @return `bytecode` the new contract bytecode.
-     * @return `contractAbi` the new contract ABI.
-     */
-    function getNewContract() external view returns (string memory, string memory) {
-        return (newContractBytecode, newContractABI);
+    * @return Returns the double of the maximum size of the consensus committee.
+    * only for testing purposes...
+    */
+    function getDoubleMaxCommitteeSize() external view returns (uint256) {
+        return 2 * config.committeeSize;
     }
 
     /**
@@ -610,7 +584,7 @@ contract AutonityUpgradeTest is IERC20 {
     * @dev Modifier that checks if the caller is the governance operator account.
     * This should be abstracted by a separate smart-contract.
     */
-    modifier onlyOperator{
+    modifier onlyOperator override {
         require(config.operatorAccount == msg.sender, "caller is not the operator");
         _;
     }
@@ -660,7 +634,6 @@ contract AutonityUpgradeTest is IERC20 {
         }
     }
 
-    // tweaked transfer function to test the upgrade
     function _transfer(address _sender, address _recipient, uint256 _amount) internal {
         require(accounts[_sender] >= _amount, "amount exceeds balance");
         accounts[_sender] -= _amount;
@@ -834,10 +807,6 @@ contract AutonityUpgradeTest is IERC20 {
         if (_i < _high) {
             _structQuickSort(_users, _i, _high);
         }
-    }
-
-    function _compareStringsbyBytes(string memory s1, string memory s2) internal pure returns (bool){
-        return keccak256(abi.encodePacked(s1)) == keccak256(abi.encodePacked(s2));
     }
 
     function _removeFromArray(address _address, address[] storage _array) internal {
