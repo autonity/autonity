@@ -19,6 +19,7 @@ package eth
 import (
 	"crypto/ecdsa"
 	"errors"
+	ethereum "github.com/autonity/autonity"
 	"math"
 	"math/big"
 	"sync"
@@ -596,15 +597,6 @@ func (h *handler) txBroadcastLoop() {
 	}
 }
 
-func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]consensus.Peer {
-	m := make(map[common.Address]consensus.Peer)
-
-	for _, p := range h.peers.peers {
-		addr := p.Address()
-		if _, ok := targets[addr]; ok {
-			m[addr] = p
-		}
-	}
-
-	return m
+func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+	return h.peers.findPeers(targets)
 }

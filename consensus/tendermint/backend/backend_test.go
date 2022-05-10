@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/p2p/enode"
 	"math"
@@ -39,7 +40,7 @@ func TestAskSync(t *testing.T) {
 	header := newTestHeader(7) // N=7, F=2, Q=5
 	validators := header.Committee
 	addresses := make([]common.Address, 0, len(validators))
-	peers := make(map[common.Address]consensus.Peer)
+	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
@@ -85,7 +86,7 @@ func TestGossip(t *testing.T) {
 		t.Fatalf("Expected <nil>, got %v", err)
 	}
 	addresses := make([]common.Address, 0, len(validators))
-	peers := make(map[common.Address]consensus.Peer)
+	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
 	for i, val := range validators {
 		addresses = append(addresses, val.Address)
@@ -392,7 +393,7 @@ func TestSyncPeer(t *testing.T) {
 		peer1Mock := consensus.NewMockPeer(ctrl)
 		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
 
-		peers := make(map[common.Address]consensus.Peer)
+		peers := make(map[common.Address]ethereum.Peer)
 		peers[peerAddr1] = peer1Mock
 
 		broadcaster := consensus.NewMockBroadcaster(ctrl)

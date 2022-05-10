@@ -5,6 +5,7 @@
 package consensus
 
 import (
+	ethereum "github.com/autonity/autonity"
 	common "github.com/autonity/autonity/common"
 	types "github.com/autonity/autonity/core/types"
 	gomock "github.com/golang/mock/gomock"
@@ -47,10 +48,10 @@ func (mr *MockBroadcasterMockRecorder) Enqueue(id, block interface{}) *gomock.Ca
 }
 
 // FindPeers mocks base method
-func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common.Address]Peer {
+func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common.Address]ethereum.Peer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindPeers", arg0)
-	ret0, _ := ret[0].(map[common.Address]Peer)
+	ret0, _ := ret[0].(map[common.Address]ethereum.Peer)
 	return ret0
 }
 

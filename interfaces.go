@@ -232,3 +232,9 @@ type GasEstimator interface {
 type PendingStateEventer interface {
 	SubscribePendingTransactions(ctx context.Context, ch chan<- *types.Transaction) (Subscription, error)
 }
+
+// Peer defines the interface to communicate with peer
+type Peer interface {
+	// Send sends the message to this peer
+	Send(msgcode uint64, data interface{}) error
+}

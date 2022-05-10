@@ -18,6 +18,7 @@ package eth
 
 import (
 	"errors"
+	ethereum "github.com/autonity/autonity"
 	"math/big"
 	"sync"
 
@@ -179,6 +180,19 @@ func (ps *peerSet) peer(id string) *ethPeer {
 	defer ps.lock.RUnlock()
 
 	return ps.peers[id]
+}
+
+func (ps *peerSet) findPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	m := make(map[common.Address]ethereum.Peer)
+	for _, p := range ps.peers {
+		addr := p.Address()
+		if _, ok := targets[addr]; ok {
+			m[addr] = p
+		}
+	}
+	return m
 }
 
 // peersWithoutBlock retrieves a list of peers that do not have a given block in

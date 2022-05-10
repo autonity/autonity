@@ -18,6 +18,7 @@
 package consensus
 
 import (
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 )
@@ -27,11 +28,5 @@ type Broadcaster interface {
 	// Enqueue add a block into fetcher queue
 	Enqueue(id string, block *types.Block)
 	// FindPeers retrives connected peers by addresses
-	FindPeers(map[common.Address]struct{}) map[common.Address]Peer
-}
-
-// Peer defines the interface to communicate with peer
-type Peer interface {
-	// Send sends the message to this peer
-	Send(msgcode uint64, data interface{}) error
+	FindPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
 }
