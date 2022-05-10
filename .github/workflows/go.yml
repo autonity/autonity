@@ -127,7 +127,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run coverage
-        run: go test ./consensus/tendermint/... -timeout 5m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+        run: go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
 
       - uses: codecov/codecov-action@v1
         with:

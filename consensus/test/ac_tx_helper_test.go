@@ -3,9 +3,13 @@ package test
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
+	"fmt"
 	"github.com/autonity/autonity/core/types"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"strconv"
+	"testing"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
@@ -119,197 +123,140 @@ func (i *interactor) call(blockNumber uint64) *caller {
 // and transaction opts. It also can provide other methods to call specific functions
 // on the autonity contract.
 type transactor struct {
-	err  error
-	i    *interactor
-	opts *bind.TransactOpts
+	err      error
+	i        *interactor
+	opts     *bind.TransactOpts
+	executed []*types.Transaction
 }
 
-// execute calls the given callback and ensures that its interactor instance
-// is subsequently closed.
-func (t *transactor) execute(action func(instance *Autonity, opts *bind.TransactOpts) error) error {
-	defer t.i.close()
+func (t *transactor) analyze(test *testing.T) {
+	test.Log("printing executed txs receipts", "count", len(t.executed))
+	for i, tx := range t.executed {
+		rec, err := t.i.client.TransactionReceipt(context.Background(), tx.Hash())
+		if err != nil {
+			test.Log("error tx", "id", i, "err", err)
+		}
+		outjson, err := json.MarshalIndent(rec, "", "\t")
+		require.NoError(test, err)
+		fmt.Println(string(outjson))
+	}
+}
+
+// execute calls the given callback
+func (t *transactor) execute(action func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, error) {
 	if t.err != nil {
-		return t.err
+		return nil, t.err
 	}
-	if err := action(t.i.instance, t.opts); err != nil {
-		return err
-	}
+	tx, err := action(t.i.instance, t.opts)
 	t.opts.Nonce.Add(t.opts.Nonce, common.Big1)
-	return nil
+	t.executed = append(t.executed, tx)
+	return tx, err
 }
 
 // public writers
 func (t *transactor) registerValidator(enode string) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.RegisterValidator(opts, enode)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.RegisterValidator(opts, enode)
 	})
-	return msg, err
 }
 
 func (t *transactor) bond(validator common.Address, amount *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, e := instance.Bond(opts, validator, amount)
-		msg = tx
-		return e
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.Bond(opts, validator, amount)
 	})
-	return msg, err
 }
 
 func (t *transactor) unbond(validator common.Address, amount *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, e := instance.Unbond(opts, validator, amount)
-		msg = tx
-		return e
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.Unbond(opts, validator, amount)
 	})
-	return msg, err
 }
 
 // system operator writers
 func (t *transactor) upgradeContract(byteCode []byte, abi string) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		opts.GasLimit = 100000000
-		tx, e := instance.UpgradeContract(opts, byteCode, abi)
-		msg = tx
-		return e
+		return instance.UpgradeContract(opts, byteCode, abi)
 	})
-	return msg, err
 }
 
 func (t *transactor) completeContractUpgrade() (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, e := instance.CompleteContractUpgrade(opts)
-		msg = tx
-		return e
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.CompleteContractUpgrade(opts)
 	})
-	return msg, err
 }
 
 func (t *transactor) setMinBaseFee(fee *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.SetMinimumBaseFee(opts, fee)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.SetMinimumBaseFee(opts, fee)
 	})
-	return msg, err
 }
 
 func (t *transactor) setCommitteeSize(size *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.SetCommitteeSize(opts, size)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.SetCommitteeSize(opts, size)
 	})
-	return msg, err
 }
 
 func (t *transactor) setUnBondingPeriod(period *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.SetUnbondingPeriod(opts, period)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.SetUnbondingPeriod(opts, period)
 	})
-	return msg, err
 }
 
 func (t *transactor) setEpochPeriod(period *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.SetEpochPeriod(opts, period)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.SetEpochPeriod(opts, period)
 	})
-	return msg, err
 }
 
 func (t *transactor) setOperator(address common.Address) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.SetOperatorAccount(opts, address)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.SetOperatorAccount(opts, address)
 	})
-	return msg, err
 }
 
 func (t *transactor) setTreasuryAccount(address common.Address) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.SetTreasuryAccount(opts, address)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.SetTreasuryAccount(opts, address)
 	})
-	return msg, err
 }
 
 func (t *transactor) setTreasuryFee(fee *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.SetTreasuryFee(opts, fee)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.SetTreasuryFee(opts, fee)
 	})
-	return msg, err
 }
 
 func (t *transactor) mint(address common.Address, amount *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.Mint(opts, address, amount)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.Mint(opts, address, amount)
 	})
-	return msg, err
 }
 
 func (t *transactor) burn(address common.Address, amount *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.Burn(opts, address, amount)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.Burn(opts, address, amount)
 	})
-	return msg, err
 }
 
 // ERC-20 writers
 func (t *transactor) transfer(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.Transfer(opts, recipient, amount)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.Transfer(opts, recipient, amount)
 	})
-	return msg, err
 }
 
 func (t *transactor) transferFrom(sender common.Address, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.TransferFrom(opts, sender, recipient, amount)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.TransferFrom(opts, sender, recipient, amount)
 	})
-	return msg, err
 }
 
 func (t *transactor) approve(spender common.Address, amount *big.Int) (*types.Transaction, error) {
-	var msg *types.Transaction
-	err := t.execute(func(instance *Autonity, opts *bind.TransactOpts) error {
-		tx, err := instance.Approve(opts, spender, amount)
-		msg = tx
-		return err
+	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		return instance.Approve(opts, spender, amount)
 	})
-	return msg, err
 }
 
 // The caller provides a mechanism to call the autonity contract, it is

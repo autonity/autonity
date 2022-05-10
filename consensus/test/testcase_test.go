@@ -141,7 +141,7 @@ func runTest(t *testing.T, test *testCase) {
 	// see: metrics/meter.go:55
 	defer metrics.DefaultRegistry.UnregisterAll()
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	_, err := fdlimit.Raise(512 * uint64(test.numValidators))
 	if err != nil {
 		t.Log("can't rise file description limit. errors are possible")
