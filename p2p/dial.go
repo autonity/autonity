@@ -423,9 +423,12 @@ func (d *dialScheduler) startStaticDials(n int) (started int) {
 
 // updateStaticPool attempts to move the given static dial back into staticPool.
 func (d *dialScheduler) updateStaticPool(id enode.ID) {
-	task, ok := d.static[id]
-	if ok && task.staticPoolIndex < 0 && d.checkDial(task.dest) == nil {
-		d.addToStaticPool(task)
+	if task, ok := d.static[id]; ok {
+		task.lock.RLock()
+		defer task.lock.RUnlock()
+		if task.staticPoolIndex < 0 && d.checkDial(task.dest) == nil {
+			d.addToStaticPool(task)
+		}
 	}
 }
 
@@ -467,6 +470,9 @@ type dialTask struct {
 	flags           connFlag
 	// These fields are private to the task and should not be
 	// accessed by dialScheduler while the task is running.
+	// Unfortunately this is not the case, therefore they need protection.
+
+	lock         sync.RWMutex
 	dest         *enode.Node
 	lastResolved mclock.AbsTime
 	resolveDelay time.Duration
@@ -528,7 +534,9 @@ func (t *dialTask) resolve(d *dialScheduler) bool {
 	}
 	// The node was found.
 	t.resolveDelay = initialResolveDelay
+	t.lock.Lock()
 	t.dest = resolved
+	t.lock.Unlock()
 	d.log.Debug("Resolved node", "id", t.dest.ID(), "addr", &net.TCPAddr{IP: t.dest.IP(), Port: t.dest.TCP()})
 	return true
 }
