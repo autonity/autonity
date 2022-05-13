@@ -947,13 +947,21 @@ func (srv *Server) listenLoop() {
 		}()
 	}
 }
+func (srv *Server) isTrustedIP(remoteIP net.IP) bool {
+	for _, n := range srv.TrustedNodes {
+		if n.IP().Equal(remoteIP) {
+			return true
+		}
+	}
+	return false
+}
 
 func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	if remoteIP == nil {
 		return nil
 	}
 	// Reject connections that do not match NetRestrict.
-	if srv.NetRestrict != nil && !srv.NetRestrict.Contains(remoteIP) {
+	if srv.NetRestrict != nil && !srv.NetRestrict.Contains(remoteIP) && !srv.isTrustedIP(remoteIP) {
 		return fmt.Errorf("not in netrestrict list")
 	}
 	// Reject Internet peers that try too often.
