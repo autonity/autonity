@@ -82,7 +82,7 @@ var (
 		AutonityContractConfig: &AutonityContractGenesis{
 			Bytecode:         "",
 			ABI:              "",
-			MinBaseFee:       InitialBaseFee,
+			MinBaseFee:       500_000_000,
 			EpochPeriod:      30 * 60,
 			UnbondingPeriod:  6 * 60 * 60,
 			BlockPeriod:      1,
@@ -114,6 +114,67 @@ var (
 			}, {
 				Treasury:    common.HexToAddress("0xb94475118860Aa51544AF1C16eE3Db3799B6Db64"),
 				Enode:       "enode://6ab1e6bbf5897e1a24ccf8d8718615ec972ffd54d99c3e46f4517d5602e8bf7110e2e5e2c2e584795e45e2e842172de044b4df165a7082133c6697b632da8282@18.168.88.205:30305",
+				BondedStake: big.NewInt(10_000),
+			}},
+		},
+	}
+
+	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
+	BakerlooChainConfig = &ChainConfig{
+		ChainID:                 big.NewInt(65_010_000),
+		HomesteadBlock:          common.Big0,
+		DAOForkBlock:            common.Big0,
+		DAOForkSupport:          true,
+		EIP150Block:             common.Big0,
+		EIP150Hash:              common.Hash{},
+		EIP155Block:             common.Big0,
+		EIP158Block:             common.Big0,
+		ByzantiumBlock:          common.Big0,
+		ConstantinopleBlock:     common.Big0,
+		PetersburgBlock:         common.Big0,
+		IstanbulBlock:           common.Big0,
+		MuirGlacierBlock:        common.Big0,
+		BerlinBlock:             common.Big0,
+		LondonBlock:             common.Big0,
+		ArrowGlacierBlock:       common.Big0,
+		MergeForkBlock:          nil,
+		TerminalTotalDifficulty: nil,
+		Ethash:                  nil,
+		AutonityContractConfig: &AutonityContractGenesis{
+			Bytecode:         "",
+			ABI:              "",
+			MinBaseFee:       500_000_000,
+			EpochPeriod:      30 * 60,
+			UnbondingPeriod:  6 * 60 * 60,
+			BlockPeriod:      1,
+			MaxCommitteeSize: 50,
+			Operator:         common.HexToAddress("0x293039dDC627B1dF9562380c0E5377848F94325A"),
+			Treasury:         common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"),
+			TreasuryFee:      10_000_000_000_000_000,
+			DelegationRate:   1000,
+			Validators: []*Validator{{
+				Treasury:    common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
+				Enode:       "enode://181dd52828614267b2e3fe16e55721ce4ee428a303b89a0cba3343081be540f28a667c9391024718e45ae880088bd8b6578e82d395e43af261d18cedac7f51c3@35.246.21.247:30303",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xf1859D9feD50514F9D805BeC7a30623d061f40B7"),
+				Enode:       "enode://e3b8ea9ddef567225530bcbae68af5d46f59a2b39acc04113165eba2744f6759493027237681f10911d4c12eda729c367f8e64dfd4789c508b7619080bb0861b@35.189.64.207:30303",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0x1B441084736B80f273e498E646b0bEA86B4eC6AB"),
+				Enode:       "enode://00c6c1704c103e74a26ad072aa680d82f6c677106db413f0afa41a84b5c3ab3b0827ea1a54511f637350e4e31d8a87fdbab5d918e492d21bea0a399399a9a7b5@34.105.163.137:30303",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xB5C49d50470743D8dE43bB6822AC4505E64648Da"),
+				Enode:       "enode://dffaa985bf36c8e961b9aa7bcdd644f1ad80e07d7977ce8238ac126d4425509d98da8c7f32a3e47e19822bd412ffa705c4488ce49d8b1769b8c81ee7bf102249@35.177.8.113:30308",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0x31e1dE659A26F7638FAaFEfD94D47258FE361823"),
+				Enode:       "enode://1bd367bfb421eb4d21f9ace33f9c3c26cd1f6b257cc4a1af640c9af56f338d865c8e5480c7ee74d5881647ef6f71d880104690936b72fdc905886e9594e976d1@35.179.46.181:30309",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xe22617BD2a4e1Fe3938F84060D8a6be7A18a2ef9"),
+				Enode:       "enode://a7465d99513715ece132504e47867f88bb5e289b8bca0fca118076b5c733d901305db68d1104ab838cf6be270b7bf71e576a44644d02f8576a4d43de8aeba1ab@3.9.98.39:30310",
 				BondedStake: big.NewInt(10_000),
 			}},
 		},
@@ -349,6 +410,7 @@ var (
 func init() {
 	TestAutonityContractConfig.Prepare()
 	PiccaddillyChainConfig.AutonityContractConfig.Prepare()
+	BakerlooChainConfig.AutonityContractConfig.Prepare()
 }
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and

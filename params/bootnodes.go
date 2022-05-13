@@ -25,6 +25,11 @@ var PiccadillyBootnodes = []string{
 	"enode://d820e4d53f1e47443c23f2db28b251ca8b8dc207a1b0a0e36ae1bbeb63d0cea4f00dabb61e5daf27468f022adc8780dfd181c57ce0db16a9668dd72e18ecac6b@159.203.156.236:30303", // DO
 }
 
+var BakerlooBootnodes = []string{
+	"enode://46164e112b9a89641ca1cdb861fb7fefa6d5b111df1ec831601afdb6262a85af1865b4c53b378988c0b85e2d53b758c81322f86b5d3831ccf54d2e4e62c77ff6@34.142.78.108:30303", // GCP- London
+	"enode://475b720eded83c95ba55648127cb861c1620482690bfb3aece61f0cad85a234d7b73e1d2b29b753af4e9c6f5a1ffd16a1da04e1185169366fe011ca81ef2ecf7@35.189.83.7:30303",   //GCP- London
+}
+
 var V5Bootnodes = []string{
 	// Teku team's bootnode
 	"enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2Gxb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNlY3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA",

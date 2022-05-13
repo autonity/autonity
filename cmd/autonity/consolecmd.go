@@ -128,6 +128,9 @@ func remoteConsole(ctx *cli.Context) error {
 		if path != "" && ctx.GlobalBool(utils.PiccadillyFlag.Name) {
 			path = filepath.Join(path, "piccadilly")
 		}
+		if path != "" && ctx.GlobalBool(utils.BakerlooFlag.Name) {
+			path = filepath.Join(path, "bakerloo")
+		}
 		endpoint = fmt.Sprintf("%s/autonity.ipc", path)
 	}
 	client, err := dialRPC(endpoint)

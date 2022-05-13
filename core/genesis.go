@@ -492,6 +492,15 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 	}
 }
 
+func DefaultBakerlooGenesisBlock() *Genesis {
+	return &Genesis{
+		Config:     params.BakerlooChainConfig,
+		Nonce:      0,
+		GasLimit:   30_000_000,
+		Difficulty: big.NewInt(0),
+	}
+}
+
 // DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
 func DefaultRopstenGenesisBlock() *Genesis {
 	return &Genesis{

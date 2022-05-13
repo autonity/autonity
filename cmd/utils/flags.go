@@ -171,6 +171,10 @@ var (
 		Name:  "iterative",
 		Usage: "Print streaming JSON iteratively, delimited by newlines",
 	}
+	BakerlooFlag = cli.BoolFlag{
+		Name:  "bakerloo",
+		Usage: "Bakerloo network: pre-configured Autonity test network",
+	}
 	PiccadillyFlag = cli.BoolFlag{
 		Name:  "piccadilly",
 		Usage: "Piccadilly network: pre-configured Autonity test network",
@@ -740,6 +744,9 @@ func MakeDataDir(ctx *cli.Context) string {
 		if ctx.GlobalBool(PiccadillyFlag.Name) {
 			return filepath.Join(path, "piccadilly")
 		}
+		if ctx.GlobalBool(BakerlooFlag.Name) {
+			return filepath.Join(path, "bakerloo")
+		}
 		return path
 	}
 	Fatalf("Cannot determine default data directory, please set manually (--datadir)")
@@ -788,6 +795,8 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
 	case ctx.GlobalBool(PiccadillyFlag.Name):
 		urls = params.PiccadillyBootnodes
+	case ctx.GlobalBool(BakerlooFlag.Name):
+		urls = params.BakerlooBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1168,6 +1177,8 @@ func setDataDir(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
 	case ctx.GlobalBool(PiccadillyFlag.Name):
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "piccadilly")
+	case ctx.GlobalBool(BakerlooFlag.Name):
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "bakerloo")
 	}
 }
 
@@ -1327,6 +1338,7 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Avoid conflicting network flags
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
+	CheckExclusive(ctx, PiccadillyFlag, BakerlooFlag)
 	if ctx.GlobalString(GCModeFlag.Name) == "archive" && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
 		ctx.GlobalSet(TxLookupLimitFlag.Name, "0")
 		log.Warn("Disable transaction unindexing for archive node")
@@ -1456,9 +1468,15 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Override any default configs for hard coded networks.
 	if ctx.GlobalBool(PiccadillyFlag.Name) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 112_105
+			cfg.NetworkId = 65_100_000
 		}
 		cfg.Genesis = core.DefaultPiccadillyGenesisBlock()
+	}
+	if ctx.GlobalBool(BakerlooFlag.Name) {
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 65_010_000
+		}
+		cfg.Genesis = core.DefaultBakerlooGenesisBlock()
 	}
 }
 
@@ -1622,7 +1640,9 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 	if ctx.GlobalBool(PiccadillyFlag.Name) {
 		return core.DefaultPiccadillyGenesisBlock()
 	}
-
+	if ctx.GlobalBool(BakerlooFlag.Name) {
+		return core.DefaultBakerlooGenesisBlock()
+	}
 	return nil
 }
 

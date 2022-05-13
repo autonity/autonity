@@ -129,6 +129,7 @@ var (
 		utils.GpoIgnoreGasPriceFlag,
 		utils.MinerNotifyFullFlag,
 		utils.PiccadillyFlag,
+		utils.BakerlooFlag,
 		configFileFlag,
 	}
 
@@ -239,6 +240,8 @@ func prepare(ctx *cli.Context) {
 	switch {
 	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
 		log.Info("Starting Autonity on Piccadilly testnet...")
+	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
+		log.Info("Starting Autonity on Bakerloo testnet...")
 	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
 		log.Info("Starting Autonity...")
 	}
