@@ -60,7 +60,7 @@ var (
 
 	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
 	PiccaddillyChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(112_105),
+		ChainID:                 big.NewInt(65_100_000),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -92,16 +92,28 @@ var (
 			TreasuryFee:      10_000_000_000_000_000,
 			DelegationRate:   1000,
 			Validators: []*Validator{{
-				Treasury:    common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
-				Enode:       "enode://3c7f26eb85a7fc37d5ea64c07598a28dd58f507477a88b2144179a4a162c6cba9407389d39c76386126f0604dd53141680d8075b6d210a22cc38c3a8dd877711@35.246.7.21:30303",
+				Treasury:    common.HexToAddress("0x75474aC55768fAb6fE092191eea8016b955072F5"),
+				Enode:       "enode://d4dc137f987e17155a69b31e566494c16edafd228912483cc519a48ce85864781faccc38141cc0eb1df8cdb28b9b3ccd10e1c298bac78ac43bbe5804021c1152@34.142.71.5:30303",
 				BondedStake: big.NewInt(10_000),
 			}, {
-				Treasury:    common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
-				Enode:       "enode://08e2ed9ca80772ce32e3b56fba3469e33a034a66780e4852586e38db657658fdc610cfb7345543a01277eb53af458ef7cac0b66570ac1982011f24d3832d782c@34.100.165.124:30303", //GCP - Asia
+				Treasury:    common.HexToAddress("0x821BC352E77D885906B47001863f75e15C114f70"),
+				Enode:       "enode://74a4f767ad2f3f607a2db06732b44e6c61a68cae1959b331c18aea6256aae16bded31ba40dd85dcc4d719baaeb29f918726d19fa51b5d8174b27da0d7593e19b@34.142.33.89:30303",
 				BondedStake: big.NewInt(10_000),
 			}, {
-				Treasury:    common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
-				Enode:       "enode://d820e4d53f1e47443c23f2db28b251ca8b8dc207a1b0a0e36ae1bbeb63d0cea4f00dabb61e5daf27468f022adc8780dfd181c57ce0db16a9668dd72e18ecac6b@159.203.156.236:30303", // DO
+				Treasury:    common.HexToAddress("0x59e2EE43e1950a348ab3CC9b6Eb847C019c2CFb1"),
+				Enode:       "enode://0ddc30943837f9416f563063ed5d409aca37780b8b8f939ef9f4b7901b9eb94c09d7ba2af27f70b33d76e74403d00021c13ebc4943ad46bc1e5051689cd862b8@35.234.131.29:30303",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xEd1c2E7143Ad134909a39AadC25599E36064803E"),
+				Enode:       "enode://9435658d26e5daf30261648504560f6375b24cdf0e4403613d44ebc4020489cc67ac82ababe7928d63d9f113c67b946845d18db935abe3d241e665114fc75e94@35.177.73.222:30303",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xb34ed221c46a6Ad530d250856f94baD84E4308d5"),
+				Enode:       "enode://fe2c621f2b660725a3d529b3eefd780e90bb86e9eb4b7136c0b00a7365260a478b9b8941f1a65c6d4d77bff1b2e22eb6d781f5cc86401d60b373c6d4155c189a@3.10.195.56:30304",
+				BondedStake: big.NewInt(10_000),
+			}, {
+				Treasury:    common.HexToAddress("0xb94475118860Aa51544AF1C16eE3Db3799B6Db64"),
+				Enode:       "enode://6ab1e6bbf5897e1a24ccf8d8718615ec972ffd54d99c3e46f4517d5602e8bf7110e2e5e2c2e584795e45e2e842172de044b4df165a7082133c6697b632da8282@18.168.88.205:30305",
 				BondedStake: big.NewInt(10_000),
 			}},
 		},
