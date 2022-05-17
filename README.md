@@ -1,92 +1,151 @@
-## Autonity
+<div align="center">
+  <img src=".github/logo-full-colour.png?raw=true">
+  <b>Main client software for Autonity networks</b>
+</div>
 
-[![Join the chat at https://gitter.im/clearmatics/autonity](https://badges.gitter.im/clearmatics/autonity.svg)](https://gitter.im/clearmatics/autonity?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Build Status](https://travis-ci.org/clearmatics/autonity.svg?branch=master)](https://travis-ci.org/clearmatics/autonity)
-[![Coverage Status](https://coveralls.io/repos/github/clearmatics/autonity/badge.svg?branch=tendermint)](https://coveralls.io/github/clearmatics/autonity?branch=tendermint)
+---
 
-Autonity is based on a fork of go-ethereum, that extends the Ethereum blockchain structure and protocol with delegated
-Proof of Stake consensus.
+[![codecov](https://codecov.io/gh/autonity/autonity/branch/master/graph/badge.svg?token=yRQ7y5ljc0)](https://codecov.io/gh/autonity/autonity)
+[![Go Report Card](https://goreportcard.com/badge/github.com/autonity/autonity)](https://goreportcard.com/report/github.com/autonity/autonity)
+[![License](https://img.shields.io/badge/license-GPL%203.0-blue.svg)](https://github.com/autonity/autonity/blob/master/COPYING)
+[![License](https://img.shields.io/badge/license-LGPL%203.0-blue.svg)](https://github.com/autonity/autonity/blob/master/COPYING.LESSER)
+[![GitHub issues](https://img.shields.io/github/issues/autonity/autonity)](https://github.com/autonity/autonity/issues)
+[![GitHub forks](https://img.shields.io/github/forks/autonity/autonity)](https://github.com/autonity/autonity/autonity)
+[![GitHub stars](https://img.shields.io/github/stars/autonity/autonity)](https://github.com/autonity/autonity/stargazers)
 
-Key technical features of the Autonity Protocol are:
+---
 
-- immediate and deterministic transaction finality in a public environment where participant nodes can join the network
-  dynamically without permission
-- delegated Proof of Stake consensus for committee selection and blockchain management, using the deterministic
-  Tendermint BFT consensus algorithm
-- dual coin tokenomics, with native coins auton and newton for utility and staking
-- liquid staking for capital efficiency, staked newton yielding transferrable liquid newton redeemed for newton on
-  unbonding stake.
+<div align="center">
+    <p>Documentation @ <a href="http://docs.autonity.org">http://docs.autonity.org</a></p>
+</div>
 
-Core technology is the Autonity Go Client (AGC), a fork of the Go Ethereum ‘Geth’ client. AGC is the reference
-implementation of the Autonity Protocol and provides the main client software run by participant peer nodes in an
-Autonity network system.
+### What is Autonity?
 
-More about the Autonity context at <https://www.autonity.io>
+Autonity is an EVM-based Layer 1 blockchain protocol for peer-to-peer networks hosting decentralised risk markets. Autonity networks are permissionless: access is open to all and anyone can operate a network node.
 
-More detailed documentation coming soon at <https://docs.autonity.io>
+Autonity networks are Byzantine fault-tolerant and secured by delegated Proof of Stake using Tendermint consensus. Autonity has native protocol coins and implements a liquid staking model. Native coins are the *Auton*  utility coin used in the transaction fee mechanism and *Newton* for staking the network. *Liquid Newton* is minted and burned as stake is bonded and redeemed.
 
-## Prerequisites
+Key features of the Autonity Protocol are: 
 
-* Go (version 1.9 or later) - https://golang.org/dl
-* A C compiler.
-* Docker
+- immediate and deterministic transaction finality in a public environment where participant nodes can join the network dynamically without permission
+- delegated Proof of Stake consensus for committee selection and blockchain management, using the deterministic Tendermint BFT consensus algorithm
+- dual coin tokenomics, with native coins _Auton_ and _Newton_ for utility and staking
+- liquid staking for capital efficiency, staked newton yielding transferrable _Liquid Newton_ redeemed for _Newton_ on unbonding stake
+- epoch-based staking reward distribution
 
-## Working with the source
+Core technology is the Autonity Go Client (AGC). AGC is the reference implementation of the Autonity Protocol and provides the main client software run by participant peer nodes in an Autonity network system. The client is a fork of [Go Ethereum](https://github.com/ethereum/go-ethereum).
 
-Before working with the source you will need to run
+For more information about Autonity networks and risk markets visit the Project website @ <a href="http://autonity.org">http://autonity.org</a>.
+
+## Installation
+
+The minimum recommended device specifications for an Autonity node are:
+
+| Requirement	 | At least | Recommended|
+|-------------|----------|------------|
+| OS | Ubuntu 20.04	LTS | Ubuntu 20.04 LTS |
+| CPU | 3.10 GHz with 8 CPU's | 3.10 GHz with 16 CPU's |
+| RAM | 8GB | 8GB |
+| Storage | 1024GB free storage for full nodes and Validators | 1024 GB free storage for full nodes and validators |
+| Network interface	| 200 Mbit/s | 200 Mbit/s |
+
+### Unix Executable
+
+Download pre-built binaries of the Autonity client and NodeJS Console CLI for the Linux OS from the [Release Archive](https://github.com/autonity/autonity/releases).
+
+### Build from source
+
+#### Prerequisites
+
+To build you will need :
+
+* Go (version 1.15 or later) - https://golang.org/dl
+* A C compiler - for example, [GCC](https://gcc.gnu.org/)
+* Docker Engine [Server](https://docs.docker.com/engine/install/#server)
+* [GNU Make](https://www.gnu.org/software/make/) utility to generate the executable from source files
+
+To install and run the Autonity NodeJS Console you will need [nodejs](https://nodejs.org/en/download/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
+
+#### Get the source code
+
+Clone the Autonity Go Client repository:
+
+```
+git clone git@github.com:autonity/autonity.git
+cd autonity
+```
+
+#### Build
+
+Before working with the source run:
 
 ```
 make embed-autonity-contract
 ```
 
-This generates go source from the autonity contract.
+This generates go source from the Solidity Autonity Protocol Contract.
 
-## Building Autonity Go Client (AGC)
+To build the Autonity Go Client (AGC) run:
 
 ```
 make autonity
 ```
 
-## Build Autonity Go Client docker image
+This generates the Autonity binary in the `/build/bin/` directory. Run `./build/bin/autonity` to start the client, `CTRL+C` to stop. To view the client's command-line options run `autonity --help`. 
+
+To build the Autonity Go Client (AGC) and Tools in the `cmd` subdirectory, run:
+
+```
+make all
+```
+
+To build the Docker image run:
 
 ```
 make build-docker-image
 ```
 
-For information on connecting an Autonity node to a network see the documentation
-website [here](https://musical-chainsaw-80f50d3e.pages.github.io/howto/run-aut/#connect-the-client-to-an-autonity-network)
-.
+This generates the Autonity Go Client Docker image and manifest.
+
+## Run a node
+
+Quick-start connecting to an Autonity testnet by using a testnet flag in the command line to set the genesis config for that network when starting the client. For example, to connect to the Piccadilly Testnet:
+
+```
+./build/bin/autonity --piccadilly
+```
+
+For full docs on how to run the client and connect to a public Autonity network see [Networks](http://www.docs.autonity.org/networks/) and [Run Autonity](http://www.docs.autonity.org/howto/run-aut/).
 
 ## Open a javascript console to a node
 
-The Autonity NodeJS Console is distributed as part of the Autonity Go Client Release in the `nodejsconsole` sub
-directory. For users who only require a console, it is also available as a standalone binary from
-the [Autonity Releases Archive](https://github.com/autonity/autonity/releases)
-- `nodejsconsole-linux-amd64-<RELEASE_VERSION>.tar.gz`.
+You can connect to the client using the Autonity NodeJS Console CLI tool. The CLI is distributed as part of the Autonity Go Client Release in the `nodejsconsole` subdirectory. For users who only require a console, it is also available as a standalone binary from
+the [Autonity Releases Archive](https://github.com/clearmatics/autonity/releases) - `nodejsconsole-linux-amd64-<RELEASE_VERSION>.tar.gz`.
 
-To run the Console and connect to a node, specify WebSockets as the transport and the IP address and port 8546 of the
-Autonity client node you will connect to. Use WS for a local node and WSS for secure connection to a public node on an
-Autonity network. For example, to connect to a node running on local host:
+To run the Console and connect to a node, the connection is made to a WebSocket enabled rpc address at port 8546. Specify WebSockets as the transport, IP address, and port 8546 of the Autonity client node you will connect to. Use WS for a local node and WSS for secure connection to a public node on an Autonity network. For example, to connect to a node running on local host:
 
 ```
-./nodeconsole/console ws://localhost:8546
+./nodejsconsole/console ws://localhost:8546
 ```
 
-The console is run with the `--experimental-repl-await` flag which means that you can use await from the console prompt.
-
-E.G:
+The console is a Node.js REPL shell for executing calls to Web3 and Autonity  namespace functions provided by the client. Append calls to Autonity with `.call()` to read or `.send()` for write transactions. For example:
 
 ```
-> await autonity.getMinimumBaseFee().call()
+> autonity.getMinimumBaseFee().call()
 '5000000'
 ```
 
+See the docs for how to [make calls](http://www.docs.autonity.org/howto/make-calls/) and [submit transactions](http://www.docs.autonity.org/howto/submit-trans/) from the console.
+
+
+## Networks
+
+### Testnets
+
+For details of how to connect your node to a public Autonity network see [docs.autonity.org/networks](http://www.docs.autonity.org/networks).
+
 ## License
 
-The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the
-[GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html), also included in our repository
-in the `COPYING.LESSER` file.
+The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html), also included in the repository in the `COPYING.LESSER` file.
 
-The go-ethereum binaries (i.e. all code inside of the `cmd` directory) is licensed under the
-[GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also included in our repository in
-the `COPYING` file.
+The go-ethereum binaries (i.e. all code inside of the `cmd` directory) is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also included in the repository in the `COPYING` file.
