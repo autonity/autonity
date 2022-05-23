@@ -139,6 +139,7 @@ type dialConfig struct {
 	log            log.Logger
 	clock          mclock.Clock
 	rand           *mrand.Rand
+	trusted        *sync.Map
 }
 
 func (cfg dialConfig) withDefaults() dialConfig {
@@ -401,7 +402,7 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 	if _, ok := d.peers[n.ID()]; ok {
 		return errAlreadyConnected
 	}
-	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) {
+	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) && !isTrustedIP(d.trusted, n.IP()) {
 		return errNetRestrict
 	}
 	if d.history.contains(string(n.ID().Bytes())) {
