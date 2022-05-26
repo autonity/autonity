@@ -41,17 +41,17 @@ For more information about Autonity networks and risk markets visit the Project 
 
 The minimum recommended device specifications for an Autonity node are:
 
-| Requirement	 | At least | Recommended|
-|-------------|----------|------------|
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
 | OS | Ubuntu 20.04	LTS | Ubuntu 20.04 LTS |
 | CPU | 3.10 GHz with 8 CPU's | 3.10 GHz with 16 CPU's |
 | RAM | 8GB | 8GB |
 | Storage | 1024GB free storage for full nodes and Validators | 1024 GB free storage for full nodes and validators |
 | Network interface	| 200 Mbit/s | 200 Mbit/s |
 
-### Unix Executable
+### Linux Binaries
 
-Download pre-built binaries of the Autonity client and NodeJS Console CLI for the Linux OS from the [Release Archive](https://github.com/autonity/autonity/releases).
+Download pre-built binaries of the Autonity client and NodeJS Console CLI for Linux from the [Release Archive](https://github.com/autonity/autonity/releases).
 
 ### Build from source
 
@@ -109,7 +109,7 @@ Quick-start connecting to an Autonity testnet by using a testnet flag in the com
 
 For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/howto/run-aut/).
 
-## Open a javascript console to a node
+## Open a Javascript console to a node
 
 You can connect to the client using the Autonity NodeJS Console CLI tool. The CLI is distributed as part of the Autonity Go Client Release in the `nodejsconsole` subdirectory. For users who only require a console, it is also available as a standalone binary from
 the [Autonity Releases Archive](https://github.com/clearmatics/autonity/releases) - `nodejsconsole-linux-amd64-<RELEASE_VERSION>.tar.gz`.
