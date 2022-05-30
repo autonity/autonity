@@ -61,7 +61,6 @@ func TestACPublicWritters(t *testing.T) {
 			name:          "Test register new validator",
 			numValidators: numOfValidators,
 			numBlocks:     10,
-			txPerPeer:     1,
 			// register validator right after block #5 is committed from client V0.
 			afterHooks: map[string]hook{
 				"V0": registerValidatorHook(map[uint64]struct{}{
@@ -82,7 +81,6 @@ func TestACPublicWritters(t *testing.T) {
 			name:          "bond stake to validator",
 			numValidators: numOfValidators,
 			numBlocks:     10,
-			txPerPeer:     1,
 			genesisHook: func(g *core.Genesis) *core.Genesis {
 				g.Config.AutonityContractConfig.Operator = operatorAddr
 				// pre-mine Auton for system operator and new validator.
@@ -127,7 +125,6 @@ func TestACPublicWritters(t *testing.T) {
 			name:          "unbond stake from validator",
 			numValidators: numOfValidators,
 			numBlocks:     10,
-			txPerPeer:     1,
 			afterHooks: map[string]hook{
 				"V0": unBondStakeHook(map[uint64]struct{}{
 					2: {},
@@ -168,8 +165,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 	testCase := &testCase{
 		name:          "Test AC system operator change settings",
 		numValidators: numOfValidators,
-		numBlocks:     20,
-		txPerPeer:     1,
+		numBlocks:     25,
 		// set AC configs in genesis hook.
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = initialOperatorAddr
@@ -194,7 +190,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 			// burn stake right after block #5 from client V1.
 			"V1": burnStakeHook(
 				map[uint64]struct{}{
-					5: {},
+					15: {},
 				},
 				initialOperator,
 				newOperatorAddr,
@@ -202,7 +198,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 			// change operator after block #10 from client V3.
 			"V2": setOperatorHook(
 				map[uint64]struct{}{
-					10: {},
+					20: {},
 				},
 				initialOperator,
 				newOperatorAddr,
@@ -239,7 +235,6 @@ func TestACStateGetters(t *testing.T) {
 		name:          "Test AC state getters",
 		numValidators: numOfValidators,
 		numBlocks:     10,
-		txPerPeer:     1,
 		// set AC configs in genesis hook.
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddress
@@ -584,7 +579,6 @@ func TestUpgradeMechanism(t *testing.T) {
 		name:          "Test AC system operator change settings",
 		numValidators: numOfValidators,
 		numBlocks:     30,
-		txPerPeer:     0,
 		// set AC configs in genesis hook.
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = initialOperatorAddr

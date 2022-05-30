@@ -117,8 +117,9 @@ test-race:
 test-contracts: autonity
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statement if the first fails.
-	@npm list truffle > /dev/null || npm install truffle
+	@npm list truffle > /dev/null || npm install truffle@5.5.11
 	@npm list web3 > /dev/null || npm install web3
+	@$(NPMBIN)/truffle version
 	@cd $(AUTONITY_CONTRACT_TEST_DIR)/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
 	@# Autonity can take some time to start up so we ping its port till we see it is listening.
 	@# The -z option to netcat exits with 0 only if the port at the given addresss is listening.
@@ -147,20 +148,20 @@ lint-dead:
 
 lint: embed-autonity-contract
 	@echo "--> Running linter for code diff versus commit $(LATEST_COMMIT)"
-	@./build/bin/golangci-lint run \
+	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step1.yml \
 	    --exclude "which can be annoying to use"
 
-	@./build/bin/golangci-lint run \
+	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step2.yml
 
-	@./build/bin/golangci-lint run \
+	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step3.yml
 
-	@./build/bin/golangci-lint run \
+	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step4.yml
 

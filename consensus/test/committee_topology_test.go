@@ -25,7 +25,6 @@ func TestStarTopology(t *testing.T) {
 		name:          "test committee star topology",
 		numValidators: 5,
 		numBlocks:     5,
-		txPerPeer:     1,
 		topology: &Topology{
 			graph: *topology,
 		},
@@ -53,7 +52,6 @@ func TestBusTopology(t *testing.T) {
 		name:          "test committee bus topology",
 		numValidators: 5,
 		numBlocks:     5,
-		txPerPeer:     1,
 		topology: &Topology{
 			graph: *topology,
 		},
@@ -82,7 +80,6 @@ func TestRingTopology(t *testing.T) {
 		name:          "test committee ring topology",
 		numValidators: 5,
 		numBlocks:     5,
-		txPerPeer:     1,
 		topology: &Topology{
 			graph: *topology,
 		},

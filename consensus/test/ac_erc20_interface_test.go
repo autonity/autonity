@@ -35,8 +35,7 @@ func TestACERC20Interfaces(t *testing.T) {
 	testCase := &testCase{
 		name:          "ERC20 interface test",
 		numValidators: numOfValidators,
-		numBlocks:     25,
-		txPerPeer:     1,
+		numBlocks:     30,
 		// set operator and pre-mine native tokens.
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = operatorAddr
@@ -55,7 +54,7 @@ func TestACERC20Interfaces(t *testing.T) {
 			// mint 100 Newtons for owner by operator.
 			"V0": mintNewtonHook(
 				map[uint64]struct{}{
-					1: {},
+					5: {},
 				},
 				operator,
 				ownerAddr,
@@ -63,7 +62,7 @@ func TestACERC20Interfaces(t *testing.T) {
 			// owner approve 20 Newtons to spender, operator send 50 Newtons to V1.
 			"V1": transferApproveHook(
 				map[uint64]struct{}{
-					10: {},
+					15: {},
 				},
 				owner,
 				operator,
@@ -74,7 +73,7 @@ func TestACERC20Interfaces(t *testing.T) {
 			// spender transferFrom owner with 10 Newtons since owner approved 20.
 			"V2": transferFromHook(
 				map[uint64]struct{}{
-					20: {},
+					25: {},
 				},
 				spender,
 				ownerAddr,

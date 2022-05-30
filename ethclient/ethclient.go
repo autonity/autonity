@@ -305,6 +305,23 @@ func (ec *Client) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, err
 	return p.toSyncProgress(), nil
 }
 
+// IsMining retrieves the current mining state of the client.
+func (ec *Client) IsMining(ctx context.Context) (bool, error) {
+	var raw json.RawMessage
+	if err := ec.c.CallContext(ctx, &raw, "eth_mining"); err != nil {
+		return false, err
+	}
+
+	// Handle the response.
+	var mining bool
+	err := json.Unmarshal(raw, &mining)
+	if err != nil {
+		return false, err
+	}
+
+	return mining, nil
+}
+
 // SubscribeNewHead subscribes to notifications about the current blockchain head
 // on the given channel.
 func (ec *Client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {

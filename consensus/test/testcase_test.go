@@ -12,12 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fdlimit"
 	"github.com/autonity/autonity/common/graph"
 	"github.com/autonity/autonity/common/keygenerator"
-	"github.com/autonity/autonity/consensus"
-	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -31,43 +28,27 @@ import (
 )
 
 const (
-	ValidatorPrefix   = "V"
-	StakeholderPrefix = "S"
-	ParticipantPrefix = "P"
-	ExternalPrefix    = "E"
+	ValidatorPrefix = "V"
+	ExternalPrefix  = "E"
 )
 
 type testCase struct {
 	name                   string
-	isSkipped              bool
 	numValidators          int
 	numBlocks              int
-	txPerPeer              int
 	validatorsCanBeStopped *int64
 
-	maliciousPeers          map[string]injectors
-	removedPeers            map[common.Address]uint64
-	addedValidatorsBlocks   map[common.Hash]uint64
-	removedValidatorsBlocks map[common.Hash]uint64    //nolint: unused, structcheck
-	changedValidators       tendermintBackend.Changes //nolint: unused,structcheck
-
-	networkRates         map[string]networkRate //map[validatorIndex]networkRate
-	beforeHooks          map[string]hook        //map[validatorIndex]beforeHook
-	afterHooks           map[string]hook        //map[validatorIndex]afterHook
-	sendTransactionHooks map[string]sendTransactionHook
-	finalAssert          func(t *testing.T, validators map[string]*testNode)
-	stopTime             map[string]time.Time
-	genesisHook          func(g *core.Genesis) *core.Genesis
-	mu                   sync.RWMutex
-	noQuorumAfterBlock   uint64
-	noQuorumTimeout      time.Duration
-	topology             *Topology
-	skipNoLeakCheck      bool
+	networkRates    map[string]networkRate //map[validatorIndex]networkRate
+	beforeHooks     map[string]hook        //map[validatorIndex]beforeHook
+	afterHooks      map[string]hook        //map[validatorIndex]afterHook
+	finalAssert     func(t *testing.T, validators map[string]*testNode)
+	genesisHook     func(g *core.Genesis) *core.Genesis
+	mu              sync.RWMutex
+	topology        *Topology
+	skipNoLeakCheck bool
 }
 
-type injectors struct {
-	cons func(basic consensus.Engine) consensus.Engine
-}
+type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
 
 func (test *testCase) getBeforeHook(index string) hook {
 	test.mu.Lock()
@@ -101,29 +82,7 @@ func (test *testCase) getAfterHook(index string) hook {
 	return validatorHook
 }
 
-func (test *testCase) setStopTime(index string, stopTime time.Time) {
-	test.mu.Lock()
-	test.stopTime[index] = stopTime
-	test.mu.Unlock()
-}
-
-func (test *testCase) getStopTime(index string) time.Time {
-	test.mu.RLock()
-	currentTime := test.stopTime[index]
-	test.mu.RUnlock()
-
-	return currentTime
-}
-
-type hook func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error
-type sendTransactionHook func(validator *testNode, fromAddr common.Address, toAddr common.Address) (bool, *types.Transaction, error)
-
 func runTest(t *testing.T, test *testCase) {
-	if test.isSkipped {
-		t.SkipNow()
-	}
-
-	// fixme the noQuorum tests does not close nodes properly
 	if !test.skipNoLeakCheck {
 		// TODO: (screwyprof) Fix the following gorotine leaks
 		defer goleak.VerifyNone(t,
@@ -147,10 +106,10 @@ func runTest(t *testing.T, test *testCase) {
 		t.Log("can't rise file description limit. errors are possible")
 	}
 
-	// default topology if not set anything
+	// prepare node names for validators
 	nodeNames := getNodeNames(test.numValidators)
-	stakeholderName := nodeNames[len(nodeNames)-1]
 
+	// if topology test is enabled, then prepare node names from topologies.
 	if test.topology != nil {
 		err := test.topology.Validate()
 		if err != nil {
@@ -158,29 +117,18 @@ func runTest(t *testing.T, test *testCase) {
 		}
 		nodeNames = getNodeNamesByPrefix(test.topology.graph.GetNames(), ValidatorPrefix)
 		test.numValidators = len(nodeNames)
-
-		stakeholderNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), StakeholderPrefix)
-		if len(stakeholderNames) > 0 {
-			stakeholderName = stakeholderNames[0]
-		}
-
-		participantNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ParticipantPrefix)
 		externalNames := getNodeNamesByPrefix(test.topology.graph.GetNames(), ExternalPrefix)
-
-		nodeNames = append(nodeNames, stakeholderNames...)
-		nodeNames = append(nodeNames, participantNames...)
 		nodeNames = append(nodeNames, externalNames...)
 	}
 
 	nodesNum := len(nodeNames)
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
+	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
 
-	// Replace normal resolver with resolver that can resolve our test hostnames
+	// Replace normal DNS resolver with the resolver for this test framework.
 	enode.V4ResolveFunc = func(host string) (ips []net.IP, e error) {
 		if len(host) > 4 || !(strings.HasPrefix(host, ValidatorPrefix) ||
-			strings.HasPrefix(host, StakeholderPrefix) ||
-			strings.HasPrefix(host, ParticipantPrefix) ||
 			strings.HasPrefix(host, ExternalPrefix)) {
 			return nil, &net.DNSError{Err: "not found", Name: host, IsNotFound: true}
 		}
@@ -190,20 +138,18 @@ func runTest(t *testing.T, test *testCase) {
 		}, nil
 	}
 
-	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
 	setNodesPortAndEnode(t, nodes)
 
-	genesis := makeGenesis(t, nodes, stakeholderName)
-
+	// Make genesis and apply customized genesis configurations.
+	genesis := makeGenesis(t, nodes)
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}
+
+	// Start the node as an application container for ethereum service.
 	wg := &errgroup.Group{}
 	for i, peer := range nodes {
 		peer := peer
-		if test.maliciousPeers != nil {
-			peer.engineConstructor = test.maliciousPeers[i].cons
-		}
 		peer.listener[0].Close()
 		peer.listener[1].Close()
 
@@ -229,6 +175,7 @@ func runTest(t *testing.T, test *testCase) {
 		fmt.Printf("%s === %s  -- %s\n", nodeName, node.enode.URLv4(), crypto.PubkeyToAddress(node.privateKey.PublicKey).String())
 	}
 
+	// apply topology changes over test network.
 	if test.topology != nil && !test.topology.WithChanges() {
 		err := test.topology.ConnectNodes(nodes)
 		if err != nil {
@@ -236,6 +183,7 @@ func runTest(t *testing.T, test *testCase) {
 		}
 	}
 
+	// cleaners for node on shutdown.
 	defer func() {
 		wgClose := &errgroup.Group{}
 		for _, peer := range nodes {
@@ -266,6 +214,7 @@ func runTest(t *testing.T, test *testCase) {
 		time.Sleep(time.Second)
 	}()
 
+	// init test controller and start mining.
 	wg = &errgroup.Group{}
 	for _, peer := range nodes {
 		peer := peer
@@ -285,8 +234,8 @@ func runTest(t *testing.T, test *testCase) {
 		}
 	}()
 
-	// each peer sends one tx per block
-	sendTransactions(t, test, nodes, test.txPerPeer, true, nodeNames)
+	// start test controllers.
+	startTestControllers(t, test, nodes, true)
 	if test.finalAssert != nil {
 		test.finalAssert(t, nodes)
 	}
@@ -297,10 +246,6 @@ func runTest(t *testing.T, test *testCase) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	}
-
-	if len(test.maliciousPeers) != 0 {
-		maliciousTest(t, test, nodes)
 	}
 }
 
@@ -344,6 +289,7 @@ func (t *Topology) Validate() error {
 func (t *Topology) WithChanges() bool {
 	return len(t.graph.SubGraphs) > 0
 }
+
 func (t *Topology) ConnectNodes(nodes map[string]*testNode) error {
 	edges := t.getEdges(maxNumOfBlockMum(nodes))
 	connections := t.getPeerConnections(edges)

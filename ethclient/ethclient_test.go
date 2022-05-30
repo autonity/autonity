@@ -498,6 +498,16 @@ func testStatusFunctions(t *testing.T, client *rpc.Client) {
 		t.Fatalf("unexpected progress: %v", progress)
 	}
 
+	// Mining status
+	mining, err := ec.IsMining(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if mining {
+		t.Fatalf("unexpected mining status: %v", mining)
+	}
+
 	// NetworkID
 	networkID, err := ec.NetworkID(context.Background())
 	if err != nil {
