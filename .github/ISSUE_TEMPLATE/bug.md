@@ -1,45 +1,68 @@
-# Note
+---
+name: 🐞 Report a bug
+about: Something isn't working as expected
+title: ""
+labels: ["triage", "type:bug"]
+assignees: ""
+---
 
-Remember to add this ticket to the Autonity 1.0.0 project.
-Remember to add relevant labels. Label description at bottom.
+### Description
 
-# Problem
+<!--
+Explain the problem in as much detail as you can, including its scope and
+impact if known.
 
-An overview of the background required to understand the problem.
-A problem description.
+Please also provide any contextual and background information that may be
+necessary to understand this problem.
+-->
 
-# Implementation
+...
 
-Known steps towards feature implementation.
-What needs further specifying and investigating.
+### System Information
 
-# Acceptance Criteria
+<!--
+Provide as many relevant details about your system and setup in order to
+reproduce the necessary environment.
 
-Rules for the future PR to be accepted.
+At minimum, include the Autonity version that you are using (or the git Commit
+ID if you are running a development branch).
+-->
 
-# Notes
+Autonity Version: `autonity version`
 
-Random notes to keep in mind while implementing it.
-Mostly about related issues and future plans and thoughts.
+### How to Reproduce
 
-# Future Steps
+<!--
+List the individual steps that will enable the development team to reproduce
+the problem.
+-->
 
-Steps which should be taken after this issue has been resolved.
+1. Step one.
+2. ...
+3. ...
 
-# Label descriptions
+### Expected Behaviour
 
-## All tickets should be marked with exactly one of these labels
+<!--
+What should we expect to see after executing this sequence of steps? What is
+the correct behaviour of the system?
+-->
 
-bug         - Something wrong that needs fixing
-enhancement - Improvement of existing system
-new feature - A new feature
-research    - Research work
+...
 
-## New tickets may be marked with any combination of these labels
+### Actual Behaviour
 
-triage           - Requires assignment/scheduling
-discussion       - Requires discussion
-help wanted      - A request for assistance on this issue or PR
-blocked          - This work depends on other work being done before it can continue
-good first issue - Good choice for a new joiner to work on
-sprint X         - Part of sprint X
+<!--
+What actually happens after executing this sequence of steps?
+
+Please insert relevant logs and backtraces as Markdown code blocks:
+
+````
+[backtrace]
+````
+
+Alternatively, you may also upload them as attachments to the issue below. When
+submitting logs, please submit them as text and not screenshots.
+-->
+
+...

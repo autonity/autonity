@@ -1,12 +1,33 @@
 ---
-name: Request a feature about: Report a missing feature - e.g. as a step before submitting a PR title: ''
-labels: 'type:feature' assignees: ''
+name: 💡 Request a feature
+about: Suggest a new feature, request, or enhancement
+title: ""
+labels: ["triage", "type:feature"]
+assignees: ""
 ---
 
-# Rationale
+### Description
 
-Why should this feature exist? What are the use-cases?
+<!--
+Explain the feature in as much detail as you can.
 
-# Implementation
+What are the expected use cases?
 
-Do you have ideas regarding the implementation of this feature? Are you willing to implement this feature?
+What is the impact on the system and its users?
+-->
+
+...
+
+### Rationale
+
+<!--
+Why should this feature exist? Why is it worthwhile to develop and implement?
+-->
+
+### Implementation
+
+<!--
+Do you have ideas regarding the implementation of this feature?
+
+Are you willing to implement this feature?
+-->
