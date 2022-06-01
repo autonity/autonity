@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/log"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -151,44 +150,6 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	return nil
-}
-
-func (c *core) handleNewCandidateBlockMsg(ctx context.Context, cBlock *types.Block) {
-	if cBlock == nil {
-		return
-	}
-
-	number := cBlock.Number()
-	if currentIsHigher := c.Height().Cmp(number); currentIsHigher > 0 {
-		c.logger.Info("NewCandidateBlockEvent: discarding old height cBlock", "number", number.Uint64())
-		return
-	}
-
-	c.logger.Debug("NewCandidateBlockEvent: Storing candidate block", "number", cBlock.NumberU64(), "hash", cBlock.Hash())
-	c.pendingCandidateBlocks[cBlock.NumberU64()] = cBlock
-
-	// if current node is the proposer of current height and current round at step PROPOSE without available candidate
-	// block sent before, if the incoming candidate block is the one it missed, send it now.
-	if c.isProposer() && c.step == propose && !c.sentProposal && c.Height().Cmp(number) == 0 {
-		c.logger.Info("NewCandidateBlockEvent: Sending proposal that was missed before", "number", number.Uint64())
-		c.sendProposal(ctx, cBlock)
-		c.logger.Info("NewCandidateBlockEvent: done")
-	}
-
-	// if miner view changes to new height, that means there are quorum nodes move to new height, so current
-	// tendermint engine instance should jump to new height by calling start round.
-	if c.Height().Cmp(number) < 0 {
-		c.logger.Info("NewCandidateBlockEvent: View change happens, start round with latest view", "number", number.Uint64())
-		c.startRound(ctx, 0)
-	}
-
-	// release buffered un-mined blocks before the height of waitForBlock
-	for height := range c.pendingCandidateBlocks {
-		if height < c.Height().Uint64() {
-			delete(c.pendingCandidateBlocks, height)
-		}
-	}
-	log.Info("handleNewCandidateBlockMsg done!")
 }
 
 func (c *core) stopFutureProposalTimer() {

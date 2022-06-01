@@ -175,7 +175,7 @@ func TestStartRound(t *testing.T) {
 		if currentRound > 0 {
 			core.height = proposalHeight
 		}
-		core.pendingCandidateBlocks[proposalHeight.Uint64()] = proposalBlock
+		core.pendingUnminedBlocks[proposalHeight.Uint64()] = proposalBlock
 
 		if currentRound == 0 {
 			// We expect the following extra calls when round = 0
@@ -1214,7 +1214,7 @@ func TestQuorumPrecommit(t *testing.T) {
 
 	// if the client is the next proposer
 	if newCommitteeSet.GetProposer(0).Address == clientAddr {
-		c.pendingCandidateBlocks[nextHeight] = nextProposal
+		c.pendingUnminedBlocks[nextHeight] = nextProposal
 		backendMock.EXPECT().SetProposedBlockHash(nextProposal.Hash())
 		backendMock.EXPECT().Sign(nextProposalMsgRLPNoSig).Return(nextProposalMsg.Signature, nil)
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet, nextProposalMsgRLPWithSig).Return(nil)

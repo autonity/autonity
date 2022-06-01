@@ -64,23 +64,24 @@ func New(backend Backend) *core {
 	messagesMap := newMessagesMap()
 	roundMessage := messagesMap.getOrCreate(0)
 	return &core{
-		blockPeriod:            1, // todo: retrieve it from contract
-		address:                addr,
-		logger:                 logger,
-		backend:                backend,
-		backlogs:               make(map[common.Address][]*Message),
-		backlogUnchecked:       make(map[uint64][]*Message),
-		pendingCandidateBlocks: make(map[uint64]*types.Block),
-		stopped:                make(chan struct{}, 4),
-		committee:              nil,
-		futureRoundChange:      make(map[int64]map[common.Address]uint64),
-		messages:               messagesMap,
-		lockedRound:            -1,
-		validRound:             -1,
-		curRoundMessages:       roundMessage,
-		proposeTimeout:         newTimeout(propose, logger),
-		prevoteTimeout:         newTimeout(prevote, logger),
-		precommitTimeout:       newTimeout(precommit, logger),
+		blockPeriod:           1, // todo: retrieve it from contract
+		address:               addr,
+		logger:                logger,
+		backend:               backend,
+		backlogs:              make(map[common.Address][]*Message),
+		backlogUnchecked:      make(map[uint64][]*Message),
+		pendingUnminedBlocks:  make(map[uint64]*types.Block),
+		pendingUnminedBlockCh: make(chan *types.Block),
+		stopped:               make(chan struct{}, 4),
+		committee:             nil,
+		futureRoundChange:     make(map[int64]map[common.Address]uint64),
+		messages:              messagesMap,
+		lockedRound:           -1,
+		validRound:            -1,
+		curRoundMessages:      roundMessage,
+		proposeTimeout:        newTimeout(propose, logger),
+		prevoteTimeout:        newTimeout(prevote, logger),
+		precommitTimeout:      newTimeout(precommit, logger),
 	}
 }
 
@@ -92,19 +93,22 @@ type core struct {
 	backend Backend
 	cancel  context.CancelFunc
 
-	messageEventSub        *event.TypeMuxSubscription
-	candidateBlockEventSub *event.TypeMuxSubscription
-	committedSub           *event.TypeMuxSubscription
-	timeoutEventSub        *event.TypeMuxSubscription
-	syncEventSub           *event.TypeMuxSubscription
-	futureProposalTimer    *time.Timer
-	stopped                chan struct{}
+	messageEventSub         *event.TypeMuxSubscription
+	newUnminedBlockEventSub *event.TypeMuxSubscription
+	committedSub            *event.TypeMuxSubscription
+	timeoutEventSub         *event.TypeMuxSubscription
+	syncEventSub            *event.TypeMuxSubscription
+	futureProposalTimer     *time.Timer
+	stopped                 chan struct{}
 
 	backlogs            map[common.Address][]*Message
 	backlogUnchecked    map[uint64][]*Message
 	backlogUncheckedLen int
 	// map[Height]UnminedBlock
-	pendingCandidateBlocks map[uint64]*types.Block
+	pendingUnminedBlocks     map[uint64]*types.Block
+	pendingUnminedBlocksMu   sync.Mutex
+	pendingUnminedBlockCh    chan *types.Block
+	isWaitingForUnminedBlock bool
 
 	//
 	// Tendermint FSM state fields
@@ -251,17 +255,20 @@ func (c *core) startRound(ctx context.Context, round int64) {
 		// received, respectively. If the block is not committed in that round then the round is changed.
 		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
 		// they propose a new block.
+		var p *types.Block
 		if c.validValue != nil {
-			c.sendProposal(ctx, c.validValue)
-			return
+			p = c.validValue
+		} else {
+			p = c.getUnminedBlock()
+			if p == nil {
+				select {
+				case <-ctx.Done():
+					return
+				case p = <-c.pendingUnminedBlockCh:
+				}
+			}
 		}
-		// send proposal when there is available candidate rather than blocking the core event loop, the
-		// handleNewCandidateBlockMsg in the core event loop will send proposal when the available one comes if we
-		// don't have it sent here.
-		newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
-		if ok {
-			c.sendProposal(ctx, newValue)
-		}
+		c.sendProposal(ctx, p)
 	} else {
 		timeoutDuration := c.timeoutPropose(round)
 		c.proposeTimeout.scheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)

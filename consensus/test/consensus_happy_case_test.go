@@ -13,12 +13,12 @@ func TestTendermintHappyCase(t *testing.T) {
 	cases := []*testCase{
 		{
 			name:          "Happy case - 10 blocks",
-			numValidators: 1,
+			numValidators: 5,
 			numBlocks:     10,
 		},
 		{
 			name:          "Happy case - 100 blocks",
-			numValidators: 1,
+			numValidators: 5,
 			numBlocks:     100,
 		},
 	}
