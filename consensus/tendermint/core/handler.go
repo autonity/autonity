@@ -25,7 +25,6 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 	lastBlockMined, _ := c.backend.LastCommittedProposal()
 	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 	// We need a separate go routine to keep c.latestPendingUnminedBlock up to date
-	go c.handleNewUnminedBlockEvent(ctx)
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
 	go c.backend.HandleUnhandledMsgs(ctx)
@@ -54,8 +53,8 @@ func (c *core) subscribeEvents() {
 	s := c.backend.Subscribe(events.MessageEvent{}, backlogEvent{}, backlogUncheckedEvent{}, coreStateRequestEvent{})
 	c.messageEventSub = s
 
-	s1 := c.backend.Subscribe(events.NewUnminedBlockEvent{})
-	c.newUnminedBlockEventSub = s1
+	s1 := c.backend.Subscribe(events.NewCandidateBlockEvent{})
+	c.candidateBlockEventSub = s1
 
 	s2 := c.backend.Subscribe(TimeoutEvent{})
 	c.timeoutEventSub = s2
@@ -70,32 +69,10 @@ func (c *core) subscribeEvents() {
 // Unsubscribe all messageEventSub
 func (c *core) unsubscribeEvents() {
 	c.messageEventSub.Unsubscribe()
-	c.newUnminedBlockEventSub.Unsubscribe()
+	c.candidateBlockEventSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
 	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
-}
-
-// TODO: update all of the TypeMuxSilent to event.Feed and should not use backend.EventMux for core internal messageEventSub: backlogEvent, TimeoutEvent
-
-func (c *core) handleNewUnminedBlockEvent(ctx context.Context) {
-eventLoop:
-	for {
-		select {
-		case e, ok := <-c.newUnminedBlockEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			newUnminedBlockEvent := e.Data.(events.NewUnminedBlockEvent)
-			pb := &newUnminedBlockEvent.NewUnminedBlock
-			c.storeUnminedBlockMsg(ctx, pb)
-		case <-ctx.Done():
-			c.logger.Info("handleNewUnminedBlockEvent is stopped", "event", ctx.Err())
-			break eventLoop
-		}
-	}
-
-	c.stopped <- struct{}{}
 }
 
 func (c *core) mainEventLoop(ctx context.Context) {
@@ -166,6 +143,13 @@ eventLoop:
 			case events.CommitEvent:
 				c.handleCommit(ctx)
 			}
+		case ev, ok := <-c.candidateBlockEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
+			newCandidateBlockEvent := ev.Data.(events.NewCandidateBlockEvent)
+			pb := &newCandidateBlockEvent.NewCandidateBlock
+			c.handleNewCandidateBlockMsg(ctx, pb)
 		case <-ctx.Done():
 			c.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
