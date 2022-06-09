@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
@@ -658,5 +659,101 @@ func TestHandleProposal(t *testing.T) {
 		if !reflect.DeepEqual(curRoundMessage.proposalMsg, msg) {
 			t.Fatalf("%v not equal to  %v", curRoundMessage.proposalMsg, msg)
 		}
+	})
+}
+
+func TestHandleNewCandidateBlockMsg(t *testing.T) {
+	t.Run("invalid block send by miner", func(t *testing.T) {
+		c := &core{
+			pendingCandidateBlocks: make(map[uint64]*types.Block),
+		}
+		c.handleNewCandidateBlockMsg(context.Background(), nil)
+		require.Equal(t, 0, len(c.pendingCandidateBlocks))
+	})
+
+	t.Run("discarding old height candidate blocks", func(t *testing.T) {
+
+		oldHeightCandidate := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(10),
+		})
+
+		c := &core{
+			logger:                 log.New("backend", "test", "id", 0),
+			height:                 big.NewInt(11),
+			pendingCandidateBlocks: make(map[uint64]*types.Block),
+		}
+		c.handleNewCandidateBlockMsg(context.Background(), oldHeightCandidate)
+		require.Equal(t, 0, len(c.pendingCandidateBlocks))
+	})
+
+	t.Run("candidate block is the one missed, proposal is broadcast", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messages := newMessagesMap()
+		addr := common.HexToAddress("0x0123456789")
+		preBlock := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(0),
+		})
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
+		})
+
+		curRoundMessages := messages.getOrCreate(1)
+		validRound := int64(1)
+		logger := log.New("backend", "test", "id", 0)
+		proposalBlock := NewProposal(1, big.NewInt(1), validRound, block)
+		proposal, err := Encode(proposalBlock)
+		if err != nil {
+			t.Fatalf("Expected <nil>, got %v", err)
+		}
+
+		expectedMsg := &Message{
+			Code:          msgProposal,
+			Msg:           proposal,
+			Address:       addr,
+			CommittedSeal: []byte{},
+			Signature:     []byte{0x1},
+		}
+
+		payloadNoSig, err := expectedMsg.PayloadNoSig()
+		if err != nil {
+			t.Fatalf("Expected nil, got %v", err)
+		}
+
+		payload := expectedMsg.Payload()
+
+		testCommittee := types.Committee{
+			types.CommitteeMember{
+				Address:     addr,
+				VotingPower: big.NewInt(1)},
+		}
+
+		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		if err != nil {
+			t.Error(err)
+		}
+
+		backendMock := NewMockBackend(ctrl)
+		backendMock.EXPECT().SetProposedBlockHash(block.Hash())
+		backendMock.EXPECT().Sign(payloadNoSig).Return([]byte{0x1}, nil)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+
+		c := &core{
+			pendingCandidateBlocks: make(map[uint64]*types.Block),
+			address:                addr,
+			backend:                backendMock,
+			curRoundMessages:       curRoundMessages,
+			logger:                 logger,
+			messages:               messages,
+			round:                  1,
+			height:                 big.NewInt(1),
+			validRound:             validRound,
+			committee:              valSet,
+		}
+		c.pendingCandidateBlocks[uint64(0)] = preBlock
+		c.handleNewCandidateBlockMsg(context.Background(), block)
+		require.Equal(t, 1, len(c.pendingCandidateBlocks))
+		require.Equal(t, uint64(1), c.pendingCandidateBlocks[uint64(1)].Number().Uint64())
 	})
 }

@@ -152,6 +152,34 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	return nil
 }
 
+func (c *core) handleNewCandidateBlockMsg(ctx context.Context, candidateBlock *types.Block) {
+	if candidateBlock == nil {
+		return
+	}
+
+	number := candidateBlock.Number()
+	if currentIsHigher := c.Height().Cmp(number); currentIsHigher > 0 {
+		c.logger.Info("NewCandidateBlockEvent: discarding old height candidateBlock", "number", number.Uint64())
+		return
+	}
+
+	c.pendingCandidateBlocks[candidateBlock.NumberU64()] = candidateBlock
+
+	// if current node is the proposer of current height and current round at step PROPOSE without available candidate
+	// block sent before, if the incoming candidate block is the one it missed, send it now.
+	if c.isProposer() && c.step == propose && !c.sentProposal && c.Height().Cmp(number) == 0 {
+		c.logger.Debug("NewCandidateBlockEvent: Sending proposal that was missed before", "number", number.Uint64())
+		c.sendProposal(ctx, candidateBlock)
+	}
+
+	// release buffered candidate blocks before the height of current state machine.
+	for height := range c.pendingCandidateBlocks {
+		if height < c.Height().Uint64() {
+			delete(c.pendingCandidateBlocks, height)
+		}
+	}
+}
+
 func (c *core) stopFutureProposalTimer() {
 	if c.futureProposalTimer != nil {
 		c.futureProposalTimer.Stop()

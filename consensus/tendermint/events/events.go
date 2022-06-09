@@ -21,9 +21,9 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
-// NewUnminedBlockEvent is posted to propose a proposal
-type NewUnminedBlockEvent struct {
-	NewUnminedBlock types.Block
+// NewCandidateBlockEvent is posted to propose a proposal
+type NewCandidateBlockEvent struct {
+	NewCandidateBlock types.Block
 }
 
 // MessageEvent is posted for Istanbul engine communication

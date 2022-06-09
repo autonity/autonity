@@ -416,8 +416,8 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	sb.setResultChan(results)
 
 	// post block into BFT engine
-	sb.postEvent(events.NewUnminedBlockEvent{
-		NewUnminedBlock: *block,
+	sb.postEvent(events.NewCandidateBlockEvent{
+		NewCandidateBlock: *block,
 	})
 
 	return nil
