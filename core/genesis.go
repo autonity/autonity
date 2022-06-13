@@ -489,6 +489,7 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
+		Mixhash:    types.BFTDigest,
 	}
 }
 
@@ -498,6 +499,7 @@ func DefaultBakerlooGenesisBlock() *Genesis {
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
+		Mixhash:    types.BFTDigest,
 	}
 }
 
