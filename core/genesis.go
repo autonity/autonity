@@ -490,6 +490,10 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
+		Alloc: map[common.Address]GenesisAccount{
+			params.PiccaddillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+			params.PiccaddillyChainConfig.AutonityContractConfig.Treasury: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+		},
 	}
 }
 
@@ -500,6 +504,10 @@ func DefaultBakerlooGenesisBlock() *Genesis {
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
+		Alloc: map[common.Address]GenesisAccount{
+			params.BakerlooChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+			params.BakerlooChainConfig.AutonityContractConfig.Treasury: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+		},
 	}
 }
 

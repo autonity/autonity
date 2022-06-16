@@ -402,8 +402,12 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 	if _, ok := d.peers[n.ID()]; ok {
 		return errAlreadyConnected
 	}
-	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) && !isTrustedIP(d.trusted, n.IP()) {
-		return errNetRestrict
+	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) {
+		if d.trusted == nil {
+			return errNetRestrict
+		} else if !isTrustedIP(d.trusted, n.IP()) {
+			return errNetRestrict
+		}
 	}
 	if d.history.contains(string(n.ID().Bytes())) {
 		return errRecentlyDialed
