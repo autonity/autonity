@@ -10,7 +10,7 @@ import "./Precompiled.sol";
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20, Upgradeable {
 
-    enum ValidatorState {enabled, disabling, disabled}
+    enum ValidatorState {active, paused}
     struct Validator {
         address payable treasury;
         address addr;
@@ -95,7 +95,7 @@ contract Autonity is IERC20, Upgradeable {
     event MintedStake(address addr, uint256 amount);
     event BurnedStake(address addr, uint256 amount);
     event RegisteredValidator(address treasury, address addr, string enode, address liquidContract);
-    event RemovedValidator(address addr);
+    event PausedValidator(address treasury, address addr, uint256 effectiveBlock);
     event Rewarded(address addr, uint256 amount);
 
     /**
@@ -124,7 +124,7 @@ contract Autonity is IERC20, Upgradeable {
             _validators[i].bondedStake = 0;
             _validators[i].selfBondedStake = 0;
             _validators[i].registrationBlock = 0;
-            _validators[i].state = ValidatorState.enabled;
+            _validators[i].state = ValidatorState.active;
             // Autonity doesn't handle voting power over 64 bits.
             require(_bondedStake < 2 ** 60, "issued Newton can't be greater than 2^60");
 
@@ -186,7 +186,7 @@ contract Autonity is IERC20, Upgradeable {
             Liquid(address(0)), // liquid token contract
             0, // liquid token supply
             block.number,
-            ValidatorState.enabled
+            ValidatorState.active
         );
 
         _registerValidator(_val);
@@ -195,30 +195,37 @@ contract Autonity is IERC20, Upgradeable {
 
     function bond(address _validator, uint256 _amount) public {
         require(validators[_validator].addr == _validator, "validator not registered");
-        require(validators[_validator].state == ValidatorState.enabled, "validator need to be enabled");
+        require(validators[_validator].state == ValidatorState.active, "validator need to be active");
         _bond(_validator, _amount, payable(msg.sender));
     }
 
     function unbond(address _validator, uint256 _amount) public {
         require(validators[_validator].addr == _validator, "validator not registered");
-        require(validators[_validator].state == ValidatorState.enabled, "validator need to be enabled");
         _unbond(_validator, _amount, payable(msg.sender));
     }
 
     /**
-    * @notice Remove the validator account from the contract.
-    * @param _address address to be removed.
-    * @dev emit a {RemovedValidator} event.
-
-    function disableValidator(address _address) public {
-        // Q: Should we keep it in state memory or not ?
+    * @notice Pause the validator and stop it accepting delegations. See ADR-004 for more details.
+    * @param _address address to be disabled.
+    * @dev emit a {DisabledValidator} event.
+    */
+    function pauseValidator(address _address) public {
         require(validators[_address].addr == _address, "validator must be registered");
         require(validators[_address].treasury == msg.sender, "require caller to be validator admin account");
-        require(validators[_address].state == ValidatorState.enabled, "validator must be enabled");
-
-        _disableValidator(_address);
+        _pauseValidator(_address);
     }
+
+    /**
+    * @notice Re-activate the specified validator. See ADR-004 for more details.
+    * @param _address address to be enabled.
     */
+    function activateValidator(address _address) public {
+        require(validators[_address].addr == _address, "validator must be registered");
+        require(validators[_address].treasury == msg.sender, "require caller to be validator admin account");
+        require(validators[_address].state == ValidatorState.paused, "validator must be paused");
+
+        validators[_address].state = ValidatorState.active;
+    }
 
     /**
     * @notice Set the minimum gas price. Restricted to the operator account.
@@ -398,7 +405,7 @@ contract Autonity is IERC20, Upgradeable {
         */
         uint _len = 0;
         for (uint256 i = 0; i < validatorList.length; i++) {
-            if (validators[validatorList[i]].state == ValidatorState.enabled &&
+            if (validators[validatorList[i]].state == ValidatorState.active &&
                 validators[validatorList[i]].bondedStake > 0) {
                 _len++;
             }
@@ -414,7 +421,7 @@ contract Autonity is IERC20, Upgradeable {
         // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
         uint j = 0;
         for (uint256 i = 0; i < validatorList.length; i++) {
-            if (validators[validatorList[i]].state == ValidatorState.enabled &&
+            if (validators[validatorList[i]].state == ValidatorState.active &&
                 validators[validatorList[i]].bondedStake > 0) {
                 // Perform a copy of the validator object
                 Validator memory _user = validators[validatorList[i]];
@@ -576,8 +583,6 @@ contract Autonity is IERC20, Upgradeable {
 
     // lastId not included
     function getBondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
-        // todo: limit the range, otherwise client might rise attack to the memory resource scheduling by [0, 9999999)
-        // todo: it not only lift memory allocation but also move empty items from the storage, we'd better to respect
         // the total length of bonding sets.
         Staking[] memory _results = new Staking[](lastId - startId);
         for (uint256 i = 0; i < lastId - startId; i++) {
@@ -588,8 +593,6 @@ contract Autonity is IERC20, Upgradeable {
 
     function getUnbondingReq(uint256 startId, uint256 lastId) external view returns (Staking[] memory) {
         Staking[] memory _results = new Staking[](lastId - startId);
-        // todo: limit the range, otherwise client might rise attack to the memory resource scheduling by [0, 9999999)
-        // todo: it not only lift memory allocation but also move empty items from the storage, we'd better to respect
         // the total length of bonding sets.
         for (uint256 i = 0; i < lastId - startId; i++) {
             _results[i] = unbondingMap[startId + i];
@@ -700,24 +703,25 @@ contract Autonity is IERC20, Upgradeable {
         validators[_validator.addr] = _validator;
     }
 
-    /* Todo : Finish
-    function _disableValidator(address _address) internal {
-        Validator storage val = validators[_address];
-
-        val.state = ValidatorState.disabling;
-        val.liquidContract.freeze();
-        // TODO: We should start unbonding and destroy stake token
-        // retrieving the list of account holders here might be too expensive.
-        // Need to be extra careful..
-
-        //stakeSupply -= val.bondedStake;
-
-        emit RemovedValidator(_address);
-    }
+    /**
+    * @dev Internal function pausing the specified validator. Paused validators
+    * can no longer be delegated stake and can no longer be part of the consensus committe.
+    * Warning: no checks are done here.
+    * Emit {DisabledValidator} event.
     */
+    function _pauseValidator(address _address) internal {
+        Validator storage val = validators[_address];
+        require(val.state == ValidatorState.active, "validator must be enabled");
+
+        val.state = ValidatorState.paused;
+        //effectiveBlock may not be accurate if the epoch duration gets modified.
+        emit PausedValidator(val.treasury, _address,  lastEpochBlock + config.epochPeriod);
+    }
+
+
     /**
      * @dev Create a bonding object of `amount` stake token with the `_recipient` address.
-     * This object will be processed
+     * This object will be processed at epoch finalization.
      *
      * This function assume that `_validator` is a valid validator address.
      */

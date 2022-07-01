@@ -219,6 +219,31 @@ const Abi = `[
          },
          {
             "indexed" : false,
+            "internalType" : "uint256",
+            "name" : "effectiveBlock",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "PausedValidator",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "indexed" : false,
+            "internalType" : "address",
+            "name" : "treasury",
+            "type" : "address"
+         },
+         {
+            "indexed" : false,
+            "internalType" : "address",
+            "name" : "addr",
+            "type" : "address"
+         },
+         {
+            "indexed" : false,
             "internalType" : "string",
             "name" : "enode",
             "type" : "string"
@@ -231,19 +256,6 @@ const Abi = `[
          }
       ],
       "name" : "RegisteredValidator",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : false,
-            "internalType" : "address",
-            "name" : "addr",
-            "type" : "address"
-         }
-      ],
-      "name" : "RemovedValidator",
       "type" : "event"
    },
    {
@@ -293,6 +305,19 @@ const Abi = `[
    {
       "stateMutability" : "payable",
       "type" : "fallback"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_address",
+            "type" : "address"
+         }
+      ],
+      "name" : "activateValidator",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
    },
    {
       "inputs" : [
@@ -951,6 +976,19 @@ const Abi = `[
          }
       ],
       "stateMutability" : "pure",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_address",
+            "type" : "address"
+         }
+      ],
+      "name" : "pauseValidator",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
