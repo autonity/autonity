@@ -110,13 +110,13 @@ type core struct {
 	// Tendermint FSM state fields
 	//
 
-	stateMu   sync.RWMutex
-	height    *big.Int
-	round     int64
-	committee committee
-	// height, round and committeeSet are the ONLY guarded fields.
+	stateMu    sync.RWMutex
+	height     *big.Int
+	round      int64
+	committee  committee
+	lastHeader *types.Header
+	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	lastHeader            *types.Header
 	step                  Step
 	curRoundMessages      *roundMessages
 	messages              messagesMap
@@ -276,7 +276,7 @@ func (c *core) setInitialState(r int64) {
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastBlock(lastBlockMined)
-		c.lastHeader = lastHeader
+		c.setLastHeader(lastHeader)
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1
@@ -339,6 +339,12 @@ func (c *core) setCommitteeSet(set committee) {
 	c.committee = set
 }
 
+func (c *core) setLastHeader(lastHeader *types.Header) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.lastHeader = lastHeader
+}
+
 func (c *core) Round() int64 {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
@@ -355,4 +361,10 @@ func (c *core) committeeSet() committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
+}
+
+func (c *core) LastHeader() *types.Header {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.lastHeader
 }

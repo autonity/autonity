@@ -286,7 +286,7 @@ func TestProcessBacklog(t *testing.T) {
 			height:   big.NewInt(2),
 		}
 
-		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
@@ -350,7 +350,7 @@ func TestProcessBacklog(t *testing.T) {
 			height:   big.NewInt(2),
 		}
 
-		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
@@ -424,7 +424,7 @@ func TestProcessBacklog(t *testing.T) {
 			height:   big.NewInt(1),
 		}
 
-		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
@@ -479,7 +479,7 @@ func TestProcessBacklog(t *testing.T) {
 			height:   big.NewInt(3),
 		}
 
-		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)
 		c.processBacklog()
@@ -524,7 +524,7 @@ func TestProcessBacklog(t *testing.T) {
 			height:   big.NewInt(3),
 		}
 
-		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)
 		c.storeBacklog(msg2, val.Address)
@@ -577,7 +577,7 @@ func TestProcessBacklog(t *testing.T) {
 			height:           big.NewInt(3),
 		}
 
-		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.storeUncheckedBacklog(msg)
@@ -633,7 +633,7 @@ func TestProcessBacklog(t *testing.T) {
 			height:   big.NewInt(4),
 		}
 
-		c.lastHeader = &types.Header{Committee: committeeSet.Committee()}
+		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)
 		c.processBacklog()

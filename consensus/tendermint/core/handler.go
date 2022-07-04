@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"math/big"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -10,6 +9,9 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 )
+
+// todo: resolve proper tendermint state synchronization timeout from block period.
+const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
@@ -21,9 +23,6 @@ func (c *core) Start(ctx context.Context, contract *autonity.Contract) {
 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
-	// core.height needs to be set beforehand for unmined block's logic.
-	lastBlockMined, _ := c.backend.LastCommittedProposal()
-	c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
 	go c.backend.HandleUnhandledMsgs(ctx)
@@ -162,13 +161,13 @@ func (c *core) syncLoop(ctx context.Context) {
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
 	*/
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(syncTimeOut)
 
 	round := c.Round()
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.lastHeader)
+	c.backend.AskSync(c.LastHeader())
 
 eventLoop:
 	for {
@@ -179,11 +178,11 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.backend.AskSync(c.lastHeader)
+				c.backend.AskSync(c.LastHeader())
 			}
 			round = currentRound
 			height = currentHeight
-			timer = time.NewTimer(10 * time.Second)
+			timer = time.NewTimer(syncTimeOut)
 
 		case ev, ok := <-c.syncEventSub.Chan():
 			if !ok {
@@ -222,7 +221,7 @@ func (c *core) handleMsg(ctx context.Context, msg *Message) error {
 		return errOldHeightMessage // No gossip
 	}
 
-	if _, err = msg.Validate(crypto.CheckValidatorSignature, c.lastHeader); err != nil {
+	if _, err = msg.Validate(crypto.CheckValidatorSignature, c.LastHeader()); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		return err
 	}

@@ -178,7 +178,7 @@ func setCoreState(c *core, h *big.Int, r int64, s Step, lv *types.Block, lr int6
 	c.validValue = vv
 	c.validRound = vr
 	c.setCommitteeSet(committee)
-	c.lastHeader = header
+	c.setLastHeader(header)
 	c.sentProposal = true
 	c.sentPrevote = true
 	c.sentPrecommit = true

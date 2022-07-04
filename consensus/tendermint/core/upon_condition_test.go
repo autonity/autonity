@@ -1353,7 +1353,7 @@ func TestHandleMessage(t *testing.T) {
 
 		core := New(backendMock)
 		core.setCommitteeSet(committeeSet)
-		core.lastHeader = prevBlock.Header()
+		core.setLastHeader(prevBlock.Header())
 		err = core.handleMsg(context.Background(), msg)
 
 		assert.Error(t, err, "unauthorised sender, sender is not is committees set")
@@ -1378,7 +1378,7 @@ func TestHandleMessage(t *testing.T) {
 
 		core := New(backendMock)
 		core.setCommitteeSet(committeeSet)
-		core.lastHeader = prevBlock.Header()
+		core.setLastHeader(prevBlock.Header())
 		err = core.handleMsg(context.Background(), msg)
 
 		assert.Error(t, err, "unauthorised sender, sender is not the signer of the message")
@@ -1400,7 +1400,7 @@ func TestHandleMessage(t *testing.T) {
 
 		core := New(backendMock)
 		core.setCommitteeSet(committeeSet)
-		core.lastHeader = prevBlock.Header()
+		core.setLastHeader(prevBlock.Header())
 		err = core.handleMsg(context.Background(), msg)
 
 		assert.Error(t, err, "malicious sender sends different signature to signature of message")
