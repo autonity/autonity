@@ -1,17 +1,16 @@
-package core
+package interfaces
 
 import (
 	"context"
 	"time"
 
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	ethcore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 )
 
-// Backend provides application specific functions for Istanbul core
+// Backend provides application specific functions for Istanbul Core
 type Backend interface {
 	Address() common.Address
 
@@ -60,13 +59,6 @@ type Backend interface {
 	SetBlockchain(bc *ethcore.BlockChain)
 
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
-	// It is called by core when some unprocessed messages are removed from the untrusted backlog buffer.
+	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
 	RemoveMessageFromLocalCache(payload []byte)
-}
-
-type Tendermint interface {
-	Start(ctx context.Context, contract *autonity.Contract)
-	Stop()
-	GetCurrentHeightMessages() []*Message
-	CoreState() TendermintState
 }

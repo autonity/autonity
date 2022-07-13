@@ -3,6 +3,12 @@ package core
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/core/committee"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
@@ -24,23 +30,23 @@ func TestSendPropose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		messages := newMessagesMap()
+		messages := messageutils.NewMessagesMap()
 		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
 
-		curRoundMessages := messages.getOrCreate(1)
+		curRoundMessages := messages.GetOrCreate(1)
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(1, big.NewInt(1), validRound, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(1, big.NewInt(1), validRound, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		expectedMsg := &Message{
-			Code:          msgProposal,
+		expectedMsg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -52,7 +58,7 @@ func TestSendPropose(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		payload := expectedMsg.Payload()
+		payload := expectedMsg.GetPayload()
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{
@@ -60,17 +66,17 @@ func TestSendPropose(t *testing.T) {
 				VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(block.Hash())
 		backendMock.EXPECT().Sign(payloadNoSig).Return([]byte{0x1}, nil)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
-		c := &core{
+		c := &Core{
 			address:          addr,
 			backend:          backendMock,
 			curRoundMessages: curRoundMessages,
@@ -82,7 +88,8 @@ func TestSendPropose(t *testing.T) {
 			committee:        valSet,
 		}
 
-		c.sendProposal(context.Background(), block)
+		c.SetDefaultHandlers()
+		c.proposer.SendProposal(context.Background(), block)
 	})
 }
 
@@ -93,26 +100,26 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
+		messages := messageutils.NewMessagesMap()
+		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
 
-		proposalBlock := NewProposal(1, big.NewInt(1), 1, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(1, big.NewInt(1), 1, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
 		}
 
-		c := &core{
+		c := &Core{
 			address:          addr,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
@@ -121,9 +128,10 @@ func TestHandleProposal(t *testing.T) {
 			height:           big.NewInt(1),
 		}
 
-		err = c.handleProposal(context.Background(), msg)
-		if err != errOldRoundMessage {
-			t.Fatalf("Expected %v, got %v", errOldRoundMessage, err)
+		c.SetDefaultHandlers()
+		err = c.proposer.HandleProposal(context.Background(), msg)
+		if err != constants.ErrOldRoundMessage {
+			t.Fatalf("Expected %v, got %v", constants.ErrOldRoundMessage, err)
 		}
 	})
 
@@ -131,38 +139,38 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		messages := newMessagesMap()
+		messages := messageutils.NewMessagesMap()
 		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
 
-		curRoundMessages := messages.getOrCreate(2)
+		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
 		}
 
-		testCommittee, _ := generateCommittee(3)
+		testCommittee, _ := helpers.GenerateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[1].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
-		c := &core{
+		c := &Core{
 			address:          addr,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
@@ -172,9 +180,10 @@ func TestHandleProposal(t *testing.T) {
 			committee:        valSet,
 		}
 
-		err = c.handleProposal(context.Background(), msg)
-		if err != errNotFromProposer {
-			t.Fatalf("Expected %v, got %v", errNotFromProposer, err)
+		c.SetDefaultHandlers()
+		err = c.proposer.HandleProposal(context.Background(), msg)
+		if err != constants.ErrNotFromProposer {
+			t.Fatalf("Expected %v, got %v", constants.ErrNotFromProposer, err)
 		}
 	})
 
@@ -188,56 +197,56 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		message := newMessagesMap()
-		curRoundMessages := message.getOrCreate(2)
+		messageMap := messageutils.NewMessagesMap()
+		curRoundMessages := messageMap.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
-		var decProposal Proposal
+		var decProposal messageutils.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
-		var prevote = Vote{
+		var prevote = messageutils.Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.Hash{},
 		}
 
-		encodedVote, err := Encode(&prevote)
+		encodedVote, err := messageutils.Encode(&prevote)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &Message{
-			Code:          msgPrevote,
+		preVoteMsg := &messageutils.Message{
+			Code:          messageutils.MsgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
+			Power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -245,27 +254,28 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		payload := preVoteMsg.Payload()
+		payload := preVoteMsg.GetPayload()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, errors.New("bad block"))
 		backendMock.EXPECT().Sign(payloadNoSig)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
-		c := &core{
+		c := &Core{
 			address:          addr,
 			backend:          backendMock,
-			messages:         message,
+			messages:         messageMap,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
-			proposeTimeout:   newTimeout(propose, logger),
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 			committee:        valSet,
 			round:            2,
 			height:           big.NewInt(1),
 		}
 
-		err = c.handleProposal(context.Background(), msg)
+		c.SetDefaultHandlers()
+		err = c.proposer.HandleProposal(context.Background(), msg)
 		if err == nil {
 			t.Fatalf("Expected non nil error, got %v", err)
 		}
@@ -281,30 +291,30 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		message := newMessagesMap()
-		curRoundMessages := message.getOrCreate(2)
+		messageMap := messageutils.NewMessagesMap()
+		curRoundMessages := messageMap.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		assert.NoError(t, err)
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		assert.NoError(t, err)
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		const eventPostingDelay = time.Second
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureBlock)
 		event := backlogEvent{
@@ -312,19 +322,20 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		backendMock.EXPECT().Post(event).Times(1)
-		c := &core{
+		c := &Core{
 			address:          addr,
 			backend:          backendMock,
-			messages:         message,
+			messages:         messageMap,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
-			proposeTimeout:   newTimeout(propose, logger),
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 			committee:        valSet,
 			round:            2,
 			height:           big.NewInt(1),
 		}
 
-		err = c.handleProposal(context.Background(), msg)
+		c.SetDefaultHandlers()
+		err = c.proposer.HandleProposal(context.Background(), msg)
 		assert.Error(t, err)
 		// We wait here for at least the delay "eventPostingDelay" returned by VerifyProposal :
 		// We expect above that a backlog event containing the future proposal message will be posted
@@ -341,43 +352,43 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
+		messages := messageutils.NewMessagesMap()
+		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(2, big.NewInt(1), 2, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(2, big.NewInt(1), 2, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
-		var decProposal Proposal
+		var decProposal messageutils.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
 
-		c := &core{
+		c := &Core{
 			address:          addr,
 			backend:          backendMock,
 			messages:         messages,
@@ -385,17 +396,18 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			proposeTimeout:   newTimeout(propose, logger),
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 			committee:        valSet,
 		}
 
-		err = c.handleProposal(context.Background(), msg)
+		c.SetDefaultHandlers()
+		err = c.proposer.HandleProposal(context.Background(), msg)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		if !reflect.DeepEqual(curRoundMessages.proposalMsg, msg) {
-			t.Fatalf("%v not equal to  %v", curRoundMessages.proposalMsg, msg)
+		if !reflect.DeepEqual(curRoundMessages.ProposalMsg, msg) {
+			t.Fatalf("%v not equal to  %v", curRoundMessages.ProposalMsg, msg)
 		}
 	})
 
@@ -403,7 +415,7 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet, keys := newTestCommitteeSetWithKeys(4)
+		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
 		logger := log.New("backend", "test", "id", 0)
 		proposer, err := committeeSet.GetByIndex(3)
 		assert.NoError(t, err)
@@ -412,16 +424,16 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
+		messages := messageutils.NewMessagesMap()
+		curRoundMessages := messages.GetOrCreate(2)
 
-		proposalMsg := NewProposal(2, big.NewInt(1), 2, proposalBlock)
-		proposal, err := Encode(proposalMsg)
+		proposalMsg := messageutils.NewProposal(2, big.NewInt(1), 2, proposalBlock)
+		proposal, err := messageutils.Encode(proposalMsg)
 		assert.NoError(t, err)
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := &core{
+		c := &Core{
 			address:          common.HexToAddress("0x0123456789"),
 			backend:          backendMock,
 			messages:         messages,
@@ -429,32 +441,33 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			proposeTimeout:   newTimeout(propose, logger),
-			precommitTimeout: newTimeout(precommit, logger),
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
+			precommitTimeout: tctypes.NewTimeout(tctypes.Precommit, logger),
 			committee:        committeeSet,
-			step:             precommit,
+			step:             tctypes.Precommit,
 		}
-		defer c.proposeTimeout.stopTimer()   // nolint: errcheck
-		defer c.precommitTimeout.stopTimer() // nolint: errcheck
+		c.SetDefaultHandlers()
+		defer c.proposeTimeout.StopTimer()   // nolint: errcheck
+		defer c.precommitTimeout.StopTimer() // nolint: errcheck
 
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.GetByIndex(i)
 			precommitMsg, err := preparePrecommitMsg(proposalBlock.Hash(), 2, 1, keys, val)
 			assert.NoError(t, err)
-			err = c.handlePrecommit(context.Background(), precommitMsg)
+			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			assert.NoError(t, err)
 		}
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       proposer.Address,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
-		var decProposal Proposal
+		var decProposal messageutils.Proposal
 		err = msg.Decode(&decProposal)
 		assert.NoError(t, err)
 		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
@@ -462,7 +475,7 @@ func TestHandleProposal(t *testing.T) {
 			assert.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
 		})
 
-		err = c.handleProposal(context.Background(), msg)
+		err = c.proposer.HandleProposal(context.Background(), msg)
 		assert.NoError(t, err)
 	})
 
@@ -475,56 +488,56 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(2)
+		messages := messageutils.NewMessagesMap()
+		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(2, big.NewInt(1), -1, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(2, big.NewInt(1), -1, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
-		var decProposal Proposal
+		var decProposal messageutils.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
-		var prevote = Vote{
+		var prevote = messageutils.Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: block.Hash(),
 		}
 
-		encodedVote, err := Encode(&prevote)
+		encodedVote, err := messageutils.Encode(&prevote)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &Message{
-			Code:          msgPrevote,
+		preVoteMsg := &messageutils.Message{
+			Code:          messageutils.MsgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
+			Power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -532,14 +545,14 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		payload := preVoteMsg.Payload()
+		payload := preVoteMsg.GetPayload()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
 		backendMock.EXPECT().Sign(payloadNoSig)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
-		c := &core{
+		c := &Core{
 			address:          addr,
 			backend:          backendMock,
 			messages:         messages,
@@ -549,18 +562,19 @@ func TestHandleProposal(t *testing.T) {
 			lockedValue:      types.NewBlockWithHeader(&types.Header{}),
 			lockedRound:      -1,
 			logger:           logger,
-			proposeTimeout:   newTimeout(propose, logger),
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 			validRound:       -1,
 			committee:        valSet,
 		}
 
-		err = c.handleProposal(context.Background(), msg)
+		c.SetDefaultHandlers()
+		err = c.proposer.HandleProposal(context.Background(), msg)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		if !reflect.DeepEqual(curRoundMessages.proposalMsg, msg) {
-			t.Fatalf("%v not equal to  %v", curRoundMessages.proposalMsg, msg)
+		if !reflect.DeepEqual(curRoundMessages.ProposalMsg, msg) {
+			t.Fatalf("%v not equal to  %v", curRoundMessages.ProposalMsg, msg)
 		}
 	})
 
@@ -570,56 +584,56 @@ func TestHandleProposal(t *testing.T) {
 
 		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
-		messages := newMessagesMap()
-		curRoundMessage := messages.getOrCreate(2)
+		messages := messageutils.NewMessagesMap()
+		curRoundMessage := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(2, big.NewInt(1), 1, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(2, big.NewInt(1), 1, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		msg := &Message{
-			Code:          msgProposal,
+		msg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			power:         1,
+			Power:         1,
 		}
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
-		var decProposal Proposal
+		var decProposal messageutils.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
 			t.Fatalf("Expected <nil>, got %v", decErr)
 		}
 
-		var prevote = Vote{
+		var prevote = messageutils.Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: block.Hash(),
 		}
 
-		encodedVote, err := Encode(&prevote)
+		encodedVote, err := messageutils.Encode(&prevote)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		preVoteMsg := &Message{
-			Code:          msgPrevote,
+		preVoteMsg := &messageutils.Message{
+			Code:          messageutils.MsgPrevote,
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			power:         1,
+			Power:         1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -627,16 +641,16 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		payload := preVoteMsg.Payload()
+		payload := preVoteMsg.GetPayload()
 
-		messages.getOrCreate(1).AddPrevote(block.Hash(), *preVoteMsg)
+		messages.GetOrCreate(1).AddPrevote(block.Hash(), *preVoteMsg)
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(*decProposal.ProposalBlock)
 		backendMock.EXPECT().Sign(payloadNoSig)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
-		c := &core{
+		c := &Core{
 			address:          addr,
 			backend:          backendMock,
 			curRoundMessages: curRoundMessage,
@@ -646,28 +660,30 @@ func TestHandleProposal(t *testing.T) {
 			height:           big.NewInt(1),
 			lockedValue:      nil,
 			logger:           logger,
-			proposeTimeout:   newTimeout(propose, logger),
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 			validRound:       0,
 			committee:        valSet,
 		}
 
-		err = c.handleProposal(context.Background(), msg)
+		c.SetDefaultHandlers()
+		err = c.proposer.HandleProposal(context.Background(), msg)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		if !reflect.DeepEqual(curRoundMessage.proposalMsg, msg) {
-			t.Fatalf("%v not equal to  %v", curRoundMessage.proposalMsg, msg)
+		if !reflect.DeepEqual(curRoundMessage.ProposalMsg, msg) {
+			t.Fatalf("%v not equal to  %v", curRoundMessage.ProposalMsg, msg)
 		}
 	})
 }
 
 func TestHandleNewCandidateBlockMsg(t *testing.T) {
 	t.Run("invalid block send by miner", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),
 		}
-		c.handleNewCandidateBlockMsg(context.Background(), nil)
+		c.SetDefaultHandlers()
+		c.proposer.HandleNewCandidateBlockMsg(context.Background(), nil)
 		require.Equal(t, 0, len(c.pendingCandidateBlocks))
 	})
 
@@ -677,12 +693,13 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 			Number: big.NewInt(10),
 		})
 
-		c := &core{
+		c := &Core{
 			logger:                 log.New("backend", "test", "id", 0),
 			height:                 big.NewInt(11),
 			pendingCandidateBlocks: make(map[uint64]*types.Block),
 		}
-		c.handleNewCandidateBlockMsg(context.Background(), oldHeightCandidate)
+		c.SetDefaultHandlers()
+		c.proposer.HandleNewCandidateBlockMsg(context.Background(), oldHeightCandidate)
 		require.Equal(t, 0, len(c.pendingCandidateBlocks))
 	})
 
@@ -690,7 +707,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		messages := newMessagesMap()
+		messages := messageutils.NewMessagesMap()
 		addr := common.HexToAddress("0x0123456789")
 		preBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(0),
@@ -699,17 +716,17 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		curRoundMessages := messages.getOrCreate(1)
+		curRoundMessages := messages.GetOrCreate(1)
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := NewProposal(1, big.NewInt(1), validRound, block)
-		proposal, err := Encode(proposalBlock)
+		proposalBlock := messageutils.NewProposal(1, big.NewInt(1), validRound, block)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		expectedMsg := &Message{
-			Code:          msgProposal,
+		expectedMsg := &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -721,7 +738,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		payload := expectedMsg.Payload()
+		payload := expectedMsg.GetPayload()
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{
@@ -729,17 +746,17 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 				VotingPower: big.NewInt(1)},
 		}
 
-		valSet, err := newRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(block.Hash())
 		backendMock.EXPECT().Sign(payloadNoSig).Return([]byte{0x1}, nil)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
-		c := &core{
+		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),
 			address:                addr,
 			backend:                backendMock,
@@ -751,8 +768,9 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 			validRound:             validRound,
 			committee:              valSet,
 		}
+		c.SetDefaultHandlers()
 		c.pendingCandidateBlocks[uint64(0)] = preBlock
-		c.handleNewCandidateBlockMsg(context.Background(), block)
+		c.proposer.HandleNewCandidateBlockMsg(context.Background(), block)
 		require.Equal(t, 1, len(c.pendingCandidateBlocks))
 		require.Equal(t, uint64(1), c.pendingCandidateBlocks[uint64(1)].Number().Uint64())
 	})

@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"math/big"
 	"reflect"
 	"sync"
@@ -12,7 +13,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
-	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -450,7 +450,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -468,7 +468,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -490,7 +490,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -540,7 +540,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 
 		ctx := context.Background()
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
@@ -569,7 +569,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 
 		ctx := context.Background()
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
@@ -592,7 +592,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 
 		ctx := context.Background()
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
 
 		b := &Backend{
@@ -642,7 +642,7 @@ func TestMultipleRestart(t *testing.T) {
 
 	times := 5
 	ctx := context.Background()
-	tendermintC := tendermintCore.NewMockTendermint(ctrl)
+	tendermintC := interfaces.NewMockTendermint(ctrl)
 	tendermintC.EXPECT().Start(ctx, nil).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 

@@ -2,6 +2,10 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 
 	"math/big"
 	"sync"
@@ -19,42 +23,42 @@ import (
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {
 
 	t.Run("measure metric on stop timer of propose", func(t *testing.T) {
-		tm := &timeout{
-			timer:   nil,
-			started: true,
-			step:    propose,
-			start:   time.Now(),
+		tm := &tctypes.Timeout{
+			Timer:   nil,
+			Started: true,
+			Step:    tctypes.Propose,
+			Start:   time.Now(),
 			Mutex:   sync.Mutex{},
 		}
-		tm.measureMetricsOnStopTimer()
+		tm.MeasureMetricsOnStopTimer()
 		if m := metrics.Get("tendermint/timer/propose"); m == nil {
 			t.Fatalf("test case failed.")
 		}
 	})
 
 	t.Run("measure metric on stop timer of prevote", func(t *testing.T) {
-		tm := &timeout{
-			timer:   nil,
-			started: true,
-			step:    prevote,
-			start:   time.Now(),
+		tm := &tctypes.Timeout{
+			Timer:   nil,
+			Started: true,
+			Step:    tctypes.Prevote,
+			Start:   time.Now(),
 			Mutex:   sync.Mutex{},
 		}
-		tm.measureMetricsOnStopTimer()
+		tm.MeasureMetricsOnStopTimer()
 		if m := metrics.Get("tendermint/timer/prevote"); m == nil {
 			t.Fatalf("test case failed.")
 		}
 	})
 
 	t.Run("measure metric on stop timer of precommit", func(t *testing.T) {
-		tm := &timeout{
-			timer:   nil,
-			started: true,
-			step:    precommit,
-			start:   time.Now(),
+		tm := &tctypes.Timeout{
+			Timer:   nil,
+			Started: true,
+			Step:    tctypes.Precommit,
+			Start:   time.Now(),
 			Mutex:   sync.Mutex{},
 		}
-		tm.measureMetricsOnStopTimer()
+		tm.MeasureMetricsOnStopTimer()
 		if m := metrics.Get("tendermint/timer/precommit"); m == nil {
 			t.Fatalf("test case failed.")
 		}
@@ -62,16 +66,16 @@ func TestCore_measureMetricsOnStopTimer(t *testing.T) {
 }
 
 func TestHandleTimeoutPrevote(t *testing.T) {
-	t.Run("on timeout received, send precommit nil and switch step", func(t *testing.T) {
+	t.Run("on Timeout received, send precommit nil and switch step", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, _ := newTestCommitteeSetWithKeys(4)
+		committeeSet, _ := helpers.NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(1)
-		mockBackend := NewMockBackend(ctrl)
-		engine := core{
+		messages := tcmessage.NewMessagesMap()
+		curRoundMessages := messages.GetOrCreate(1)
+		mockBackend := interfaces.NewMockBackend(ctrl)
+		engine := Core{
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
@@ -80,28 +84,29 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			round:            1,
 			height:           big.NewInt(2),
 			committee:        committeeSet,
-			step:             prevote,
-			proposeTimeout:   newTimeout(propose, logger),
-			prevoteTimeout:   newTimeout(prevote, logger),
-			precommitTimeout: newTimeout(precommit, logger),
+			step:             tctypes.Prevote,
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
+			prevoteTimeout:   tctypes.NewTimeout(tctypes.Prevote, logger),
+			precommitTimeout: tctypes.NewTimeout(tctypes.Precommit, logger),
 		}
-		timeoutEvent := TimeoutEvent{
-			roundWhenCalled:  1,
-			heightWhenCalled: big.NewInt(2),
-			step:             msgPrevote,
+		engine.SetDefaultHandlers()
+		timeoutEvent := tctypes.TimeoutEvent{
+			RoundWhenCalled:  1,
+			HeightWhenCalled: big.NewInt(2),
+			Step:             tcmessage.MsgPrevote,
 		}
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
 			func(ctx context.Context, c types.Committee, payload []byte) {
-				message := new(Message)
+				message := new(tcmessage.Message)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")
 				}
-				if message.Code != msgPrecommit {
+				if message.Code != tcmessage.MsgPrecommit {
 					t.Fatalf("unexpected message code, should be precommit")
 				}
-				precommit := new(Vote)
+				precommit := new(tcmessage.Vote)
 				if err := rlp.DecodeBytes(message.Msg, precommit); err != nil {
 					t.Fatalf("could not decode precommit")
 				}
@@ -115,41 +120,42 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 
 		engine.handleTimeoutPrevote(context.Background(), timeoutEvent)
 
-		if engine.step != precommit {
+		if engine.step != tctypes.Precommit {
 			t.Fatalf("should be precommit step now")
 		}
 	})
 }
 
 func TestHandleTimeoutPrecommit(t *testing.T) {
-	t.Run("on timeout precommit received, start new round", func(t *testing.T) {
+	t.Run("on Timeout precommit received, start new round", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, _ := newTestCommitteeSetWithKeys(4)
+		committeeSet, _ := helpers.NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		messages := newMessagesMap()
-		curRoundMessages := messages.getOrCreate(1)
-		mockBackend := NewMockBackend(ctrl)
+		messages := tcmessage.NewMessagesMap()
+		curRoundMessages := messages.GetOrCreate(1)
+		mockBackend := interfaces.NewMockBackend(ctrl)
 		mockBackend.EXPECT().Post(gomock.Any()).AnyTimes()
-		engine := core{
+		engine := Core{
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
 			curRoundMessages: curRoundMessages,
 			messages:         messages,
-			step:             prevote,
+			step:             tctypes.Prevote,
 			round:            1,
 			height:           big.NewInt(2),
 			committee:        committeeSet,
-			proposeTimeout:   newTimeout(propose, logger),
-			prevoteTimeout:   newTimeout(prevote, logger),
-			precommitTimeout: newTimeout(precommit, logger),
+			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
+			prevoteTimeout:   tctypes.NewTimeout(tctypes.Prevote, logger),
+			precommitTimeout: tctypes.NewTimeout(tctypes.Precommit, logger),
 		}
-		timeoutEvent := TimeoutEvent{
-			roundWhenCalled:  1,
-			heightWhenCalled: big.NewInt(2),
-			step:             msgPrecommit,
+		engine.SetDefaultHandlers()
+		timeoutEvent := tctypes.TimeoutEvent{
+			RoundWhenCalled:  1,
+			HeightWhenCalled: big.NewInt(2),
+			Step:             tcmessage.MsgPrecommit,
 		}
 
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
@@ -158,7 +164,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			t.Fatalf("should be next round")
 		}
 
-		if engine.step != propose {
+		if engine.step != tctypes.Propose {
 			t.Fatalf("should be propose step")
 		}
 	})
@@ -168,27 +174,28 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 func TestOnTimeoutPrevote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockBackend := NewMockBackend(ctrl)
-	messages := newMessagesMap()
-	curRoundMessages := messages.getOrCreate(2)
-	engine := core{
+	mockBackend := interfaces.NewMockBackend(ctrl)
+	messages := tcmessage.NewMessagesMap()
+	curRoundMessages := messages.GetOrCreate(2)
+	engine := Core{
 		backend:          mockBackend,
 		logger:           log.New("backend", "test", "id", 0),
 		round:            2,
 		height:           big.NewInt(4),
 		curRoundMessages: curRoundMessages,
 		messages:         messages,
-		step:             prevote,
+		step:             tctypes.Prevote,
 	}
+	engine.SetDefaultHandlers()
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
-		timeoutEvent, ok := ev.(TimeoutEvent)
+		timeoutEvent, ok := ev.(tctypes.TimeoutEvent)
 		if !ok {
 			t.Fatalf("could not cast to timeoutevent")
 		}
-		if timeoutEvent.roundWhenCalled != 2 || timeoutEvent.heightWhenCalled.Uint64() != 4 {
+		if timeoutEvent.RoundWhenCalled != 2 || timeoutEvent.HeightWhenCalled.Uint64() != 4 {
 			t.Fatalf("bad view")
 		}
-		if timeoutEvent.step != msgPrevote {
+		if timeoutEvent.Step != tcmessage.MsgPrevote {
 			t.Fatalf("bad step")
 		}
 	})
@@ -198,27 +205,28 @@ func TestOnTimeoutPrevote(t *testing.T) {
 func TestOnTimeoutPrecommit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockBackend := NewMockBackend(ctrl)
-	messages := newMessagesMap()
-	curRoundMessages := messages.getOrCreate(2)
-	engine := core{
+	mockBackend := interfaces.NewMockBackend(ctrl)
+	messages := tcmessage.NewMessagesMap()
+	curRoundMessages := messages.GetOrCreate(2)
+	engine := Core{
 		backend:          mockBackend,
 		logger:           log.New("backend", "test", "id", 0),
 		round:            2,
 		height:           big.NewInt(4),
-		step:             precommit,
+		step:             tctypes.Precommit,
 		curRoundMessages: curRoundMessages,
 		messages:         messages,
 	}
+	engine.SetDefaultHandlers()
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
-		timeoutEvent, ok := ev.(TimeoutEvent)
+		timeoutEvent, ok := ev.(tctypes.TimeoutEvent)
 		if !ok {
 			t.Fatalf("could not cast to timeoutevent")
 		}
-		if timeoutEvent.roundWhenCalled != 2 || timeoutEvent.heightWhenCalled.Uint64() != 4 {
+		if timeoutEvent.RoundWhenCalled != 2 || timeoutEvent.HeightWhenCalled.Uint64() != 4 {
 			t.Fatalf("bad view")
 		}
-		if timeoutEvent.step != msgPrecommit {
+		if timeoutEvent.Step != tcmessage.MsgPrecommit {
 			t.Fatalf("bad step")
 		}
 	})

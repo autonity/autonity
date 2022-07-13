@@ -7,6 +7,9 @@ import (
 	"fmt"
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
 	"github.com/autonity/autonity/p2p/enode"
 	"math"
 	"math/big"
@@ -22,7 +25,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -172,7 +174,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
 		// VerifyProposal dont need committed seals
-		committedSeal, errSC := backend.Sign(tendermintCore.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+		committedSeal, errSC := backend.Sign(helpers.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 		if errSC != nil {
 			t.Fatalf("could not sign commit %d, err=%s", i, errS)
 		}
@@ -379,7 +381,7 @@ func TestSyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []*tendermintCore.Message{
+		messages := []*messageutils.Message{
 			{
 				Address: peerAddr1,
 			},
@@ -388,7 +390,7 @@ func TestSyncPeer(t *testing.T) {
 		peersAddrMap := make(map[common.Address]struct{})
 		peersAddrMap[peerAddr1] = struct{}{}
 
-		payload := messages[0].Payload()
+		payload := messages[0].GetPayload()
 
 		peer1Mock := consensus.NewMockPeer(ctrl)
 		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
@@ -404,7 +406,7 @@ func TestSyncPeer(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		tendermintC := tendermintCore.NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().GetCurrentHeightMessages().Return(messages)
 
 		b := &Backend{
@@ -532,7 +534,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 
 	memDB := rawdb.NewMemoryDatabase()
 	// Use the first key as private key
-	b := New(nodeKeys[0], &vm.Config{})
+	b := New(nodeKeys[0], &vm.Config{}, nil)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

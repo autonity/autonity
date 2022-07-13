@@ -2,210 +2,113 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
-	"sync"
 	"time"
-
-	"github.com/autonity/autonity/log"
 )
-
-const (
-	initialProposeTimeout   = 500 * time.Millisecond
-	proposeTimeoutDelta     = 200 * time.Millisecond
-	initialPrevoteTimeout   = 500 * time.Millisecond
-	prevoteTimeoutDelta     = 200 * time.Millisecond
-	initialPrecommitTimeout = 500 * time.Millisecond
-	precommitTimeoutDelta   = 200 * time.Millisecond
-)
-
-type TimeoutEvent struct {
-	roundWhenCalled  int64
-	heightWhenCalled *big.Int
-	// message type: msgProposal msgPrevote	msgPrecommit
-	step uint64
-}
-
-type timeout struct {
-	timer   *time.Timer
-	started bool
-	step    Step
-	// start will be refreshed on each new schedule, it is used for metric collection of tendermint timeout.
-	start  time.Time
-	logger log.Logger
-	sync.Mutex
-}
-
-func newTimeout(s Step, logger log.Logger) *timeout {
-	return &timeout{
-		started: false,
-		step:    s,
-		start:   time.Now(),
-		logger:  logger,
-	}
-}
-
-// runAfterTimeout() will be run in a separate go routine, so values used inside the function needs to be managed separately
-func (t *timeout) scheduleTimeout(stepTimeout time.Duration, round int64, height *big.Int, runAfterTimeout func(r int64, h *big.Int)) {
-	t.Lock()
-	defer t.Unlock()
-	t.started = true
-	t.start = time.Now()
-	t.timer = time.AfterFunc(stepTimeout, func() {
-		runAfterTimeout(round, height)
-	})
-}
-
-func (t *timeout) timerStarted() bool {
-	t.Lock()
-	defer t.Unlock()
-	return t.started
-}
-
-func (t *timeout) stopTimer() error {
-	t.Lock()
-	defer t.Unlock()
-	if t.started {
-		if t.started = !t.timer.Stop(); t.started {
-			switch t.step {
-			case propose:
-				return errNilPrevoteSent
-			case prevote:
-				return errNilPrecommitSent
-			case precommit:
-				return errMovedToNewRound
-			}
-		}
-		t.measureMetricsOnStopTimer()
-	}
-	return nil
-}
-
-func (t *timeout) measureMetricsOnStopTimer() {
-	switch t.step {
-	case propose:
-		tendermintProposeTimer.UpdateSince(t.start)
-	case prevote:
-		tendermintPrevoteTimer.UpdateSince(t.start)
-	case precommit:
-		tendermintPrecommitTimer.UpdateSince(t.start)
-	}
-}
-
-func (t *timeout) reset(s Step) {
-	err := t.stopTimer()
-	if err != nil {
-		t.logger.Info("cant stop timer", "err", err)
-	}
-
-	t.Lock()
-	defer t.Unlock()
-	t.timer = nil
-	t.started = false
-	t.step = s
-	t.start = time.Time{}
-}
 
 /////////////// On Timeout Functions ///////////////
-func (c *core) measureMetricsOnTimeOut(step uint64, r int64) {
+func (c *Core) measureMetricsOnTimeOut(step uint64, r int64) {
 	switch step {
-	case msgProposal:
+	case messageutils.MsgProposal:
 		duration := c.timeoutPropose(r)
-		tendermintProposeTimer.Update(duration)
+		types.TendermintProposeTimer.Update(duration)
 		return
-	case msgPrevote:
+	case messageutils.MsgPrevote:
 		duration := c.timeoutPrevote(r)
-		tendermintPrevoteTimer.Update(duration)
+		types.TendermintPrevoteTimer.Update(duration)
 		return
-	case msgPrecommit:
+	case messageutils.MsgPrecommit:
 		duration := c.timeoutPrecommit(r)
-		tendermintPrecommitTimer.Update(duration)
+		types.TendermintPrecommitTimer.Update(duration)
 		return
 	}
 }
 
-func (c *core) onTimeoutPropose(r int64, h *big.Int) {
-	msg := TimeoutEvent{
-		roundWhenCalled:  r,
-		heightWhenCalled: h,
-		step:             msgProposal,
+func (c *Core) onTimeoutPropose(r int64, h *big.Int) {
+	msg := types.TimeoutEvent{
+		RoundWhenCalled:  r,
+		HeightWhenCalled: h,
+		Step:             messageutils.MsgProposal,
 	}
 	// It's unsafe to call logTimeoutEvent here !
 	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
-	c.measureMetricsOnTimeOut(msg.step, r)
-	c.sendEvent(msg)
+	c.measureMetricsOnTimeOut(msg.Step, r)
+	c.SendEvent(msg)
 }
 
-func (c *core) onTimeoutPrevote(r int64, h *big.Int) {
-	msg := TimeoutEvent{
-		roundWhenCalled:  r,
-		heightWhenCalled: h,
-		step:             msgPrevote,
+func (c *Core) onTimeoutPrevote(r int64, h *big.Int) {
+	msg := types.TimeoutEvent{
+		RoundWhenCalled:  r,
+		HeightWhenCalled: h,
+		Step:             messageutils.MsgPrevote,
 	}
 	c.logger.Debug("TimeoutEvent(Prevote): Sent", "round", r, "height", h)
-	c.measureMetricsOnTimeOut(msg.step, r)
-	c.sendEvent(msg)
+	c.measureMetricsOnTimeOut(msg.Step, r)
+	c.SendEvent(msg)
 }
 
-func (c *core) onTimeoutPrecommit(r int64, h *big.Int) {
-	msg := TimeoutEvent{
-		roundWhenCalled:  r,
-		heightWhenCalled: h,
-		step:             msgPrecommit,
+func (c *Core) onTimeoutPrecommit(r int64, h *big.Int) {
+	msg := types.TimeoutEvent{
+		RoundWhenCalled:  r,
+		HeightWhenCalled: h,
+		Step:             messageutils.MsgPrecommit,
 	}
 	c.logger.Debug("TimeoutEvent(Precommit): Sent", "round", r, "height", h)
-	c.measureMetricsOnTimeOut(msg.step, r)
-	c.sendEvent(msg)
+	c.measureMetricsOnTimeOut(msg.Step, r)
+	c.SendEvent(msg)
 }
 
 /////////////// Handle Timeout Functions ///////////////
-func (c *core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled.Cmp(c.Height()) == 0 && msg.roundWhenCalled == c.Round() && c.step == propose {
+func (c *Core) handleTimeoutPropose(ctx context.Context, msg types.TimeoutEvent) {
+	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == types.Propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
-		c.sendPrevote(ctx, true)
-		c.setStep(prevote)
+		c.prevoter.SendPrevote(ctx, true)
+		c.SetStep(types.Prevote)
 	}
 }
 
-func (c *core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
-	if msg.heightWhenCalled.Cmp(c.Height()) == 0 && msg.roundWhenCalled == c.Round() && c.step == prevote {
+func (c *Core) handleTimeoutPrevote(ctx context.Context, msg types.TimeoutEvent) {
+	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == types.Prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
-		c.sendPrecommit(ctx, true)
-		c.setStep(precommit)
+		c.precommiter.SendPrecommit(ctx, true)
+		c.SetStep(types.Precommit)
 	}
 }
 
-func (c *core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
+func (c *Core) handleTimeoutPrecommit(ctx context.Context, msg types.TimeoutEvent) {
 
-	if msg.heightWhenCalled.Cmp(c.Height()) == 0 && msg.roundWhenCalled == c.Round() {
+	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
-		c.startRound(ctx, c.Round()+1)
+		c.StartRound(ctx, c.Round()+1)
 	}
 }
 
 /////////////// Calculate Timeout Duration Functions ///////////////
-// The timeout may need to be changed depending on the Step
-func (c *core) timeoutPropose(round int64) time.Duration {
-	return initialProposeTimeout + time.Duration(c.blockPeriod)*time.Second + time.Duration(round)*proposeTimeoutDelta
+// The Timeout may need to be changed depending on the Step
+func (c *Core) timeoutPropose(round int64) time.Duration {
+	return types.InitialProposeTimeout + time.Duration(c.blockPeriod)*time.Second + time.Duration(round)*types.ProposeTimeoutDelta
 }
 
-func (c *core) timeoutPrevote(round int64) time.Duration {
-	return initialPrevoteTimeout + time.Duration(round)*prevoteTimeoutDelta
+func (c *Core) timeoutPrevote(round int64) time.Duration {
+	return types.InitialPrevoteTimeout + time.Duration(round)*types.PrevoteTimeoutDelta
 }
 
-func (c *core) timeoutPrecommit(round int64) time.Duration {
-	return initialPrecommitTimeout + time.Duration(round)*precommitTimeoutDelta
+func (c *Core) timeoutPrecommit(round int64) time.Duration {
+	return types.InitialPrecommitTimeout + time.Duration(round)*types.PrecommitTimeoutDelta
 }
 
-func (c *core) logTimeoutEvent(message string, msgType string, timeout TimeoutEvent) {
+func (c *Core) logTimeoutEvent(message string, msgType string, timeout types.TimeoutEvent) {
 
 	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,
 		"currentHeight", c.Height(),
-		"msgHeight", timeout.heightWhenCalled,
+		"msgHeight", timeout.HeightWhenCalled,
 		"currentRound", c.Round(),
-		"msgRound", timeout.roundWhenCalled,
+		"msgRound", timeout.RoundWhenCalled,
 		"currentStep", c.step,
-		"msgStep", timeout.step,
+		"msgStep", timeout.Step,
 	)
 }

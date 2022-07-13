@@ -1,7 +1,8 @@
-package core
+package messageutils
 
 import (
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/pkg/errors"
 	"io"
 	"math/big"
@@ -94,7 +95,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		validRound = int64(proposal.ValidRound)
 	}
 
-	if !(validRound <= MaxRound && proposal.Round <= MaxRound) {
+	if !(validRound <= constants.MaxRound && proposal.Round <= constants.MaxRound) {
 		return errors.New("bad proposal with invalid rounds")
 	}
 
@@ -141,8 +142,8 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 	sub.Round = int64(vote.Round)
-	if sub.Round > MaxRound {
-		return errInvalidMessage
+	if sub.Round > constants.MaxRound {
+		return constants.ErrInvalidMessage
 	}
 	sub.Height = vote.Height
 	sub.ProposedBlockHash = vote.ProposedBlockHash

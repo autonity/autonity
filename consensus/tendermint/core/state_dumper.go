@@ -2,101 +2,30 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"math/big"
 )
 
-type coreStateRequestEvent struct {
-	stateChan chan TendermintState
-}
-
-// VoteState save the prevote or precommit voting status for a specific value.
-type VoteState struct {
-	Value            common.Hash
-	ProposalVerified bool
-	VotePower        uint64
-}
-
-// RoundState save the voting status for a specific round.
-type RoundState struct {
-	Round          int64
-	Proposal       common.Hash
-	PrevoteState   []VoteState
-	PrecommitState []VoteState
-}
-
-// MsgWithHash save the msg and extra field to be marshal to JSON.
-type MsgForDump struct {
-	Message
-	Hash   common.Hash
-	Power  uint64
-	Height *big.Int
-	Round  int64
-}
-
-// TendermintState save an instant status for the tendermint consensus engine.
-type TendermintState struct {
-	// validator address
-	Client common.Address
-
-	// core state of tendermint
-	Height      *big.Int
-	Round       int64
-	Step        uint64
-	Proposal    *common.Hash
-	LockedValue *common.Hash
-	LockedRound int64
-	ValidValue  *common.Hash
-	ValidRound  int64
-
-	// committee state
-	Committee       types.Committee
-	Proposer        common.Address
-	IsProposer      bool
-	QuorumVotePower uint64
-	RoundStates     []RoundState
-	ProposerPolicy  uint64
-
-	// extra state
-	SentProposal          bool
-	SentPrevote           bool
-	SentPrecommit         bool
-	SetValidRoundAndValue bool
-
-	// timer state
-	BlockPeriod           uint64
-	ProposeTimerStarted   bool
-	PrevoteTimerStarted   bool
-	PrecommitTimerStarted bool
-
-	// current height messages.
-	CurHeightMessages []*MsgForDump
-	// backlog msgs
-	BacklogMessages []*MsgForDump
-	// backlog unchecked msgs.
-	UncheckedMsgs []*MsgForDump
-	// Known msg of gossip.
-	KnownMsgHash []common.Hash
-}
-
-func (c *core) CoreState() TendermintState {
+func (c *Core) CoreState() tctypes.TendermintState {
 	// send state dump request.
-	var e = coreStateRequestEvent{
-		stateChan: make(chan TendermintState),
+	var e = tctypes.CoreStateRequestEvent{
+		StateChan: make(chan tctypes.TendermintState),
 	}
-	go c.sendEvent(e)
-	return <-e.stateChan
+	go c.SendEvent(e)
+	return <-e.StateChan
 }
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
-func (c *core) handleStateDump(e coreStateRequestEvent) {
-	state := TendermintState{
+func (c *Core) handleStateDump(e tctypes.CoreStateRequestEvent) {
+	state := tctypes.TendermintState{
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,
 		CurHeightMessages: msgForDump(c.GetCurrentHeightMessages()),
 		BacklogMessages:   getBacklogMsgs(c),
 		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
-		// tendermint core state:
+		// tendermint Core state:
 		Height:      c.Height(),
 		Round:       c.Round(),
 		Step:        uint64(c.step),
@@ -107,10 +36,10 @@ func (c *core) handleStateDump(e coreStateRequestEvent) {
 		ValidRound:  c.validRound,
 
 		// committee state
-		Committee:       c.committeeSet().Committee(),
-		Proposer:        c.committeeSet().GetProposer(c.Round()).Address,
-		IsProposer:      c.isProposer(),
-		QuorumVotePower: c.committeeSet().Quorum(),
+		Committee:       c.CommitteeSet().Committee(),
+		Proposer:        c.CommitteeSet().GetProposer(c.Round()).Address,
+		IsProposer:      c.IsProposer(),
+		QuorumVotePower: c.CommitteeSet().Quorum(),
 		RoundStates:     getRoundState(c),
 		// extra state
 		SentProposal:          c.sentProposal,
@@ -118,22 +47,22 @@ func (c *core) handleStateDump(e coreStateRequestEvent) {
 		SentPrecommit:         c.sentPrecommit,
 		SetValidRoundAndValue: c.setValidRoundAndValue,
 		// timer state
-		ProposeTimerStarted:   c.proposeTimeout.timerStarted(),
-		PrevoteTimerStarted:   c.prevoteTimeout.timerStarted(),
-		PrecommitTimerStarted: c.precommitTimeout.timerStarted(),
+		ProposeTimerStarted:   c.proposeTimeout.TimerStarted(),
+		PrevoteTimerStarted:   c.prevoteTimeout.TimerStarted(),
+		PrecommitTimerStarted: c.precommitTimeout.TimerStarted(),
 		// known msgs in case of gossiping.
 		KnownMsgHash: c.backend.KnownMsgHash(),
 	}
 
 	// for none blocking send state.
-	c.logger.Debug("sending core state msg")
-	e.stateChan <- state
+	c.logger.Debug("sending Core state msg")
+	e.StateChan <- state
 	// let sender to close channel.
-	close(e.stateChan)
+	close(e.StateChan)
 }
 
-func getBacklogUncheckedMsgs(c *core) []*MsgForDump {
-	result := make([]*MsgForDump, 0)
+func getBacklogUncheckedMsgs(c *Core) []*tctypes.MsgForDump {
+	result := make([]*tctypes.MsgForDump, 0)
 	for _, ms := range c.backlogUnchecked {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -144,8 +73,8 @@ func getBacklogUncheckedMsgs(c *core) []*MsgForDump {
 // getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
-func getBacklogMsgs(c *core) []*MsgForDump {
-	result := make([]*MsgForDump, 0)
+func getBacklogMsgs(c *Core) []*tctypes.MsgForDump {
+	result := make([]*tctypes.MsgForDump, 0)
 	for _, ms := range c.backlogs {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -153,13 +82,13 @@ func getBacklogMsgs(c *core) []*MsgForDump {
 	return result
 }
 
-func msgForDump(msgs []*Message) []*MsgForDump {
-	result := make([]*MsgForDump, 0, len(msgs))
+func msgForDump(msgs []*messageutils.Message) []*tctypes.MsgForDump {
+	result := make([]*tctypes.MsgForDump, 0, len(msgs))
 	for _, m := range msgs {
-		msg := new(MsgForDump)
+		msg := new(tctypes.MsgForDump)
 		msg.Message = *m
 		msg.Power = m.GetPower()
-		msg.Hash = types.RLPHash(m.payload)
+		msg.Hash = types.RLPHash(m.Payload)
 
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1
@@ -171,9 +100,9 @@ func msgForDump(msgs []*Message) []*MsgForDump {
 	return result
 }
 
-func getProposal(c *core, round int64) *common.Hash {
-	if c.messages.getOrCreate(round).proposal != nil && c.messages.getOrCreate(round).proposal.ProposalBlock != nil {
-		v := c.messages.getOrCreate(round).proposal.ProposalBlock.Hash()
+func getProposal(c *Core, round int64) *common.Hash {
+	if c.messages.GetOrCreate(round).ProposalDetails != nil && c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock != nil {
+		v := c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock.Hash()
 		return &v
 	}
 	return nil
@@ -187,13 +116,13 @@ func getHash(b *types.Block) *common.Hash {
 	return nil
 }
 
-func getRoundState(c *core) []RoundState {
-	rounds := c.messages.getRounds()
-	states := make([]RoundState, 0, len(rounds))
+func getRoundState(c *Core) []tctypes.RoundState {
+	rounds := c.messages.GetRounds()
+	states := make([]tctypes.RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
-		proposal, prevoteState, preCommitState := getVoteState(&c.messages, r)
-		state := RoundState{
+		proposal, prevoteState, preCommitState := getVoteState(c.messages, r)
+		state := tctypes.RoundState{
 			Round:          r,
 			Proposal:       proposal,
 			PrevoteState:   prevoteState,
@@ -204,7 +133,7 @@ func getRoundState(c *core) []RoundState {
 	return states
 }
 
-func blockHashes(messages map[common.Hash]map[common.Address]Message) []common.Hash {
+func blockHashes(messages map[common.Hash]map[common.Address]messageutils.Message) []common.Hash {
 	blockHashes := make([]common.Hash, 0, len(messages))
 	for key := range messages {
 		blockHashes = append(blockHashes, key)
@@ -212,32 +141,32 @@ func blockHashes(messages map[common.Hash]map[common.Address]Message) []common.H
 	return blockHashes
 }
 
-func getVoteState(s *messagesMap, round int64) (common.Hash, []VoteState, []VoteState) {
+func getVoteState(s *messageutils.MessagesMap, round int64) (common.Hash, []tctypes.VoteState, []tctypes.VoteState) {
 	p := common.Hash{}
 
-	if s.getOrCreate(round).Proposal() != nil && s.getOrCreate(round).Proposal().ProposalBlock != nil {
-		p = s.getOrCreate(round).Proposal().ProposalBlock.Hash()
+	if s.GetOrCreate(round).Proposal() != nil && s.GetOrCreate(round).Proposal().ProposalBlock != nil {
+		p = s.GetOrCreate(round).Proposal().ProposalBlock.Hash()
 	}
 
-	preVoteValues := blockHashes(s.getOrCreate(round).prevotes.votes)
-	preCommitValues := blockHashes(s.getOrCreate(round).precommits.votes)
-	prevoteState := make([]VoteState, 0, len(preVoteValues))
-	precommitState := make([]VoteState, 0, len(preCommitValues))
+	preVoteValues := blockHashes(s.GetOrCreate(round).Prevotes.Votes)
+	preCommitValues := blockHashes(s.GetOrCreate(round).Precommits.Votes)
+	prevoteState := make([]tctypes.VoteState, 0, len(preVoteValues))
+	precommitState := make([]tctypes.VoteState, 0, len(preCommitValues))
 
 	for _, v := range preVoteValues {
-		var s = VoteState{
+		var s = tctypes.VoteState{
 			Value:            v,
-			ProposalVerified: s.getOrCreate(round).isProposalVerified(),
-			VotePower:        s.getOrCreate(round).PrevotesPower(v),
+			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
+			VotePower:        s.GetOrCreate(round).PrevotesPower(v),
 		}
 		prevoteState = append(prevoteState, s)
 	}
 
 	for _, v := range preCommitValues {
-		var s = VoteState{
+		var s = tctypes.VoteState{
 			Value:            v,
-			ProposalVerified: s.getOrCreate(round).isProposalVerified(),
-			VotePower:        s.getOrCreate(round).PrecommitsPower(v),
+			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
+			VotePower:        s.GetOrCreate(round).PrecommitsPower(v),
 		}
 		precommitState = append(precommitState, s)
 	}

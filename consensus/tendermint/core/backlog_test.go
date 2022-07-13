@@ -2,6 +2,11 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
@@ -16,124 +21,124 @@ import (
 
 func TestCheckMessage(t *testing.T) {
 	t.Run("valid params given, nil returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  1,
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(1, big.NewInt(2), propose)
+		err := c.CheckMessage(1, big.NewInt(2), tctypes.Propose)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 	})
 
 	t.Run("given nil height, error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  1,
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(1, nil, propose)
-		if err != errInvalidMessage {
-			t.Fatalf("have %v, want %v", err, errInvalidMessage)
+		err := c.CheckMessage(1, nil, tctypes.Propose)
+		if err != constants.ErrInvalidMessage {
+			t.Fatalf("have %v, want %v", err, constants.ErrInvalidMessage)
 		}
 	})
 
 	t.Run("given future height, error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  1,
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(2, big.NewInt(4), propose)
-		if err != errFutureHeightMessage {
-			t.Fatalf("have %v, want %v", err, errFutureHeightMessage)
+		err := c.CheckMessage(2, big.NewInt(4), tctypes.Propose)
+		if err != constants.ErrFutureHeightMessage {
+			t.Fatalf("have %v, want %v", err, constants.ErrFutureHeightMessage)
 		}
 	})
 
 	t.Run("given old height, error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  1,
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(2, big.NewInt(1), propose)
-		if err != errOldHeightMessage {
-			t.Fatalf("have %v, want %v", err, errOldHeightMessage)
+		err := c.CheckMessage(2, big.NewInt(1), tctypes.Propose)
+		if err != constants.ErrOldHeightMessage {
+			t.Fatalf("have %v, want %v", err, constants.ErrOldHeightMessage)
 		}
 	})
 
 	t.Run("given future round, error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  1,
 			height: big.NewInt(3),
 		}
 
-		err := c.checkMessage(2, big.NewInt(3), propose)
-		if err != errFutureRoundMessage {
-			t.Fatalf("have %v, want %v", err, errFutureRoundMessage)
+		err := c.CheckMessage(2, big.NewInt(3), tctypes.Propose)
+		if err != constants.ErrFutureRoundMessage {
+			t.Fatalf("have %v, want %v", err, constants.ErrFutureRoundMessage)
 		}
 	})
 
 	t.Run("given old round, error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  2,
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(1, big.NewInt(2), propose)
-		if err != errOldRoundMessage {
-			t.Fatalf("have %v, want %v", err, errOldRoundMessage)
+		err := c.CheckMessage(1, big.NewInt(2), tctypes.Propose)
+		if err != constants.ErrOldRoundMessage {
+			t.Fatalf("have %v, want %v", err, constants.ErrOldRoundMessage)
 		}
 	})
 
 	t.Run("at propose step, given prevote for same view, error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  2,
 			height: big.NewInt(2),
-			step:   propose,
+			step:   tctypes.Propose,
 		}
 
-		err := c.checkMessage(2, big.NewInt(2), prevote)
-		if err != errFutureStepMessage {
-			t.Fatalf("have %v, want %v", err, errFutureStepMessage)
+		err := c.CheckMessage(2, big.NewInt(2), tctypes.Prevote)
+		if err != constants.ErrFutureStepMessage {
+			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
 		}
 	})
 
 	t.Run("at propose step, given precommit for same view, error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  2,
 			height: big.NewInt(2),
-			step:   propose,
+			step:   tctypes.Propose,
 		}
 
-		err := c.checkMessage(2, big.NewInt(2), precommit)
-		if err != errFutureStepMessage {
-			t.Fatalf("have %v, want %v", err, errFutureStepMessage)
+		err := c.CheckMessage(2, big.NewInt(2), tctypes.Precommit)
+		if err != constants.ErrFutureStepMessage {
+			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
 		}
 	})
 
 	t.Run("at prevote step, given precommit for same view, no error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  2,
 			height: big.NewInt(2),
-			step:   prevote,
+			step:   tctypes.Prevote,
 		}
 
-		err := c.checkMessage(2, big.NewInt(2), precommit)
+		err := c.CheckMessage(2, big.NewInt(2), tctypes.Precommit)
 		if err != nil {
 			t.Fatalf("have %v, want %v", err, nil)
 		}
 	})
 
 	t.Run("at precommit step, given prevote for same view, no error returned", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			round:  2,
 			height: big.NewInt(2),
-			step:   precommit,
+			step:   tctypes.Precommit,
 		}
 
-		err := c.checkMessage(2, big.NewInt(2), prevote)
+		err := c.CheckMessage(2, big.NewInt(2), tctypes.Prevote)
 		if err != nil {
 			t.Fatalf("have %v, want %v", err, nil)
 		}
@@ -143,11 +148,11 @@ func TestCheckMessage(t *testing.T) {
 func TestStoreBacklog(t *testing.T) {
 	t.Run("backlog from self", func(t *testing.T) {
 		addr := common.HexToAddress("0x0987654321")
-		c := &core{
+		c := &Core{
 			logger:  log.New("backend", "test", "id", 0),
 			address: addr,
 			height:  big.NewInt(1),
-			step:    propose,
+			step:    tctypes.Propose,
 		}
 
 		val := types.CommitteeMember{
@@ -163,26 +168,26 @@ func TestStoreBacklog(t *testing.T) {
 	})
 
 	t.Run("vote message received", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
+			backlogs: make(map[common.Address][]*messageutils.Message),
 		}
 
-		vote := &Vote{
+		vote := &messageutils.Vote{
 			Round:  1,
 			Height: big.NewInt(2),
 		}
 
-		votePayload, err := Encode(vote)
+		votePayload, err := messageutils.Encode(vote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        votePayload,
-			decodedMsg: vote,
+			DecodedMsg: vote,
 		}
 
 		val := types.CommitteeMember{
@@ -200,28 +205,28 @@ func TestStoreBacklog(t *testing.T) {
 	})
 
 	t.Run("proposal message received", func(t *testing.T) {
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
+			backlogs: make(map[common.Address][]*messageutils.Message),
 		}
 
-		proposal := &Proposal{
+		proposal := &messageutils.Proposal{
 			Round:         1,
 			Height:        big.NewInt(2),
 			ValidRound:    1,
 			ProposalBlock: types.NewBlockWithHeader(&types.Header{}),
 		}
 
-		proposalPayload, err := Encode(proposal)
+		proposalPayload, err := messageutils.Encode(proposal)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgProposal,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgProposal,
 			Msg:        proposalPayload,
-			decodedMsg: proposal,
+			DecodedMsg: proposal,
 		}
 
 		val := types.CommitteeMember{
@@ -241,28 +246,28 @@ func TestStoreBacklog(t *testing.T) {
 
 func TestProcessBacklog(t *testing.T) {
 	t.Run("valid proposal received", func(t *testing.T) {
-		proposal := &Proposal{
+		proposal := &messageutils.Proposal{
 			Round:         1,
 			Height:        big.NewInt(2),
 			ValidRound:    1,
 			ProposalBlock: types.NewBlockWithHeader(&types.Header{}),
 		}
 
-		proposalPayload, err := Encode(proposal)
+		proposalPayload, err := messageutils.Encode(proposal)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgProposal,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgProposal,
 			Msg:        proposalPayload,
-			decodedMsg: proposal,
+			DecodedMsg: proposal,
 		}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet := newTestCommitteeSet(1)
+		committeeSet := helpers.NewTestCommitteeSet(1)
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
@@ -271,17 +276,17 @@ func TestProcessBacklog(t *testing.T) {
 
 		evChan := make(chan interface{}, 1)
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(expected).Do(func(ev interface{}) {
 			evChan <- ev
 		})
 
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
-			step:     propose,
+			backlogs: make(map[common.Address][]*messageutils.Message),
+			step:     tctypes.Propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
@@ -302,31 +307,31 @@ func TestProcessBacklog(t *testing.T) {
 				t.Errorf("message code mismatch: have %v, want %v", e.msg.Code, msg.Code)
 			}
 		case <-timeout.C:
-			t.Error("unexpected timeout occurs")
+			t.Error("unexpected Timeout occurs")
 		}
 	})
 
 	t.Run("valid vote received, processed at prevote step", func(t *testing.T) {
-		vote := &Vote{
+		vote := &messageutils.Vote{
 			Round:  1,
 			Height: big.NewInt(2),
 		}
 
-		votePayload, err := Encode(vote)
+		votePayload, err := messageutils.Encode(vote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        votePayload,
-			decodedMsg: vote,
+			DecodedMsg: vote,
 		}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet := newTestCommitteeSet(1)
+		committeeSet := helpers.NewTestCommitteeSet(1)
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
@@ -335,17 +340,17 @@ func TestProcessBacklog(t *testing.T) {
 
 		evChan := make(chan interface{}, 1)
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(expected).Do(func(ev interface{}) {
 			evChan <- ev
 		})
 
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
-			step:     propose,
+			backlogs: make(map[common.Address][]*messageutils.Message),
+			step:     tctypes.Propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
@@ -362,7 +367,7 @@ func TestProcessBacklog(t *testing.T) {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
 		case <-timeout.C:
 		}
-		c.setStep(prevote)
+		c.SetStep(tctypes.Prevote)
 		c.processBacklog()
 
 		timeout = time.NewTimer(2 * time.Second)
@@ -376,31 +381,31 @@ func TestProcessBacklog(t *testing.T) {
 				t.Errorf("message code mismatch: have %v, want %v", e.msg.Code, msg.Code)
 			}
 		case <-timeout.C:
-			t.Error("unexpected timeout occurs")
+			t.Error("unexpected Timeout occurs")
 		}
 	})
 
 	t.Run("same height, but old round", func(t *testing.T) {
-		nilRoundVote := &Vote{
+		nilRoundVote := &messageutils.Vote{
 			Round:  0,
 			Height: big.NewInt(1),
 		}
 
-		nilRoundVotePayload, err := Encode(nilRoundVote)
+		nilRoundVotePayload, err := messageutils.Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        nilRoundVotePayload,
-			decodedMsg: nilRoundVote,
+			DecodedMsg: nilRoundVote,
 		}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet := newTestCommitteeSet(1)
+		committeeSet := helpers.NewTestCommitteeSet(1)
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogEvent{
@@ -409,18 +414,18 @@ func TestProcessBacklog(t *testing.T) {
 
 		evChan := make(chan interface{}, 1)
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(expected).Do(func(ev interface{}) {
 			evChan <- ev
 		})
 
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
+			backlogs: make(map[common.Address][]*messageutils.Message),
 			round:    1,
-			step:     prevote,
+			step:     tctypes.Prevote,
 			height:   big.NewInt(1),
 		}
 
@@ -440,41 +445,41 @@ func TestProcessBacklog(t *testing.T) {
 				t.Errorf("message code mismatch: have %v, want %v", e.msg.Code, msg.Code)
 			}
 		case <-timeout.C:
-			t.Error("unexpected timeout occurs")
+			t.Error("unexpected Timeout occurs")
 		}
 	})
 
 	t.Run("future height message are not processed", func(t *testing.T) {
-		nilRoundVote := &Vote{
+		nilRoundVote := &messageutils.Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := Encode(nilRoundVote)
+		nilRoundVotePayload, err := messageutils.Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        nilRoundVotePayload,
-			decodedMsg: nilRoundVote,
+			DecodedMsg: nilRoundVote,
 		}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
-		committeeSet := newTestCommitteeSet(2)
+		committeeSet := helpers.NewTestCommitteeSet(2)
 		val, _ := committeeSet.GetByIndex(0)
 
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
+			backlogs: make(map[common.Address][]*messageutils.Message),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -486,40 +491,40 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future height message are processed when height change", func(t *testing.T) {
-		nilRoundVote := &Vote{
+		nilRoundVote := &messageutils.Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := Encode(nilRoundVote)
+		nilRoundVotePayload, err := messageutils.Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        nilRoundVotePayload,
-			decodedMsg: nilRoundVote,
+			DecodedMsg: nilRoundVote,
 		}
-		msg2 := &Message{
-			Code:       msgPrecommit,
+		msg2 := &messageutils.Message{
+			Code:       messageutils.MsgPrecommit,
 			Msg:        nilRoundVotePayload,
-			decodedMsg: nilRoundVote,
+			DecodedMsg: nilRoundVote,
 		}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
-		committeeSet := newTestCommitteeSet(2)
+		committeeSet := helpers.NewTestCommitteeSet(2)
 		val, _ := committeeSet.GetByIndex(0)
 
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
+			backlogs: make(map[common.Address][]*messageutils.Message),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -528,51 +533,51 @@ func TestProcessBacklog(t *testing.T) {
 
 		c.storeBacklog(msg, val.Address)
 		c.storeBacklog(msg2, val.Address)
-		c.setStep(prevote)
+		c.SetStep(tctypes.Prevote)
 		c.processBacklog()
 		c.setHeight(big.NewInt(4))
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.setStep(prevote)
+		c.SetStep(tctypes.Prevote)
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C
 	})
 
 	t.Run("untrusted messages are processed when height change", func(t *testing.T) {
-		nilRoundVote := &Vote{
+		nilRoundVote := &messageutils.Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := Encode(nilRoundVote)
+		nilRoundVotePayload, err := messageutils.Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        nilRoundVotePayload,
-			decodedMsg: nilRoundVote,
+			DecodedMsg: nilRoundVote,
 		}
-		msg2 := &Message{
-			Code:       msgPrecommit,
+		msg2 := &messageutils.Message{
+			Code:       messageutils.MsgPrecommit,
 			Msg:        nilRoundVotePayload,
-			decodedMsg: nilRoundVote,
+			DecodedMsg: nilRoundVote,
 		}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 
-		committeeSet := newTestCommitteeSet(2)
+		committeeSet := helpers.NewTestCommitteeSet(2)
 
-		c := &core{
+		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*Message),
-			backlogUnchecked: map[uint64][]*Message{},
+			backlogs:         make(map[common.Address][]*messageutils.Message),
+			backlogUnchecked: map[uint64][]*messageutils.Message{},
 			round:            2,
 			height:           big.NewInt(3),
 		}
@@ -582,12 +587,12 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.storeUncheckedBacklog(msg)
 		c.storeUncheckedBacklog(msg2)
-		c.setStep(prevote)
+		c.SetStep(tctypes.Prevote)
 		c.processBacklog()
 		c.setHeight(big.NewInt(4))
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.setStep(prevote)
+		c.SetStep(tctypes.Prevote)
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.processBacklog()
@@ -595,40 +600,40 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future round message are processed when round change", func(t *testing.T) {
-		nilRoundVote := &Vote{
+		nilRoundVote := &messageutils.Vote{
 			Round:  2,
 			Height: big.NewInt(4),
 		}
 
-		nilRoundVotePayload, err := Encode(nilRoundVote)
+		nilRoundVotePayload, err := messageutils.Encode(nilRoundVote)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        nilRoundVotePayload,
-			decodedMsg: nilRoundVote,
+			DecodedMsg: nilRoundVote,
 		}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
-		committeeSet := newTestCommitteeSet(2)
+		committeeSet := helpers.NewTestCommitteeSet(2)
 		val, err := committeeSet.GetByIndex(0)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		c := &core{
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
-			step:     prevote,
+			backlogs: make(map[common.Address][]*messageutils.Message),
+			step:     tctypes.Prevote,
 			round:    1,
 			height:   big.NewInt(4),
 		}
@@ -650,31 +655,31 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := &core{
+		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*Message),
-			backlogUnchecked: make(map[uint64][]*Message),
-			step:             prevote,
+			backlogs:         make(map[common.Address][]*messageutils.Message),
+			backlogUnchecked: make(map[uint64][]*messageutils.Message),
+			step:             tctypes.Prevote,
 			round:            1,
 			height:           big.NewInt(4),
 		}
-		var messages []*Message
+		var messages []*messageutils.Message
 
 		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
-			nilRoundVote := &Vote{
+			nilRoundVote := &messageutils.Vote{
 				Round:  i % 10,
 				Height: big.NewInt(i / (1 + i%10)),
 			}
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
-			msg := &Message{
-				Code:       msgPrevote,
+			msg := &messageutils.Message{
+				Code:       messageutils.MsgPrevote,
 				Msg:        payload,
-				decodedMsg: nilRoundVote,
+				DecodedMsg: nilRoundVote,
 			}
 			c.storeUncheckedBacklog(msg)
 			messages = append(messages, msg)
@@ -700,23 +705,23 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		backendMock := NewMockBackend(ctrl)
+		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := &core{
+		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*Message),
-			backlogUnchecked: make(map[uint64][]*Message),
-			step:             prevote,
+			backlogs:         make(map[common.Address][]*messageutils.Message),
+			backlogUnchecked: make(map[uint64][]*messageutils.Message),
+			step:             tctypes.Prevote,
 			round:            1,
 			height:           big.NewInt(4),
 		}
 
-		var messages []*Message
+		var messages []*messageutils.Message
 		uncheckedFounds := make(map[uint64]struct{})
 		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(payload []byte) {
-			var msg Message
+			var msg messageutils.Message
 			err := msg.FromPayload(payload)
 			if err != nil {
 				t.Fatal("could not decode message payload")
@@ -732,16 +737,16 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 		})
 
 		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
-			nilRoundVote := &Vote{
+			nilRoundVote := &messageutils.Vote{
 				Round:  i % 10,
 				Height: big.NewInt(i),
 			}
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
-			msg := &Message{
-				Code:       msgPrevote,
+			msg := &messageutils.Message{
+				Code:       messageutils.MsgPrevote,
 				Msg:        payload,
-				decodedMsg: nilRoundVote,
+				DecodedMsg: nilRoundVote,
 			}
 			c.storeUncheckedBacklog(msg)
 			if i < MaxSizeBacklogUnchecked {

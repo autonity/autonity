@@ -16,7 +16,7 @@ env:
   # purpose of defining them here.
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
-  GO_VERSION: 1.17 # 1.15 seems to cause tests to fail
+  GO_VERSION: 1.18 # 1.15 seems to cause tests to fail
 
 jobs:
 
@@ -127,12 +127,14 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Run coverage
-        run: go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint.out
+        run: |
+          go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
+          go test ./e2e_test/... -p 1 -timeout 15m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          file: coverage_tendermint.out
+          files: coverage_tendermint_ut.out,coverage_tendermint_integration.out
           yml: codecov.yml
 
   # lint does linting.

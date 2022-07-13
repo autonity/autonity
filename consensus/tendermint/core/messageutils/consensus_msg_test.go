@@ -1,4 +1,4 @@
-package core
+package messageutils
 
 import (
 	"bytes"

@@ -20,7 +20,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rpc"
 )
@@ -74,6 +74,6 @@ func (api *API) GetCommitteeEnodes() []string {
 }
 
 // Get current tendermint's core state
-func (api *API) GetCoreState() core.TendermintState {
+func (api *API) GetCoreState() tctypes.TendermintState {
 	return api.tendermint.CoreState()
 }

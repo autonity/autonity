@@ -1,4 +1,4 @@
-package core
+package committee
 
 import (
 	"errors"
@@ -15,24 +15,7 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-type committee interface {
-	// Return the underlying types.Committee
-	Committee() types.Committee
-	// Get validator by index
-	GetByIndex(i int) (types.CommitteeMember, error)
-	// Get validator by given address
-	GetByAddress(addr common.Address) (int, types.CommitteeMember, error)
-	// Get the round proposer
-	GetProposer(round int64) types.CommitteeMember
-	// Update with lastest block
-	SetLastBlock(block *types.Block)
-	// Get the optimal quorum size
-	Quorum() uint64
-	// Get the maximum number of faulty nodes
-	F() uint64
-}
-
-type roundRobinCommittee struct {
+type RoundRobinCommittee struct {
 	members           types.Committee
 	lastBlockProposer common.Address
 	totalPower        uint64
@@ -41,14 +24,14 @@ type roundRobinCommittee struct {
 	mu                sync.RWMutex // members doesn't need to be protected as it is read-only
 }
 
-func newRoundRobinSet(members types.Committee, lastBlockProposer common.Address) (*roundRobinCommittee, error) {
+func NewRoundRobinSet(members types.Committee, lastBlockProposer common.Address) (*RoundRobinCommittee, error) {
 	// Ensure non empty set
 	if len(members) == 0 {
 		return nil, ErrEmptyCommitteeSet
 	}
 
 	//Create new roundRobinSet
-	committee := &roundRobinCommittee{
+	committee := &RoundRobinCommittee{
 		members:           members,
 		lastBlockProposer: lastBlockProposer,
 		allProposers:      make(map[int64]types.CommitteeMember),
@@ -72,13 +55,13 @@ func newRoundRobinSet(members types.Committee, lastBlockProposer common.Address)
 	return committee, nil
 }
 
-func (set *roundRobinCommittee) Committee() types.Committee {
+func (set *RoundRobinCommittee) Committee() types.Committee {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
 	return copyMembers(set.members)
 }
 
-func (set *roundRobinCommittee) GetByIndex(i int) (types.CommitteeMember, error) {
+func (set *RoundRobinCommittee) GetByIndex(i int) (types.CommitteeMember, error) {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
 	if i < 0 || i >= len(set.members) {
@@ -87,7 +70,7 @@ func (set *roundRobinCommittee) GetByIndex(i int) (types.CommitteeMember, error)
 	return set.members[i], nil
 }
 
-func (set *roundRobinCommittee) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
+func (set *RoundRobinCommittee) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
 	for i, member := range set.members {
@@ -98,7 +81,7 @@ func (set *roundRobinCommittee) GetByAddress(addr common.Address) (int, types.Co
 	return -1, types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 }
 
-func (set *roundRobinCommittee) GetProposer(round int64) types.CommitteeMember {
+func (set *RoundRobinCommittee) GetProposer(round int64) types.CommitteeMember {
 	set.mu.Lock()
 	defer set.mu.Unlock()
 
@@ -111,19 +94,19 @@ func (set *roundRobinCommittee) GetProposer(round int64) types.CommitteeMember {
 	return v
 }
 
-func (set *roundRobinCommittee) SetLastBlock(block *types.Block) {
+func (set *RoundRobinCommittee) SetLastBlock(block *types.Block) {
 	return
 }
 
-func (set *roundRobinCommittee) Quorum() uint64 {
+func (set *RoundRobinCommittee) Quorum() uint64 {
 	return bft.Quorum(set.totalPower)
 }
 
-func (set *roundRobinCommittee) F() uint64 {
+func (set *RoundRobinCommittee) F() uint64 {
 	return bft.F(set.totalPower)
 }
 
-func (set *roundRobinCommittee) getNextProposer(round int64) types.CommitteeMember {
+func (set *RoundRobinCommittee) getNextProposer(round int64) types.CommitteeMember {
 	return set.members[nextProposerIndex(set.roundRobinOffset, round, int64(len(set.members)))]
 }
 
@@ -142,7 +125,7 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 	return int64(index)
 }
 
-type weightedRandomSamplingCommittee struct {
+type WeightedRandomSamplingCommittee struct {
 	previousHeader         *types.Header
 	bc                     *ethcore.BlockChain // Todo : remove this dependency
 	autonityContract       *autonity.Contract
@@ -150,8 +133,8 @@ type weightedRandomSamplingCommittee struct {
 	cachedProposer         map[int64]types.CommitteeMember
 }
 
-func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *weightedRandomSamplingCommittee {
-	return &weightedRandomSamplingCommittee{
+func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *WeightedRandomSamplingCommittee {
+	return &WeightedRandomSamplingCommittee{
 		previousHeader:         previousBlock.Header(),
 		bc:                     bc,
 		autonityContract:       autonityContract,
@@ -161,18 +144,18 @@ func newWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityCont
 }
 
 // Return the underlying types.Committee
-func (w *weightedRandomSamplingCommittee) Committee() types.Committee {
+func (w *WeightedRandomSamplingCommittee) Committee() types.Committee {
 	return w.previousHeader.Committee
 }
 
-func (w *weightedRandomSamplingCommittee) SetLastBlock(block *types.Block) {
+func (w *WeightedRandomSamplingCommittee) SetLastBlock(block *types.Block) {
 	w.previousHeader = block.Header()
 	w.previousBlockStateRoot = block.Root()
 	w.cachedProposer = make(map[int64]types.CommitteeMember)
 }
 
 // Get validator by index
-func (w *weightedRandomSamplingCommittee) GetByIndex(i int) (types.CommitteeMember, error) {
+func (w *WeightedRandomSamplingCommittee) GetByIndex(i int) (types.CommitteeMember, error) {
 	if i < 0 || i >= len(w.previousHeader.Committee) {
 		return types.CommitteeMember{}, consensus.ErrCommitteeMemberNotFound
 	}
@@ -180,7 +163,7 @@ func (w *weightedRandomSamplingCommittee) GetByIndex(i int) (types.CommitteeMemb
 }
 
 // Get validator by given address
-func (w *weightedRandomSamplingCommittee) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
+func (w *WeightedRandomSamplingCommittee) GetByAddress(addr common.Address) (int, types.CommitteeMember, error) {
 	// TODO Promote types.Committee to a struct containing a slice, this will
 	// allow for caching of other information like total power ... etc.
 	m := w.previousHeader.CommitteeMember(addr)
@@ -192,7 +175,7 @@ func (w *weightedRandomSamplingCommittee) GetByAddress(addr common.Address) (int
 }
 
 // Get the round proposer
-func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.CommitteeMember {
+func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) types.CommitteeMember {
 	if res, ok := w.cachedProposer[round]; ok {
 		return res
 	}
@@ -219,11 +202,11 @@ func (w *weightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 }
 
 // Get the optimal quorum size
-func (w *weightedRandomSamplingCommittee) Quorum() uint64 {
+func (w *WeightedRandomSamplingCommittee) Quorum() uint64 {
 	return bft.Quorum(w.previousHeader.TotalVotingPower())
 }
 
-func (w *weightedRandomSamplingCommittee) F() uint64 {
+func (w *WeightedRandomSamplingCommittee) F() uint64 {
 	return bft.F(w.previousHeader.TotalVotingPower())
 }
 

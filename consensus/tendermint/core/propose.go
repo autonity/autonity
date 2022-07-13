@@ -2,6 +2,9 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -9,13 +12,17 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
-func (c *core) sendProposal(ctx context.Context, p *types.Block) {
+type ProposeService struct {
+	*Core
+}
+
+func (c *ProposeService) SendProposal(ctx context.Context, p *types.Block) {
 	logger := c.logger.New("step", c.step)
 
 	// If I'm the proposer and I have the same height with the proposal
-	if c.Height().Cmp(p.Number()) == 0 && c.isProposer() && !c.sentProposal {
-		proposalBlock := NewProposal(c.Round(), c.Height(), c.validRound, p)
-		proposal, err := Encode(proposalBlock)
+	if c.Height().Cmp(p.Number()) == 0 && c.IsProposer() && !c.sentProposal {
+		proposalBlock := messageutils.NewProposal(c.Round(), c.Height(), c.validRound, p)
+		proposal, err := messageutils.Encode(proposalBlock)
 		if err != nil {
 			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
 			return
@@ -24,10 +31,10 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
-		c.logProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
+		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
 
-		c.broadcast(ctx, &Message{
-			Code:          msgProposal,
+		c.Br().Broadcast(ctx, &messageutils.Message{
+			Code:          messageutils.MsgProposal,
 			Msg:           proposal,
 			Address:       c.address,
 			CommittedSeal: []byte{},
@@ -35,42 +42,42 @@ func (c *core) sendProposal(ctx context.Context, p *types.Block) {
 	}
 }
 
-func (c *core) handleProposal(ctx context.Context, msg *Message) error {
-	var proposal Proposal
+func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.Message) error {
+	var proposal messageutils.Proposal
 	err := msg.Decode(&proposal)
 	if err != nil {
-		return errFailedDecodeProposal
+		return constants.ErrFailedDecodeProposal
 	}
 
 	// Ensure we have the same view with the Proposal message
-	if err := c.checkMessage(proposal.Round, proposal.Height, propose); err != nil {
+	if err := c.CheckMessage(proposal.Round, proposal.Height, tctypes.Propose); err != nil {
 		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the
 		// message to the backlog is fine.
-		if err == errOldRoundMessage {
+		if err == constants.ErrOldRoundMessage {
 
-			roundMsgs := c.messages.getOrCreate(proposal.Round)
+			roundMsgs := c.messages.GetOrCreate(proposal.Round)
 
 			// if we already have a proposal then it must be different than the current one
 			// it can't happen unless someone's byzantine.
-			if roundMsgs.proposal != nil {
+			if roundMsgs.ProposalDetails != nil {
 				return err // do not gossip, TODO: accountability
 			}
 
-			if !c.isProposerMsg(proposal.Round, msg.Address) {
+			if !c.IsProposerMsg(proposal.Round, msg.Address) {
 				c.logger.Warn("Ignore proposal messages from non-proposer")
-				return errNotFromProposer
+				return constants.ErrNotFromProposer
 			}
 			// We do not verify the proposal in this case.
 			roundMsgs.SetProposal(&proposal, msg, false)
 
-			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.committeeSet().Quorum() {
+			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.CommitteeSet().Quorum() {
 				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
 					return error
 				}
 				c.logger.Debug("Committing old round proposal")
-				c.commit(proposal.Round, roundMsgs)
+				c.Commit(proposal.Round, roundMsgs)
 				return nil
 			}
 		}
@@ -78,31 +85,31 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	}
 
 	// Check if the message comes from curRoundMessages proposer
-	if !c.isProposerMsg(c.Round(), msg.Address) {
+	if !c.IsProposerMsg(c.Round(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
-		return errNotFromProposer
+		return constants.ErrNotFromProposer
 	}
 
 	// Verify the proposal we received
 	if duration, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
 
-		if timeoutErr := c.proposeTimeout.stopTimer(); timeoutErr != nil {
+		if timeoutErr := c.proposeTimeout.StopTimer(); timeoutErr != nil {
 			return timeoutErr
 		}
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if err == consensus.ErrFutureBlock {
-			c.stopFutureProposalTimer()
+			c.StopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				c.sendEvent(backlogEvent{
+				c.SendEvent(backlogEvent{
 					msg: msg,
 				})
 			})
 			return err
 		}
-		c.sendPrevote(ctx, true)
+		c.prevoter.SendPrevote(ctx, true)
 		// do not to accept another proposal in current round
-		c.setStep(prevote)
+		c.SetStep(tctypes.Prevote)
 
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 
@@ -112,17 +119,17 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(&proposal, msg, true)
 
-	c.logProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
+	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
 	//l49: Check if we have a quorum of precommits for this proposal
 	curProposalHash := c.curRoundMessages.GetProposalHash()
-	if c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.committeeSet().Quorum() {
-		c.commit(proposal.Round, c.curRoundMessages)
+	if c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.CommitteeSet().Quorum() {
+		c.Commit(proposal.Round, c.curRoundMessages)
 		return nil
 	}
 
-	if c.step == propose {
-		if err := c.proposeTimeout.stopTimer(); err != nil {
+	if c.step == tctypes.Propose {
+		if err := c.proposeTimeout.StopTimer(); err != nil {
 			return err
 		}
 
@@ -134,25 +141,25 @@ func (c *core) handleProposal(ctx context.Context, msg *Message) error {
 			// When lockedRound is set to any value other than -1 lockedValue is also
 			// set to a non nil value. So we can be sure that we will only try to access
 			// lockedValue when it is non nil.
-			c.sendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
-			c.setStep(prevote)
+			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
+			c.SetStep(tctypes.Prevote)
 			return nil
 		}
 
-		rs := c.messages.getOrCreate(vr)
+		rs := c.messages.GetOrCreate(vr)
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
-			c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
-			c.setStep(prevote)
+		if vr < c.Round() && rs.PrevotesPower(h) >= c.CommitteeSet().Quorum() {
+			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
+			c.SetStep(tctypes.Prevote)
 		}
 	}
 
 	return nil
 }
 
-func (c *core) handleNewCandidateBlockMsg(ctx context.Context, candidateBlock *types.Block) {
+func (c *ProposeService) HandleNewCandidateBlockMsg(ctx context.Context, candidateBlock *types.Block) {
 	if candidateBlock == nil {
 		return
 	}
@@ -167,9 +174,9 @@ func (c *core) handleNewCandidateBlockMsg(ctx context.Context, candidateBlock *t
 
 	// if current node is the proposer of current height and current round at step PROPOSE without available candidate
 	// block sent before, if the incoming candidate block is the one it missed, send it now.
-	if c.isProposer() && c.step == propose && !c.sentProposal && c.Height().Cmp(number) == 0 {
+	if c.IsProposer() && c.step == tctypes.Propose && !c.sentProposal && c.Height().Cmp(number) == 0 {
 		c.logger.Debug("NewCandidateBlockEvent: Sending proposal that was missed before", "number", number.Uint64())
-		c.sendProposal(ctx, candidateBlock)
+		c.proposer.SendProposal(ctx, candidateBlock)
 	}
 
 	// release buffered candidate blocks before the height of current state machine.
@@ -180,13 +187,13 @@ func (c *core) handleNewCandidateBlockMsg(ctx context.Context, candidateBlock *t
 	}
 }
 
-func (c *core) stopFutureProposalTimer() {
+func (c *ProposeService) StopFutureProposalTimer() {
 	if c.futureProposalTimer != nil {
 		c.futureProposalTimer.Stop()
 	}
 }
 
-func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, to string) {
+func (c *ProposeService) LogProposalMessageEvent(message string, proposal messageutils.Proposal, from, to string) {
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,
@@ -196,8 +203,8 @@ func (c *core) logProposalMessageEvent(message string, proposal Proposal, from, 
 		"currentRound", c.Round(),
 		"msgRound", proposal.Round,
 		"currentStep", c.step,
-		"isProposer", c.isProposer(),
-		"currentProposer", c.committeeSet().GetProposer(c.Round()),
+		"isProposer", c.IsProposer(),
+		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
 		"isNilMsg", proposal.ProposalBlock.Hash() == common.Hash{},
 		"hash", proposal.ProposalBlock.Hash(),
 	)

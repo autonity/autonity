@@ -2,14 +2,21 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/types"
 
 	"github.com/autonity/autonity/common"
 )
 
-func (c *core) sendPrevote(ctx context.Context, isNil bool) {
+type PrevoteService struct {
+	*Core
+}
+
+func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var prevote = Vote{
+	var prevote = messageutils.Vote{
 		Round:  c.Round(),
 		Height: c.Height(),
 	}
@@ -24,48 +31,48 @@ func (c *core) sendPrevote(ctx context.Context, isNil bool) {
 		prevote.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
-	encodedVote, err := Encode(&prevote)
+	encodedVote, err := messageutils.Encode(&prevote)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", prevote)
 		return
 	}
 
-	c.logPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
+	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.broadcast(ctx, &Message{
-		Code:          msgPrevote,
+	c.Br().Broadcast(ctx, &messageutils.Message{
+		Code:          messageutils.MsgPrevote,
 		Msg:           encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
 	})
 }
 
-func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
-	var preVote Vote
+func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Message) error {
+	var preVote messageutils.Vote
 	err := msg.Decode(&preVote)
 	if err != nil {
-		return errFailedDecodePrevote
+		return constants.ErrFailedDecodePrevote
 	}
 
-	if err = c.checkMessage(preVote.Round, preVote.Height, prevote); err != nil {
+	if err = c.CheckMessage(preVote.Round, preVote.Height, types.Prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
-		if err == errOldRoundMessage {
+		if err == constants.ErrOldRoundMessage {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
-			oldRoundMessages := c.messages.getOrCreate(preVote.Round)
-			c.acceptVote(oldRoundMessages, prevote, preVote.ProposedBlockHash, *msg)
+			oldRoundMessages := c.messages.GetOrCreate(preVote.Round)
+			c.AcceptVote(oldRoundMessages, types.Prevote, preVote.ProposedBlockHash, *msg)
 
 			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus.
-			if c.step == propose {
+			if c.step == types.Propose {
 				// ProposalBlock would be nil if node haven't receive proposal yet.
-				if c.curRoundMessages.proposal.ProposalBlock != nil {
-					vr := c.curRoundMessages.proposal.ValidRound
-					h := c.curRoundMessages.proposal.ProposalBlock.Hash()
-					rs := c.messages.getOrCreate(vr)
+				if c.curRoundMessages.ProposalDetails.ProposalBlock != nil {
+					vr := c.curRoundMessages.ProposalDetails.ValidRound
+					h := c.curRoundMessages.ProposalDetails.ProposalBlock.Hash()
+					rs := c.messages.GetOrCreate(vr)
 
-					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h) >= c.committeeSet().Quorum() {
-						c.sendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
-						c.setStep(prevote)
+					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h) >= c.CommitteeSet().Quorum() {
+						c.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
+						c.SetStep(types.Prevote)
 						return nil
 					}
 				}
@@ -75,49 +82,49 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	}
 
 	// After checking the message we know it is from the same height and round, so we should store it even if
-	// c.curRoundMessages.Step() < prevote. The propose timeout which is started at the beginning of the round
+	// c.curRoundMessages.Step() < prevote. The propose Timeout which is started at the beginning of the round
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
 	prevoteHash := preVote.ProposedBlockHash
-	c.acceptVote(c.curRoundMessages, prevote, prevoteHash, *msg)
+	c.AcceptVote(c.curRoundMessages, types.Prevote, prevoteHash, *msg)
 
-	c.logPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
+	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", preVote, msg.Address.String(), c.address.String())
 
 	// Now we can add the preVote to our current round state
-	if c.step >= prevote {
+	if c.step >= types.Prevote {
 		curProposalHash := c.curRoundMessages.GetProposalHash()
 
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-		if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrevotesPower(curProposalHash) >= c.committeeSet().Quorum() && !c.setValidRoundAndValue {
+		if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrevotesPower(curProposalHash) >= c.CommitteeSet().Quorum() && !c.setValidRoundAndValue {
 			// this piece of code should only run once
-			if err := c.prevoteTimeout.stopTimer(); err != nil {
+			if err := c.prevoteTimeout.StopTimer(); err != nil {
 				return err
 			}
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
-			if c.step == prevote {
+			if c.step == types.Prevote {
 				c.lockedValue = c.curRoundMessages.Proposal().ProposalBlock
 				c.lockedRound = c.Round()
-				c.sendPrecommit(ctx, false)
-				c.setStep(precommit)
+				c.precommiter.SendPrecommit(ctx, false)
+				c.SetStep(types.Precommit)
 			}
 			c.validValue = c.curRoundMessages.Proposal().ProposalBlock
 			c.validRound = c.Round()
 			c.setValidRoundAndValue = true
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == prevote && c.curRoundMessages.PrevotesPower(common.Hash{}) >= c.committeeSet().Quorum() {
-			if err := c.prevoteTimeout.stopTimer(); err != nil {
+		} else if c.step == types.Prevote && c.curRoundMessages.PrevotesPower(common.Hash{}) >= c.CommitteeSet().Quorum() {
+			if err := c.prevoteTimeout.StopTimer(); err != nil {
 				return err
 			}
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
-			c.sendPrecommit(ctx, true)
-			c.setStep(precommit)
+			c.precommiter.SendPrecommit(ctx, true)
+			c.SetStep(types.Precommit)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == prevote && !c.prevoteTimeout.timerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower() >= c.committeeSet().Quorum() {
+		} else if c.step == types.Prevote && !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower() >= c.CommitteeSet().Quorum() {
 			timeoutDuration := c.timeoutPrevote(c.Round())
-			c.prevoteTimeout.scheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
+			c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 		}
 	}
@@ -125,7 +132,7 @@ func (c *core) handlePrevote(ctx context.Context, msg *Message) error {
 	return nil
 }
 
-func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to string) {
+func (c *PrevoteService) LogPrevoteMessageEvent(message string, prevote messageutils.Vote, from, to string) {
 	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,
@@ -135,8 +142,8 @@ func (c *core) logPrevoteMessageEvent(message string, prevote Vote, from, to str
 		"currentRound", c.Round(),
 		"msgRound", prevote.Round,
 		"currentStep", c.step,
-		"isProposer", c.isProposer(),
-		"currentProposer", c.committeeSet().GetProposer(c.Round()),
+		"isProposer", c.IsProposer(),
+		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
 		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
 		"hash", prevote.ProposedBlockHash,
 		"type", "Prevote",

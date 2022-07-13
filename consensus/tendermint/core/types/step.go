@@ -14,16 +14,37 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package types
 
-import (
-	"github.com/autonity/autonity/metrics"
+type Step uint64
+
+const (
+	Propose Step = iota
+	Prevote
+	Precommit
+	PrecommitDone
 )
 
-var (
-	tendermintHeightChangeMeter = metrics.NewRegisteredMeter("tendermint/height/change", nil)
-	tendermintRoundChangeMeter  = metrics.NewRegisteredMeter("tendermint/round/change", nil)
-	tendermintProposeTimer      = metrics.NewRegisteredTimer("tendermint/timer/propose", nil)
-	tendermintPrevoteTimer      = metrics.NewRegisteredTimer("tendermint/timer/prevote", nil)
-	tendermintPrecommitTimer    = metrics.NewRegisteredTimer("tendermint/timer/precommit", nil)
-)
+func (s Step) String() string {
+	if s == Propose {
+		return "propose"
+	} else if s == Prevote {
+		return "prevote"
+	} else if s == Precommit {
+		return "precommit"
+	} else if s == PrecommitDone {
+		return "precommitDone"
+	} else {
+		return "Unknown"
+	}
+}
+
+func (s Step) Cmp(y Step) int {
+	if uint64(s) < uint64(y) {
+		return -1
+	}
+	if uint64(s) > uint64(y) {
+		return 1
+	}
+	return 0
+}

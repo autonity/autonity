@@ -2,6 +2,11 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -17,13 +22,13 @@ import (
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
-	committeeSet, keysMap := newTestCommitteeSetWithKeys(4)
+	committeeSet, keysMap := helpers.NewTestCommitteeSetWithKeys(4)
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
 
-	createPrevote := func(round int64, height int64) *Message {
-		vote := &Vote{
+	createPrevote := func(round int64, height int64) *messageutils.Message {
+		vote := &messageutils.Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -32,15 +37,15 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		return &Message{
-			Code:    msgPrevote,
+		return &messageutils.Message{
+			Code:    messageutils.MsgPrevote,
 			Msg:     encoded,
 			Address: sender.Address,
 		}
 	}
 
-	createPrecommit := func(round int64, height int64) *Message {
-		vote := &Vote{
+	createPrecommit := func(round int64, height int64) *messageutils.Message {
+		vote := &messageutils.Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -49,14 +54,14 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		data := PrepareCommittedSeal(common.BytesToHash([]byte{0x1}), vote.Round, vote.Height)
+		data := helpers.PrepareCommittedSeal(common.BytesToHash([]byte{0x1}), vote.Round, vote.Height)
 		hashData := crypto.Keccak256(data)
 		commitSign, err := crypto.Sign(hashData, senderKey)
 		if err != nil {
 			t.Fatalf("error signing")
 		}
-		return &Message{
-			Code:          msgPrecommit,
+		return &messageutils.Message{
+			Code:          messageutils.MsgPrecommit,
 			Msg:           encoded,
 			Address:       sender.Address,
 			CommittedSeal: commitSign,
@@ -66,39 +71,39 @@ func TestHandleCheckedMessage(t *testing.T) {
 	cases := []struct {
 		round   int64
 		height  *big.Int
-		step    Step
-		message *Message
+		step    types.Step
+		message *messageutils.Message
 		outcome error
 		panic   bool
 	}{
 		{
 			1,
 			big.NewInt(2),
-			propose,
+			types.Propose,
 			createPrevote(1, 2),
-			errFutureStepMessage,
+			constants.ErrFutureStepMessage,
 			false,
 		},
 		{
 			1,
 			big.NewInt(2),
-			propose,
+			types.Propose,
 			createPrevote(2, 2),
-			errFutureRoundMessage,
+			constants.ErrFutureRoundMessage,
 			false,
 		},
 		{
 			0,
 			big.NewInt(2),
-			propose,
+			types.Propose,
 			createPrevote(0, 3),
-			errFutureHeightMessage,
+			constants.ErrFutureHeightMessage,
 			true,
 		},
 		{
 			0,
 			big.NewInt(2),
-			prevote,
+			types.Prevote,
 			createPrevote(0, 2),
 			nil,
 			false,
@@ -106,7 +111,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			0,
 			big.NewInt(2),
-			precommit,
+			types.Precommit,
 			createPrecommit(0, 2),
 			nil,
 			false,
@@ -114,39 +119,40 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			0,
 			big.NewInt(5),
-			precommit,
+			types.Precommit,
 			createPrecommit(0, 10),
-			errFutureHeightMessage,
+			constants.ErrFutureHeightMessage,
 			true,
 		},
 		{
 			5,
 			big.NewInt(2),
-			precommit,
+			types.Precommit,
 			createPrecommit(20, 2),
-			errFutureRoundMessage,
+			constants.ErrFutureRoundMessage,
 			false,
 		},
 	}
 
 	for _, testCase := range cases {
 		logger := log.New("backend", "test", "id", 0)
-		message := newMessagesMap()
-		engine := core{
+		messageMap := messageutils.NewMessagesMap()
+		engine := Core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]*Message),
+			backlogs:          make(map[common.Address][]*messageutils.Message),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
 			futureRoundChange: make(map[int64]map[common.Address]uint64),
-			messages:          message,
-			curRoundMessages:  message.getOrCreate(0),
+			messages:          messageMap,
+			curRoundMessages:  messageMap.GetOrCreate(0),
 			committee:         committeeSet,
-			proposeTimeout:    newTimeout(propose, logger),
-			prevoteTimeout:    newTimeout(prevote, logger),
-			precommitTimeout:  newTimeout(precommit, logger),
+			proposeTimeout:    types.NewTimeout(types.Propose, logger),
+			prevoteTimeout:    types.NewTimeout(types.Prevote, logger),
+			precommitTimeout:  types.NewTimeout(types.Precommit, logger),
 		}
+		engine.SetDefaultHandlers()
 
 		func() {
 			defer func() {
@@ -180,31 +186,32 @@ func TestHandleMsg(t *testing.T) {
 	t.Run("old height message return error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		backendMock := NewMockBackend(ctrl)
-		c := &core{
+		backendMock := interfaces.NewMockBackend(ctrl)
+		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*Message),
-			step:     propose,
+			backlogs: make(map[common.Address][]*messageutils.Message),
+			step:     types.Propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
-		vote := &Vote{
+		c.SetDefaultHandlers()
+		vote := &messageutils.Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        payload,
-			decodedMsg: vote,
+			DecodedMsg: vote,
 			Address:    common.Address{},
 		}
 
-		if err := c.handleMsg(context.Background(), msg); err != errOldHeightMessage {
+		if err := c.handleMsg(context.Background(), msg); err != constants.ErrOldHeightMessage {
 			t.Fatal("errOldHeightMessage not returned")
 		}
 	})
@@ -212,32 +219,33 @@ func TestHandleMsg(t *testing.T) {
 	t.Run("future height message return error but are saved", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		backendMock := NewMockBackend(ctrl)
-		c := &core{
+		backendMock := interfaces.NewMockBackend(ctrl)
+		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*Message),
-			backlogUnchecked: map[uint64][]*Message{},
-			step:             propose,
+			backlogs:         make(map[common.Address][]*messageutils.Message),
+			backlogUnchecked: map[uint64][]*messageutils.Message{},
+			step:             types.Propose,
 			round:            1,
 			height:           big.NewInt(2),
 		}
-		vote := &Vote{
+		c.SetDefaultHandlers()
+		vote := &messageutils.Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &Message{
-			Code:       msgPrevote,
+		msg := &messageutils.Message{
+			Code:       messageutils.MsgPrevote,
 			Msg:        payload,
-			decodedMsg: vote,
+			DecodedMsg: vote,
 			Address:    common.Address{},
 		}
 
-		if err := c.handleMsg(context.Background(), msg); err != errFutureHeightMessage {
+		if err := c.handleMsg(context.Background(), msg); err != constants.ErrFutureHeightMessage {
 			t.Fatal("errFutureHeightMessage not returned")
 		}
 		if backlog, ok := c.backlogUnchecked[3]; !(ok && len(backlog) > 0 && deep.Equal(backlog[0], msg)) {
@@ -251,7 +259,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 	defer ctrl.Finish()
 	addr := common.HexToAddress("0x0123456789")
 
-	backendMock := NewMockBackend(ctrl)
+	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
 	logger := log.New("testAddress", "0x0000")

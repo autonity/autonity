@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/params"
 	"math/big"
 	"time"
@@ -18,7 +20,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
-	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
@@ -97,7 +98,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	if header.Number == nil {
 		return errUnknownBlock
 	}
-	if header.Round > tendermintCore.MaxRound {
+	if header.Round > constants.MaxRound {
 		return errInvalidRound
 	}
 	// Don't waste time checking blocks from the future
@@ -241,7 +242,7 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	// Total Voting power for this block
 	var power uint64
 	// The data that was sined over for this block
-	headerSeal := tendermintCore.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+	headerSeal := helpers.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
 
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {

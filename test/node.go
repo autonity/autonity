@@ -61,7 +61,8 @@ type Node struct {
 	Address   common.Address
 	Tracker   *TransactionTracker
 	// The transactions that this node has sent.
-	SentTxs []*types.Transaction
+	SentTxs     []*types.Transaction
+	CustHandler *node.CustomHandler
 }
 
 // NewNode creates a new running node as the given user with the provided
@@ -115,11 +116,12 @@ func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 	ec.NetworkId = genesis.Config.ChainID.Uint64()
 
 	n := &Node{
-		Config:    c,
-		EthConfig: ec,
-		Key:       k,
-		Address:   address,
-		Tracker:   NewTransactionTracker(),
+		Config:      c,
+		EthConfig:   ec,
+		Key:         k,
+		Address:     address,
+		Tracker:     NewTransactionTracker(),
+		CustHandler: u.CustHandler,
 	}
 
 	return n, nil
@@ -157,6 +159,7 @@ func (n *Node) Start() error {
 	// marshalable since the implementation contains unexported fields.
 	nodeConfigCopy.Logger = log.New("node", n.Address.String()[2:7])
 	n.Node, err = node.New(nodeConfigCopy)
+	n.Node.SetCustomHandler(n.CustHandler)
 	if err != nil {
 		return err
 	}
@@ -331,6 +334,10 @@ func (nw Network) WaitForSyncComplete() error {
 		}(n)
 	}
 
+	// return if none of the nodes are running
+	if count == 0 {
+		return nil
+	}
 	for err := range opCh {
 		if err != nil {
 			// we will close the quit to channel to signal
@@ -349,18 +356,16 @@ func (nw Network) WaitForSyncComplete() error {
 
 func (nw Network) isNetworkLive(chainHeights []uint64) bool {
 	// compare the current chain heights with the previously recorded chain height
-	count := 0
-	for _, n := range nw {
+	for i, n := range nw {
 		// skipping nodes which are not running
 		if !n.isRunning {
 			continue
 		}
 		currHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
-		if currHeight <= chainHeights[count] {
+		if currHeight <= chainHeights[i] {
 			// this node is not mining blocks with in the block period
 			return false
 		}
-		count++
 	}
 	return true
 }
@@ -373,12 +378,12 @@ func (nw Network) WaitForNetworkToStartMining() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	// cache current chain height for all nodes
-	chainHeights := make([]uint64, 0, len(nw))
+	chainHeights := make([]uint64, len(nw))
 	runningCount := 0
-	for _, n := range nw {
+	for i, n := range nw {
 		if n.isRunning {
 			runningCount++
-			chainHeights = append(chainHeights, n.Eth.BlockChain().CurrentHeader().Number.Uint64())
+			chainHeights[i] = n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 		}
 	}
 	// return if none of the nodes are running
@@ -391,6 +396,39 @@ func (nw Network) WaitForNetworkToStartMining() error {
 		case <-syncTicker.C:
 			if nw.isNetworkLive(chainHeights) {
 				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// WaitToMineNBlocks waits for network to mine given number of
+// blocks in the given time window default value for numSec can be kept 60 seconds
+func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numSec)*time.Second)
+	defer cancel()
+	// cache current chain height for all nodes
+	chainHeights := make([]uint64, len(nw))
+	for i, n := range nw {
+		if n.isRunning {
+			chainHeights[i] = n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+		}
+	}
+	syncTicker := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-syncTicker.C:
+			for i, n := range nw {
+				// skipping nodes which are not running
+				if !n.isRunning {
+					continue
+				}
+				currHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+				// for any of the node criteria is met, we can consider network has produced numBlocks
+				if currHeight > chainHeights[i]+numBlocks {
+					return nil
+				}
 			}
 		case <-ctx.Done():
 			return ctx.Err()

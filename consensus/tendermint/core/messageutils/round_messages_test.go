@@ -1,4 +1,4 @@
-package core
+package messageutils
 
 import (
 	"bytes"
@@ -8,35 +8,35 @@ import (
 )
 
 func TestMessagesMap_newMessageMap(t *testing.T) {
-	messagesMap := newMessagesMap()
+	messagesMap := NewMessagesMap()
 	assert.Equal(t, 0, len(messagesMap.internal))
 }
 
 func TestMessagesMap_reset(t *testing.T) {
-	messagesMap := newMessagesMap()
-	messagesMap.getOrCreate(0)
-	messagesMap.getOrCreate(1)
-	messagesMap.reset()
+	messagesMap := NewMessagesMap()
+	messagesMap.GetOrCreate(0)
+	messagesMap.GetOrCreate(1)
+	messagesMap.Reset()
 	assert.Equal(t, 0, len(messagesMap.internal))
 }
 
 func TestMessagesMap_getOrCreate(t *testing.T) {
-	messagesMap := newMessagesMap()
-	rm0 := messagesMap.getOrCreate(0)
-	rm1 := messagesMap.getOrCreate(1)
+	messagesMap := NewMessagesMap()
+	rm0 := messagesMap.GetOrCreate(0)
+	rm1 := messagesMap.GetOrCreate(1)
 
-	assert.Equal(t, rm0, messagesMap.getOrCreate(0))
-	assert.Equal(t, rm1, messagesMap.getOrCreate(1))
+	assert.Equal(t, rm0, messagesMap.GetOrCreate(0))
+	assert.Equal(t, rm1, messagesMap.GetOrCreate(1))
 	assert.Equal(t, 2, len(messagesMap.internal))
 }
 
 func TestMessagesMap_GetMessages(t *testing.T) {
-	messagesMap := newMessagesMap()
+	messagesMap := NewMessagesMap()
 
-	rm0 := messagesMap.getOrCreate(0)
-	rm1 := messagesMap.getOrCreate(1)
+	rm0 := messagesMap.GetOrCreate(0)
+	rm1 := messagesMap.GetOrCreate(1)
 	// let round jump happens.
-	rm2 := messagesMap.getOrCreate(4)
+	rm2 := messagesMap.GetOrCreate(4)
 
 	assert.Equal(t, 3, len(messagesMap.internal))
 	assert.Equal(t, 0, len(messagesMap.GetMessages()))
@@ -45,21 +45,21 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 	precommitHash := common.HexToHash("precommitHash")
 
 	proposalMsg := &Message{
-		Code:          msgProposal,
+		Code:          MsgProposal,
 		Msg:           []byte("proposal"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
 	prevoteMsg := &Message{
-		Code:          msgPrevote,
+		Code:          MsgPrevote,
 		Msg:           []byte("prevote"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
 	precommitMsg := &Message{
-		Code:          msgPrecommit,
+		Code:          MsgPrecommit,
 		Msg:           []byte("precommit"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte("committed seal"),
@@ -82,7 +82,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 	for _, m := range allMessages {
 		switch m.Code {
-		case msgProposal:
+		case MsgProposal:
 			assert.Equal(t, proposalMsg.Code, m.Code)
 
 			r := bytes.Compare(proposalMsg.Msg, m.Msg)
@@ -93,7 +93,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 			r = bytes.Compare(proposalMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
-		case msgPrevote:
+		case MsgPrevote:
 			assert.Equal(t, prevoteMsg.Code, m.Code)
 
 			r := bytes.Compare(prevoteMsg.Msg, m.Msg)
@@ -104,7 +104,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 			r = bytes.Compare(prevoteMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
-		case msgPrecommit:
+		case MsgPrecommit:
 			assert.Equal(t, precommitMsg.Code, m.Code)
 
 			r := bytes.Compare(precommitMsg.Msg, m.Msg)

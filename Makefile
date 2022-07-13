@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity embed-autonity-contract android ios autonity-cross evm all test clean lint lint-deps mock-gen test-fast
+.PHONY: autonity embed-autonity-contract android ios autonity-cross evm all test clean lint mock-gen test-fast
 
 NPMBIN= $(shell npm bin)
 BINDIR = ./build/bin
@@ -143,7 +143,7 @@ mock-gen:
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 
 lint-dead:
-	@./build/bin/golangci-lint run \
+	@./.github/tools/golangci-lint run \
 		--config ./.golangci/step_dead.yml
 
 lint: embed-autonity-contract
@@ -165,7 +165,7 @@ lint: embed-autonity-contract
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step4.yml
 
-lint-ci: lint-deps lint
+lint-ci: lint
 
 test-deps:
 	go get golang.org/x/tools/cmd/cover
@@ -173,7 +173,7 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.23.7
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.46.2
 
 clean:
 	go clean -cache

@@ -2,6 +2,9 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 )
 
@@ -9,47 +12,47 @@ const MaxSizeBacklogUnchecked = 1000
 
 var (
 	// msgPriority is defined for calculating processing priority to speedup consensus
-	// msgProposal > msgPrecommit > msgPrevote
+	// MsgProposal > MsgPrecommit > MsgPrevote
 	msgPriority = map[uint64]int{
-		msgProposal:  1,
-		msgPrecommit: 2,
-		msgPrevote:   3,
+		messageutils.MsgProposal:  1,
+		messageutils.MsgPrecommit: 2,
+		messageutils.MsgPrevote:   3,
 	}
 )
 
 type backlogEvent struct {
-	msg *Message
+	msg *messageutils.Message
 }
 type backlogUncheckedEvent struct {
-	msg *Message
+	msg *messageutils.Message
 }
 
-// checkMessage checks the message step
+// CheckMessage checks the message step
 // return errInvalidMessage if the message is invalid
 // return errFutureHeightMessage if the message view is larger than curRoundMessages view
 // return errOldHeightMessage if the message view is smaller than curRoundMessages view
 // return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
-func (c *core) checkMessage(round int64, height *big.Int, step Step) error {
-	if height == nil || round < 0 || round > MaxRound {
-		return errInvalidMessage
+func (c *Core) CheckMessage(round int64, height *big.Int, step types.Step) error {
+	if height == nil || round < 0 || round > constants.MaxRound {
+		return constants.ErrInvalidMessage
 	}
 
 	if height.Cmp(c.Height()) > 0 {
-		return errFutureHeightMessage
+		return constants.ErrFutureHeightMessage
 	} else if height.Cmp(c.Height()) < 0 {
-		return errOldHeightMessage
+		return constants.ErrOldHeightMessage
 	} else if round > c.Round() {
-		return errFutureRoundMessage
+		return constants.ErrFutureRoundMessage
 	} else if round < c.Round() {
-		return errOldRoundMessage
-	} else if c.step == propose && step > propose {
-		return errFutureStepMessage
+		return constants.ErrOldRoundMessage
+	} else if c.step == types.Propose && step > types.Propose {
+		return constants.ErrFutureStepMessage
 	}
 
 	return nil
 }
 
-func (c *core) storeBacklog(msg *Message, src common.Address) {
+func (c *Core) storeBacklog(msg *messageutils.Message, src common.Address) {
 	logger := c.logger.New("from", src, "step", c.step)
 
 	if src == c.address {
@@ -63,7 +66,7 @@ func (c *core) storeBacklog(msg *Message, src common.Address) {
 
 // storeUncheckedBacklog push to a special backlog future height consensus messages
 // this is done in a way that prevents memory exhaustion in the case of a malicious peer.
-func (c *core) storeUncheckedBacklog(msg *Message) {
+func (c *Core) storeUncheckedBacklog(msg *messageutils.Message) {
 	// future height messages of a gap wider than one block should not occur frequently as block sync should happen
 	// Todo : implement a double ended priority queue (DEPQ)
 
@@ -85,7 +88,7 @@ func (c *core) storeUncheckedBacklog(msg *Message) {
 
 		// Forget in the local cache that we ever received this message.
 		// It's needed for it to be able to be re-received and processed later, after a consensus sync, if needed.
-		c.backend.RemoveMessageFromLocalCache(c.backlogUnchecked[maxHeight][len(c.backlogUnchecked[maxHeight])-1].Payload())
+		c.backend.RemoveMessageFromLocalCache(c.backlogUnchecked[maxHeight][len(c.backlogUnchecked[maxHeight])-1].GetPayload())
 
 		// Remove it from the backlog buffer.
 		c.backlogUnchecked[maxHeight] = c.backlogUnchecked[maxHeight][:len(c.backlogUnchecked[maxHeight])-1]
@@ -98,7 +101,7 @@ func (c *core) storeUncheckedBacklog(msg *Message) {
 
 }
 
-func (c *core) processBacklog() {
+func (c *Core) processBacklog() {
 	var capToLenRatio = 5
 
 	for src, backlog := range c.backlogs {
@@ -117,15 +120,15 @@ func (c *core) processBacklog() {
 
 				r, _ := curMsg.Round()
 				h, _ := curMsg.Height()
-				err := c.checkMessage(r, h, Step(curMsg.Code))
-				if err == errFutureHeightMessage || err == errFutureRoundMessage || err == errFutureStepMessage {
+				err := c.CheckMessage(r, h, types.Step(curMsg.Code))
+				if err == constants.ErrFutureHeightMessage || err == constants.ErrFutureRoundMessage || err == constants.ErrFutureStepMessage {
 					logger.Debug("Futrue message in backlog", "msg", curMsg, "err", err)
 					continue
 
 				}
 				logger.Debug("Post backlog event", "msg", curMsg)
 
-				go c.sendEvent(backlogEvent{
+				go c.SendEvent(backlogEvent{
 					msg: curMsg,
 				})
 
@@ -135,7 +138,7 @@ func (c *core) processBacklog() {
 			// We need to ensure that there is no memory leak by reallocating new memory if the original underlying
 			// array become very large and only a small part of it is being used by the slice.
 			if cap(backlog)/capToLenRatio > len(backlog) {
-				tmp := make([]*Message, len(backlog))
+				tmp := make([]*messageutils.Message, len(backlog))
 				copy(tmp, backlog)
 				backlog = tmp
 			}
@@ -146,7 +149,7 @@ func (c *core) processBacklog() {
 	for height := range c.backlogUnchecked {
 		if height == c.height.Uint64() {
 			for _, msg := range c.backlogUnchecked[height] {
-				go c.sendEvent(backlogUncheckedEvent{
+				go c.SendEvent(backlogUncheckedEvent{
 					msg: msg,
 				})
 				c.logger.Debug("Post unchecked backlog event", "msg", msg)

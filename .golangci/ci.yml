@@ -6,8 +6,7 @@ linters:
     - errcheck
     - goconst
     - gofmt
-    - golint
-    - interfacer
+    - revive
     - deadcode
     - govet
     - structcheck
@@ -16,7 +15,6 @@ linters:
     - unconvert
     - unparam
     - varcheck
-    - scopelint
     - nakedret
     - prealloc
     - gosec
@@ -28,8 +26,6 @@ linters:
   disable-all: true
 
 linters-settings:
-  golint:
-    min-confidence: 0
   goconst:
     min-len: 2
     min-occurrences: 2

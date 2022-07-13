@@ -19,6 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -58,7 +59,16 @@ type Node struct {
 	ipc           *ipcServer  // Stores information about the ipc http server
 	inprocHandler *rpc.Server // In-process RPC request handler to process the API requests
 
-	databases map[*closeTrackingDB]struct{} // All open databases
+	databases   map[*closeTrackingDB]struct{} // All open databases
+	custhandler *CustomHandler
+}
+
+func (n *Node) SetCustomHandler(handler *CustomHandler) {
+	n.custhandler = handler
+}
+
+func (n *Node) GetCustomHandler() *CustomHandler {
+	return n.custhandler
 }
 
 const (
@@ -663,4 +673,11 @@ func (n *Node) closeDatabases() (errors []error) {
 		}
 	}
 	return errors
+}
+
+type CustomHandler struct {
+	Broadcaster  interfaces.Broadcaster
+	Prevoter     interfaces.Prevoter
+	Proposer     interfaces.Proposer
+	Precommitter interfaces.Precommiter
 }

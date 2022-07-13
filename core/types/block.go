@@ -496,8 +496,9 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 
 // TODO: copies
 
-func (b *Block) Uncles() []*Header          { return b.uncles }
-func (b *Block) Transactions() Transactions { return b.transactions }
+func (b *Block) Uncles() []*Header                 { return b.uncles }
+func (b *Block) Transactions() Transactions        { return b.transactions }
+func (b *Block) SetTransactions(tr []*Transaction) { b.transactions = tr }
 
 func (b *Block) Transaction(hash common.Hash) *Transaction {
 	for _, transaction := range b.transactions {

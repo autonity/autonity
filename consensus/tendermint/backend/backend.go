@@ -5,6 +5,9 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
+	"github.com/autonity/autonity/node"
 	"sync"
 	"time"
 
@@ -39,7 +42,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config) *Backend {
+func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, customHandler *node.CustomHandler) *Backend {
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -62,7 +65,15 @@ func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config) *Backend {
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	backend.core = tendermintCore.New(backend)
+
+	core := tendermintCore.New(backend)
+	if customHandler != nil {
+		core.SetBroadcastHandler(customHandler.Broadcaster)
+		core.SetPrevoter(customHandler.Prevoter)
+		core.SetPrecommitter(customHandler.Precommitter)
+		core.SetProposer(customHandler.Proposer)
+	}
+	backend.core = core
 	return backend
 }
 
@@ -81,7 +92,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
-	core              tendermintCore.Tendermint
+	core              interfaces.Tendermint
 	stopped           chan struct{}
 	coreMu            sync.RWMutex
 
@@ -410,7 +421,7 @@ func (sb *Backend) GetContractABI() string {
 	return sb.blockchain.GetAutonityContract().StringABI()
 }
 
-func (sb *Backend) CoreState() tendermintCore.TendermintState {
+func (sb *Backend) CoreState() tctypes.TendermintState {
 	return sb.core.CoreState()
 }
 
@@ -448,7 +459,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	messages := sb.core.GetCurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(tendermintMsg, msg.Payload()) //nolint
+		go p.Send(tendermintMsg, msg.GetPayload()) //nolint
 	}
 }
 

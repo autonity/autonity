@@ -1,4 +1,4 @@
-package core
+package messageutils
 
 import (
 	"bytes"
@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	msgProposal uint64 = iota
-	msgPrevote
-	msgPrecommit
+	MsgProposal uint64 = iota
+	MsgPrevote
+	MsgPrecommit
 )
 
 var (
-	errMsgPayloadNotDecoded = errors.New("message not decoded")
+	ErrMsgPayloadNotDecoded = errors.New("message not decoded")
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
 
@@ -30,9 +30,9 @@ type Message struct {
 	Signature     []byte
 	CommittedSeal []byte
 
-	power      uint64
-	decodedMsg ConsensusMsg // cached decoded Msg
-	payload    []byte       // rlp encoded Message
+	Power      uint64
+	DecodedMsg ConsensusMsg // cached decoded Msg
+	Payload    []byte       // rlp encoded Message
 }
 
 // ==============================================
@@ -74,7 +74,7 @@ func (m *Message) DecodeRLP(s *rlp.Stream) error {
 // define the functions that needs to be provided for core.
 
 func (m *Message) FromPayload(b []byte) error {
-	m.payload = b
+	m.Payload = b
 	// Decode message
 	err := rlp.DecodeBytes(b, m)
 	if err != nil {
@@ -82,14 +82,14 @@ func (m *Message) FromPayload(b []byte) error {
 	}
 	// Decode the payload, this will cache the decoded msg payload.
 	switch m.Code {
-	case msgProposal:
+	case MsgProposal:
 		var proposal Proposal
 		return m.Decode(&proposal)
-	case msgPrevote, msgPrecommit:
+	case MsgPrevote, MsgPrecommit:
 		var vote Vote
 		return m.Decode(&vote)
 	default:
-		return errMsgPayloadNotDecoded
+		return ErrMsgPayloadNotDecoded
 	}
 }
 
@@ -125,12 +125,12 @@ func (m *Message) Validate(validateFn func(*types.Header, []byte, []byte) (commo
 		return nil, fmt.Errorf("message received is not from a committee member: %x", addr)
 	}
 
-	m.power = v.VotingPower.Uint64()
+	m.Power = v.VotingPower.Uint64()
 	return v, nil
 }
 
-func (m *Message) Payload() []byte {
-	if m.payload == nil {
+func (m *Message) GetPayload() []byte {
+	if m.Payload == nil {
 		payload, err := rlp.EncodeToBytes(m)
 		if err != nil {
 			// We panic if there is an error, reasons:
@@ -138,13 +138,13 @@ func (m *Message) Payload() []byte {
 			// If we can't encode the payload for our own generated messages, that's a programming error.
 			panic("could not decode message payload")
 		}
-		m.payload = payload
+		m.Payload = payload
 	}
-	return m.payload
+	return m.Payload
 }
 
 func (m *Message) GetPower() uint64 {
-	return m.power
+	return m.Power
 }
 
 func (m *Message) PayloadNoSig() ([]byte, error) {
@@ -167,11 +167,11 @@ func (m *Message) Decode(val interface{}) error {
 	}
 
 	// check if we already have a cached value decoded
-	if m.decodedMsg != nil {
-		if !rval.Type().AssignableTo(reflect.TypeOf(m.decodedMsg)) {
+	if m.DecodedMsg != nil {
+		if !rval.Type().AssignableTo(reflect.TypeOf(m.DecodedMsg)) {
 			return errors.New("type mismatch with decoded value")
 		}
-		rval.Elem().Set(reflect.ValueOf(m.decodedMsg).Elem())
+		rval.Elem().Set(reflect.ValueOf(m.DecodedMsg).Elem())
 		return nil
 	}
 
@@ -183,13 +183,13 @@ func (m *Message) Decode(val interface{}) error {
 	// copy the result via Set (shallow)
 	nval := reflect.New(rval.Elem().Type()) // we need first to allocate memory
 	nval.Elem().Set(rval.Elem())
-	m.decodedMsg = nval.Interface().(ConsensusMsg)
+	m.DecodedMsg = nval.Interface().(ConsensusMsg)
 	return nil
 }
 
 func (m *Message) String() string {
 	var msg string
-	if m.Code == msgProposal {
+	if m.Code == MsgProposal {
 		var proposal Proposal
 		err := m.Decode(&proposal)
 		if err != nil {
@@ -198,7 +198,7 @@ func (m *Message) String() string {
 		msg = proposal.String()
 	}
 
-	if m.Code == msgPrevote || m.Code == msgPrecommit {
+	if m.Code == MsgPrevote || m.Code == MsgPrecommit {
 		var vote Vote
 		err := m.Decode(&vote)
 		if err != nil {
@@ -206,21 +206,21 @@ func (m *Message) String() string {
 		}
 		msg = vote.String()
 	}
-	return fmt.Sprintf("{sender: %v, power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.power, m.Code, msg)
+	return fmt.Sprintf("{sender: %v, power: %v, msgCode: %v, msg: %v}", m.Address.String(), m.Power, m.Code, msg)
 }
 
 func (m *Message) Round() (int64, error) {
-	if m.decodedMsg == nil {
-		return 0, errMsgPayloadNotDecoded
+	if m.DecodedMsg == nil {
+		return 0, ErrMsgPayloadNotDecoded
 	}
-	return m.decodedMsg.GetRound(), nil
+	return m.DecodedMsg.GetRound(), nil
 }
 
 func (m *Message) Height() (*big.Int, error) {
-	if m.decodedMsg == nil {
-		return nil, errMsgPayloadNotDecoded
+	if m.DecodedMsg == nil {
+		return nil, ErrMsgPayloadNotDecoded
 	}
-	return m.decodedMsg.GetHeight(), nil
+	return m.DecodedMsg.GetHeight(), nil
 }
 
 // ==============================================

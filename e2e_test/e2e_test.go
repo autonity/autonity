@@ -410,7 +410,7 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 
 	// randomly start stop nodes
 	for j := 0; j < 40; j++ {
-		i := rand.Intn(nodeCount)
+		i := rand.Intn(nodeCount) //nolint:gosec
 		switch i % 4 {
 		case 0, 1, 2:
 			wg.Add(1)
@@ -424,8 +424,8 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 				if !nodeStatus.status {
 					return
 				}
-				err := network[i].Close()
-				require.NoError(t, err)
+				e := network[i].Close()
+				require.NoError(t, e)
 				network[i].Wait()
 				nodeStatus.status = false
 				mlock.Lock()
@@ -444,8 +444,8 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 				if nodeStatus.status {
 					return
 				}
-				err := network[i].Start()
-				require.NoError(t, err)
+				e := network[i].Start()
+				require.NoError(t, e)
 				nodeStatus.status = true
 				mlock.Lock()
 				m[i] = nodeStatus

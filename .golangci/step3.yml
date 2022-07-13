@@ -6,7 +6,6 @@ linters:
     - unconvert
     - unparam
     - varcheck
-    - scopelint
     - nakedret
     - prealloc
 

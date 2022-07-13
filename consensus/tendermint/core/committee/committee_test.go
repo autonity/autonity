@@ -1,4 +1,4 @@
-package core
+package committee
 
 import (
 	"fmt"
@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const maxSize = 100
 
 func TestNewRoundRobinSet(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
@@ -40,7 +42,7 @@ func TestNewRoundRobinSet(t *testing.T) {
 			totalPower += cm.VotingPower.Uint64()
 		}
 
-		set, err := newRoundRobinSet(copyCommitteeMembers, lastBlockProposer)
+		set, err := NewRoundRobinSet(copyCommitteeMembers, lastBlockProposer)
 		assertNilError(t, err)
 
 		if lastBlockProposer != set.lastBlockProposer {
@@ -73,12 +75,12 @@ func TestNewRoundRobinSet(t *testing.T) {
 	}
 
 	t.Run("cannot create empty set with members as nil", func(t *testing.T) {
-		_, err := newRoundRobinSet(nil, common.Address{})
+		_, err := NewRoundRobinSet(nil, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)
 	})
 
 	t.Run("cannot create empty set with members as types.Committee{}", func(t *testing.T) {
-		_, err := newRoundRobinSet(types.Committee{}, common.Address{})
+		_, err := NewRoundRobinSet(types.Committee{}, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)
 	})
 }
@@ -88,7 +90,7 @@ func TestCommitteeIsSorted(t *testing.T) {
 	committeeMembers := createTestCommitteeMembers(t, 10, 10)
 	require.False(t, sort.IsSorted(committeeMembers))
 
-	set, err := newRoundRobinSet(committeeMembers, committeeMembers[0].Address)
+	set, err := NewRoundRobinSet(committeeMembers, committeeMembers[0].Address)
 	require.NoError(t, err)
 	assert.True(t, sort.IsSorted(set.Committee()))
 }
@@ -97,7 +99,7 @@ func TestSet_Committee(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetCommittee = func(t *testing.T, n int64) {
 		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
-		set, err := newRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+		set, err := NewRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
 		sort.Sort(committeeMembers)
 		assertNilError(t, err)
 
@@ -119,7 +121,7 @@ func TestSet_Committee(t *testing.T) {
 func TestSet_GetByIndex(t *testing.T) {
 	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
 	sort.Sort(committeeMembers)
-	set, err := newRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+	set, err := NewRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by index", func(t *testing.T) {
@@ -141,7 +143,7 @@ func TestSet_GetByIndex(t *testing.T) {
 func TestSet_GetByAddress(t *testing.T) {
 	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
 	sort.Sort(committeeMembers)
-	set, err := newRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+	set, err := NewRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by Address", func(t *testing.T) {
@@ -182,7 +184,7 @@ func TestSet_GetProposer(t *testing.T) {
 			lastBlockProposer := committeeMembers[r].Address
 			expectedProposerAddrForRound0 := committeeMembers[(r+1)%size].Address
 
-			set, err := newRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
+			set, err := NewRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
 			require.NoError(t, err)
 
 			firstCommitteeMemberAddr := committeeMembers[0].Address
@@ -221,7 +223,7 @@ func TestSet_IsProposer(t *testing.T) {
 	lastBlockProposer := committeeMembers[lastBlockProposerIndex].Address
 	roundRobinOffset := lastBlockProposerIndex + 1
 
-	set, err := newRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
+	set, err := NewRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
 	assertNilError(t, err)
 
 	for _, r := range rounds {
@@ -280,7 +282,7 @@ func TestSet_QandF(t *testing.T) {
 
 	for _, testCase := range testCases {
 		committeeMembers := createTestCommitteeMembers(t, genRandUint64(1, int(testCase.TotalVP)), testCase.TotalVP)
-		set, err := newRoundRobinSet(committeeMembers, committeeMembers[0].Address)
+		set, err := NewRoundRobinSet(committeeMembers, committeeMembers[0].Address)
 		assertNilError(t, err)
 
 		gotQ := set.Quorum()

@@ -3,6 +3,7 @@ package gengen
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/node"
 	"math/big"
 	"net"
 	"time"
@@ -30,6 +31,8 @@ type Validator struct {
 	Key interface{}
 	// KeyPath is the file path at which the key is stored.
 	KeyPath string
+	// CustHandler is the collection of user specific handlers
+	CustHandler *node.CustomHandler
 }
 
 // NewGenesis parses the input from the commandline and uses it to generate a

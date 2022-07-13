@@ -58,6 +58,10 @@ type Transaction struct {
 	from atomic.Value
 }
 
+func (tx *Transaction) SetInner(inner TxData) {
+	tx.inner = inner
+}
+
 // NewTx creates a new transaction.
 func NewTx(inner TxData) *Transaction {
 	tx := new(Transaction)

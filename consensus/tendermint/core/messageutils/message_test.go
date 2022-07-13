@@ -1,13 +1,12 @@
-package core
+package messageutils
 
 import (
 	"bytes"
 	"errors"
+	"github.com/autonity/autonity/core/types"
 	"math/big"
 	"reflect"
 	"testing"
-
-	"github.com/autonity/autonity/core/types"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/rlp"
@@ -15,7 +14,7 @@ import (
 
 func TestMessageEncodeDecode(t *testing.T) {
 	msg := &Message{
-		Code:          msgProposal,
+		Code:          MsgProposal,
 		Msg:           []byte{0x1},
 		Address:       common.HexToAddress("0x1234567890"),
 		Signature:     []byte{0x2},
@@ -44,9 +43,9 @@ func TestMessageEncodeDecode(t *testing.T) {
 func TestMessageValidate(t *testing.T) {
 
 	t.Run("validate function fails, error returned", func(t *testing.T) {
-		msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), types.CommitteeMember{VotingPower: big.NewInt(0)})
+		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), types.CommitteeMember{VotingPower: big.NewInt(0)})
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
-		payload := msg.Payload()
+		payload := msg.GetPayload()
 		wantErr := errors.New("some error")
 
 		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) {
@@ -66,8 +65,8 @@ func TestMessageValidate(t *testing.T) {
 	t.Run("not a committee member, error returned", func(t *testing.T) {
 		member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
 
-		msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), member)
-		payload := msg.Payload()
+		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), member)
+		payload := msg.GetPayload()
 
 		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) { //nolint
 			return member.Address, nil
@@ -91,12 +90,12 @@ func TestMessageValidate(t *testing.T) {
 
 	t.Run("valid params given, valid validator returned", func(t *testing.T) {
 		authorizedAddress := common.HexToAddress("0x1234567890")
-		msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26),
+		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26),
 			types.CommitteeMember{
 				Address:     authorizedAddress,
 				VotingPower: big.NewInt(1),
 			})
-		payload := msg.Payload()
+		payload := msg.GetPayload()
 
 		val := types.CommitteeMember{
 			Address:     authorizedAddress,
@@ -133,8 +132,8 @@ func TestMessageValidate(t *testing.T) {
 			}
 			member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
 
-			msg := createPrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(24), member)
-			payload := msg.Payload()
+			msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(24), member)
+			payload := msg.GetPayload()
 
 			validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) {
 				return member.Address, nil
@@ -172,7 +171,7 @@ func TestMessageDecode(t *testing.T) {
 	}
 
 	msg := &Message{
-		Code:    msgProposal,
+		Code:    MsgProposal,
 		Msg:     payload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
@@ -186,4 +185,35 @@ func TestMessageDecode(t *testing.T) {
 	if !reflect.DeepEqual(vote.String(), decVote.String()) {
 		t.Errorf("Votes are not the same: have %v, want %v", decVote, vote)
 	}
+}
+
+func FuzzFromPayload(f *testing.F) {
+	authorizedAddress := common.HexToAddress("0x1234567890")
+	var preVote = Vote{
+		Round:             1,
+		Height:            new(big.Int).SetUint64(26),
+		ProposedBlockHash: common.Hash{},
+	}
+
+	encodedVote, err := Encode(&preVote)
+	if err != nil {
+		return
+	}
+
+	msg := &Message{
+		Code:          MsgPrevote,
+		Msg:           encodedVote,
+		Address:       authorizedAddress,
+		CommittedSeal: []byte{},
+		Signature:     []byte{0x1},
+		Power:         big.NewInt(1).Uint64(),
+	}
+	f.Add(msg.GetPayload()) // Use f.Add to provide a seed corpus
+	f.Fuzz(func(t *testing.T, seed []byte) {
+		decMsg := &Message{}
+		err := decMsg.FromPayload(seed)
+		if err != nil {
+			return
+		}
+	})
 }
