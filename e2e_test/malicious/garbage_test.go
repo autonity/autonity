@@ -39,13 +39,13 @@ func (s *randomBytesBroadcaster) Broadcast(ctx context.Context, msg *messageutil
 // We expect other nodes to detect this misbehaviour and discard these messages
 // Receiving nodes should also disconnect misbehaving nodes
 func TestRandomBytesBroadcaster(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Broadcaster: &randomBytesBroadcaster{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -84,13 +84,13 @@ func (s *garbageMessageBroadcaster) Broadcast(ctx context.Context, msg *messageu
 // We expect other nodes to detect this misbehaviour and discard these messages
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbageMessageBroadcaster(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Broadcaster: &garbageMessageBroadcaster{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -133,13 +133,13 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 // We expect other nodes to detect this misbehaviour and discard these messages
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbagePrecommitter(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Precommitter: &garbagePrecommitSender{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -182,13 +182,13 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 // We expect other nodes to detect this misbehaviour and discard these messages
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbagePrevoter(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Prevoter: &garbagePrevoter{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -228,13 +228,13 @@ func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
 // We expect other nodes to detect this misbehaviour and discard these messages
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbageProposer(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Proposer: &garbageProposer{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 

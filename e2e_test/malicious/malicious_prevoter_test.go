@@ -43,13 +43,13 @@ func (c *malPrevoter) HandlePrevote(ctx context.Context, msg *messageutils.Messa
 }
 
 func TestMaliciousPrevoter(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Prevoter: &malPrevoter{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 

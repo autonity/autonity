@@ -27,8 +27,10 @@ type Validator struct {
 	NodeIP net.IP
 	// NodePort is the port that this user's node can be reached at.
 	NodePort int
-	// Key is either a public or private key for the user.
+	// Key is either a public or private key for the validator node.
 	Key interface{}
+	// Key is either a public or private key for the treasury account.
+	TreasuryKey *ecdsa.PrivateKey
 	// KeyPath is the file path at which the key is stored.
 	KeyPath string
 	// CustHandler is the collection of user specific handlers
@@ -96,7 +98,9 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 				BlockPeriod:      1,
 				UnbondingPeriod:  120,
 				EpochPeriod:      30,   //seconds
-				DelegationRate:   1000, // 10%
+				DelegationRate:   1200, // 12%
+				Treasury:         common.Address{120},
+				TreasuryFee:      1500000000000000, // 0.15%,
 				MinBaseFee:       10000000000,
 				Operator:         *operatorAddress,
 				Validators:       genesisValidators,
@@ -157,8 +161,10 @@ func generateValidatorState(validators []*Validator) (
 			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
 		}
 		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
-		treasKey, _ := crypto.GenerateKey()
-		treasuryAddress := crypto.PubkeyToAddress(treasKey.PublicKey)
+		if u.TreasuryKey == nil {
+			u.TreasuryKey, _ = crypto.GenerateKey()
+		}
+		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		gu := params.Validator{
 			Enode:       e.String(),
 			Treasury:    treasuryAddress, // rewards goes here
@@ -172,6 +178,9 @@ func generateValidatorState(validators []*Validator) (
 		userAddress := crypto.PubkeyToAddress(*pk)
 		if i == 0 {
 			operatorAddress = &userAddress
+		}
+		genesisAlloc[treasuryAddress] = core.GenesisAccount{
+			Balance: u.InitialEth,
 		}
 		genesisAlloc[userAddress] = core.GenesisAccount{
 			Balance: u.InitialEth,

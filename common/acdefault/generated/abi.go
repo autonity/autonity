@@ -307,6 +307,19 @@ const Abi = `[
       "type" : "fallback"
    },
    {
+      "inputs" : [],
+      "name" : "COMMISSION_RATE_PRECISION",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
       "inputs" : [
          {
             "internalType" : "address",

@@ -10,6 +10,8 @@ import "./Precompiled.sol";
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20, Upgradeable {
 
+    uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
+
     enum ValidatorState {active, paused}
     struct Validator {
         address payable treasury;
@@ -124,6 +126,7 @@ contract Autonity is IERC20, Upgradeable {
             _validators[i].bondedStake = 0;
             _validators[i].selfBondedStake = 0;
             _validators[i].registrationBlock = 0;
+            _validators[i].commissionRate = config.delegationRate;
             _validators[i].state = ValidatorState.active;
             // Autonity doesn't handle voting power over 64 bits.
             require(_bondedStake < 2 ** 60, "issued Newton can't be greater than 2^60");
@@ -691,7 +694,7 @@ contract Autonity is IERC20, Upgradeable {
         (_validator.addr, _err) = Precompiled.enodeCheck(_validator.enode);
         require(_err == 0, "enode error");
         require(validators[_validator.addr].addr == address(0), "validator already registered");
-        require(_validator.commissionRate <= 10 ** 9, "invalid commission rate");
+        require(_validator.commissionRate <= COMMISSION_RATE_PRECISION, "invalid commission rate");
 
         // step 2: deploy liquid stake contract
         if (address(_validator.liquidContract) == address(0)) {

@@ -226,17 +226,17 @@ func (n *Node) Close() error {
 	return err
 }
 
-// SendETracked functions like SendE but also waits for the transaction to be processed.
-func (n *Node) SendETracked(ctx context.Context, recipient common.Address, value int64) error {
-	tx, err := n.SendE(ctx, recipient, value)
+// SendAUTtracked functions like SendAUT but also waits for the transaction to be processed.
+func (n *Node) SendAUTtracked(ctx context.Context, recipient common.Address, value int64) error {
+	tx, err := n.SendAUT(ctx, recipient, value)
 	if err != nil {
 		return err
 	}
 	return n.AwaitTransactions(ctx, tx)
 }
 
-// SendE creates a value transfer transaction to send E to the recipient.
-func (n *Node) SendE(ctx context.Context, recipient common.Address, value int64) (*types.Transaction, error) {
+// SendAUT creates a value transfer transaction to send E to the recipient.
+func (n *Node) SendAUT(ctx context.Context, recipient common.Address, value int64) (*types.Transaction, error) {
 	tx, err := ValueTransferTransaction(
 		n.WsClient,
 		n.Key,
@@ -442,11 +442,11 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int) error {
 	}
 }
 
-// NewNetworkFromUsers generates a network of nodes that are running and
+// NewNetworkFromValidators generates a network of nodes that are running and
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromUsers(users []*gengen.Validator, start bool) (Network, error) {
+func NewNetworkFromValidators(users []*gengen.Validator, start bool) (Network, error) {
 	g, err := Genesis(users)
 	if err != nil {
 		return nil, err
@@ -477,13 +477,13 @@ func NewNetworkFromUsers(users []*gengen.Validator, start bool) (Network, error)
 }
 
 // NewNetwork generates a network of nodes that are running, but not mining.
-// For an explanation of the parameters see 'Users'.
+// For an explanation of the parameters see 'Validators'.
 func NewNetwork(count int, formatString string, startingPort int) (Network, error) {
-	users, err := Users(count, formatString, startingPort)
+	users, err := Validators(count, formatString, startingPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build users: %v", err)
 	}
-	return NewNetworkFromUsers(users, true)
+	return NewNetworkFromValidators(users, true)
 }
 
 // AwaitTransactions ensures that the entire network has processed the provided transactions.
@@ -542,14 +542,14 @@ func ValueTransferTransaction(client *ethclient.Client,
 	return signed, nil
 }
 
-// Users returns 'count' users using the given formatString and starting port.
+// Validators returns 'count' users using the given formatString and starting port.
 // The format string should have a string placeholder for the port and the key.
 // The format string should follow the format defined for users in the gengen
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
 // E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s'.
-func Users(count int, formatString string, startingPort int) ([]*gengen.Validator, error) {
-	var users []*gengen.Validator
+func Validators(count int, formatString string, startingPort int) ([]*gengen.Validator, error) {
+	var validators []*gengen.Validator
 	for i := startingPort; i < startingPort+count; i++ {
 
 		portString := strconv.Itoa(i)
@@ -557,9 +557,10 @@ func Users(count int, formatString string, startingPort int) ([]*gengen.Validato
 		if err != nil {
 			return nil, err
 		}
-		users = append(users, u)
+		u.TreasuryKey, _ = crypto.GenerateKey()
+		validators = append(validators, u)
 	}
-	return users, nil
+	return validators, nil
 }
 
 // Genesis creates a genesis instance from the provided users.

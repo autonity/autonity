@@ -3,11 +3,15 @@ package test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/common"
 
 	"github.com/autonity/autonity/test"
 	"github.com/stretchr/testify/require"
@@ -25,71 +29,19 @@ func TestSendingValue(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	err = network[0].SendETracked(ctx, network[1].Address, 10)
+	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
 }
 
-// TODO: this Test needs fix
-// This test checks that when a transaction is processed the fees are divided
-// between validators.
-func TestFeeRedistributionOnlyValidators(t *testing.T) {
-	t.Skip("Needs to be updated based on latest gas calculation")
-	network, err := test.NewNetwork(2, "10e18,v,1,0.0.0.0:%s,%s", 6780)
-	require.NoError(t, err)
-	defer network.Shutdown()
-
-	n := network[0]
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	tx, err := n.SendE(ctx, network[1].Address, 10)
-	require.NoError(t, err)
-	err = network.AwaitTransactions(ctx, tx)
-	require.NoError(t, err)
-
-	zero := big.NewInt(0)
-	num := n.ProcessedTxBlock(tx).Number()
-
-	fee, err := n.TxFee(ctx, tx)
-	require.NoError(t, err)
-	halfFee := fee.Div(fee, big.NewInt(2))
-
-	// We will have paid the whole fee but then received half back
-	startingBalance, err := n.WsClient.BalanceAt(ctx, n.Address, zero)
-	require.NoError(t, err)
-	endingBalance, err := n.WsClient.BalanceAt(ctx, n.Address, num)
-	require.NoError(t, err)
-	expected := big.NewInt(0).Sub(startingBalance, halfFee)
-	expected.Sub(expected, tx.Value())
-
-	require.Equal(t, expected, endingBalance)
-
-	n = network[1]
-	// We expect this node to have collected half the fees
-	startingBalance, err = n.WsClient.BalanceAt(ctx, n.Address, zero)
-	require.NoError(t, err)
-	endingBalance, err = n.WsClient.BalanceAt(ctx, n.Address, num)
-	require.NoError(t, err)
-	expected = big.NewInt(0).Add(startingBalance, halfFee)
-	expected.Add(expected, tx.Value())
-
-	require.Equal(t, expected, endingBalance)
-}
-
-// TODO: this Test needs fix
 // This test checks that when a transaction is processed the fees are divided
 // between validators and stakeholders.
 func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
-	// We want 3 users, 2 validators with 1 stake each and a stakeholder with 2
-	// stake.
-	t.Skip("Needs to be updated based on latest gas calculation")
-	users, err := test.Users(3, "10e18,v,1,0.0.0.0:%s,%s", 6780)
+	vals, err := test.Validators(3, "10e18,v,10000,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
-	users[2].Stake = 2
+	vals[2].Stake = 25000
 
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(vals, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -98,51 +50,78 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	tx, err := n.SendE(ctx, network[1].Address, 10)
+	// retrieve current balance
+	// send liquid newton to some random address
+	// check balance - shouldnt have increased
+	// wait for epoch
+	// check claimable fees
+	// redeem fees
+
+	// Setup Bindings
+	autonityContract, _ := NewAutonity(autonityContractAddr, n.WsClient)
+	valAddrs, _ := autonityContract.GetValidators(nil)
+	liquidContracts := make([]*Liquid, len(valAddrs))
+	validators := make([]AutonityValidator, len(valAddrs))
+	for i, valAddr := range valAddrs {
+		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
+		liquidContracts[i], _ = NewLiquid(validators[i].LiquidContract, n.WsClient)
+	}
+	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
+	tx, err := liquidContracts[0].Transfer(
+		transactor,
+		common.Address{66, 66}, big.NewInt(1337))
+
 	require.NoError(t, err)
-	err = network.AwaitTransactions(ctx, tx)
+	_ = network.WaitToMineNBlocks(2, 5)
+	tx2, err := n.SendAUT(ctx, network[1].Address, 10)
+	require.NoError(t, err)
+	err = network.AwaitTransactions(ctx, tx, tx2)
+	require.NoError(t, err)
+	// claimable fees should be 0 before epoch
+	for i := range liquidContracts {
+		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
+		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.Bytes())
+	}
+
+	// wait for epoch
+
+	// calculate reward pool
+	r1, _ := n.WsClient.TransactionReceipt(context.Background(), tx.Hash())
+	r2, _ := n.WsClient.TransactionReceipt(context.Background(), tx2.Hash())
+
+	b1, _ := n.WsClient.BlockByNumber(context.Background(), r1.BlockNumber)
+	b2, _ := n.WsClient.BlockByNumber(context.Background(), r2.BlockNumber)
+
+	rewardT1 := new(big.Int).Mul(new(big.Int).SetUint64(r1.CumulativeGasUsed), b1.BaseFee())
+	rewardT2 := new(big.Int).Mul(new(big.Int).SetUint64(r2.CumulativeGasUsed), b2.BaseFee())
+
+	totalFees := new(big.Int).Add(rewardT1, rewardT2)
+	treasuryRewards := new(big.Int).Div(new(big.Int).Mul(totalFees, new(big.Int).SetUint64(15)), big.NewInt(10000))
+	totalRewards := new(big.Int).Sub(totalFees, treasuryRewards)
+
+	balanceBeforeEpoch, _ := n.WsClient.BalanceAt(context.Background(), autonityContractAddr, nil)
+	require.Equal(t, totalFees, balanceBeforeEpoch)
+
+	err = network.WaitToMineNBlocks(30, 60)
 	require.NoError(t, err)
 
-	zero := big.NewInt(0)
-	num := n.ProcessedTxBlock(tx).Number()
-	fee, err := n.TxFee(ctx, tx)
-	require.NoError(t, err)
-	quaterFee := big.NewInt(0).Div(fee, big.NewInt(4))
+	fmt.Println("total rewards", totalRewards)
+	balanceGlobalTreasury, _ := n.WsClient.BalanceAt(context.Background(), common.Address{120}, nil)
+	cfg, _ := autonityContract.Config(nil)
+	fmt.Println(cfg)
+	require.Equal(t, treasuryRewards, balanceGlobalTreasury)
 
-	// The sending node will have paid the whole fee but then received 1/4 back.
-	startingBalance, err := n.WsClient.BalanceAt(ctx, n.Address, zero)
-	require.NoError(t, err)
-	endingBalance, err := n.WsClient.BalanceAt(ctx, n.Address, num)
-	require.NoError(t, err)
+	stake := []int64{10000 - 1337, 10000, 25000}
+	epochStake := []int64{10000, 10000, 25000}
+	totalStake := int64(45000)
+	for i := range liquidContracts {
+		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
+		totalValRewards := new(big.Int).Div(new(big.Int).Mul(totalRewards, big.NewInt(epochStake[i])), big.NewInt(totalStake))
+		valCommission := new(big.Int).Div(new(big.Int).Mul(totalValRewards, big.NewInt(12)), big.NewInt(100))
+		stakerReward := new(big.Int).Sub(totalValRewards, valCommission)
+		require.Equal(t, new(big.Int).Div(new(big.Int).Mul(stakerReward, big.NewInt(stake[i])), big.NewInt(epochStake[i])), unclaimed)
+	}
 
-	expected := big.NewInt(0).Sub(startingBalance, fee)
-	expected.Add(expected, quaterFee)
-	expected.Sub(expected, tx.Value())
-
-	require.Equal(t, expected, endingBalance)
-
-	// This node will have received the value sent + 1/4 fee
-	n = network[1]
-	startingBalance, err = n.WsClient.BalanceAt(ctx, n.Address, zero)
-	require.NoError(t, err)
-	endingBalance, err = n.WsClient.BalanceAt(ctx, n.Address, num)
-	require.NoError(t, err)
-
-	expected = big.NewInt(0).Add(startingBalance, quaterFee)
-	expected.Add(expected, tx.Value())
-	require.Equal(t, expected, endingBalance)
-
-	// The stakeholder has twice as much stake as the other nodes so will have
-	// received 1/2 fee.
-	n = network[2]
-	startingBalance, err = n.WsClient.BalanceAt(ctx, n.Address, zero)
-	require.NoError(t, err)
-	endingBalance, err = n.WsClient.BalanceAt(ctx, n.Address, num)
-	require.NoError(t, err)
-
-	expected = big.NewInt(0).Add(startingBalance, quaterFee)
-	expected.Add(expected, quaterFee)
-	require.Equal(t, expected, endingBalance)
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
@@ -154,7 +133,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Send a tx to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	err = n.SendETracked(ctx, network[1].Address, 10)
+	err = n.SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
 
 	// Stop a node
@@ -165,7 +144,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Send a tx to see that the network is working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	err = n.SendETracked(ctx, network[1].Address, 10)
+	err = n.SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
 
 	// Stop a node
@@ -177,7 +156,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Well wait 5 times the avgTransactionDuration before we assume the tx is not being processed.
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	err = n.SendETracked(ctx, network[1].Address, 10)
+	err = n.SendAUTtracked(ctx, network[1].Address, 10)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expecting %q, instead got: %v ", context.DeadlineExceeded.Error(), err)
 	}
@@ -195,7 +174,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Send a tx to see that the network is still working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	err = n.SendETracked(ctx, network[1].Address, 10)
+	err = n.SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
 
 	// Start the last stopped node
@@ -203,7 +182,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Send a tx to see that the network is still working
-	err = n.SendETracked(context.Background(), network[1].Address, 10)
+	err = n.SendAUTtracked(context.Background(), network[1].Address, 10)
 	require.NoError(t, err)
 }
 
@@ -212,9 +191,9 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 //b.start the network with 1st 3 nodes only, the network should be on-hold since the online voting power is less than 2/3 of 7
 //c.after the on-holding for a while, start the 4th node, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
-	network, err := test.NewNetworkFromUsers(users, false)
+	network, err := test.NewNetworkFromValidators(users, false)
 	require.NoError(t, err)
 	defer network.Shutdown()
 	for i, n := range network {
@@ -241,10 +220,10 @@ func TestTendermintQuorum(t *testing.T) {
 //c.stop 3 nodes one by one, then the network should on-hold when the online voting power is less than 2/3 of 6.
 //d.after the on-holding for a while, recover the stopped nodes, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum2(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
@@ -287,10 +266,10 @@ func TestTendermintQuorum2(t *testing.T) {
 //g. Then shut down node E and F, the network should still keep liveness, TXs are mined.
 //h. Recover E and F, they should get synchronized finally.
 func TestTendermintQuorum4(t *testing.T) {
-	users, err := test.Users(7, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(7, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 	// creates a network of 7 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 	// network should be up and continue to mine blocks
@@ -387,10 +366,10 @@ func TestTendermintQuorum4(t *testing.T) {
 // restart all nodes and ensures that network resumes mining new blocks
 func TestStartStopAllNodesInParallel(t *testing.T) {
 	const nodeCount = 12
-	users, err := test.Users(nodeCount, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(nodeCount, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 	// network should be up and continue to mine blocks

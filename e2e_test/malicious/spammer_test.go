@@ -57,14 +57,14 @@ func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
 
 // TestPrevoteSpammer spams the network by broadcasting 4k preovte messages at once
 func TestPrevoteSpammer(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Prevoter: &preVoteSpammer{}}
 	users[1].CustHandler = &node.CustomHandler{Prevoter: &preVoteSpammer{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -123,13 +123,13 @@ func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 
 // TestPrecommitSpammer spams the network by broadcasting 4k precommit messages at once
 func TestPrecommitSpammer(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious users
 	users[0].CustHandler = &node.CustomHandler{Precommitter: &precommitSpammer{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -163,13 +163,13 @@ func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
 
 // TestProposalSpammer spams the network by broadcasting 4k proposal messages at once
 func TestProposalSpammer(t *testing.T) {
-	users, err := test.Users(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
 	users[0].CustHandler = &node.CustomHandler{Proposer: &proposalSpammer{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromUsers(users, true)
+	network, err := test.NewNetworkFromValidators(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 

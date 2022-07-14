@@ -18,8 +18,8 @@ const provider = new Web3.providers.WebsocketProvider(url, {
   }
 });
 let web3 = new Web3(provider);
-let contract;
-let autonity;
+const liquidABI = [{"inputs":[{"internalType":"address","name":"_validator","type":"address"},{"internalType":"address payable","name":"_treasury","type":"address"},{"internalType":"uint256","name":"_commissionRate","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[],"name":"COMMISSION_RATE_PRECISION","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"FEE_FACTOR_UNIT_RECIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"},{"internalType":"address","name":"_spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_spender","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_delegator","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_account","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"burn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"claimRewards","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_account","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"mint","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"redistribute","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_to","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"_success","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_sender","type":"address"},{"internalType":"address","name":"_recipient","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"_success","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_account","type":"address"}],"name":"unclaimedRewards","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
 
 const chequebook = function () {
   web3.extend({
@@ -872,19 +872,33 @@ ws.addEventListener('open', () => {
   ws.send(data);
 });
 
-ws.addEventListener('message', event => {
+ws.addEventListener('message', setup);
+
+async function setup(event) {
   let initMessage = 'modules: ';
   let parsed = JSON.parse(event.data);
   for (const [key, value] of Object.entries(parsed.result)) {
     if (moduleInit.has(key)) {
       moduleInit.get(key)()
       initMessage += key + ' ';
-
     }
   }
-
   ws.close(1000); // Successful close signal
 
+  let hasAutonity = false;
+  let contract;
+  // If the tendermint module is loaded then load the contract bindings
+  if (parsed.result.hasOwnProperty('tendermint')) {
+    contract = await Promise.all([web3.tendermint.getContractABI(), web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
+      return new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1');
+    });
+    initMessage += 'autonity ';
+    hasAutonity = true
+  }
+
+  console.log('Welcome to the Autonity node console');
+  console.log(initMessage);
+  console.log('Type "module".<Tab> to get started');
 
   // Start the repl
   const repl = require("repl");
@@ -926,22 +940,108 @@ ws.addEventListener('message', event => {
     process.exit();
   });
 
-  // If the tendermint module is loaded then load the contract bindings
-  if (parsed.result.hasOwnProperty('tendermint')) {
-    Promise.all([web3.tendermint.getContractABI(), web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
-      contract = new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1');
+  if (hasAutonity){
+    // Setting context values makes them available in the default scope
+    // of the repl.
+    server.context.contract = contract;
+    server.context.autonity = contract.methods;
 
-      // Setting context values makes them available in the default scope
-      // of the repl.
-      server.context.contract = contract;
-      server.context.autonity = contract.methods;
-    });
-    initMessage += 'autonity ';
+    // EXPERIMENTAL EXTENSIONS //
+
+    async function getValidatorsData() {
+      const vals = await contract.methods.getValidators().call();
+      return Promise.all(vals.map(async val => {
+        return contract.methods.getValidator(val).call();
+      }));
+    }
+    /* Retrieve validators data */
+    server.context.vals =  async () => {
+      const data = await getValidatorsData();
+      for(let i = 0; i< data.length; i++){
+        console.log("\n\x1b[40m\x1b[37m__________________________Validator %d__________________________\x1b[0m", i)
+        for (const key in data[i]) {
+          if (!isNaN(key)) {
+            continue
+          }
+          const separator = [...Array((19 - key.length)).keys()].reduce((a,b)=> a + " ","")
+          console.log(`${key}:${separator} \x1b[1m${data[i][key]}\x1b[0m`);
+        }
+      }
+    }
+
+    /* Retrieve liquid staking wallet data */
+    server.context.wal =  async (account) => {
+      const vals = await getValidatorsData();
+      const w = []
+      for(let i = 0; i< vals.length; i++){
+        const liquid = new web3.eth.Contract(liquidABI, vals[i].liquidContract);
+        w.push({
+          validator:     vals[i].addr,
+          lnew:          await liquid.methods.balanceOf(account).call(),
+          claimableRewards: await liquid.methods.unclaimedRewards(account).call()
+        })
+      }
+      console.log("\n\x1b[40m\x1b[37m__________________________Staking Wallet__________________________\x1b[0m");
+      console.log("\n Account: \t" + account + "\n");
+      console.table(w);
+    }
+
+    /* Claim Rewards */
+    server.context.rclm =  async (account, validator) => {
+      const val = await contract.methods.getValidator(validator).call();
+      console.log(`validator:      ${val.addr}`);
+      console.log(`staker:         ${val.addr}`);
+
+      const liquid = new web3.eth.Contract(liquidABI, val.liquidContract);
+      const claimable = await liquid.methods.unclaimedRewards(account).call()
+      console.log(`claimable rewards: ${claimable}`);
+      return await liquid.methods.claimRewards().send({from:account});
+    }
+
+    /* Claim rewards from all staked validators */
+    server.context.rclm_a =  async (account) => {
+      const vals = await getValidatorsData();
+      let total = 0n;
+      for(let i = 0; i< vals.length; i++){
+        const liquid = new web3.eth.Contract(liquidABI, vals[i].liquidContract);
+        const claimable = await liquid.methods.unclaimedRewards(account).call()
+        if (BigInt(claimable) == 0n) {
+          continue
+        }
+        console.log(`validator:          ${vals[i].addr}`);
+        console.log(`claimable reward:   ${claimable}\n`);
+        total += BigInt(claimable);
+        await liquid.methods.claimRewards().send({from:account});
+      }
+      console.log(`\n\x1b[1mtotal claimed:        ${total}\x1b[0m`);
+    }
+
+    /* Transfer Liquid Newton to recipient */
+    server.context.lsend =  async ({val, from, to, value}) => {
+      console.log(`Sending ${value} LNEW - Validator ${val}`);
+      const validator = await contract.methods.getValidator(val).call();
+      const liquid = new web3.eth.Contract(liquidABI, validator.liquidContract);
+      return liquid.methods.transfer(to,value).send({from})
+    }
+
+    /* liveness monitor */
+    // this is the wrong approach - we should do better
+    let mon_lastBlock
+    server.context.livemon = async() => {
+      web3.eth.subscribe("newBlockHeaders", (err,block) => {
+        // skip first returned block
+        if(mon_lastBlock == 0){
+          mon_lastBlock = block.timestamp;
+          return
+        }
+        const tdiff = block.timestamp - mon_lastBlock
+        if(tdiff > 2){
+          console.log("!!ALERT LIVENESS!!")
+        }
+        console.log(`#${block.number}\t ${tdiff}`);
+        mon_lastBlock =  block.timestamp
+      })
+    }
+
   }
-
-  console.log('Welcome to the Autonity node console');
-  console.log(initMessage);
-  console.log('Type "module".<Tab> to get started');
-
-});
-
+}
