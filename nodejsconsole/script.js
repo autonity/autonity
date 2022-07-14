@@ -1,6 +1,22 @@
 let Web3 = require('web3');
-let provider = process.argv[2]
-
+let url = process.argv[2]
+const provider = new Web3.providers.WebsocketProvider(url, {
+  reconnect: {
+    auto: true,
+    delay: 1000, // ms
+    onTimeout: false,
+    // maxAttempts:
+  },
+  timeout: 5000, // ms
+  clientConfig: {
+    maxReceivedFrameSize: 10000000000,
+    maxReceivedMessageSize: 10000000000,
+    keepalive: true,
+    keepaliveInterval: 1000, // ms
+    dropConnectionOnKeepaliveTimeout: true,
+    keepaliveGracePeriod: 4000, // ms
+  }
+});
 let web3 = new Web3(provider);
 let contract;
 let autonity;
@@ -844,7 +860,7 @@ moduleInit.set('lespay', lesPay);
 
 let WebSocket = require('ws');
 const repl = require("repl");
-let ws = new WebSocket(provider);
+let ws = new WebSocket(url);
 
 let data = JSON.stringify({
   jsonrpc: '2.0',
