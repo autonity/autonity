@@ -26,14 +26,14 @@ type Config struct {
 	EpochPeriod     *big.Int       `abi:"epochPeriod"`
 	UnbondingPeriod *big.Int       `abi:"unbondingPeriod"`
 	CommitteeSize   *big.Int       `abi:"committeeSize"`
-	ContractVersion string         `abi:"contractVersion"`
+	ContractVersion *big.Int       `abi:"contractVersion"`
 	BlockPeriod     *big.Int       `abi:"blockPeriod"`
 }
 
 func DeployContract(abi *abi.ABI, genesisConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
 	// Convert the contract bytecode from hex into bytes
 	contractBytecode := common.Hex2Bytes(genesisConfig.Bytecode)
-	defaultVersion := "v0.0.0"
+	defaultVersion := big.NewInt(1)
 
 	contractConfig := Config{
 		OperatorAccount: genesisConfig.Operator,

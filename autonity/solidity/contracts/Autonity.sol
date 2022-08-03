@@ -50,12 +50,12 @@ contract Autonity is IERC20, Upgradeable {
         uint256 epochPeriod;
         uint256 unbondingPeriod;
         uint256 committeeSize;
-        string  contractVersion;
+        uint256  contractVersion;
         uint256 blockPeriod;
     }
 
     Config public config;
-    address[] private validatorList;
+    address[] internal validatorList;
 
 
     // Stake token state transitions happen every epoch.
@@ -63,26 +63,26 @@ contract Autonity is IERC20, Upgradeable {
     uint256 public lastEpochBlock;
     uint256 public epochTotalBondedStake;
 
-    CommitteeMember[] private committee;
+    CommitteeMember[] internal committee;
     uint256 public totalRedistributed;
     uint256 public epochReward;
-    string[] private committeeNodes;
-    mapping(address => mapping(address => uint256)) private allowances;
+    string[] internal committeeNodes;
+    mapping(address => mapping(address => uint256)) internal allowances;
 
     /*
     Keep track of bonding and unbonding requests.
     */
-    mapping(uint256 => Staking) private bondingMap;
+    mapping(uint256 => Staking) internal bondingMap;
     uint256 public tailBondingID;
     uint256 public headBondingID;
-    mapping(uint256 => Staking) private unbondingMap;
+    mapping(uint256 => Staking) internal unbondingMap;
     uint256 public tailUnbondingID;
     uint256 public headUnbondingID;
 
     /* Newton ERC-20. */
-    mapping(address => uint256) private accounts;
-    mapping(address => Validator) private validators;
-    uint256 private stakeSupply;
+    mapping(address => uint256) internal accounts;
+    mapping(address => Validator) internal validators;
+    uint256 internal stakeSupply;
 
     /*
     We're saving the address of who is deploying the contract and we use it
@@ -106,11 +106,18 @@ contract Autonity is IERC20, Upgradeable {
      */
     event MinimumBaseFeeUpdated(uint256 gasPrice);
 
-    constructor (Validator[] memory _validators,
+    constructor(Validator[] memory _validators,
+                    Config memory _config) {
+        if (config.contractVersion == 0) {
+            deployer = msg.sender;
+            _initialize(_validators, _config);
+        }
+    }
+
+    function _initialize(Validator[] memory _validators,
     Config memory _config
-    ) {
+    ) internal {
         config = _config;
-        deployer = msg.sender;
 
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
@@ -477,7 +484,7 @@ contract Autonity is IERC20, Upgradeable {
     /**
     * @notice Returns the current contract version.
     */
-    function getVersion() external view returns (string memory) {
+    function getVersion() external view returns (uint256) {
         return config.contractVersion;
     }
 
@@ -644,7 +651,7 @@ contract Autonity is IERC20, Upgradeable {
     * pro-rata the amount of stake held.
     * @dev Emit a {BlockReward} event for every account that collected rewards.
     */
-    function _performRedistribution(uint256 _amount) internal {
+    function _performRedistribution(uint256 _amount) internal virtual {
         require(address(this).balance >= _amount, "not enough funds to perform redistribution");
         // take treasury fee.
 
@@ -664,7 +671,7 @@ contract Autonity is IERC20, Upgradeable {
         }
     }
 
-    function _transfer(address _sender, address _recipient, uint256 _amount) internal {
+    function _transfer(address _sender, address _recipient, uint256 _amount) internal virtual {
         require(accounts[_sender] >= _amount, "amount exceeds balance");
         accounts[_sender] -= _amount;
         accounts[_recipient] += _amount;
@@ -712,7 +719,7 @@ contract Autonity is IERC20, Upgradeable {
     * Warning: no checks are done here.
     * Emit {DisabledValidator} event.
     */
-    function _pauseValidator(address _address) internal {
+    function _pauseValidator(address _address) internal virtual {
         Validator storage val = validators[_address];
         require(val.state == ValidatorState.active, "validator must be enabled");
 
@@ -728,7 +735,7 @@ contract Autonity is IERC20, Upgradeable {
      *
      * This function assume that `_validator` is a valid validator address.
      */
-    function _bond(address _validator, uint256 _amount, address payable _recipient) internal {
+    function _bond(address _validator, uint256 _amount, address payable _recipient) internal virtual{
 
         require(_amount > 0, "amount need to be strictly positive");
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
@@ -760,7 +767,7 @@ contract Autonity is IERC20, Upgradeable {
         _validator.liquidSupply += _liquidAmount;
     }
 
-    function _unbond(address _validator, uint256 _amount, address payable _recipient) internal {
+    function _unbond(address _validator, uint256 _amount, address payable _recipient) internal virtual {
         uint256 liqBalance = validators[_validator].liquidContract.balanceOf(_recipient);
         require(liqBalance >= _amount, "insufficient Liquid Newton balance");
 
@@ -770,7 +777,7 @@ contract Autonity is IERC20, Upgradeable {
         headUnbondingID++;
     }
 
-    function _applyUnbonding(uint256 id) internal {
+    function _applyUnbonding(uint256 id) internal virtual {
         Staking storage _unbonding = unbondingMap[id];
         Validator storage validator = validators[_unbonding.delegatee];
         /* validator.liquidSupply must not be equal to zero here */
@@ -785,7 +792,7 @@ contract Autonity is IERC20, Upgradeable {
     }
 
     /* Should be called at every epoch */
-    function _stakingTransitions() internal {
+    function _stakingTransitions() internal virtual {
         for (uint256 i = tailBondingID; i < headBondingID; i++) {
             _applyBonding(i);
         }

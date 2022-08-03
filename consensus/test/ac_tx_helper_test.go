@@ -332,11 +332,11 @@ func (c *caller) totalSupply() (*big.Int, error) {
 }
 
 // system setting / state getters
-func (c *caller) getVersion() (string, error) {
-	var version string
+func (c *caller) getVersion() (uint64, error) {
+	var version uint64
 	err := c.execute(func(instance *Autonity, opts *bind.CallOpts) error {
 		v, err := instance.GetVersion(opts)
-		version = v
+		version = v.Uint64()
 		return err
 	})
 	return version, err

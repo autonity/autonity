@@ -22,6 +22,8 @@ GENERATED_CONTRACT_DIR = ./common/acdefault/generated
 GENERATED_RAW_ABI = $(GENERATED_CONTRACT_DIR)/Autonity.abi
 GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
 GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
+GENERATED_UPGRADE_ABI = $(GENERATED_CONTRACT_DIR)/abi_upgrade.go
+GENERATED_UPGRADE_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode_upgrade.go
 
 # DOCKER_SUDO is set to either the empty string or "sudo" and is used to
 # control whether docker is executed with sudo or not. If the user is root or
@@ -78,6 +80,21 @@ $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT
 	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.abi | json_pp  >> $(GENERATED_ABI)
 	@echo '`' >> $(GENERATED_ABI)
 	@gofmt -s -w $(GENERATED_ABI)
+
+	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(AUTONITY_CONTRACT_DIR)/Upgrade_test.sol
+	@echo Generating $(GENERATED_UPGRADE_ABI)
+	@echo 'package generated' > $(GENERATED_UPGRADE_ABI)
+	@echo -n 'const UpgradeTestAbi = `' >> $(GENERATED_UPGRADE_ABI)
+	@cat  $(GENERATED_CONTRACT_DIR)/AutonityUpgradeTest.abi | json_pp  >> $(GENERATED_UPGRADE_ABI)
+	@echo '`' >> $(GENERATED_UPGRADE_ABI)
+	@gofmt -s -w $(GENERATED_UPGRADE_ABI)
+
+	@echo Generating $(GENERATED_UPGRADE_BYTECODE)
+	@echo 'package generated' > $(GENERATED_UPGRADE_BYTECODE)
+	@echo -n 'const UpgradeTestBytecode = "' >> $(GENERATED_UPGRADE_BYTECODE)
+	@cat  $(GENERATED_CONTRACT_DIR)/AutonityUpgradeTest.bin >> $(GENERATED_UPGRADE_BYTECODE)
+	@echo '"' >> $(GENERATED_UPGRADE_BYTECODE)
+	@gofmt -s -w $(GENERATED_UPGRADE_BYTECODE)
 
 $(SOLC_BINARY):
 	mkdir -p $(BINDIR)

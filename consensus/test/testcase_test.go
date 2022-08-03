@@ -141,7 +141,7 @@ func runTest(t *testing.T, test *testCase) {
 	setNodesPortAndEnode(t, nodes)
 
 	// Make genesis and apply customized genesis configurations.
-	genesis := makeGenesis(t, nodes)
+	genesis := makeGenesis(t, nodes, nodeNames)
 	if test.genesisHook != nil {
 		genesis = test.genesisHook(genesis)
 	}

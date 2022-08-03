@@ -72,7 +72,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 		common.Address{66, 66}, big.NewInt(1337))
 
 	require.NoError(t, err)
-	_ = network.WaitToMineNBlocks(2, 5)
+	_ = network.WaitToMineNBlocks(2, 20)
 	tx2, err := n.SendAUT(ctx, network[1].Address, 10)
 	require.NoError(t, err)
 	err = network.AwaitTransactions(ctx, tx, tx2)
@@ -102,7 +102,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	balanceBeforeEpoch, _ := n.WsClient.BalanceAt(context.Background(), autonityContractAddr, nil)
 	require.Equal(t, totalFees, balanceBeforeEpoch)
 
-	err = network.WaitToMineNBlocks(30, 60)
+	err = network.WaitToMineNBlocks(30, 90)
 	require.NoError(t, err)
 
 	fmt.Println("total rewards", totalRewards)
