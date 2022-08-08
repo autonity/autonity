@@ -77,14 +77,6 @@ cd autonity
 
 #### Build
 
-Before working with the source run:
-
-```
-make embed-autonity-contract
-```
-
-This generates go source from the Solidity Autonity Protocol Contract.
-
 To build the Autonity Go Client (AGC) run:
 
 ```
