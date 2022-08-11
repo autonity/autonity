@@ -44,14 +44,14 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 		addr := unhandled.(UnhandledMsg).addr
 		msg := unhandled.(UnhandledMsg).msg
-		if _, err := sb.HandleMsg(addr, msg); err != nil {
+		if _, err := sb.HandleMsg(addr, msg, nil); err != nil {
 			sb.logger.Error("could not handle cached message", "err", err)
 		}
 	}
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
-func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
+func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
 	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg {
 		return false, nil
 	}
@@ -98,6 +98,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 		sb.postEvent(events.MessageEvent{
 			Payload: data,
+			ErrCh:   errCh,
 		})
 	case tendermintSyncMsg:
 		if !sb.coreStarted {

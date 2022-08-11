@@ -151,10 +151,18 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 // the protocol handshake. This method will keep processing messages until the
 // connection is torn down.
 func Handle(backend Backend, peer *Peer) error {
+	errCh := make(chan error, 1)
 	for {
-		if err := handleMessage(backend, peer); err != nil {
+		if err := handleMessage(backend, peer, errCh); err != nil {
 			peer.Log().Debug("Message handling failed in `eth`", "err", err)
 			return err
+		}
+		select {
+		case err := <-errCh:
+			peer.Log().Error("Message handling failed in consensus core", "err", err)
+			return err
+		default:
+			// do nothing
 		}
 	}
 }
@@ -184,7 +192,7 @@ var eth66 = map[uint64]msgHandler{
 
 // handleMessage is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
-func handleMessage(backend Backend, peer *Peer) error {
+func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
@@ -213,7 +221,7 @@ func handleMessage(backend Backend, peer *Peer) error {
 		}(time.Now())
 	}
 	if handler, ok := backend.Chain().Engine().(consensus.Handler); ok {
-		if handled, err := handler.HandleMsg(peer.address, msg); handled {
+		if handled, err := handler.HandleMsg(peer.address, msg, errCh); handled {
 			return err
 		}
 	}

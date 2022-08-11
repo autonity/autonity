@@ -30,7 +30,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			counter := big.NewInt(i).Bytes()
 			msg := makeMsg(tendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
+			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
 		}
@@ -72,11 +72,12 @@ func TestUnhandledMsgs(t *testing.T) {
 		if err := engine.Close(); err != nil {
 			t.Fatalf("can't stop the engine")
 		}
+
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
 			msg := makeMsg(tendermintMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if result, err := backend.HandleMsg(addr, msg); !result || err != nil {
+			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
 		}

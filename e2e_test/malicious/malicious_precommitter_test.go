@@ -12,6 +12,10 @@ import (
 	"testing"
 )
 
+type precommitService struct {
+	*core.Core
+	interfaces.Precommiter
+}
 type malPrecommitService struct {
 	*core.Core
 	interfaces.Precommiter
@@ -70,10 +74,36 @@ func TestMaliciousPrecommitSender(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := test.NewNetworkFromUsers(users, true)
 	require.NoError(t, err)
+	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120)
+	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func TestMaliciousSenderDisc(t *testing.T) {
+	users, err := test.Users(4, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	require.NoError(t, err)
+	valPrecommiter1 := &precommitService{}
+	valPrecommiter2 := &precommitService{}
+
+	users[0].CustHandler = &node.CustomHandler{Precommitter: valPrecommiter1}
+	users[1].CustHandler = &node.CustomHandler{Precommitter: valPrecommiter2}
+
+	// creates a network of users and starts all the nodes in it
+	network, err := test.NewNetworkFromUsers(users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
-	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+
+	// network should be up and continue to mine blocks
+	err = network.WaitToMineNBlocks(1, 60)
+	require.NoError(t, err)
+	// set a malicious precommitter, this should cause one of the validator to be
+	// evicted from the quorum
+	valPrecommiter1.Core.SetPrecommitter(&malPrecommitService{})
+	valPrecommiter2.Core.SetPrecommitter(&malPrecommitService{})
+
+	// network should stop mining blocks
+	err = network.WaitToMineNBlocks(10, 120)
+	require.Error(t, err, "Network is not supposed to be mining blocks at this point")
 }

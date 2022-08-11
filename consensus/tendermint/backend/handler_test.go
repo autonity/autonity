@@ -35,7 +35,8 @@ func TestTendermintMessage(t *testing.T) {
 	}
 
 	// 2. this message should be in cache after we handle it
-	_, err := backend.HandleMsg(addr, msg)
+	errCh := make(chan error, 1)
+	_, err := backend.HandleMsg(addr, msg, errCh)
 	if err != nil {
 		t.Fatalf("handle message failed: %v", err)
 	}
@@ -65,7 +66,8 @@ func TestSynchronisationMessage(t *testing.T) {
 		}
 		msg := makeMsg(tendermintSyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
-		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+		errCh := make(chan error, 1)
+		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
 		timer := time.NewTimer(2 * time.Second)
@@ -86,7 +88,8 @@ func TestSynchronisationMessage(t *testing.T) {
 		}
 		msg := makeMsg(tendermintSyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
-		if res, err := b.HandleMsg(addr, msg); !res || err != nil {
+		errCh := make(chan error, 1)
+		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
 		timer := time.NewTimer(2 * time.Second)

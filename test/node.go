@@ -419,16 +419,22 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int) error {
 	for {
 		select {
 		case <-syncTicker.C:
+			totalRunning := 0
+			syncedNodes := 0
 			for i, n := range nw {
 				// skipping nodes which are not running
 				if !n.isRunning {
 					continue
 				}
 				currHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
-				// for any of the node criteria is met, we can consider network has produced numBlocks
 				if currHeight > chainHeights[i]+numBlocks {
-					return nil
+					syncedNodes++
 				}
+				totalRunning++
+			}
+			// all the running nodes should reach the required chainHeight
+			if syncedNodes == totalRunning {
+				return nil
 			}
 		case <-ctx.Done():
 			return ctx.Err()

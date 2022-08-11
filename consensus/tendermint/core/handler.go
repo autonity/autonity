@@ -75,6 +75,29 @@ func (c *Core) unsubscribeEvents() {
 	c.syncEventSub.Unsubscribe()
 }
 
+func needsPeerDisconnect(err error) bool {
+	switch err {
+	case constants.ErrFutureHeightMessage:
+		fallthrough
+	case constants.ErrOldHeightMessage:
+		fallthrough
+	case constants.ErrOldRoundMessage:
+		fallthrough
+	case constants.ErrFutureRoundMessage:
+		fallthrough
+	case constants.ErrFutureStepMessage:
+		fallthrough
+	case constants.ErrNilPrevoteSent:
+		fallthrough
+	case constants.ErrNilPrecommitSent:
+		fallthrough
+	case constants.ErrMovedToNewRound:
+		return false
+	default:
+		return true
+	}
+}
+
 func (c *Core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
@@ -94,10 +117,21 @@ eventLoop:
 				msg := new(messageutils.Message)
 				if err := msg.FromPayload(e.Payload); err != nil {
 					c.logger.Error("consensus message invalid payload", "err", err)
+					select {
+					case e.ErrCh <- err:
+					default: // do nothing
+					}
 					continue
 				}
 				if err := c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
+					// filter errors which needs remote peer disconnection
+					if needsPeerDisconnect(err) {
+						select {
+						case e.ErrCh <- err:
+						default: // do nothing
+						}
+					}
 					continue
 				}
 				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.Payload)
