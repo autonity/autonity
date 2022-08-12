@@ -981,8 +981,9 @@ async function setup(event) {
           claimableRewards: await liquid.methods.unclaimedRewards(account).call()
         })
       }
-      console.log("\n\x1b[40m\x1b[37m__________________________Staking Wallet__________________________\x1b[0m");
-      console.log("\n Account: \t" + account + "\n");
+      console.log("\n\x1b[40m\x1b[37m_____________________________________Staking Wallet_____________________________________\x1b[0m\n");
+      console.log("\taccount: \t" + account + "\n");
+      console.log("\tbalance: \t" + await web3.eth.getBalance(account) + " attoton\n");
       console.table(w);
     }
 
@@ -990,12 +991,12 @@ async function setup(event) {
     server.context.rclm =  async (account, validator) => {
       const val = await contract.methods.getValidator(validator).call();
       console.log(`validator:      ${val.addr}`);
-      console.log(`staker:         ${val.addr}`);
+      console.log(`staker:         ${account}`);
 
       const liquid = new web3.eth.Contract(liquidABI, val.liquidContract);
       const claimable = await liquid.methods.unclaimedRewards(account).call()
       console.log(`claimable rewards: ${claimable}`);
-      return await liquid.methods.claimRewards().send({from:account});
+      return await liquid.methods.claimRewards().send({from:account, gas:100000});
     }
 
     /* Claim rewards from all staked validators */
@@ -1011,7 +1012,7 @@ async function setup(event) {
         console.log(`validator:          ${vals[i].addr}`);
         console.log(`claimable reward:   ${claimable}\n`);
         total += BigInt(claimable);
-        await liquid.methods.claimRewards().send({from:account});
+        await liquid.methods.claimRewards().send({from:account, gas: 100000});
       }
       console.log(`\n\x1b[1mtotal claimed:        ${total}\x1b[0m`);
     }
@@ -1021,7 +1022,7 @@ async function setup(event) {
       console.log(`Sending ${value} LNEW - Validator ${val}`);
       const validator = await contract.methods.getValidator(val).call();
       const liquid = new web3.eth.Contract(liquidABI, validator.liquidContract);
-      return liquid.methods.transfer(to,value).send({from})
+      return liquid.methods.transfer(to,value).send({from, gas: 300000})
     }
 
     /* liveness monitor */
