@@ -731,7 +731,7 @@ func TestReadLogs(t *testing.T) {
 		GasUsed:         222222,
 	}
 	receipt2.Bloom = types.CreateBloom(types.Receipts{receipt2})
-	receipts := []*types.Receipt{receipt1, receipt2}
+	receipts := []*types.Receipt{receipt1, receipt2, {}}
 
 	hash := common.BytesToHash([]byte{0x03, 0x14})
 	// Check that no receipt entries are in a pristine database
@@ -748,7 +748,7 @@ func TestReadLogs(t *testing.T) {
 	if len(logs) == 0 {
 		t.Fatalf("no logs returned")
 	}
-	if have, want := len(logs), 2; have != want {
+	if have, want := len(logs), 3; have != want {
 		t.Fatalf("unexpected number of logs returned, have %d want %d", have, want)
 	}
 	if have, want := len(logs[0]), 2; have != want {
@@ -762,13 +762,15 @@ func TestReadLogs(t *testing.T) {
 	if err := types.Receipts(receipts).DeriveFields(params.TestChainConfig, hash, 0, body.Transactions); err != nil {
 		t.Fatal(err)
 	}
-	for i, pr := range receipts {
+	for i, pr := range receipts[0:2] {
 		for j, pl := range pr.Logs {
-			rlpHave, err := rlp.EncodeToBytes(newFullLogRLP(logs[i][j]))
+			rlpRaw := newFullLogRLP(logs[i][j])
+			rlpHave, err := rlp.EncodeToBytes(rlpRaw)
 			if err != nil {
 				t.Fatal(err)
 			}
-			rlpWant, err := rlp.EncodeToBytes(newFullLogRLP(pl))
+			rlpWantRaw := newFullLogRLP(pl)
+			rlpWant, err := rlp.EncodeToBytes(rlpWantRaw)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -830,7 +832,7 @@ func TestDeriveLogFields(t *testing.T) {
 	// Derive log metadata fields
 	number := big.NewInt(1)
 	hash := common.BytesToHash([]byte{0x03, 0x14})
-	if err := deriveLogFields(receipts, hash, number.Uint64(), txs); err != nil {
+	if err := deriveLogFields(append(receipts, &receiptLogs{}), hash, number.Uint64(), txs); err != nil {
 		t.Fatal(err)
 	}
 
