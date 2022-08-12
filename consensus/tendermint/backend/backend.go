@@ -139,7 +139,7 @@ func (sb *Backend) postEvent(event interface{}) {
 }
 
 func (sb *Backend) AskSync(header *types.Header) {
-	sb.logger.Info("Broadcasting consensus synchronization request")
+	sb.logger.Info("Consensus liveness lost, broadcasting sync request..")
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range header.Committee {
@@ -168,7 +168,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 				if count >= bft.Quorum(header.TotalVotingPower()) {
 					break
 				}
-				sb.logger.Info("Asking sync to", "addr", addr)
+				sb.logger.Debug("Asking sync to", "addr", addr)
 				go p.Send(tendermintSyncMsg, []byte{}) //nolint
 
 				member := header.CommitteeMember(addr)

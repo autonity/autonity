@@ -72,6 +72,17 @@ func ACHash(b *big.Int) Hash {
 	return hash
 }
 
+func IsACHash(hash Hash) (bool, *big.Int) {
+	if hash[0] != 0xAC {
+		return false, nil
+	}
+	hash[0] = 0
+	if hash.Big().Cmp(big.NewInt(100*365*24*60*60)) < 0 {
+		return true, hash.Big()
+	}
+	return false, nil
+}
+
 // HexToHash sets byte representation of s to hash.
 // If b is larger than len(h), b will be cropped from the left.
 func HexToHash(s string) Hash { return BytesToHash(FromHex(s)) }

@@ -33,7 +33,7 @@ func (c *Core) Start(ctx context.Context, contract *autonity.Contract) {
 
 // Stop implements Core.Engine.Stop
 func (c *Core) Stop() {
-	c.logger.Info("stopping tendermint.Core", "addr", c.address.String())
+	c.logger.Debug("stopping tendermint.Core", "addr", c.address.String())
 
 	_ = c.proposeTimeout.StopTimer()
 	_ = c.prevoteTimeout.StopTimer()
@@ -185,7 +185,7 @@ eventLoop:
 			pb := &newCandidateBlockEvent.NewCandidateBlock
 			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
 		case <-ctx.Done():
-			c.logger.Info("mainEventLoop is stopped", "event", ctx.Err())
+			c.logger.Debug("mainEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
@@ -226,10 +226,10 @@ eventLoop:
 				break eventLoop
 			}
 			event := ev.Data.(events.SyncEvent)
-			c.logger.Info("Processing sync message", "from", event.Addr)
+			c.logger.Debug("Processing sync message", "from", event.Addr)
 			c.backend.SyncPeer(event.Addr)
 		case <-ctx.Done():
-			c.logger.Info("syncLoop is stopped", "event", ctx.Err())
+			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}

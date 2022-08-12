@@ -375,7 +375,7 @@ func (c *Core) Commit(round int64, messages *messageutils.RoundMessages) {
 		return
 	}
 
-	c.logger.Info("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
+	c.logger.Debug("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
 
 	committedSeals := make([][]byte, 0)
 	for _, v := range messages.CommitedSeals(proposal.ProposalBlock.Hash()) {

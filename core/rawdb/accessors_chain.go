@@ -730,11 +730,18 @@ func (r *receiptLogs) DecodeRLP(s *rlp.Stream) error {
 // DeriveLogFields fills the logs in receiptLogs with information such as block number, txhash, etc.
 func deriveLogFields(receipts []*receiptLogs, hash common.Hash, number uint64, txs types.Transactions) error {
 	logIndex := uint(0)
-	if len(txs) != len(receipts) {
+
+	if len(txs)+1 != len(receipts) {
 		return errors.New("transaction and receipt count mismatch")
 	}
 	for i := 0; i < len(receipts); i++ {
-		txHash := txs[i].Hash()
+		var txHash common.Hash
+		if i == len(receipts)-1 {
+			txHash = common.ACHash(new(big.Int).SetUint64(number))
+		} else {
+			txHash = txs[i].Hash()
+		}
+
 		// The derived log fields can simply be set from the block and transaction
 		for j := 0; j < len(receipts[i].Logs); j++ {
 			receipts[i].Logs[j].BlockNumber = number
