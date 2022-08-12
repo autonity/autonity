@@ -19,7 +19,6 @@ contract Autonity is IERC20, Upgradeable {
         string enode; //addr must match provided enode
         uint256 commissionRate;
         uint256 bondedStake;
-        uint256 selfBondedStake;
         uint256 totalSlashed;
         Liquid liquidContract;
         uint256 liquidSupply;
@@ -131,7 +130,6 @@ contract Autonity is IERC20, Upgradeable {
             _validators[i].liquidSupply = 0;
             _validators[i].liquidContract = Liquid(address(0));
             _validators[i].bondedStake = 0;
-            _validators[i].selfBondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.delegationRate;
             _validators[i].state = ValidatorState.active;
@@ -191,7 +189,6 @@ contract Autonity is IERC20, Upgradeable {
             _enode, // enode
             config.delegationRate, // validator commission rate
             0, // bonded stake
-            0, // self bonded stake
             0, // total slashed
             Liquid(address(0)), // liquid token contract
             0, // liquid token supply
@@ -761,9 +758,6 @@ contract Autonity is IERC20, Upgradeable {
 
         _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
         _validator.bondedStake += _bonding.amount;
-        if (_bonding.delegator == _validator.treasury) {
-            _validator.selfBondedStake += _bonding.amount;
-        }
         _validator.liquidSupply += _liquidAmount;
     }
 
@@ -784,9 +778,6 @@ contract Autonity is IERC20, Upgradeable {
         uint256 _newtonAmount = (_unbonding.amount * validator.bondedStake) / validator.liquidSupply;
 
         validator.bondedStake -= _newtonAmount;
-        if (_unbonding.delegator == validator.treasury) {
-            validator.selfBondedStake -= _newtonAmount;
-        }
         validator.liquidSupply -= _unbonding.amount;
         accounts[_unbonding.delegator] += _newtonAmount;
     }

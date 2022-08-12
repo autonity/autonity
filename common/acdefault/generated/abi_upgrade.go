@@ -738,11 +738,6 @@ const UpgradeTestAbi = `[
                },
                {
                   "internalType" : "uint256",
-                  "name" : "selfBondedStake",
-                  "type" : "uint256"
-               },
-               {
-                  "internalType" : "uint256",
                   "name" : "totalSlashed",
                   "type" : "uint256"
                },

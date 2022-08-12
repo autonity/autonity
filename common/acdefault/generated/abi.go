@@ -32,11 +32,6 @@ const Abi = `[
                },
                {
                   "internalType" : "uint256",
-                  "name" : "selfBondedStake",
-                  "type" : "uint256"
-               },
-               {
-                  "internalType" : "uint256",
                   "name" : "totalSlashed",
                   "type" : "uint256"
                },
@@ -854,11 +849,6 @@ const Abi = `[
                {
                   "internalType" : "uint256",
                   "name" : "bondedStake",
-                  "type" : "uint256"
-               },
-               {
-                  "internalType" : "uint256",
-                  "name" : "selfBondedStake",
                   "type" : "uint256"
                },
                {
