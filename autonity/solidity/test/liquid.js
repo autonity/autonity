@@ -21,7 +21,7 @@ contract("Liquid", accounts => {
   // Contract - deployed for each test here
   async function deployLNEW(commissionPercent = 0) {
     // Cannot extract this from the ABI, so have to hard-code it.
-    let FEE_FACTOR_UNIT_RECIP = toBN("1000000000");
+    let FEE_FACTOR_UNIT_RECIP = toBN("10000");
     let commission =
       FEE_FACTOR_UNIT_RECIP.mul(toBN(commissionPercent)).div(toBN("100"));
     let lnew = await ValidatorLNEW.new(validator, treasury, commission);
@@ -38,10 +38,10 @@ contract("Liquid", accounts => {
 
   async function withdrawAndCheck(lnew, address, expectFees) {
     const origBalance = toBN(await web3.eth.getBalance(address));
-    assert.equal(expectFees, await lnew.unclaimedFees(address));
+    assert.equal(expectFees, await lnew.unclaimedRewards(address));
 
     // Withdraw
-    const txret = await lnew.claimFees.sendTransaction({from: address});
+    const txret = await lnew.claimRewards.sendTransaction({from: address});
     const txid = txret.tx;
     const receipt = txret.receipt;
     const tx = await web3.eth.getTransaction(txid);
@@ -51,7 +51,7 @@ contract("Liquid", accounts => {
 
     // Balance should have increased by expectFees, and remaining
     // unclaimed fees should be 0
-    assert.equal(await lnew.unclaimedFees(address), "0");
+    assert.equal(await lnew.unclaimedRewards(address), "0");
     assert.equal(await web3.eth.getBalance(address), expectBalance);
   };
 
@@ -61,10 +61,10 @@ contract("Liquid", accounts => {
     // Initial state
     assert.equal(await lnew.totalSupply(), toWei("10000", "ether"));
     assert.equal(await lnew.balanceOf(validator), toWei("10000", "ether"));
-    assert.equal(await lnew.unclaimedFees(validator), "0");
+    assert.equal(await lnew.unclaimedRewards(validator), "0");
     [delegatorA, delegatorB].forEach(async user => {
       assert.equal(await lnew.balanceOf(user), "0");
-      assert.equal(await lnew.unclaimedFees(user), "0");
+      assert.equal(await lnew.unclaimedRewards(user), "0");
     });
 
     // Send 10 AUT as a reward.  Perform a call first (not a tx)
@@ -79,10 +79,10 @@ contract("Liquid", accounts => {
     // Check distribution (only validator should hold this)
     assert.equal(await lnew.totalSupply(), toWei("10000", "ether"));
     assert.equal(await lnew.balanceOf(validator), toWei("10000", "ether"));
-    assert.equal(await lnew.unclaimedFees(validator), toWei("10", "ether"));
+    assert.equal(await lnew.unclaimedRewards(validator), toWei("10", "ether"));
     [delegatorA, delegatorB].forEach(async user => {
       assert.equal(await lnew.balanceOf(user), "0");
-      assert.equal(await lnew.unclaimedFees(user), "0");
+      assert.equal(await lnew.unclaimedRewards(user), "0");
     });
   });
 
@@ -101,9 +101,9 @@ contract("Liquid", accounts => {
     // Send 20 AUT as a reward and check distribution
     await lnew.redistribute.sendTransaction(
       {from: rewardSource, value: toWei("20", "ether")});
-    assert.equal(await lnew.unclaimedFees(validator), toWei("10", "ether"));
-    assert.equal(await lnew.unclaimedFees(delegatorA), toWei("8", "ether"));
-    assert.equal(await lnew.unclaimedFees(delegatorB), toWei("2", "ether"));
+    assert.equal(await lnew.unclaimedRewards(validator), toWei("10", "ether"));
+    assert.equal(await lnew.unclaimedRewards(delegatorA), toWei("8", "ether"));
+    assert.equal(await lnew.unclaimedRewards(delegatorB), toWei("2", "ether"));
   });
 
   it("transfer LNEW", async () => {
@@ -130,13 +130,13 @@ contract("Liquid", accounts => {
     await lnew.redistribute.sendTransaction(
       {from: rewardSource, value: toWei("20", "ether")});
     // validator has 10 + 10
-    assert.equal(await lnew.unclaimedFees(validator), toWei("20", "ether"));
+    assert.equal(await lnew.unclaimedRewards(validator), toWei("20", "ether"));
     // delegatorA has 8 + 5
-    assert.equal(await lnew.unclaimedFees(delegatorA), toWei("13", "ether"));
+    assert.equal(await lnew.unclaimedRewards(delegatorA), toWei("13", "ether"));
     // delegatorB has 2 + 2
-    assert.equal(await lnew.unclaimedFees(delegatorB), toWei("4", "ether"));
+    assert.equal(await lnew.unclaimedRewards(delegatorB), toWei("4", "ether"));
     // delegatorC has 3
-    assert.equal(await lnew.unclaimedFees(delegatorC), toWei("3", "ether"));
+    assert.equal(await lnew.unclaimedRewards(delegatorC), toWei("3", "ether"));
   });
 
   it("burn LNEW", async () => {
@@ -152,8 +152,8 @@ contract("Liquid", accounts => {
     // Send 15 AUT as a reward and check distribution
     await lnew.redistribute.sendTransaction(
       {from: rewardSource, value: toWei("15", "ether")});
-    assert.equal(await lnew.unclaimedFees(validator), toWei("10", "ether"));
-    assert.equal(await lnew.unclaimedFees(delegatorA), toWei("5", "ether"));
+    assert.equal(await lnew.unclaimedRewards(validator), toWei("10", "ether"));
+    assert.equal(await lnew.unclaimedRewards(delegatorA), toWei("5", "ether"));
   });
 
   it("claiming rewards", async () => {
@@ -203,7 +203,7 @@ contract("Liquid", accounts => {
 
     // Check delegatorA's total fees were 10 + 5 + 10 = 25
     assert.equal(
-      await lnew.unclaimedFees(delegatorA),
+      await lnew.unclaimedRewards(delegatorA),
       toWei("25", "ether"));
   });
 
@@ -242,7 +242,7 @@ contract("Liquid", accounts => {
 
     // Check delegatorA's total fees: 10 + 5 + 10 = 25
     assert.equal(
-      await lnew.unclaimedFees(delegatorA),
+      await lnew.unclaimedRewards(delegatorA),
       toWei("25", "ether"));
   });
 

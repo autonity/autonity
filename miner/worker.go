@@ -375,7 +375,7 @@ func (w *worker) stop() {
 	atomic.StoreInt32(&w.running, 0)
 	err := w.engine.Close()
 	if err != nil {
-		log.Error("Error stopping Consensus Engine", "error", err)
+		log.Debug("Error stopping Consensus Engine", "error", err)
 	}
 }
 

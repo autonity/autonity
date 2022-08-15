@@ -22,7 +22,7 @@ contract('Autonity', function (accounts) {
   const treasuryAccount = accounts[8];
   const treasuryFee = 1;
   const minimumEpochPeriod = 30;
-  const version = "v0.0.0";
+  const version = 1;
 
   const config = {
     "operatorAccount": operator,
@@ -42,9 +42,8 @@ contract('Autonity', function (accounts) {
       "treasury": accounts[0],
       "addr": accounts[0],
       "enode": "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-      "commissionRate": 10000,
+      "commissionRate": 100,
       "bondedStake": 100,
-      "selfBondedStake": 100,
       "totalSlashed": 0,
       "liquidContract": accounts[0],
       "liquidSupply": 0,
@@ -55,9 +54,8 @@ contract('Autonity', function (accounts) {
       "treasury": accounts[1],
       "addr": accounts[1],
       "enode": "enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303",
-      "commissionRate": 10000,
+      "commissionRate": 100,
       "bondedStake": 90,
-      "selfBondedStake": 90,
       "totalSlashed": 0,
       "liquidContract": accounts[1],
       "liquidSupply": 0,
@@ -68,9 +66,8 @@ contract('Autonity', function (accounts) {
       "treasury": accounts[3],
       "addr": accounts[3],
       "enode": "enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303",
-      "commissionRate": 10000,
+      "commissionRate": 100,
       "bondedStake": 110,
-      "selfBondedStake": 110,
       "totalSlashed": 0,
       "liquidContract": accounts[3],
       "liquidSupply": 0,
@@ -81,9 +78,8 @@ contract('Autonity', function (accounts) {
       "treasury": accounts[4],
       "addr": accounts[4],
       "enode": "enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303",
-      "commissionRate": 10000,
+      "commissionRate": 100,
       "bondedStake": 120,
-      "selfBondedStake": 120,
       "totalSlashed": 0,
       "liquidContract": accounts[4],
       "liquidSupply": 0,
@@ -132,7 +128,7 @@ contract('Autonity', function (accounts) {
 
     it('test get contract version after contract construction', async function () {
       let v = await autonity.getVersion({from: anyAccount});
-      assert(version === v, "version of contract is not expected");
+      assert(version == v, `version of contract is not expected, has ${v} want ${version}`);
     });
 
     it('test get committee size after contract construction', async function () {
@@ -187,7 +183,6 @@ contract('Autonity', function (accounts) {
         assert.equal(v.enode.toString(), validators[i].enode.toString(), "validator enode is not expected at contract construction");
         assert(v.commissionRate == validators[i].commissionRate, "validator commission rate is not expected at contract construction");
         assert(v.bondedStake == validators[i].bondedStake, "validator bonded stake is not expected at contract construction");
-        assert(v.selfBondedStake == validators[i].selfBondedStake, "validator self bonded stake is not expected at contract construction");
         assert(v.totalSlashed == validators[i].totalSlashed, "validator total slash counter is not expected at contract construction");
         assert(v.registrationBlock == validators[i].registrationBlock, "registration block is not expected at contract construction");
         assert(v.state == validators[i].state, "validator state is not expected at contract construction");
@@ -474,7 +469,6 @@ contract('Autonity', function (accounts) {
       assert.equal(v.addr.toString(), newValAddr.toString(), "validator addr is not expected");
       assert.equal(v.enode.toString(), enode.toString(), "validator enode is not expected");
       assert(v.bondedStake == 0, "validator bonded stake is not expected");
-      assert(v.selfBondedStake == 0, "validator self bonded stake is not expected");
       assert(v.totalSlashed == 0, "validator total slash counter is not expected");
       assert(v.state == 0, "validator state is not expected");
     });

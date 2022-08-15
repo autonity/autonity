@@ -136,6 +136,7 @@ test-contracts: autonity
 	@# executes the second part of an or statement if the first fails.
 	@npm list truffle > /dev/null || npm install truffle@5.5.11
 	@npm list web3 > /dev/null || npm install web3
+	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
 	@$(NPMBIN)/truffle version
 	@cd $(AUTONITY_CONTRACT_TEST_DIR)/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
 	@# Autonity can take some time to start up so we ping its port till we see it is listening.
