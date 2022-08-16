@@ -1,6 +1,6 @@
 ---
-name: 💡 Request a feature
-about: Suggest a new feature, request, or enhancement
+name: Suggest an improvement
+about: We welcome your suggestions for new features and enhancements
 title: ""
 labels: ["triage", "type:feature"]
 assignees: ""

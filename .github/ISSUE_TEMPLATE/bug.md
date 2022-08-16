@@ -1,6 +1,6 @@
 ---
-name: 🐞 Report a bug
-about: Something isn't working as expected
+name: Report a bug
+about: You encountered something that isn't working as expected
 title: ""
 labels: ["triage", "type:bug"]
 assignees: ""

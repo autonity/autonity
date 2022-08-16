@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Get support for everything Autonity
+    url: https://discord.gg/autonity
+    about: Join the Discord server to get help from the community
+  - name: Improve the Autonity Protocol
+    url: https://aeps.autonity.org/
+    about: Participate in Autonity Enhancement Proposals
+  - name: Report an issue with the docs
+    url: https://github.com/autonity/docs-autonity
+    about: Report documentation issues in the docs-autonity repo
