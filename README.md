@@ -107,7 +107,7 @@ Quick-start connecting to an Autonity testnet by using a testnet flag in the com
 ./build/bin/autonity --piccadilly
 ```
 
-For full docs on how to run the client and connect to a public Autonity network see [Networks](http://www.docs.autonity.org/networks/) and [Run Autonity](http://www.docs.autonity.org/howto/run-aut/).
+For full docs on how to run the client and connect to a public Autonity network see [Networks](http://docs.autonity.org/networks/) and [Run Autonity](http://docs.autonity.org/howto/run-aut/).
 
 ## Open a javascript console to a node
 
@@ -127,14 +127,14 @@ The console is a Node.js REPL shell for executing calls to Web3 and Autonity  na
 '5000000'
 ```
 
-See the docs for how to [make calls](http://www.docs.autonity.org/howto/make-calls/) and [submit transactions](http://www.docs.autonity.org/howto/submit-trans/) from the console.
+See the docs for how to [make calls](http://docs.autonity.org/howto/make-calls/) and [submit transactions](http://docs.autonity.org/howto/submit-trans/) from the console.
 
 
 ## Networks
 
 ### Testnets
 
-For details of how to connect your node to a public Autonity network see [docs.autonity.org/networks](http://www.docs.autonity.org/networks).
+For details of how to connect your node to a public Autonity network see [docs.autonity.org/networks](http://docs.autonity.org/networks).
 
 ## License
 
