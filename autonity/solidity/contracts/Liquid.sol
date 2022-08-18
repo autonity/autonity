@@ -234,6 +234,15 @@ contract Liquid is IERC20
 
 
     /**
+      * @notice Setter for the commission rate, restricted to the Autonity Contract.
+      * @param _rate New rate.
+      */
+    function setCommissionRate(uint256 _rate) public onlyAutonity {
+        commissionRate = _rate;
+    }
+
+
+    /**
     ============================================================
 
         Internals

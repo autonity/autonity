@@ -33,13 +33,25 @@ contract Autonity is IERC20, Upgradeable {
     }
 
     /* Used for epoched staking */
-
     struct Staking {
         address payable delegator;
         address delegatee;
         uint256 amount;
         uint256 startBlock;
     }
+
+    /* Used to track commission rate change - See ADR-002 */
+    struct CommissionRateChangeRequest {
+        address validator;
+        uint256 startBlock;
+        uint256 rate;
+    }
+    // Todo: Create a FIFO structure library, integrate with Staking{}
+    mapping(uint256 => CommissionRateChangeRequest) internal commissionRateChangeQueue;
+    uint256 internal commissionRateChangeQueueFirst = 0;
+    uint256 internal commissionRateChangeQueueLast = 0;
+
+    /**************************************************/
 
     struct Config {
         address operatorAccount;
@@ -50,7 +62,7 @@ contract Autonity is IERC20, Upgradeable {
         uint256 epochPeriod;
         uint256 unbondingPeriod;
         uint256 committeeSize;
-        uint256  contractVersion;
+        uint256 contractVersion;
         uint256 blockPeriod;
     }
 
@@ -96,6 +108,7 @@ contract Autonity is IERC20, Upgradeable {
     /* Events */
     event MintedStake(address addr, uint256 amount);
     event BurnedStake(address addr, uint256 amount);
+    event CommissionRateChange(address validator, uint256 rate);
     event RegisteredValidator(address treasury, address addr, string enode, address liquidContract);
     event PausedValidator(address treasury, address addr, uint256 effectiveBlock);
     event Rewarded(address addr, uint256 amount);
@@ -234,6 +247,21 @@ contract Autonity is IERC20, Upgradeable {
         require(validators[_address].state == ValidatorState.paused, "validator must be paused");
 
         validators[_address].state = ValidatorState.active;
+    }
+
+    /**
+    * @notice Change commission rate for the specified validator. See ADR-002 for more details.
+    * @param _validator address to be enabled.
+            _rate new commission rate, ranging between 0-10000 (10000 = 100%).
+    */
+    function changeCommissionRate(address _validator, uint256 _rate) public {
+        require(validators[_validator].addr == _validator, "validator must be registered");
+        require(validators[_validator].treasury == msg.sender, "require caller to be validator admin account");
+        require(_rate <= COMMISSION_RATE_PRECISION, "require correct commission rate");
+        CommissionRateChangeRequest memory _newRequest = CommissionRateChangeRequest(_validator, block.number, _rate);
+        commissionRateChangeQueue[commissionRateChangeQueueLast] = _newRequest;
+        commissionRateChangeQueueLast += 1;
+        emit CommissionRateChange(_validator, _rate);
     }
 
     /**
@@ -386,7 +414,7 @@ contract Autonity is IERC20, Upgradeable {
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next block consensus committee.
     */
-    function finalize(uint256 amount) external onlyProtocol
+    function finalize(uint256 amount) external virtual onlyProtocol
     returns (bool, CommitteeMember[] memory) {
         epochReward += amount;
         if (lastEpochBlock + config.epochPeriod == block.number) {
@@ -394,6 +422,7 @@ contract Autonity is IERC20, Upgradeable {
             _performRedistribution(epochReward);
             epochReward = 0;
             _stakingTransitions();
+            _applyNewCommissionRates();
             computeCommittee();
             lastEpochBlock = block.number;
             epochID += 1;
@@ -812,6 +841,25 @@ contract Autonity is IERC20, Upgradeable {
         validator.bondedStake -= _newtonAmount;
         validator.liquidSupply -= _unbonding.amount;
         accounts[_unbonding.delegator] += _newtonAmount;
+    }
+
+    function _applyNewCommissionRates() internal virtual {
+        while(commissionRateChangeQueueFirst < commissionRateChangeQueueLast) {
+            // check unbonding period
+
+            CommissionRateChangeRequest storage _curRequest = commissionRateChangeQueue[commissionRateChangeQueueFirst];
+            if(_curRequest.startBlock + config.unbondingPeriod > block.number){
+                break;
+            }
+
+            // change commission rate for liquid staking accounts
+            validators[_curRequest.validator].commissionRate = _curRequest.rate;
+            validators[_curRequest.validator].liquidContract.setCommissionRate(_curRequest.rate);
+
+            delete commissionRateChangeQueue[commissionRateChangeQueueFirst];
+
+            commissionRateChangeQueueFirst += 1;
+        }
     }
 
     /* Should be called at every epoch */

@@ -153,7 +153,7 @@ test-race:
 test-contracts: autonity
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statement if the first fails.
-	@npm list truffle > /dev/null || npm install truffle@5.5.11
+	@npm list truffle > /dev/null || npm install truffle
 	@npm list web3 > /dev/null || npm install web3
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
 	@$(NPMBIN)/truffle version

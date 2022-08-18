@@ -1,5 +1,6 @@
 'use strict';
 const assert = require('assert');
+const truffleAssert = require('truffle-assertions');
 const utils = require('./test-utils');
 //todo: move gas analysis to separate js file
 
@@ -191,6 +192,68 @@ contract('Autonity', function (accounts) {
       assert.equal(total, totalSupply.toNumber(), "Newton total supply is not expected at contract construction phase");
     });
   });
+
+  describe("Validator commission rate", () => {
+    beforeEach(async function () {
+      autonity = await utils.deployTestContract(validators, config, {from: deployer});
+    });
+
+    it("should revert with bad input", async () => {
+      await truffleAssert.fails(
+        autonity.changeCommissionRate(accounts[1], 1337, {from:accounts[3]}),
+        truffleAssert.ErrorType.REVERT,
+        "require caller to be validator admin account"
+      );
+
+      await truffleAssert.fails(
+        autonity.changeCommissionRate(accounts[5], 1337, {from:accounts[3]}),
+        truffleAssert.ErrorType.REVERT,
+        "validator must be registered"
+      );
+
+      await truffleAssert.fails(
+        autonity.changeCommissionRate(accounts[3], 13370, {from:accounts[3]}),
+        truffleAssert.ErrorType.REVERT,
+        "require correct commission rate"
+      );
+
+    });
+
+    it("should change a validator commission rate with correct inputs", async () => {
+      const txChangeRate = await autonity.changeCommissionRate(accounts[1], 1337, {from:accounts[1]});
+      truffleAssert.eventEmitted(txChangeRate, 'CommissionRateChange', (ev) => {
+        return ev.validator === accounts[1] && ev.rate.toString() == "1337";
+      }, 'should emit correct event');
+
+      await autonity.changeCommissionRate(accounts[3], 1339, {from:accounts[3]});
+      await autonity.changeCommissionRate(accounts[1], 1338, {from:accounts[1]});
+
+      const txApplyCommChange = await autonity.applyNewCommissionRates({from:deployer});
+      const v1 = await autonity.getValidator(accounts[1]);
+      assert.equal(v1.commissionRate,1338);
+
+      const v3 = await autonity.getValidator(accounts[3]);
+      assert.equal(v3.commissionRate,1339);
+
+    })
+
+    it("should change a validator commission rate only after unbonding period", async () => {
+      await autonity.setUnbondingPeriod(5, {from:operator});
+      await autonity.changeCommissionRate(accounts[1], 1338, {from:accounts[1]});
+      await autonity.applyNewCommissionRates({from:deployer});
+      let v1 = await autonity.getValidator(accounts[1]);
+      assert.equal(v1.commissionRate,100);
+      await new Promise((resolve, reject) => {
+        let wait = setTimeout(() => {
+          clearTimeout(wait);
+          resolve();
+        }, 10000)
+      })
+      await autonity.applyNewCommissionRates({from:deployer});
+      v1 = await autonity.getValidator(accounts[1]);
+      assert.equal(v1.commissionRate,1338);
+    });
+  })
 
   describe('Set protocol parameters only by operator account', function () {
     beforeEach(async function () {
@@ -719,7 +782,7 @@ contract('Autonity', function (accounts) {
       }
     });
 
-    it('test un-bond from validator with amount exceed the available balance', async function () {
+    it("can't unbond from  avalidator with the amount exceeding the available balance", async function () {
       let tokenUnBond = 99999;
       let from = validators[0].addr;
       try {

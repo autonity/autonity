@@ -170,6 +170,25 @@ const Abi = `[
       "inputs" : [
          {
             "indexed" : false,
+            "internalType" : "address",
+            "name" : "validator",
+            "type" : "address"
+         },
+         {
+            "indexed" : false,
+            "internalType" : "uint256",
+            "name" : "rate",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "CommissionRateChange",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "indexed" : false,
             "internalType" : "uint256",
             "name" : "gasPrice",
             "type" : "uint256"
@@ -426,6 +445,24 @@ const Abi = `[
          }
       ],
       "name" : "burn",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_validator",
+            "type" : "address"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "_rate",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "changeCommissionRate",
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"

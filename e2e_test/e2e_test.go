@@ -47,7 +47,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 	n := network[0]
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 
 	// retrieve current balance
