@@ -13,6 +13,8 @@ LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
 SOLC_VERSION = 0.8.11
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
+GOBINDATA_VERSION = 3.23.0
+GOBINDATA_BINARY = $(BINDIR)/go-bindata
 ABIGEN_BINARY = $(BINDIR)/abigen
 
 AUTONITY_CONTRACT_BASE_DIR = ./autonity/solidity
@@ -70,7 +72,7 @@ autonity-docker:
 # Genreates go source files containing the contract bytecode and abi.
 embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI)
 
-$(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/*.sol $(SOLC_BINARY)
+$(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/*.sol $(SOLC_BINARY) $(GOBINDATA_BINARY)
 	@mkdir -p $(GENERATED_CONTRACT_DIR)
 	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
 
@@ -103,10 +105,19 @@ $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT
 	@echo '"' >> $(GENERATED_UPGRADE_BYTECODE)
 	@gofmt -s -w $(GENERATED_UPGRADE_BYTECODE)
 
+	# update 4byte selector for clef
+	go run build/generate_4bytedb.go
+	cd signer/fourbyte && go generate
+
 $(SOLC_BINARY):
 	mkdir -p $(BINDIR)
 	wget -O $(SOLC_BINARY) https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
 	chmod +x $(SOLC_BINARY)
+
+$(GOBINDATA_BINARY):
+	mkdir -p $(BINDIR)
+	wget -O $(GOBINDATA_BINARY) https://github.com/kevinburke/go-bindata/releases/download/v$(GOBINDATA_VERSION)/go-bindata-linux-amd64
+	chmod +x $(GOBINDATA_BINARY)
 
 all: embed-autonity-contract
 	go run build/ci.go install
