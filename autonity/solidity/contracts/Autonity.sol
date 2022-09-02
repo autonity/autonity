@@ -6,6 +6,7 @@ import "./interfaces/IERC20.sol";
 import "./Liquid.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
+import "./Helpers.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20, Upgradeable {
@@ -181,9 +182,10 @@ contract Autonity is IERC20, Upgradeable {
     * This validator will have assigned to its treasury account the caller of this function.
     * A new token "Liquid Stake" is deployed at this phase.
     * @param _enode enode identifying the validator node.
+    * @param _proof proof containing treasury account and signed by validator's node key.
     * @dev Emit a {RegisteredValidator} event.
     */
-    function registerValidator(string memory _enode) public {
+    function registerValidator(string memory _enode, bytes memory _proof) public {
         Validator memory _val = Validator(payable(msg.sender), //treasury
             address(0), // address
             _enode, // enode
@@ -196,7 +198,7 @@ contract Autonity is IERC20, Upgradeable {
             ValidatorState.active
         );
 
-        _registerValidator(_val);
+        _registerValidator(_val, _proof);
         emit RegisteredValidator(msg.sender, _val.addr, _enode, address(_val.liquidContract));
     }
 
@@ -692,15 +694,17 @@ contract Autonity is IERC20, Upgradeable {
         emit Approval(owner, spender, amount);
     }
 
-    function _registerValidator(Validator memory _validator) internal {
-        // _enode can't be empty and needs to be well-formed.
+    function _verifyEnode(Validator memory _validator) internal view {
+    // _enode can't be empty and needs to be well-formed.
         uint _err;
         (_validator.addr, _err) = Precompiled.enodeCheck(_validator.enode);
         require(_err == 0, "enode error");
         require(validators[_validator.addr].addr == address(0), "validator already registered");
         require(_validator.commissionRate <= COMMISSION_RATE_PRECISION, "invalid commission rate");
 
-        // step 2: deploy liquid stake contract
+    }
+
+    function _deployLiquidContract(Validator memory _validator) internal {
         if (address(_validator.liquidContract) == address(0)) {
             _validator.liquidContract = new Liquid(_validator.addr,
                 _validator.treasury,
@@ -709,6 +713,34 @@ contract Autonity is IERC20, Upgradeable {
         validatorList.push(_validator.addr);
         validators[_validator.addr] = _validator;
     }
+
+
+    function _registerValidator(Validator memory _validator) internal {
+        _verifyEnode(_validator);
+        // deploy liquid stake contract
+        _deployLiquidContract(_validator);
+    }
+
+    function _registerValidator(Validator memory _validator, bytes memory proof) internal {
+        // verify Enode
+        _verifyEnode(_validator);
+
+        // verify proof
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        (r, s, v) = Helpers.splitProof(proof);
+        bytes memory prefix = "\x19Ethereum Signed Message:\n";
+        bytes memory treasury = abi.encodePacked(_validator.treasury);
+        bytes memory data = abi.encodePacked(prefix, Helpers.toString(treasury.length), treasury);
+        bytes32 hashed = keccak256(data);
+        address signer = ecrecover(hashed, v, r, s);
+        require(signer == _validator.addr, "Invalid proof provided for registration");
+
+        // deploy liquid stake contract
+       _deployLiquidContract(_validator);
+    }
+
 
     /**
     * @dev Internal function pausing the specified validator. Paused validators

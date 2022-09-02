@@ -603,6 +603,10 @@ var (
 		Name:  "nodekeyhex",
 		Usage: "P2P node key as hex (for testing)",
 	}
+	WriteAddrFlag = cli.BoolFlag{
+		Name:  "writeaddress",
+		Usage: "writes out the node's public key on stdout",
+	}
 	NATFlag = cli.StringFlag{
 		Name:  "nat",
 		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",

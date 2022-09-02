@@ -885,6 +885,11 @@ const UpgradeTestAbi = `[
             "internalType" : "string",
             "name" : "_enode",
             "type" : "string"
+         },
+         {
+            "internalType" : "bytes",
+            "name" : "_proof",
+            "type" : "bytes"
          }
       ],
       "name" : "registerValidator",

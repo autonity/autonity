@@ -13,8 +13,10 @@ LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
 SOLC_VERSION = 0.8.11
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
+ABIGEN_BINARY = $(BINDIR)/abigen
 
-AUTONITY_CONTRACT_BASE_DIR = ./autonity/solidity/
+AUTONITY_CONTRACT_BASE_DIR = ./autonity/solidity
+AUTONITY_CONSENSUS_TEST_DIR = ./consensus/test
 AUTONITY_CONTRACT_DIR = $(AUTONITY_CONTRACT_BASE_DIR)/contracts
 AUTONITY_CONTRACT_TEST_DIR = $(AUTONITY_CONTRACT_BASE_DIR)/test
 AUTONITY_CONTRACT = Autonity.sol
@@ -24,6 +26,7 @@ GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
 GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 GENERATED_UPGRADE_ABI = $(GENERATED_CONTRACT_DIR)/abi_upgrade.go
 GENERATED_UPGRADE_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode_upgrade.go
+GENERATED_GO_BINDINGS = $(AUTONITY_CONSENSUS_TEST_DIR)/ac_go_binding_gen_test.go
 
 # DOCKER_SUDO is set to either the empty string or "sudo" and is used to
 # control whether docker is executed with sudo or not. If the user is root or
@@ -46,11 +49,15 @@ build-docker-image:
 	@$(DOCKER_SUDO) docker build -t autonity .
 	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
 
-autonity: embed-autonity-contract
+autonity:
 	mkdir -p $(BINDIR)
 	go build -o $(BINDIR)/autonity ./cmd/autonity
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
+
+generate-go-bindings:
+	@echo Generating $(GENERATED_GO_BINDINGS)
+	$(ABIGEN_BINARY)  --pkg test --solc $(SOLC_BINARY) --sol $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) --out $(GENERATED_GO_BINDINGS)
 
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
 # glibc for solc.
@@ -103,6 +110,7 @@ $(SOLC_BINARY):
 
 all: embed-autonity-contract
 	go run build/ci.go install
+	make generate-go-bindings
 
 android:
 	go run build/ci.go aar --local

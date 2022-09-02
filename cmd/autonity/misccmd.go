@@ -17,7 +17,10 @@
 package main
 
 import (
+	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
 	ethproto "github.com/autonity/autonity/eth/protocols/eth"
 	"os"
 	"runtime"
@@ -47,6 +50,41 @@ The output of this command is supposed to be machine-readable.
 		Name:      "license",
 		Usage:     "Display license information",
 		ArgsUsage: " ",
+		Category:  "MISCELLANEOUS COMMANDS",
+	}
+
+	enodeProofCommand = cli.Command{
+		Action: utils.MigrateFlags(genEnodeProof),
+		Name:   "genEnodeProof",
+		Usage:  "Generate enode proof",
+		Flags: []cli.Flag{
+			utils.NodeKeyFileFlag,
+			utils.NodeKeyHexFlag,
+		},
+		Description: `
+    	autonity genEnodeProof
+		Generate a proof given a private key and the treasury address
+		Proof is printed on stdout in hex string format. This must be copied
+		as it is and passed while RegisterValidator.
+		There are two ways to pass nodekey
+			1. --nodekey <node key file name>
+			2. --nodekeyhex <node key in hex>`,
+		ArgsUsage: "<treasury>",
+		Category:  "MISCELLANEOUS COMMANDS",
+	}
+
+	genKeyCommand = cli.Command{
+		Action: utils.MigrateFlags(genNodeKey),
+		Name:   "genNodeKey",
+		Usage:  "Generate node key",
+		Flags: []cli.Flag{
+			utils.WriteAddrFlag,
+		},
+		Description: `
+    	autonity genNodeKey <outkeyfile>
+		Generate node key and write key to the given file.
+		write out the node address on stdout using flag --writeaddress`,
+		ArgsUsage: "<outkeyfile>",
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
 )
@@ -112,5 +150,68 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with autonity. If not, see <http://www.gnu.org/licenses/>.`)
+	return nil
+}
+
+// genEnodeProof generates an enode proof
+func genEnodeProof(ctx *cli.Context) error {
+	args := ctx.Args()
+	if len(args) != 1 {
+		utils.Fatalf(`Usage: autonity genEnodeProof [options] <treasuryAddress>`)
+	}
+
+	// Load private key
+	var privateKey *ecdsa.PrivateKey
+	var err error
+	if fileName := ctx.GlobalString(utils.NodeKeyFileFlag.Name); fileName != "" {
+		// load key from the file
+		privateKey, err = crypto.LoadECDSA(fileName)
+		if err != nil {
+			utils.Fatalf("Failed to load the private key: %v", err)
+		}
+	} else if privateKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeyHex != "" {
+		privateKey, err = crypto.HexToECDSA(privateKeyHex)
+		if err != nil {
+			utils.Fatalf("Failed to parse the private key: %v", err)
+		}
+	} else {
+		utils.Fatalf(`Usage: autonity genEnodeProof [options] <treasuryAddress>`)
+	}
+	treasury := args[0]
+	data, err := hexutil.Decode(treasury)
+	if err != nil {
+		utils.Fatalf("Failed to decode: %v", err)
+	}
+	// Add ethereum signed message prefix to maintain compatibility with web3.eth.sign
+	// refer here : https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#sign
+	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(data))
+	hash := crypto.Keccak256Hash([]byte(prefix), data)
+	//sign the data hash
+	signature, err := crypto.Sign(hash.Bytes(), privateKey)
+	if err != nil {
+		utils.Fatalf("Failed to sign: %v", err)
+	}
+	hexStr := hexutil.Encode(signature)
+	fmt.Println("Signature hex:", hexStr)
+	return nil
+}
+
+// genNodeKey generates a node key
+func genNodeKey(ctx *cli.Context) error {
+	outKeyFile := ctx.Args().First()
+	if len(outKeyFile) == 0 {
+		utils.Fatalf("Out key file must be provided!! Usage: autonity genNodeKey <outkeyfile> [options]")
+	}
+	nodeKey, err := crypto.GenerateKey()
+	if err != nil {
+		utils.Fatalf("could not generate key: %v", err)
+	}
+	if err = crypto.SaveECDSA(outKeyFile, nodeKey); err != nil {
+		utils.Fatalf("could not save key %v", err)
+	}
+	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
+	if writeAddr {
+		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
+	}
 	return nil
 }

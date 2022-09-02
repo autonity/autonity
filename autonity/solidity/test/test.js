@@ -431,9 +431,11 @@ contract('Autonity', function (accounts) {
     it('Add validator with already registred address', async function () {
       let newValidator = accounts[0];
       let enode = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303";
+      let privateKey = 'a4b489752489e0f47e410b8e8cbb1ac1b56770d202ffd45b346ca8355c602c91';
+      let proof = web3.eth.accounts.sign(newValidator, privateKey);
 
       try {
-        let r = await autonity.registerValidator(enode, {from: newValidator});
+        let r = await autonity.registerValidator(enode, proof.signature, {from: newValidator});
         assert.fail('Expected throw not received', r);
       } catch (e) {
         let vals = await autonity.getValidators();
@@ -444,9 +446,11 @@ contract('Autonity', function (accounts) {
     it('Add a validator with invalid enode address', async function () {
       let newValidator = accounts[8];
       let enode = "enode://invalidEnodeAddress@172.25.0.11:30303";
+      let privateKey = 'e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b';
+      let proof = web3.eth.accounts.sign(newValidator, privateKey);
 
       try {
-        let r = await autonity.registerValidator(enode, {from: newValidator});
+        let r = await autonity.registerValidator(enode, proof.signature, {from: newValidator});
         assert.fail('Expected throw not received', r);
       } catch (e) {
         let vals = await autonity.getValidators();
@@ -456,10 +460,12 @@ contract('Autonity', function (accounts) {
 
     it('Add a validator with valid meta data', async function () {
       let issuerAccount = accounts[8];
-      let newValAddr = '0x4bE12DC2F62172CD16bD4C7e7EfA02EBAa045605';
-      let enode = "enode://22a8232c3abc76a16ae9d6c3b164f98775fe226f0917b0ca871128a74a8e9630b458460865bab457221f1d448dd9791d24c4e5d88786180ac185df813a68d4de@3.209.45.79:30303";
+      let newValAddr ='0xDE03B7806f885Ae79d2aa56568b77caDB0de073E';
+      let enode = "enode://a7ecd2c1b8c0c7d7ab9cc12e620605a762865d381eb1bc5417dcf07599571f84ce5725f404f66d3e254d590ae04e4e8f18fe9e23cd29087d095a0c37d0443252@3.209.45.79:30303";
+      let privateKey = 'e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b';
+      let proof = web3.eth.accounts.sign(issuerAccount, privateKey);
 
-      await autonity.registerValidator(enode, {from: issuerAccount});
+      await autonity.registerValidator(enode, proof.signature, {from: issuerAccount});
       let vals = await autonity.getValidators();
       assert.equal(vals.length, validators.length + 1, "validator pool is not expected");
 
@@ -474,10 +480,12 @@ contract('Autonity', function (accounts) {
     });
 
     it('Pause a validator', async function () {
-      let validator = '0x4bE12DC2F62172CD16bD4C7e7EfA02EBAa045605';
+      let validator ='0xDE03B7806f885Ae79d2aa56568b77caDB0de073E';
       let issuerAccount = accounts[8];
-      let enode = "enode://22a8232c3abc76a16ae9d6c3b164f98775fe226f0917b0ca871128a74a8e9630b458460865bab457221f1d448dd9791d24c4e5d88786180ac185df813a68d4de@3.209.45.79:30303";
+      let enode = "enode://a7ecd2c1b8c0c7d7ab9cc12e620605a762865d381eb1bc5417dcf07599571f84ce5725f404f66d3e254d590ae04e4e8f18fe9e23cd29087d095a0c37d0443252@3.209.45.79:30303";
+      let privateKey = 'e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b';
 
+      let proof = web3.eth.accounts.sign(issuerAccount, privateKey);
       /* try disabling it with msg.sender not the treasury account, it should fails */
       try {
         let r = await autonity.pauseValidator(validator, {from: issuerAccount});
@@ -490,7 +498,7 @@ contract('Autonity', function (accounts) {
         assert.fail('Expected throw not received', r);
       } catch (e) {}
 
-      await autonity.registerValidator(enode, {from: issuerAccount});
+      await autonity.registerValidator(enode, proof.signature, {from: issuerAccount});
       await autonity.pauseValidator(validator, {from: issuerAccount});
       let v = await autonity.getValidator(validator, {from: issuerAccount});
       assert(v.state == 1, "validator state is not expected");
@@ -503,18 +511,20 @@ contract('Autonity', function (accounts) {
     });
 
     it("Re-active a paused validator", async function () {
-      let validator = '0x4bE12DC2F62172CD16bD4C7e7EfA02EBAa045605';
       let issuerAccount = accounts[8];
-      let enode = "enode://22a8232c3abc76a16ae9d6c3b164f98775fe226f0917b0ca871128a74a8e9630b458460865bab457221f1d448dd9791d24c4e5d88786180ac185df813a68d4de@3.209.45.79:30303";
 
+      let validator ='0xDE03B7806f885Ae79d2aa56568b77caDB0de073E';
+      let enode = "enode://a7ecd2c1b8c0c7d7ab9cc12e620605a762865d381eb1bc5417dcf07599571f84ce5725f404f66d3e254d590ae04e4e8f18fe9e23cd29087d095a0c37d0443252@3.209.45.79:30303";
+      let privateKey = 'e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b';
       /* activating a non-existing validator should fail */
       try {
         let r = await autonity.activateValidator(validator, {from: issuerAccount});
         assert.fail('Expected throw not received', r);
       } catch (e) {}
 
+      let proof = web3.eth.accounts.sign(issuerAccount, privateKey);
       /* activating an already active validator should fail */
-      await autonity.registerValidator(enode, {from: issuerAccount});
+      await autonity.registerValidator(enode, proof.signature, {from: issuerAccount});
       try {
         let r = await autonity.activateValidator(validator, {from: issuerAccount});
         assert.fail('Expected throw not received', r);

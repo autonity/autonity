@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/acdefault/generated"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -68,6 +69,7 @@ func TestACPublicWritters(t *testing.T) {
 					5: {},
 				},
 					enodeUrl,
+					newValidator,
 				),
 			},
 			finalAssert: func(t *testing.T, validators map[string]*testNode) {
@@ -365,7 +367,7 @@ func mintStakeHook(upgradeBlocks map[uint64]struct{}, operator *ecdsa.PrivateKey
 	}
 }
 
-func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string) hook {
+func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		blockNum := block.Number().Uint64()
 		if _, ok := upgradeBlocks[blockNum]; !ok {
@@ -373,7 +375,19 @@ func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string) hook
 		}
 		interaction := interact(validator.rpcPort)
 		defer interaction.close()
-		if _, err := interaction.tx(validator.privateKey).registerValidator(enode); err != nil {
+		//this decode is needed to format the hex address in consistent case
+		hexTreasury, err := hexutil.Decode(validator.address.Hex())
+		if err != nil {
+			return err
+		}
+		prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(hexTreasury))
+		hash := crypto.Keccak256Hash([]byte(prefix), hexTreasury)
+		proof, err := crypto.Sign(hash.Bytes(), nodekey)
+		if err != nil {
+			return err
+		}
+		fmt.Println("proof ", hexutil.Encode(proof))
+		if _, err := interaction.tx(validator.privateKey).registerValidator(enode, proof); err != nil {
 			return err
 		}
 		return nil
