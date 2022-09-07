@@ -49,7 +49,7 @@ func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	}
-	for i := 0; i < 4000; i++ {
+	for i := 0; i < 1000; i++ {
 		c.Br().Broadcast(ctx, msg)
 	}
 	c.SetSentPrevote(true)
@@ -115,7 +115,7 @@ func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 		c.Logger().Error("core.sendPrecommit error while signing committed seal", "err", err)
 	}
 
-	for i := 0; i < 4000; i++ {
+	for i := 0; i < 1000; i++ {
 		c.Br().Broadcast(ctx, msg)
 	}
 	c.SetSentPrecommit(true)
@@ -151,7 +151,7 @@ func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 
-	for i := 0; i < 4000; i++ {
+	for i := 0; i < 1000; i++ {
 		c.Br().Broadcast(ctx, &messageutils.Message{
 			Code:          messageutils.MsgProposal,
 			Msg:           proposal,

@@ -204,14 +204,14 @@ func TestTendermintQuorum(t *testing.T) {
 		}
 	}
 	// check if network on hold
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.Error(t, err, "Network is not supposed to be mining blocks at this point")
 	// start 4th node
 	err = network[3].Start()
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -227,7 +227,7 @@ func TestTendermintQuorum2(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err)
 	defer network.Shutdown()
 	// stop 3 nodes and verify if transaction processing is halted
@@ -240,7 +240,7 @@ func TestTendermintQuorum2(t *testing.T) {
 		}
 	}
 	// check if network on hold
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.Error(t, err, "Network is not supposed to be mining blocks at this point")
 
 	// start the nodes back again
@@ -253,7 +253,7 @@ func TestTendermintQuorum2(t *testing.T) {
 		}
 	}
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -273,7 +273,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	i := 0
 	for i < 2 {
@@ -284,7 +284,7 @@ func TestTendermintQuorum4(t *testing.T) {
 		i++
 	}
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	// shutting down 3rd and 4th node
 	for i < 4 {
@@ -296,7 +296,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	}
 
 	// network should be on hold
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.Error(t, err, "Network is not supposed to be mining blocks at this point")
 
 	// start back 1st and 2nd node
@@ -312,7 +312,7 @@ func TestTendermintQuorum4(t *testing.T) {
 
 	// we are restoring liveliness we would wait for
 	// network should be back up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	// start back 3rd and 4th node
@@ -327,7 +327,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be back up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	// bring down 5th and 6th node
@@ -340,7 +340,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	}
 
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	i = 4
 	// start back 5th and 6th node
@@ -355,7 +355,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -373,7 +373,7 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 	// network should be up and continue to mine blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	type nodeStatus struct {
@@ -441,6 +441,6 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	}
 
 	// Verify network is not on hold anymore and producing blocks
-	err = network.WaitForNetworkToStartMining()
+	err = network.WaitToMineNBlocks(3, 60)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }

@@ -499,6 +499,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) Uncles() []*Header                 { return b.uncles }
 func (b *Block) Transactions() Transactions        { return b.transactions }
 func (b *Block) SetTransactions(tr []*Transaction) { b.transactions = tr }
+func (b *Block) SetHash(h atomic.Value)            { b.hash = h }
 
 func (b *Block) Transaction(hash common.Hash) *Transaction {
 	for _, transaction := range b.transactions {
@@ -534,7 +535,8 @@ func (b *Block) BaseFee() *big.Int {
 	return new(big.Int).Set(b.header.BaseFee)
 }
 
-func (b *Block) Header() *Header { return CopyHeader(b.header) }
+func (b *Block) Header() *Header               { return CopyHeader(b.header) }
+func (b *Block) SetHeaderNumber(hNum *big.Int) { b.header.Number = hNum }
 
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }

@@ -25,7 +25,7 @@ func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool) {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
 		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
-			c.logger.Error("sendPrecommit Proposal is empty! It should not be empty!")
+			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
 		}
 		prevote.ProposedBlockHash = c.curRoundMessages.GetProposalHash()

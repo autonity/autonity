@@ -2,6 +2,7 @@ package malicious
 
 import (
 	"context"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -11,9 +12,10 @@ import (
 	e2etest "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/test"
-	"github.com/brianvoe/gofakeit/v6"
+	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 	"math/big"
+	"sync/atomic"
 	"testing"
 )
 
@@ -198,18 +200,12 @@ func (c *partialProposalSender) SendProposal(ctx context.Context, p *types.Block
 	for i := 0; i < 5; i++ {
 
 		var fakeTransaction types.Transaction
-		err := gofakeit.Struct(&fakeTransaction)
-		if err != nil {
-			c.Logger().Error("unable to fake block")
-			return
-		}
+		f := fuzz.New()
+		f.Fuzz(&fakeTransaction)
 		var tx types.LegacyTx
-		err = gofakeit.Struct(&tx)
-		if err != nil {
-			c.Logger().Error("unable to fake transaction")
-			return
-		}
+		f.Fuzz(&tx)
 		fakeTransaction.SetInner(&tx)
+
 		fakeTransactions = append(fakeTransactions, &fakeTransaction)
 	}
 	p.SetTransactions(fakeTransactions)
@@ -244,4 +240,76 @@ func TestPartialProposal(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+type invalidBlockProposer struct {
+	*core.Core
+	interfaces.Proposer
+}
+
+// SendProposal overrides core.sendProposal and send multiple proposals
+func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block) {
+
+	fakeTransactions := make([]*types.Transaction, 0)
+	f := fuzz.New()
+	for i := 0; i < 5; i++ {
+		var fakeTransaction types.Transaction
+		f.Fuzz(&fakeTransaction)
+		var tx types.LegacyTx
+		f.Fuzz(&tx)
+		fakeTransaction.SetInner(&tx)
+
+		fakeTransactions = append(fakeTransactions, &fakeTransaction)
+	}
+	p.SetTransactions(fakeTransactions)
+	var hash common.Hash
+	f.Fuzz(&hash)
+	var atmHash atomic.Value
+	atmHash.Store(hash)
+	// nil hash
+	p.SetHash(atmHash)
+
+	// nil header
+	var num big.Int
+	f.Fuzz(&num)
+	p.SetHeaderNumber(&num)
+	proposalBlock := messageutils.NewProposal(c.Round(), c.Height(), c.ValidRound(), p)
+	proposal, _ := messageutils.Encode(proposalBlock)
+
+	c.SetSentProposal(true)
+	c.Backend().SetProposedBlockHash(p.Hash())
+	var nilAddr common.Address
+	fuzz.New().Fuzz(&nilAddr)
+	ranBytes, _ := e2etest.GenerateRandomBytes(10000000)
+
+	// junk Address
+	junkAddr := common.BytesToAddress(ranBytes)
+	//send same proposal twice
+	c.Br().Broadcast(ctx, &messageutils.Message{
+		Code:          messageutils.MsgProposal,
+		Msg:           proposal,
+		Address:       junkAddr,
+		CommittedSeal: []byte{},
+	})
+}
+
+func TestInvalidBlockProposal(t *testing.T) {
+	//for i := 0; i < 20; i++ {
+	users, err := test.Validators(4, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	require.NoError(t, err)
+
+	//set Malicious proposalSender
+	users[0].CustHandler = &node.CustomHandler{Proposer: &invalidBlockProposer{}}
+	// creates a network of 6 users and starts all the nodes in it
+	network, err := test.NewNetworkFromValidators(users, true)
+	require.NoError(t, err)
+
+	err = network.WaitForSyncComplete()
+	require.NoError(t, err)
+
+	// network should be up and continue to mine blocks
+	err = network.WaitToMineNBlocks(5, 60)
+	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+	network.Shutdown()
+	//}
 }

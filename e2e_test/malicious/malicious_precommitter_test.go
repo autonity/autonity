@@ -52,15 +52,8 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 		CommittedSeal: []byte{},
 	}
 
-	// Create committed seal
-	//	seal := helpers.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
-	//	msg.CommittedSeal, err = c.Backend().Sign(seal)
 	// nil committed seal
 	msg.CommittedSeal = nil
-	if err != nil {
-		c.Logger().Error("core.sendPrecommit error while signing committed seal", "err", err)
-	}
-
 	c.SetSentPrecommit(true)
 	c.Br().Broadcast(ctx, msg)
 }

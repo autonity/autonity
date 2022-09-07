@@ -2,11 +2,13 @@ package test
 
 import (
 	"crypto/rand"
+	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"math/big"
+	"reflect"
 )
 
 var autonityContractAddr = crypto.CreateAddress(common.Address{}, 0)
@@ -38,4 +40,40 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 	}
 
 	return b, nil
+}
+
+func GetAllFields(v interface{}) (fieldArr []string) {
+	val := reflect.ValueOf(v)
+	if val.Kind() != reflect.Ptr {
+		panic("Need pointer!")
+	}
+	e := reflect.ValueOf(v).Elem()
+	for i := 0; i < e.NumField(); i++ {
+		fieldArr = append(fieldArr, e.Type().Field(i).Name)
+	}
+	return fieldArr
+}
+
+func GetAllFieldCombinations(v interface{}) (allComb [][]string) {
+	fieldSet := GetAllFields(v)
+	length := len(fieldSet)
+	// total unique combinations are 2^length-1(not including empty)
+	for i := 1; i < (1 << length); i++ {
+		var comb []string
+		for j := 0; j < length; j++ {
+			// test if ith bit is set in range of total combinations
+			// if yes, we can add to the combination
+			if (i>>j)&1 == 1 {
+				comb = append(comb, fieldSet[j])
+			}
+		}
+		allComb = append(allComb, comb)
+	}
+	return allComb
+}
+
+func PrintStructMap(oMap map[string]reflect.Value) {
+	for key, element := range oMap {
+		fmt.Println("Key:", key, "=>", "Element:", element)
+	}
 }
