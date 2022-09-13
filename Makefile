@@ -106,7 +106,7 @@ $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT
 	@gofmt -s -w $(GENERATED_UPGRADE_BYTECODE)
 
 	# update 4byte selector for clef
-	go run build/generate_4bytedb.go
+	build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
 
 $(SOLC_BINARY):

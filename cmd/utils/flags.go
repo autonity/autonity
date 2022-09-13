@@ -20,8 +20,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/eth/ethconfig"
-	"github.com/autonity/autonity/eth/tracers"
 	"io"
 	"io/ioutil"
 	"math"
@@ -34,6 +32,9 @@ import (
 	"text/tabwriter"
 	"text/template"
 	"time"
+
+	"github.com/autonity/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/eth/tracers"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/keystore"
@@ -459,7 +460,7 @@ var (
 	}
 	RPCGlobalTxFeeCapFlag = cli.Float64Flag{
 		Name:  "rpc.txfeecap",
-		Usage: "Sets a cap on transaction fee (in ether) that can be sent via the RPC APIs (0 = no cap)",
+		Usage: "Sets a cap on transaction fee (in auton) that can be sent via the RPC APIs (0 = no cap)",
 		Value: ethconfig.Defaults.RPCTxFeeCap,
 	}
 	// Logging and debug settings
