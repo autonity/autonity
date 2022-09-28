@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	// BFTDigest represents a hash of "Istanbul practical byzantine fault tolerance"
+	// BFTDigest represents a hash of "Tendermint byzantine fault tolerance"
 	// to identify whether the block is from BFT consensus engine
 	//TODO differentiate the digest between IBFT and Tendermint
 	BFTDigest = common.HexToHash("0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365")

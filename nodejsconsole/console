@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ -z $1 ]; then
+if [ -z "$1" ]; then
 	echo "Usage: ./console <ws://... or wss://... url>"
 	echo "E.G:   ./console ws://localhost:8546"
 	exit 1
@@ -29,8 +29,11 @@ cd "$scriptdir";
 if ! npm list web3 > /dev/null 2>&1; then
 	npm install web3 --package-lock=false
 else
-	npm update web3 --package-lock=false
+	CHECK_OUTDATED=$(npm outdated web3 --package-lock=false)
+	if [ -n "$CHECK_OUTDATED" ]; then
+		npm update web3 --package-lock=false
+	fi
 fi
 
 # Note the --experimental-repl-await doesn't take effect for the code executed with eval.
-node -i ./script.js $1
+node -i ./script.js "$1"

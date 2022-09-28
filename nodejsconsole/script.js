@@ -1,4 +1,11 @@
 let Web3 = require('web3');
+
+// check that both url and port are specified
+if (process.argv[2].split(":").length != 3){
+  console.error("The supplied url is malformed. It should be in the format <protocol>://<url>:<port>")
+  process.exit(1)
+}
+
 let url = process.argv[2]
 const provider = new Web3.providers.WebsocketProvider(url, {
   reconnect: {
@@ -590,6 +597,12 @@ const personal = function () {
       new web3.extend.Method({
         name: 'listWallets',
         call: 'personal_listWallets'
+      }),
+      new web3.extend.Method({
+        name: 'unlockAccount',
+        call: 'personal_unlockAccount',
+        params: 3,
+        inputFormatter: [web3.extend.formatters.inputAddressFormatter, null, null]
       }),
     ]
   })

@@ -20,12 +20,13 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/common"
@@ -234,15 +235,15 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
 	if eth.handler, err = newHandler(&handlerConfig{
-		Database:   chainDb,
-		Chain:      eth.blockchain,
-		TxPool:     eth.txPool,
-		Network:    config.NetworkId,
-		Sync:       config.SyncMode,
-		BloomCache: uint64(cacheLimit),
-		EventMux:   eth.eventMux,
-		Checkpoint: checkpoint,
-		Whitelist:  config.Whitelist,
+		Database:       chainDb,
+		Chain:          eth.blockchain,
+		TxPool:         eth.txPool,
+		Network:        config.NetworkId,
+		Sync:           config.SyncMode,
+		BloomCache:     uint64(cacheLimit),
+		EventMux:       eth.eventMux,
+		Checkpoint:     checkpoint,
+		RequiredBlocks: config.RequiredBlocks,
 	}); err != nil {
 		return nil, err
 	}
@@ -542,7 +543,9 @@ func (s *Ethereum) Start() error {
 	return nil
 }
 
-/* This routine is responsible to takes some various actions
+/*
+	This routine is responsible to takes some various actions
+
 depending if the local node is part of the consensus committee or not.
 */
 func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {

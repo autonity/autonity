@@ -18,14 +18,15 @@
 package ethconfig
 
 import (
-	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
-	"github.com/autonity/autonity/core/vm"
 	"math/big"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"time"
+
+	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/core/vm"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -72,7 +73,7 @@ var Defaults = Config{
 		DatasetsOnDisk:   2,
 		DatasetsLockMmap: false,
 	},
-	NetworkId:               1,
+	NetworkId:               65000000,
 	TxLookupLimit:           2350000,
 	LightPeers:              100,
 	UltraLightFraction:      75,
@@ -138,8 +139,8 @@ type Config struct {
 
 	TxLookupLimit uint64 `toml:",omitempty"` // The maximum number of blocks from head whose tx indices are reserved.
 
-	// Whitelist of required block number -> hash values to accept
-	Whitelist map[uint64]common.Hash `toml:"-"`
+	// map of required blocks (block numbers -> hash values) to accept
+	RequiredBlocks map[uint64]common.Hash `toml:"-"`
 
 	// Light client options
 	LightServ          int  `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests
@@ -210,7 +211,7 @@ type Config struct {
 	OverrideTerminalTotalDifficulty *big.Int `toml:",omitempty"`
 }
 
-/// CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
+// / CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
 	if chainConfig.Ethash != nil {
 		ethConfig := config.Ethash
