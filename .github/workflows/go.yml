@@ -129,7 +129,7 @@ jobs:
       - name: Run coverage
         run: |
           go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
-          go test ./e2e_test/... -p 1 -timeout 15m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
+          go test ./e2e_test/... -timeout 15m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
 
       - uses: codecov/codecov-action@v1
         with:

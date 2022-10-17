@@ -23,7 +23,7 @@ import (
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
 func TestSendingValue(t *testing.T) {
-	network, err := test.NewNetwork(2, "10e18,v,1,0.0.0.0:%s,%s", 6780)
+	network, err := test.NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -36,12 +36,12 @@ func TestSendingValue(t *testing.T) {
 // This test checks that when a transaction is processed the fees are divided
 // between validators and stakeholders.
 func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
-	vals, err := test.Validators(3, "10e18,v,10000,0.0.0.0:%s,%s", 6780)
+	vals, err := test.Validators(t, 3, "10e18,v,10000,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 
 	vals[2].Stake = 25000
 
-	network, err := test.NewNetworkFromValidators(vals, true)
+	network, err := test.NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -125,7 +125,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
-	network, err := test.NewNetwork(5, "10e18,v,1,0.0.0.0:%s,%s", 6780)
+	network, err := test.NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown()
 	n := network[0]
@@ -191,9 +191,9 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 //b.start the network with 1st 3 nodes only, the network should be on-hold since the online voting power is less than 2/3 of 7
 //c.after the on-holding for a while, start the 4th node, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum(t *testing.T) {
-	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
-	network, err := test.NewNetworkFromValidators(users, false)
+	network, err := test.NewNetworkFromValidators(t, users, false)
 	require.NoError(t, err)
 	defer network.Shutdown()
 	for i, n := range network {
@@ -220,10 +220,10 @@ func TestTendermintQuorum(t *testing.T) {
 //c.stop 3 nodes one by one, then the network should on-hold when the online voting power is less than 2/3 of 6.
 //d.after the on-holding for a while, recover the stopped nodes, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum2(t *testing.T) {
-	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
@@ -266,10 +266,10 @@ func TestTendermintQuorum2(t *testing.T) {
 //g. Then shut down node E and F, the network should still keep liveness, TXs are mined.
 //h. Recover E and F, they should get synchronized finally.
 func TestTendermintQuorum4(t *testing.T) {
-	users, err := test.Validators(7, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 7, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 	// creates a network of 7 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 	// network should be up and continue to mine blocks
@@ -366,10 +366,10 @@ func TestTendermintQuorum4(t *testing.T) {
 // restart all nodes and ensures that network resumes mining new blocks
 func TestStartStopAllNodesInParallel(t *testing.T) {
 	const nodeCount = 12
-	users, err := test.Validators(nodeCount, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, nodeCount, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 	// network should be up and continue to mine blocks

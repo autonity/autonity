@@ -53,13 +53,13 @@ func (c *duplicateProposalSender) SendProposal(ctx context.Context, p *types.Blo
 
 // TestDuplicateProposal broadcasts two proposals with same round and same height but different validround
 func TestDuplicateProposal(t *testing.T) {
-	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
 	users[0].CustHandler = &node.CustomHandler{Proposer: &duplicateProposalSender{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -148,7 +148,7 @@ func (c *proposalApprover) HandleProposal(ctx context.Context, msg *messageutils
 
 func TestNonProposerWithFaultyApprover(t *testing.T) {
 	t.Skip("a malicious proposer will be kicked out from network now, this test is no more valid")
-	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -156,7 +156,7 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 	users[1].CustHandler = &node.CustomHandler{Broadcaster: &malProposalSender{}, Proposer: &proposalApprover{}}
 	users[2].CustHandler = &node.CustomHandler{Broadcaster: &malProposalSender{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -169,14 +169,14 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 }
 
 func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
-	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
 	users[0].CustHandler = &node.CustomHandler{Proposer: &duplicateProposalSender{}}
 	users[1].CustHandler = &node.CustomHandler{Proposer: &proposalApprover{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
@@ -224,13 +224,13 @@ func (c *partialProposalSender) SendProposal(ctx context.Context, p *types.Block
 	})
 }
 func TestPartialProposal(t *testing.T) {
-	users, err := test.Validators(6, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
 	users[0].CustHandler = &node.CustomHandler{Proposer: &partialProposalSender{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 

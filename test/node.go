@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/autonity/autonity/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"strconv"
+	"testing"
 	"time"
 
 	ethereum "github.com/autonity/autonity"
@@ -73,7 +75,7 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
+func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 
 	k := u.Key.(*ecdsa.PrivateKey)
 	address := crypto.PubkeyToAddress(k.PublicKey)
@@ -91,9 +93,8 @@ func NewNode(u *gengen.Validator, genesis *core.Genesis) (*Node, error) {
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
 	// Set rpc ports
-	userCount := len(genesis.Config.AutonityContractConfig.Validators)
-	c.HTTPPort = u.NodePort + userCount
-	c.WSPort = u.NodePort + userCount*2
+	c.HTTPPort = freeport.GetOne(t)
+	c.WSPort = freeport.GetOne(t)
 
 	datadir, err := ioutil.TempDir("", "autonity_datadir")
 	if err != nil {
@@ -446,14 +447,14 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int) error {
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromValidators(users []*gengen.Validator, start bool) (Network, error) {
+func NewNetworkFromValidators(t *testing.T, users []*gengen.Validator, start bool) (Network, error) {
 	g, err := Genesis(users)
 	if err != nil {
 		return nil, err
 	}
 	network := make([]*Node, len(users))
 	for i, u := range users {
-		n, err := NewNode(u, g)
+		n, err := NewNode(t, u, g)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build node for network: %v", err)
 		}
@@ -478,12 +479,12 @@ func NewNetworkFromValidators(users []*gengen.Validator, start bool) (Network, e
 
 // NewNetwork generates a network of nodes that are running, but not mining.
 // For an explanation of the parameters see 'Validators'.
-func NewNetwork(count int, formatString string, startingPort int) (Network, error) {
-	users, err := Validators(count, formatString, startingPort)
+func NewNetwork(t *testing.T, count int, formatString string) (Network, error) {
+	users, err := Validators(t, count, formatString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build users: %v", err)
 	}
-	return NewNetworkFromValidators(users, true)
+	return NewNetworkFromValidators(t, users, true)
 }
 
 // AwaitTransactions ensures that the entire network has processed the provided transactions.
@@ -548,11 +549,10 @@ func ValueTransferTransaction(client *ethclient.Client,
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
 // E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s'.
-func Validators(count int, formatString string, startingPort int) ([]*gengen.Validator, error) {
+func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validator, error) {
 	var validators []*gengen.Validator
-	for i := startingPort; i < startingPort+count; i++ {
-
-		portString := strconv.Itoa(i)
+	for i := 0; i < count; i++ {
+		portString := strconv.Itoa(freeport.GetOne(t))
 		u, err := gengen.ParseValidator(fmt.Sprintf(formatString, portString, "key"+portString))
 		if err != nil {
 			return nil, err
