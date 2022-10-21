@@ -2,6 +2,7 @@
 const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./test-utils');
+const liquidContract = artifacts.require("Liquid")
 //todo: move gas analysis to separate js file
 
 contract('Autonity', function (accounts) {
@@ -491,7 +492,7 @@ contract('Autonity', function (accounts) {
       autonity = await utils.deployContract(validators, config, {from: deployer});
     });
 
-    it('Add validator with already registred address', async function () {
+    it('Add validator with already registered address', async function () {
       let newValidator = accounts[0];
       let enode = "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303";
       let privateKey = 'a4b489752489e0f47e410b8e8cbb1ac1b56770d202ffd45b346ca8355c602c91';
@@ -534,6 +535,10 @@ contract('Autonity', function (accounts) {
 
       let v = await autonity.getValidator(newValAddr, {from: issuerAccount});
 
+      const liquidABI = liquidContract["abi"]
+      const liquid = new web3.eth.Contract(liquidABI, v.liquidContract);
+      assert.equal(await liquid.methods.name().call(),"LNTN-"+(vals.length-1))
+      assert.equal(await liquid.methods.symbol().call(),"LNTN-"+(vals.length-1))
       assert.equal(v.treasury.toString(), issuerAccount.toString(), "treasury addr is not expected");
       assert.equal(v.addr.toString(), newValAddr.toString(), "validator addr is not expected");
       assert.equal(v.enode.toString(), enode.toString(), "validator enode is not expected");

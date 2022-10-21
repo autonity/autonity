@@ -24,7 +24,7 @@ contract("Liquid", accounts => {
     let FEE_FACTOR_UNIT_RECIP = toBN("10000");
     let commission =
       FEE_FACTOR_UNIT_RECIP.mul(toBN(commissionPercent)).div(toBN("100"));
-    let lnew = await ValidatorLNEW.new(validator, treasury, commission);
+    let lnew = await ValidatorLNEW.new(validator, treasury, commission, "27");
     await lnew.mint(validator, toWei("10000", "ether"));
     return lnew;
   };
@@ -54,6 +54,12 @@ contract("Liquid", accounts => {
     assert.equal(await lnew.unclaimedRewards(address), "0");
     assert.equal(await web3.eth.getBalance(address), expectBalance);
   };
+
+  it("check name and symbol", async () => {
+    const lnew = await deployLNEW();
+    assert.equal(await lnew.name(),"LNTN-27");
+    assert.equal(await lnew.symbol(),"LNTN-27");
+  });
 
   it("reward single validator", async () => {
     let lnew = await deployLNEW();
@@ -280,4 +286,6 @@ contract("Liquid", accounts => {
     await truffleAssert.fails(lnew.transferFrom.sendTransaction(
       delegatorA, delegatorB, toWei("4001", "ether"), {from: delegatorC}));
   });
+
+
 });

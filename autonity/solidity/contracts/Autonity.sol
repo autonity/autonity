@@ -735,9 +735,11 @@ contract Autonity is IERC20, Upgradeable {
 
     function _deployLiquidContract(Validator memory _validator) internal {
         if (address(_validator.liquidContract) == address(0)) {
+            string memory stringLength = Helpers.toString(validatorList.length);
             _validator.liquidContract = new Liquid(_validator.addr,
                 _validator.treasury,
-                _validator.commissionRate);
+                _validator.commissionRate,
+                stringLength);
         }
         validatorList.push(_validator.addr);
         validators[_validator.addr] = _validator;

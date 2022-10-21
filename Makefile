@@ -11,7 +11,7 @@ LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
-SOLC_VERSION = 0.8.11
+SOLC_VERSION = 0.8.12
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 GOBINDATA_VERSION = 3.23.0
 GOBINDATA_BINARY = $(BINDIR)/go-bindata

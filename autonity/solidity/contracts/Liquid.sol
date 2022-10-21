@@ -60,6 +60,9 @@ contract Liquid is IERC20
     mapping(address => uint256) private unrealisedFeeFactors;
     uint256 private lastUnrealisedFeeFactor;
 
+    string private _name;
+    string private _symbol;
+    
     address validator;
     address payable treasury;
     uint256 commissionRate;
@@ -67,7 +70,8 @@ contract Liquid is IERC20
     constructor(
         address _validator,
         address payable _treasury,
-        uint256 _commissionRate)
+        uint256 _commissionRate,
+        string memory _index)
     {
         // commissionRate <= 1.0
         require(_commissionRate <= COMMISSION_RATE_PRECISION);
@@ -75,6 +79,8 @@ contract Liquid is IERC20
         validator = _validator;
         treasury = _treasury;
         commissionRate = _commissionRate;
+        _name = string.concat("LNTN-", _index);
+        _symbol = string.concat("LNTN-", _index);
         autonityContract = msg.sender;
     }
 
@@ -240,7 +246,20 @@ contract Liquid is IERC20
     function setCommissionRate(uint256 _rate) public onlyAutonity {
         commissionRate = _rate;
     }
-
+    
+    /**
+    * @notice returns the name of this Liquid Newton contract
+    */
+    function name() external view returns (string memory){
+        return _name;
+    }
+    
+    /**
+    * @notice returns the symbol of this Liquid Newton contract
+    */
+    function symbol() external view returns (string memory){
+        return _symbol;
+    }
 
     /**
     ============================================================
