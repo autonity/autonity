@@ -17,8 +17,10 @@
 package graphql
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/autonity/autonity/internal/ethapi"
 	"github.com/autonity/autonity/node"
@@ -40,7 +42,10 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := h.Schema.Exec(r.Context(), params.Query, params.OperationName, params.Variables)
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	response := h.Schema.Exec(ctx, params.Query, params.OperationName, params.Variables)
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
