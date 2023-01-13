@@ -2,6 +2,7 @@ package types
 
 import (
 	"github.com/autonity/autonity/common"
+	"math/big"
 )
 
 func (h *Header) IsGenesis() bool {
@@ -23,15 +24,15 @@ func (h *Header) CommitteeMember(address common.Address) *CommitteeMember {
 
 // TotalVotingPower returns the total voting power contained in the committee
 // for the block associated with this header.
-func (h *Header) TotalVotingPower() uint64 {
+func (h *Header) TotalVotingPower() *big.Int {
 	return h.Committee.TotalVotingPower()
 }
 
 // TotalVotingPower returns the total voting power contained in the committee.
-func (c Committee) TotalVotingPower() uint64 {
-	var total uint64
+func (c Committee) TotalVotingPower() *big.Int {
+	total := new(big.Int)
 	for _, m := range c {
-		total += m.VotingPower.Uint64()
+		total.Add(total, m.VotingPower)
 	}
 	return total
 }

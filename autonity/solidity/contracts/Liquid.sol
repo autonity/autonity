@@ -4,6 +4,7 @@
 
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
+import {DECIMALS} from "./Autonity.sol";
 
 // References:
 //
@@ -163,6 +164,14 @@ contract Liquid is IERC20
     function totalSupply() public view override returns (uint256)
     {
         return supply;
+    }
+
+    /**
+    * @return the number of decimals the LNTN token uses.
+    * @dev ERC-20 Optional.
+    */
+    function decimals() public view returns (uint8) {
+        return DECIMALS;
     }
 
     /**

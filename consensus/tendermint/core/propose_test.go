@@ -213,7 +213,7 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		testCommittee := types.Committee{
@@ -246,7 +246,7 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -305,7 +305,7 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		testCommittee := types.Committee{
@@ -368,7 +368,7 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		testCommittee := types.Committee{
@@ -465,7 +465,7 @@ func TestHandleProposal(t *testing.T) {
 			Address:       proposer.Address,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 		var decProposal messageutils.Proposal
 		err = msg.Decode(&decProposal)
@@ -504,7 +504,7 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		testCommittee := types.Committee{
@@ -537,7 +537,7 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()
@@ -600,7 +600,7 @@ func TestHandleProposal(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		testCommittee := types.Committee{
@@ -633,7 +633,7 @@ func TestHandleProposal(t *testing.T) {
 			Msg:           encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		payloadNoSig, err := preVoteMsg.PayloadNoSig()

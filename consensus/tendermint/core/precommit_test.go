@@ -550,7 +550,7 @@ func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, ke
 		Address:       member.Address,
 		CommittedSeal: sig,
 		Signature:     []byte{0x1},
-		Power:         member.VotingPower.Uint64(),
+		Power:         member.VotingPower,
 	}
 	return expectedMsg, err
 }

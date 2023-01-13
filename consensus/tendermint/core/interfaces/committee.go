@@ -3,6 +3,7 @@ package interfaces
 import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
+	"math/big"
 )
 
 type Committee interface {
@@ -17,7 +18,7 @@ type Committee interface {
 	// Update with lastest block
 	SetLastBlock(block *types.Block)
 	// Get the optimal quorum size
-	Quorum() uint64
+	Quorum() *big.Int
 	// Get the maximum number of faulty nodes
-	F() uint64
+	F() *big.Int
 }

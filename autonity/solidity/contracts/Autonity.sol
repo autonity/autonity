@@ -8,6 +8,8 @@ import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
 
+uint8 constant DECIMALS = 18;
+
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20, Upgradeable {
 
@@ -147,8 +149,6 @@ contract Autonity is IERC20, Upgradeable {
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.delegationRate;
             _validators[i].state = ValidatorState.active;
-            // Autonity doesn't handle voting power over 64 bits.
-            require(_bondedStake < 2 ** 60, "issued Newton can't be greater than 2^60");
 
             _registerValidator(_validators[i]);
 
@@ -188,6 +188,14 @@ contract Autonity is IERC20, Upgradeable {
     */
     function symbol() external pure returns (string memory) {
         return "NTN";
+    }
+
+    /**
+    * @return the number of decimals the NTN token uses.
+    * @dev ERC-20 Optional.
+    */
+    function decimals() public view returns (uint8) {
+        return DECIMALS;
     }
 
     /**

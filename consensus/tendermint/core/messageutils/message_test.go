@@ -206,7 +206,7 @@ func FuzzFromPayload(f *testing.F) {
 		Address:       authorizedAddress,
 		CommittedSeal: []byte{},
 		Signature:     []byte{0x1},
-		Power:         big.NewInt(1).Uint64(),
+		Power:         big.NewInt(1),
 	}
 	f.Add(msg.GetPayload()) // Use f.Add to provide a seed corpus
 	f.Fuzz(func(t *testing.T, seed []byte) {

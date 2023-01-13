@@ -8,6 +8,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/node"
+	"math/big"
 	"sync"
 	"time"
 
@@ -162,10 +163,10 @@ func (sb *Backend) AskSync(header *types.Header) {
 					return
 				}
 			}
-			var count uint64
+			count := new(big.Int)
 			for addr, p := range ps {
 				//ask to a quorum nodes to sync, 1 must then be honest and updated
-				if count >= bft.Quorum(header.TotalVotingPower()) {
+				if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
 					break
 				}
 				sb.logger.Debug("Asking sync to", "addr", addr)
@@ -176,7 +177,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 					sb.logger.Error("could not retrieve member from address")
 					continue
 				}
-				count += member.VotingPower.Uint64()
+				count.Add(count, member.VotingPower)
 			}
 			break
 		}

@@ -37,9 +37,9 @@ func TestNewRoundRobinSet(t *testing.T) {
 			roundRobinOffset++
 		}
 		allProposers := map[int64]types.CommitteeMember{0: committeeMembers[nextProposerIndex(roundRobinOffset, 0, int64(len(committeeMembers)))]}
-		var totalPower uint64
+		totalPower := new(big.Int)
 		for _, cm := range committeeMembers {
-			totalPower += cm.VotingPower.Uint64()
+			totalPower.Add(totalPower, cm.VotingPower)
 		}
 
 		set, err := NewRoundRobinSet(copyCommitteeMembers, lastBlockProposer)
@@ -62,7 +62,7 @@ func TestNewRoundRobinSet(t *testing.T) {
 			t.Fatalf("initial round allProposers not set properly, expected: %v and got: %v ", allProposers, set.allProposers)
 		}
 
-		if totalPower != set.totalPower {
+		if totalPower.Cmp(set.totalPower) != 0 {
 			t.Fatalf("totalPower not calculated properly, expected: %v and got: %v ", totalPower, set.totalPower)
 		}
 	}
@@ -288,11 +288,11 @@ func TestSet_QandF(t *testing.T) {
 		gotQ := set.Quorum()
 		gotF := set.F()
 
-		if testCase.F != gotF {
+		if testCase.F != gotF.Uint64() {
 			t.Errorf("expected F: %v and got: %v", testCase.F, gotF)
 		}
 
-		if testCase.Q != gotQ {
+		if testCase.Q != gotQ.Uint64() {
 			t.Errorf("expected Q: %v and got: %v", testCase.Q, gotQ)
 		}
 	}

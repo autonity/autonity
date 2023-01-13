@@ -26,7 +26,7 @@ func CreatePrevote(t *testing.T, proposalHash common.Hash, round int64, height *
 		Address:       member.Address,
 		CommittedSeal: []byte{},
 		Signature:     []byte{0x1},
-		Power:         member.VotingPower.Uint64(),
+		Power:         member.VotingPower,
 	}
 	return expectedMsg
 }

@@ -41,6 +41,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			Code:    messageutils.MsgPrevote,
 			Msg:     encoded,
 			Address: sender.Address,
+			Power:   common.Big1,
 		}
 	}
 
@@ -65,6 +66,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			Msg:           encoded,
 			Address:       sender.Address,
 			CommittedSeal: commitSign,
+			Power:         common.Big1,
 		}
 	}
 
@@ -144,7 +146,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
-			futureRoundChange: make(map[int64]map[common.Address]uint64),
+			futureRoundChange: make(map[int64]map[common.Address]*big.Int),
 			messages:          messageMap,
 			curRoundMessages:  messageMap.GetOrCreate(0),
 			committee:         committeeSet,

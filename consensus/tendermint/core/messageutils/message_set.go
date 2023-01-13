@@ -2,6 +2,7 @@ package messageutils
 
 import (
 	"github.com/autonity/autonity/common"
+	"math/big"
 	"sync"
 )
 
@@ -54,25 +55,25 @@ func (ms *MessageSet) GetMessages() []*Message {
 	return result
 }
 
-func (ms *MessageSet) VotePower(h common.Hash) uint64 {
+func (ms *MessageSet) VotePower(h common.Hash) *big.Int {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
 	if msgMap, ok := ms.Votes[h]; ok {
-		var power uint64
+		power := new(big.Int)
 		for _, msg := range msgMap {
-			power += msg.GetPower()
+			power.Add(power, msg.GetPower())
 		}
 		return power
 	}
-	return 0
+	return new(big.Int)
 }
 
-func (ms *MessageSet) TotalVotePower() uint64 {
+func (ms *MessageSet) TotalVotePower() *big.Int {
 	ms.messagesMu.RLock()
 	defer ms.messagesMu.RUnlock()
-	var power uint64
+	power := new(big.Int)
 	for _, msg := range ms.messages {
-		power += msg.GetPower()
+		power.Add(power, msg.GetPower())
 	}
 	return power
 }

@@ -72,7 +72,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 			// We do not verify the proposal in this case.
 			roundMsgs.SetProposal(&proposal, msg, false)
 
-			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()) >= c.CommitteeSet().Quorum() {
+			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
 					return error
 				}
@@ -123,7 +123,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 
 	//l49: Check if we have a quorum of precommits for this proposal
 	curProposalHash := c.curRoundMessages.GetProposalHash()
-	if c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.CommitteeSet().Quorum() {
+	if c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		c.Commit(proposal.Round, c.curRoundMessages)
 		return nil
 	}
@@ -150,7 +150,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(h) >= c.CommitteeSet().Quorum() {
+		if vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 			c.SetStep(tctypes.Prevote)
 		}

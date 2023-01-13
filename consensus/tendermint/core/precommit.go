@@ -78,7 +78,7 @@ func (c *PrecommitService) HandlePrecommit(ctx context.Context, msg *messageutil
 			}
 			c.AcceptVote(roundMsgs, tctypes.Precommit, precommitHash, *msg)
 			oldRoundProposalHash := roundMsgs.GetProposalHash()
-			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash) >= c.CommitteeSet().Quorum() {
+			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
 				if !roundMsgs.IsProposalVerified() {
 					if _, error := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); error != nil {
@@ -103,7 +103,7 @@ func (c *PrecommitService) HandlePrecommit(ctx context.Context, msg *messageutil
 
 	c.AcceptVote(c.curRoundMessages, tctypes.Precommit, precommitHash, *msg)
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
-	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash) >= c.CommitteeSet().Quorum() {
+	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		if err := c.precommitTimeout.StopTimer(); err != nil {
 			return err
 		}
@@ -117,7 +117,7 @@ func (c *PrecommitService) HandlePrecommit(ctx context.Context, msg *messageutil
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.TimerStarted() && c.curRoundMessages.PrecommitsTotalPower() >= c.CommitteeSet().Quorum() {
+	} else if !c.precommitTimeout.TimerStarted() && c.curRoundMessages.PrecommitsTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)

@@ -295,13 +295,13 @@ func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block)
 
 func TestInvalidBlockProposal(t *testing.T) {
 	//for i := 0; i < 20; i++ {
-	users, err := test.Validators(4, "10e18,v,100,0.0.0.0:%s,%s", 6780)
+	users, err := test.Validators(t, 4, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
 	users[0].CustHandler = &node.CustomHandler{Proposer: &invalidBlockProposer{}}
 	// creates a network of 6 users and starts all the nodes in it
-	network, err := test.NewNetworkFromValidators(users, true)
+	network, err := test.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 
 	err = network.WaitForSyncComplete()

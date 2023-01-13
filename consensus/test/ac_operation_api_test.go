@@ -661,7 +661,9 @@ func TestUpgradeMechanism(t *testing.T) {
 			t.Log("val2 bs", val2.BondedStake.Uint64())
 
 			require.NoError(t, err)
-			require.Equal(t, uint64(50), val1.BondedStake.Uint64())
+			stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
+			stake.Div(stake, big.NewInt(2))
+			require.Equal(t, stake.Bytes(), val1.BondedStake.Bytes())
 			//check the contract version is now 2.0.0
 			version, err := client.call(node.lastBlock).getVersion()
 			require.NoError(t, err)

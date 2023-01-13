@@ -70,7 +70,7 @@ func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Me
 					h := c.curRoundMessages.ProposalDetails.ProposalBlock.Hash()
 					rs := c.messages.GetOrCreate(vr)
 
-					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h) >= c.CommitteeSet().Quorum() {
+					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 						c.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 						c.SetStep(types.Prevote)
 						return nil
@@ -95,7 +95,7 @@ func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Me
 		curProposalHash := c.curRoundMessages.GetProposalHash()
 
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-		if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrevotesPower(curProposalHash) >= c.CommitteeSet().Quorum() && !c.setValidRoundAndValue {
+		if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrevotesPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
 			// this piece of code should only run once
 			if err := c.prevoteTimeout.StopTimer(); err != nil {
 				return err
@@ -112,7 +112,7 @@ func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Me
 			c.validRound = c.Round()
 			c.setValidRoundAndValue = true
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == types.Prevote && c.curRoundMessages.PrevotesPower(common.Hash{}) >= c.CommitteeSet().Quorum() {
+		} else if c.step == types.Prevote && c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 			if err := c.prevoteTimeout.StopTimer(); err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Me
 			c.SetStep(types.Precommit)
 
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		} else if c.step == types.Prevote && !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower() >= c.CommitteeSet().Quorum() {
+		} else if c.step == types.Prevote && !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
 			timeoutDuration := c.timeoutPrevote(c.Round())
 			c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)

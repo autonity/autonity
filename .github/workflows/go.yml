@@ -170,7 +170,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v1
         with:
-          node-version: '12.0.0'
+          node-version: '16.8.0'
 
       - uses: actions/checkout@v2
 

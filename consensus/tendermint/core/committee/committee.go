@@ -2,6 +2,7 @@ package committee
 
 import (
 	"errors"
+	"math/big"
 	"sort"
 	"sync"
 
@@ -18,7 +19,7 @@ import (
 type RoundRobinCommittee struct {
 	members           types.Committee
 	lastBlockProposer common.Address
-	totalPower        uint64
+	totalPower        *big.Int
 	allProposers      map[int64]types.CommitteeMember // cached computed values
 	roundRobinOffset  int64
 	mu                sync.RWMutex // members doesn't need to be protected as it is read-only
@@ -34,6 +35,7 @@ func NewRoundRobinSet(members types.Committee, lastBlockProposer common.Address)
 	committee := &RoundRobinCommittee{
 		members:           members,
 		lastBlockProposer: lastBlockProposer,
+		totalPower:        new(big.Int),
 		allProposers:      make(map[int64]types.CommitteeMember),
 	}
 
@@ -42,7 +44,7 @@ func NewRoundRobinSet(members types.Committee, lastBlockProposer common.Address)
 
 	// calculate total power
 	for _, m := range committee.members {
-		committee.totalPower += m.VotingPower.Uint64()
+		committee.totalPower.Add(committee.totalPower, m.VotingPower)
 	}
 
 	// calculate offset for round robin selection of next proposer
@@ -98,11 +100,11 @@ func (set *RoundRobinCommittee) SetLastBlock(block *types.Block) {
 	return
 }
 
-func (set *RoundRobinCommittee) Quorum() uint64 {
+func (set *RoundRobinCommittee) Quorum() *big.Int {
 	return bft.Quorum(set.totalPower)
 }
 
-func (set *RoundRobinCommittee) F() uint64 {
+func (set *RoundRobinCommittee) F() *big.Int {
 	return bft.F(set.totalPower)
 }
 
@@ -202,11 +204,11 @@ func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 }
 
 // Get the optimal quorum size
-func (w *WeightedRandomSamplingCommittee) Quorum() uint64 {
+func (w *WeightedRandomSamplingCommittee) Quorum() *big.Int {
 	return bft.Quorum(w.previousHeader.TotalVotingPower())
 }
 
-func (w *WeightedRandomSamplingCommittee) F() uint64 {
+func (w *WeightedRandomSamplingCommittee) F() *big.Int {
 	return bft.F(w.previousHeader.TotalVotingPower())
 }
 

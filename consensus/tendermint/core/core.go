@@ -33,7 +33,7 @@ func New(backend interfaces.Backend) *Core {
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
-		futureRoundChange:      make(map[int64]map[common.Address]uint64),
+		futureRoundChange:      make(map[int64]map[common.Address]*big.Int),
 		messages:               messagesMap,
 		lockedRound:            -1,
 		validRound:             -1,
@@ -162,7 +162,7 @@ type Core struct {
 	prevoteTimeout   *tctypes.Timeout
 	precommitTimeout *tctypes.Timeout
 
-	futureRoundChange map[int64]map[common.Address]uint64
+	futureRoundChange map[int64]map[common.Address]*big.Int
 
 	autonityContract *autonity.Contract
 
@@ -286,11 +286,11 @@ func (c *Core) PrecommitTimeout() *tctypes.Timeout {
 	return c.precommitTimeout
 }
 
-func (c *Core) FutureRoundChange() map[int64]map[common.Address]uint64 {
+func (c *Core) FutureRoundChange() map[int64]map[common.Address]*big.Int {
 	return c.futureRoundChange
 }
 
-func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Address]uint64) {
+func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Address]*big.Int) {
 	c.futureRoundChange = futureRoundChange
 }
 
@@ -449,7 +449,7 @@ func (c *Core) SetInitialState(r int64) {
 		c.validRound = -1
 		c.validValue = nil
 		c.messages.Reset()
-		c.futureRoundChange = make(map[int64]map[common.Address]uint64)
+		c.futureRoundChange = make(map[int64]map[common.Address]*big.Int)
 	}
 
 	c.proposeTimeout.Reset(tctypes.Propose)

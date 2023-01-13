@@ -15,7 +15,7 @@ type CoreStateRequestEvent struct {
 type VoteState struct {
 	Value            common.Hash
 	ProposalVerified bool
-	VotePower        uint64
+	VotePower        *big.Int
 }
 
 // RoundState save the voting status for a specific round.
@@ -30,7 +30,7 @@ type RoundState struct {
 type MsgForDump struct {
 	messageutils.Message
 	Hash   common.Hash
-	Power  uint64
+	Power  *big.Int
 	Height *big.Int
 	Round  int64
 }
@@ -54,7 +54,7 @@ type TendermintState struct {
 	Committee       types.Committee
 	Proposer        common.Address
 	IsProposer      bool
-	QuorumVotePower uint64
+	QuorumVotePower *big.Int
 	RoundStates     []RoundState
 	ProposerPolicy  uint64
 

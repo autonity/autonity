@@ -134,7 +134,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected %v, got %v", constants.ErrOldHeightMessage, err)
 		}
 
-		if s := curRoundMessages.PrevotesPower(common.Hash{}); s != 0 {
+		if s := curRoundMessages.PrevotesPower(common.Hash{}); s.Cmp(common.Big0) != 0 {
 			t.Fatalf("Expected 0 nil-prevote, but got %d", s)
 		}
 	})
@@ -177,7 +177,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesPower(curRoundMessages.GetProposalHash()); s != 1 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessages.GetProposalHash()); s.Cmp(common.Big1) != 0 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 	})
@@ -219,7 +219,7 @@ func TestHandlePrevote(t *testing.T) {
 			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 		payload := msg.GetPayload()
 
@@ -243,7 +243,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.GetProposalHash()); s != 1 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.GetProposalHash()); s.Cmp(common.Big1) != 0 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 
@@ -283,7 +283,7 @@ func TestHandlePrevote(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
-			Power:         1,
+			Power:         common.Big1,
 		}
 
 		payload := msg.GetPayload()
@@ -349,6 +349,7 @@ func TestHandlePrevote(t *testing.T) {
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
+			Power:         common.Big1,
 		}
 
 		backendMock := interfaces.NewMockBackend(ctrl)

@@ -10,6 +10,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"math/big"
 	"time"
 )
 
@@ -274,16 +275,16 @@ func (c *Core) handleFutureRoundMsg(ctx context.Context, msg *messageutils.Messa
 		return
 	}
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
-		c.futureRoundChange[msgRound] = make(map[common.Address]uint64)
+		c.futureRoundChange[msgRound] = make(map[common.Address]*big.Int)
 	}
 	c.futureRoundChange[msgRound][sender] = msg.Power
 
-	var totalFutureRoundMessagesPower uint64
+	totalFutureRoundMessagesPower := new(big.Int)
 	for _, power := range c.futureRoundChange[msgRound] {
-		totalFutureRoundMessagesPower += power
+		totalFutureRoundMessagesPower.Add(totalFutureRoundMessagesPower, power)
 	}
 
-	if totalFutureRoundMessagesPower > c.CommitteeSet().F() {
+	if totalFutureRoundMessagesPower.Cmp(c.CommitteeSet().F()) > 0 {
 		c.logger.Info("Received ceil(N/3) - 1 messages power for higher round", "New round", msgRound)
 		c.StartRound(ctx, msgRound)
 	}

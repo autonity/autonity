@@ -1,6 +1,7 @@
 package messageutils
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/autonity/autonity/common"
@@ -8,13 +9,13 @@ import (
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := Message{Address: common.BytesToAddress([]byte("987654321")), Power: 1}
+	msg := Message{Address: common.BytesToAddress([]byte("987654321")), Power: common.Big1}
 
 	ms := NewMessageSet()
 	ms.AddVote(blockHash, msg)
 	ms.AddVote(blockHash, msg)
 
-	if got := ms.VotePower(blockHash); got != 1 {
+	if got := ms.VotePower(blockHash); got.Cmp(common.Big1) != 0 {
 		t.Fatalf("Expected 1 vote, got %v", got)
 	}
 }
@@ -23,18 +24,18 @@ func TestMessageSetVotesSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
 
 	ms := NewMessageSet()
-	if got := ms.VotePower(blockHash); got != 0 {
+	if got := ms.VotePower(blockHash); got.Cmp(common.Big0) != 0 {
 		t.Fatalf("Expected 0, got %v", got)
 	}
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
-	msg := Message{Address: common.BytesToAddress([]byte("987654321")), Power: 1}
+	msg := Message{Address: common.BytesToAddress([]byte("987654321")), Power: common.Big1}
 
 	ms := NewMessageSet()
 	ms.AddVote(common.Hash{}, msg)
 	ms.AddVote(common.Hash{}, msg)
-	if got := ms.VotePower(common.Hash{}); got != 1 {
+	if got := ms.VotePower(common.Hash{}); got.Cmp(common.Big1) != 0 {
 		t.Fatalf("Expected 1 nil vote, got %v", got)
 	}
 }
@@ -49,45 +50,45 @@ func TestMessageSetTotalSize(t *testing.T) {
 	}
 	testCases := []struct {
 		voteList      []vote
-		expectedPower uint64
+		expectedPower *big.Int
 	}{{
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), Power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), Power: 1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("1")), Power: common.Big1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), Power: common.Big1}, blockHash},
 		},
-		2,
+		common.Big2,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), Power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), Power: 3}, blockHash2},
+			{Message{Address: common.BytesToAddress([]byte("1")), Power: common.Big1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), Power: common.Big3}, blockHash2},
 		},
-		4,
+		big.NewInt(4),
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), Power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), Power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("3")), Power: 5}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("4")), Power: 1}, nilHash},
+			{Message{Address: common.BytesToAddress([]byte("1")), Power: common.Big1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), Power: common.Big1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("3")), Power: big.NewInt(5)}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("4")), Power: common.Big1}, nilHash},
 		},
-		8,
+		big.NewInt(8),
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), Power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), Power: 0}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("1")), Power: common.Big1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), Power: common.Big0}, blockHash},
 		},
-		1,
+		common.Big1,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), Power: 1}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("2")), Power: 1}, blockHash2},
+			{Message{Address: common.BytesToAddress([]byte("1")), Power: common.Big1}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("2")), Power: common.Big1}, blockHash2},
 		},
-		2,
+		common.Big2,
 	}, {
 		[]vote{
-			{Message{Address: common.BytesToAddress([]byte("1")), Power: 3}, blockHash},
-			{Message{Address: common.BytesToAddress([]byte("1")), Power: 5}, blockHash2}, // should be discarded
+			{Message{Address: common.BytesToAddress([]byte("1")), Power: common.Big3}, blockHash},
+			{Message{Address: common.BytesToAddress([]byte("1")), Power: big.NewInt(5)}, blockHash2}, // should be discarded
 		},
-		3,
+		common.Big3,
 	}}
 
 	for _, test := range testCases {
@@ -96,7 +97,7 @@ func TestMessageSetTotalSize(t *testing.T) {
 		for _, msg := range test.voteList {
 			ms.AddVote(msg.hash, msg.msg)
 		}
-		if got := ms.TotalVotePower(); got != test.expectedPower {
+		if got := ms.TotalVotePower(); got.Cmp(test.expectedPower) != 0 {
 			t.Fatalf("Expected %v total voting power, got %v", test.expectedPower, got)
 		}
 	}

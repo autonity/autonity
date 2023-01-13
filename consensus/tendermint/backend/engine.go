@@ -234,13 +234,13 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	votes := make(map[common.Address]int, len(parent.Committee))
 
 	// Calculate total voting power
-	var committeeVotingPower uint64
+	committeeVotingPower := new(big.Int)
 	for _, member := range parent.Committee {
-		committeeVotingPower += member.VotingPower.Uint64()
+		committeeVotingPower.Add(committeeVotingPower, member.VotingPower)
 	}
 
 	// Total Voting power for this block
-	var power uint64
+	power := new(big.Int)
 	// The data that was sined over for this block
 	headerSeal := helpers.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
 
@@ -264,11 +264,11 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 			sb.logger.Error(fmt.Sprintf("committee member %q had multiple seals on block", addr))
 			return types.ErrInvalidCommittedSeals
 		}
-		power += member.VotingPower.Uint64()
+		power.Add(power, member.VotingPower)
 	}
 
 	// We need at least a quorum for the block to be considered valid
-	if power < bft.Quorum(committeeVotingPower) {
+	if power.Cmp(bft.Quorum(committeeVotingPower)) < 0 {
 		return types.ErrInvalidCommittedSeals
 	}
 

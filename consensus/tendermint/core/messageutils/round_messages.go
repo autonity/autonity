@@ -1,6 +1,7 @@
 package messageutils
 
 import (
+	"math/big"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -101,16 +102,16 @@ func (s *RoundMessages) SetProposal(proposal *Proposal, msg *Message, verified b
 	s.ProposalDetails = proposal
 }
 
-func (s *RoundMessages) PrevotesPower(hash common.Hash) uint64 {
+func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
 	return s.Prevotes.VotePower(hash)
 }
-func (s *RoundMessages) PrevotesTotalPower() uint64 {
+func (s *RoundMessages) PrevotesTotalPower() *big.Int {
 	return s.Prevotes.TotalVotePower()
 }
-func (s *RoundMessages) PrecommitsPower(hash common.Hash) uint64 {
+func (s *RoundMessages) PrecommitsPower(hash common.Hash) *big.Int {
 	return s.Precommits.VotePower(hash)
 }
-func (s *RoundMessages) PrecommitsTotalPower() uint64 {
+func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
 	return s.Precommits.TotalVotePower()
 }
 
