@@ -70,6 +70,9 @@ func (r *v2Reporter) run() {
 	intervalTicker := time.Tick(r.interval)
 	pingTicker := time.Tick(time.Second * 5)
 
+	defer intervalTicker.Stop()
+	defer pingTicker.Stop()
+
 	for {
 		select {
 		case <-intervalTicker:
