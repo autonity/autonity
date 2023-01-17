@@ -154,7 +154,6 @@ var (
 		Usage: "Explicitly set network id (integer)(For testnets: use --piccadilly instead)",
 		Value: ethconfig.Defaults.NetworkId,
 	}
-
 	IdentityFlag = cli.StringFlag{
 		Name:  "identity",
 		Usage: "Custom node name",
@@ -243,6 +242,22 @@ var (
 		Name:  "override.terminaltotaldifficulty",
 		Usage: "Manually specify TerminalTotalDifficulty, overriding the bundled setting",
 	}
+	// Dev mode
+	DeveloperFlag = &cli.BoolFlag{
+		Name:  "dev",
+		Usage: "Ephemeral proof-of-stake network with a pre-funded developer account, mining enabled",
+	}
+	DeveloperGasLimitFlag = &cli.Uint64Flag{
+		Name:  "dev.gaslimit",
+		Usage: "Initial block gas limit",
+		Value: 30000000,
+	}
+	DeveloperEtherbaseFlag = &cli.StringFlag{
+		Name:  "dev.etherbase",
+		Usage: "Public address of external account to be used for developer mode",
+		Value: "0",
+	}
+
 	// Light server and client settings
 	LightServeFlag = cli.IntFlag{
 		Name:  "light.serve",
@@ -1033,7 +1048,15 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 
 // setEtherbase retrieves the is setting the coinbase to the local address
 func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *ethconfig.Config, ncfg *node.Config) {
-	cfg.Miner.Etherbase = crypto.PubkeyToAddress(ncfg.NodeKey().PublicKey)
+	if !ctx.Bool(DeveloperFlag.Name) {
+		cfg.Miner.Etherbase = crypto.PubkeyToAddress(ncfg.NodeKey().PublicKey)
+	} else if ctx.IsSet(DeveloperEtherbaseFlag.Name) {
+		account := ctx.String(DeveloperEtherbaseFlag.Name)
+		// If the specified account is a valid address
+		if common.IsHexAddress(account) {
+			cfg.Miner.Etherbase = common.HexToAddress(account)
+		}
+	}
 }
 
 // MakePasswordList reads password lines from the file specified by the global --password flag.
@@ -1122,6 +1145,14 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.NetRestrict = list
 	}
 
+	if ctx.Bool(DeveloperFlag.Name) {
+		// --dev mode can't use p2p networking.
+		cfg.MaxPeers = 0
+		cfg.ListenAddr = ""
+		cfg.NoDial = true
+		cfg.NoDiscovery = true
+		cfg.DiscoveryV5 = false
+	}
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
@@ -1151,6 +1182,9 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(USBFlag.Name) {
 		cfg.USB = ctx.GlobalBool(USBFlag.Name)
 	}
+	if ctx.IsSet(DeveloperFlag.Name) {
+		cfg.UseLightweightKDF = true
+	}
 	if ctx.GlobalIsSet(InsecureUnlockAllowedFlag.Name) {
 		cfg.InsecureUnlockAllowed = ctx.GlobalBool(InsecureUnlockAllowedFlag.Name)
 	}
@@ -1178,6 +1212,9 @@ func setSmartCard(ctx *cli.Context, cfg *node.Config) {
 
 func setDataDir(ctx *cli.Context, cfg *node.Config) {
 	switch {
+	//dev mode
+	case ctx.Bool(DeveloperFlag.Name):
+		cfg.DataDir = "" // use memory databases
 	case ctx.GlobalIsSet(DataDirFlag.Name):
 		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
 	case ctx.GlobalBool(PiccadillyFlag.Name):
@@ -1343,7 +1380,7 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Avoid conflicting network flags
 	CheckExclusive(ctx, LightServeFlag, SyncModeFlag, "light")
-	CheckExclusive(ctx, PiccadillyFlag, BakerlooFlag)
+	CheckExclusive(ctx, PiccadillyFlag, BakerlooFlag, DeveloperFlag)
 	if ctx.GlobalString(GCModeFlag.Name) == "archive" && ctx.GlobalUint64(TxLookupLimitFlag.Name) != 0 {
 		ctx.GlobalSet(TxLookupLimitFlag.Name, "0")
 		log.Warn("Disable transaction unindexing for archive node")
@@ -1482,6 +1519,41 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 			cfg.NetworkId = 65_010_000
 		}
 		cfg.Genesis = core.DefaultBakerlooGenesisBlock()
+	}
+
+	if ctx.Bool(DeveloperFlag.Name) {
+		if !ctx.IsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 65111111
+		}
+		cfg.SyncMode = downloader.FullSync
+		// Create new developer account or reuse existing one
+		var (
+			developer  accounts.Account
+			passphrase string
+			err        error
+		)
+		if list := MakePasswordList(ctx); len(list) > 0 {
+			// Just take the first value. Although the function returns a possible multiple values and
+			// some usages iterate through them as attempts, that doesn't make sense in this setting,
+			// when we're definitely concerned with only one account.
+			passphrase = list[0]
+		}
+		if cfg.Miner.Etherbase != (common.Address{}) {
+			developer = accounts.Account{Address: cfg.Miner.Etherbase}
+		} else {
+			developer, err = ks.NewAccount(passphrase)
+			if err != nil {
+				Fatalf("Failed to create developer account: %v", err)
+			}
+		}
+		if err := ks.Unlock(developer, passphrase); err != nil {
+			Fatalf("Failed to unlock developer account: %v", err)
+		}
+		log.Info("Using developer account", "address", developer.Address)
+		cfg.Miner.Etherbase = developer.Address
+		_, devAccKey, _ := ks.GetDecryptedKey(developer, passphrase)
+		cfg.Genesis = core.DeveloperGenesisBlock(ctx.Uint64(DeveloperGasLimitFlag.Name), devAccKey)
+		stack.Config().P2P.PrivateKey = devAccKey.PrivateKey
 	}
 }
 

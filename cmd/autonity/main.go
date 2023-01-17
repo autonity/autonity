@@ -49,6 +49,7 @@ import (
 
 const (
 	clientIdentifier = "autonity" // Client identifier to advertise over the network
+	syncModeLight    = "light"
 )
 
 var (
@@ -120,6 +121,9 @@ var (
 		utils.NodeKeyHexFlag,
 		utils.WriteAddrFlag,
 		utils.DNSDiscoveryFlag,
+		utils.DeveloperFlag,
+		utils.DeveloperGasLimitFlag,
+		utils.DeveloperEtherbaseFlag,
 		utils.VMEnableDebugFlag,
 		utils.NetworkIdFlag,
 		utils.EthStatsURLFlag,
@@ -245,16 +249,37 @@ func prepare(ctx *cli.Context) {
 		log.Info("Starting Autonity on Piccadilly testnet...")
 	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
 		log.Info("Starting Autonity on Bakerloo testnet...")
+	case ctx.IsSet(utils.DeveloperFlag.Name):
+		log.Info("Starting autonity in ephemeral dev mode...")
+		log.Warn(`You are running autonity in --dev mode. Please note the following:
+
+  1. This mode is only intended for fast, iterative development without assumptions on
+     security or persistence.
+  2. The database is created in memory. Therefore, shutting down your computer or losing 
+	 power will wipe your entire block data and chain state for your dev environment.
+  3. A random(unless specified explicitly with --dev.etherbase flag), pre-allocated developer 
+     account will be available and unlocked as eth.coinbase, which can be used for testing. 
+     The random dev account is temporary, stored on a ramdisk, and will be lost if your machine 
+     is restarted.
+  4. Networking is disabled; there is no listen-address, the maximum number of peers is set
+     to 0, and discovery is disabled.
+  5. Optionally you can use an external account, which would be pre-allocated and unlocked as
+     eth.coinbase, set following flags for external account:
+	--dev.etherbase <public address of account in hex format>
+	--password <password file path>
+	--keystore <account's keystore directory path>
+`)
 	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
 		log.Info("Starting Autonity...")
 	}
 	// If we're a full node on mainnet without --cache specified, bump default cache allowance
-	if ctx.GlobalString(utils.SyncModeFlag.Name) != "light" && !ctx.GlobalIsSet(utils.CacheFlag.Name) && !ctx.GlobalIsSet(utils.NetworkIdFlag.Name) {
+	if ctx.GlobalString(utils.SyncModeFlag.Name) != syncModeLight && !ctx.GlobalIsSet(utils.CacheFlag.Name) &&
+		!ctx.GlobalIsSet(utils.NetworkIdFlag.Name) && !ctx.IsSet(utils.DeveloperFlag.Name) {
 		// Make sure we're not on any supported preconfigured testnet either
 		ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(4096))
 	}
 	// If we're running a light client on any network, drop the cache to some meaningfully low amount
-	if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" && !ctx.GlobalIsSet(utils.CacheFlag.Name) {
+	if ctx.GlobalString(utils.SyncModeFlag.Name) == syncModeLight && !ctx.GlobalIsSet(utils.CacheFlag.Name) {
 		log.Info("Dropping default light client cache", "provided", ctx.GlobalInt(utils.CacheFlag.Name), "updated", 128)
 		ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(128))
 	}
@@ -366,14 +391,14 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, isCon
 	}
 
 	// Start auxiliary services if enabled
-	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) {
+	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.Bool(utils.DeveloperFlag.Name) {
 		// Mining only makes sense if a full Ethereum node is running
-		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
+		if ctx.GlobalString(utils.SyncModeFlag.Name) == syncModeLight {
 			utils.Fatalf("Light clients do not support mining")
 		}
 		ethBackend, ok := backend.(*eth.EthAPIBackend)
 		if !ok {
-			utils.Fatalf("Ethereum service not running")
+			utils.Fatalf("Autonity service not running")
 		}
 		// Set the gas price to the limits from the CLI and start mining
 		gasprice := utils.GlobalBig(ctx, utils.MinerGasPriceFlag.Name)

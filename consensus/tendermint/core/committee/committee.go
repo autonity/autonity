@@ -197,7 +197,11 @@ func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 	}
 	proposer := w.autonityContract.GetProposerFromAC(w.previousHeader, statedb, w.previousHeader.Number.Uint64(), round)
 	member := w.previousHeader.CommitteeMember(proposer)
-
+	if member == nil {
+		//Should not happen in live network, edge case
+		log.Error("cannot find proposer")
+		return types.CommitteeMember{}
+	}
 	w.cachedProposer[round] = *member
 	return *member
 	// TODO make this return an error

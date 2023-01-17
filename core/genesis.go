@@ -23,24 +23,27 @@ import (
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/core/vm"
-	"math/big"
-	"sort"
-	"strings"
-	"sync"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
+	"math/big"
+	"net"
+	"sort"
+	"strings"
+	"sync"
+	"time"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -544,6 +547,60 @@ func DefaultGoerliGenesisBlock() *Genesis {
 		GasLimit:   10485760,
 		Difficulty: big.NewInt(1),
 		Alloc:      decodePrealloc(goerliAllocData),
+	}
+}
+
+// DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
+func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
+	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	testAutonityContractConfig := params.AutonityContractGenesis{
+		MaxCommitteeSize: 1,
+		BlockPeriod:      1,
+		UnbondingPeriod:  120,
+		EpochPeriod:      30,               //seconds
+		DelegationRate:   1200,             // 12%
+		TreasuryFee:      1500000000000000, // 0.15%,
+		MinBaseFee:       10000000000,
+		Operator:         faucet.Address,
+		Treasury:         faucet.Address,
+		Validators: []*params.Validator{
+			{
+				Treasury:    faucet.Address,
+				Enode:       validatorEnode.String(),
+				BondedStake: new(big.Int).SetUint64(1000),
+			},
+		},
+	}
+	if err := testAutonityContractConfig.Prepare(); err != nil {
+		log.Error("Error preparing contract, err:", err)
+	}
+
+	return &Genesis{
+		Timestamp:  uint64(time.Now().Unix()),
+		Mixhash:    types.BFTDigest,
+		ExtraData:  []byte{},
+		GasLimit:   gasLimit,
+		BaseFee:    big.NewInt(15000000000),
+		Difficulty: big.NewInt(0),
+		Alloc: map[common.Address]GenesisAccount{
+			faucet.Address: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
+		},
+		Config: &params.ChainConfig{
+			ChainID:                big.NewInt(65111111),
+			HomesteadBlock:         big.NewInt(0),
+			EIP150Block:            big.NewInt(0),
+			EIP155Block:            big.NewInt(0),
+			EIP158Block:            big.NewInt(0),
+			ByzantiumBlock:         big.NewInt(0),
+			ConstantinopleBlock:    big.NewInt(0),
+			PetersburgBlock:        big.NewInt(0),
+			IstanbulBlock:          big.NewInt(0),
+			MuirGlacierBlock:       big.NewInt(0),
+			BerlinBlock:            big.NewInt(0),
+			LondonBlock:            big.NewInt(0),
+			ArrowGlacierBlock:      big.NewInt(0),
+			AutonityContractConfig: &testAutonityContractConfig,
+		},
 	}
 }
 

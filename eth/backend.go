@@ -176,7 +176,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,
 		gasPrice:          config.Miner.GasPrice,
-		etherbase:         crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey),
+		etherbase:         config.Miner.Etherbase,
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
