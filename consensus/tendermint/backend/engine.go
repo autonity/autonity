@@ -59,10 +59,11 @@ var (
 	errInvalidRound = errors.New("invalid round")
 )
 var (
-	defaultDifficulty = big.NewInt(1)
-	nilUncleHash      = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	emptyNonce        = types.BlockNonce{}
-	now               = time.Now
+	defaultDifficulty             = big.NewInt(1)
+	allowedFutureBlockTimeSeconds = int64(1)
+	nilUncleHash                  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
+	emptyNonce                    = types.BlockNonce{}
+	now                           = time.Now
 
 	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new validator
 	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a validator.
@@ -102,7 +103,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return errInvalidRound
 	}
 	// Don't waste time checking blocks from the future
-	if big.NewInt(int64(header.Time)).Cmp(big.NewInt(now().Unix())) > 0 {
+	if header.Time > uint64(now().Unix()+allowedFutureBlockTimeSeconds) {
 		return consensus.ErrFutureBlock
 	}
 
