@@ -836,7 +836,12 @@ contract Autonity is IERC20, Upgradeable {
         uint256 liqBalance = validators[_validator].liquidContract.balanceOf(_recipient);
         require(liqBalance >= _amount, "insufficient Liquid Newton balance");
 
+        uint256 _liqSupply = validators[_validator].liquidContract.totalSupply();
+        require(!(_inCommittee(_validator) && _amount == _liqSupply),
+            "can't have committee member without LNTN");
+
         validators[_validator].liquidContract.burn(_recipient, _amount);
+
         Staking memory _unbonding = Staking(_recipient, _validator, _amount, block.number);
         unbondingMap[headUnbondingID] = _unbonding;
         headUnbondingID++;
@@ -938,5 +943,14 @@ contract Autonity is IERC20, Upgradeable {
             }
         }
     }
+
+    	function _inCommittee(address _validator) internal view returns (bool) {
+            for (uint256 i = 0; i < committee.length; i++) {
+                if (_validator == committee[i].addr){
+                    return true;
+                }
+            }
+            return false;
+    	}
 
 }
