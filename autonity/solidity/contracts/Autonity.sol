@@ -346,8 +346,6 @@ contract Autonity is IERC20, Upgradeable {
     * @dev emit a MintStake event.
     */
     function mint(address _addr, uint256 _amount) public onlyOperator {
-        // Autonity doesn't handle voting power over 64 bits.
-        require(_amount < 2 ** 60, "issued Newton can't be greater than 2^60");
         accounts[_addr] += _amount;
         stakeSupply += _amount;
         emit MintedStake(_addr, _amount);

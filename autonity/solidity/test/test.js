@@ -377,13 +377,13 @@ contract('Autonity', function (accounts) {
 
     it('test mint Newton by operator', async function () {
       let account = accounts[7];
-      let tokenMint = 20;
+      let tokenMint = web3.utils.toBN('999999999990000000000000000000000');
       let initSupply = await autonity.totalSupply();
       await autonity.mint(account, tokenMint, {from: operator});
       let balance = await autonity.balanceOf(account);
       let newSupply = await autonity.totalSupply();
-      assert(balance == tokenMint, "account balance is not expected");
-      assert.equal(newSupply.toNumber(), initSupply.toNumber() + tokenMint, "total supply is not expected");
+      assert(balance.toString() == tokenMint.toString(), "account balance is not expected");
+      assert.equal(newSupply.toString(), initSupply.add(tokenMint).toString(), "total supply is not expected");
     });
 
     it('test regular validator cannot mint Newton', async function () {
