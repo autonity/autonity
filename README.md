@@ -109,26 +109,13 @@ Quick-start connecting to an Autonity testnet by using a testnet flag in the com
 
 For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/howto/run-aut/).
 
-## Open a Javascript console to a node
+## Connect to a node using `aut` CLI
 
-You can connect to the client using the Autonity NodeJS Console CLI tool. The CLI is distributed as part of the Autonity Go Client Release in the `nodejsconsole` subdirectory. For users who only require a console, it is also available as a standalone binary from
-the [Autonity Releases Archive](https://github.com/clearmatics/autonity/releases) - `nodejsconsole-linux-amd64-<RELEASE_VERSION>.tar.gz`.
+The recommended way of interacting with an Autonity node is via the aut CLI tool, which provides a command-line interface to Autonity-specific queries and operations, as well as much of the base Ethereum functionality.
 
-To run the Console and connect to a node, the connection is made to a WebSocket enabled rpc address at port 8546. Specify WebSockets as the transport, IP address, and port 8546 of the Autonity client node you will connect to. Use WS for a local node and WSS for secure connection to a public node on an Autonity network. For example, to connect to a node running on local host:
+For source code, installation, and usage see the [aut CLI repository](https://github.com/autonity/autcli).
 
-```
-./nodejsconsole/console ws://localhost:8546
-```
-
-The console is a Node.js REPL shell for executing calls to Web3 and Autonity  namespace functions provided by the client. Append calls to Autonity with `.call()` to read or `.send()` for write transactions. For example:
-
-```
-> autonity.getMinimumBaseFee().call()
-'5000000'
-```
-
-See the docs for how to [make calls](https://docs.autonity.org/howto/make-calls/) and [submit transactions](https://docs.autonity.org/howto/submit-trans/) from the console.
-
+See the docs how to [Setup `aut` CLI](https://docs.autonity.org/howto/setup-autcli/) for how to make calls and submit transactions.
 
 ## Networks
 
