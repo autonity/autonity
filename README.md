@@ -1,5 +1,5 @@
 <div align="center">
-  <img src=".github/autonity-logo.svg">
+  <img src=".github/autonity-text-grey-framed.svg">
   <br/>
   <b>Main client software for Autonity networks</b>
 </div>
