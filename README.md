@@ -65,8 +65,6 @@ To build you will need :
 * Docker Engine [Server](https://docs.docker.com/engine/install/#server)
 * [GNU Make](https://www.gnu.org/software/make/) utility to generate the executable from source files
 
-To install and run the Autonity NodeJS Console you will need [nodejs](https://nodejs.org/en/download/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
-
 #### Get the source code
 
 Clone the Autonity Go Client repository:
@@ -108,7 +106,7 @@ Quick-start connecting to an Autonity testnet by using a testnet flag in the com
 ./build/bin/autonity --piccadilly
 ```
 
-For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/howto/run-aut/).
+For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Running a node](https://docs.autonity.org/node-operators/).
 
 ## Connect to a node using `aut` CLI
 
@@ -116,13 +114,13 @@ The recommended way of interacting with an Autonity node is via the aut CLI tool
 
 For source code, installation, and usage see the [aut CLI repository](https://github.com/autonity/autcli).
 
-See the docs how to [Setup `aut` CLI](https://docs.autonity.org/howto/setup-autcli/) for how to make calls and submit transactions.
+See the docs how to [Setup `aut` CLI](https://docs.autonity.org/account-holders/setup-autcli/) for how to make calls and submit transactions.
 
 ## Networks
 
 ### Testnets
 
-For details of how to connect your node to a public Autonity network see [docs.autonity.org/networks](https://docs.autonity.org/networks).
+For details of public Autonity network see [docs.autonity.org/networks](https://docs.autonity.org/networks/).
 
 ## License
 
