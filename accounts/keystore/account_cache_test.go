@@ -95,7 +95,6 @@ func TestWatchNoDir(t *testing.T) {
 	t.Parallel()
 
 	// Create ks but not the directory that it watches.
-	rand.Seed(time.Now().UnixNano())
 	dir := filepath.Join(os.TempDir(), fmt.Sprintf("eth-keystore-watchnodir-test-%d-%d", os.Getpid(), rand.Int()))
 	ks := NewKeyStore(dir, LightScryptN, LightScryptP)
 	list := ks.Accounts()
@@ -319,8 +318,7 @@ func waitForAccounts(wantAccounts []accounts.Account, ks *KeyStore) error {
 func TestUpdatedKeyfileContents(t *testing.T) {
 	t.Parallel()
 
-	// Create a temporary kesytore to test with
-	rand.Seed(time.Now().UnixNano())
+	// Create a temporary keystore to test with
 	dir := filepath.Join(os.TempDir(), fmt.Sprintf("eth-keystore-updatedkeyfilecontents-test-%d-%d", os.Getpid(), rand.Int()))
 	ks := NewKeyStore(dir, LightScryptN, LightScryptP)
 

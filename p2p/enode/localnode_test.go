@@ -17,8 +17,8 @@
 package enode
 
 import (
+	"crypto/rand"
 	"github.com/autonity/autonity/log"
-	"math/rand"
 	"net"
 	"testing"
 
