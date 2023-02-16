@@ -17,7 +17,7 @@
 package utils
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"testing"
 
 	"github.com/autonity/autonity/p2p/enode"
