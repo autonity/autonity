@@ -46,7 +46,7 @@ The minimum recommended device specifications for an Autonity node are:
 |-------------|---------|-------------|
 | OS | Ubuntu 20.04	LTS | Ubuntu 20.04 LTS |
 | CPU | 3.10 GHz with 8 CPU's | 3.10 GHz with 16 CPU's |
-| RAM | 8GB | 8GB |
+| RAM | 8GB | 16GB |
 | Storage | 1024GB free storage for full nodes and Validators | 1024 GB free storage for full nodes and validators |
 | Network interface	| 200 Mbit/s | 200 Mbit/s |
 
@@ -110,13 +110,13 @@ Quick-start connecting to an Autonity testnet by using a testnet flag in the com
 
 For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/howto/run-aut/).
 
-## Connect to a node using `aut` CLI
+## Connect to a node using Autonity Utility Tool `aut`
 
-The recommended way of interacting with an Autonity node is via the aut CLI tool, which provides a command-line interface to Autonity-specific queries and operations, as well as much of the base Ethereum functionality.
+The recommended way of interacting with an Autonity node is via `aut`, which provides a command-line interface to Autonity-specific queries and operations, as well as much of the base Ethereum functionality.
 
-For source code, installation, and usage see the [aut CLI repository](https://github.com/autonity/autcli).
+For source code, installation, and usage see the [aut repository](https://github.com/autonity/aut).
 
-See the docs how to [Setup `aut` CLI](https://docs.autonity.org/howto/setup-autcli/) for how to make calls and submit transactions.
+See the docs how to [Setup the Autonity Utility Tool (aut)](https://docs.autonity.org/howto/setup-aut/) for how to make calls and submit transactions.
 
 ## Networks
 
