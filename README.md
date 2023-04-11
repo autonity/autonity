@@ -108,7 +108,7 @@ Quick-start connecting to an Autonity testnet by using a testnet flag in the com
 ./build/bin/autonity --piccadilly
 ```
 
-For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/howto/run-aut/).
+For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/node-operators/run-aut/).
 
 ## Connect to a node using Autonity Utility Tool `aut`
 
