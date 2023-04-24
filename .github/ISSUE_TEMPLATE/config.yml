@@ -7,5 +7,5 @@ contact_links:
     url: https://aeps.autonity.org/
     about: Participate in Autonity Enhancement Proposals
   - name: Report an issue with the docs
-    url: https://github.com/autonity/docs-autonity
-    about: Report documentation issues in the docs-autonity repo
+    url: https://github.com/autonity/docs.autonity.org
+    about: Report documentation issues in the docs.autonity.org repo
