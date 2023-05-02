@@ -154,9 +154,9 @@ func (t *transactor) execute(action func(instance *Autonity, opts *bind.Transact
 }
 
 // public writers
-func (t *transactor) registerValidator(enode string, proof []byte) (*types.Transaction, error) {
+func (t *transactor) registerValidator(enode string, oracleAddress common.Address, multisig []byte) (*types.Transaction, error) {
 	return t.execute(func(instance *Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
-		return instance.RegisterValidator(opts, enode, proof)
+		return instance.RegisterValidator(opts, enode, oracleAddress, multisig)
 	})
 }
 

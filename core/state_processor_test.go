@@ -56,6 +56,7 @@ func TestStateProcessorErrors(t *testing.T) {
 			LondonBlock:            big.NewInt(0),
 			Ethash:                 new(params.EthashConfig),
 			AutonityContractConfig: &params.TestAutonityContractConfig,
+			OracleContractConfig:   &params.TestOracleContractConfig,
 		}
 		signer  = types.LatestSigner(config)
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
@@ -226,6 +227,7 @@ func TestStateProcessorErrors(t *testing.T) {
 					IstanbulBlock:          big.NewInt(0),
 					MuirGlacierBlock:       big.NewInt(0),
 					AutonityContractConfig: &params.TestAutonityContractConfig,
+					OracleContractConfig:   &params.TestOracleContractConfig,
 				},
 				Alloc: GenesisAlloc{
 					common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{

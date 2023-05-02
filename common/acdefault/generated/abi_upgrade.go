@@ -143,6 +143,12 @@ const UpgradeTestAbi = `[
          },
          {
             "indexed" : false,
+            "internalType" : "address",
+            "name" : "oracleAddress",
+            "type" : "address"
+         },
+         {
+            "indexed" : false,
             "internalType" : "string",
             "name" : "enode",
             "type" : "string"
@@ -362,7 +368,13 @@ const UpgradeTestAbi = `[
    {
       "inputs" : [],
       "name" : "computeCommittee",
-      "outputs" : [],
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
       "stateMutability" : "nonpayable",
       "type" : "function"
    },
@@ -434,7 +446,7 @@ const UpgradeTestAbi = `[
             "type" : "uint8"
          }
       ],
-      "stateMutability" : "view",
+      "stateMutability" : "pure",
       "type" : "function"
    },
    {
@@ -465,19 +477,6 @@ const UpgradeTestAbi = `[
    },
    {
       "inputs" : [],
-      "name" : "epochReward",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
       "name" : "epochTotalBondedStake",
       "outputs" : [
          {
@@ -490,13 +489,7 @@ const UpgradeTestAbi = `[
       "type" : "function"
    },
    {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
+      "inputs" : [],
       "name" : "finalize",
       "outputs" : [
          {
@@ -768,7 +761,12 @@ const UpgradeTestAbi = `[
                },
                {
                   "internalType" : "address",
-                  "name" : "addr",
+                  "name" : "nodeAddress",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "oracleAddress",
                   "type" : "address"
                },
                {
@@ -937,8 +935,13 @@ const UpgradeTestAbi = `[
             "type" : "string"
          },
          {
+            "internalType" : "address",
+            "name" : "_oracleAddress",
+            "type" : "address"
+         },
+         {
             "internalType" : "bytes",
-            "name" : "_proof",
+            "name" : "_multisig",
             "type" : "bytes"
          }
       ],

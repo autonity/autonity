@@ -12,7 +12,12 @@ const Abi = `[
                },
                {
                   "internalType" : "address",
-                  "name" : "addr",
+                  "name" : "nodeAddress",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "oracleAddress",
                   "type" : "address"
                },
                {
@@ -258,6 +263,12 @@ const Abi = `[
          },
          {
             "indexed" : false,
+            "internalType" : "address",
+            "name" : "oracleAddress",
+            "type" : "address"
+         },
+         {
+            "indexed" : false,
             "internalType" : "string",
             "name" : "enode",
             "type" : "string"
@@ -477,7 +488,13 @@ const Abi = `[
    {
       "inputs" : [],
       "name" : "computeCommittee",
-      "outputs" : [],
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
       "stateMutability" : "nonpayable",
       "type" : "function"
    },
@@ -549,7 +566,7 @@ const Abi = `[
             "type" : "uint8"
          }
       ],
-      "stateMutability" : "view",
+      "stateMutability" : "pure",
       "type" : "function"
    },
    {
@@ -580,19 +597,6 @@ const Abi = `[
    },
    {
       "inputs" : [],
-      "name" : "epochReward",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
       "name" : "epochTotalBondedStake",
       "outputs" : [
          {
@@ -605,13 +609,7 @@ const Abi = `[
       "type" : "function"
    },
    {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
+      "inputs" : [],
       "name" : "finalize",
       "outputs" : [
          {
@@ -883,7 +881,12 @@ const Abi = `[
                },
                {
                   "internalType" : "address",
-                  "name" : "addr",
+                  "name" : "nodeAddress",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "oracleAddress",
                   "type" : "address"
                },
                {
@@ -1052,8 +1055,13 @@ const Abi = `[
             "type" : "string"
          },
          {
+            "internalType" : "address",
+            "name" : "_oracleAddress",
+            "type" : "address"
+         },
+         {
             "internalType" : "bytes",
-            "name" : "_proof",
+            "name" : "_multisig",
             "type" : "bytes"
          }
       ],

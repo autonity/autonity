@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity embed-autonity-contract android ios autonity-cross evm all test clean lint mock-gen test-fast
+.PHONY: autonity embed-autonity-contract embed-oracle-contract android ios autonity-cross evm all test clean lint mock-gen test-fast
 
 NPMBIN= $(shell npm bin)
 BINDIR = ./build/bin
@@ -21,7 +21,7 @@ AUTONITY_CONTRACT_BASE_DIR = ./autonity/solidity
 AUTONITY_CONSENSUS_TEST_DIR = ./consensus/test
 AUTONITY_CONTRACT_DIR = $(AUTONITY_CONTRACT_BASE_DIR)/contracts
 AUTONITY_CONTRACT_TEST_DIR = $(AUTONITY_CONTRACT_BASE_DIR)/test
-AUTONITY_CONTRACT = Autonity.sol
+AUTONITY = Autonity
 GENERATED_CONTRACT_DIR = ./common/acdefault/generated
 GENERATED_RAW_ABI = $(GENERATED_CONTRACT_DIR)/Autonity.abi
 GENERATED_ABI = $(GENERATED_CONTRACT_DIR)/abi.go
@@ -29,7 +29,10 @@ GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 GENERATED_UPGRADE_ABI = $(GENERATED_CONTRACT_DIR)/abi_upgrade.go
 GENERATED_UPGRADE_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode_upgrade.go
 GENERATED_GO_BINDINGS = $(AUTONITY_CONSENSUS_TEST_DIR)/ac_go_binding_gen_test.go
+GENERATED_GO_BINDINGS_E2E = e2e_test/autonity_bindings.go
 
+ORACLE = Oracle
+GENERATED_ORACLE_CONTRACT_DIR = ./common/ocdefault/generated
 # DOCKER_SUDO is set to either the empty string or "sudo" and is used to
 # control whether docker is executed with sudo or not. If the user is root or
 # the user is in the docker group then this will be set to the empty string,
@@ -59,7 +62,8 @@ autonity:
 
 generate-go-bindings:
 	@echo Generating $(GENERATED_GO_BINDINGS)
-	$(ABIGEN_BINARY)  --pkg test --solc $(SOLC_BINARY) --sol $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT) --out $(GENERATED_GO_BINDINGS)
+	$(ABIGEN_BINARY)  --pkg test --solc $(SOLC_BINARY) --sol $(AUTONITY_CONTRACT_DIR)/$(AUTONITY).sol --out $(GENERATED_GO_BINDINGS)
+	$(ABIGEN_BINARY)  --pkg test --solc $(SOLC_BINARY) --sol $(AUTONITY_CONTRACT_DIR)/$(AUTONITY).sol --out $(GENERATED_GO_BINDINGS_E2E)
 
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
 # glibc for solc.
@@ -69,27 +73,36 @@ autonity-docker:
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
+define gen-contract
+	@mkdir -p $(1)
+	$(SOLC_BINARY) --overwrite --abi --bin -o $(1) $(AUTONITY_CONTRACT_DIR)/$(2).sol
+
+	@echo Generating $(1)/bytecode.go
+	@echo 'package generated' > $(1)/bytecode.go
+	@echo -n 'const Bytecode = "' >> $(1)/bytecode.go
+	@cat  $(1)/$(2).bin >> $(1)/bytecode.go
+	@echo '"' >> $(1)/bytecode.go
+	@gofmt -s -w $(1)/bytecode.go
+
+	@echo Generating $(1)/abi.go
+	@echo 'package generated' > $(1)/abi.go
+	@echo -n 'const Abi = `' >> $(1)/abi.go
+	@cat  $(1)/$(2).abi | json_pp  >> $(1)/abi.go
+	@echo '`' >> $(1)/abi.go
+	@gofmt -s -w $(1)/abi.go
+endef
+
+# Genreates go source files containing the oracle contract bytecode and abi.
+embed-oracle-contract: $(SOLC_BINARY) $(GOBINDATA_BINARY)
+	@$(call gen-contract,$(GENERATED_ORACLE_CONTRACT_DIR),$(ORACLE))
+	# update 4byte selector for clef
+	build/generate_4bytedb.sh $(SOLC_BINARY)
+	cd signer/fourbyte && go generate
+
 # Genreates go source files containing the contract bytecode and abi.
 embed-autonity-contract: $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI)
-
 $(GENERATED_BYTECODE) $(GENERATED_RAW_ABI) $(GENERATED_ABI): $(AUTONITY_CONTRACT_DIR)/*.sol $(SOLC_BINARY) $(GOBINDATA_BINARY)
-	@mkdir -p $(GENERATED_CONTRACT_DIR)
-	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(AUTONITY_CONTRACT_DIR)/$(AUTONITY_CONTRACT)
-
-	@echo Generating $(GENERATED_BYTECODE)
-	@echo 'package generated' > $(GENERATED_BYTECODE)
-	@echo -n 'const Bytecode = "' >> $(GENERATED_BYTECODE)
-	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.bin >> $(GENERATED_BYTECODE)
-	@echo '"' >> $(GENERATED_BYTECODE)
-	@gofmt -s -w $(GENERATED_BYTECODE)
-
-	@echo Generating $(GENERATED_ABI)
-	@echo 'package generated' > $(GENERATED_ABI)
-	@echo -n 'const Abi = `' >> $(GENERATED_ABI)
-	@cat  $(GENERATED_CONTRACT_DIR)/Autonity.abi | json_pp  >> $(GENERATED_ABI)
-	@echo '`' >> $(GENERATED_ABI)
-	@gofmt -s -w $(GENERATED_ABI)
-
+	$(call gen-contract,$(GENERATED_CONTRACT_DIR),$(AUTONITY))
 	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(AUTONITY_CONTRACT_DIR)/Upgrade_test.sol
 	@echo Generating $(GENERATED_UPGRADE_ABI)
 	@echo 'package generated' > $(GENERATED_UPGRADE_ABI)
@@ -119,9 +132,9 @@ $(GOBINDATA_BINARY):
 	wget -O $(GOBINDATA_BINARY) https://github.com/kevinburke/go-bindata/releases/download/v$(GOBINDATA_VERSION)/go-bindata-linux-amd64
 	chmod +x $(GOBINDATA_BINARY)
 
-all: embed-autonity-contract
+all: embed-autonity-contract embed-oracle-contract
 	go run build/ci.go install
-	make generate-go-bindings
+	make generate-go-bindings 
 
 android:
 	go run build/ci.go aar --local
@@ -168,7 +181,8 @@ test-contracts: autonity
 		echo waiting 2 more seconds for autonity to start ; \
 	    sleep 2 ; \
 	done
-	@cd $(AUTONITY_CONTRACT_BASE_DIR) && $(NPMBIN)/truffle test && cd -
+	@cd $(AUTONITY_CONTRACT_TEST_DIR) && $(NPMBIN)/truffle test test.js --network autonity && cd -
+	@cd $(AUTONITY_CONTRACT_TEST_DIR) && $(NPMBIN)/truffle test oracle.js && cd -
 
 docker-e2e-test: embed-autonity-contract
 	build/env.sh go run build/ci.go install

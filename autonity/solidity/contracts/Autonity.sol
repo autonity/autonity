@@ -7,6 +7,7 @@ import "./Liquid.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
+import "./Oracle.sol";
 
 uint8 constant DECIMALS = 18;
 
@@ -14,11 +15,12 @@ uint8 constant DECIMALS = 18;
 contract Autonity is IERC20, Upgradeable {
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
-
+    Oracle oracleContract = Oracle(payable(0x5a443704dd4B594B382c22a083e2BD3090A6feF3));
     enum ValidatorState {active, paused}
     struct Validator {
         address payable treasury;
-        address addr;
+        address nodeAddress;
+        address oracleAddress;
         string enode; //addr must match provided enode
         uint256 commissionRate;
         uint256 bondedStake;
@@ -79,7 +81,6 @@ contract Autonity is IERC20, Upgradeable {
 
     CommitteeMember[] internal committee;
     uint256 public totalRedistributed;
-    uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
@@ -111,7 +112,7 @@ contract Autonity is IERC20, Upgradeable {
     event MintedStake(address addr, uint256 amount);
     event BurnedStake(address addr, uint256 amount);
     event CommissionRateChange(address validator, uint256 rate);
-    event RegisteredValidator(address treasury, address addr, string enode, address liquidContract);
+    event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidContract);
     event PausedValidator(address treasury, address addr, uint256 effectiveBlock);
     event Rewarded(address addr, uint256 amount);
 
@@ -155,7 +156,7 @@ contract Autonity is IERC20, Upgradeable {
             accounts[_validators[i].treasury] += _bondedStake;
             stakeSupply += _bondedStake;
             epochTotalBondedStake += _bondedStake;
-            _bond(_validators[i].addr, _bondedStake, payable(_validators[i].treasury));
+            _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
         }
         _stakingTransitions();
         computeCommittee();
@@ -194,7 +195,7 @@ contract Autonity is IERC20, Upgradeable {
     * @return the number of decimals the NTN token uses.
     * @dev ERC-20 Optional.
     */
-    function decimals() public view returns (uint8) {
+    function decimals() public pure returns (uint8) {
         return DECIMALS;
     }
 
@@ -203,12 +204,15 @@ contract Autonity is IERC20, Upgradeable {
     * This validator will have assigned to its treasury account the caller of this function.
     * A new token "Liquid Stake" is deployed at this phase.
     * @param _enode enode identifying the validator node.
-    * @param _proof proof containing treasury account and signed by validator's node key.
+    * @param _multisig is a combination of two signatures appended sequentially, In below order:
+        1. a message containing treasury account and signed by validator account private key .
+        2. a message containing treasury account and signed by Oracle account private key .
     * @dev Emit a {RegisteredValidator} event.
     */
-    function registerValidator(string memory _enode, bytes memory _proof) public {
+    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _multisig) public {
         Validator memory _val = Validator(payable(msg.sender), //treasury
             address(0), // address
+            _oracleAddress, // voter Address //TODO: update validator registration API
             _enode, // enode
             config.delegationRate, // validator commission rate
             0, // bonded stake
@@ -219,18 +223,18 @@ contract Autonity is IERC20, Upgradeable {
             ValidatorState.active
         );
 
-        _registerValidator(_val, _proof);
-        emit RegisteredValidator(msg.sender, _val.addr, _enode, address(_val.liquidContract));
+        _registerValidator(_val, _multisig);
+        emit RegisteredValidator(msg.sender, _val.nodeAddress, _oracleAddress, _enode, address(_val.liquidContract));
     }
 
     function bond(address _validator, uint256 _amount) public {
-        require(validators[_validator].addr == _validator, "validator not registered");
+        require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(validators[_validator].state == ValidatorState.active, "validator need to be active");
         _bond(_validator, _amount, payable(msg.sender));
     }
 
     function unbond(address _validator, uint256 _amount) public {
-        require(validators[_validator].addr == _validator, "validator not registered");
+        require(validators[_validator].nodeAddress == _validator, "validator not registered");
         _unbond(_validator, _amount, payable(msg.sender));
     }
 
@@ -240,7 +244,7 @@ contract Autonity is IERC20, Upgradeable {
     * @dev emit a {DisabledValidator} event.
     */
     function pauseValidator(address _address) public {
-        require(validators[_address].addr == _address, "validator must be registered");
+        require(validators[_address].nodeAddress == _address, "validator must be registered");
         require(validators[_address].treasury == msg.sender, "require caller to be validator admin account");
         _pauseValidator(_address);
     }
@@ -250,7 +254,7 @@ contract Autonity is IERC20, Upgradeable {
     * @param _address address to be enabled.
     */
     function activateValidator(address _address) public {
-        require(validators[_address].addr == _address, "validator must be registered");
+        require(validators[_address].nodeAddress == _address, "validator must be registered");
         require(validators[_address].treasury == msg.sender, "require caller to be validator admin account");
         require(validators[_address].state == ValidatorState.paused, "validator must be paused");
 
@@ -263,7 +267,7 @@ contract Autonity is IERC20, Upgradeable {
             _rate new commission rate, ranging between 0-10000 (10000 = 100%).
     */
     function changeCommissionRate(address _validator, uint256 _rate) public {
-        require(validators[_validator].addr == _validator, "validator must be registered");
+        require(validators[_validator].nodeAddress == _validator, "validator must be registered");
         require(validators[_validator].treasury == msg.sender, "require caller to be validator admin account");
         require(_rate <= COMMISSION_RATE_PRECISION, "require correct commission rate");
         CommissionRateChangeRequest memory _newRequest = CommissionRateChangeRequest(_validator, block.number, _rate);
@@ -313,6 +317,7 @@ contract Autonity is IERC20, Upgradeable {
     */
     function setOperatorAccount(address _account) public onlyOperator {
         config.operatorAccount = _account;
+        oracleContract.setOperator(_account);
     }
 
     /*
@@ -416,23 +421,22 @@ contract Autonity is IERC20, Upgradeable {
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
-    * @param amount The amount of transaction fees collected for this block.
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next block consensus committee.
     */
-    function finalize(uint256 amount) external virtual onlyProtocol
+    function finalize() external virtual onlyProtocol
     returns (bool, CommitteeMember[] memory) {
-        epochReward += amount;
         if (lastEpochBlock + config.epochPeriod == block.number) {
             // - slashing should come here first -
-            _performRedistribution(epochReward);
-            epochReward = 0;
+            _performRedistribution();
             _stakingTransitions();
             _applyNewCommissionRates();
-            computeCommittee();
+            address[] memory voters = computeCommittee();
+            oracleContract.setVoters(voters);
             lastEpochBlock = block.number;
             epochID += 1;
         }
+        oracleContract.finalize();
         return (contractUpgradeReady, committee);
     }
 
@@ -440,7 +444,7 @@ contract Autonity is IERC20, Upgradeable {
     * @notice update the current committee by selecting top staking validators.
     * Restricted to the protocol.
     */
-    function computeCommittee() public onlyProtocol {
+    function computeCommittee() public onlyProtocol returns (address[] memory){
         // Left public for testing purposes.
         require(validatorList.length > 0, "There must be validators");
         /*
@@ -460,6 +464,7 @@ contract Autonity is IERC20, Upgradeable {
 
         Validator[] memory _validatorList = new Validator[](_len);
         Validator[] memory _committeeList = new Validator[](_committeeLength);
+        address [] memory _voterList = new address[](_committeeLength);
 
         // since Push function does not apply to fix length array, introduce a index j to prevent the overflow,
         // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
@@ -494,11 +499,13 @@ contract Autonity is IERC20, Upgradeable {
         delete committeeNodes;
         epochTotalBondedStake = 0;
         for (uint256 _k = 0; _k < _committeeLength; _k++) {
-            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].addr, _committeeList[_k].bondedStake);
+            CommitteeMember memory _member = CommitteeMember(_committeeList[_k].nodeAddress, _committeeList[_k].bondedStake);
             committee.push(_member);
             committeeNodes.push(_committeeList[_k].enode);
+            _voterList[_k] = _committeeList[_k].oracleAddress;
             epochTotalBondedStake += _committeeList[_k].bondedStake;
         }
+        return _voterList;
     }
 
 
@@ -685,10 +692,12 @@ contract Autonity is IERC20, Upgradeable {
     * pro-rata the amount of stake held.
     * @dev Emit a {BlockReward} event for every account that collected rewards.
     */
-    function _performRedistribution(uint256 _amount) internal virtual {
-        require(address(this).balance >= _amount, "not enough funds to perform redistribution");
+    function _performRedistribution() internal virtual {
+        if (address(this).balance == 0) {
+            return;
+        }
+        uint256 _amount =  address(this).balance;
         // take treasury fee.
-
         uint256 _treasuryReward = (config.treasuryFee * _amount) / 10 ** 18;
         if (_treasuryReward > 0) {
             config.treasuryAccount.transfer(_treasuryReward);
@@ -701,7 +710,7 @@ contract Autonity is IERC20, Upgradeable {
             if (_reward > 0) {
                 _val.liquidContract.redistribute{value : _reward}();
             }
-            emit Rewarded(_val.addr, _reward);
+            emit Rewarded(_val.nodeAddress, _reward);
         }
     }
 
@@ -732,23 +741,22 @@ contract Autonity is IERC20, Upgradeable {
     function _verifyEnode(Validator memory _validator) internal view {
     // _enode can't be empty and needs to be well-formed.
         uint _err;
-        (_validator.addr, _err) = Precompiled.enodeCheck(_validator.enode);
+        (_validator.nodeAddress, _err) = Precompiled.enodeCheck(_validator.enode);
         require(_err == 0, "enode error");
-        require(validators[_validator.addr].addr == address(0), "validator already registered");
+        require(validators[_validator.nodeAddress].nodeAddress == address(0), "validator already registered");
         require(_validator.commissionRate <= COMMISSION_RATE_PRECISION, "invalid commission rate");
-
     }
 
     function _deployLiquidContract(Validator memory _validator) internal {
         if (address(_validator.liquidContract) == address(0)) {
             string memory stringLength = Helpers.toString(validatorList.length);
-            _validator.liquidContract = new Liquid(_validator.addr,
+            _validator.liquidContract = new Liquid(_validator.nodeAddress,
                 _validator.treasury,
                 _validator.commissionRate,
                 stringLength);
         }
-        validatorList.push(_validator.addr);
-        validators[_validator.addr] = _validator;
+        validatorList.push(_validator.nodeAddress);
+        validators[_validator.nodeAddress] = _validator;
     }
 
 
@@ -758,21 +766,25 @@ contract Autonity is IERC20, Upgradeable {
         _deployLiquidContract(_validator);
     }
 
-    function _registerValidator(Validator memory _validator, bytes memory proof) internal {
+    function _registerValidator(Validator memory _validator, bytes memory _multisig) internal {
+        require(_multisig.length == 130, "Invalid proof length");
         // verify Enode
         _verifyEnode(_validator);
 
-        // verify proof
+        bytes memory prefix = "\x19Ethereum Signed Message:\n";
+        bytes memory treasury = abi.encodePacked(_validator.treasury);
+        bytes32 hashedData = keccak256(abi.encodePacked(prefix, Helpers.toString(treasury.length), treasury));
+        address[] memory signers = new address[](2);
         bytes32 r;
         bytes32 s;
         uint8 v;
-        (r, s, v) = Helpers.splitProof(proof);
-        bytes memory prefix = "\x19Ethereum Signed Message:\n";
-        bytes memory treasury = abi.encodePacked(_validator.treasury);
-        bytes memory data = abi.encodePacked(prefix, Helpers.toString(treasury.length), treasury);
-        bytes32 hashed = keccak256(data);
-        address signer = ecrecover(hashed, v, r, s);
-        require(signer == _validator.addr, "Invalid proof provided for registration");
+        //start from 32th byte to skip the encoded length field from the bytes type variable
+        for (uint i=32; i < _multisig.length; i +=65) {
+            (r, s, v) = Helpers.extractRSV(_multisig, i);
+            signers[i/65] = ecrecover(hashedData, v, r, s);
+        }
+        require(signers[0] == _validator.nodeAddress, "Invalid node key ownership proof provided");
+        require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
 
         // deploy liquid stake contract
        _deployLiquidContract(_validator);

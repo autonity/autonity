@@ -589,6 +589,10 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 		genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	}
 
+	if genesis.Config.OracleContractConfig == nil {
+		genesis.Config.OracleContractConfig = &params.OracleContractGenesis{}
+	}
+
 	for i := range keys {
 		addr := crypto.PubkeyToAddress(keys[i].PublicKey)
 		node := enode.NewV4(&keys[i].PublicKey, nil, 0, 0)

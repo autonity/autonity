@@ -105,6 +105,7 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 				Operator:         *operatorAddress,
 				Validators:       genesisValidators,
 			},
+			OracleContractConfig: &params.OracleContractGenesis{},
 		},
 	}
 

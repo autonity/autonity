@@ -53,22 +53,26 @@ The output of this command is supposed to be machine-readable.
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
 
-	enodeProofCommand = cli.Command{
-		Action: utils.MigrateFlags(genEnodeProof),
-		Name:   "genEnodeProof",
+	ownershipProofCommand = cli.Command{
+		Action: utils.MigrateFlags(genOwnershipProof),
+		Name:   "genOwnershipProof",
 		Usage:  "Generate enode proof",
 		Flags: []cli.Flag{
 			utils.NodeKeyFileFlag,
 			utils.NodeKeyHexFlag,
+			utils.OracleKeyFileFlag,
+			utils.OracleKeyHexFlag,
 		},
 		Description: `
-    	autonity genEnodeProof
-		Generate a proof given a private key and the treasury address
+    	autonity genOwnershipProof
+		Generate a proof given a private key and the treasury address,
 		Proof is printed on stdout in hex string format. This must be copied
 		as it is and passed while RegisterValidator.
 		There are two ways to pass nodekey
 			1. --nodekey <node key file name>
-			2. --nodekeyhex <node key in hex>`,
+			2. --nodekeyhex <node key in hex>
+			3. --oraclekey <node key file name>
+			4. --oraclekeyhex <node key in hex>`,
 		ArgsUsage: "<treasury>",
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
@@ -153,30 +157,45 @@ along with autonity. If not, see <http://www.gnu.org/licenses/>.`)
 	return nil
 }
 
-// genEnodeProof generates an enode proof
-func genEnodeProof(ctx *cli.Context) error {
+// genOwnershipProof generates an ownership proof of the node and oracle account
+func genOwnershipProof(ctx *cli.Context) error {
 	args := ctx.Args()
 	if len(args) != 1 {
-		utils.Fatalf(`Usage: autonity genEnodeProof [options] <treasuryAddress>`)
+		utils.Fatalf(`Usage: autonity genOwnershipProof [options] <treasuryAddress>`)
 	}
 
 	// Load private key
-	var privateKey *ecdsa.PrivateKey
+	var nodePrivateKey, oraclePrivateKey *ecdsa.PrivateKey
 	var err error
-	if fileName := ctx.GlobalString(utils.NodeKeyFileFlag.Name); fileName != "" {
+	if nodeKeyFile := ctx.GlobalString(utils.NodeKeyFileFlag.Name); nodeKeyFile != "" {
 		// load key from the file
-		privateKey, err = crypto.LoadECDSA(fileName)
+		nodePrivateKey, err = crypto.LoadECDSA(nodeKeyFile)
 		if err != nil {
-			utils.Fatalf("Failed to load the private key: %v", err)
+			utils.Fatalf("Failed to load the node private key: %v", err)
 		}
 	} else if privateKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeyHex != "" {
-		privateKey, err = crypto.HexToECDSA(privateKeyHex)
+		nodePrivateKey, err = crypto.HexToECDSA(privateKeyHex)
 		if err != nil {
-			utils.Fatalf("Failed to parse the private key: %v", err)
+			utils.Fatalf("Failed to parse the node private key: %v", err)
 		}
 	} else {
-		utils.Fatalf(`Usage: autonity genEnodeProof [options] <treasuryAddress>`)
+		utils.Fatalf(`Node key details are not provided`)
 	}
+
+	if oracleKeyFile := ctx.GlobalString(utils.OracleKeyFileFlag.Name); oracleKeyFile != "" {
+		oraclePrivateKey, err = crypto.LoadECDSA(oracleKeyFile)
+		if err != nil {
+			utils.Fatalf("Failed to load the oracle private key: %v", err)
+		}
+	} else if oracleKeyHex := ctx.GlobalString(utils.OracleKeyHexFlag.Name); oracleKeyHex != "" {
+		oraclePrivateKey, err = crypto.HexToECDSA(oracleKeyHex)
+		if err != nil {
+			utils.Fatalf("Failed to parse the oracle private key: %v", err)
+		}
+	} else {
+		utils.Fatalf(`oracle key details are not provided`)
+	}
+
 	treasury := args[0]
 	data, err := hexutil.Decode(treasury)
 	if err != nil {
@@ -187,11 +206,16 @@ func genEnodeProof(ctx *cli.Context) error {
 	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(data))
 	hash := crypto.Keccak256Hash([]byte(prefix), data)
 	//sign the data hash
-	signature, err := crypto.Sign(hash.Bytes(), privateKey)
+	nodeSignature, err := crypto.Sign(hash.Bytes(), nodePrivateKey)
 	if err != nil {
 		utils.Fatalf("Failed to sign: %v", err)
 	}
-	hexStr := hexutil.Encode(signature)
+	oracleSignature, err := crypto.Sign(hash.Bytes(), oraclePrivateKey)
+	if err != nil {
+		utils.Fatalf("Failed to sign: %v", err)
+	}
+	multisig := append(nodeSignature[:], oracleSignature[:]...)
+	hexStr := hexutil.Encode(multisig)
 	fmt.Println("Signature hex:", hexStr)
 	return nil
 }

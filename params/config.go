@@ -121,6 +121,7 @@ var (
 				BondedStake: bigBondedStake,
 			}},
 		},
+		OracleContractConfig: &OracleContractGenesis{},
 	}
 
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
@@ -182,6 +183,7 @@ var (
 				BondedStake: bigBondedStake,
 			}},
 		},
+		OracleContractConfig: &OracleContractGenesis{},
 	}
 
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
@@ -379,7 +381,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil}
 
 	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
@@ -405,6 +407,12 @@ var (
 			},
 		},
 	}
+	TestOracleContractConfig = OracleContractGenesis{
+		Bytecode:   "",
+		ABI:        "",
+		VotePeriod: votePeriod,
+		Symbols:    []string{"NTNUSD", "NTNAUD", "NTNCAD", "NTNEUR", "NTNGBP", "NTNJPY", "NTNSEK"},
+	}
 
 	TestChainConfig = &ChainConfig{
 		big.NewInt(1337),
@@ -426,7 +434,9 @@ var (
 		nil,
 		nil,
 		new(EthashConfig),
-		&TestAutonityContractConfig}
+		&TestAutonityContractConfig,
+		&TestOracleContractConfig,
+	}
 
 	TestRules = TestChainConfig.Rules(new(big.Int), false)
 )
@@ -522,6 +532,7 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonity,omitempty"`
+	OracleContractConfig   *OracleContractGenesis   `json:"oracle,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
@@ -759,6 +770,9 @@ func (c *ChainConfig) Copy() *ChainConfig {
 	}
 	if c.AutonityContractConfig != nil {
 		cfg.AutonityContractConfig = &(*c.AutonityContractConfig)
+	}
+	if c.OracleContractConfig != nil {
+		cfg.OracleContractConfig = c.OracleContractConfig
 	}
 	if c.ChainID != nil {
 		cfg.ChainID = big.NewInt(0).Set(c.ChainID)

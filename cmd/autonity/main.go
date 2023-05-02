@@ -119,6 +119,8 @@ var (
 		utils.NetrestrictFlag,
 		utils.NodeKeyFileFlag,
 		utils.NodeKeyHexFlag,
+		utils.OracleKeyFileFlag,
+		utils.OracleKeyHexFlag,
 		utils.WriteAddrFlag,
 		utils.DNSDiscoveryFlag,
 		utils.DeveloperFlag,
@@ -204,7 +206,7 @@ func init() {
 		// See misccmd.go:
 		versionCommand,
 		licenseCommand,
-		enodeProofCommand,
+		ownershipProofCommand,
 		genKeyCommand,
 		// See config.go
 		dumpConfigCommand,

@@ -61,12 +61,12 @@ func DeployContract(abi *abi.ABI, genesisConfig *params.AutonityContractGenesis,
 	value := new(big.Int).SetUint64(0x00)
 
 	// Deploy the Autonity contract
-	_, _, _, vmerr := evm.Create(vm.AccountRef(Deployer), data, gas, value)
+	_, contractAddr, _, vmerr := evm.Create(vm.AccountRef(Deployer), data, gas, value)
 	if vmerr != nil {
 		log.Error("DeployAutonityContract evm.Create", "err", vmerr)
 		return vmerr
 	}
-	log.Info("Deployed Autonity Contract", "Address", ContractAddress.String())
+	log.Info("Deployed Autonity Contract", "Address", contractAddr.String())
 
 	return nil
 }
@@ -152,12 +152,12 @@ func (ac *Contract) callGetProposer(state *state.StateDB, header *types.Header, 
 	return proposer
 }
 
-func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header, blockGas *big.Int) (bool, types.Committee, error) {
+func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header) (bool, types.Committee, error) {
 
 	var updateReady bool
 	var committee types.Committee
 
-	err := ac.AutonityContractCall(state, header, "finalize", &[]interface{}{&updateReady, &committee}, blockGas)
+	err := ac.AutonityContractCall(state, header, "finalize", &[]interface{}{&updateReady, &committee})
 	if err != nil {
 		return false, nil, err
 	}

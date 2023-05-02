@@ -619,6 +619,14 @@ var (
 		Name:  "nodekeyhex",
 		Usage: "P2P node key as hex (for testing)",
 	}
+	OracleKeyFileFlag = cli.StringFlag{
+		Name:  "oraclekey",
+		Usage: "oracle account key file",
+	}
+	OracleKeyHexFlag = cli.StringFlag{
+		Name:  "oraclekeyhex",
+		Usage: "oracle account key as hex (for testing)",
+	}
 	WriteAddrFlag = cli.BoolFlag{
 		Name:  "writeaddress",
 		Usage: "writes out the node's public key on stdout",

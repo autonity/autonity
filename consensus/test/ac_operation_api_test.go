@@ -55,6 +55,8 @@ func TestACPublicWritters(t *testing.T) {
 	newValidatorAddr := crypto.PubkeyToAddress(newValidator.PublicKey)
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
 
+	oracleAccount, err := makeAccount()
+	require.NoError(t, err)
 	// newton to be mint
 	amount := new(big.Int).SetUint64(10)
 
@@ -70,6 +72,7 @@ func TestACPublicWritters(t *testing.T) {
 				},
 					enodeUrl,
 					newValidator,
+					oracleAccount,
 				),
 			},
 			finalAssert: func(t *testing.T, validators map[string]*testNode) {
@@ -77,7 +80,7 @@ func TestACPublicWritters(t *testing.T) {
 				defer client.close()
 				val, err := client.call(validators["V0"].lastBlock).getValidator(newValidatorAddr)
 				require.NoError(t, err)
-				require.Equal(t, newValidatorAddr, val.Addr)
+				require.Equal(t, newValidatorAddr, val.NodeAddress)
 			},
 		},
 		{
@@ -367,7 +370,7 @@ func mintStakeHook(upgradeBlocks map[uint64]struct{}, operator *ecdsa.PrivateKey
 	}
 }
 
-func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey) hook {
+func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey, oracleKey *ecdsa.PrivateKey) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		blockNum := block.Number().Uint64()
 		if _, ok := upgradeBlocks[blockNum]; !ok {
@@ -382,12 +385,19 @@ func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, node
 		}
 		prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(hexTreasury))
 		hash := crypto.Keccak256Hash([]byte(prefix), hexTreasury)
-		proof, err := crypto.Sign(hash.Bytes(), nodekey)
+		nodeProof, err := crypto.Sign(hash.Bytes(), nodekey)
 		if err != nil {
 			return err
 		}
-		fmt.Println("proof ", hexutil.Encode(proof))
-		if _, err := interaction.tx(validator.privateKey).registerValidator(enode, proof); err != nil {
+		oracleProof, err := crypto.Sign(hash.Bytes(), oracleKey)
+		if err != nil {
+			return err
+		}
+		//using same account for oracle and node, same proof can be reused here
+		mulitsig := append(nodeProof[:], oracleProof[:]...)
+		fmt.Println("proof ", hexutil.Encode(mulitsig))
+		oracleAddr := crypto.PubkeyToAddress(oracleKey.PublicKey)
+		if _, err := interaction.tx(validator.privateKey).registerValidator(enode, oracleAddr, mulitsig); err != nil {
 			return err
 		}
 		return nil

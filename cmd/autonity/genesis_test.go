@@ -58,6 +58,11 @@ var genesisTest = struct {
 							"bondedStake" : 1
 						}
 					]
+				},
+    			"oracle": {
+					"bytecode": "",
+      				"abi": "",
+      				"votePeriod": 30
 				}
 			}
 		}`,
@@ -99,6 +104,11 @@ var genesisTest = struct {
 							"bondedStake" : 2
 						}
 					]
+				},
+    			"oracle": {
+					"bytecode": "",
+      				"abi": "",
+      				"votePeriod": 30
 				}
 			}
 		}`,
@@ -128,6 +138,11 @@ var genesisTest = struct {
 							"bondedStake" : 1
 						}
 					]
+				},
+    			"oracle": {
+					"bytecode": "",
+      				"abi": "",
+      				"votePeriod": 30
 				}
 			}
 		}`,

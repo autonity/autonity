@@ -72,7 +72,8 @@ func (ac *AutonityContractGenesis) Prepare() error {
 //User - is used to put predefined accounts to genesis
 type Validator struct {
 	Treasury          common.Address  `abi:"treasury"`
-	Address           *common.Address `abi:"addr"`
+	Address           *common.Address `abi:"nodeAddress"`
+	OracleAddress     common.Address  `abi:"oracleAddress"`
 	Enode             string          `abi:"enode"`
 	CommissionRate    *big.Int        `abi:"commissionRate"`
 	BondedStake       *big.Int        `abi:"bondedStake"`

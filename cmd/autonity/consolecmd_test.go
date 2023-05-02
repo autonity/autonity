@@ -64,6 +64,11 @@ var genesis = `{
 							"bondedStake" : 1
 						}
 					]
+				},
+    			"oracle": {
+					"bytecode": "",
+      				"abi": "",
+      				"votePeriod": 30
 				}
 			}
 		}`

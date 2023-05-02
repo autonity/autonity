@@ -366,7 +366,7 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(txs, receipts, header, state)
+	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize returns err", "err", err)
 		return nil, nil, err

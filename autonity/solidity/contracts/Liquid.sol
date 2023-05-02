@@ -63,7 +63,7 @@ contract Liquid is IERC20
 
     string private _name;
     string private _symbol;
-    
+
     address validator;
     address payable treasury;
     uint256 commissionRate;
@@ -170,7 +170,7 @@ contract Liquid is IERC20
     * @return the number of decimals the LNTN token uses.
     * @dev ERC-20 Optional.
     */
-    function decimals() public view returns (uint8) {
+    function decimals() public pure returns (uint8) {
         return DECIMALS;
     }
 
@@ -255,14 +255,14 @@ contract Liquid is IERC20
     function setCommissionRate(uint256 _rate) public onlyAutonity {
         commissionRate = _rate;
     }
-    
+
     /**
     * @notice returns the name of this Liquid Newton contract
     */
     function name() external view returns (string memory){
         return _name;
     }
-    
+
     /**
     * @notice returns the symbol of this Liquid Newton contract
     */

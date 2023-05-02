@@ -155,10 +155,10 @@ func (e *GenesisMismatchError) Error() string {
 // SetupGenesisBlock writes or updates the genesis block in db.
 // The behavior of it is:
 //
-//                            genesis == nil         genesis != nil
-//                       +------------------------------------------
-//     db has no genesis |  Return An Error      |  apply genesis to db
-//     db has genesis    |  Use genesis from DB  |  apply genesis (if compatible)
+//	                       genesis == nil         genesis != nil
+//	                  +------------------------------------------
+//	db has no genesis |  Return An Error      |  apply genesis to db
+//	db has genesis    |  Use genesis from DB  |  apply genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
 // specify a fork block below the local head block). In case of a conflict, the
@@ -316,15 +316,32 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 
 	evm := genesisEVM(g, statedb)
 
-	abi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
+	autonityAbi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
+	if err != nil {
+		return nil, err
+	}
+	err = autonity.DeployContract(&autonityAbi, g.Config.AutonityContractConfig, evm)
 	if err != nil {
 		return nil, err
 	}
 
-	err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
+	oracleContractConfig := g.Config.OracleContractConfig
+	err = oracleContractConfig.Prepare()
 	if err != nil {
 		return nil, err
 	}
+	validators := g.Config.AutonityContractConfig.Validators
+	voters := make([]common.Address, len(validators))
+	for _, val := range validators {
+		voters = append(voters, val.OracleAddress)
+	}
+
+	oc := autonity.NewOracleContract(oracleContractConfig, evm)
+	err = oc.Deploy(voters, g.Config.AutonityContractConfig.Operator)
+	if err != nil {
+		return nil, err
+	}
+
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
@@ -600,6 +617,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			LondonBlock:            big.NewInt(0),
 			ArrowGlacierBlock:      big.NewInt(0),
 			AutonityContractConfig: &testAutonityContractConfig,
+			OracleContractConfig:   &params.OracleContractGenesis{},
 		},
 	}
 }

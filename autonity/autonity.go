@@ -102,21 +102,16 @@ func (ac *Contract) SetMinimumBaseFee(block *types.Block, db *state.StateDB, pri
 	return ac.callSetMinimumBaseFee(db, block.Header(), price)
 }
 
-func (ac *Contract) FinalizeAndGetCommittee(transactions types.Transactions, receipts types.Receipts, header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
+func (ac *Contract) FinalizeAndGetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
 	if header.Number.Uint64() == 0 {
 		return nil, nil, nil
-	}
-	blockGas := new(big.Int)
-	for i := range transactions {
-		blockGas.Add(blockGas, new(big.Int).Mul(header.BaseFee, new(big.Int).SetUint64(receipts[i].GasUsed)))
 	}
 
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(ContractAddress),
-		"block", header.Number.Uint64(),
-		"gas", blockGas.Uint64())
+		"block", header.Number.Uint64())
 
-	upgradeContract, committee, err := ac.callFinalize(statedb, header, blockGas)
+	upgradeContract, committee, err := ac.callFinalize(statedb, header)
 	if err != nil {
 		return nil, nil, err
 	}
