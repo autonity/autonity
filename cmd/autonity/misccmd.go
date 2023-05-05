@@ -65,14 +65,15 @@ The output of this command is supposed to be machine-readable.
 		},
 		Description: `
     	autonity genOwnershipProof
-		Generate a proof given a private key and the treasury address,
-		Proof is printed on stdout in hex string format. This must be copied
-		as it is and passed while RegisterValidator.
-		There are two ways to pass nodekey
-			1. --nodekey <node key file name>
+		Generates a proof, given a node private key, oracle private key and the 
+		treasury address. Proof is printed on stdout in hex string format. This 
+		must be copied as it is and passed to registerValidator.
+		There are two ways to pass node private key:
+			1. --nodekey <node key file name> 
 			2. --nodekeyhex <node key in hex>
-			3. --oraclekey <node key file name>
-			4. --oraclekeyhex <node key in hex>`,
+		Similarly there are two ways to pass oracle private key:
+			1. --oraclekey <oracle key file name>
+			2. --oraclekeyhex <oracle key in hex>`,
 		ArgsUsage: "<treasury>",
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
@@ -108,7 +109,8 @@ func makecache(ctx *cli.Context) error {
 	return nil
 }
 
-// makedag generates an ethash mining DAG into the provided folder.
+// makedag gene
+//		tes an ethash mining DAG into the provided folder.
 func makedag(ctx *cli.Context) error {
 	args := ctx.Args()
 	if len(args) != 2 {
