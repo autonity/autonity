@@ -26,7 +26,7 @@ contract Accountability is IAccountability {
         InnocenceProof
     }
 
-    // Must match autonity/accountability_types.go
+    // Must match autonity/types.go
     enum Rule {
         PN,
         PO,
@@ -39,11 +39,7 @@ contract Accountability is IAccountability {
 
         InvalidProposal, // The value proposed by proposer cannot pass the blockchain's validation.
         InvalidProposer, // A proposal sent from none proposer nodes of the committee.
-        Equivocation,    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
-
-        InvalidRound,          // message contains invalid round number or step.
-        WrongValidRound, // message was signed by sender, but it cannot be decoded.
-        GarbageMessage // message sender is not the member of current committee.
+        Equivocation    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
     }
 
     enum Severity {
@@ -467,7 +463,6 @@ contract Accountability is IAccountability {
     }
 
     function _baseSlashingRate(uint256 _severity) internal view returns (uint256) {
-        //
         if (_severity == uint256(Severity.Minor)) {
             return config.baseSlashingRateMid;
         }

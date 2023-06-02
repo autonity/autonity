@@ -6,17 +6,16 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/influxdata/influxdb/pkg/deep"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"go.uber.org/mock/gomock"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
@@ -131,7 +130,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 				}
 			}()
 			testCase.message.Validate(header.CommitteeMember)
-			err := engine.handleValidMsg(context.Background(), testCase.message)
+			err := engine.handleMsg(context.Background(), testCase.message)
 
 			if !errors.Is(err, testCase.outcome) {
 				t.Fatal("unexpected handlecheckedmsg returning ",
@@ -167,31 +166,6 @@ func TestHandleMsg(t *testing.T) {
 		prevote := message.NewPrevote(2, 1, common.BytesToHash([]byte{0x1}), defaultSigner)
 		if err := c.handleMsg(context.Background(), prevote); !errors.Is(err, constants.ErrOldHeightMessage) {
 			t.Fatal("errOldHeightMessage not returned")
-		}
-	})
-
-	t.Run("future height message return error but are saved", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		backendMock := interfaces.NewMockBackend(ctrl)
-		c := &Core{
-			logger:           log.New("backend", "test", "id", 0),
-			backend:          backendMock,
-			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Msg),
-			backlogUntrusted: map[uint64][]message.Msg{},
-			step:             Propose,
-			round:            1,
-			height:           big.NewInt(2),
-		}
-		c.SetDefaultHandlers()
-
-		prevote := message.NewPrevote(2, 3, common.BytesToHash([]byte{0x1}), defaultSigner)
-		if err := c.handleMsg(context.Background(), prevote); !errors.Is(err, constants.ErrFutureHeightMessage) {
-			t.Fatal("errFutureHeightMessage not returned")
-		}
-		if backlog, ok := c.backlogUntrusted[3]; !(ok && len(backlog) > 0 && deep.Equal(backlog[0], prevote)) {
-			t.Fatal("future message not saved in the untrusted buffer")
 		}
 	})
 }

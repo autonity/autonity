@@ -8,10 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
@@ -21,6 +17,9 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestSendPropose(t *testing.T) {
@@ -155,6 +154,7 @@ func TestHandleProposal(t *testing.T) {
 		proposal := message.NewPropose(2, 1, 1, block, signer)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(1)).MaxTimes(1)
 
 		c := &Core{
 			address:          addr,
@@ -289,6 +289,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ [][]byte) {
 			assert.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
 		})
+		backendMock.EXPECT().ProcessFutureMsgs(gomock.Any()).AnyTimes()
 
 		err = c.proposer.HandleProposal(context.Background(), proposal)
 		assert.NoError(t, err)
@@ -309,6 +310,8 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().Broadcast(gomock.Any(), prevote)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(1)).MaxTimes(1)
+
 		c := &Core{
 			address:          addr,
 			backend:          backendMock,
@@ -352,6 +355,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().Broadcast(gomock.Any(), message.NewPrevote(round, height, proposal.Block().Hash(), signer))
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(1)).MaxTimes(1)
 
 		c := &Core{
 			address:          addr,

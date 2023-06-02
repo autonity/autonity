@@ -3,20 +3,17 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
+	"math"
 	"sync"
 	"time"
-
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-
-	lru "github.com/hashicorp/golang-lru"
-	ring "github.com/zfjagann/golang-ring"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -24,13 +21,17 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	lru "github.com/hashicorp/golang-lru"
+	ring "github.com/zfjagann/golang-ring"
 )
 
 const (
 	// fetcherID is the ID indicates the block is from BFT engine
 	fetcherID = "tendermint"
-	// ring buffer to be able to handle at maximum 10 rounds, 20 committee and 3 messages types
-	ringCapacity = 10 * 20 * 3
+	// ring buffer to be able to handle at maximum 10 rounds, 100 committee and 3 messages types
+	ringCapacity = 10 * 100 * 3
+	// maximum number of future height messages
+	maxFutureMsgs = 10 * 100 * 3
 	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
 	retryPeriod = 10
 )
@@ -52,16 +53,18 @@ func New(privateKey *ecdsa.PrivateKey,
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
 	backend := &Backend{
-		eventMux:       event.NewTypeMuxSilent(evMux, log),
-		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log,
-		coreStarted:    false,
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		vmConfig:       vmConfig,
-		MsgStore:       ms,
-		jailed:         make(map[common.Address]uint64),
+		eventMux:        event.NewTypeMuxSilent(evMux, log),
+		privateKey:      privateKey,
+		address:         crypto.PubkeyToAddress(privateKey.PublicKey),
+		logger:          log,
+		coreStarted:     false,
+		recentMessages:  recentMessages,
+		knownMessages:   knownMessages,
+		vmConfig:        vmConfig,
+		MsgStore:        ms,
+		jailed:          make(map[common.Address]uint64),
+		future:          make(map[uint64][]*events.MessageEvent),
+		futureMinHeight: math.MaxUint64,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
@@ -96,6 +99,7 @@ type Backend struct {
 	coreMu            sync.RWMutex
 
 	// we save the last received p2p.messages in the ring buffer
+	// used to save consensus messages while core is stopped
 	pendingMessages ring.Ring
 
 	// interface to enqueue blocks to fetcher and find peers
@@ -113,6 +117,13 @@ type Backend struct {
 	MsgStore   *tendermintCore.MsgStore
 	jailed     map[common.Address]uint64
 	jailedLock sync.RWMutex
+
+	// buffer for future height events and related metadata
+	future          map[uint64][]*events.MessageEvent
+	futureMinHeight uint64
+	futureMaxHeight uint64
+	futureSize      uint64
+	futureLock      sync.RWMutex
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
@@ -359,6 +370,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 		return
 	}
 	messages := sb.core.CurrentHeightMessages()
+	sb.logger.Debug("sent current height messages", "peer", address, "n", len(messages), "msgs", messages)
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
 		go p.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
@@ -374,6 +386,26 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 	}
 }
 
-func (sb *Backend) RemoveMessageFromLocalCache(message message.Msg) {
-	sb.knownMessages.Remove(message.Hash())
+// RemoveFromCache removes a slice of local messages from the known messages cache.
+// It is called by the tendermint handler when some unprocessed messages are removed from the future height messages buffer.
+func (sb *Backend) removeFromCache(evs []*events.MessageEvent) {
+	// Note: ARC is thread-safe
+	for _, e := range evs {
+		sb.knownMessages.Remove(e.Message.Hash())
+	}
+}
+
+// called by tendermint core to dump core state
+func (sb *Backend) FutureMsgs() []message.Msg {
+	sb.futureLock.RLock()
+	defer sb.futureLock.RUnlock()
+
+	var msgs []message.Msg
+	for _, evs := range sb.future {
+		for _, ev := range evs {
+			msgs = append(msgs, ev.Message)
+		}
+	}
+
+	return msgs
 }

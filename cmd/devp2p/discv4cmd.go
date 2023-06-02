@@ -18,10 +18,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/cmd/devp2p/internal/v4test"
 	"github.com/autonity/autonity/common"

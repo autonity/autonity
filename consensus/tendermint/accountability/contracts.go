@@ -185,12 +185,6 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof) []byte {
 		valid = c.validMisbehaviourOfPVO3(p)
 	case autonity.C:
 		valid = c.validMisbehaviourOfC(p)
-	case autonity.InvalidRound:
-		valid = p.Message.R() > constants.MaxRound
-	case autonity.WrongValidRound:
-		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
-			valid = lightProposal.ValidRound() >= lightProposal.R()
-		}
 	case autonity.InvalidProposer:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
 			valid = !isProposerValid(c.chain, lightProposal)
@@ -750,8 +744,11 @@ func validReturn(m message.Msg, rule autonity.Rule) []byte {
 	return result
 }
 
+// proofs that include the maximum amount of messages are the ones that require:
+// 1. a proposal + a quorum of prevotes (worst-case number of evidence = MaxCommitteeSize + 1)
+// 2. a proposal + a list of precommits (worst-case number of evidence = MaxRound + 1).
+// thus the maximum number of evidence possible is the max between those two values
 func maxEvidenceMessages(header *types.Header) int {
-	// todo(youssef): I dont understand that
 	committeeSize := len(header.Committee)
 	if committeeSize > constants.MaxRound {
 		return committeeSize + 1

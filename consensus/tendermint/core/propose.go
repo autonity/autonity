@@ -96,6 +96,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if errors.Is(err, consensus.ErrFutureTimestampBlock) {
+			c.logger.Debug("delaying processing of proposal due to future timestamp", "delay", duration)
 			c.StopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				c.SendEvent(backlogMessageEvent{

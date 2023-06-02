@@ -20,7 +20,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"io"
 	"io/ioutil"
 	"math"
@@ -33,6 +32,8 @@ import (
 	"text/tabwriter"
 	"text/template"
 	"time"
+
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/tracers"

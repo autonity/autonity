@@ -4,10 +4,6 @@ import (
 	"crypto/ecdsa"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -16,6 +12,10 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestContractsManagement(t *testing.T) {
@@ -40,7 +40,6 @@ func TestContractsManagement(t *testing.T) {
 	assert.NotNil(t, vm.PrecompiledContractsBLS[checkInnocenceAddress])
 	assert.NotNil(t, vm.PrecompiledContractsBLS[checkAccusationAddress])
 	assert.NotNil(t, vm.PrecompiledContractsBLS[checkMisbehaviourAddress])
-
 }
 
 func TestDecodeProof(t *testing.T) {
@@ -107,7 +106,7 @@ func TestAccusationVerifier(t *testing.T) {
 
 	t.Run("Test validate accusation, with wrong rule ID", func(t *testing.T) {
 		var p Proof
-		p.Rule = autonity.InvalidRound + 100
+		p.Rule = autonity.Equivocation + 100
 		assert.False(t, verifyAccusation(&p))
 	})
 

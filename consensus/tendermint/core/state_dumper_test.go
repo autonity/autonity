@@ -5,10 +5,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -16,6 +12,9 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestGetLockedValueAndValidValue(t *testing.T) {
@@ -88,6 +87,8 @@ func TestGetCoreState(t *testing.T) {
 	backendMock.EXPECT().Address().Return(sender)
 	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
+	backendMock.EXPECT().FutureMsgs().Return(nil)
+	backendMock.EXPECT().ProcessFutureMsgs(height.Uint64()).MaxTimes(1)
 
 	c := New(backendMock, nil)
 

@@ -10,6 +10,7 @@ package interfaces
 
 import (
 	context "context"
+	big "math/big"
 	reflect "reflect"
 	time "time"
 
@@ -126,6 +127,20 @@ func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals [][]
 func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
+}
+
+// FutureMsgs mocks base method.
+func (m *MockBackend) FutureMsgs() []*message.Msg {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FutureMsgs")
+	ret0, _ := ret[0].([]*message.Msg)
+	return ret0
+}
+
+// FutureMsgs indicates an expected call of FutureMsgs.
+func (mr *MockBackendMockRecorder) FutureMsgs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FutureMsgs", reflect.TypeOf((*MockBackend)(nil).FutureMsgs))
 }
 
 // GetContractABI mocks base method.
@@ -246,6 +261,18 @@ func (m *MockBackend) Post(ev any) {
 func (mr *MockBackendMockRecorder) Post(ev any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockBackend)(nil).Post), ev)
+}
+
+// ProcessFutureMsgs mocks base method.
+func (m *MockBackend) ProcessFutureMsgs(height uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ProcessFutureMsgs", height)
+}
+
+// ProcessFutureMsgs indicates an expected call of ProcessFutureMsgs.
+func (mr *MockBackendMockRecorder) ProcessFutureMsgs(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessFutureMsgs", reflect.TypeOf((*MockBackend)(nil).ProcessFutureMsgs), height)
 }
 
 // RemoveMessageFromLocalCache mocks base method.
@@ -407,6 +434,20 @@ func (m *MockCore) CurrentHeightMessages() []message.Msg {
 func (mr *MockCoreMockRecorder) CurrentHeightMessages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeightMessages", reflect.TypeOf((*MockCore)(nil).CurrentHeightMessages))
+}
+
+// Height mocks base method.
+func (m *MockCore) Height() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockCoreMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockCore)(nil).Height))
 }
 
 // Precommiter mocks base method.

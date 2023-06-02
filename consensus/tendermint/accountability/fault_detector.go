@@ -16,7 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
@@ -44,10 +43,10 @@ const (
 	offChainAccusationProofWindow = 10      // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
 	maxNumOfInnocenceProofCached  = 120 * 4 // 120 blocks with 4 on each height that rule engine can produce totally over a height.
 	maxAccusationRatePerHeight    = 4       // max number of accusation can be produced by rule engine over a height against to a validator.
-	maxFutureHeightMsgs           = 1000    // max num of msg buffer for the future heights.
 )
 
 var (
+	// TODO(lorenzo) figure out which useless
 	errInvalidRound    = errors.New("invalid round or steps")
 	errWrongValidRound = errors.New("wrong valid-round")
 	errDuplicatedMsg   = errors.New("duplicated msg")
@@ -62,6 +61,21 @@ var (
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
 	errUnprovableRule   = errors.New("unprovable rule")
+	/* TODO(lorenzo) figure out which needed
+	errWrongSignatureMsg   = errors.New("invalid signature of message")
+	errInvalidConsensusMsg = errors.New("invalid consensus msg")
+	errDuplicatedMsg       = errors.New("duplicated msg")
+	errEquivocation        = errors.New("equivocation")
+	errFutureMsg           = errors.New("future height msg")
+	errNotCommitteeMsg     = errors.New("msg from none committee member")
+	errProposer            = errors.New("proposal is not from proposer")
+	errDecodeFailed        = errors.New("cannot decode consensus msg")
+	errNoEvidenceForPO     = errors.New("no proof of innocence found for rule PO")
+	errNoEvidenceForPVN    = errors.New("no proof of innocence found for rule PVN")
+	errNoEvidenceForPVO    = errors.New("no proof of innocence found for rule PVO")
+	errNoEvidenceForC1     = errors.New("no proof of innocence found for rule C1")
+	errUnprovableRule      = errors.New("unprovable rule")
+	*/
 
 	nilValue = common.Hash{}
 )
@@ -99,8 +113,6 @@ type FaultDetector struct {
 	chainEventSub event.Subscription
 
 	misbehaviourProofCh chan *autonity.AccountabilityEvent
-	futureMessages      map[uint64][]message.Msg        // map[blockHeight][]*tendermintMessages
-	futureMessageCount  uint64                          // a counter to count the total cached future height msg.
 	pendingEvents       []*autonity.AccountabilityEvent // accountability event buffer.
 
 	offChainAccusationsMu sync.RWMutex
@@ -143,8 +155,6 @@ func NewFaultDetector(
 		chainEventCh:          make(chan core.ChainEvent, 300),
 		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
 		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
-		futureMessages:        make(map[uint64][]message.Msg),
-		futureMessageCount:    0,
 		logger:                logger, // Todo(youssef): remove context
 	}
 	// todo(youssef): analyze chainEvent vs chainHeadEvent and very important: what to do during sync !
@@ -176,40 +186,54 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	fd.broadcaster = broadcaster
 }
 
-func (fd *FaultDetector) saveFutureHeightMsg(m message.Msg) {
-	fd.futureMessages[m.H()] = append(fd.futureMessages[m.H()], m)
-	fd.futureMessageCount++
-
-	// buffer is full, remove the furthest away msg from buffer to prevent DoS attack.
-	if fd.futureMessageCount >= maxFutureHeightMsgs {
-		maxHeight := m.H()
-		for h, msgs := range fd.futureMessages {
-			if h > maxHeight && len(msgs) > 0 {
-				maxHeight = h
-			}
+/* TODO(lorenzo) do we need it?
+// decodeMessage decode the RLP-encoded inner messages and verify if they are well signed too.
+// Ideally this should be splitted up into two separate functions.
+func decodeMessage(m *message.Message) error {
+	// Light proposals are not signed by the reported validator but by the reporter
+	// and we don't really care about the reporter signature
+	if m.Code == consensus.MsgLightProposal {
+		var lightProposal message.LightProposal
+		if err := m.Decode(&lightProposal); err != nil {
+			return err
 		}
-		if len(fd.futureMessages[maxHeight]) > 1 {
-			fd.futureMessages[maxHeight] = fd.futureMessages[maxHeight][:len(fd.futureMessages[maxHeight])-1]
-		} else {
-			delete(fd.futureMessages, maxHeight)
+		// this checks the original proposer signature in the inner payload
+		return lightProposal.VerifySignature(m.Address)
+	}
+
+	payload, err := m.BytesNoSignature()
+	if err != nil {
+		return err
+	}
+	//TODO(youssef): verifiy if lite message decoding is necessary here!!
+	signer, err := types.GetSignatureAddress(payload, m.Signature)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(m.Address.Bytes(), signer.Bytes()) {
+		return errWrongSignatureMsg
+	}
+
+	// then try to decode the tendermint msg bytes to construct msg height, round, step, etc...
+	switch m.Code {
+	case consensus.MsgProposal:
+		var proposal message.Proposal
+		err = m.Decode(&proposal)
+		if err != nil {
+			return errDecodeFailed
 		}
-		fd.futureMessageCount--
+	case consensus.MsgPrevote, consensus.MsgPrecommit:
+		var vote message.Vote
+		err := m.Decode(&vote)
+		if err != nil {
+			return errDecodeFailed
+		}
+	default:
+		return errDecodeFailed
 	}
+	return nil
 }
-
-func (fd *FaultDetector) deleteFutureHeightMsg(height uint64) {
-	length := len(fd.futureMessages[height])
-	fd.futureMessageCount = fd.futureMessageCount - uint64(length)
-	delete(fd.futureMessages, height)
-}
-
-func preCheckMessage(m message.Msg, chain ChainContext) error {
-	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
-	if lastHeader == nil {
-		return errFutureMsg
-	}
-	return m.Validate(lastHeader.CommitteeMember)
-}
+*/
 
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
 	ticker := time.NewTicker(1 * time.Second)
@@ -225,11 +249,16 @@ tendermintMsgLoop:
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
+				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
+					fd.logger.Warn("Detected faulty message", "return", err)
+					continue tendermintMsgLoop
+				}
+			case events.OldMessageEvent:
 				if fd.isMsgExpired(curHeight, e.Message.H()) {
 					fd.logger.Debug("Fault detector: discarding old message", "sender", e.Message.Sender())
 					continue tendermintMsgLoop
 				}
-				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
+				if err := fd.processMsg(e.Message); err != nil {
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
@@ -255,6 +284,7 @@ tendermintMsgLoop:
 				fd.rateLimiter.resetHeightRateLimiter()
 				fd.rateLimiter.resetPeerJustifiedAccusations()
 			}
+			//TODO(lorenzo) verify this
 			/* THIS HAS BEEN DELETED TODO VERIFY
 			height := e.block.NumberU64()
 			if fd.isMsgExpired(curHeight, height) {
@@ -264,17 +294,6 @@ tendermintMsgLoop:
 			}
 			*/
 
-			for h, messages := range fd.futureMessages {
-				if h <= curHeight {
-					for _, m := range messages {
-						if err := fd.processMsg(m); err != nil {
-							fd.logger.Error("Fault detector: error while processing consensus msg", "err", err)
-						}
-					}
-					// once messages are processed, delete it from buffer.
-					fd.deleteFutureHeightMsg(h)
-				}
-			}
 		case <-ticker.C:
 			// on each 1 seconds, reset the rate limiter counters.
 			fd.rateLimiter.resetRateLimiter()
@@ -441,6 +460,7 @@ func (fd *FaultDetector) innocenceProof(p *Proof) (*autonity.AccountabilityEvent
 	case autonity.C1:
 		return fd.innocenceProofC1(p)
 	default:
+		//TODO(lorenzo) check how this is handled by callers
 		return nil, errUnprovableRule
 	}
 }
@@ -567,13 +587,6 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg in msg store.
 func (fd *FaultDetector) processMsg(m message.Msg) error {
-	// check if msg is from valid committee member
-	if err := preCheckMessage(m, fd.blockchain); err != nil {
-		if errors.Is(err, errFutureMsg) {
-			fd.saveFutureHeightMsg(m)
-		}
-		return err
-	}
 	switch msg := m.(type) {
 	case *message.Propose:
 		if err := fd.checkSelfIncriminatingProposal(msg); err != nil {
@@ -584,7 +597,9 @@ func (fd *FaultDetector) processMsg(m message.Msg) error {
 			return err
 		}
 	default:
-		return errInvalidMessage
+		// a message with a different type than the previous ones
+		// will fail at decoding phase and should not arrive here. panic.
+		fd.logger.Crit("message with invalid code processed by fault detector")
 	}
 
 	// msg pass the auto-incriminating checker, save it in msg store.
@@ -1195,13 +1210,28 @@ precommitLoop:
 	return proofs
 }
 
-// submitMisbehavior takes proof of misbehavior, and error id to construct the on-chain accountability event, and
+// convert the **self-incriminating** error to rule
+func errorToRule(err error) autonity.Rule {
+	var rule autonity.Rule
+	switch {
+	case errors.Is(err, errEquivocation):
+		rule = autonity.Equivocation
+	case errors.Is(err, errProposer):
+		rule = autonity.InvalidProposer
+	default:
+		// these 2 errors are the only ones which can be raised by a self-incriminating msg.
+		// if something else arrives here, it is a programming error.
+		panic("unknown error to accountability rule mapping")
+	}
+	return rule
+}
+
+// submitMisbehavior takes proof of **auto incriminating** misbehavior, and error id to construct the on-chain accountability event, and
 // send the event of misbehavior to event channel that is listened by ethereum object to sign the reporting TX.
 func (fd *FaultDetector) submitMisbehavior(m message.Msg, evidence []message.Msg, err error) {
-	rule, e := errorToRule(err)
-	if e != nil {
-		fd.logger.Warn("error to rule", "fault detector", e)
-	}
+	rule := errorToRule(err)
+
+	// generate proof
 	proof := fd.eventFromProof(&Proof{
 		Type:      autonity.Misbehaviour,
 		Rule:      rule,
@@ -1231,12 +1261,6 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 		return errProposer
 	}
 
-	// account for wrong valid round.
-	if proposal.ValidRound() >= proposal.R() {
-		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errWrongValidRound)
-		return errWrongValidRound
-	}
-
 	// account for equivocation
 	equivocated := fd.msgStore.Get(proposal.H(), func(msg message.Msg) bool {
 		// todo(youssef) : again validValue missing here
@@ -1257,10 +1281,6 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 }
 
 func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
-	if m.R() > constants.MaxRound {
-		fd.submitMisbehavior(m, nil, errInvalidRound)
-		return errInvalidRound
-	}
 	// skip process duplicated for votes.
 	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Msg) bool {
 		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() == m.Value()
@@ -1279,24 +1299,6 @@ func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
 		return errEquivocation
 	}
 	return nil
-}
-
-func errorToRule(err error) (autonity.Rule, error) {
-	var rule autonity.Rule
-	switch {
-	case errors.Is(err, errWrongValidRound):
-		rule = autonity.WrongValidRound
-	case errors.Is(err, errInvalidRound):
-		rule = autonity.InvalidRound
-	case errors.Is(err, errEquivocation):
-		rule = autonity.Equivocation
-	case errors.Is(err, errProposer):
-		rule = autonity.InvalidProposer
-	default:
-		return rule, fmt.Errorf("errors of not provable")
-	}
-
-	return rule, nil
 }
 
 func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {

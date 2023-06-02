@@ -29,7 +29,7 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 		BlockPeriod:       c.blockPeriod,
 		CurHeightMessages: msgForDump(c.messages.All()),
 		BacklogMessages:   getBacklogMsgs(c),
-		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
+		FutureMsgs:        msgForDump(c.backend.FutureMsgs()),
 		// tendermint Core state:
 		Height:      c.Height(),
 		Round:       c.Round(),
@@ -64,15 +64,6 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 	e.StateChan <- state
 	// let sender to close channel.
 	close(e.StateChan)
-}
-
-func getBacklogUncheckedMsgs(c *Core) []*interfaces.MsgForDump {
-	result := make([]*interfaces.MsgForDump, 0)
-	for _, ms := range c.backlogUntrusted {
-		result = append(result, msgForDump(ms)...)
-	}
-
-	return result
 }
 
 // getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,

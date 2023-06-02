@@ -5,11 +5,12 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
@@ -98,8 +99,18 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 
 func TestCore_Setters(t *testing.T) {
 	t.Run("SetStep", func(t *testing.T) {
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := interfaces.NewMockBackend(ctrl)
+		// it might get called or not based on how the go routine is scheduled
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(2)).MaxTimes(1)
+
 		c := &Core{
-			logger: log.New("addr", "tendermint core"),
+			logger:  log.New("addr", "tendermint core"),
+			height:  big.NewInt(2),
+			backend: backendMock,
 		}
 
 		c.SetStep(Propose)
@@ -134,3 +145,51 @@ func TestCore_Setters(t *testing.T) {
 		require.Equal(t, prevBlock.Header(), c.LastHeader())
 	})
 }
+
+/*TODO(lorenzo) remove?
+func TestCore_AcceptVote(t *testing.T) {
+
+	t.Run("AcceptPreVote", func(t *testing.T) {
+		messagesMap := message.NewMessagesMap()
+		roundMessage := messagesMap.GetOrCreate(0)
+		c := &Core{
+			messages:         messagesMap,
+			curRoundMessages: roundMessage,
+		}
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1)) //nolint
+		currentRound := int64(0)
+		key, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		clientAddr := crypto.PubkeyToAddress(key.PublicKey)
+
+		prevoteMsg, _ := prepareVote(t, consensus.MsgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, key)
+		c.AcceptVote(c.CurRoundMessages(), types.Prevote, common.Hash{}, *prevoteMsg)
+		require.Equal(t, 1, len(c.CurRoundMessages().GetMessages()))
+	})
+
+	t.Run("AcceptPreCommit", func(t *testing.T) {
+		messagesMap := message.NewMessagesMap()
+		roundMessage := messagesMap.GetOrCreate(0)
+		c := &Core{
+			messages:         messagesMap,
+			curRoundMessages: roundMessage,
+		}
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1)) //nolint
+		currentRound := int64(0)
+		key, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		clientAddr := crypto.PubkeyToAddress(key.PublicKey)
+
+		prevoteMsg, _ := prepareVote(t, consensus.MsgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, key)
+		c.AcceptVote(c.CurRoundMessages(), types.Precommit, common.Hash{}, *prevoteMsg)
+		require.Equal(t, 1, len(c.CurRoundMessages().GetMessages()))
+	})
+}
+
+func signer(prv *ecdsa.PrivateKey) func(data []byte) ([]byte, error) {
+	return func(data []byte) ([]byte, error) {
+		hashData := crypto.Keccak256(data)
+		return crypto.Sign(hashData, prv)
+	}
+}
+*/

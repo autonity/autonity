@@ -6,14 +6,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/influxdata/influxdb/pkg/deep"
-	"github.com/stretchr/testify/require"
-
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/rlp"
+	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 )
 
 var (

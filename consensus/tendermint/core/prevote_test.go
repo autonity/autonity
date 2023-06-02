@@ -7,14 +7,14 @@ import (
 	"reflect"
 	"testing"
 
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
+	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 func TestSendPrevote(t *testing.T) {
@@ -35,6 +35,7 @@ func TestSendPrevote(t *testing.T) {
 			round:            2,
 			committee:        committeeSet,
 			height:           big.NewInt(3),
+			address:          me.Address,
 		}
 
 		c.SetDefaultHandlers()
@@ -88,7 +89,7 @@ func TestHandlePrevote(t *testing.T) {
 	member := committeeSet.Committee()[0]
 	signer := makeSigner(keys[member.Address], member.Address)
 
-	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
+	t.Run("pre-vote with future height given, code panics", func(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		expectedMsg := message.NewPrevote(2, 4, common.Hash{}, signer)
@@ -103,10 +104,15 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		err := c.prevoter.HandlePrevote(context.Background(), expectedMsg)
-		if !errors.Is(err, constants.ErrFutureHeightMessage) {
-			t.Fatalf("Expected %v, got %v", constants.ErrFutureHeightMessage, err)
-		}
+
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("The code did not panic")
+			}
+		}()
+
+		_ = c.prevoter.HandlePrevote(context.Background(), expectedMsg)
 	})
 
 	t.Run("pre-vote with old height given, pre-vote not added", func(t *testing.T) {
@@ -192,9 +198,9 @@ func TestHandlePrevote(t *testing.T) {
 		prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), signer).MustVerify(stubVerifierWithPower(3))
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer).AnyTimes()
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(3)).MaxTimes(1)
 
 		precommit := message.NewPrecommit(2, 3, curRoundMessage.ProposalHash(), signer)
-
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
 
 		c := &Core{
@@ -236,6 +242,7 @@ func TestHandlePrevote(t *testing.T) {
 		precommit := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[member2.Address], member2.Address))
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(3)).MaxTimes(1)
 
 		logger := log.New("backend", "test", "id", 0)
 

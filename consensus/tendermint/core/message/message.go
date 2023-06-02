@@ -201,6 +201,9 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	if ext.Round > constants.MaxRound || ext.ValidRound > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
+	if !ext.IsValidRoundNil && ext.ValidRound >= ext.Round {
+		return constants.ErrInvalidMessage
+	}
 	if ext.Height == 0 {
 		return constants.ErrInvalidMessage
 	}
@@ -309,6 +312,9 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 		return constants.ErrInvalidMessage
 	}
 	if ext.Round > constants.MaxRound || ext.ValidRound > constants.MaxRound {
+		return constants.ErrInvalidMessage
+	}
+	if !ext.IsValidRoundNil && ext.ValidRound >= ext.Round {
 		return constants.ErrInvalidMessage
 	}
 	if ext.Height == 0 {

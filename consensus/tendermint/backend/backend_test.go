@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -12,10 +13,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
@@ -35,6 +32,9 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var (
@@ -484,6 +484,51 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	}
 
 	return blockchain, b
+}
+
+// this function simulates the role of the worker
+func advanceBlockchain(backend *Backend, blockchain *core.BlockChain) error {
+	addr := backend.Address()
+
+	parent := blockchain.CurrentHeader()
+	number := new(big.Int).Add(parent.Number, big.NewInt(1))
+	baseFee := misc.CalcBaseFee(blockchain.Config(), parent, blockchain)
+	header := &types.Header{ParentHash: parent.Hash(), Number: number, MixDigest: types.BFTDigest, UncleHash: types.CalcUncleHash(nil), Difficulty: big.NewInt(1), GasLimit: parent.GasLimit, BaseFee: baseFee, Time: parent.Time + 1, Coinbase: addr}
+
+	receipts := make([]*types.Receipt, 0)
+	state, err := blockchain.State()
+	if err != nil {
+		return err
+	}
+	block, err := backend.FinalizeAndAssemble(blockchain, header, state, make([]*types.Transaction, 0), make([]*types.Header, 0), &receipts)
+	if err != nil {
+		return err
+	}
+
+	results := make(chan *types.Block)
+	stop := make(chan struct{})
+	err = backend.Seal(blockchain, block, results, stop)
+	if err != nil {
+		return err
+	}
+
+	timeout := time.NewTimer(5 * time.Second)
+	select {
+	case <-timeout.C:
+		return errors.New("failed to advance chain")
+	case committedBlock := <-results:
+		// assume always only finalize receipt
+		_, err = blockchain.WriteBlockAndSetHead(committedBlock, receipts, receipts[0].Logs, state, true)
+		if err != nil {
+			return err
+		}
+	}
+	err = backend.NewChainHead()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {

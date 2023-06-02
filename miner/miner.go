@@ -85,8 +85,9 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 	return miner
 }
 
-// update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
-// It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
+// update keeps track of the downloader events and of starting/stopping the miner based on presence in the committee.
+// Please be aware that the downloader events part is a one shot type of update loop.
+// It's entered once and as soon as `Done` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
 func (miner *Miner) update() {
@@ -118,9 +119,11 @@ func (miner *Miner) update() {
 				if wasMining {
 					// Resume mining after sync was finished
 					shouldStart = true
-					miner.eth.Logger().Info("Mining aborted due to sync")
+					miner.eth.Logger().Info("Mining aborted due to blockchain sync")
 				}
 			case downloader.FailedEvent:
+				//TODO(lorenzo) should we start mining if sync fails?
+				// Otherwise we won't be able to verify any proposal anyways
 				canStart = true
 				if shouldStart {
 					miner.worker.start()

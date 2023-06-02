@@ -7,16 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/influxdata/influxdb/pkg/deep"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/testlog"
 	"github.com/autonity/autonity/log"
+	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 var (
@@ -37,10 +37,17 @@ func TestCheckMessage(t *testing.T) {
 		}
 	})
 
-	t.Run("given future height, error returned", func(t *testing.T) {
+	t.Run("given future height, code panics", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("The code did not panic")
+			}
+		}()
 		c := &Core{
 			round:  1,
 			height: big.NewInt(2),
+			logger: testlog.Logger(t, log.LvlTrace),
 		}
 
 		err := c.checkMessageStep(2, 4, Propose)
@@ -224,6 +231,7 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock.EXPECT().Post(expected).Do(func(ev any) {
 			evChan <- ev
 		})
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(2)).MaxTimes(1)
 
 		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
@@ -274,6 +282,7 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock.EXPECT().Post(expected).Do(func(ev any) {
 			evChan <- ev
 		})
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(2)).MaxTimes(3)
 
 		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
@@ -333,6 +342,7 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock.EXPECT().Post(expected).Do(func(ev any) {
 			evChan <- ev
 		})
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(1)).MaxTimes(1)
 
 		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
@@ -364,107 +374,6 @@ func TestProcessBacklog(t *testing.T) {
 		}
 	})
 
-	t.Run("future height message are not processed", func(t *testing.T) {
-		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(gomock.Any()).Times(0)
-
-		committeeSet := NewTestCommitteeSet(2)
-		val, _ := committeeSet.GetByIndex(0)
-
-		c := &Core{
-			logger:   log.New("backend", "test", "id", 0),
-			backend:  backendMock,
-			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Msg),
-			round:    2,
-			height:   big.NewInt(3),
-		}
-
-		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
-
-		c.storeBacklog(msg, val.Address)
-		c.processBacklog()
-	})
-
-	t.Run("future height message are processed when height change", func(t *testing.T) {
-		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
-		msg2 := message.NewPrecommit(2, 4, common.Hash{}, defaultSigner)
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(gomock.Any()).Times(0)
-
-		committeeSet := NewTestCommitteeSet(2)
-		val, _ := committeeSet.GetByIndex(0)
-
-		c := &Core{
-			logger:   log.New("backend", "test", "id", 0),
-			backend:  backendMock,
-			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Msg),
-			round:    2,
-			height:   big.NewInt(3),
-		}
-
-		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
-
-		c.storeBacklog(msg, val.Address)
-		c.storeBacklog(msg2, val.Address)
-		c.SetStep(Prevote)
-		c.processBacklog()
-		c.setHeight(big.NewInt(4))
-
-		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.SetStep(Prevote)
-		c.processBacklog()
-		timeout := time.NewTimer(2 * time.Second)
-		<-timeout.C
-	})
-
-	t.Run("untrusted messages are processed when height change", func(t *testing.T) {
-		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
-		msg2 := message.NewPrecommit(2, 4, common.Hash{}, defaultSigner)
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		backendMock := interfaces.NewMockBackend(ctrl)
-
-		committeeSet := NewTestCommitteeSet(2)
-
-		c := &Core{
-			logger:           log.New("backend", "test", "id", 0),
-			backend:          backendMock,
-			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Msg),
-			backlogUntrusted: map[uint64][]message.Msg{},
-			round:            2,
-			height:           big.NewInt(3),
-		}
-
-		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
-
-		backendMock.EXPECT().Post(gomock.Any()).Times(0)
-		c.storeFutureMessage(msg)
-		c.storeFutureMessage(msg2)
-		c.SetStep(Prevote)
-		c.processBacklog()
-		c.setHeight(big.NewInt(4))
-
-		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.SetStep(Prevote)
-
-		backendMock.EXPECT().Post(gomock.Any()).Times(0)
-		c.processBacklog()
-		<-time.NewTimer(2 * time.Second).C
-	})
-
 	t.Run("future round message are processed when round change", func(t *testing.T) {
 		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
 
@@ -473,6 +382,7 @@ func TestProcessBacklog(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(4)).MaxTimes(2)
 
 		committeeSet := NewTestCommitteeSet(2)
 		val, err := committeeSet.GetByIndex(0)
@@ -499,94 +409,5 @@ func TestProcessBacklog(t *testing.T) {
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C
-	})
-}
-
-func TestStoreUncheckedBacklog(t *testing.T) {
-	t.Run("save messages in the untrusted backlog", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		backendMock := interfaces.NewMockBackend(ctrl)
-		c := &Core{
-			logger:           log.New("backend", "test", "id", 0),
-			backend:          backendMock,
-			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Msg),
-			backlogUntrusted: make(map[uint64][]message.Msg),
-			step:             Prevote,
-			round:            1,
-			height:           big.NewInt(4),
-		}
-		var messages []message.Msg
-		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
-			msg := message.NewPrevote(
-				i%10,
-				uint64(i/(1+i%10)),
-				common.Hash{},
-				defaultSigner)
-			c.storeFutureMessage(msg)
-			messages = append(messages, msg)
-		}
-		found := 0
-		for _, msg := range messages {
-			for _, umsg := range c.backlogUntrusted[msg.H()] {
-				if deep.Equal(msg, umsg) {
-					found++
-				}
-			}
-		}
-		if found != MaxSizeBacklogUnchecked {
-			t.Fatal("unchecked messages lost")
-		}
-	})
-
-	t.Run("excess messages are removed from the untrusted backlog", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		backendMock := interfaces.NewMockBackend(ctrl)
-
-		c := &Core{
-			logger:           log.New("backend", "test", "id", 0),
-			backend:          backendMock,
-			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Msg),
-			backlogUntrusted: make(map[uint64][]message.Msg),
-			step:             Prevote,
-			round:            1,
-			height:           big.NewInt(4),
-		}
-
-		var messages []message.Msg
-		uncheckedFounds := make(map[uint64]struct{})
-		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(msg message.Msg) {
-			if _, ok := uncheckedFounds[msg.H()]; ok {
-				t.Fatal("duplicate message received")
-			}
-			uncheckedFounds[msg.H()] = struct{}{}
-		})
-
-		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
-			prevote := message.NewPrevote(i%10, uint64(i), common.Hash{}, defaultSigner)
-			c.storeFutureMessage(prevote)
-			if i < MaxSizeBacklogUnchecked {
-				messages = append(messages, prevote)
-			}
-		}
-
-		found := 0
-		for _, msg := range messages {
-			for _, umsg := range c.backlogUntrusted[msg.H()] {
-				if deep.Equal(msg, umsg) {
-					found++
-				}
-			}
-		}
-		if found != MaxSizeBacklogUnchecked-1 {
-			t.Fatal("unchecked messages lost")
-		}
-		if len(uncheckedFounds) != MaxSizeBacklogUnchecked {
-			t.Fatal("unchecked messages lost")
-		}
 	})
 }

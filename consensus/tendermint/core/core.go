@@ -27,7 +27,6 @@ func New(backend interfaces.Backend, services *interfaces.Services) *Core {
 		logger:                 backend.Logger(),
 		backend:                backend,
 		backlogs:               make(map[common.Address][]message.Msg),
-		backlogUntrusted:       make(map[uint64][]message.Msg),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -76,9 +75,7 @@ type Core struct {
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
-	backlogs             map[common.Address][]message.Msg
-	backlogUntrusted     map[uint64][]message.Msg
-	backlogUntrustedSize int
+	backlogs map[common.Address][]message.Msg
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
 
@@ -250,6 +247,29 @@ func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Addre
 func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
+
+/* TODO(lorenzo) delete?
+func (c *Core) SetBr(br interfaces.Broadcaster) {
+	c.broadcaster = br
+}
+
+func (c *Core) CurrentHeightMessages() []*message.Message {
+	msgs := c.messages.Messages()
+	return msgs
+}
+
+func (c *Core) SignMessage(msg *message.Message) ([]byte, error) {
+	data, err := msg.BytesNoSignature()
+	if err != nil {
+		return nil, err
+	}
+	signature, err := c.backend.Sign(data)
+	if err != nil {
+		return nil, err
+	}
+	return signature, nil
+}
+*/
 
 func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 	c.SetStep(PrecommitDone)
@@ -471,6 +491,14 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
+}
+
+func (c *Core) Power() (*big.Int, error) {
+	_, member, err := c.CommitteeSet().GetByAddress(c.address)
+	if err != nil {
+		return nil, err
+	}
+	return member.VotingPower, nil
 }
 
 func (c *Core) LastHeader() *types.Header {

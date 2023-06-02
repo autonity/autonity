@@ -5,15 +5,14 @@ import (
 	"regexp"
 	"testing"
 
-	fuzz "github.com/google/gofuzz"
-	"github.com/stretchr/testify/require"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
+	fuzz "github.com/google/gofuzz"
+	"github.com/stretchr/testify/require"
 )
 
 func newRandomBytesBroadcaster(c interfaces.Core) interfaces.Broadcaster {
@@ -287,7 +286,7 @@ func (c *garbageProposer) SendProposal(_ context.Context, p *types.Block) {
 	}
 }
 
-// TestGarbagePrevoter broadcasts a garbage proposal message in the network,
+// TestGarbageProposer broadcasts a garbage proposal message in the network,
 // We expect other nodes to detect this misbehaviour and discard these messages
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbageProposer(t *testing.T) {

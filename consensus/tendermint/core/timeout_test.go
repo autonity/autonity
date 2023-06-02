@@ -7,18 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {
-
 	t.Run("measure metric on stop timer of propose", func(t *testing.T) {
 		tm := &Timeout{
 			Timer:   nil,
@@ -106,6 +104,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 					t.Fatalf("bad message view")
 				}
 			})
+		mockBackend.EXPECT().ProcessFutureMsgs(uint64(2)).MaxTimes(1)
 
 		engine.handleTimeoutPrevote(context.Background(), timeoutEvent)
 
@@ -126,6 +125,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(1)
 		mockBackend := interfaces.NewMockBackend(ctrl)
 		mockBackend.EXPECT().Post(gomock.Any()).AnyTimes()
+		mockBackend.EXPECT().ProcessFutureMsgs(uint64(2)).MaxTimes(1)
 		engine := Core{
 			logger:           logger,
 			backend:          mockBackend,
@@ -157,7 +157,6 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 			t.Fatalf("should be propose step")
 		}
 	})
-
 }
 
 func TestOnTimeoutPrevote(t *testing.T) {

@@ -7,10 +7,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -26,6 +22,10 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var (
@@ -161,6 +161,10 @@ func TestRunRuleEngine(t *testing.T) {
 	})
 }
 
+/*
+TODO(lorenzo) future messages are now dealt with in the backend/handler.
+I am leaving this test here as a starting point for auto-incriminating msgs tests which are now missing
+
 func TestProcessMsg(t *testing.T) {
 	futureHeight := uint64(110)
 	round := int64(3)
@@ -180,6 +184,7 @@ func TestProcessMsg(t *testing.T) {
 		require.Equal(t, proposal, fd.futureMessages[futureHeight][0])
 	})
 }
+*/
 
 func TestGenerateOnChainProof(t *testing.T) {
 	height := uint64(100)
@@ -488,16 +493,19 @@ func TestRuleEngine(t *testing.T) {
 	})
 
 	t.Run("Test error to rule mapping", func(t *testing.T) {
-		rule, err := errorToRule(errEquivocation)
-		assert.NoError(t, err)
+		rule := errorToRule(errEquivocation)
 		assert.Equal(t, autonity.Equivocation, rule)
 
-		rule, err = errorToRule(errProposer)
-		assert.NoError(t, err)
+		rule = errorToRule(errProposer)
 		assert.Equal(t, autonity.InvalidProposer, rule)
 
-		_, err = errorToRule(fmt.Errorf("unknown err"))
-		assert.Error(t, err)
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("expected panic from errorToRule")
+			}
+		}()
+
+		_ = errorToRule(fmt.Errorf("unknown err"))
 	})
 
 	t.Run("RunRule address the misbehaviour of PN rule", func(t *testing.T) {

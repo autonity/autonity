@@ -7,14 +7,16 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/p2p"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/p2p"
+
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 
 	"github.com/autonity/autonity/common"
@@ -104,7 +106,6 @@ func TestUnhandledMsgs(t *testing.T) {
 				}
 				i++
 				received[message.Value().Big().Uint64()] = true
-
 			case <-timer.C:
 				if i == ringCapacity {
 					break LOOP

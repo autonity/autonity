@@ -70,8 +70,8 @@ type CoreState struct {
 	CurHeightMessages []*MsgForDump
 	// backlog msgs
 	BacklogMessages []*MsgForDump
-	// backlog unchecked msgs.
-	UncheckedMsgs []*MsgForDump
+	// backlog of future height msgs.
+	FutureMsgs []*MsgForDump
 	// Known msg of gossip.
 	KnownMsgHash []common.Hash
 }

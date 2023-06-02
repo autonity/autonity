@@ -6,13 +6,13 @@ import (
 	"errors"
 	"io"
 
-	lru "github.com/hashicorp/golang-lru"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -36,6 +36,12 @@ var (
 		message.PrevoteCode:   PrevoteNetworkMsg,
 		message.PrecommitCode: PrecommitNetworkMsg,
 	}
+	/* TODO(lorenzo) refactor
+	// errNotFromCommittee is returned when we receive a consensus msg from a non-committee member
+	errNotFromCommittee = errors.New("consensus message is not from a valid committee member")
+	// errInvalidMsg is returned when we receive an invalid consensus msg (e.g. round < 0)
+	errInvalidMsg = errors.New("consensus message is not valid")
+	*/
 )
 
 // Protocol implements consensus.Handler.Protocol
@@ -140,11 +146,131 @@ func handleConsensusMsg[T any, PT interface {
 		return true, nil
 	}
 	sb.knownMessages.Add(msg.Hash(), true)
-	go sb.Post(events.MessageEvent{
+
+	// if the message is for a future height wrt to consensus engine, buffer it
+	// it will be re-injected into the handleDecodedMsg function at the right height
+	if msg.H() > sb.core.Height().Uint64() {
+		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", sb.core.Height().Uint64())
+		sb.saveFutureMsg(msg, errCh)
+		return true, nil
+	}
+	return sb.handleDecodedMsg(msg, errCh)
+}
+
+// TODO(lorenzo) do I need generics?
+func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, error) {
+	// if the sender is jailed, discard its messages
+	if sb.IsJailed(msg.Sender()) {
+		sb.logger.Debug("ignoring message from jailed validator", "address", msg.Sender())
+		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
+		// really assume that all the other committee members have the same view on the
+		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
+		// This needs to verified though. Returning nil for the time being.
+		return true, nil
+	}
+
+	header := sb.BlockChain().GetHeaderByNumber(msg.H() - 1)
+	if header == nil {
+		// since this is not a future message, we should always have the header of the parent block.
+		sb.logger.Crit("Missing parent header for non-future consensus message", "height", msg.H())
+	}
+
+	// verify ecdsa signature
+	if err := msg.Validate(header.CommitteeMember); err != nil {
+		sb.logger.Debug("Failed to verify signature for consensus msg", "hash", msg.Hash())
+		return true, err
+	}
+
+	// if the message is for current height, post both to tendermint core and FD
+	if msg.H() == sb.core.Height().Uint64() {
+		go sb.Post(events.MessageEvent{
+			Message: msg,
+			ErrCh:   errCh,
+		})
+		return true, nil
+	}
+
+	// if a message arrives here, it means it is a valid old height message.
+	// this will be picked up only by the FD.
+	go sb.Post(events.OldMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,
 	})
 	return true, nil
+}
+
+// TODO(lorenzo) do I need generics?
+func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
+	// create event that will be re-injected in handleDecodedMsg when we reach the correct height
+	e := &events.MessageEvent{
+		Message: msg,
+		ErrCh:   errCh,
+	}
+	h := msg.H()
+
+	sb.futureLock.Lock()
+	defer sb.futureLock.Unlock()
+
+	if h < sb.futureMinHeight {
+		sb.futureMinHeight = h
+	}
+	if h > sb.futureMaxHeight {
+		sb.futureMaxHeight = h
+	}
+	sb.future[h] = append(sb.future[h], e)
+	sb.futureSize++
+
+	// if needed, drop heights until we are back under the threshold
+	for sb.futureSize > maxFutureMsgs {
+		maxHeightEvs, ok := sb.future[sb.futureMaxHeight]
+		sb.logger.Debug("deleting excess future height messages", "height", sb.futureMaxHeight)
+		if ok {
+			sb.futureSize -= uint64(len(maxHeightEvs))
+			// remove messages from knowMessages cache so they can be received again
+			go sb.removeFromCache(maxHeightEvs)
+			delete(sb.future, sb.futureMaxHeight)
+		}
+		// This value might be different wrt the actual maximum in the map (because of holes in future msg heights)
+		// however it is always going to be >= actualMaximum, so it is fine
+		sb.futureMaxHeight--
+
+		// TODO(lorenzo) might want to remove this once we are sure everything works as intended
+		if sb.futureMaxHeight < sb.futureMinHeight-1 {
+			log.Crit("inconsistent state in future message buffer")
+		}
+	}
+}
+
+// TODO(lorenzo) do I need generics?
+// re-inject future height messages
+func (sb *Backend) ProcessFutureMsgs(height uint64) {
+	sb.futureLock.Lock()
+	defer sb.futureLock.Unlock()
+
+	// shortcircuit if:
+	// - we have no future messages
+	// - minimum future height is greater than height
+	if sb.futureSize == 0 || sb.futureMinHeight > height {
+		return
+	}
+
+	// process future messages up to current height
+	for h := sb.futureMinHeight; h <= height; h++ {
+		evs, ok := sb.future[h]
+		// there might be holes in heights in the future messages
+		if ok {
+			sb.logger.Debug("processing future height messages", "height", h, "n", len(sb.future[h]))
+			for _, e := range evs {
+				sb.handleDecodedMsg(e.Message, e.ErrCh)
+				sb.futureSize--
+			}
+			delete(sb.future, h)
+		}
+	}
+
+	// This value might be different wrt the actual minimum in the map (because of holes in future msg heights)
+	// however it is always going to be <= actualMinimum, so it is fine (even though not optimal)
+	sb.futureMinHeight = height + 1
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster

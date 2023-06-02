@@ -27,10 +27,16 @@ type NewCandidateBlockEvent struct {
 	NewCandidateBlock types.Block
 }
 
-// MessageEvent is posted for Istanbul engine communication
+// MessageEvent is used to communicate from backend/handler.go to tendermint core and fault detector
 type MessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error //error channel
+}
+
+// old messages are posted only to the fault detector
+type OldMessageEvent struct {
+	Message message.Msg
+	ErrCh   chan<- error
 }
 
 type Poster interface {

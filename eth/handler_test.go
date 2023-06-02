@@ -17,12 +17,13 @@
 package eth
 
 import (
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"sort"
 	"sync"
+
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"

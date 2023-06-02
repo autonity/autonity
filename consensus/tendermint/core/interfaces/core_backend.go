@@ -2,13 +2,13 @@ package interfaces
 
 import (
 	"context"
+	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-
 	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ethcore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
@@ -65,10 +65,6 @@ type Backend interface {
 	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
 
-	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
-	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
-	RemoveMessageFromLocalCache(message message.Msg)
-
 	// Logger returns the object used for logging purposes.
 	Logger() log.Logger
 
@@ -77,6 +73,12 @@ type Backend interface {
 
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
+
+	// re-injects buffered future height messages
+	ProcessFutureMsgs(height uint64)
+
+	// returns future height buffered messages. Called by core for tendermint state dump
+	FutureMsgs() []message.Msg
 }
 
 type Core interface {
@@ -88,4 +90,5 @@ type Core interface {
 	Proposer() Proposer
 	Prevoter() Prevoter
 	Precommiter() Precommiter
+	Height() *big.Int
 }

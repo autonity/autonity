@@ -8,17 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestSendPrecommit(t *testing.T) {
@@ -125,7 +123,7 @@ func TestSendPrecommit(t *testing.T) {
 }
 
 func TestHandlePrecommit(t *testing.T) {
-	t.Run("pre-commit with future height given, error returned", func(t *testing.T) {
+	t.Run("pre-commit with future height given, code panics", func(t *testing.T) {
 		addr := common.HexToAddress("0x0123456789")
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
@@ -142,35 +140,15 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		err := c.precommiter.HandlePrecommit(context.Background(), preCommit)
-		if !errors.Is(err, constants.ErrFutureHeightMessage) {
-			t.Fatalf("Expected %v, got %v", constants.ErrFutureHeightMessage, err)
-		}
-	})
 
-	t.Run("pre-commit with invalid signature given, panic", func(t *testing.T) {
-		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-		member, _ := committeeSet.GetByIndex(1)
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
-		preCommit := message.NewPrecommit(2, 3, curRoundMessages.ProposalHash(), makeSigner(keys[member.Address], member.Address))
-
-		c := &Core{
-			address:          member.Address,
-			round:            2,
-			height:           big.NewInt(3),
-			curRoundMessages: curRoundMessages,
-			logger:           log.New("backend", "test", "id", 0),
-		}
-		c.SetDefaultHandlers()
-		c.SetStep(Precommit)
 		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("The code did not panic")
+			r := recover()
+			if r == nil {
+				t.Fatal("The code did not panic")
 			}
 		}()
-		c.precommiter.HandlePrecommit(context.Background(), preCommit)
 
+		_ := c.precommiter.HandlePrecommit(context.Background(), preCommit)
 	})
 
 	t.Run("pre-commit given with no errors, commit called", func(t *testing.T) {
@@ -204,6 +182,7 @@ func TestHandlePrecommit(t *testing.T) {
 					t.Fatal("Commit called with wrong seal")
 				}
 			})
+		backendMock.EXPECT().ProcessFutureMsgs(uint64(3)).MaxTimes(1)
 
 		c := &Core{
 			address:          member.Address,
@@ -342,6 +321,7 @@ func TestHandleCommit(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block)
+	backendMock.EXPECT().ProcessFutureMsgs(uint64(4)).MaxTimes(1)
 
 	c := &Core{
 		address:          addr,
