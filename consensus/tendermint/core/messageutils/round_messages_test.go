@@ -3,6 +3,7 @@ package messageutils
 import (
 	"bytes"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"gotest.tools/assert"
 	"testing"
 )
@@ -45,22 +46,22 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 	precommitHash := common.HexToHash("precommitHash")
 
 	proposalMsg := &Message{
-		Code:          MsgProposal,
-		Msg:           []byte("proposal"),
+		Code:          consensus.MsgProposal,
+		TbftMsgBytes:  []byte("proposal"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
 	prevoteMsg := &Message{
-		Code:          MsgPrevote,
-		Msg:           []byte("prevote"),
+		Code:          consensus.MsgPrevote,
+		TbftMsgBytes:  []byte("prevote"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte{},
 	}
 
 	precommitMsg := &Message{
-		Code:          MsgPrecommit,
-		Msg:           []byte("precommit"),
+		Code:          consensus.MsgPrecommit,
+		TbftMsgBytes:  []byte("precommit"),
 		Address:       common.HexToAddress("val1"),
 		CommittedSeal: []byte("committed seal"),
 	}
@@ -82,10 +83,10 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 	for _, m := range allMessages {
 		switch m.Code {
-		case MsgProposal:
+		case consensus.MsgProposal:
 			assert.Equal(t, proposalMsg.Code, m.Code)
 
-			r := bytes.Compare(proposalMsg.Msg, m.Msg)
+			r := bytes.Compare(proposalMsg.TbftMsgBytes, m.TbftMsgBytes)
 			assert.Equal(t, 0, r)
 
 			r = bytes.Compare(proposalMsg.Address[:], m.Address[:])
@@ -93,10 +94,10 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 			r = bytes.Compare(proposalMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
-		case MsgPrevote:
+		case consensus.MsgPrevote:
 			assert.Equal(t, prevoteMsg.Code, m.Code)
 
-			r := bytes.Compare(prevoteMsg.Msg, m.Msg)
+			r := bytes.Compare(prevoteMsg.TbftMsgBytes, m.TbftMsgBytes)
 			assert.Equal(t, 0, r)
 
 			r = bytes.Compare(prevoteMsg.Address[:], m.Address[:])
@@ -104,10 +105,10 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 
 			r = bytes.Compare(prevoteMsg.CommittedSeal, m.CommittedSeal)
 			assert.Equal(t, 0, r)
-		case MsgPrecommit:
+		case consensus.MsgPrecommit:
 			assert.Equal(t, precommitMsg.Code, m.Code)
 
-			r := bytes.Compare(precommitMsg.Msg, m.Msg)
+			r := bytes.Compare(precommitMsg.TbftMsgBytes, m.TbftMsgBytes)
 			assert.Equal(t, 0, r)
 
 			r = bytes.Compare(precommitMsg.Address[:], m.Address[:])

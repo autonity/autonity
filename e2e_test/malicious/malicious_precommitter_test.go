@@ -3,6 +3,7 @@ package malicious
 import (
 	"context"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
@@ -46,8 +47,8 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	msg := &messageutils.Message{
-		Code:          messageutils.MsgPrecommit,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrecommit,
+		TbftMsgBytes:  encodedVote,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	}

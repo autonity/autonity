@@ -73,7 +73,8 @@ jobs:
                  [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 20m ],
                  [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
                  [ tendermint-tests, ./consensus/tendermint/... -timeout 15m -race ],
-                 [ integration-tests, ./consensus/test/... -v -timeout 20m ],
+                 [ integration-tests, ./consensus/test/... -v -timeout 60m ],
+                 [ malicious-behaivour-tests, ./e2e_test/malicious/... -v -timeout 40m],
                  [ new-e2e-tests, ./e2e_test -v -race ]
         ]
 
@@ -129,7 +130,8 @@ jobs:
       - name: Run coverage
         run: |
           go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
-          go test ./e2e_test/... -timeout 15m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
+          go test ./e2e_test -p 1 -timeout 15m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
+
 
       - uses: codecov/codecov-action@v1
         with:
@@ -170,7 +172,8 @@ jobs:
     steps:
       - uses: actions/setup-node@v1
         with:
-          node-version: '16.8.0'
+          node-version: '18.12.1'
+
 
       - uses: actions/checkout@v2
 

@@ -112,7 +112,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 		eventMux:        stack.EventMux(),
 		reqDist:         newRequestDistributor(peers, &mclock.System{}),
 		accountManager:  stack.AccountManager(),
-		engine:          ethconfig.CreateConsensusEngine(stack, chainConfig, config, nil, false, chainDb, nil),
+		engine:          ethconfig.CreateConsensusEngine(stack, chainConfig, config, nil, false, chainDb, nil, nil, nil),
 		bloomRequests:   make(chan chan *bloombits.Retrieval),
 		bloomIndexer:    core.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
 		p2pServer:       stack.Server(),

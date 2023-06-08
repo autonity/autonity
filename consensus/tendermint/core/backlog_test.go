@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -185,9 +186,9 @@ func TestStoreBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        votePayload,
-			DecodedMsg: vote,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: votePayload,
+			DecodedMsg:   vote,
 		}
 
 		val := types.CommitteeMember{
@@ -224,9 +225,9 @@ func TestStoreBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgProposal,
-			Msg:        proposalPayload,
-			DecodedMsg: proposal,
+			Code:         consensus.MsgProposal,
+			TbftMsgBytes: proposalPayload,
+			DecodedMsg:   proposal,
 		}
 
 		val := types.CommitteeMember{
@@ -259,9 +260,9 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgProposal,
-			Msg:        proposalPayload,
-			DecodedMsg: proposal,
+			Code:         consensus.MsgProposal,
+			TbftMsgBytes: proposalPayload,
+			DecodedMsg:   proposal,
 		}
 
 		ctrl := gomock.NewController(t)
@@ -323,9 +324,9 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        votePayload,
-			DecodedMsg: vote,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: votePayload,
+			DecodedMsg:   vote,
 		}
 
 		ctrl := gomock.NewController(t)
@@ -397,9 +398,9 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        nilRoundVotePayload,
-			DecodedMsg: nilRoundVote,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: nilRoundVotePayload,
+			DecodedMsg:   nilRoundVote,
 		}
 
 		ctrl := gomock.NewController(t)
@@ -461,9 +462,9 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        nilRoundVotePayload,
-			DecodedMsg: nilRoundVote,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: nilRoundVotePayload,
+			DecodedMsg:   nilRoundVote,
 		}
 
 		ctrl := gomock.NewController(t)
@@ -502,14 +503,14 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        nilRoundVotePayload,
-			DecodedMsg: nilRoundVote,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: nilRoundVotePayload,
+			DecodedMsg:   nilRoundVote,
 		}
 		msg2 := &messageutils.Message{
-			Code:       messageutils.MsgPrecommit,
-			Msg:        nilRoundVotePayload,
-			DecodedMsg: nilRoundVote,
+			Code:         consensus.MsgPrecommit,
+			TbftMsgBytes: nilRoundVotePayload,
+			DecodedMsg:   nilRoundVote,
 		}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -556,14 +557,14 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        nilRoundVotePayload,
-			DecodedMsg: nilRoundVote,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: nilRoundVotePayload,
+			DecodedMsg:   nilRoundVote,
 		}
 		msg2 := &messageutils.Message{
-			Code:       messageutils.MsgPrecommit,
-			Msg:        nilRoundVotePayload,
-			DecodedMsg: nilRoundVote,
+			Code:         consensus.MsgPrecommit,
+			TbftMsgBytes: nilRoundVotePayload,
+			DecodedMsg:   nilRoundVote,
 		}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -611,9 +612,9 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        nilRoundVotePayload,
-			DecodedMsg: nilRoundVote,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: nilRoundVotePayload,
+			DecodedMsg:   nilRoundVote,
 		}
 
 		ctrl := gomock.NewController(t)
@@ -677,9 +678,9 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
 			msg := &messageutils.Message{
-				Code:       messageutils.MsgPrevote,
-				Msg:        payload,
-				DecodedMsg: nilRoundVote,
+				Code:         consensus.MsgPrevote,
+				TbftMsgBytes: payload,
+				DecodedMsg:   nilRoundVote,
 			}
 			c.storeUncheckedBacklog(msg)
 			messages = append(messages, msg)
@@ -744,9 +745,9 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
 			msg := &messageutils.Message{
-				Code:       messageutils.MsgPrevote,
-				Msg:        payload,
-				DecodedMsg: nilRoundVote,
+				Code:         consensus.MsgPrevote,
+				TbftMsgBytes: payload,
+				DecodedMsg:   nilRoundVote,
 			}
 			c.storeUncheckedBacklog(msg)
 			if i < MaxSizeBacklogUnchecked {

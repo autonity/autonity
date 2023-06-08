@@ -3,6 +3,7 @@ package malicious
 import (
 	"context"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -37,15 +38,15 @@ func (c *duplicateProposalSender) SendProposal(ctx context.Context, p *types.Blo
 
 	//send same proposal twice
 	c.Br().Broadcast(ctx, &messageutils.Message{
-		Code:          messageutils.MsgProposal,
-		Msg:           proposal,
+		Code:          consensus.MsgProposal,
+		TbftMsgBytes:  proposal,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	})
 	// send 2nd proposal with different validround
 	c.Br().Broadcast(ctx, &messageutils.Message{
-		Code:          messageutils.MsgProposal,
-		Msg:           proposal2,
+		Code:          consensus.MsgProposal,
+		TbftMsgBytes:  proposal2,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	})
@@ -102,7 +103,12 @@ func SendProposalFromNonProposer(ctx context.Context, c *core.Core, fm []byte) {
 	header := &types.Header{Number: new(big.Int).SetUint64(height.Uint64())}
 	block := types.NewBlockWithHeader(header)
 	// create a new proposal message
-	msgP := e2etest.MsgPropose(c.Backend().Address(), block, height.Uint64(), round, -1)
+
+	liteSig, err := core.LiteProposalSignature(c.Backend(), height, round, -1, block.Hash())
+	if err != nil {
+		c.Logger().Warn("SendProposalFromNonProposer", "error", err)
+	}
+	msgP := e2etest.NewProposeMsg(c.Backend().Address(), block, height.Uint64(), round, -1, liteSig)
 	fm, err = c.FinalizeMessage(msgP)
 	if err != nil {
 		return
@@ -113,7 +119,7 @@ func SendProposalFromNonProposer(ctx context.Context, c *core.Core, fm []byte) {
 	}
 }
 
-//Broadcast overrides the code.Broadcast
+// Broadcast overrides the code.Broadcast
 func (c *malProposalSender) Broadcast(ctx context.Context, msg *messageutils.Message) {
 	logger := c.Logger().New("step", c.Step())
 
@@ -141,7 +147,7 @@ func (c *proposalApprover) HandleProposal(ctx context.Context, msg *messageutils
 	// Set the proposal for the current round
 	c.CurRoundMessages().SetProposal(&proposal, msg, true)
 
-	c.GetPrevoter().SendPrevote(ctx, false)
+	c.GetPrevoter().SendPrevote(ctx, false, nil)
 	c.SetStep(tctypes.Prevote)
 	return nil
 }
@@ -217,8 +223,8 @@ func (c *partialProposalSender) SendProposal(ctx context.Context, p *types.Block
 
 	//send same proposal twice
 	c.Br().Broadcast(ctx, &messageutils.Message{
-		Code:          messageutils.MsgProposal,
-		Msg:           proposal,
+		Code:          consensus.MsgProposal,
+		TbftMsgBytes:  proposal,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	})
@@ -286,8 +292,8 @@ func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block)
 	junkAddr := common.BytesToAddress(ranBytes)
 	//send same proposal twice
 	c.Br().Broadcast(ctx, &messageutils.Message{
-		Code:          messageutils.MsgProposal,
-		Msg:           proposal,
+		Code:          consensus.MsgProposal,
+		TbftMsgBytes:  proposal,
 		Address:       junkAddr,
 		CommittedSeal: []byte{},
 	})

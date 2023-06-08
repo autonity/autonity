@@ -7,14 +7,37 @@ import "./Liquid.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
+import "./SafeMath.sol";
+import "./lib/BytesLib.sol";
 import "./Oracle.sol";
 
 uint8 constant DECIMALS = 18;
 
 /** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IERC20, Upgradeable {
+    using SafeMath for uint256;
+    // constant settings for accountability protocol.
+    uint256 constant MAX_ROUND = 99;
+    uint256 constant PROVE_WINDOW = 60; // wait 60 blocks to get innocent proof of accusation before turning it slashed.
+    uint256 constant LATEST_ACCOUNTABILITY_EVENTS_RANGE = 256;
+
+    // the penalty in amount of stake token for accountability event, managed by operator account.
+    uint256 faultPenalty = 1;
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
+
+    enum AccountabilityEventType {Misbehaviour, Accusation, Innocence}
+    struct AccountabilityEvent {
+        uint8 Chunks;     // Counter of number of chunks for oversize accountability event
+        uint8 ChunkID;    // Chunk index to construct the oversize accountability event
+        uint8 Type;       // Accountability event types: Misbehaviour, Accusation, Innocence.
+        uint8 Rule;       // Rule ID defined in AFD rule engine.
+        address Reporter; // The node address of the validator who report this event, for incentive protocol.
+        address Sender;   // The corresponding node address of this accountability event.
+        bytes32 MsgHash;  // The corresponding consensus msg's hash of this accountability event.
+        bytes RawProof;   // rlp encoded bytes of Proof object.
+    }
+
     Oracle oracleContract = Oracle(payable(0x5a443704dd4B594B382c22a083e2BD3090A6feF3));
     enum ValidatorState {active, paused}
     struct Validator {
@@ -73,6 +96,25 @@ contract Autonity is IERC20, Upgradeable {
     Config public config;
     address[] internal validatorList;
 
+    // accountabilityEventChunks, a storage to construct oversize accountability event with chunked proof bytes.
+    // Mapping(MsgHash => Mapping(Type => Mapping(Rule => Mapping(Reporter=>Mapping(ChunkID => AccountabilityEvent))))) chunkedAccountabilityEvents;
+    mapping(bytes32 => mapping(uint8 => mapping(uint8 => mapping(address=>mapping(uint8 => AccountabilityEvent))))) accountabilityEventChunks;
+
+    // accountability events against per validator.
+    mapping(address => AccountabilityEvent[]) validatorMisbehaviours;
+    mapping(address => AccountabilityEvent[]) validatorAccusations;
+
+    // map accountability event with its timestamp (block height) on when it was processed.
+    mapping (bytes32 => uint256) misbehaviourProcessedTS;
+    mapping (bytes32 => uint256) accusationProcessedTS;
+
+    // pending chunked accountability event.
+    AccountabilityEvent[] private pendingChunkedAccountabilityEvent;
+
+    // pending slash tasks for per epoch.
+    AccountabilityEvent[] private pendingSlashTasks;
+
+    mapping (address => uint256) stakeSlashed;
 
     // Stake token state transitions happen every epoch.
     uint256 public epochID;
@@ -115,7 +157,13 @@ contract Autonity is IERC20, Upgradeable {
     event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidContract);
     event PausedValidator(address treasury, address addr, uint256 effectiveBlock);
     event Rewarded(address addr, uint256 amount);
-
+    event MisbehaviourAdded(AccountabilityEvent ev);
+    event AccusationAdded(AccountabilityEvent ev);
+    event AccusationRemoved(AccountabilityEvent ev);
+    event EpochPeriodUpdated(uint256 period);
+    event MisbehaviourPenaltyUpdated(uint256 penalty);
+    event NodeSlashed(address validator, uint256 penalty);
+    event SubmitGuiltyAccusation(AccountabilityEvent ev);
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
      * Note that `gasPrice` may be zero.
@@ -192,6 +240,45 @@ contract Autonity is IERC20, Upgradeable {
     }
 
     /**
+    * @notice handle accountability event in the Autonity Contract.
+    */
+    function handleAccountabilityEvents(AccountabilityEvent[] memory _events) public onlyValidator {
+        for (uint256 i = 0; i < _events.length; i++) {
+
+            if (_events[i].Reporter != msg.sender) {
+                continue;
+            }
+
+            // if the event is a chunked event, store it.
+            if (_events[i].Chunks != 0) {
+                _storeChunkedAccountabilityEvent(_events[i]);
+                continue;
+            }
+
+            if (AccountabilityEventType(_events[i].Type) == AccountabilityEventType.Misbehaviour) {
+                if (misbehaviourProcessedTS[_events[i].MsgHash] == 0) {
+                    _handleMisbehaviour(_events[i]);
+                    continue;
+                }
+            }
+
+            if (AccountabilityEventType(_events[i].Type) == AccountabilityEventType.Accusation) {
+                if (accusationProcessedTS[_events[i].MsgHash] == 0) {
+                    _handleAccusation(_events[i]);
+                    continue;
+                }
+            }
+
+            if (AccountabilityEventType(_events[i].Type) == AccountabilityEventType.Innocence) {
+                if (accusationProcessedTS[_events[i].MsgHash] != 0) {
+                    _handleInnocenceProof(_events[i]);
+                    continue;
+                }
+            }
+        }
+    }
+
+    /*
     * @return the number of decimals the NTN token uses.
     * @dev ERC-20 Optional.
     */
@@ -304,11 +391,36 @@ contract Autonity is IERC20, Upgradeable {
     }
 
     /*
+    * @notice Set the misbehaviour penalty. Restricted to the Operator account.
+    * @param _newPenalty Positive integer.
+    */
+    function setMisbehaviourPenalty(uint256 _newPenalty) public onlyOperator {
+        if (_newPenalty <= 0) {
+            return;
+        }
+        faultPenalty = _newPenalty;
+        emit MisbehaviourPenaltyUpdated(_newPenalty);
+    }
+
+    /*
     * @notice Set the epoch period. Restricted to the Operator account.
     * @param _period Positive integer.
     */
     function setEpochPeriod(uint256 _period) public onlyOperator {
+        if (_period == config.epochPeriod) {
+            return;
+        }
+
+        // to decrease the epoch period, we need to check if current chain head already exceed the window:
+        // lastBlockEpoch + _newPeriod, if so, the _newPeriod cannot be applied since the finalization of current epoch
+        // at finalize function will never be triggered, in such case, operator need to find better timing to do so.
+        if (_period < config.epochPeriod) {
+            if (block.number >= lastEpochBlock + _period) {
+                revert("current chain head exceed the window: lastBlockEpoch + _newPeriod, try again latter on.");
+            }
+        }
         config.epochPeriod = _period;
+        emit EpochPeriodUpdated(_period);
     }
 
     /*
@@ -426,8 +538,14 @@ contract Autonity is IERC20, Upgradeable {
     */
     function finalize() external virtual onlyProtocol
     returns (bool, CommitteeMember[] memory) {
+        // on each block finalize, process those pending chunkedAccountabilityEvents
+        _handleChunkedAccountabilityEvent();
+        // on each block, try to promote accusations without proof of innocence to misbehaviour.
+        _submitGuiltyAccusations();
+
         if (lastEpochBlock + config.epochPeriod == block.number) {
             // - slashing should come here first -
+            _performSlashTasks();
             _performRedistribution();
             _stakingTransitions();
             _applyNewCommissionRates();
@@ -438,6 +556,77 @@ contract Autonity is IERC20, Upgradeable {
         }
         oracleContract.finalize();
         return (contractUpgradeReady, committee);
+    }
+
+    /**
+    * @dev call by validator client to check if a misbehaviour is already processed on chain.
+    * @param _msgHash the msg hash of the malicious msg detected by AFD.
+    */
+    function misbehaviourProcessed(bytes32 _msgHash) public view returns (bool) {
+        return misbehaviourProcessedTS[_msgHash] != 0;
+    }
+
+    /**
+    * @dev call by validator client to check if an accusation is already processed on chain.
+    * @param _msgHash the msg hash of the suspected msg detected by AFD.
+    */
+    function accusationProcessed(bytes32 _msgHash) public view returns (bool) {
+        return accusationProcessedTS[_msgHash] != 0;
+    }
+
+    /**
+    * @dev Get the slashed stake for a validator.
+    * @param _addr The address a validator.
+    */
+    function getSlashedStake(address _addr) public view returns (uint256) {
+        require(validators[_addr].nodeAddress == _addr, "validator must be registered");
+        return stakeSlashed[_addr];
+    }
+
+    /**
+    * @dev Dump the latest 256 misbehaviours of a validator.
+    * @param _addr The address of a validator.
+    */
+    function getValidatorRecentMisbehaviours(address _addr) public view returns (AccountabilityEvent[] memory) {
+        require(validators[_addr].nodeAddress == _addr, "validator must be registered");
+        // only return latest 256 number of on-chain misbehaviours.
+        if (validatorMisbehaviours[_addr].length > LATEST_ACCOUNTABILITY_EVENTS_RANGE) {
+            uint256 start = validatorMisbehaviours[_addr].length - LATEST_ACCOUNTABILITY_EVENTS_RANGE;
+            AccountabilityEvent[] memory _misbehaviours = new AccountabilityEvent[](LATEST_ACCOUNTABILITY_EVENTS_RANGE);
+            for (uint256 i = start; i < validatorMisbehaviours[_addr].length; i++) {
+                AccountabilityEvent memory _ev = validatorMisbehaviours[_addr][i];
+                _misbehaviours[i-start] = _ev;
+            }
+            return _misbehaviours;
+        }
+        return validatorMisbehaviours[_addr];
+    }
+
+    function getAccountabilityEventChunk(bytes32 _msgHash, uint8 _type, uint8 _rule, address _reporter, uint8 _chunkID) public view returns (bytes memory) {
+        bytes memory ret;
+        if (accountabilityEventChunks[_msgHash][_type][_rule][_reporter][_chunkID].MsgHash == _msgHash) {
+            return accountabilityEventChunks[_msgHash][_type][_rule][_reporter][_chunkID].RawProof;
+        }
+        return ret;
+    }
+
+    /**
+    * @dev Dump the latest 256 accusations of a validator.
+    * @param _addr The address of a validator.
+    */
+    function getValidatorRecentAccusations(address _addr) public view returns (AccountabilityEvent[] memory) {
+        require(validators[_addr].nodeAddress == _addr, "validator must be registered");
+        // only return latest 256 number of on-chain accusations.
+        if (validatorAccusations[_addr].length > LATEST_ACCOUNTABILITY_EVENTS_RANGE) {
+            uint256 start = validatorAccusations[_addr].length - LATEST_ACCOUNTABILITY_EVENTS_RANGE;
+            AccountabilityEvent[] memory _accusations = new AccountabilityEvent[](LATEST_ACCOUNTABILITY_EVENTS_RANGE);
+            for (uint256 i = start; i < validatorAccusations[_addr].length; i++) {
+                AccountabilityEvent memory _ev = validatorAccusations[_addr][i];
+                _accusations[i-start] = _ev;
+            }
+            return _accusations;
+        }
+        return validatorAccusations[_addr];
     }
 
     /**
@@ -516,6 +705,34 @@ contract Autonity is IERC20, Upgradeable {
     */
 
     /**
+    * @notice Returns the epoch period.
+    */
+    function getEpochPeriod() external view returns (uint256) {
+        return config.epochPeriod;
+    }
+
+    /**
+    * @notice Returns the block period.
+    */
+    function getBlockPeriod() external view returns (uint256) {
+        return config.blockPeriod;
+    }
+
+    /**
+* @notice Returns the un-bonding period.
+    */
+    function getUnbondingPeriod() external view returns (uint256) {
+        return config.unbondingPeriod;
+    }
+
+    /**
+    * @notice Returns the penalty in stake token.
+    */
+    function getPenalty() external view returns (uint256) {
+        return faultPenalty;
+    }
+
+    /**
     * @notice Returns the last epoch's end block height.
     */
     function getLastEpochBlock() external view returns (uint256) {
@@ -544,6 +761,19 @@ contract Autonity is IERC20, Upgradeable {
         return validatorList;
     }
 
+    /**
+     * @notice Returns the current treasury account.
+     */
+    function getTreasuryAccount() external view returns (address) {
+        return config.treasuryAccount;
+    }
+
+    /**
+     * @notice Returns the current treasury fee.
+     */
+    function getTreasuryFee() external view returns (uint256) {
+        return config.treasuryFee;
+    }
 
     /**
     * @notice Returns the amount of unbonded Newton token held by the account (ERC-20).
@@ -564,7 +794,7 @@ contract Autonity is IERC20, Upgradeable {
     * object might be empty if there is no user associated.
     */
     function getValidator(address _addr) external view returns (Validator memory) {
-        //TODO : coreturn an error if no user was found.
+        require(validators[_addr].nodeAddress == _addr, "validator not registered");
         return validators[_addr];
     }
 
@@ -595,41 +825,6 @@ contract Autonity is IERC20, Upgradeable {
     */
     function getOperator() external view returns (address) {
         return config.operatorAccount;
-    }
-
-
-    /**
-    * @notice getProposer returns the address of the proposer for the given height and
-    * round. The proposer is selected from the committee via weighted random
-    * sampling, with selection probability determined by the voting power of
-    * each committee member. The selection mechanism is deterministic and will
-    * always select the same address, given the same height, round and contract
-    * state.
-    */
-    function getProposer(uint256 height, uint256 round) external view returns (address) {
-        // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
-        uint256 total_voting_power = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            total_voting_power += committee[i].votingPower;
-        }
-
-        require(total_voting_power != 0, "The committee is not staking");
-
-        // distribute seed into a 256bits key-space.
-        uint256 key = height + round;
-        uint256 value = uint256(keccak256(abi.encodePacked(key)));
-        uint256 index = value % total_voting_power;
-
-        // find the index hit which committee member which line up in the committee list.
-        // we assume there is no 0 stake/power validators.
-        uint256 counter = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            counter += committee[i].votingPower;
-            if (index <= counter - 1) {
-                return committee[i].addr;
-            }
-        }
-        revert("There is no validator left in the network");
     }
 
     // lastId not included
@@ -677,6 +872,13 @@ contract Autonity is IERC20, Upgradeable {
         _;
     }
 
+    /**
+    * @dev Modifier that checks if the caller is a validator from the pool.
+    */
+    modifier onlyValidator {
+        require(validators[msg.sender].nodeAddress == msg.sender, "function restricted to the validator");
+        _;
+    }
 
     /*
     ============================================================
@@ -685,6 +887,31 @@ contract Autonity is IERC20, Upgradeable {
 
     ============================================================
     */
+
+    /**
+    * @notice Take fund away from faulty node account.
+    * @dev Emit a {NodeSlashed} event for account that is fined.
+    */
+    function _takePenalty(address addr) internal {
+        // todo: take penalty by different degree for different faults.
+        uint256 penalty = faultPenalty;
+        // keep at least 1 stake for network liveness.
+        if (validators[addr].bondedStake <= 1) {
+            return;
+        }
+
+        // resolve proper penalty.
+        if (validators[addr].bondedStake <= penalty) {
+            penalty = validators[addr].bondedStake - 1;
+        }
+
+        // apply penalty and save fine at contract account.
+        validators[addr].bondedStake -= penalty;
+        accounts[address(this)] += penalty;
+        validators[addr].totalSlashed += 1;
+        stakeSlashed[addr] += penalty;
+        emit NodeSlashed(addr, penalty);
+    }
 
     /**
     * @notice Perform Auton reward distribution. The transaction fees
@@ -700,17 +927,109 @@ contract Autonity is IERC20, Upgradeable {
         // take treasury fee.
         uint256 _treasuryReward = (config.treasuryFee * _amount) / 10 ** 18;
         if (_treasuryReward > 0) {
-            config.treasuryAccount.transfer(_treasuryReward);
-            _amount -= _treasuryReward;
+            //treasuryAccount.transfer(_treasuryReward);
+            (bool sent, bytes memory data) = config.treasuryAccount.call{value: _treasuryReward}("");
+            if (sent == true) {
+                _amount -= _treasuryReward;
+            } else {
+                // todo: emit an event to indicate reward distribution for treasury account failed, the reward for treasury
+                //  will be distributed through validators.
+            }
         }
         totalRedistributed += _amount;
+        // otherwise, do reward distribution.
+        _rewardDistribution(_amount);
+    }
+
+    /**
+    * @notice perform reward distribution with promoted members, the promotion is base on current epoch's omission counters.
+    * @dev Emit a {Rewarded} event for every account that are rewarded.
+    */
+    function _rewardDistribution(uint256 _amount) internal {
+        if (_amount <= 0) {
+            return;
+        }
+
+        // count total voting powers after slashing.
+        uint256 totalBondedStake = 0;
+        for (uint256 j = 0; j < committee.length; j++) {
+            Validator storage _val = validators[committee[j].addr];
+            totalBondedStake += _val.bondedStake;
+        }
+
+        if (totalBondedStake == 0) {
+            // this shouldn't happens, but to prevent finalize() from getting reverted.
+            return;
+        }
+
+        uint256 totalDistributed = 0;
         for (uint256 i = 0; i < committee.length; i++) {
             Validator storage _val = validators[committee[i].addr];
-            uint256 _reward = (_val.bondedStake * _amount) / epochTotalBondedStake;
-            if (_reward > 0) {
-                _val.liquidContract.redistribute{value : _reward}();
+            uint256 _reward = (_val.bondedStake * _amount) / totalBondedStake;
+            if(_reward > 0) {
+                uint256 distributed = _val.liquidContract.redistribute{value: _reward}();
+                totalDistributed += distributed;
+                emit Rewarded(_val.nodeAddress, distributed);
             }
-            emit Rewarded(_val.nodeAddress, _reward);
+        }
+        // todo: to enable below dust fee handling, the corresponding testcases should be rewritten.
+        /*
+        // the DIV operator generates dust reward fraction, transfer dust fraction tokens to treasury account.
+        uint256 dust = _amount - totalDistributed;
+        if (dust > 0) {
+            (bool sent, bytes memory data) = config.treasuryAccount.call{value: dust}("");
+            if (sent == true) {
+                emit Rewarded(config.treasuryAccount, dust);
+            }
+        }*/
+    }
+
+    /**
+    * @notice perform slashing over faulty validators at the end of epoch. The fine in stake token are moved from
+    * validator account to autonity contract account, and the corresponding slash counter as a reputation for validator
+    * increase too.
+    * @dev Emit a {NodeSlashed} event for every account that are slashed.
+    */
+    function _performSlashTasks() internal {
+        // todo resolve the fine base on different accountability events.
+        // slash validator of misbehaviour and accusations without innocent proof.
+        for (uint256 i = 0; i < pendingSlashTasks.length; i++) {
+            address addr = pendingSlashTasks[i].Sender;
+            _takePenalty(addr);
+        }
+        // reset pending slash task queue for next epoch.
+        delete pendingSlashTasks;
+    }
+
+    /**
+    * @notice promote accusations without innocence proof in the prove-window into misbehaviour.
+    * @dev Emit a {SubmitGuiltyAccusation} event for every accusation that are going to be slashed.
+    */
+    function _submitGuiltyAccusations() internal {
+        // for each committee member, find no innocence proof accusations within proveWindow, promote them into
+        // as misbehaviour, and push them in slashing task queue, and finally remove them from accusation list.
+        for (uint256 i = 0; i < committee.length; i++) {
+            uint256 len = validatorAccusations[committee[i].addr].length;
+            AccountabilityEvent[] memory promoted = new AccountabilityEvent[](len);
+            uint256 promotedCounter = 0;
+
+            for (uint256 j = 0; j < len; j++) {
+                AccountabilityEvent memory accusation = validatorAccusations[committee[i].addr][j];
+                uint256 ttl = block.number - accusationProcessedTS[accusation.MsgHash];
+                if (accusationProcessedTS[accusation.MsgHash]!= 0 && ttl > PROVE_WINDOW) {
+                    // promote accusation from accusation list to misbehaviour list.
+                    validatorMisbehaviours[committee[i].addr].push(accusation);
+                    // push accusation for slashing.
+                    pendingSlashTasks.push(accusation);
+                    emit SubmitGuiltyAccusation(accusation);
+                    promoted[promotedCounter] = accusation;
+                    promotedCounter++;
+                }
+            }
+            // remove accusation from accusation list.
+            for (uint256 k = 0; k < promotedCounter; k++) {
+                _removeAccusation(promoted[k]);
+            }
         }
     }
 
@@ -764,6 +1083,17 @@ contract Autonity is IERC20, Upgradeable {
         _verifyEnode(_validator);
         // deploy liquid stake contract
         _deployLiquidContract(_validator);
+    }
+
+    function _removeAccusation(AccountabilityEvent memory ev) internal {
+        uint256 len = validatorAccusations[ev.Sender].length;
+        for (uint256 i = 0; i < len; i++) {
+            if (validatorAccusations[ev.Sender][i].MsgHash == ev.MsgHash) {
+                validatorAccusations[ev.Sender][i] = validatorAccusations[ev.Sender][len - 1];
+                validatorAccusations[ev.Sender].pop();
+                break;
+            }
+        }
     }
 
     function _registerValidator(Validator memory _validator, bytes memory _multisig) internal {
@@ -942,25 +1272,165 @@ contract Autonity is IERC20, Upgradeable {
         }
     }
 
-    function _removeFromArray(address _address, address[] storage _array) internal {
-        require(_array.length > 0);
+    /**
+    * @dev handle misbehaviour and push the ev for slashing once it is a valid proof.
+    */
+    function _handleMisbehaviour(AccountabilityEvent memory _ev) internal {
+        // Validate the misbehaviour proof
+        (address addr, bytes32 msgHash, uint256 retCode, uint256 ruleID) =
+        Precompiled.checkAccountabilityEvent(Precompiled.MISBEHAVIOUR_CONTRACT, _ev.RawProof);
+        if (msgHash != _ev.MsgHash || addr != _ev.Sender || retCode == 0 || ruleID != uint256(_ev.Rule)) {
+            return;
+        }
 
-        for (uint256 i = 0; i < _array.length; i++) {
-            if (_array[i] == _address) {
-                _array[i] = _array[_array.length - 1];
-                _array.pop();
-                break;
-            }
+        // if event is oversize, dont store duplicated raw bytes since we have copy in chunked event storage.
+        if (_ev.Chunks > 0) {
+            delete _ev.RawProof;
+        }
+
+        // if the misbehaviour is from validator, save proof and add slashing task.
+        if (validators[_ev.Sender].nodeAddress == _ev.Sender) {
+            validatorMisbehaviours[_ev.Sender].push(_ev);
+            pendingSlashTasks.push(_ev);
+            misbehaviourProcessedTS[_ev.MsgHash] = block.number;
+            emit MisbehaviourAdded(_ev);
         }
     }
+    /**
+    * @dev handle accusation and push the ev into the waiting queue before it become to be slashed.
+    */
+    function _handleAccusation(AccountabilityEvent memory _ev) internal {
+        // Validate the accusation proof
+        (address addr, bytes32 msgHash, uint256 retCode, uint256 ruleID) =
+        Precompiled.checkAccountabilityEvent(Precompiled.ACCUSATION_CONTRACT, _ev.RawProof);
+        if (msgHash != _ev.MsgHash || addr != _ev.Sender || retCode == 0 || ruleID != uint256(_ev.Rule)) {
+            return;
+        }
 
-    	function _inCommittee(address _validator) internal view returns (bool) {
-            for (uint256 i = 0; i < committee.length; i++) {
-                if (_validator == committee[i].addr){
-                    return true;
-                }
+        // if event is oversize, dont store duplicated raw bytes since we have copy in chunked event storage.
+        if (_ev.Chunks > 0) {
+            delete _ev.RawProof;
+        }
+        // accusation proof is valid, store the proof, and wait for validator to provide innocence proof.
+        validatorAccusations[_ev.Sender].push(_ev);
+        accusationProcessedTS[_ev.MsgHash] = block.number;
+        emit AccusationAdded(_ev);
+    }
+
+    /**
+    * @dev handle innocence proof and remove the corresponding accusation once it is valid proof.
+    */
+    function _handleInnocenceProof(AccountabilityEvent memory _ev) internal {
+        // Validate the proof of innocence
+        (address addr, bytes32 msgHash, uint256 retCode, uint256 ruleID) =
+        Precompiled.checkAccountabilityEvent(Precompiled.INNOCENCE_CONTRACT, _ev.RawProof);
+        if (msgHash != _ev.MsgHash || addr != _ev.Sender || retCode == 0 || ruleID != uint256(_ev.Rule)) {
+            return;
+        }
+        // if event is oversize, dont store duplicated raw bytes since we have copy in chunked event storage.
+        if (_ev.Chunks > 0) {
+            delete _ev.RawProof;
+        }
+        // innocence proof is valid, remove accusation.
+        _removeAccusation(_ev);
+        delete accusationProcessedTS[_ev.MsgHash];
+        emit AccusationRemoved(_ev);
+    }
+
+    /**
+    * @dev saves chunked accountability events in the storage, once the chunks are fully collected, they will be processed
+    * at the end of block finalization phase.
+    */
+    function _storeChunkedAccountabilityEvent(AccountabilityEvent memory _ev) internal {
+
+        if (AccountabilityEventType(_ev.Type) == AccountabilityEventType.Misbehaviour && misbehaviourProcessed(_ev.MsgHash) == true) {
+            return;
+        }
+
+        if (AccountabilityEventType(_ev.Type) == AccountabilityEventType.Accusation && accusationProcessed(_ev.MsgHash) == true) {
+            return;
+        }
+
+        // save the chunk and try to construct the full event and make it ready for processing.
+        accountabilityEventChunks[_ev.MsgHash][_ev.Type][_ev.Rule][_ev.Reporter][_ev.ChunkID] = _ev;
+
+        // to save the gas from useless bytes concat, we just 1st check if all the chunks were collected.
+        for (uint8 chunkID = 0; chunkID < _ev.Chunks; chunkID++) {
+            if (accountabilityEventChunks[_ev.MsgHash][_ev.Type][_ev.Rule][_ev.Reporter][chunkID].Reporter != msg.sender)
+            {
+                return;
             }
-            return false;
-    	}
+        }
 
+        // now, all the chunks are collected, we can start the processing. But due to the concat of chunks would cost a
+        // lot of gas from the msg sender, it would limit the max size of event we can process, so we would push this
+        // event into a pending list, which will be processed by the finalize() at the block finalization phase which
+        // would cost none gas for the chunk concat.
+
+        AccountabilityEvent memory pendingEvent;
+        pendingEvent.Reporter = _ev.Reporter;
+        pendingEvent.MsgHash = _ev.MsgHash;
+        pendingEvent.Chunks = _ev.Chunks;
+        pendingEvent.Rule = _ev.Rule;
+        pendingEvent.ChunkID = _ev.ChunkID;
+        pendingEvent.Type = _ev.Type;
+        pendingEvent.Sender = _ev.Sender;
+
+        // push the event in the pending list, it will be handled at current block finalization phase.
+        pendingChunkedAccountabilityEvent.push(pendingEvent);
+        // to avoid duplicated reporting from different validator, once the chunked event is pushed in the processing list,
+        // we set them to be processed.
+        if (AccountabilityEventType(_ev.Type) == AccountabilityEventType.Misbehaviour) {
+            misbehaviourProcessedTS[_ev.MsgHash] = block.number;
+        }
+        if (AccountabilityEventType(_ev.Type) == AccountabilityEventType.Accusation) {
+            accusationProcessedTS[_ev.MsgHash] = block.number;
+        }
+    }
+    /**
+    * @dev at block finalize phase, call this function to check if there are fully collected events, and process it.
+    */
+    function _handleChunkedAccountabilityEvent() internal {
+        for (uint256 i = 0; i < pendingChunkedAccountabilityEvent.length; i++) {
+
+            AccountabilityEvent memory ev;
+            ev.Reporter = pendingChunkedAccountabilityEvent[i].Reporter;
+            ev.MsgHash = pendingChunkedAccountabilityEvent[i].MsgHash;
+            ev.Chunks = pendingChunkedAccountabilityEvent[i].Chunks;
+            ev.Rule = pendingChunkedAccountabilityEvent[i].Rule;
+            ev.ChunkID = pendingChunkedAccountabilityEvent[i].ChunkID;
+            ev.Type = pendingChunkedAccountabilityEvent[i].Type;
+            ev.Sender = pendingChunkedAccountabilityEvent[i].Sender;
+
+            //bytes memory constructedBytes;
+            for (uint8 chunkID = 0; chunkID < ev.Chunks; chunkID++) {
+                ev.RawProof = BytesLib.concat(ev.RawProof, accountabilityEventChunks[ev.MsgHash][ev.Type][ev.Rule][ev.Reporter][chunkID].RawProof);
+            }
+
+            if (AccountabilityEventType(ev.Type) == AccountabilityEventType.Misbehaviour) {
+                _handleMisbehaviour(ev);
+                continue;
+            }
+
+            if (AccountabilityEventType(ev.Type) == AccountabilityEventType.Accusation) {
+                _handleAccusation(ev);
+                continue;
+            }
+
+            if (AccountabilityEventType(ev.Type) == AccountabilityEventType.Innocence) {
+                _handleInnocenceProof(ev);
+                continue;
+            }
+        }
+        delete pendingChunkedAccountabilityEvent;
+    }
+
+    function _inCommittee(address _validator) internal view returns (bool) {
+        for (uint256 i = 0; i < committee.length; i++) {
+            if (_validator == committee[i].addr){
+                return true;
+            }
+        }
+        return false;
+    }
 }

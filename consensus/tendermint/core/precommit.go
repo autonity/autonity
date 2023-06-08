@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
@@ -44,8 +45,8 @@ func (c *PrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
 	msg := &messageutils.Message{
-		Code:          messageutils.MsgPrecommit,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrecommit,
+		TbftMsgBytes:  encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
 	}

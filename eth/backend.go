@@ -20,13 +20,16 @@ package eth
 import (
 	"errors"
 	"fmt"
+	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/misbehaviourdetector"
+	"github.com/autonity/autonity/crypto"
+
 	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/common"
@@ -101,6 +104,8 @@ type Ethereum struct {
 	chainHeadSub    event.Subscription
 	chainHeadCh     chan core.ChainHeadEvent
 	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully
+
+	misbehaviourDetector *misbehaviourdetector.FaultDetector
 }
 
 // New creates a new Ethereum object (including the
@@ -162,7 +167,15 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	if err := pruner.RecoverPruning(stack.ResolvePath(""), chainDb, stack.ResolvePath(config.TrieCleanCacheJournal)); err != nil {
 		log.Error("Failed to recover state", "error", err)
 	}
-	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify, config.Miner.Noverify, chainDb, &vmConfig)
+
+	// The event mux is shared between the consensus engine and fault detector such that both of them will receive the
+	// messages from p2p protocol manager layer.
+
+	evMux := new(event.TypeMux)
+	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
+	msgStore := tendermintcore.NewMsgStore()
+	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
+		config.Miner.Noverify, chainDb, &vmConfig, evMux, msgStore)
 	if cons != nil {
 		consensusEngine = cons(consensusEngine)
 	}
@@ -247,6 +260,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	}); err != nil {
 		return nil, err
 	}
+
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
@@ -259,6 +273,15 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		gpoParams.Default = config.Miner.GasPrice
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
+
+	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
+	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
+	misbehaviourdetector.LoadAccountabilityPreCompiledContracts(eth.blockchain)
+	// Create Fault Detector for each full node for the time being,
+	eth.misbehaviourDetector = misbehaviourdetector.NewFaultDetector(eth.blockchain, eth.etherbase,
+		evMux.Subscribe(events.MessageEvent{}), msgStore, eth.txPool, eth.APIBackend, stack.Config().NodeKey())
+	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
+	eth.misbehaviourDetector.SetBroadcaster(eth.handler)
 
 	// Setup DNS discovery iterators.
 	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})
@@ -520,6 +543,10 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
 
+	if s.misbehaviourDetector != nil {
+		s.misbehaviourDetector.FaultDetectorEventLoop()
+	}
+
 	s.chainHeadSub = s.blockchain.SubscribeChainHeadEvent(s.chainHeadCh)
 	go s.chainHeadEventLoop(s.p2pServer)
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
@@ -608,7 +635,12 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
-	// Stop all the peer-related stuff first.
+	// Stop AFD first,
+	if s.misbehaviourDetector != nil {
+		s.misbehaviourDetector.Stop()
+	}
+
+	// Stop all the peer-related stuff then.
 	s.ethDialCandidates.Close()
 	s.snapDialCandidates.Close()
 	s.handler.Stop()

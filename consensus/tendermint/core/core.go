@@ -442,7 +442,7 @@ func (c *Core) SetInitialState(r int64) {
 		lastBlockMined, _ := c.backend.LastCommittedProposal()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
-		c.committee.SetLastBlock(lastBlockMined)
+		c.committee.SetLastHeader(lastBlockMined)
 		c.setLastHeader(lastHeader)
 		c.lockedRound = -1
 		c.lockedValue = nil

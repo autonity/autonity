@@ -3,6 +3,7 @@ package messageutils
 import (
 	"fmt"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/crypto"
 	"github.com/pkg/errors"
 	"io"
 	"math/big"
@@ -13,8 +14,113 @@ import (
 )
 
 type ConsensusMsg interface {
-	GetRound() int64
-	GetHeight() *big.Int
+	R() int64
+	H() *big.Int
+	V() common.Hash
+}
+
+// LiteProposal is only used by accountability that it converts a Proposal to a LiteProposal for sustainable on-chain proof.
+type LiteProposal struct {
+	Round      int64
+	Height     *big.Int
+	ValidRound int64
+	Value      common.Hash // the hash of the proposalBlock.
+	Signature  []byte      // the signature computes from the tuple: (Round, Height, ValidRound, ProposalBlock.Hash())
+}
+
+func (lp *LiteProposal) PayloadNoSig() ([]byte, error) {
+	return rlp.EncodeToBytes(&LiteProposal{
+		Round:      lp.Round,
+		Height:     lp.Height,
+		ValidRound: lp.ValidRound,
+		Value:      lp.Value,
+	})
+}
+
+func (lp *LiteProposal) ValidSignature(signer common.Address) error {
+	payload, err := lp.PayloadNoSig()
+	if err != nil {
+		return err
+	}
+	// 1. Keccak data
+	hashData := crypto.Keccak256(payload)
+	// 2. Recover public key
+	pubkey, err := crypto.SigToPub(hashData, lp.Signature)
+	if err != nil {
+		return err
+	}
+	if crypto.PubkeyToAddress(*pubkey) != signer {
+		return ErrUnauthorizedAddress
+	}
+	return nil
+}
+
+func (lp *LiteProposal) R() int64 {
+	return lp.Round
+}
+
+func (lp *LiteProposal) H() *big.Int {
+	return lp.Height
+}
+
+func (lp *LiteProposal) V() common.Hash {
+	return lp.Value
+}
+
+func (lp *LiteProposal) VR() int64 {
+	return lp.ValidRound
+}
+
+func (lp *LiteProposal) Sig() []byte {
+	return lp.Signature
+}
+
+// EncodeRLP serializes b into the Ethereum RLP format.
+func (lp *LiteProposal) EncodeRLP(w io.Writer) error {
+	isValidRoundNil := false
+	var validRound uint64
+	if lp.ValidRound == -1 {
+		validRound = 0
+		isValidRoundNil = true
+	} else {
+		validRound = uint64(lp.ValidRound)
+	}
+	return rlp.Encode(w, []interface{}{uint64(lp.Round), lp.Height, validRound, isValidRoundNil, lp.Value, lp.Signature})
+}
+
+// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
+func (lp *LiteProposal) DecodeRLP(s *rlp.Stream) error {
+	var lite struct {
+		Round           uint64
+		Height          *big.Int
+		ValidRound      uint64
+		IsValidRoundNil bool
+		Value           common.Hash
+		Signature       []byte
+	}
+
+	if err := s.Decode(&lite); err != nil {
+		return err
+	}
+	var validRound int64
+	if lite.IsValidRoundNil {
+		if lite.ValidRound != 0 {
+			return errors.New("bad lite proposal validRound with isValidround nil")
+		}
+		validRound = -1
+	} else {
+		validRound = int64(lite.ValidRound)
+	}
+
+	if !(validRound <= constants.MaxRound && lite.Round <= constants.MaxRound) {
+		return errors.New("bad proposal with invalid rounds")
+	}
+	lp.Round = int64(lite.Round)
+	lp.Height = lite.Height
+	lp.ValidRound = validRound
+	lp.Value = lite.Value
+	lp.Signature = lite.Signature
+	return nil
 }
 
 type Proposal struct {
@@ -22,6 +128,7 @@ type Proposal struct {
 	Height        *big.Int
 	ValidRound    int64
 	ProposalBlock *types.Block
+	LiteSig       []byte // the signature computes from the hash of tuple:(Round, Height, ValidRound, ProposalBlock.Hash())
 }
 
 func (p *Proposal) String() string {
@@ -29,11 +136,23 @@ func (p *Proposal) String() string {
 		p.Round, p.Height.Uint64(), p.ValidRound, p.ProposalBlock.Hash().String())
 }
 
-func (p *Proposal) GetRound() int64 {
+func (p *Proposal) V() common.Hash {
+	return p.ProposalBlock.Hash()
+}
+
+func (p *Proposal) VR() int64 {
+	return p.ValidRound
+}
+
+func (p *Proposal) LiteSignature() []byte {
+	return p.LiteSig
+}
+
+func (p *Proposal) R() int64 {
 	return p.Round
 }
 
-func (p *Proposal) GetHeight() *big.Int {
+func (p *Proposal) H() *big.Int {
 	return p.Height
 }
 
@@ -46,7 +165,7 @@ func NewProposal(r int64, h *big.Int, vr int64, p *types.Block) *Proposal {
 	}
 }
 
-// RLP encoding doesn't support negative big.Int, so we have to pass one additionnal field to represents validRound = -1.
+// EncodeRLP RLP encoding doesn't support negative big.Int, so we have to pass one additionnal field to represents validRound = -1.
 // Note that we could have as well indexed rounds starting by 1, but we want to stay close as possible to the spec.
 func (p *Proposal) EncodeRLP(w io.Writer) error {
 	if p.ProposalBlock == nil {
@@ -69,6 +188,7 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 		validRound,
 		isValidRoundNil,
 		p.ProposalBlock,
+		p.LiteSig,
 	})
 }
 
@@ -80,6 +200,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		ValidRound      uint64
 		IsValidRoundNil bool
 		ProposalBlock   *types.Block
+		Signature       []byte
 	}
 
 	if err := s.Decode(&proposal); err != nil {
@@ -107,27 +228,39 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 	p.Height = proposal.Height
 	p.ValidRound = validRound
 	p.ProposalBlock = proposal.ProposalBlock
+	p.LiteSig = proposal.Signature
 
 	return nil
+}
+
+type BadProposalInfo struct {
+	Sender common.Address
+	Value  common.Hash
 }
 
 type Vote struct {
 	Round             int64
 	Height            *big.Int
 	ProposedBlockHash common.Hash
+	MaliciousProposer common.Address
+	MaliciousValue    common.Hash
 }
 
-func (sub *Vote) GetRound() int64 {
+func (sub *Vote) V() common.Hash {
+	return sub.ProposedBlockHash
+}
+
+func (sub *Vote) R() int64 {
 	return sub.Round
 }
 
-func (sub *Vote) GetHeight() *big.Int {
+func (sub *Vote) H() *big.Int {
 	return sub.Height
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
 func (sub *Vote) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []interface{}{uint64(sub.Round), sub.Height, sub.ProposedBlockHash})
+	return rlp.Encode(w, []interface{}{uint64(sub.Round), sub.Height, sub.ProposedBlockHash, sub.MaliciousProposer, sub.MaliciousValue})
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
@@ -136,6 +269,8 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 		Round             uint64
 		Height            *big.Int
 		ProposedBlockHash common.Hash
+		MaliciousProposer common.Address
+		MaliciousValue    common.Hash
 	}
 
 	if err := s.Decode(&vote); err != nil {
@@ -147,6 +282,8 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 	}
 	sub.Height = vote.Height
 	sub.ProposedBlockHash = vote.ProposedBlockHash
+	sub.MaliciousProposer = vote.MaliciousProposer
+	sub.MaliciousValue = vote.MaliciousValue
 	return nil
 }
 

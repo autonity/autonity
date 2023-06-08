@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -38,10 +39,10 @@ func TestHandleCheckedMessage(t *testing.T) {
 			t.Fatalf("could not encode vote")
 		}
 		return &messageutils.Message{
-			Code:    messageutils.MsgPrevote,
-			Msg:     encoded,
-			Address: sender.Address,
-			Power:   common.Big1,
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: encoded,
+			Address:      sender.Address,
+			Power:        common.Big1,
 		}
 	}
 
@@ -62,8 +63,8 @@ func TestHandleCheckedMessage(t *testing.T) {
 			t.Fatalf("error signing")
 		}
 		return &messageutils.Message{
-			Code:          messageutils.MsgPrecommit,
-			Msg:           encoded,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encoded,
 			Address:       sender.Address,
 			CommittedSeal: commitSign,
 			Power:         common.Big1,
@@ -207,10 +208,10 @@ func TestHandleMsg(t *testing.T) {
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        payload,
-			DecodedMsg: vote,
-			Address:    common.Address{},
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: payload,
+			DecodedMsg:   vote,
+			Address:      common.Address{},
 		}
 
 		if err := c.handleMsg(context.Background(), msg); err != constants.ErrOldHeightMessage {
@@ -241,10 +242,10 @@ func TestHandleMsg(t *testing.T) {
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
 		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        payload,
-			DecodedMsg: vote,
-			Address:    common.Address{},
+			Code:         consensus.MsgPrevote,
+			TbftMsgBytes: payload,
+			DecodedMsg:   vote,
+			Address:      common.Address{},
 		}
 
 		if err := c.handleMsg(context.Background(), msg); err != constants.ErrFutureHeightMessage {
@@ -265,7 +266,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 	backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
 	logger := log.New("testAddress", "0x0000")
-	eMux := event.NewTypeMuxSilent(logger)
+	eMux := event.NewTypeMuxSilent(nil, logger)
 	sub := eMux.Subscribe(events.MessageEvent{})
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)

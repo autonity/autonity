@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
@@ -76,8 +77,8 @@ func TestSendPrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &messageutils.Message{
-			Code:          messageutils.MsgPrecommit,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
@@ -140,8 +141,8 @@ func TestSendPrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &messageutils.Message{
-			Code:          messageutils.MsgPrecommit,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
@@ -194,8 +195,8 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &messageutils.Message{
-			Code:          messageutils.MsgPrecommit,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -235,8 +236,8 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &messageutils.Message{
-			Code:          messageutils.MsgPrecommit,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encodedVote,
 			Address:       member.Address,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -545,8 +546,8 @@ func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, ke
 	}
 
 	expectedMsg := &messageutils.Message{
-		Code:          messageutils.MsgPrecommit,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrecommit,
+		TbftMsgBytes:  encodedVote,
 		Address:       member.Address,
 		CommittedSeal: sig,
 		Signature:     []byte{0x1},

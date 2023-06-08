@@ -2,6 +2,8 @@ package messageutils
 
 import (
 	"bytes"
+	"github.com/autonity/autonity/crypto"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
@@ -120,4 +122,50 @@ func TestVoteString(t *testing.T) {
 	if has != want {
 		t.Errorf("Vote is not stringified correctly: have %v, want %v", has, want)
 	}
+}
+
+func TestLiteProposal(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	proposer := crypto.PubkeyToAddress(key.PublicKey)
+	h := big.NewInt(100)
+	r := int64(1)
+	vr := int64(-1)
+	v := common.Hash{}
+
+	liteP := &LiteProposal{
+		Round:      r,
+		Height:     h,
+		ValidRound: vr,
+		Value:      v,
+	}
+
+	payload, err := liteP.PayloadNoSig()
+	require.NoError(t, err)
+	hashData := crypto.Keccak256(payload)
+	sig, err := crypto.Sign(hashData, key)
+	require.NoError(t, err)
+	liteP.Signature = sig
+
+	err = liteP.ValidSignature(proposer)
+	require.NoError(t, err)
+
+	require.Equal(t, h, liteP.H())
+	require.Equal(t, r, liteP.R())
+	require.Equal(t, vr, liteP.VR())
+	require.Equal(t, v, liteP.V())
+	require.Equal(t, sig, liteP.Sig())
+
+	buf := &bytes.Buffer{}
+	err = liteP.EncodeRLP(buf)
+	require.NoError(t, err)
+	s := rlp.NewStream(buf, 0)
+	decLiteP := &LiteProposal{}
+	err = decLiteP.DecodeRLP(s)
+	require.NoError(t, err)
+	require.Equal(t, liteP.H(), decLiteP.H())
+	require.Equal(t, liteP.R(), decLiteP.R())
+	require.Equal(t, liteP.VR(), decLiteP.VR())
+	require.Equal(t, liteP.V(), decLiteP.V())
+	require.Equal(t, liteP.Sig(), decLiteP.Sig())
 }

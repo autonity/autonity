@@ -1,0 +1,403 @@
+package misbehaviourdetector
+
+import (
+	"errors"
+	"fmt"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/consensus/tendermint/crypto"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/rlp"
+)
+
+var (
+	errNoParentHeader              = errors.New("no parent header")
+	errInvalidAccusation           = errors.New("invalid accusation")
+	errPeerDuplicatedAccusation    = errors.New("remote peer is sending duplicated accusation")
+	errInvalidInnocenceProof       = errors.New("invalid proof of innocence")
+	errAccusationRateMalicious     = errors.New("malicious accusation msg rate, peer to be dropped")
+	errAccusationFromNoneValidator = errors.New("accusation from none validator node")
+)
+
+type OffChainAccusationRateLimiter struct {
+	// to track the number of accusation sent by a challenger over a specific height.
+	accusationsPerHeight map[common.Address]map[uint64]int
+	// malicious one might use out of updated accusations to DoS node, so we track those recently accusation rates.
+	accusationRates map[common.Address]int
+	// track if one send duplicated accusation.
+	peerProcessedAccusations map[common.Address]map[common.Hash]struct{}
+}
+
+func NewOffChainAccusationRateLimiter() *OffChainAccusationRateLimiter {
+	l := &OffChainAccusationRateLimiter{
+		accusationRates:          make(map[common.Address]int),
+		accusationsPerHeight:     make(map[common.Address]map[uint64]int),
+		peerProcessedAccusations: make(map[common.Address]map[common.Hash]struct{}),
+	}
+	return l
+}
+
+// although we have rate limit over per height, but since malicious node can use out of updated consensus msg to send
+// accusation to DoS node, thus we have to track the rate limit of accusation interactions during the recently period, 1 seconds.
+func (r *OffChainAccusationRateLimiter) validInteractionRate(sender common.Address) error {
+	// get accusation counters of the last 1 seconds.
+	times, ok := r.accusationRates[sender]
+	if !ok {
+		r.accusationRates[sender] = 1
+		return nil
+	}
+
+	// since communication channel is asynchronous, those pending write of off chain accusation msgs from a sender could
+	// potentially be received once the network session get established from a disaster, thus it could exceed the number
+	// of accusation that could be produced by rule engine over a height, so we set higher rate limit during 1 second
+	// to be tolerant for such case.
+	if times > maxAccusationRatePerHeight*2 {
+		return errAccusationRateMalicious
+	}
+
+	r.accusationRates[sender]++
+	return nil
+}
+
+// rate limit counters are reset on each 1 seconds.
+func (r *OffChainAccusationRateLimiter) resetRateLimiter() {
+	for k := range r.accusationRates {
+		delete(r.accusationRates, k)
+	}
+}
+
+func (r *OffChainAccusationRateLimiter) checkPeerDuplicatedMsg(sender common.Address, msgHash common.Hash) error {
+	msgMap, ok := r.peerProcessedAccusations[sender]
+	if !ok {
+		msgMap = make(map[common.Hash]struct{})
+		r.peerProcessedAccusations[sender] = msgMap
+		r.peerProcessedAccusations[sender][msgHash] = struct{}{}
+		return nil
+	}
+	_, ok = msgMap[msgHash]
+	if !ok {
+		msgMap[msgHash] = struct{}{}
+		return nil
+	}
+	return errPeerDuplicatedAccusation
+}
+
+// justified accusations are reset on every 60 blocks.
+func (r *OffChainAccusationRateLimiter) resetPeerJustifiedAccusations() {
+	for k := range r.peerProcessedAccusations {
+		delete(r.peerProcessedAccusations, k)
+	}
+}
+
+// reset rate limiter of per height on each 60 blocks.
+func (r *OffChainAccusationRateLimiter) resetHeightRateLimiter() {
+	for k := range r.accusationsPerHeight {
+		delete(r.accusationsPerHeight, k)
+	}
+}
+
+func (r *OffChainAccusationRateLimiter) checkHeightAccusationRate(sender common.Address, height uint64) error {
+	hMap, ok := r.accusationsPerHeight[sender]
+	if !ok {
+		hMap = make(map[uint64]int)
+		r.accusationsPerHeight[sender] = hMap
+		r.accusationsPerHeight[sender][height] = 1
+		return nil
+	}
+
+	times, ok := hMap[height]
+	if !ok {
+		hMap[height] = 1
+		return nil
+	}
+	hMap[height] = times + 1
+
+	if hMap[height] > maxAccusationRatePerHeight {
+		return errAccusationRateMalicious
+	}
+
+	return nil
+}
+
+type InnocenceProofBuffer struct {
+	accusationList []common.Hash
+	proofs         map[common.Hash][]byte
+}
+
+func NewInnocenceProofBuffer() *InnocenceProofBuffer {
+	buff := &InnocenceProofBuffer{
+		proofs: make(map[common.Hash][]byte),
+	}
+	return buff
+}
+
+func (i *InnocenceProofBuffer) cacheInnocenceProof(challengeHash common.Hash, payload []byte) {
+	if len(i.accusationList) >= maxNumOfInnocenceProofCached {
+		// remove the LRU one.
+		delete(i.proofs, i.accusationList[0])
+		i.accusationList = i.accusationList[1:]
+	}
+	i.accusationList = append(i.accusationList, challengeHash)
+	i.proofs[challengeHash] = payload
+}
+
+func (i *InnocenceProofBuffer) getResponseFromCache(challengeHash common.Hash) []byte {
+	proof, ok := i.proofs[challengeHash]
+	if !ok {
+		return nil
+	}
+	return proof
+}
+
+// this function take accountability events: an accusation or an innocence proof event to handle off chain accusation
+// protocol. It returns error to freeze remote peer for 30s by according to dev p2p protocol to prevent from DoS attack.
+func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sender common.Address) error {
+	// drop peer if the accusation or the innocence response exceed the rate limit during the last 1 seconds.
+	err := fd.rateLimiter.validInteractionRate(sender)
+	if err != nil {
+		fd.logger.Error("drop peer connection", "err", err)
+		return err
+	}
+
+	// drop peer if it sent duplicated accusation event.
+	msgHash := types.RLPHash(payload)
+	err = fd.rateLimiter.checkPeerDuplicatedMsg(sender, msgHash)
+	if err != nil {
+		fd.logger.Error("duplicated accusation from peer", "err", err)
+		return err
+	}
+
+	// send response if we have processed it recently.
+	cachedProof := fd.innocenceProofBuff.getResponseFromCache(msgHash)
+	if cachedProof != nil {
+		fd.sendOffChainInnocenceProof(sender, cachedProof)
+		return nil
+	}
+
+	// handle a brand-new accusation event from rlp decoding of proof.
+	proof, err := decodeRawProof(payload)
+	if err != nil {
+		return err
+	}
+
+	// drop peer if the event is not from validator node.
+	msgHeight := proof.Message.H()
+	lastHeader := fd.blockchain.GetHeaderByNumber(msgHeight - 1)
+	if lastHeader == nil {
+		return errNoParentHeader
+	}
+	memberShip := lastHeader.CommitteeMember(sender)
+	if memberShip == nil {
+		return errAccusationFromNoneValidator
+	}
+
+	// drop peer if one send more than the number of accusations could be produced by rule engine over a height.
+	err = fd.rateLimiter.checkHeightAccusationRate(sender, msgHeight)
+	if err != nil {
+		fd.logger.Info("over rated accusation over a height", "error", err)
+		return err
+	}
+
+	// handle accusation and provide innocence proof.
+	if proof.Type == autonity.Accusation {
+		return fd.handleOffChainAccusation(proof, sender, msgHash)
+	}
+
+	// handle innocence proof and to withdraw those pending accusation.
+	if proof.Type == autonity.Innocence {
+		return fd.handleOffChainProofOfInnocence(proof, sender)
+	}
+	return fmt.Errorf("wrong proof type for off chain accusation events")
+}
+
+func (fd *FaultDetector) handleOffChainAccusation(accusation *AccountabilityProof, sender common.Address, accusationHash common.Hash) error {
+	// if the suspected msg's sender is not current peer, then it would be a DoS attack, drop the peer with an error returned.
+	if accusation.Message.Address != fd.address {
+		return errInvalidAccusation
+	}
+
+	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
+	if !validAccusation(fd.blockchain, accusation) {
+		return errInvalidAccusation
+	}
+
+	// query innocence proof for accusation from msg store.
+	ev, err := fd.getInnocentProof(accusation)
+	if err != nil {
+		fd.logger.Warn("cannot collect ev of innocence for the accusation", "err", err)
+		return nil
+	}
+
+	if len(ev.RawProof) > eth.MaxMessageSize {
+		fd.logger.Error("the innocence ev is over size than 10MB")
+		return nil
+	}
+
+	// buffer the innocence proof for such accusation in case of same accusation from other peers.
+	fd.innocenceProofBuff.cacheInnocenceProof(accusationHash, ev.RawProof)
+	// send the innocence proof to challenger.
+	fd.sendOffChainInnocenceProof(sender, ev.RawProof)
+	return nil
+}
+
+func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *AccountabilityProof, sender common.Address) error {
+	// if the corresponding accusation is not exist we skip the processing, it may happen when node restart or the
+	// remote peer is malicious, since we count the rate limit for remote peer, we just skip it before the rate limit
+	// drop the malicious remote peer and return nil.
+	if !fd.accusationExist(proof) {
+		return nil
+	}
+
+	// if the sender is not the one being challenged against, then drop the peer by returning error.
+	if proof.Message.Address != sender {
+		return errInvalidInnocenceProof
+	}
+
+	// check if evidence msgs are from committee members of that height.
+	h := proof.Message.H()
+
+	lastHeader := fd.blockchain.GetHeaderByNumber(h - 1)
+	if lastHeader == nil {
+		return errNoParentHeader
+	}
+
+	// validate message.
+	if _, err := proof.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		return errInvalidInnocenceProof
+	}
+
+	for _, m := range proof.Evidence {
+		// the height of msg of the evidences is checked at Validate function.
+		if _, err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+			return errInvalidInnocenceProof
+		}
+	}
+
+	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
+	if !validInnocenceProof(proof, fd.blockchain) {
+		return errInvalidInnocenceProof
+	}
+
+	// the innocence proof is valid, withdraw the off chain challenge.
+	fd.removeOffChainAccusation(proof)
+	return nil
+}
+
+func (fd *FaultDetector) addOffChainAccusation(accusation *AccountabilityProof) {
+	fd.offChainAccusationsMu.Lock()
+	defer fd.offChainAccusationsMu.Unlock()
+
+	h := types.RLPHash(accusation)
+	if _, ok := fd.offChainAccusations[h]; ok {
+		return
+	}
+
+	fd.offChainAccusations[h] = accusation
+}
+
+// remove off chain accusation is called when there is a valid innocence proof been received or on when the timer is
+// expired, thus the accusation to be escalated as an on chain accusation.
+func (fd *FaultDetector) removeOffChainAccusation(proof *AccountabilityProof) {
+	fd.offChainAccusationsMu.Lock()
+	defer fd.offChainAccusationsMu.Unlock()
+
+	for k, v := range fd.offChainAccusations {
+		if v.Rule == proof.Rule && v.Type == autonity.Accusation &&
+			v.Message.MsgHash() == proof.Message.MsgHash() {
+			delete(fd.offChainAccusations, k)
+		}
+	}
+}
+
+func (fd *FaultDetector) accusationExist(proof *AccountabilityProof) bool {
+	fd.offChainAccusationsMu.Lock()
+	defer fd.offChainAccusationsMu.Unlock()
+
+	for _, v := range fd.offChainAccusations {
+		if v.Rule == proof.Rule && v.Type == autonity.Accusation &&
+			v.Message.MsgHash() == proof.Message.MsgHash() {
+			return true
+		}
+	}
+	return false
+}
+
+func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64) []*AccountabilityProof {
+	fd.offChainAccusationsMu.RLock()
+	defer fd.offChainAccusationsMu.RUnlock()
+	var expiredOnes []*AccountabilityProof
+	for _, proof := range fd.offChainAccusations {
+		// since it already get delta block passed through when the accusation was being generated, so current head
+		// comparing to the msg height should count delta block, besides this, we counter extra 10 block as the off
+		// chain proof window.
+		if currentChainHeight-proof.Message.H() > (offChainAccusationProofWindow + consensus.DeltaBlocks) {
+			expiredOnes = append(expiredOnes, proof)
+		}
+	}
+	return expiredOnes
+}
+
+// if those off chain challenge have no innocence proof within the proof window, then escalate them on-chain.
+func (fd *FaultDetector) escalateExpiredOffChainAccusation(currentChainHeight uint64) {
+
+	escalatedOnes := fd.getExpiredOffChainAccusation(currentChainHeight)
+	for _, accusation := range escalatedOnes {
+		fd.removeOffChainAccusation(accusation)
+		p, err := fd.generateOnChainProof(accusation)
+		if err != nil {
+			fd.logger.Warn("escalate accusation on chain failed", "err", err)
+			continue
+		}
+		// push it to the on chain accountability event list
+		fd.accountabilityEventBuffer = append(fd.accountabilityEventBuffer, p)
+	}
+}
+
+// send the off chain accusation msg to the peer suspected
+func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *AccountabilityProof) {
+	// send the off chain accusation msg to the suspected one,
+	if fd.broadcaster == nil {
+		fd.logger.Info("p2p protocol handler is not ready yet")
+		return
+	}
+
+	targets := make(map[common.Address]struct{})
+	targets[accusation.Message.Address] = struct{}{}
+	peers := fd.broadcaster.FindPeers(targets)
+	if len(peers) == 0 {
+		//todo: if we need to gossip this message in case of there are no direct peer connection.
+		fd.logger.Error("no peer connection for off chain accountability event")
+		return
+	}
+
+	rProof, err := rlp.EncodeToBytes(accusation)
+	if err != nil {
+		fd.logger.Warn("cannot rlp encode accusation", "err", err)
+		return
+	}
+
+	fd.logger.Info("send off chain accusation msg to remote peer", "addr", accusation.Message.Address)
+	go peers[accusation.Message.Address].Send(backend.TendermintOffChainAccountabilityMsg, rProof) //nolint
+}
+
+// sendOffChainInnocenceProof, send an innocence proof to receiver peer.
+func (fd *FaultDetector) sendOffChainInnocenceProof(receiver common.Address, payload []byte) {
+	if fd.broadcaster == nil {
+		fd.logger.Info("p2p protocol handler is not ready yet")
+		return
+	}
+	targets := make(map[common.Address]struct{})
+	targets[receiver] = struct{}{}
+	peers := fd.broadcaster.FindPeers(targets)
+	if len(peers) == 0 {
+		//todo: if we need to gossip this message in case of there are no direct peer connection.
+		fd.logger.Error("no peer connection for off chain innocence proof event")
+		return
+	}
+
+	fd.logger.Info("send off chain innocence proof msg to remote peer", "addr", receiver)
+	go peers[receiver].Send(backend.TendermintOffChainAccountabilityMsg, payload) //nolint
+}

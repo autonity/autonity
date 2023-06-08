@@ -17,6 +17,7 @@
 package miner
 
 import (
+	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
@@ -219,7 +220,9 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 
 	if isTendermint {
 		chainConfig = tendermintChainConfig
-		engine = tendermintBackend.New(testUserKey, &vm.Config{}, nil)
+		evMux := new(event.TypeMux)
+		msgStore := tendermintcore.NewMsgStore()
+		engine = tendermintBackend.New(testUserKey, &vm.Config{}, nil, evMux, msgStore)
 	} else {
 		chainConfig = ethashChainConfig
 		engine = ethash.NewFaker()
@@ -271,7 +274,11 @@ func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 func TestEmptyWorkTendermint(t *testing.T) {
-	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(testUserKey, new(vm.Config), nil), true)
+	evMux := new(event.TypeMux)
+	msgStore := tendermintcore.NewMsgStore()
+	testEmptyWork(t, tendermintChainConfig,
+		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore),
+		true)
 }
 
 // We're no longer doing empty work with tendermint.
@@ -378,7 +385,11 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockTendermint(t *testing.T) {
-	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(testUserKey, new(vm.Config), nil), true)
+	evMux := new(event.TypeMux)
+	msgStore := tendermintcore.NewMsgStore()
+	testRegenerateMiningBlock(t, tendermintChainConfig,
+		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore),
+		true)
 }
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -441,7 +452,10 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(testUserKey, new(vm.Config), nil))
+	evMux := new(event.TypeMux)
+	msgStore := tendermintcore.NewMsgStore()
+	testAdjustInterval(t, tendermintChainConfig,
+		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {

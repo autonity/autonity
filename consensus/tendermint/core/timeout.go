@@ -2,24 +2,24 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 	"time"
 )
 
-/////////////// On Timeout Functions ///////////////
-func (c *Core) measureMetricsOnTimeOut(step uint64, r int64) {
+// ///////////// On Timeout Functions ///////////////
+func (c *Core) measureMetricsOnTimeOut(step uint8, r int64) {
 	switch step {
-	case messageutils.MsgProposal:
+	case consensus.MsgProposal:
 		duration := c.timeoutPropose(r)
 		types.TendermintProposeTimer.Update(duration)
 		return
-	case messageutils.MsgPrevote:
+	case consensus.MsgPrevote:
 		duration := c.timeoutPrevote(r)
 		types.TendermintPrevoteTimer.Update(duration)
 		return
-	case messageutils.MsgPrecommit:
+	case consensus.MsgPrecommit:
 		duration := c.timeoutPrecommit(r)
 		types.TendermintPrecommitTimer.Update(duration)
 		return
@@ -30,7 +30,7 @@ func (c *Core) onTimeoutPropose(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             messageutils.MsgProposal,
+		Step:             consensus.MsgProposal,
 	}
 	// It's unsafe to call logTimeoutEvent here !
 	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
@@ -42,7 +42,7 @@ func (c *Core) onTimeoutPrevote(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             messageutils.MsgPrevote,
+		Step:             consensus.MsgPrevote,
 	}
 	c.logger.Debug("TimeoutEvent(Prevote): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.Step, r)
@@ -53,18 +53,18 @@ func (c *Core) onTimeoutPrecommit(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             messageutils.MsgPrecommit,
+		Step:             consensus.MsgPrecommit,
 	}
 	c.logger.Debug("TimeoutEvent(Precommit): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.Step, r)
 	c.SendEvent(msg)
 }
 
-/////////////// Handle Timeout Functions ///////////////
+// ///////////// Handle Timeout Functions ///////////////
 func (c *Core) handleTimeoutPropose(ctx context.Context, msg types.TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == types.Propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
-		c.prevoter.SendPrevote(ctx, true)
+		c.prevoter.SendPrevote(ctx, true, nil)
 		c.SetStep(types.Prevote)
 	}
 }
@@ -85,7 +85,7 @@ func (c *Core) handleTimeoutPrecommit(ctx context.Context, msg types.TimeoutEven
 	}
 }
 
-/////////////// Calculate Timeout Duration Functions ///////////////
+// ///////////// Calculate Timeout Duration Functions ///////////////
 // The Timeout may need to be changed depending on the Step
 func (c *Core) timeoutPropose(round int64) time.Duration {
 	return types.InitialProposeTimeout + time.Duration(c.blockPeriod)*time.Second + time.Duration(round)*types.ProposeTimeoutDelta

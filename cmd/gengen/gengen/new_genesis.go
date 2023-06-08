@@ -69,8 +69,11 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 		// hexutil.Bytes which marshals nil to '0x' and '0x' subsequently
 		// unmarshals to an empty slice.
 		ExtraData: []byte{},
-		GasLimit:  10000000000,
-		BaseFee:   big.NewInt(15000000000),
+
+		GasLimit: 30_000_000, // gas limit setting in piccadilly network.
+		//GasLimit: 10000000000, // gas limit in e2e test framework.
+
+		BaseFee: big.NewInt(15000000000),
 
 		// Autonity relies on the difficulty always being 1 so that we can
 		// compare chain length by comparing total difficulty during peer

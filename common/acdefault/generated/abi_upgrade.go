@@ -10,6 +10,116 @@ const UpgradeTestAbi = `[
       "anonymous" : false,
       "inputs" : [
          {
+            "components" : [
+               {
+                  "internalType" : "uint8",
+                  "name" : "Chunks",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "ChunkID",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Type",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Rule",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Reporter",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Sender",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "bytes32",
+                  "name" : "MsgHash",
+                  "type" : "bytes32"
+               },
+               {
+                  "internalType" : "bytes",
+                  "name" : "RawProof",
+                  "type" : "bytes"
+               }
+            ],
+            "indexed" : false,
+            "internalType" : "struct Autonity.AccountabilityEvent",
+            "name" : "ev",
+            "type" : "tuple"
+         }
+      ],
+      "name" : "AccusationAdded",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint8",
+                  "name" : "Chunks",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "ChunkID",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Type",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Rule",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Reporter",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Sender",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "bytes32",
+                  "name" : "MsgHash",
+                  "type" : "bytes32"
+               },
+               {
+                  "internalType" : "bytes",
+                  "name" : "RawProof",
+                  "type" : "bytes"
+               }
+            ],
+            "indexed" : false,
+            "internalType" : "struct Autonity.AccountabilityEvent",
+            "name" : "ev",
+            "type" : "tuple"
+         }
+      ],
+      "name" : "AccusationRemoved",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
             "indexed" : true,
             "internalType" : "address",
             "name" : "owner",
@@ -75,6 +185,19 @@ const UpgradeTestAbi = `[
          {
             "indexed" : false,
             "internalType" : "uint256",
+            "name" : "period",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "EpochPeriodUpdated",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "indexed" : false,
+            "internalType" : "uint256",
             "name" : "gasPrice",
             "type" : "uint256"
          }
@@ -99,6 +222,93 @@ const UpgradeTestAbi = `[
          }
       ],
       "name" : "MintedStake",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint8",
+                  "name" : "Chunks",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "ChunkID",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Type",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Rule",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Reporter",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Sender",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "bytes32",
+                  "name" : "MsgHash",
+                  "type" : "bytes32"
+               },
+               {
+                  "internalType" : "bytes",
+                  "name" : "RawProof",
+                  "type" : "bytes"
+               }
+            ],
+            "indexed" : false,
+            "internalType" : "struct Autonity.AccountabilityEvent",
+            "name" : "ev",
+            "type" : "tuple"
+         }
+      ],
+      "name" : "MisbehaviourAdded",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "indexed" : false,
+            "internalType" : "uint256",
+            "name" : "penalty",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "MisbehaviourPenaltyUpdated",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
+            "indexed" : false,
+            "internalType" : "address",
+            "name" : "validator",
+            "type" : "address"
+         },
+         {
+            "indexed" : false,
+            "internalType" : "uint256",
+            "name" : "penalty",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "NodeSlashed",
       "type" : "event"
    },
    {
@@ -186,6 +396,61 @@ const UpgradeTestAbi = `[
       "anonymous" : false,
       "inputs" : [
          {
+            "components" : [
+               {
+                  "internalType" : "uint8",
+                  "name" : "Chunks",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "ChunkID",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Type",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Rule",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Reporter",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Sender",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "bytes32",
+                  "name" : "MsgHash",
+                  "type" : "bytes32"
+               },
+               {
+                  "internalType" : "bytes",
+                  "name" : "RawProof",
+                  "type" : "bytes"
+               }
+            ],
+            "indexed" : false,
+            "internalType" : "struct Autonity.AccountabilityEvent",
+            "name" : "ev",
+            "type" : "tuple"
+         }
+      ],
+      "name" : "SubmitGuiltyAccusation",
+      "type" : "event"
+   },
+   {
+      "anonymous" : false,
+      "inputs" : [
+         {
             "indexed" : true,
             "internalType" : "address",
             "name" : "from",
@@ -219,6 +484,25 @@ const UpgradeTestAbi = `[
             "internalType" : "uint256",
             "name" : "",
             "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "bytes32",
+            "name" : "_msgHash",
+            "type" : "bytes32"
+         }
+      ],
+      "name" : "accusationProcessed",
+      "outputs" : [
+         {
+            "internalType" : "bool",
+            "name" : "",
+            "type" : "bool"
          }
       ],
       "stateMutability" : "view",
@@ -521,6 +805,58 @@ const UpgradeTestAbi = `[
    {
       "inputs" : [
          {
+            "internalType" : "bytes32",
+            "name" : "_msgHash",
+            "type" : "bytes32"
+         },
+         {
+            "internalType" : "uint8",
+            "name" : "_type",
+            "type" : "uint8"
+         },
+         {
+            "internalType" : "uint8",
+            "name" : "_rule",
+            "type" : "uint8"
+         },
+         {
+            "internalType" : "address",
+            "name" : "_reporter",
+            "type" : "address"
+         },
+         {
+            "internalType" : "uint8",
+            "name" : "_chunkID",
+            "type" : "uint8"
+         }
+      ],
+      "name" : "getAccountabilityEventChunk",
+      "outputs" : [
+         {
+            "internalType" : "bytes",
+            "name" : "",
+            "type" : "bytes"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "getBlockPeriod",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
             "internalType" : "uint256",
             "name" : "startId",
             "type" : "uint256"
@@ -604,6 +940,19 @@ const UpgradeTestAbi = `[
    },
    {
       "inputs" : [],
+      "name" : "getEpochPeriod",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
       "name" : "getLastEpochBlock",
       "outputs" : [
          {
@@ -673,24 +1022,71 @@ const UpgradeTestAbi = `[
       "type" : "function"
    },
    {
-      "inputs" : [
+      "inputs" : [],
+      "name" : "getPenalty",
+      "outputs" : [
          {
             "internalType" : "uint256",
-            "name" : "height",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "round",
+            "name" : "",
             "type" : "uint256"
          }
       ],
-      "name" : "getProposer",
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_addr",
+            "type" : "address"
+         }
+      ],
+      "name" : "getSlashedStake",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "getTreasuryAccount",
       "outputs" : [
          {
             "internalType" : "address",
             "name" : "",
             "type" : "address"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "getTreasuryFee",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "getUnbondingPeriod",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
          }
       ],
       "stateMutability" : "view",
@@ -819,6 +1215,128 @@ const UpgradeTestAbi = `[
       "type" : "function"
    },
    {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_addr",
+            "type" : "address"
+         }
+      ],
+      "name" : "getValidatorRecentAccusations",
+      "outputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint8",
+                  "name" : "Chunks",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "ChunkID",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Type",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Rule",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Reporter",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Sender",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "bytes32",
+                  "name" : "MsgHash",
+                  "type" : "bytes32"
+               },
+               {
+                  "internalType" : "bytes",
+                  "name" : "RawProof",
+                  "type" : "bytes"
+               }
+            ],
+            "internalType" : "struct Autonity.AccountabilityEvent[]",
+            "name" : "",
+            "type" : "tuple[]"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_addr",
+            "type" : "address"
+         }
+      ],
+      "name" : "getValidatorRecentMisbehaviours",
+      "outputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint8",
+                  "name" : "Chunks",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "ChunkID",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Type",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Rule",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Reporter",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Sender",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "bytes32",
+                  "name" : "MsgHash",
+                  "type" : "bytes32"
+               },
+               {
+                  "internalType" : "bytes",
+                  "name" : "RawProof",
+                  "type" : "bytes"
+               }
+            ],
+            "internalType" : "struct Autonity.AccountabilityEvent[]",
+            "name" : "",
+            "type" : "tuple[]"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
       "inputs" : [],
       "name" : "getValidators",
       "outputs" : [
@@ -842,6 +1360,61 @@ const UpgradeTestAbi = `[
          }
       ],
       "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint8",
+                  "name" : "Chunks",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "ChunkID",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Type",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "uint8",
+                  "name" : "Rule",
+                  "type" : "uint8"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Reporter",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "address",
+                  "name" : "Sender",
+                  "type" : "address"
+               },
+               {
+                  "internalType" : "bytes32",
+                  "name" : "MsgHash",
+                  "type" : "bytes32"
+               },
+               {
+                  "internalType" : "bytes",
+                  "name" : "RawProof",
+                  "type" : "bytes"
+               }
+            ],
+            "internalType" : "struct Autonity.AccountabilityEvent[]",
+            "name" : "_events",
+            "type" : "tuple[]"
+         }
+      ],
+      "name" : "handleAccountabilityEvents",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
@@ -899,6 +1472,25 @@ const UpgradeTestAbi = `[
       "name" : "mint",
       "outputs" : [],
       "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "bytes32",
+            "name" : "_msgHash",
+            "type" : "bytes32"
+         }
+      ],
+      "name" : "misbehaviourProcessed",
+      "outputs" : [
+         {
+            "internalType" : "bool",
+            "name" : "",
+            "type" : "bool"
+         }
+      ],
+      "stateMutability" : "view",
       "type" : "function"
    },
    {
@@ -992,6 +1584,19 @@ const UpgradeTestAbi = `[
          }
       ],
       "name" : "setMinimumBaseFee",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_newPenalty",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "setMisbehaviourPenalty",
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"

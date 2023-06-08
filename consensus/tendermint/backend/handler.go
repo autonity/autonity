@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	tendermintMsg     = 0x11
-	tendermintSyncMsg = 0x12
+	tendermintMsg                       = 0x11
+	tendermintSyncMsg                   = 0x12
+	TendermintOffChainAccountabilityMsg = 0x13
 )
 
 type UnhandledMsg struct {
@@ -52,7 +53,7 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg {
+	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg && msg.Code != TendermintOffChainAccountabilityMsg {
 		return false, nil
 	}
 
@@ -103,10 +104,25 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	case tendermintSyncMsg:
 		if !sb.coreStarted {
 			sb.logger.Info("Sync message received but core not running")
-			return true, nil // we return nil as we don't want to shutdown the connection if core is stopped
+			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Info("Received sync message", "from", addr)
 		sb.postEvent(events.SyncEvent{Addr: addr})
+	case TendermintOffChainAccountabilityMsg:
+		if !sb.coreStarted {
+			sb.logger.Info("TendermintOffChainAccountabilityMsg received but core not running")
+			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
+		}
+		var data []byte
+		if err := msg.Decode(&data); err != nil {
+			// this error will freeze peer for 30 seconds by according to dev p2p protocol.
+			return true, errDecodeFailed
+		}
+
+		// post the off chain accountability msg to the event handler, let the event handler to handle DoS attack vectors.
+		sb.logger.Info("Received TendermintOffChainAccountabilityMsg", "from", addr)
+		sb.postEvent(events.AccountabilityOffChainEvent{Sender: addr, Payload: data, ErrCh: errCh})
+
 	default:
 		return false, nil
 	}
@@ -116,7 +132,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
 func (sb *Backend) SetBroadcaster(broadcaster consensus.Broadcaster) {
-	sb.broadcaster = broadcaster
+	sb.Broadcaster = broadcaster
 }
 
 func (sb *Backend) NewChainHead() error {

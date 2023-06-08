@@ -3,7 +3,9 @@ package messageutils
 import (
 	"bytes"
 	"errors"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
@@ -14,8 +16,8 @@ import (
 
 func TestMessageEncodeDecode(t *testing.T) {
 	msg := &Message{
-		Code:          MsgProposal,
-		Msg:           []byte{0x1},
+		Code:          consensus.MsgProposal,
+		TbftMsgBytes:  []byte{0x1},
 		Address:       common.HexToAddress("0x1234567890"),
 		Signature:     []byte{0x2},
 		CommittedSeal: []byte{},
@@ -124,7 +126,7 @@ func TestMessageValidate(t *testing.T) {
 		}
 	})
 
-	t.Run("incorrect previous block given, panic", func(t *testing.T) {
+	t.Run("incorrect previous block given, don't panic but return an error", func(t *testing.T) {
 		count := 0
 		for i := uint64(0); i < 50; i++ {
 			if i == 23 {
@@ -149,10 +151,11 @@ func TestMessageValidate(t *testing.T) {
 						count++
 					}
 				}()
-				_, _ = decMsg.Validate(validateFn, lastHeader)
+				_, err := decMsg.Validate(validateFn, lastHeader)
+				require.Error(t, err, "inconsistent message verification")
 			}()
 		}
-		if count != 49 {
+		if count != 0 {
 			t.Fatal("panic was expected")
 		}
 	})
@@ -171,9 +174,9 @@ func TestMessageDecode(t *testing.T) {
 	}
 
 	msg := &Message{
-		Code:    MsgProposal,
-		Msg:     payload,
-		Address: common.HexToAddress("0x1234567890"),
+		Code:         consensus.MsgProposal,
+		TbftMsgBytes: payload,
+		Address:      common.HexToAddress("0x1234567890"),
 	}
 
 	var decVote Vote
@@ -201,8 +204,8 @@ func FuzzFromPayload(f *testing.F) {
 	}
 
 	msg := &Message{
-		Code:          MsgPrevote,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrevote,
+		TbftMsgBytes:  encodedVote,
 		Address:       authorizedAddress,
 		CommittedSeal: []byte{},
 		Signature:     []byte{0x1},

@@ -103,8 +103,9 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return errInvalidRound
 	}
 	// Don't waste time checking blocks from the future
+
 	if header.Time > uint64(now().Unix()+allowedFutureBlockTimeSeconds) {
-		return consensus.ErrFutureBlock
+		return consensus.ErrFutureTimestampBlock
 	}
 
 	// Ensure that the coinbase is valid

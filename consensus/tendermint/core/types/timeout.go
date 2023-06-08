@@ -21,7 +21,7 @@ type TimeoutEvent struct {
 	RoundWhenCalled  int64
 	HeightWhenCalled *big.Int
 	// message type: MsgProposal MsgPrevote	MsgPrecommit
-	Step uint64
+	Step uint8
 }
 
 type Timeout struct {

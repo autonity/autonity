@@ -3,6 +3,7 @@ package malicious
 import (
 	"context"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -19,7 +20,7 @@ type preVoteSpammer struct {
 	interfaces.Prevoter
 }
 
-func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
+func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool, badProposal *messageutils.BadProposalInfo) {
 	logger := c.Logger().New("step", c.Step())
 
 	var prevote = messageutils.Vote{
@@ -44,8 +45,8 @@ func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
 	}
 
 	msg := &messageutils.Message{
-		Code:          messageutils.MsgPrevote,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrevote,
+		TbftMsgBytes:  encodedVote,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	}
@@ -102,8 +103,8 @@ func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 		return
 	}
 	msg := &messageutils.Message{
-		Code:          messageutils.MsgPrecommit,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrecommit,
+		TbftMsgBytes:  encodedVote,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	}
@@ -153,8 +154,8 @@ func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
 
 	for i := 0; i < 1000; i++ {
 		c.Br().Broadcast(ctx, &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       c.Address(),
 			CommittedSeal: []byte{},
 		})

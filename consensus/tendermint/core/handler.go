@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
@@ -20,8 +21,7 @@ const syncTimeOut = 30 * time.Second
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.Contract) {
 	c.autonityContract = contract
-	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
-		c.autonityContract,
+	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(), contract,
 		c.backend.BlockChain())
 	c.setCommitteeSet(committeeSet)
 
@@ -162,11 +162,11 @@ eventLoop:
 			}
 			if timeoutE, ok := ev.Data.(types.TimeoutEvent); ok {
 				switch timeoutE.Step {
-				case messageutils.MsgProposal:
+				case consensus.MsgProposal:
 					c.handleTimeoutPropose(ctx, timeoutE)
-				case messageutils.MsgPrevote:
+				case consensus.MsgPrevote:
 					c.handleTimeoutPrevote(ctx, timeoutE)
-				case messageutils.MsgPrecommit:
+				case consensus.MsgPrecommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
@@ -259,12 +259,37 @@ func (c *Core) handleMsg(ctx context.Context, msg *messageutils.Message) error {
 		return constants.ErrOldHeightMessage // No gossip
 	}
 
+	// check if the lite proposal signature inside the proposal is correct or not.
+	if msg.Type() == consensus.MsgProposal {
+		if err := checkLiteProposalSignature(msg); err != nil {
+			return err
+		}
+	}
+
 	if _, err = msg.Validate(crypto.CheckValidatorSignature, c.LastHeader()); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		return err
 	}
 
 	return c.handleCheckedMsg(ctx, msg)
+}
+
+// checkLiteProposalSignature checks that the lite proposal signature inside the proposal is correct or not, used to
+// verify if the full proposal contains correct lite proposal signature.
+func checkLiteProposalSignature(proposal *messageutils.Message) error {
+
+	liteProposal := &messageutils.LiteProposal{
+		Round:      proposal.R(),
+		Height:     new(big.Int).SetUint64(proposal.H()),
+		ValidRound: proposal.ValidRound(),
+		Value:      proposal.Value(),
+		Signature:  proposal.LiteSig(),
+	}
+
+	if err := liteProposal.ValidSignature(proposal.Address); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Core) handleFutureRoundMsg(ctx context.Context, msg *messageutils.Message, sender common.Address) {
@@ -313,13 +338,13 @@ func (c *Core) handleCheckedMsg(ctx context.Context, msg *messageutils.Message) 
 	}
 
 	switch msg.Code {
-	case messageutils.MsgProposal:
+	case consensus.MsgProposal:
 		logger.Debug("tendermint.MessageEvent: PROPOSAL")
 		return testBacklog(c.proposer.HandleProposal(ctx, msg))
-	case messageutils.MsgPrevote:
+	case consensus.MsgPrevote:
 		logger.Debug("tendermint.MessageEvent: PREVOTE")
 		return testBacklog(c.prevoter.HandlePrevote(ctx, msg))
-	case messageutils.MsgPrecommit:
+	case consensus.MsgPrecommit:
 		logger.Debug("tendermint.MessageEvent: PRECOMMIT")
 		return testBacklog(c.precommiter.HandlePrecommit(ctx, msg))
 	default:

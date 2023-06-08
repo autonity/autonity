@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -13,12 +14,17 @@ type PrevoteService struct {
 	*Core
 }
 
-func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool) {
+func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool, badProposal *messageutils.BadProposalInfo) {
 	logger := c.logger.New("step", c.step)
 
 	var prevote = messageutils.Vote{
 		Round:  c.Round(),
 		Height: c.Height(),
+	}
+
+	if badProposal != nil {
+		prevote.MaliciousProposer = badProposal.Sender
+		prevote.MaliciousValue = badProposal.Value
 	}
 
 	if isNil {
@@ -41,8 +47,8 @@ func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool) {
 
 	c.sentPrevote = true
 	c.Br().Broadcast(ctx, &messageutils.Message{
-		Code:          messageutils.MsgPrevote,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrevote,
+		TbftMsgBytes:  encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
 	})
@@ -71,7 +77,7 @@ func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Me
 					rs := c.messages.GetOrCreate(vr)
 
 					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-						c.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
+						c.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()), nil)
 						c.SetStep(types.Prevote)
 						return nil
 					}

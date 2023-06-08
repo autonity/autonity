@@ -88,7 +88,7 @@ func msgForDump(msgs []*messageutils.Message) []*tctypes.MsgForDump {
 		msg := new(tctypes.MsgForDump)
 		msg.Message = *m
 		msg.Power = m.GetPower()
-		msg.Hash = types.RLPHash(m.Payload)
+		msg.Hash = types.RLPHash(m.Bytes)
 
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1

@@ -9,6 +9,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
@@ -31,38 +32,24 @@ func TestSendPropose(t *testing.T) {
 		defer ctrl.Finish()
 
 		messages := messageutils.NewMessagesMap()
-		addr := common.HexToAddress("0x0123456789")
-		block := types.NewBlockWithHeader(&types.Header{
-			Number: big.NewInt(1),
-		})
-
+		proposerKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
+		height := new(big.Int).SetUint64(1)
 		curRoundMessages := messages.GetOrCreate(1)
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := messageutils.NewProposal(1, big.NewInt(1), validRound, block)
-		proposal, err := messageutils.Encode(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
 
-		expectedMsg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
-
-		payloadNoSig, err := expectedMsg.PayloadNoSig()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		payload := expectedMsg.GetPayload()
+		msg, proposal, liteProposal := generateBlockProposal(t, 1, height, validRound, proposer, true, proposerKey)
+		litePayload, err := liteProposal.PayloadNoSig()
+		require.NoError(t, err)
+		msgPayload, err := msg.PayloadNoSig()
+		require.NoError(t, err)
+		msg.Signature = []byte{0x1}
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{
-				Address:     addr,
+				Address:     proposer,
 				VotingPower: big.NewInt(1)},
 		}
 
@@ -72,12 +59,13 @@ func TestSendPropose(t *testing.T) {
 		}
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().SetProposedBlockHash(block.Hash())
-		backendMock.EXPECT().Sign(payloadNoSig).Return([]byte{0x1}, nil)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
+		backendMock.EXPECT().Sign(litePayload).Return(proposal.LiteSig, nil)
+		backendMock.EXPECT().Sign(msgPayload).Return([]byte{0x1}, nil)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), msg.GetPayload())
 
 		c := &Core{
-			address:          addr,
+			address:          proposer,
 			backend:          backendMock,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
@@ -89,7 +77,7 @@ func TestSendPropose(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		c.proposer.SendProposal(context.Background(), block)
+		c.proposer.SendProposal(context.Background(), proposal.ProposalBlock)
 	})
 }
 
@@ -112,8 +100,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -155,8 +143,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -208,8 +196,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -234,6 +222,8 @@ func TestHandleProposal(t *testing.T) {
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.Hash{},
+			MaliciousProposer: addr,
+			MaliciousValue:    block.Hash(),
 		}
 
 		encodedVote, err := messageutils.Encode(&prevote)
@@ -242,8 +232,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		preVoteMsg := &messageutils.Message{
-			Code:          messageutils.MsgPrevote,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrevote,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Power:         common.Big1,
@@ -300,8 +290,8 @@ func TestHandleProposal(t *testing.T) {
 		assert.NoError(t, err)
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -316,7 +306,7 @@ func TestHandleProposal(t *testing.T) {
 		assert.NoError(t, err)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		const eventPostingDelay = time.Second
-		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureBlock)
+		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
 		event := backlogEvent{
 			msg: msg,
 		}
@@ -363,8 +353,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -460,8 +450,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       proposer.Address,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -499,8 +489,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -533,8 +523,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		preVoteMsg := &messageutils.Message{
-			Code:          messageutils.MsgPrevote,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrevote,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Power:         common.Big1,
@@ -595,8 +585,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
@@ -629,8 +619,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		preVoteMsg := &messageutils.Message{
-			Code:          messageutils.MsgPrevote,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrevote,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Power:         common.Big1,
@@ -707,42 +697,30 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		proposerKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
+		height := new(big.Int).SetUint64(1)
+
 		messages := messageutils.NewMessagesMap()
-		addr := common.HexToAddress("0x0123456789")
 		preBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(0),
-		})
-		block := types.NewBlockWithHeader(&types.Header{
-			Number: big.NewInt(1),
 		})
 
 		curRoundMessages := messages.GetOrCreate(1)
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := messageutils.NewProposal(1, big.NewInt(1), validRound, block)
-		proposal, err := messageutils.Encode(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
 
-		expectedMsg := &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
-
-		payloadNoSig, err := expectedMsg.PayloadNoSig()
-		if err != nil {
-			t.Fatalf("Expected nil, got %v", err)
-		}
-
-		payload := expectedMsg.GetPayload()
+		msg, proposal, liteProposal := generateBlockProposal(t, 1, height, validRound, proposer, false, proposerKey)
+		litePayload, err := liteProposal.PayloadNoSig()
+		require.NoError(t, err)
+		msgPayload, err := msg.PayloadNoSig()
+		require.NoError(t, err)
+		msg.Signature = []byte{0x1}
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{
-				Address:     addr,
+				Address:     proposer,
 				VotingPower: big.NewInt(1)},
 		}
 
@@ -752,13 +730,14 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		}
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().SetProposedBlockHash(block.Hash())
-		backendMock.EXPECT().Sign(payloadNoSig).Return([]byte{0x1}, nil)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
+		backendMock.EXPECT().Sign(litePayload).Return(proposal.LiteSig, nil)
+		backendMock.EXPECT().Sign(msgPayload).Return([]byte{0x1}, nil)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), msg.GetPayload())
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),
-			address:                addr,
+			address:                proposer,
 			backend:                backendMock,
 			curRoundMessages:       curRoundMessages,
 			logger:                 logger,
@@ -770,7 +749,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		}
 		c.SetDefaultHandlers()
 		c.pendingCandidateBlocks[uint64(0)] = preBlock
-		c.proposer.HandleNewCandidateBlockMsg(context.Background(), block)
+		c.proposer.HandleNewCandidateBlockMsg(context.Background(), proposal.ProposalBlock)
 		require.Equal(t, 1, len(c.pendingCandidateBlocks))
 		require.Equal(t, uint64(1), c.pendingCandidateBlocks[uint64(1)].Number().Uint64())
 	})

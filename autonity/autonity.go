@@ -1,7 +1,8 @@
 package autonity
 
 import (
-	"errors"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"math/big"
 	"sort"
 	"strings"
@@ -16,8 +17,6 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-var ErrAutonityContract = errors.New("could not call Autonity contract")
-var ErrWrongParameter = errors.New("wrong parameter")
 var Deployer = common.Address{}
 var ContractAddress = crypto.CreateAddress(Deployer, 0)
 
@@ -40,6 +39,8 @@ type Contract struct {
 	stringABI         string
 	bc                Blockchainer
 
+	// map[Height]map[Round]proposer_address
+	proposers map[uint64]map[int64]common.Address
 	sync.RWMutex
 }
 
@@ -56,19 +57,13 @@ func NewAutonityContract(
 		initialMinBaseFee: minBaseFee,
 		bc:                bc,
 		evmProvider:       evmProvider,
+		proposers:         make(map[uint64]map[int64]common.Address),
 	}
 	err := contract.upgradeAbiCache(ABI)
 	return &contract, err
 }
 
 func (ac *Contract) GetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, error) {
-	// The Autonity Contract is not deployed yet at block #1, we return an error if this
-	// function is called at this height. In a past version we were returning the genesis committee field
-	// but this was at the cost of having a parameter causing circular imports.
-	if header.Number.Uint64() <= 1 {
-		return nil, errors.New("calling GetCommittee for block #1 or #0")
-	}
-
 	var committeeSet types.Committee
 	err := ac.AutonityContractCall(statedb, header, "getCommittee", &committeeSet)
 	if err != nil {
@@ -90,8 +85,75 @@ func (ac *Contract) GetMinimumBaseFee(block *types.Header, db *state.StateDB) (u
 	return ac.callGetMinimumBaseFee(db, block)
 }
 
-func (ac *Contract) GetProposerFromAC(header *types.Header, db *state.StateDB, height uint64, round int64) common.Address {
-	return ac.callGetProposer(db, header, height, round)
+func (ac *Contract) GetProposer(header *types.Header, height uint64, round int64) common.Address {
+	ac.Lock()
+	defer ac.Unlock()
+	roundMap, ok := ac.proposers[height]
+	if !ok {
+		p := ac.electProposer(header, height, round)
+		roundMap = make(map[int64]common.Address)
+		roundMap[round] = p
+		ac.proposers[height] = roundMap
+		// since the growing of blockchain height, so most of the case we can use the latest buffered height to gc the buffer.
+		ac.proposerBufferGC(height)
+		return p
+	}
+
+	proposer, ok := roundMap[round]
+	if !ok {
+		p := ac.electProposer(header, height, round)
+		ac.proposers[height][round] = p
+		return p
+	}
+
+	return proposer
+}
+
+// electProposer is a part of consensus, that it elect proposer from parent header's committee list which was returned
+// from autonity contract stable ordered by voting power in evm context.
+func (ac *Contract) electProposer(parentHeader *types.Header, height uint64, round int64) common.Address {
+	h := new(big.Int).SetUint64(height)
+	r := new(big.Int).SetInt64(round)
+	seed := new(big.Int).SetInt64(constants.MaxRound)
+	totalVotingPower := new(big.Int).SetUint64(0)
+	for _, c := range parentHeader.Committee {
+		totalVotingPower.Add(totalVotingPower, c.VotingPower)
+	}
+
+	// this shouldn't be happen, to keep the liveness, we elect with round-robin.
+	if totalVotingPower.Cmp(common.Big0) == 0 {
+		return parentHeader.Committee[round%int64(len(parentHeader.Committee))].Address
+	}
+
+	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
+	key := r.Add(r, h.Mul(h, seed))
+	value := new(big.Int).SetBytes(crypto.Keccak256(key.Bytes()))
+	index := value.Mod(value, totalVotingPower)
+
+	// find the index hit which committee member which line up in the committee list.
+	// we assume there is no 0 stake/power validators.
+	counter := new(big.Int).SetUint64(0)
+	for _, c := range parentHeader.Committee {
+		counter.Add(counter, c.VotingPower)
+		if index.Cmp(counter) == -1 {
+			log.Info("Elect stake weighted proposer", "Proposer", c.Address, "height", height, "round", round)
+			return c.Address
+		}
+	}
+
+	// otherwise, we elect with round-robin.
+	return parentHeader.Committee[round%int64(len(parentHeader.Committee))].Address
+}
+
+func (ac *Contract) proposerBufferGC(height uint64) {
+	if len(ac.proposers) > consensus.AccountabilityHeightRange*2 && height > consensus.AccountabilityHeightRange*2 {
+		gcFrom := height - consensus.AccountabilityHeightRange*2
+		// keep at least consensus.AccountabilityHeightRange heights in the buffer.
+		for i := uint64(0); i < consensus.AccountabilityHeightRange; i++ {
+			gcHeight := gcFrom + i
+			delete(ac.proposers, gcHeight)
+		}
+	}
 }
 
 func (ac *Contract) SetMinimumBaseFee(block *types.Block, db *state.StateDB, price *big.Int) error {
@@ -192,4 +254,33 @@ func (ac *Contract) StringABI() string {
 // ABI returns the current autonity contract's ABI
 func (ac *Contract) ABI() *abi.ABI {
 	return ac.contractABI
+}
+
+// Address return the current autonity contract address
+func (ac *Contract) Address() common.Address {
+	return ContractAddress
+}
+
+func (ac *Contract) MisbehaviourProcessed(header *types.Header, db *state.StateDB, msgHash common.Hash) bool {
+	return ac.callAccountabilityEventProcessed(db, header, "misbehaviourProcessed", msgHash)
+}
+
+func (ac *Contract) AccusationProcessed(header *types.Header, db *state.StateDB, msgHash common.Hash) bool {
+	return ac.callAccountabilityEventProcessed(db, header, "accusationProcessed", msgHash)
+}
+
+func (ac *Contract) GetValidatorAccusations(header *types.Header, db *state.StateDB, validator common.Address) []AccountabilityEvent {
+	return ac.callGetValidatorAccusations(db, header, validator)
+}
+
+func (ac *Contract) GetAccountabilityEventChunk(header *types.Header, db *state.StateDB, msgHash common.Hash, tp uint8, rule uint8, reporter common.Address, chunkID uint8) ([]byte, error) {
+	return ac.callGetAccountabilityEventChunk(db, header, msgHash, tp, rule, reporter, chunkID)
+}
+
+func (ac *Contract) GetEpochPeriod(header *types.Header, db *state.StateDB) (uint64, error) {
+	return ac.callGetEpochPeriod(db, header)
+}
+
+func (ac *Contract) GetLastEpochBlock(header *types.Header, db *state.StateDB) (uint64, error) {
+	return ac.callGetLastEpochBlock(db, header)
 }

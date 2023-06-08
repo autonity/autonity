@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -39,7 +40,7 @@ func TestSendPrevote(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		c.prevoter.SendPrevote(context.Background(), true)
+		c.prevoter.SendPrevote(context.Background(), true, nil)
 	})
 
 	t.Run("valid proposal given, non nil prevote", func(t *testing.T) {
@@ -81,7 +82,7 @@ func TestSendPrevote(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		c.prevoter.SendPrevote(context.Background(), false)
+		c.prevoter.SendPrevote(context.Background(), false, nil)
 	})
 }
 
@@ -214,8 +215,8 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		msg := &tcmessage.Message{
-			Code:          tcmessage.MsgPrecommit,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encodedVote,
 			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
@@ -278,8 +279,8 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		msg := &tcmessage.Message{
-			Code:          tcmessage.MsgPrecommit,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
@@ -344,8 +345,8 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		expectedMsg := &tcmessage.Message{
-			Code:          tcmessage.MsgPrevote,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrevote,
+			TbftMsgBytes:  encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},

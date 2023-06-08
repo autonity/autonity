@@ -16,7 +16,7 @@ type Committee interface {
 	// Get the round proposer
 	GetProposer(round int64) types.CommitteeMember
 	// Update with lastest block
-	SetLastBlock(block *types.Block)
+	SetLastHeader(block *types.Block)
 	// Get the optimal quorum size
 	Quorum() *big.Int
 	// Get the maximum number of faulty nodes

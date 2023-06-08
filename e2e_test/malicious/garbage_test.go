@@ -3,6 +3,7 @@ package malicious
 import (
 	"context"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -147,8 +148,8 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 			return
 		}
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgPrecommit,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrecommit,
+			TbftMsgBytes:  encodedVote,
 			Address:       c.Address(),
 			CommittedSeal: []byte{},
 		}
@@ -200,7 +201,7 @@ type garbagePrevoter struct {
 	interfaces.Prevoter
 }
 
-func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
+func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool, badProposal *messageutils.BadProposalInfo) {
 	logger := c.Logger().New("step", c.Step())
 
 	var prevote messageutils.Vote
@@ -237,8 +238,8 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 		}
 
 		msg := &messageutils.Message{
-			Code:          messageutils.MsgPrevote,
-			Msg:           encodedVote,
+			Code:          consensus.MsgPrevote,
+			TbftMsgBytes:  encodedVote,
 			Address:       c.Address(),
 			CommittedSeal: []byte{},
 		}
@@ -344,8 +345,8 @@ func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
 		c.Backend().SetProposedBlockHash(p.Hash())
 
 		c.Br().Broadcast(ctx, &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  proposal,
 			Address:       c.Address(),
 			CommittedSeal: []byte{},
 		})

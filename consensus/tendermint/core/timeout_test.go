@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/messageutils"
@@ -93,7 +94,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		timeoutEvent := tctypes.TimeoutEvent{
 			RoundWhenCalled:  1,
 			HeightWhenCalled: big.NewInt(2),
-			Step:             tcmessage.MsgPrevote,
+			Step:             consensus.MsgPrevote,
 		}
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
@@ -103,11 +104,11 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")
 				}
-				if message.Code != tcmessage.MsgPrecommit {
+				if message.Code != consensus.MsgPrecommit {
 					t.Fatalf("unexpected message code, should be precommit")
 				}
 				precommit := new(tcmessage.Vote)
-				if err := rlp.DecodeBytes(message.Msg, precommit); err != nil {
+				if err := rlp.DecodeBytes(message.TbftMsgBytes, precommit); err != nil {
 					t.Fatalf("could not decode precommit")
 				}
 				if precommit.ProposedBlockHash != (common.Hash{}) {
@@ -155,7 +156,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		timeoutEvent := tctypes.TimeoutEvent{
 			RoundWhenCalled:  1,
 			HeightWhenCalled: big.NewInt(2),
-			Step:             tcmessage.MsgPrecommit,
+			Step:             consensus.MsgPrecommit,
 		}
 
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
@@ -195,7 +196,7 @@ func TestOnTimeoutPrevote(t *testing.T) {
 		if timeoutEvent.RoundWhenCalled != 2 || timeoutEvent.HeightWhenCalled.Uint64() != 4 {
 			t.Fatalf("bad view")
 		}
-		if timeoutEvent.Step != tcmessage.MsgPrevote {
+		if timeoutEvent.Step != consensus.MsgPrevote {
 			t.Fatalf("bad step")
 		}
 	})
@@ -226,7 +227,7 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 		if timeoutEvent.RoundWhenCalled != 2 || timeoutEvent.HeightWhenCalled.Uint64() != 4 {
 			t.Fatalf("bad view")
 		}
-		if timeoutEvent.Step != tcmessage.MsgPrecommit {
+		if timeoutEvent.Step != consensus.MsgPrecommit {
 			t.Fatalf("bad step")
 		}
 	})

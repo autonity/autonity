@@ -19,6 +19,7 @@ ABIGEN_BINARY = $(BINDIR)/abigen
 
 AUTONITY_CONTRACT_BASE_DIR = ./autonity/solidity
 AUTONITY_CONSENSUS_TEST_DIR = ./consensus/test
+AUTONITY_NEW_E2E_TEST_DIR = ./e2e_test
 AUTONITY_CONTRACT_DIR = $(AUTONITY_CONTRACT_BASE_DIR)/contracts
 AUTONITY_CONTRACT_TEST_DIR = $(AUTONITY_CONTRACT_BASE_DIR)/test
 AUTONITY = Autonity
@@ -29,7 +30,8 @@ GENERATED_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode.go
 GENERATED_UPGRADE_ABI = $(GENERATED_CONTRACT_DIR)/abi_upgrade.go
 GENERATED_UPGRADE_BYTECODE = $(GENERATED_CONTRACT_DIR)/bytecode_upgrade.go
 GENERATED_GO_BINDINGS = $(AUTONITY_CONSENSUS_TEST_DIR)/ac_go_binding_gen_test.go
-GENERATED_GO_BINDINGS_E2E = e2e_test/autonity_bindings.go
+GENERATED_E2E_TEST_GO_BINDINGS = $(AUTONITY_NEW_E2E_TEST_DIR)/autonity_contracts_bindings.go
+
 
 ORACLE = Oracle
 GENERATED_ORACLE_CONTRACT_DIR = ./common/ocdefault/generated
@@ -63,7 +65,7 @@ autonity:
 generate-go-bindings:
 	@echo Generating $(GENERATED_GO_BINDINGS)
 	$(ABIGEN_BINARY)  --pkg test --solc $(SOLC_BINARY) --sol $(AUTONITY_CONTRACT_DIR)/$(AUTONITY).sol --out $(GENERATED_GO_BINDINGS)
-	$(ABIGEN_BINARY)  --pkg test --solc $(SOLC_BINARY) --sol $(AUTONITY_CONTRACT_DIR)/$(AUTONITY).sol --out $(GENERATED_GO_BINDINGS_E2E)
+	$(ABIGEN_BINARY)  --pkg test --solc $(SOLC_BINARY) --sol $(AUTONITY_CONTRACT_DIR)/$(AUTONITY).sol --out $(GENERATED_E2E_TEST_GO_BINDINGS)
 
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
 # glibc for solc.
@@ -134,7 +136,7 @@ $(GOBINDATA_BINARY):
 
 all: embed-autonity-contract embed-oracle-contract
 	go run build/ci.go install
-	make generate-go-bindings 
+	make generate-go-bindings
 
 android:
 	go run build/ci.go aar --local
@@ -166,8 +168,12 @@ test-race:
 test-contracts: autonity
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statement if the first fails.
+	@# Nov, 2022, the latest release of Truffle, v5.6.6 does not works for the tests.
+	@echo "check and install truffle.js"
 	@npm list truffle > /dev/null || npm install truffle
+	@echo "check and install web3.js"
 	@npm list web3 > /dev/null || npm install web3
+	@echo "check and install truffle-assertions.js"
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
 	@$(NPMBIN)/truffle version
 	@cd $(AUTONITY_CONTRACT_TEST_DIR)/autonity/ && rm -Rdf ./data && ./autonity-start.sh &

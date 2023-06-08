@@ -58,10 +58,11 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// redeem fees
 
 	// Setup Bindings
-	autonityContract, err := NewAutonity(autonityContractAddr, n.WsClient)
+	autonityContract, err := NewAutonity(AutonityContractAddr, n.WsClient)
 	require.NoError(t, err)
 	valAddrs, err := autonityContract.GetValidators(nil)
 	require.NoError(t, err)
+
 	liquidContracts := make([]*Liquid, len(valAddrs))
 	validators := make([]AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
@@ -103,7 +104,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	treasuryRewards := new(big.Int).Div(new(big.Int).Mul(totalFees, new(big.Int).SetUint64(15)), big.NewInt(10000))
 	totalRewards := new(big.Int).Sub(totalFees, treasuryRewards)
 
-	balanceBeforeEpoch, _ := n.WsClient.BalanceAt(context.Background(), autonityContractAddr, nil)
+	balanceBeforeEpoch, _ := n.WsClient.BalanceAt(context.Background(), AutonityContractAddr, nil)
 	require.Equal(t, totalFees, balanceBeforeEpoch)
 
 	err = network.WaitToMineNBlocks(30, 90)
@@ -191,9 +192,9 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 }
 
 // Test details
-//a.setup 7 validators with 100 voting power on each, and keep 7 committee seats as well.
-//b.start the network with 1st 3 nodes only, the network should be on-hold since the online voting power is less than 2/3 of 7
-//c.after the on-holding for a while, start the 4th node, then the network should start to produce blocks without any on-holding.
+// a.setup 7 validators with 100 voting power on each, and keep 7 committee seats as well.
+// b.start the network with 1st 3 nodes only, the network should be on-hold since the online voting power is less than 2/3 of 7
+// c.after the on-holding for a while, start the 4th node, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum(t *testing.T) {
 	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
@@ -219,10 +220,10 @@ func TestTendermintQuorum(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
-//a. setup 6 validators with 100 voting power on each, and keep 6 committee seats as well.
-//b. start all the 6 validators for a while, as the network is producing blocks for a while.
-//c.stop 3 nodes one by one, then the network should on-hold when the online voting power is less than 2/3 of 6.
-//d.after the on-holding for a while, recover the stopped nodes, then the network should start to produce blocks without any on-holding.
+// a. setup 6 validators with 100 voting power on each, and keep 6 committee seats as well.
+// b. start all the 6 validators for a while, as the network is producing blocks for a while.
+// c.stop 3 nodes one by one, then the network should on-hold when the online voting power is less than 2/3 of 6.
+// d.after the on-holding for a while, recover the stopped nodes, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum2(t *testing.T) {
 	users, err := test.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
@@ -261,14 +262,14 @@ func TestTendermintQuorum2(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
-//a. setup 7 validators (A, B, C, D, E, F, G) with 100 voting power on each, and keep 7 committee seats as well.
-//b. start the network for a while(the network is producing blocks for a while).
-//c. Shut down nodes A and B, now the network keeps liveness with C, D, E, F online, TXs should be mined.
-//d. After a while, shut down Node C and D, with only E and F online, the network should on-hold, no transaction should be mined.
-//e. Then start up node A and B, they should be synchronized with node E and F, and network liveness should recovered, new TXs should be mined after the recover.
-//f. Then start up node C and D, both C and D should get synchronized to the latest chain height.
-//g. Then shut down node E and F, the network should still keep liveness, TXs are mined.
-//h. Recover E and F, they should get synchronized finally.
+// a. setup 7 validators (A, B, C, D, E, F, G) with 100 voting power on each, and keep 7 committee seats as well.
+// b. start the network for a while(the network is producing blocks for a while).
+// c. Shut down nodes A and B, now the network keeps liveness with C, D, E, F online, TXs should be mined.
+// d. After a while, shut down Node C and D, with only E and F online, the network should on-hold, no transaction should be mined.
+// e. Then start up node A and B, they should be synchronized with node E and F, and network liveness should recovered, new TXs should be mined after the recover.
+// f. Then start up node C and D, both C and D should get synchronized to the latest chain height.
+// g. Then shut down node E and F, the network should still keep liveness, TXs are mined.
+// h. Recover E and F, they should get synchronized finally.
 func TestTendermintQuorum4(t *testing.T) {
 	users, err := test.Validators(t, 7, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)

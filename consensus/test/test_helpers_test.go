@@ -29,11 +29,13 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
+const defaultStake = 100
+
 func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
-	genesis.GasLimit = 200_000_000
+	genesis.GasLimit = 10000000000
 	genesis.GasUsed = 0
 	genesis.Timestamp = 0
 	genesis.Nonce = 0
@@ -53,14 +55,16 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 
 	validators := make([]*params.Validator, 0, len(nodes))
 	for _, name := range names {
-		stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
+		stake := big.NewInt(defaultStake)
+		//stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 		if strings.HasPrefix(name, ValidatorPrefix) {
 			address := crypto.PubkeyToAddress(nodes[name].privateKey.PublicKey)
 			validators = append(validators, &params.Validator{
-				Address:     &address,
-				Enode:       nodes[name].url,
-				Treasury:    address,
-				BondedStake: stake,
+				Address:        &address,
+				Enode:          nodes[name].url,
+				Treasury:       address,
+				BondedStake:    stake,
+				CommissionRate: new(big.Int).SetUint64(0),
 			})
 		}
 	}

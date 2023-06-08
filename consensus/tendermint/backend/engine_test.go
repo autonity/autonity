@@ -169,8 +169,8 @@ func TestVerifyHeader(t *testing.T) {
 	header = block.Header()
 	header.Time = new(big.Int).Add(big.NewInt(now().Unix()), new(big.Int).SetUint64(10)).Uint64()
 	err = engine.VerifyHeader(chain, header, false)
-	if err != consensus.ErrFutureBlock {
-		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrFutureBlock)
+	if err != consensus.ErrFutureTimestampBlock {
+		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrFutureTimestampBlock)
 	}
 
 	// invalid nonce

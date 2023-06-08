@@ -21,21 +21,29 @@ func (c *ProposeService) SendProposal(ctx context.Context, p *types.Block) {
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.Height().Cmp(p.Number()) == 0 && c.IsProposer() && !c.sentProposal {
-		proposalBlock := messageutils.NewProposal(c.Round(), c.Height(), c.validRound, p)
-		proposal, err := messageutils.Encode(proposalBlock)
+
+		sigLitePro, err := LiteProposalSignature(c.backend, c.Height(), c.Round(), c.validRound, p.Hash())
 		if err != nil {
-			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
+			logger.Error("Failed to gen signature of lite proposal", "err", err.Error())
+			return
+		}
+		proposal := messageutils.NewProposal(c.Round(), c.Height(), c.validRound, p)
+		proposal.LiteSig = sigLitePro
+
+		encodedProposal, err := messageutils.Encode(proposal)
+		if err != nil {
+			logger.Error("Failed to encode", "Round", proposal.Round, "Height", proposal.Height, "ValidRound", c.validRound)
 			return
 		}
 
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
-		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", *proposalBlock, c.address.String(), "broadcast")
+		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", *proposal, c.address.String(), "broadcast")
 
 		c.Br().Broadcast(ctx, &messageutils.Message{
-			Code:          messageutils.MsgProposal,
-			Msg:           proposal,
+			Code:          consensus.MsgProposal,
+			TbftMsgBytes:  encodedProposal,
 			Address:       c.address,
 			CommittedSeal: []byte{},
 		})
@@ -98,7 +106,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 		}
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
-		if err == consensus.ErrFutureBlock {
+		if err == consensus.ErrFutureTimestampBlock {
 			c.StopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				c.SendEvent(backlogEvent{
@@ -107,7 +115,10 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 			})
 			return err
 		}
-		c.prevoter.SendPrevote(ctx, true)
+		badProposal := new(messageutils.BadProposalInfo)
+		badProposal.Sender = msg.Address
+		badProposal.Value = proposal.ProposalBlock.Hash()
+		c.prevoter.SendPrevote(ctx, true, badProposal)
 		// do not to accept another proposal in current round
 		c.SetStep(tctypes.Prevote)
 
@@ -141,7 +152,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 			// When lockedRound is set to any value other than -1 lockedValue is also
 			// set to a non nil value. So we can be sure that we will only try to access
 			// lockedValue when it is non nil.
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
+			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()), nil)
 			c.SetStep(tctypes.Prevote)
 			return nil
 		}
@@ -151,7 +162,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
 		if vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
+			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()), nil)
 			c.SetStep(tctypes.Prevote)
 		}
 	}

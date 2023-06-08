@@ -132,8 +132,11 @@ type TypeMuxSilent struct {
 	logger log.Logger
 }
 
-func NewTypeMuxSilent(l log.Logger) *TypeMuxSilent {
-	return &TypeMuxSilent{new(TypeMux), l}
+func NewTypeMuxSilent(evMux *TypeMux, l log.Logger) *TypeMuxSilent {
+	if evMux == nil {
+		return &TypeMuxSilent{new(TypeMux), l}
+	}
+	return &TypeMuxSilent{evMux, l}
 }
 
 func (mux *TypeMuxSilent) Post(ev interface{}) {

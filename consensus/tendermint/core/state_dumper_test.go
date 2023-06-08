@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/autonity/autonity/consensus"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
@@ -35,7 +36,7 @@ func TestGetProposal(t *testing.T) {
 	backendMock.EXPECT().Address().Return(nodeAddr)
 	core := New(backendMock)
 
-	proposalMsg, proposal := randomProposal(t)
+	proposalMsg, proposal, _ := randomProposal(t)
 	core.messages.GetOrCreate(proposal.Round).SetProposal(&proposal, proposalMsg, true)
 
 	assert.Equal(t, proposal.ProposalBlock.Hash(), *getProposal(core, proposal.Round))
@@ -140,12 +141,16 @@ func TestGetCoreState(t *testing.T) {
 	}
 }
 
-func randomProposal(t *testing.T) (*messageutils.Message, messageutils.Proposal) {
+func randomProposal(t *testing.T) (*messageutils.Message, messageutils.Proposal, *messageutils.LiteProposal) {
 	currentHeight := big.NewInt(int64(rand.Intn(100) + 1))
 	currentRound := int64(rand.Intn(100) + 1)
 
-	proposer := common.BytesToAddress([]byte("proposer"))
-	return generateBlockProposal(t, currentRound, currentHeight, currentRound-1, proposer, false)
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	proposer := crypto.PubkeyToAddress(key.PublicKey)
+
+	return generateBlockProposal(t, currentRound, currentHeight, currentRound-1, proposer, false, key)
 }
 
 func checkRoundState(t *testing.T, s tctypes.RoundState, wantRound int64, wantProposal *messageutils.Proposal, wantVerfied bool) {
@@ -164,9 +169,9 @@ func checkRoundState(t *testing.T, s tctypes.RoundState, wantRound int64, wantPr
 func prepareRoundMsgs(t *testing.T, c *Core, r int64, h *big.Int, sender common.Address) (proposal messageutils.Proposal, proposer common.Address) {
 	privKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
-	proposalMsg, proposal := generateBlockProposal(t, r, h, 0, crypto.PubkeyToAddress(privKey.PublicKey), false)
-	prevoteMsg, _, _ := prepareVote(t, messageutils.MsgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
-	precommitMsg, _, _ := prepareVote(t, messageutils.MsgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+	proposalMsg, proposal, _ := generateBlockProposal(t, r, h, 0, crypto.PubkeyToAddress(privKey.PublicKey), false, privKey)
+	prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+	precommitMsg, _, _ := prepareVote(t, consensus.MsgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
 	c.messages.GetOrCreate(r).SetProposal(&proposal, proposalMsg, true)
 	c.messages.GetOrCreate(r).AddPrevote(proposal.ProposalBlock.Hash(), *prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(proposal.ProposalBlock.Hash(), *precommitMsg)

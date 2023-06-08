@@ -7,9 +7,11 @@ import (
 	"fmt"
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/consensus/misc"
+	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
 	"math"
 	"math/big"
@@ -271,7 +273,7 @@ func TestCheckSignature(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	t.Run("broadcaster is not set", func(t *testing.T) {
+	t.Run("Broadcaster is not set", func(t *testing.T) {
 		_, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
@@ -337,7 +339,7 @@ func TestCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("broadcaster is set", func(t *testing.T) {
+	t.Run("Broadcaster is set", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -358,7 +360,7 @@ func TestCommit(t *testing.T) {
 		broadcaster.EXPECT().Enqueue(fetcherID, gomock.Any())
 
 		b := &Backend{
-			broadcaster: broadcaster,
+			Broadcaster: broadcaster,
 			logger:      log.New("backend", "test", "id", 0),
 		}
 		b.SetBroadcaster(broadcaster)
@@ -371,7 +373,7 @@ func TestCommit(t *testing.T) {
 }
 
 func TestSyncPeer(t *testing.T) {
-	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
+	t.Run("no Broadcaster set, nothing done", func(t *testing.T) {
 		b := &Backend{}
 		b.SyncPeer(common.HexToAddress("0x0123456789"))
 	})
@@ -533,8 +535,9 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 
 	memDB := rawdb.NewMemoryDatabase()
+	msgStore := new(tdmcore.MsgStore)
 	// Use the first key as private key
-	b := New(nodeKeys[0], &vm.Config{}, nil)
+	b := New(nodeKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

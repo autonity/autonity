@@ -43,7 +43,8 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, customHandler *node.CustomHandler) *Backend {
+func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, customHandler *node.CustomHandler, evMux *event.TypeMux,
+	ms *tendermintCore.MsgStore) *Backend {
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
@@ -53,8 +54,7 @@ func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, customHandler *node.
 	logger := log.New("addr", pub)
 
 	backend := &Backend{
-
-		eventMux:       event.NewTypeMuxSilent(logger),
+		eventMux:       event.NewTypeMuxSilent(evMux, logger),
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         logger,
@@ -63,10 +63,10 @@ func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, customHandler *node.
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
+		MsgStore:       ms,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-
 	core := tendermintCore.New(backend)
 	if customHandler != nil {
 		core.SetBroadcastHandler(customHandler.Broadcaster)
@@ -104,7 +104,7 @@ type Backend struct {
 	pendingMessages ring.Ring
 
 	// event subscription for ChainHeadEvent event
-	broadcaster consensus.Broadcaster
+	Broadcaster consensus.Broadcaster
 
 	//TODO: ARCChace is patented by IBM, so probably need to stop using it
 	recentMessages *lru.ARCCache // the cache of peer's messages
@@ -112,6 +112,8 @@ type Backend struct {
 
 	contractsMu sync.RWMutex
 	vmConfig    *vm.Config
+
+	MsgStore *tendermintCore.MsgStore
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
@@ -149,9 +151,9 @@ func (sb *Backend) AskSync(header *types.Header) {
 		}
 	}
 
-	if sb.broadcaster != nil && len(targets) > 0 {
+	if sb.Broadcaster != nil && len(targets) > 0 {
 		for {
-			ps := sb.broadcaster.FindPeers(targets)
+			ps := sb.Broadcaster.FindPeers(targets)
 			// If we didn't find any peers try again in 10ms or exit if we have
 			// been stopped.
 			if len(ps) == 0 {
@@ -196,8 +198,8 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 		}
 	}
 
-	if sb.broadcaster != nil && len(targets) > 0 {
-		ps := sb.broadcaster.FindPeers(targets)
+	if sb.Broadcaster != nil && len(targets) > 0 {
+		ps := sb.Broadcaster.FindPeers(targets)
 		for addr, p := range ps {
 			ms, ok := sb.recentMessages.Get(addr)
 			var m *lru.ARCCache
@@ -255,8 +257,8 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 		return nil
 	}
 
-	if sb.broadcaster != nil {
-		sb.broadcaster.Enqueue(fetcherID, proposal)
+	if sb.Broadcaster != nil {
+		sb.Broadcaster.Enqueue(fetcherID, proposal)
 	}
 	return nil
 }
@@ -367,8 +369,8 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		// At this stage committee field is consistent with the validator list returned by Soma-contract
 
 		return 0, nil
-	} else if err == consensus.ErrFutureBlock {
-		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureBlock
+	} else if err == consensus.ErrFutureTimestampBlock {
+		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
 	}
 	return 0, err
 }
@@ -446,13 +448,13 @@ func (sb *Backend) CommitteeEnodes() []string {
 // Synchronize new connected peer with current height state
 func (sb *Backend) SyncPeer(address common.Address) {
 
-	if sb.broadcaster == nil {
+	if sb.Broadcaster == nil {
 		return
 	}
 
 	sb.logger.Info("Syncing", "peer", address)
 	targets := map[common.Address]struct{}{address: {}}
-	ps := sb.broadcaster.FindPeers(targets)
+	ps := sb.Broadcaster.FindPeers(targets)
 	p, connected := ps[address]
 	if !connected {
 		return

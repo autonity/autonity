@@ -26,7 +26,6 @@ const (
 	unBondingPeriod         = 5
 	maxCommitteeSize        = 7
 	blockPeriod             = 1
-	defaultVersion          = "v0.0.0"
 	contractUpgradeBytecode = generated.UpgradeTestBytecode
 	contractUpgradeABI      = generated.UpgradeTestAbi
 )
@@ -171,7 +170,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 	testCase := &testCase{
 		name:          "Test AC system operator change settings",
 		numValidators: numOfValidators,
-		numBlocks:     25,
+		numBlocks:     40,
 		// set AC configs in genesis hook.
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = initialOperatorAddr
@@ -193,10 +192,10 @@ func TestACSystemOperatorOPs(t *testing.T) {
 				initialOperator,
 				newOperatorAddr,
 			),
-			// burn stake right after block #5 from client V1.
+			// burn stake right after block #15 from client V1.
 			"V1": burnStakeHook(
 				map[uint64]struct{}{
-					15: {},
+					25: {},
 				},
 				initialOperator,
 				newOperatorAddr,
@@ -204,7 +203,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 			// change operator after block #10 from client V3.
 			"V2": setOperatorHook(
 				map[uint64]struct{}{
-					20: {},
+					35: {},
 				},
 				initialOperator,
 				newOperatorAddr,
@@ -671,7 +670,7 @@ func TestUpgradeMechanism(t *testing.T) {
 			t.Log("val2 bs", val2.BondedStake.Uint64())
 
 			require.NoError(t, err)
-			stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
+			stake := new(big.Int).SetUint64(defaultStake)
 			stake.Div(stake, big.NewInt(2))
 			require.Equal(t, stake.Bytes(), val1.BondedStake.Bytes())
 			//check the contract version is now 2.0.0

@@ -1,11 +1,6 @@
 package autonity
 
 import (
-	"math"
-	"math/big"
-	"reflect"
-	"sort"
-
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/state"
@@ -13,6 +8,9 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
+	"math"
+	"math/big"
+	"reflect"
 )
 
 type raw []byte
@@ -140,20 +138,7 @@ func (ac *Contract) callGetMinimumBaseFee(state *state.StateDB, header *types.He
 	return minBaseFee.Uint64(), nil
 }
 
-func (ac *Contract) callGetProposer(state *state.StateDB, header *types.Header, height uint64, round int64) common.Address {
-	var proposer common.Address
-	h := new(big.Int).SetUint64(height)
-	r := new(big.Int).SetInt64(round)
-	err := ac.AutonityContractCall(state, header, "getProposer", &proposer, h, r)
-	if err != nil {
-		log.Error("get proposer failed from contract.", "error", err)
-		return common.Address{}
-	}
-	return proposer
-}
-
 func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header) (bool, types.Committee, error) {
-
 	var updateReady bool
 	var committee types.Committee
 
@@ -161,9 +146,8 @@ func (ac *Contract) callFinalize(state *state.StateDB, header *types.Header) (bo
 	if err != nil {
 		return false, nil, err
 	}
-	sort.Sort(committee)
-	// submit the final reward distribution metrics.
-	//ac.metrics.SubmitRewardDistributionMetrics(&v, header.Number.Uint64())
+
+	//Autonity contract did a stable sort over elected committee in EVM, thus no need an unstable sort here again.
 	return updateReady, committee, nil
 }
 
@@ -193,4 +177,47 @@ func (ac *Contract) callSetMinimumBaseFee(state *state.StateDB, header *types.He
 		return vmerr
 	}
 	return nil
+}
+
+func (ac *Contract) callAccountabilityEventProcessed(state *state.StateDB, header *types.Header, function string, msgHash common.Hash) bool {
+	var exist bool
+	err := ac.AutonityContractCall(state, header, function, &exist, msgHash)
+	if err != nil {
+		log.Error("callAccountabilityEventProcessed", "error", err)
+	}
+	return exist
+}
+
+func (ac *Contract) callGetValidatorAccusations(state *state.StateDB, header *types.Header, validator common.Address) []AccountabilityEvent {
+	var onChainProofs []AccountabilityEvent
+	err := ac.AutonityContractCall(state, header, "getValidatorRecentAccusations", &onChainProofs, validator)
+
+	if err != nil {
+		log.Error("get accusations failed from contract.", "error", err)
+	}
+	return onChainProofs
+}
+
+func (ac *Contract) callGetAccountabilityEventChunk(state *state.StateDB, header *types.Header, msgHash common.Hash, tp uint8, rule uint8, reporter common.Address, chunkID uint8) ([]byte, error) {
+	var chunk []byte
+	err := ac.AutonityContractCall(state, header, "getAccountabilityEventChunk", &chunk, msgHash, tp, rule, reporter, chunkID)
+	return chunk, err
+}
+
+func (ac *Contract) callGetEpochPeriod(state *state.StateDB, header *types.Header) (uint64, error) {
+	epochPeriod := new(big.Int)
+	err := ac.AutonityContractCall(state, header, "getEpochPeriod", &epochPeriod)
+	if err != nil {
+		return 0, err
+	}
+	return epochPeriod.Uint64(), nil
+}
+
+func (ac *Contract) callGetLastEpochBlock(state *state.StateDB, header *types.Header) (uint64, error) {
+	lastBlockEpoch := new(big.Int)
+	err := ac.AutonityContractCall(state, header, "getLastEpochBlock", &lastBlockEpoch)
+	if err != nil {
+		return 0, err
+	}
+	return lastBlockEpoch.Uint64(), nil
 }

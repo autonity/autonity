@@ -2,6 +2,7 @@ package messageutils
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"math/big"
 	"testing"
@@ -21,8 +22,8 @@ func CreatePrevote(t *testing.T, proposalHash common.Hash, round int64, height *
 	}
 
 	expectedMsg := &Message{
-		Code:          MsgPrevote,
-		Msg:           encodedVote,
+		Code:          consensus.MsgPrevote,
+		TbftMsgBytes:  encodedVote,
 		Address:       member.Address,
 		CommittedSeal: []byte{},
 		Signature:     []byte{0x1},

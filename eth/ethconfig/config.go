@@ -18,15 +18,17 @@
 package ethconfig
 
 import (
+	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
+	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/event"
+
 	"math/big"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"time"
-
-	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
-	"github.com/autonity/autonity/core/vm"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -211,8 +213,9 @@ type Config struct {
 	OverrideTerminalTotalDifficulty *big.Int `toml:",omitempty"`
 }
 
-// / CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool, db ethdb.Database, vmConfig *vm.Config) consensus.Engine {
+// CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
+func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool,
+	db ethdb.Database, vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore) consensus.Engine {
 	if chainConfig.Ethash != nil {
 		ethConfig := config.Ethash
 		switch ethConfig.PowMode {
@@ -237,5 +240,5 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 			return engine
 		}
 	}
-	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig, ctx.GetCustomHandler())
+	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig, ctx.GetCustomHandler(), evMux, ms)
 }
