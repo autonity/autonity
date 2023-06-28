@@ -21,8 +21,8 @@ contract("Oracle", accounts => {
       accounts[4],
   ]
   let oracle;
-  let w3ContractObj;
-  let symbols = ["NTNUSD","NTNAUD","NTNCAD","NTNEUR","NTNGBP","NTNJPY","NTNSEK"]
+  //let w3ContractObj;
+  let symbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY","NTN/SEK"]
 
   function getSymbolIndex(sym) {
     for (let i = 0; i < symbols.length; i++){
@@ -214,7 +214,7 @@ contract("Oracle", accounts => {
     });
 
     it('Test update symbols', async function () {
-      let newSymbols = ["NTNUSD","NTNAUD","NTNCAD","NTNEUR","NTNGBP","NTNJPY"]
+      let newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY"]
       await oracle.setSymbols(newSymbols, {from:operator});
       await waitForNRounds(2);
       let syms = await oracle.getSymbols();
@@ -240,14 +240,14 @@ contract("Oracle", accounts => {
       await deployContracts()
     })
     it('Test update Symbols in same round ', async function () {
-      let newSymbols = ["NTNUSD","NTNAUD","NTNCAD","NTNEUR","NTNGBP","NTNJPY"];
+      let newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY"];
       await oracle.setSymbols(newSymbols, {from:operator});
-      newSymbols = ["NTNUSD","NTNAUD","NTNCAD","NTNEUR","NTNGBP"];
+      newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP"];
       await truffleAssert.reverts(oracle.setSymbols(newSymbols, {from:operator}));
     });
 
     it('Test update Symbols in subsequent round ', async function () {
-      let newSymbols = ["NTNUSD","NTNAUD","NTNCAD","NTNEUR","NTNGBP","NTNJPY"]
+      let newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY"]
       await oracle.setSymbols(newSymbols, {from:operator});
       await waitForNRounds(1)
       await truffleAssert.reverts(oracle.setSymbols(newSymbols, {from:operator}));
@@ -315,11 +315,11 @@ contract("Oracle", accounts => {
         }
         await waitForNRounds(1)
       }
-      let roundData = await oracle.latestRoundData("NTNGBP");
+      let roundData = await oracle.latestRoundData("NTN/GBP");
       console.log("Price data received for round latest:"+ roundData[0] +
           " price:"+roundData[1]+ " timestamp: "+roundData[2] + " status:"+roundData[3]);
       const roundID = roundData[0];
-      const symIndex = getSymbolIndex("NTNGBP");
+      const symIndex = getSymbolIndex("NTN/GBP");
       console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
@@ -348,10 +348,10 @@ contract("Oracle", accounts => {
       }
       // since we skipped round 3 - did not send commit and report both,
       // price will not be calculated in round 3 and 4 both
-      let roundData = await oracle.getRoundData(3, "NTNGBP");
+      let roundData = await oracle.getRoundData(3, "NTN/GBP");
       let status = +roundData[2];
       assert(status != 0, "status should not be success");
-      roundData = await oracle.getRoundData(4, "NTNGBP");
+      roundData = await oracle.getRoundData(4, "NTN/GBP");
       status = +roundData[2];
       assert(status != 0, "price is not as expected");
     });
@@ -375,9 +375,9 @@ contract("Oracle", accounts => {
         }
         await waitForNRounds(1)
       }
-      let roundData = await oracle.latestRoundData("NTNGBP");
+      let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
-      const symIndex = getSymbolIndex("NTNGBP");
+      const symIndex = getSymbolIndex("NTN/GBP");
       assert(+roundData[1] != +rounds[roundID-1].expPrice[symIndex], "price should not be as expected");
     });
 
@@ -426,9 +426,9 @@ contract("Oracle", accounts => {
         }
         await waitForNRounds(1)
       }
-      let roundData = await oracle.latestRoundData("NTNGBP");
+      let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
-      const symIndex = getSymbolIndex("NTNGBP");
+      const symIndex = getSymbolIndex("NTN/GBP");
       console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
@@ -442,7 +442,7 @@ contract("Oracle", accounts => {
         switch (rId) {
           case 2:
             // update symbols in 2nd round
-            const newSymbols = ["NTNUSD","NTNAUD","NTNCAD","NTNEUR","NTNGBP","NTNJPY"]
+            const newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY"]
             await oracle.setSymbols(newSymbols, {from:operator});
             break;
           case 3:
@@ -467,9 +467,9 @@ contract("Oracle", accounts => {
         }
         await waitForNRounds(1)
       }
-      let roundData = await oracle.latestRoundData("NTNGBP");
+      let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
-      const symIndex = getSymbolIndex("NTNGBP");
+      const symIndex = getSymbolIndex("NTN/GBP");
       console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
@@ -508,7 +508,7 @@ contract("Oracle", accounts => {
             syms =  await oracle.getSymbols();
             updateRoundData(rId, syms, voterCopy);
             // update symbols in 2nd round
-            let newSymbols = ["NTNUSD","NTNAUD","NTNCAD","NTNEUR","NTNGBP","NTNJPY"]
+            let newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY"]
             await oracle.setSymbols(newSymbols, {from:operator});
             break;
           case 3:
@@ -527,9 +527,9 @@ contract("Oracle", accounts => {
         }
         await waitForNRounds(1)
       }
-      let roundData = await oracle.latestRoundData("NTNGBP");
+      let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
-      const symIndex = getSymbolIndex("NTNGBP");
+      const symIndex = getSymbolIndex("NTN/GBP");
       console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
