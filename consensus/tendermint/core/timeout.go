@@ -64,7 +64,7 @@ func (c *Core) onTimeoutPrecommit(r int64, h *big.Int) {
 func (c *Core) handleTimeoutPropose(ctx context.Context, msg types.TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == types.Propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
-		c.prevoter.SendPrevote(ctx, true, nil)
+		c.prevoter.SendPrevote(ctx, true)
 		c.SetStep(types.Prevote)
 	}
 }
@@ -78,7 +78,6 @@ func (c *Core) handleTimeoutPrevote(ctx context.Context, msg types.TimeoutEvent)
 }
 
 func (c *Core) handleTimeoutPrecommit(ctx context.Context, msg types.TimeoutEvent) {
-
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 		c.StartRound(ctx, c.Round()+1)
@@ -100,7 +99,6 @@ func (c *Core) timeoutPrecommit(round int64) time.Duration {
 }
 
 func (c *Core) logTimeoutEvent(message string, msgType string, timeout types.TimeoutEvent) {
-
 	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,

@@ -1,26 +1,26 @@
 package autonity
 
 import (
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
-	"github.com/stretchr/testify/require"
 	"log"
 	"math/big"
 	"math/rand"
 	"sort"
 	"testing"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestElectProposer(t *testing.T) {
 	height := uint64(9999)
 	samePowers := []int{100, 100, 100, 100}
 	linearPowers := []int{100, 200, 400, 800}
-	var ac = &Contract{}
+	var ac = &Contracts{}
 	t.Run("Proposer election should be deterministic", func(t *testing.T) {
 		committee := generateCommittee(samePowers)
 		parentHeader := newBlockHeader(height, committee)
-
 		for h := uint64(0); h < uint64(100); h++ {
 			for r := int64(0); r <= int64(3); r++ {
 				proposer1 := ac.electProposer(parentHeader, h, r)

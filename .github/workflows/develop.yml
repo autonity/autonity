@@ -17,12 +17,12 @@ jobs:
 
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.13
+          go-version: 1.20
         id: go
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           clean: 'false'
 
@@ -33,9 +33,6 @@ jobs:
 
       - name: Configure Docker
         run: echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-
-      - name: Embed Autonity contract
-        run: make embed-autonity-contract
 
       - name: Test
         run: go test ./consensus/test/... -v -run='${{ matrix.e2e }}' -timeout 40m

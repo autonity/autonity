@@ -247,7 +247,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 		Ethash: ethash.Config{
 			PowMode: ethash.ModeFake,
 		},
-		NetworkId:               1337,
+		NetworkID:               1337,
 		TrieCleanCache:          5,
 		TrieCleanCacheJournal:   "triecache",
 		TrieCleanCacheRejournal: 60 * time.Minute,
@@ -255,7 +255,7 @@ func createGQLService(t *testing.T, stack *node.Node) {
 		TrieTimeout:             60 * time.Minute,
 		SnapshotCache:           5,
 	}
-	ethBackend, err := eth.New(stack, ethConf, nil)
+	ethBackend, err := eth.New(stack, ethConf)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}
@@ -304,7 +304,7 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 		Ethash: ethash.Config{
 			PowMode: ethash.ModeFake,
 		},
-		NetworkId:               1337,
+		NetworkID:               1337,
 		TrieCleanCache:          5,
 		TrieCleanCacheJournal:   "triecache",
 		TrieCleanCacheRejournal: 60 * time.Minute,
@@ -313,7 +313,7 @@ func createGQLServiceWithTransactions(t *testing.T, stack *node.Node) {
 		SnapshotCache:           5,
 	}
 
-	ethBackend, err := eth.New(stack, ethConf, nil)
+	ethBackend, err := eth.New(stack, ethConf)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}

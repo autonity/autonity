@@ -5,7 +5,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 
 	"math/big"
@@ -108,7 +108,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 					t.Fatalf("unexpected message code, should be precommit")
 				}
 				precommit := new(tcmessage.Vote)
-				if err := rlp.DecodeBytes(message.TbftMsgBytes, precommit); err != nil {
+				if err := rlp.DecodeBytes(message.Payload, precommit); err != nil {
 					t.Fatalf("could not decode precommit")
 				}
 				if precommit.ProposedBlockHash != (common.Hash{}) {

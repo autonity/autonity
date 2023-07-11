@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	autonity "github.com/autonity/autonity/autonity"
-	message "github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	types "github.com/autonity/autonity/consensus/tendermint/core/types"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -52,9 +52,9 @@ func (mr *MockTendermintMockRecorder) CoreState() *gomock.Call {
 }
 
 // GetCurrentHeightMessages mocks base method.
-func (m *MockTendermint) GetCurrentHeightMessages() []*message.Message {
+func (m *MockTendermint) CurrentHeightMessages() []*message.Message {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCurrentHeightMessages")
+	ret := m.ctrl.Call(m, "CurrentHeightMessages")
 	ret0, _ := ret[0].([]*message.Message)
 	return ret0
 }
@@ -62,11 +62,11 @@ func (m *MockTendermint) GetCurrentHeightMessages() []*message.Message {
 // GetCurrentHeightMessages indicates an expected call of GetCurrentHeightMessages.
 func (mr *MockTendermintMockRecorder) GetCurrentHeightMessages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentHeightMessages", reflect.TypeOf((*MockTendermint)(nil).GetCurrentHeightMessages))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeightMessages", reflect.TypeOf((*MockTendermint)(nil).CurrentHeightMessages))
 }
 
 // Start mocks base method.
-func (m *MockTendermint) Start(ctx context.Context, contract *autonity.Contract) {
+func (m *MockTendermint) Start(ctx context.Context, contract *autonity.Contracts) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Start", ctx, contract)
 }

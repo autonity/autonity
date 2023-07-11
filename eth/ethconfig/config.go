@@ -36,7 +36,6 @@ import (
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/gasprice"
-	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/node"
@@ -75,7 +74,7 @@ var Defaults = Config{
 		DatasetsOnDisk:   2,
 		DatasetsLockMmap: false,
 	},
-	NetworkId:               65000000,
+	NetworkID:               65000000,
 	TxLookupLimit:           2350000,
 	LightPeers:              100,
 	UltraLightFraction:      75,
@@ -128,7 +127,7 @@ type Config struct {
 	Genesis *core.Genesis `toml:",omitempty"`
 
 	// Protocol options
-	NetworkId uint64 // Network ID to use for selecting peers to connect to
+	NetworkID uint64 // Network ID to use for selecting peers to connect to
 	SyncMode  downloader.SyncMode
 
 	// This can be set to list of enrtree:// URLs which will be queried for
@@ -215,7 +214,7 @@ type Config struct {
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool,
-	db ethdb.Database, vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore) consensus.Engine {
+	vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore) consensus.Engine {
 	if chainConfig.Ethash != nil {
 		ethConfig := config.Ethash
 		switch ethConfig.PowMode {
@@ -240,5 +239,5 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 			return engine
 		}
 	}
-	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig, ctx.GetCustomHandler(), evMux, ms)
+	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig, ctx.TendermintServices(), evMux, ms, ctx.Logger())
 }

@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/autonity/autonity/common"
 	"math/big"
+
+	"github.com/autonity/autonity/common"
 )
 
 func (h *Header) IsGenesis() bool {

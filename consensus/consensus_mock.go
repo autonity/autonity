@@ -27,7 +27,7 @@ func (m *MockChainReader) GetTd(hash common.Hash, number uint64) *big.Int {
 	panic("implement me")
 }
 
-func (m *MockChainReader) GetMinBaseFee(header *types.Header) (*big.Int, error) {
+func (m *MockChainReader) MinBaseFee(header *types.Header) (*big.Int, error) {
 	panic("implement me")
 }
 

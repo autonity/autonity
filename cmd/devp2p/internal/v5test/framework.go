@@ -26,6 +26,7 @@ import (
 
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/discover/v5wire"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/enr"
@@ -72,7 +73,7 @@ type logger interface {
 }
 
 // newConn sets up a connection to the given node.
-func newConn(dest *enode.Node, log logger) *conn {
+func newConn(dest *enode.Node, logger logger) *conn {
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		panic(err)
@@ -81,7 +82,7 @@ func newConn(dest *enode.Node, log logger) *conn {
 	if err != nil {
 		panic(err)
 	}
-	ln := enode.NewLocalNode(db, key)
+	ln := enode.NewLocalNode(db, key, log.Root())
 
 	return &conn{
 		localKey:   key,
@@ -89,7 +90,7 @@ func newConn(dest *enode.Node, log logger) *conn {
 		remote:     dest,
 		remoteAddr: &net.UDPAddr{IP: dest.IP(), Port: dest.UDP()},
 		codec:      v5wire.NewCodec(ln, key, mclock.System{}),
-		log:        log,
+		log:        logger,
 	}
 }
 

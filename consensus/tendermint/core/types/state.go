@@ -1,10 +1,11 @@
 package types
 
 import (
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
-	"github.com/autonity/autonity/core/types"
 	"math/big"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 )
 
 type CoreStateRequestEvent struct {
@@ -28,7 +29,7 @@ type RoundState struct {
 
 // MsgWithHash save the msg and extra field to be marshal to JSON.
 type MsgForDump struct {
-	messageutils.Message
+	message.Message
 	Hash   common.Hash
 	Power  *big.Int
 	Height *big.Int

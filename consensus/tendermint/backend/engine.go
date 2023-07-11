@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/params"
 	"math/big"
 	"time"
@@ -18,7 +20,6 @@ import (
 	"github.com/autonity/autonity/core"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/state"
@@ -64,9 +65,6 @@ var (
 	nilUncleHash                  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce                    = types.BlockNonce{}
 	now                           = time.Now
-
-	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new validator
-	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a validator.
 )
 
 // Author retrieves the Ethereum address of the account that minted the given
@@ -333,7 +331,6 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 
 	committeeSet, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
-		sb.logger.Error("AutonityContractFinalize", "err", err.Error())
 		return nil, nil, err
 	}
 
@@ -367,9 +364,9 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	committeeSet, receipt, err := sb.blockchain.GetAutonityContract().FinalizeAndGetCommittee(header, state)
+	committeeSet, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
-		sb.logger.Error("Autonity Contract finalize returns err", "err", err)
+		sb.logger.Error("Autonity Contract finalize", "err", err)
 		return nil, nil, err
 	}
 	return committeeSet, receipt, nil
@@ -415,14 +412,11 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	case <-stop:
 		return nil
 	}
-
 	sb.setResultChan(results)
-
 	// post block into BFT engine
 	sb.postEvent(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
 	})
-
 	return nil
 }
 
@@ -490,6 +484,7 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 }
 
 // Start implements consensus.Start
+// youssef: I'm not sure about the use case of this context in argument
 func (sb *Backend) Start(ctx context.Context) error {
 	// the mutex along with coreStarted should prevent double start
 	sb.coreMu.Lock()
@@ -497,20 +492,18 @@ func (sb *Backend) Start(ctx context.Context) error {
 	if sb.coreStarted {
 		return ErrStartedEngine
 	}
-
 	sb.stopped = make(chan struct{})
-
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
-
 	// Start Tendermint
-	sb.core.Start(ctx, sb.blockchain.GetAutonityContract())
+	go sb.faultyValidatorsWatcher(ctx)
+	sb.wg.Add(1)
+	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
 	sb.coreStarted = true
-
 	return nil
 }
 
-// Stop implements consensus.Stop
+// Close signals core to stop all background threads.
 func (sb *Backend) Close() error {
 	// the mutex along with coreStarted should prevent double stop
 	sb.coreMu.Lock()
@@ -525,9 +518,9 @@ func (sb *Backend) Close() error {
 	// for a routine to return from calling sb.AskSync but sb.AskSync will
 	// never return because we did not close sb.stopped.
 	close(sb.stopped)
-
 	// Stop Tendermint
 	sb.core.Stop()
+	sb.wg.Wait()
 	return nil
 }
 
@@ -537,7 +530,62 @@ func (sb *Backend) SealHash(header *types.Header) common.Hash {
 
 func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 	sb.blockchain = bc
-
 	sb.currentBlock = bc.CurrentBlock
 	sb.hasBadBlock = bc.HasBadBlock
+}
+
+func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
+	var subscriptions event.SubscriptionScope
+	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
+	slashingEventCh := make(chan *autonity.AccountabilitySlashingEvent)
+	chainHeadCh := make(chan core.ChainHeadEvent)
+
+	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
+	subSlashigEvent, _ := sb.blockchain.ProtocolContracts().WatchSlashingEvent(nil, slashingEventCh)
+	subChainhead := sb.blockchain.SubscribeChainHeadEvent(chainHeadCh)
+	subscriptions.Track(subNewFaultProofs)
+	subscriptions.Track(subSlashigEvent)
+	subscriptions.Track(subChainhead)
+
+	defer func() {
+		subscriptions.Close()
+		sb.wg.Done()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-subNewFaultProofs.Err():
+			return
+		case <-sb.stopped:
+			return
+		case ev := <-newFaultProofCh:
+			sb.jailedLock.Lock()
+			// a 0 value means that the validator is in a perpetual jailed state
+			// which should only be temporary until it gets updated at the next
+			// slashing event.
+			sb.jailed[ev.Offender] = 0
+			sb.jailedLock.Unlock()
+		case ev := <-slashingEventCh:
+			sb.jailedLock.Lock()
+			sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
+			sb.jailedLock.Unlock()
+		case ev := <-chainHeadCh:
+			sb.jailedLock.Lock()
+			for k, v := range sb.jailed {
+				if v < ev.Block.NumberU64() && v != 0 {
+					delete(sb.jailed, k)
+				}
+			}
+			sb.jailedLock.Unlock()
+		}
+	}
+}
+
+func (sb *Backend) IsJailed(address common.Address) bool {
+	sb.jailedLock.RLock()
+	defer sb.jailedLock.RUnlock()
+	_, ok := sb.jailed[address]
+	return ok
 }

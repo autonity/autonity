@@ -64,7 +64,7 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) GetMinBaseFee(header *types.Header) (*big.Int, error) {
+func (bc *testBlockChain) MinBaseFee(_ *types.Header) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
@@ -90,8 +90,8 @@ func (bc *testBlockChain) Config() *params.ChainConfig {
 	return params.TestChainConfig
 }
 
-func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {
-	return new(autonity.Contract)
+func (bc *testBlockChain) ProtocolContracts() *autonity.Contracts {
+	return new(autonity.Contracts)
 }
 
 func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {

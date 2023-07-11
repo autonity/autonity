@@ -2,32 +2,32 @@ package test
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
+	"math/big"
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/acdefault/generated"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"reflect"
-	"testing"
-	"time"
 )
 
 const (
-	treasuryFee             = 100
-	minBaseFee              = 10
-	delegationRate          = 1
-	epochPeriod             = 5
-	unBondingPeriod         = 5
-	maxCommitteeSize        = 7
-	blockPeriod             = 1
-	contractUpgradeBytecode = generated.UpgradeTestBytecode
-	contractUpgradeABI      = generated.UpgradeTestAbi
+	treasuryFee      = 100
+	minBaseFee       = 10
+	delegationRate   = 1
+	epochPeriod      = 5
+	unBondingPeriod  = 5
+	maxCommitteeSize = 7
+	blockPeriod      = 1
 )
 
 var (
@@ -595,7 +595,7 @@ func TestUpgradeMechanism(t *testing.T) {
 	require.NoError(t, err)
 	initialOperatorAddr := crypto.PubkeyToAddress(operator.PublicKey)
 	//var upgradeTxs []*types.Transaction
-	bytecode := common.Hex2Bytes(contractUpgradeBytecode)
+	bytecode := generated.AutonityUpgradeTestBytecode
 	var interactor *interactor
 	var transactor *transactor
 
@@ -628,7 +628,8 @@ func TestUpgradeMechanism(t *testing.T) {
 				case 5:
 					_, err = transactor.upgradeContract(bytecode[0:len(bytecode)/2], "")
 				case 10:
-					_, err = transactor.upgradeContract(nil, contractUpgradeABI)
+					res, _ := json.Marshal(&generated.AutonityUpgradeTestAbi)
+					_, err = transactor.upgradeContract(nil, string(res))
 				case 15:
 					_, err = transactor.upgradeContract(bytecode[len(bytecode)/2:], "")
 				default:

@@ -43,7 +43,7 @@ type SyncEvent struct {
 	Addr common.Address
 }
 
-type AccountabilityOffChainEvent struct {
+type AccountabilityEvent struct {
 	Sender  common.Address
 	Payload []byte
 	ErrCh   chan<- error

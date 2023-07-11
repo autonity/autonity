@@ -66,10 +66,9 @@ var genesis = `{
 					]
 				},
     			"oracle": {
-					"bytecode": "",
-      				"abi": "",
       				"votePeriod": 30
-				}
+				},
+				"chainId" : 1
 			}
 		}`
 

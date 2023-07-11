@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/autonity/autonity/log"
 	"net"
 	"strings"
 	"time"
@@ -252,7 +253,7 @@ func makeDiscoveryConfig(ctx *cli.Context) (*enode.LocalNode, discover.Config) {
 	if err != nil {
 		exit(err)
 	}
-	ln := enode.NewLocalNode(db, cfg.PrivateKey)
+	ln := enode.NewLocalNode(db, cfg.PrivateKey, log.Root())
 	return ln, cfg
 }
 

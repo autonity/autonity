@@ -1,38 +1,40 @@
-package test
+package e2e
 
 import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"math/big"
+	"reflect"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/test"
+	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"reflect"
-	"testing"
 )
 
 var AutonityContractAddr = crypto.CreateAddress(common.Address{}, 0)
+var NonNilValue = common.Hash{0x1}
 
-func NewProposeMsg(address common.Address, block *types.Block, h uint64, r int64, vr int64, sig []byte) *messageutils.Message {
-	proposal := messageutils.NewProposal(r, new(big.Int).SetUint64(h), vr, block)
-	proposal.LiteSig = sig
-	v, err := messageutils.Encode(proposal)
+func NewProposeMsg(address common.Address, block *types.Block, h uint64, r int64, vr int64, signer func([]byte) ([]byte, error)) *message.Message {
+	proposal := message.NewProposal(r, new(big.Int).SetUint64(h), vr, block, signer)
+	v, err := rlp.EncodeToBytes(proposal)
 	if err != nil {
 		return nil
 	}
-	return &messageutils.Message{
+	return &message.Message{
 		Code:          consensus.MsgProposal,
-		TbftMsgBytes:  v,
+		Payload:       v,
 		Address:       address,
 		CommittedSeal: []byte{},
+		ConsensusMsg:  message.ConsensusMsg(proposal),
 	}
 }
 
@@ -87,89 +89,68 @@ func PrintStructMap(oMap map[string]reflect.Value) {
 	}
 }
 
-var NonNilValue = common.Hash{0x1}
-
-func NewVoteMsg(code uint8, h uint64, r int64, v common.Hash, c *core.Core) *messageutils.Message {
-
-	var preVote = messageutils.Vote{
+func NewVoteMsg(code uint8, h uint64, r int64, v common.Hash, c *core.Core) *message.Message {
+	vote := &message.Vote{
 		Round:             r,
 		Height:            new(big.Int).SetUint64(h),
 		ProposedBlockHash: v,
 	}
-
-	encodedVote, err := messageutils.Encode(&preVote)
-	if err != nil {
-		return nil
-	}
-
-	var msg = &messageutils.Message{
+	encodedVote, _ := rlp.EncodeToBytes(vote)
+	msg := &message.Message{
 		Code:          code,
-		TbftMsgBytes:  encodedVote,
+		Payload:       encodedVote,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
+		ConsensusMsg:  message.ConsensusMsg(vote),
 	}
 	if code == consensus.MsgPrecommit {
-		// add committed seal
 		seal := helpers.PrepareCommittedSeal(v, r, new(big.Int).SetUint64(h))
-		msg.CommittedSeal, err = c.Backend().Sign(seal)
-		if err != nil {
-			c.Logger().Error("Fault simulator, error while signing committed seal", "err", err)
-		}
+		msg.CommittedSeal, _ = c.Backend().Sign(seal)
 	}
 	return msg
 }
 
-// DefaultBehaviour just do the msg gossiping without any simulation.
-func DefaultBehaviour(ctx context.Context, c *core.Core, m *messageutils.Message) {
-	payload, err := c.FinalizeMessage(m)
+// DefaultSignAndBroadcast just do the msg gossiping without any simulation.
+func DefaultSignAndBroadcast(ctx context.Context, c *core.Core, m *message.Message) {
+	payload, err := c.SignMessage(m)
 	if err != nil {
 		return
 	}
-
-	if err = c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), payload); err != nil {
-		return
-	}
+	_ = c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), payload)
 }
 
 func NextProposeRound(currentRound int64, c *core.Core) int64 {
-	r := currentRound + 1
-	for ; ; r++ {
+	for r := currentRound + 1; ; r++ {
 		p := c.CommitteeSet().GetProposer(r)
 		if p.Address == c.Address() {
-			break
+			return r
 		}
 	}
-	return r
 }
 
-func DecodeMsg(iMsg *messageutils.Message, c *core.Core) *messageutils.Message {
-	payload, _ := c.FinalizeMessage(iMsg)
-	m := new(messageutils.Message)
-	if err := m.FromPayload(payload); err != nil {
-		return nil
-	}
-	return m
-}
-
-func AccountabilityEventDetected(t *testing.T, faultNode common.Address, tp autonity.AccountabilityEventType,
-	rule autonity.Rule, network test.Network) bool {
+func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, eventType autonity.AccountabilityEventType,
+	rule autonity.Rule, network Network) bool {
 
 	n := network[1]
-	autonityContract, _ := NewAutonity(AutonityContractAddr, n.WsClient)
-	var events []AutonityAccountabilityEvent
+	autonityContract, _ := autonity.NewAccountability(autonity.AccountabilityContractAddress, n.WsClient)
+	var events []autonity.AccountabilityEvent
 	var err error
-	if tp == autonity.Misbehaviour {
-		events, err = autonityContract.GetValidatorRecentMisbehaviours(nil, faultNode)
-		require.NoError(t, err)
+	if eventType == autonity.Misbehaviour {
+		events, err = autonityContract.GetValidatorFaults(nil, faultyValidator)
 	} else {
-		events, err = autonityContract.GetValidatorRecentAccusations(nil, faultNode)
-		require.NoError(t, err)
+		var event autonity.AccountabilityEvent
+		event, err = autonityContract.GetValidatorAccusation(nil, faultyValidator)
+		events = []autonity.AccountabilityEvent{event}
 	}
-	presented := false
+	require.NoError(t, err)
+	found := false
 	for _, e := range events {
-		if e.Sender == faultNode && e.Rule == uint8(rule) {
-			presented = true
+		if e.Offender == faultyValidator && e.Rule == uint8(rule) {
+			found = true
 		}
 	}
-	return presented
+
+	// Go through every block receipt and look for log emitted by the autonity contract
+
+	return found
 }

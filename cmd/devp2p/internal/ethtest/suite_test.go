@@ -112,7 +112,7 @@ func setupGeth(stack *node.Node) error {
 
 	backend, err := eth.New(stack, &ethconfig.Config{
 		Genesis:                 &chain.genesis,
-		NetworkId:               chain.genesis.Config.ChainID.Uint64(), // 19763
+		NetworkID:               chain.genesis.Config.ChainID.Uint64(), // 19763
 		DatabaseCache:           10,
 		TrieCleanCache:          10,
 		TrieCleanCacheJournal:   "",
@@ -120,7 +120,7 @@ func setupGeth(stack *node.Node) error {
 		TrieDirtyCache:          16,
 		TrieTimeout:             60 * time.Minute,
 		SnapshotCache:           10,
-	}, nil)
+	})
 	if err != nil {
 		return err
 	}

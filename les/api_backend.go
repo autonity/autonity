@@ -60,7 +60,7 @@ func (b *LesApiBackend) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
-func (b *LesApiBackend) GetMinBaseFee(header *types.Header) (*big.Int, error) {
+func (b *LesApiBackend) MinBaseFee(_ *types.Header) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 

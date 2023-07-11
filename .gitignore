@@ -52,3 +52,5 @@ profile.cov
 **/yarn-error.log
 
 /vendor
+/autonity/solidity/package.json
+/autonity/solidity/package-lock.json

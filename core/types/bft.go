@@ -125,7 +125,7 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	return nil
 }
 
-func RLPHash(v interface{}) (h common.Hash) {
+func RLPHash(v any) (h common.Hash) {
 	hw := sha3.NewLegacyKeccak256()
 	rlp.Encode(hw, v)
 	hw.Sum(h[:0])
@@ -133,6 +133,7 @@ func RLPHash(v interface{}) (h common.Hash) {
 }
 
 // GetSignatureAddress gets the signer address from the signature
+// Youssef: This is too generic and merely a wrapper against ecrecover, that belongs to the crypto package.
 func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
 	// 1. Keccak data
 	hashData := crypto.Keccak256(data)

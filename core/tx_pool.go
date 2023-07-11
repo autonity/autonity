@@ -18,7 +18,6 @@ package core
 
 import (
 	"errors"
-	"github.com/autonity/autonity/autonity"
 	"math"
 	"math/big"
 	"sort"
@@ -148,8 +147,7 @@ type blockChain interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
-	GetAutonityContract() *autonity.Contract
-	GetMinBaseFee(header *types.Header) (*big.Int, error)
+	MinBaseFee(header *types.Header) (*big.Int, error)
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -646,8 +644,8 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return err
 	}
 
-	if gp, err := pool.chain.GetAutonityContract().GetMinimumBaseFee(pool.chain.CurrentBlock().Header(), pool.currentState); err == nil {
-		if new(big.Int).SetUint64(gp).Cmp(tx.GasPrice()) > 0 {
+	if gp, err := pool.chain.MinBaseFee(pool.chain.CurrentBlock().Header()); err == nil {
+		if gp.Cmp(tx.GasPrice()) > 0 {
 			return errors.New("fee cap less than Autonity minimum base fee")
 		}
 	} else {

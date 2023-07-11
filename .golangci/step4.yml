@@ -5,6 +5,9 @@ linters:
   enable:
     - gosec
     - ineffassign
-    - depguard
     - typecheck
   disable-all: true
+
+issues:
+  exclude:
+    - 'G404'

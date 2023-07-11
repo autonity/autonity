@@ -4,8 +4,9 @@ import (
 	"github.com/autonity/autonity/consensus"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
+	"github.com/autonity/autonity/log"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -34,10 +35,11 @@ func TestGetProposal(t *testing.T) {
 	nodeAddr := common.BytesToAddress([]byte("node"))
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(nodeAddr)
+	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 	core := New(backendMock)
 
-	proposalMsg, proposal, _ := randomProposal(t)
-	core.messages.GetOrCreate(proposal.Round).SetProposal(&proposal, proposalMsg, true)
+	proposalMsg, proposal := randomProposal(t)
+	core.messages.GetOrCreate(proposal.Round).SetProposal(proposal, proposalMsg, true)
 
 	assert.Equal(t, proposal.ProposalBlock.Hash(), *getProposal(core, proposal.Round))
 }
@@ -50,14 +52,15 @@ func TestGetRoundState(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(sender)
+	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 
 	c := New(backendMock)
 
-	var rounds []int64 = []int64{0, 1}
+	rounds := []int64{0, 1}
 	height := big.NewInt(int64(100) + 1)
 
 	// Prepare 2 rounds of messages
-	proposals := make([]messageutils.Proposal, 2)
+	proposals := make([]*message.Proposal, 2)
 	proposals[0], _ = prepareRoundMsgs(t, c, rounds[0], height, sender)
 	proposals[1], _ = prepareRoundMsgs(t, c, rounds[1], height, sender)
 
@@ -68,7 +71,7 @@ func TestGetRoundState(t *testing.T) {
 	require.Len(t, states, 2)
 	for _, state := range states {
 		assert.Contains(t, rounds, state.Round)
-		checkRoundState(t, state, rounds[state.Round], &proposals[state.Round], true)
+		checkRoundState(t, state, rounds[state.Round], proposals[state.Round], true)
 	}
 }
 
@@ -84,14 +87,15 @@ func TestGetCoreState(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(sender)
+	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
 
 	c := New(backendMock)
 
-	var rounds []int64 = []int64{0, 1}
+	var rounds = []int64{0, 1}
 
 	// Prepare 2 rounds of messages
-	proposals := make([]messageutils.Proposal, 2)
+	proposals := make([]*message.Proposal, 2)
 	proposers := make([]common.Address, 2)
 	proposals[0], proposers[0] = prepareRoundMsgs(t, c, rounds[0], height, sender)
 	proposals[1], proposers[1] = prepareRoundMsgs(t, c, rounds[1], height, sender)
@@ -108,7 +112,6 @@ func TestGetCoreState(t *testing.T) {
 	}
 	go c.handleStateDump(e)
 	state := <-e.StateChan
-
 	assert.Equal(t, sender, state.Client)
 	assert.Equal(t, c.blockPeriod, state.BlockPeriod)
 	assert.Len(t, state.CurHeightMessages, 6)
@@ -137,11 +140,11 @@ func TestGetCoreState(t *testing.T) {
 	require.Len(t, state.RoundStates, 2)
 	for _, s := range state.RoundStates {
 		assert.Contains(t, rounds, s.Round)
-		checkRoundState(t, s, rounds[s.Round], &proposals[s.Round], true)
+		checkRoundState(t, s, rounds[s.Round], proposals[s.Round], true)
 	}
 }
 
-func randomProposal(t *testing.T) (*messageutils.Message, messageutils.Proposal, *messageutils.LiteProposal) {
+func randomProposal(t *testing.T) (*message.Message, *message.Proposal) {
 	currentHeight := big.NewInt(int64(rand.Intn(100) + 1))
 	currentRound := int64(rand.Intn(100) + 1)
 
@@ -153,7 +156,7 @@ func randomProposal(t *testing.T) (*messageutils.Message, messageutils.Proposal,
 	return generateBlockProposal(t, currentRound, currentHeight, currentRound-1, proposer, false, key)
 }
 
-func checkRoundState(t *testing.T, s tctypes.RoundState, wantRound int64, wantProposal *messageutils.Proposal, wantVerfied bool) {
+func checkRoundState(t *testing.T, s tctypes.RoundState, wantRound int64, wantProposal *message.Proposal, wantVerfied bool) {
 	require.Equal(t, wantProposal.ProposalBlock.Hash(), s.Proposal)
 	require.Len(t, s.PrevoteState, 1)
 	require.Len(t, s.PrecommitState, 1)
@@ -166,13 +169,13 @@ func checkRoundState(t *testing.T, s tctypes.RoundState, wantRound int64, wantPr
 	require.Equal(t, wantProposal.ProposalBlock.Hash(), s.PrecommitState[0].Value)
 }
 
-func prepareRoundMsgs(t *testing.T, c *Core, r int64, h *big.Int, sender common.Address) (proposal messageutils.Proposal, proposer common.Address) {
+func prepareRoundMsgs(t *testing.T, c *Core, r int64, h *big.Int, sender common.Address) (proposal *message.Proposal, proposer common.Address) {
 	privKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
-	proposalMsg, proposal, _ := generateBlockProposal(t, r, h, 0, crypto.PubkeyToAddress(privKey.PublicKey), false, privKey)
+	proposalMsg, proposal := generateBlockProposal(t, r, h, 0, crypto.PubkeyToAddress(privKey.PublicKey), false, privKey)
 	prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
 	precommitMsg, _, _ := prepareVote(t, consensus.MsgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
-	c.messages.GetOrCreate(r).SetProposal(&proposal, proposalMsg, true)
+	c.messages.GetOrCreate(r).SetProposal(proposal, proposalMsg, true)
 	c.messages.GetOrCreate(r).AddPrevote(proposal.ProposalBlock.Hash(), *prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(proposal.ProposalBlock.Hash(), *precommitMsg)
 	return proposal, proposalMsg.Address

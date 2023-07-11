@@ -1,18 +1,17 @@
 package backend
 
 import (
+	"github.com/autonity/autonity/params/generated"
 	"math/big"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/acdefault"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rpc"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCommittee(t *testing.T) {
@@ -22,7 +21,7 @@ func TestGetCommittee(t *testing.T) {
 	c := consensus.NewMockChainReader(ctrl)
 	h := &types.Header{Number: big.NewInt(1)}
 	c.EXPECT().GetHeaderByNumber(uint64(1)).Return(h)
-	API := &API{
+	api := &API{
 		chain: c,
 		getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
 			if header == h && chain == c {
@@ -34,7 +33,7 @@ func TestGetCommittee(t *testing.T) {
 
 	bn := rpc.BlockNumber(1)
 
-	got, err := API.GetCommittee(&bn)
+	got, err := api.GetCommittee(&bn)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -49,11 +48,11 @@ func TestGetCommitteeAtHash(t *testing.T) {
 		chain := consensus.NewMockChainReader(ctrl)
 		chain.EXPECT().GetHeaderByHash(hash).Return(nil)
 
-		API := &API{
+		api := &API{
 			chain: chain,
 		}
 
-		_, err := API.GetCommitteeAtHash(hash)
+		_, err := api.GetCommitteeAtHash(hash)
 		if err != errUnknownBlock {
 			t.Fatalf("expected %v, got %v", errUnknownBlock, err)
 		}
@@ -71,7 +70,7 @@ func TestGetCommitteeAtHash(t *testing.T) {
 
 		want := types.Committee{}
 
-		API := &API{
+		api := &API{
 			chain: c,
 			getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
 				if header == h && chain == c {
@@ -81,7 +80,7 @@ func TestGetCommitteeAtHash(t *testing.T) {
 			},
 		}
 
-		got, err := API.GetCommitteeAtHash(hash)
+		got, err := api.GetCommitteeAtHash(hash)
 		assert.NoError(t, err)
 		assert.Equal(t, want, got)
 	})
@@ -94,13 +93,13 @@ func TestAPIGetContractABI(t *testing.T) {
 	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
 
-	want := acdefault.ABI()
+	want := generated.AutonityAbi
 
-	API := &API{
+	api := &API{
 		tendermint: engine,
 	}
 
-	got := API.GetContractABI()
+	got := *api.GetContractABI()
 	assert.Equal(t, want, got)
 }
 
@@ -111,7 +110,7 @@ func TestAPIGetContractAddress(t *testing.T) {
 	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
 
-	want := autonity.ContractAddress
+	want := autonity.AutonityContractAddress
 
 	API := &API{
 		tendermint: engine,

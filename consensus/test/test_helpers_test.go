@@ -4,29 +4,27 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/miner"
-	"io/ioutil"
 	"math"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
-	"golang.org/x/sync/errgroup"
-
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 const defaultStake = 100
@@ -60,7 +58,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 		if strings.HasPrefix(name, ValidatorPrefix) {
 			address := crypto.PubkeyToAddress(nodes[name].privateKey.PublicKey)
 			validators = append(validators, &params.Validator{
-				Address:        &address,
+				NodeAddress:    &address,
 				Enode:          nodes[name].url,
 				Treasury:       address,
 				BondedStake:    stake,
@@ -75,9 +73,9 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	return genesis
 }
 
-func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *eth.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
 	// Define the basic configurations for the Ethereum node
-	datadir, err := ioutil.TempDir("", "")
+	datadir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
 
 	if listenAddr == "" {
@@ -104,9 +102,9 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		configNode.P2P.OutRate = outRate
 	}
 
-	ethConfig := &eth.Config{
+	ethConfig := &ethconfig.Config{
 		Genesis:         genesis,
-		NetworkId:       genesis.Config.ChainID.Uint64(),
+		NetworkID:       genesis.Config.ChainID.Uint64(),
 		SyncMode:        downloader.FullSync,
 		DatabaseCache:   256,
 		DatabaseHandles: 256,

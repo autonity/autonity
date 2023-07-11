@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 	"reflect"
@@ -20,16 +20,15 @@ import (
 // New creates an Tendermint consensus Core
 func New(backend interfaces.Backend) *Core {
 	addr := backend.Address()
-	logger := log.New("addr", addr.String())
-	messagesMap := messageutils.NewMessagesMap()
+	messagesMap := message.NewMessagesMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
 		blockPeriod:            1, // todo: retrieve it from contract
 		address:                addr,
-		logger:                 logger,
+		logger:                 backend.Logger(),
 		backend:                backend,
-		backlogs:               make(map[common.Address][]*messageutils.Message),
-		backlogUnchecked:       make(map[uint64][]*messageutils.Message),
+		backlogs:               make(map[common.Address][]*message.Message),
+		backlogUntrusted:       make(map[uint64][]*message.Message),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -38,22 +37,22 @@ func New(backend interfaces.Backend) *Core {
 		lockedRound:            -1,
 		validRound:             -1,
 		curRoundMessages:       roundMessage,
-		proposeTimeout:         tctypes.NewTimeout(tctypes.Propose, logger),
-		prevoteTimeout:         tctypes.NewTimeout(tctypes.Prevote, logger),
-		precommitTimeout:       tctypes.NewTimeout(tctypes.Precommit, logger),
+		proposeTimeout:         tctypes.NewTimeout(tctypes.Propose, backend.Logger()),
+		prevoteTimeout:         tctypes.NewTimeout(tctypes.Prevote, backend.Logger()),
+		precommitTimeout:       tctypes.NewTimeout(tctypes.Precommit, backend.Logger()),
 	}
 	c.SetDefaultHandlers()
 	return c
 }
 
 func (c *Core) SetDefaultHandlers() {
-	c.br = &BroadCastService{c}
-	c.prevoter = &PrevoteService{c}
-	c.precommiter = &PrecommitService{c}
-	c.proposer = &ProposeService{c}
+	c.broadcaster = &Broadcaster{c}
+	c.prevoter = &Prevoter{c}
+	c.precommiter = &Precommiter{c}
+	c.proposer = &Proposer{c}
 }
 
-func (c *Core) SetBroadcastHandler(svc interfaces.Broadcaster) {
+func (c *Core) SetBroadcaster(svc interfaces.Broadcaster) {
 	if svc == nil {
 		return
 	}
@@ -61,7 +60,7 @@ func (c *Core) SetBroadcastHandler(svc interfaces.Broadcaster) {
 	// broadcast service object
 	field0 := reflect.ValueOf(svc).Elem().Field(0)
 	field0.Set(reflect.ValueOf(c))
-	c.br = svc
+	c.broadcaster = svc
 }
 func (c *Core) SetPrevoter(svc interfaces.Prevoter) {
 	if svc == nil {
@@ -128,9 +127,9 @@ type Core struct {
 	futureProposalTimer    *time.Timer
 	stopped                chan struct{}
 
-	backlogs            map[common.Address][]*messageutils.Message
-	backlogUnchecked    map[uint64][]*messageutils.Message
-	backlogUncheckedLen int
+	backlogs             map[common.Address][]*message.Message
+	backlogUntrusted     map[uint64][]*message.Message
+	backlogUntrustedSize int
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
 
@@ -146,8 +145,8 @@ type Core struct {
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	step                  tctypes.Step
-	curRoundMessages      *messageutils.RoundMessages
-	messages              *messageutils.MessagesMap
+	curRoundMessages      *message.RoundMessages
+	messages              *message.MessagesMap
 	sentProposal          bool
 	sentPrevote           bool
 	sentPrecommit         bool
@@ -164,11 +163,11 @@ type Core struct {
 
 	futureRoundChange map[int64]map[common.Address]*big.Int
 
-	autonityContract *autonity.Contract
+	autonityContract *autonity.Contracts
 
 	// tendermint behaviour interfaces, can be used in customizing the behaviours
 	// during malicious testing
-	br          interfaces.Broadcaster
+	broadcaster interfaces.Broadcaster
 	prevoter    interfaces.Prevoter
 	precommiter interfaces.Precommiter
 	proposer    interfaces.Proposer
@@ -202,11 +201,11 @@ func (c *Core) Step() tctypes.Step {
 	return c.step
 }
 
-func (c *Core) CurRoundMessages() *messageutils.RoundMessages {
+func (c *Core) CurRoundMessages() *message.RoundMessages {
 	return c.curRoundMessages
 }
 
-func (c *Core) Messages() *messageutils.MessagesMap {
+func (c *Core) Messages() *message.MessagesMap {
 	return c.messages
 }
 
@@ -295,68 +294,29 @@ func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Addre
 }
 
 func (c *Core) Br() interfaces.Broadcaster {
-	return c.br
+	return c.broadcaster
 }
 
 func (c *Core) SetBr(br interfaces.Broadcaster) {
-	c.br = br
+	c.broadcaster = br
 }
 
-type BroadCastService struct {
-	*Core
+func (c *Core) CurrentHeightMessages() []*message.Message {
+	return c.messages.Messages()
 }
 
-func (s *BroadCastService) Broadcast(ctx context.Context, msg *messageutils.Message) {
-	logger := s.Logger().New("step", s.Step())
-
-	payload, err := s.FinalizeMessage(msg)
-	if err != nil {
-		logger.Error("Failed to finalize message", "msg", msg, "err", err)
-		return
-	}
-
-	// Broadcast payload
-	logger.Debug("broadcasting", "msg", msg.String())
-	if err = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
-		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
-		return
-	}
-}
-
-func (c *Core) GetCurrentHeightMessages() []*messageutils.Message {
-	return c.messages.GetMessages()
-}
-
-func (c *Core) IsMember(address common.Address) bool {
-	_, _, err := c.CommitteeSet().GetByAddress(address)
-	return err == nil
-}
-
-func (c *Core) FinalizeMessage(msg *messageutils.Message) ([]byte, error) {
-	var err error
-
-	// Sign message
-	data, err := msg.PayloadNoSig()
+func (c *Core) SignMessage(msg *message.Message) ([]byte, error) {
+	data, err := msg.BytesNoSignature()
 	if err != nil {
 		return nil, err
 	}
-	msg.Signature, err = c.backend.Sign(data)
-	if err != nil {
+	if msg.Signature, err = c.backend.Sign(data); err != nil {
 		return nil, err
 	}
-
-	return msg.GetPayload(), nil
+	return msg.GetBytes(), nil
 }
 
-// check if msg sender is proposer for proposal handling.
-func (c *Core) IsProposerMsg(round int64, msgAddress common.Address) bool {
-	return c.CommitteeSet().GetProposer(round).Address == msgAddress
-}
-func (c *Core) IsProposer() bool {
-	return c.CommitteeSet().GetProposer(c.Round()).Address == c.address
-}
-
-func (c *Core) Commit(round int64, messages *messageutils.RoundMessages) {
+func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 	c.SetStep(tctypes.PrecommitDone)
 
 	proposal := messages.Proposal()
@@ -439,10 +399,10 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 func (c *Core) SetInitialState(r int64) {
 	// Start of new height where round is 0
 	if r == 0 {
-		lastBlockMined, _ := c.backend.LastCommittedProposal()
+		lastBlockMined, _ := c.backend.HeadBlock()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
-		c.committee.SetLastHeader(lastBlockMined)
+		c.committee.SetLastHeader(lastHeader)
 		c.setLastHeader(lastHeader)
 		c.lockedRound = -1
 		c.lockedValue = nil
@@ -463,7 +423,7 @@ func (c *Core) SetInitialState(r int64) {
 	c.setRound(r)
 }
 
-func (c *Core) AcceptVote(roundMsgs *messageutils.RoundMessages, step tctypes.Step, hash common.Hash, msg messageutils.Message) {
+func (c *Core) AcceptVote(roundMsgs *message.RoundMessages, step tctypes.Step, hash common.Hash, msg message.Message) {
 	switch step {
 	case tctypes.Prevote:
 		roundMsgs.AddPrevote(hash, msg)
@@ -473,7 +433,7 @@ func (c *Core) AcceptVote(roundMsgs *messageutils.RoundMessages, step tctypes.St
 }
 
 func (c *Core) SetStep(step tctypes.Step) {
-	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
+	c.logger.Debug("Moving to step "+step.String(), "round", c.Round())
 	c.step = step
 	c.processBacklog()
 }
@@ -530,4 +490,31 @@ func (c *Core) Backend() interfaces.Backend {
 }
 func (c *Core) Logger() log.Logger {
 	return c.logger
+}
+
+func (c *Core) IsFromProposer(round int64, address common.Address) bool {
+	return c.CommitteeSet().GetProposer(round).Address == address
+}
+func (c *Core) IsProposer() bool {
+	return c.CommitteeSet().GetProposer(c.Round()).Address == c.address
+}
+
+type Broadcaster struct {
+	*Core
+}
+
+func (s *Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+	logger := s.Logger().New("step", s.Step())
+	payload, err := s.SignMessage(msg)
+	if err != nil {
+		// This should not fail ..
+		logger.Error("Failed to finalize message", "message", msg, "err", err)
+		return
+	}
+	// SignAndBroadcast payload
+	logger.Debug("Broadcasting", "message", msg.String())
+	if err := s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
+		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
+		return
+	}
 }

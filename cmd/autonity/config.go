@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/core"
-	"github.com/davecgh/go-spew/spew"
 	"math/big"
 	"os"
 	"reflect"
@@ -152,6 +151,15 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	}
 	applyMetricConfig(ctx, &cfg)
 
+	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
+	if genesisPath != "" {
+		log.Info("Initializing genesis configuration", "filepath", genesisPath)
+		genesis, err := loadGenesisFile(genesisPath)
+		if err != nil {
+			utils.Fatalf("Failed to load genesis file: %v", err)
+		}
+		cfg.Eth.Genesis = genesis
+	}
 	return stack, cfg
 }
 
@@ -168,21 +176,23 @@ func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
 		return nil, err
 	}
 	// Make AutonityContract and Tendermint consensus mandatory for the time being.
-	if genesis.Config == nil {
-		return nil, fmt.Errorf("no Autonity Contract and Tendermint configs section in genesis")
-	}
-	if genesis.Config.AutonityContractConfig == nil {
-		return nil, fmt.Errorf("no Autonity Contract config section in genesis")
-	}
-	if genesis.Config.OracleContractConfig == nil {
-		return nil, fmt.Errorf("no Oracle Contract config section in genesis")
-	}
+	// this is not the right place for that
+	/*
+		if genesis.Config == nil {
+			return nil, fmt.Errorf("no Autonity Contract and Tendermint configs section in genesis")
+		}
+		if genesis.Config.AutonityContractConfig == nil {
+			return nil, fmt.Errorf("no Autonity Contract config section in genesis")
+		}
+		if genesis.Config.OracleContractConfig == nil {
+			return nil, fmt.Errorf("no Oracle Contract config section in genesis")
+		}
 
-	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
-		spew.Dump(genesis.Config.AutonityContractConfig)
-		return nil, err
-	}
-
+		if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
+			spew.Dump(genesis.Config.AutonityContractConfig)
+			return nil, err
+		}
+	*/
 	return genesis, nil
 }
 
@@ -205,42 +215,9 @@ func applyGenesis(genesis *core.Genesis, node *node.Node) error {
 	return nil
 }
 
-// If genesis flag is not set, node will load chain-data from data-dir. If the flat is set, node will load the
-// genesis file, check if genesis file is match with genesis block, and check if chain configuration of the genesis
-// file is compatible with current chain-data, apply new compatible chain configuration into chain db.
-// Otherwise client will end up with a mis-match genesis error or an incompatible chain configuration error.
-func initGenesisBlockOnStart(ctx *cli.Context, stack *node.Node) {
-	genesisPath := ctx.GlobalString(utils.InitGenesisFlag.Name)
-	if genesisPath != "" {
-		log.Info("Trying to initialise genesis block with genesis file", "filepath", genesisPath)
-		genesis, err := loadGenesisFile(genesisPath)
-		if err != nil {
-			utils.Fatalf("failed to validate genesis file: %v", err)
-		}
-		// Set default hardforks
-		genesis.Config.ByzantiumBlock = new(big.Int)
-		genesis.Config.HomesteadBlock = new(big.Int)
-		genesis.Config.ConstantinopleBlock = new(big.Int)
-		genesis.Config.PetersburgBlock = new(big.Int)
-		genesis.Config.IstanbulBlock = new(big.Int)
-		genesis.Config.MuirGlacierBlock = new(big.Int)
-		genesis.Config.BerlinBlock = new(big.Int)
-		genesis.Config.LondonBlock = new(big.Int)
-		genesis.Config.ArrowGlacierBlock = new(big.Int)
-		genesis.Config.EIP158Block = new(big.Int)
-		genesis.Config.EIP150Block = new(big.Int)
-		genesis.Config.EIP155Block = new(big.Int)
-
-		err = applyGenesis(genesis, stack)
-		if err != nil {
-			utils.Fatalf("failed to apply genesis file: %v", err)
-		}
-	}
-}
-
 func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
-	initGenesisBlockOnStart(ctx, stack)
+
 	if ctx.GlobalIsSet(utils.OverrideArrowGlacierFlag.Name) {
 		cfg.Eth.OverrideArrowGlacier = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideArrowGlacierFlag.Name))
 	}

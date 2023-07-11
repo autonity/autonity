@@ -2,8 +2,6 @@
   "config": {
     "chainId": 1,
     "autonity": {
-      "bytecode": "",
-      "abi": "",
       "minBaseFee": 5000,
       "delegationRate": 1000,
       "blockPeriod": 1,
@@ -23,8 +21,6 @@
       ]
     },
     "oracle": {
-      "bytecode": "",
-      "abi": "",
       "votePeriod": 30
     }
   },

@@ -20,7 +20,7 @@ func TestTendermintMessage(t *testing.T) {
 	// generate one msg
 	data := []byte("data1")
 	hash := types.RLPHash(data)
-	msg := makeMsg(tendermintMsg, data)
+	msg := makeMsg(TendermintMsg, data)
 	addr := common.BytesToAddress([]byte("address"))
 
 	// 1. this message should not be in cache
@@ -64,7 +64,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(tendermintSyncMsg, []byte{})
+		msg := makeMsg(SyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -86,7 +86,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(tendermintSyncMsg, []byte{})
+		msg := makeMsg(SyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {

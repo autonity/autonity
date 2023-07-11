@@ -43,6 +43,17 @@ type ABI struct {
 	Receive  Method
 }
 
+type jsonField struct {
+	Type            string
+	Name            string
+	Inputs          []Argument
+	Outputs         []Argument `json:",omitempty"`
+	StateMutability *string    `json:",omitempty"`
+	Constant        *bool      `json:",omitempty"`
+	Payable         *bool      `json:",omitempty"`
+	Anonymous       *bool      `json:",omitempty"`
+}
+
 // JSON returns a parsed ABI interface and error if it failed.
 func JSON(reader io.Reader) (ABI, error) {
 	dec := json.NewDecoder(reader)
@@ -193,6 +204,23 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 		}
 	}
 	return nil
+}
+
+func (abi *ABI) MarshalJSON() ([]byte, error) {
+	fields := make([]jsonField, 0, 3+len(abi.Methods)+len(abi.Events)+len(abi.Errors))
+	fields = append(fields, abi.Constructor.jsonField())
+	fields = append(fields, abi.Fallback.jsonField())
+	fields = append(fields, abi.Receive.jsonField())
+	for _, m := range abi.Methods {
+		fields = append(fields, m.jsonField())
+	}
+	for _, e := range abi.Events {
+		fields = append(fields, e.jsonField())
+	}
+	for _, e := range abi.Errors {
+		fields = append(fields, e.jsonField())
+	}
+	return json.Marshal(&fields)
 }
 
 // MethodById looks up a method by the 4-byte id,

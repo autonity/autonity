@@ -84,8 +84,6 @@ var (
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		AutonityContractConfig: &AutonityContractGenesis{
-			Bytecode:         "",
-			ABI:              "",
 			MinBaseFee:       500_000_000,
 			EpochPeriod:      30 * 60,
 			UnbondingPeriod:  6 * 60 * 60,
@@ -146,8 +144,6 @@ var (
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		AutonityContractConfig: &AutonityContractGenesis{
-			Bytecode:         "",
-			ABI:              "",
 			MinBaseFee:       500_000_000,
 			EpochPeriod:      30 * 60,
 			UnbondingPeriod:  6 * 60 * 60,
@@ -387,8 +383,6 @@ var (
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
 	ValidatorEnode             = enode.NewV4(&ValidatorKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	TestAutonityContractConfig = AutonityContractGenesis{
-		Bytecode:         "",
-		ABI:              "",
 		MinBaseFee:       0,
 		EpochPeriod:      5,
 		MaxCommitteeSize: 7,
@@ -400,7 +394,7 @@ var (
 		Validators: []*Validator{
 			{
 				Treasury:       common.Address{},
-				Address:        &ValidatorAddress,
+				NodeAddress:    &ValidatorAddress,
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
 				BondedStake:    new(big.Int).SetUint64(1000),
@@ -408,9 +402,7 @@ var (
 		},
 	}
 	TestOracleContractConfig = OracleContractGenesis{
-		Bytecode:   "",
-		ABI:        "",
-		VotePeriod: votePeriod,
+		VotePeriod: OracleVotePeriod,
 		Symbols:    []string{"NTNUSD", "NTNAUD", "NTNCAD", "NTNEUR", "NTNGBP", "NTNJPY", "NTNSEK"},
 	}
 

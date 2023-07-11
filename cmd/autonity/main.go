@@ -39,6 +39,7 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/params"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/autonity/autonity/eth/tracers/js"
@@ -248,11 +249,11 @@ func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
 	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
-		log.Info("Starting Autonity on Piccadilly testnet...")
+		log.Info("Starting Autonity on Piccadilly testnet")
 	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
-		log.Info("Starting Autonity on Bakerloo testnet...")
+		log.Info("Starting Autonity on Bakerloo testnet")
 	case ctx.IsSet(utils.DeveloperFlag.Name):
-		log.Info("Starting autonity in ephemeral dev mode...")
+		log.Info("Starting Autonity in ephemeral dev mode")
 		log.Warn(`You are running autonity in --dev mode. Please note the following:
 
   1. This mode is only intended for fast, iterative development without assumptions on
@@ -271,8 +272,8 @@ func prepare(ctx *cli.Context) {
 	--password <password file path>
 	--keystore <account's keystore directory path>
 `)
-	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
-		log.Info("Starting Autonity...")
+	default:
+		log.Info("Starting the Autonity node client", "version", params.Version, "networkid", ctx.GlobalInt(utils.NetworkIdFlag.Name))
 	}
 	// If we're a full node on mainnet without --cache specified, bump default cache allowance
 	if ctx.GlobalString(utils.SyncModeFlag.Name) != syncModeLight && !ctx.GlobalIsSet(utils.CacheFlag.Name) &&

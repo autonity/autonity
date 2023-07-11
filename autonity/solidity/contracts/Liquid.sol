@@ -99,7 +99,9 @@ contract Liquid is IERC20
             (_reward * commissionRate) / COMMISSION_RATE_PRECISION;
         require(_validatorReward < _reward, "invalid validator reward");
         _reward -= _validatorReward;
-        treasury.transfer(_validatorReward);
+
+        // TODO: handle failure
+        treasury.call{value: _validatorReward, gas:2300}("");
 
         // Step 2 : perform redistribution amongst liquid stake token
         // holders for this validator.

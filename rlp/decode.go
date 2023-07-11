@@ -74,7 +74,7 @@ type Decoder interface {
 // Note that Decode does not set an input limit for all readers and may be vulnerable to
 // panics cause by huge value sizes. If you need an input limit, use
 //
-//     NewStream(r, limit).Decode(val)
+//	NewStream(r, limit).Decode(val)
 func Decode(r io.Reader, val interface{}) error {
 	stream := streamPool.Get().(*Stream)
 	defer streamPool.Put(stream)
@@ -85,7 +85,7 @@ func Decode(r io.Reader, val interface{}) error {
 
 // DecodeBytes parses RLP data from b into val. Please see package-level documentation for
 // the decoding rules. The input must contain exactly one value and no trailing data.
-func DecodeBytes(b []byte, val interface{}) error {
+func DecodeBytes(b []byte, val any) error {
 	r := bytes.NewReader(b)
 
 	stream := streamPool.Get().(*Stream)

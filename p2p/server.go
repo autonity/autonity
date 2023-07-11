@@ -206,6 +206,7 @@ type Server struct {
 
 	// State of run loop and listenLoop.
 	inboundHistory expHeap
+	jailed         safeExpHeap
 
 	consensusNodes []*enode.Node
 	trusted        sync.Map
@@ -397,7 +398,7 @@ func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 			}
 		}
 		if !found {
-			log.Debug("dropping node from static peers", "enode", connectedPeer.String())
+			log.Debug("Dropping node from static peers", "enode", connectedPeer.String())
 			src.RemoveTrustedPeer(connectedPeer)
 			src.dialsched.removeStatic(connectedPeer)
 		}
@@ -413,7 +414,7 @@ func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 			}
 		}
 		if !found {
-			log.Debug("connecting to validator", "enode", whitelistedEnode.String())
+			log.Debug("Connecting to validator", "enode", whitelistedEnode.String())
 			src.AddTrustedPeer(whitelistedEnode)
 			src.AddPeer(whitelistedEnode)
 		}
@@ -555,7 +556,7 @@ func (srv *Server) setupLocalNode() error {
 		return err
 	}
 	srv.nodedb = db
-	srv.localnode = enode.NewLocalNode(db, srv.PrivateKey)
+	srv.localnode = enode.NewLocalNode(db, srv.PrivateKey, srv.log)
 	srv.localnode.SetFallbackIP(net.IP{127, 0, 0, 1})
 	// TODO: check conflicts
 	for _, p := range srv.Protocols {
@@ -853,6 +854,7 @@ running:
 }
 
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
+	srv.jailed.expire(srv.clock.Now(), nil)
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
@@ -862,6 +864,8 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscAlreadyConnected
 	case c.node.ID() == srv.localnode.ID():
 		return DiscSelf
+	case srv.jailed.contains(c.node.ID().String()):
+		return DiscJailed
 	default:
 		return nil
 	}
@@ -977,6 +981,11 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	}
 	srv.inboundHistory.add(remoteIP.String(), now.Add(inboundThrottleTime))
 	return nil
+}
+
+func (srv *Server) AddJail(id enode.ID, jailTime time.Duration) {
+	now := srv.clock.Now()
+	srv.jailed.add(id.String(), now.Add(jailTime))
 }
 
 // SetupConn runs the handshakes and attempts to add the connection
@@ -1107,7 +1116,7 @@ func (srv *Server) runPeer(p *Peer) {
 	// before returning, so this send should not select on srv.quit.
 	srv.delpeer <- peerDrop{p, err, remoteRequested}
 
-	// Broadcast peer drop to external subscribers. This needs to be
+	// SignAndBroadcast peer drop to external subscribers. This needs to be
 	// after the send to delpeer so subscribers have a consistent view of
 	// the peer set (i.e. Server.Peers() doesn't include the peer when the
 	// event is received.

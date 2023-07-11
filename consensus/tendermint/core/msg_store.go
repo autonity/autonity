@@ -2,7 +2,7 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
-	mUtils "github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"sync"
 )
 
@@ -13,48 +13,47 @@ type MsgStore struct {
 	// the first height that msg are buffered from after node is start.
 	firstHeight uint64
 	// map[Height]map[Round]map[MsgType]map[common.address][]*Message
-	messages map[uint64]map[int64]map[uint8]map[common.Address][]*mUtils.Message
+	messages map[uint64]map[int64]map[uint8]map[common.Address][]*message.Message
 }
 
 func NewMsgStore() *MsgStore {
 	return &MsgStore{
 		RWMutex:     sync.RWMutex{},
 		firstHeight: uint64(0),
-		messages:    make(map[uint64]map[int64]map[uint8]map[common.Address][]*mUtils.Message)}
+		messages:    make(map[uint64]map[int64]map[uint8]map[common.Address][]*message.Message)}
 }
 
 // Save store msg into msg store
-func (ms *MsgStore) Save(m *mUtils.Message) {
+func (ms *MsgStore) Save(m *message.Message) {
 	ms.Lock()
 	defer ms.Unlock()
 
 	if ms.firstHeight == uint64(0) {
 		ms.firstHeight = m.H()
 	}
-
-	height, _ := m.Height()
-	roundMap, ok := ms.messages[height.Uint64()]
+	height := m.H()
+	roundMap, ok := ms.messages[height]
 	if !ok {
-		roundMap = make(map[int64]map[uint8]map[common.Address][]*mUtils.Message)
-		ms.messages[height.Uint64()] = roundMap
+		roundMap = make(map[int64]map[uint8]map[common.Address][]*message.Message)
+		ms.messages[height] = roundMap
 	}
 
-	round, _ := m.Round()
+	round := m.R()
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
-		msgTypeMap = make(map[uint8]map[common.Address][]*mUtils.Message)
+		msgTypeMap = make(map[uint8]map[common.Address][]*message.Message)
 		roundMap[round] = msgTypeMap
 	}
 
 	addressMap, ok := msgTypeMap[m.Code]
 	if !ok {
-		addressMap = make(map[common.Address][]*mUtils.Message)
+		addressMap = make(map[common.Address][]*message.Message)
 		msgTypeMap[m.Code] = addressMap
 	}
 
 	msgs, ok := addressMap[m.Address]
 	if !ok {
-		var msgList []*mUtils.Message
+		var msgList []*message.Message
 		addressMap[m.Address] = append(msgList, m)
 		return
 	}
@@ -67,7 +66,7 @@ func (ms *MsgStore) FirstHeightBuffered() uint64 {
 	return ms.firstHeight
 }
 
-func (ms *MsgStore) DeleteMsgsBeforeHeight(height uint64) {
+func (ms *MsgStore) DeleteOlds(height uint64) {
 	ms.Lock()
 	defer ms.Unlock()
 	for h := range ms.messages {
@@ -86,11 +85,11 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, step uint8, sender com
 }
 
 // Get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(height uint64, query func(*mUtils.Message) bool) []*mUtils.Message {
+func (ms *MsgStore) Get(height uint64, query func(*message.Message) bool) []*message.Message {
 	ms.RLock()
 	defer ms.RUnlock()
 
-	var result []*mUtils.Message
+	var result []*message.Message
 	roundMap, ok := ms.messages[height]
 	if !ok {
 		return result

@@ -3,18 +3,16 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/consensus"
 	"net"
 	"sync"
-
-	"github.com/autonity/autonity/event"
-	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/p2p/enode"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 type networkRate struct {
@@ -24,21 +22,20 @@ type networkRate struct {
 
 type testNode struct {
 	netNode
-	isRunning         bool
-	node              *node.Node
-	nodeConfig        *node.Config
-	ethConfig         *eth.Config
-	engineConstructor func(basic consensus.Engine) consensus.Engine
-	enode             *enode.Node
-	service           *eth.Ethereum
-	eventChan         chan core.ChainEvent
-	subscription      event.Subscription
-	transactions      map[common.Hash]struct{}
-	transactionsMu    sync.Mutex
-	blocks            map[uint64]block
-	lastBlock         uint64
-	txsSendCount      *int64
-	txsChainCount     map[uint64]int64
+	isRunning      bool
+	node           *node.Node
+	nodeConfig     *node.Config
+	ethConfig      *eth.Config
+	enode          *enode.Node
+	service        *eth.Ethereum
+	eventChan      chan core.ChainEvent
+	subscription   event.Subscription
+	transactions   map[common.Hash]struct{}
+	transactionsMu sync.Mutex
+	blocks         map[uint64]block
+	lastBlock      uint64
+	txsSendCount   *int64
+	txsChainCount  map[uint64]int64
 }
 
 type netNode struct {
@@ -68,7 +65,7 @@ func (validator *testNode) startNode() error {
 		return err
 	}
 
-	validator.service, err = eth.New(validator.node, validator.ethConfig, validator.engineConstructor)
+	validator.service, err = eth.New(validator.node, validator.ethConfig)
 	if err != nil {
 		return err
 	}

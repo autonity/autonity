@@ -26,9 +26,10 @@ import (
 // Argument holds the name of the argument and the corresponding type.
 // Types are used when packing and testing arguments.
 type Argument struct {
-	Name    string
-	Type    Type
-	Indexed bool // indexed is only used by events
+	Name        string
+	Type        Type
+	Indexed     bool // indexed is only used by events
+	marshalling *ArgumentMarshaling
 }
 
 type Arguments []Argument
@@ -48,7 +49,10 @@ func (argument *Argument) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("argument json err: %v", err)
 	}
-
+	argument.marshalling = &arg
+	argument.marshalling.Name = strings.Clone(arg.Name)
+	argument.marshalling.Type = strings.Clone(arg.Type)
+	argument.marshalling.InternalType = strings.Clone(arg.InternalType)
 	argument.Type, err = NewType(arg.Type, arg.InternalType, arg.Components)
 	if err != nil {
 		return err
@@ -57,6 +61,10 @@ func (argument *Argument) UnmarshalJSON(data []byte) error {
 	argument.Indexed = arg.Indexed
 
 	return nil
+}
+
+func (argument *Argument) MarshalJSON() ([]byte, error) {
+	return json.Marshal(argument.marshalling)
 }
 
 // NonIndexed returns the arguments with indexed arguments filtered out.

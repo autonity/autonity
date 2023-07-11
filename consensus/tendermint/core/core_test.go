@@ -1,9 +1,10 @@
 package core
 
 import (
+	"crypto/ecdsa"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
@@ -140,7 +141,7 @@ func TestCore_Setters(t *testing.T) {
 func TestCore_AcceptVote(t *testing.T) {
 
 	t.Run("AcceptPreVote", func(t *testing.T) {
-		messagesMap := messageutils.NewMessagesMap()
+		messagesMap := message.NewMessagesMap()
 		roundMessage := messagesMap.GetOrCreate(0)
 		c := &Core{
 			messages:         messagesMap,
@@ -158,7 +159,7 @@ func TestCore_AcceptVote(t *testing.T) {
 	})
 
 	t.Run("AcceptPreCommit", func(t *testing.T) {
-		messagesMap := messageutils.NewMessagesMap()
+		messagesMap := message.NewMessagesMap()
 		roundMessage := messagesMap.GetOrCreate(0)
 		c := &Core{
 			messages:         messagesMap,
@@ -174,4 +175,11 @@ func TestCore_AcceptVote(t *testing.T) {
 		c.AcceptVote(c.CurRoundMessages(), types.Precommit, common.Hash{}, *prevoteMsg)
 		require.Equal(t, 1, len(c.CurRoundMessages().GetMessages()))
 	})
+}
+
+func signer(prv *ecdsa.PrivateKey) func(data []byte) ([]byte, error) {
+	return func(data []byte) ([]byte, error) {
+		hashData := crypto.Keccak256(data)
+		return crypto.Sign(hashData, prv)
+	}
 }

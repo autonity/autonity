@@ -74,7 +74,7 @@ func TestUDPv5_lookupE2E(t *testing.T) {
 func startLocalhostV5(t *testing.T, cfg Config) *UDPv5 {
 	cfg.PrivateKey = newkey()
 	db, _ := enode.OpenDB("")
-	ln := enode.NewLocalNode(db, cfg.PrivateKey)
+	ln := enode.NewLocalNode(db, cfg.PrivateKey, log.Root())
 
 	// Prefix logs with node ID.
 	lprefix := fmt.Sprintf("(%s)", ln.ID().TerminalString())
@@ -705,7 +705,7 @@ func newUDPV5Test(t *testing.T) *udpV5Test {
 		nodesByIP:  make(map[string]*enode.LocalNode),
 	}
 	test.db, _ = enode.OpenDB("")
-	ln := enode.NewLocalNode(test.db, test.localkey)
+	ln := enode.NewLocalNode(test.db, test.localkey, log.Root())
 	ln.SetStaticIP(net.IP{10, 0, 0, 1})
 	ln.Set(enr.UDP(30303))
 	test.udp, _ = ListenV5(test.pipe, ln, Config{
@@ -748,7 +748,7 @@ func (test *udpV5Test) getNode(key *ecdsa.PrivateKey, addr *net.UDPAddr) *enode.
 	ln := test.nodesByID[id]
 	if ln == nil {
 		db, _ := enode.OpenDB("")
-		ln = enode.NewLocalNode(db, key)
+		ln = enode.NewLocalNode(db, key, log.Root())
 		ln.SetStaticIP(addr.IP)
 		ln.Set(enr.UDP(addr.Port))
 		test.nodesByID[id] = ln

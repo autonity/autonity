@@ -33,8 +33,8 @@ type Validator struct {
 	TreasuryKey *ecdsa.PrivateKey
 	// KeyPath is the file path at which the key is stored.
 	KeyPath string
-	// CustHandler is the collection of user specific handlers
-	CustHandler *node.CustomHandler
+	// TendermintServices is an optional familly of consensus hooks used for testing purposes.
+	TendermintServices *node.TendermintServices
 }
 
 // NewGenesis parses the input from the commandline and uses it to generate a

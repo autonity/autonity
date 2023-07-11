@@ -93,7 +93,7 @@ func (t *Timeout) MeasureMetricsOnStopTimer() {
 func (t *Timeout) Reset(s Step) {
 	err := t.StopTimer()
 	if err != nil {
-		t.Logger.Info("cant stop timer", "err", err)
+		t.Logger.Debug("Can't stop consensus timer", "err", err)
 	}
 
 	t.Lock()

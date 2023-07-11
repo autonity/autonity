@@ -19,6 +19,7 @@ package core
 import (
 	"fmt"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/params/generated"
 	"math"
 	"math/big"
 
@@ -263,12 +264,11 @@ func (st *StateTransition) preCheck() error {
 }
 
 // check if it is a vote transaction of the oracle Contract
-func checkOracleVote(msg Message) bool {
-	if (msg.To() != nil) && (*msg.To() != autonity.GetOracleContractAddress()) {
+func isOracleVote(msg Message) bool {
+	if (msg.To() != nil) && (*msg.To() != autonity.OracleContractAddress) {
 		return false
 	}
-	oracleABI := autonity.GetOracleABI()
-	method, err := oracleABI.MethodById(msg.Data())
+	method, err := generated.OracleAbi.MethodById(msg.Data())
 	if err != nil {
 		return false
 	}
@@ -351,14 +351,14 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	var oracleVote bool
 	if vmerr == nil {
-		oracleVote = checkOracleVote(msg)
+		oracleVote = isOracleVote(msg)
 		if oracleVote {
 			// Refund tx Fee, if this is a successful vote transaction
 			gasUsed := new(big.Int).SetUint64(st.gasUsed())
 			fee := new(big.Int).Mul(st.evm.Context.BaseFee, gasUsed)
 			st.state.AddBalance(st.msg.From(), fee)
 			//fmt.Println("Refunding Used Fee:", fee, " Base Fee:",
-			//	st.evm.Context.BaseFee, " Gas used:", gasUsed, " gasPrice:", st.gasPrice)
+			//st.evm.Context.BaseFee, " Gas used:", gasUsed, " gasPrice:", st.gasPrice)
 		}
 	}
 
@@ -366,7 +366,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		effectiveTip := cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 		st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
 		if !oracleVote {
-			st.state.AddBalance(autonity.ContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
+			st.state.AddBalance(autonity.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
 		}
 	}
 

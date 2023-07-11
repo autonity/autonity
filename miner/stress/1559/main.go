@@ -242,7 +242,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 	}
 	ethBackend, err := eth.New(stack, &ethconfig.Config{
 		Genesis:         genesis,
-		NetworkId:       genesis.Config.ChainID.Uint64(),
+		NetworkID:       genesis.Config.ChainID.Uint64(),
 		SyncMode:        downloader.FullSync,
 		DatabaseCache:   256,
 		DatabaseHandles: 256,
@@ -255,7 +255,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 			GasPrice:  big.NewInt(1),
 			Recommit:  time.Second,
 		},
-	}, nil)
+	})
 	if err != nil {
 		return nil, nil, err
 	}

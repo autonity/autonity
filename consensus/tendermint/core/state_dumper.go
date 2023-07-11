@@ -2,7 +2,7 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"math/big"
@@ -22,7 +22,7 @@ func (c *Core) handleStateDump(e tctypes.CoreStateRequestEvent) {
 	state := tctypes.TendermintState{
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,
-		CurHeightMessages: msgForDump(c.GetCurrentHeightMessages()),
+		CurHeightMessages: msgForDump(c.CurrentHeightMessages()),
 		BacklogMessages:   getBacklogMsgs(c),
 		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
 		// tendermint Core state:
@@ -63,7 +63,7 @@ func (c *Core) handleStateDump(e tctypes.CoreStateRequestEvent) {
 
 func getBacklogUncheckedMsgs(c *Core) []*tctypes.MsgForDump {
 	result := make([]*tctypes.MsgForDump, 0)
-	for _, ms := range c.backlogUnchecked {
+	for _, ms := range c.backlogUntrusted {
 		result = append(result, msgForDump(ms)...)
 	}
 
@@ -82,7 +82,7 @@ func getBacklogMsgs(c *Core) []*tctypes.MsgForDump {
 	return result
 }
 
-func msgForDump(msgs []*messageutils.Message) []*tctypes.MsgForDump {
+func msgForDump(msgs []*message.Message) []*tctypes.MsgForDump {
 	result := make([]*tctypes.MsgForDump, 0, len(msgs))
 	for _, m := range msgs {
 		msg := new(tctypes.MsgForDump)
@@ -93,8 +93,8 @@ func msgForDump(msgs []*messageutils.Message) []*tctypes.MsgForDump {
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1
 		msg.Height = big.NewInt(-1)
-		msg.Round, _ = m.Round()
-		msg.Height, _ = m.Height()
+		msg.Round = m.R()
+		msg.Height = big.NewInt(int64(m.H()))
 		result = append(result, msg)
 	}
 	return result
@@ -133,7 +133,7 @@ func getRoundState(c *Core) []tctypes.RoundState {
 	return states
 }
 
-func blockHashes(messages map[common.Hash]map[common.Address]messageutils.Message) []common.Hash {
+func blockHashes(messages map[common.Hash]map[common.Address]message.Message) []common.Hash {
 	blockHashes := make([]common.Hash, 0, len(messages))
 	for key := range messages {
 		blockHashes = append(blockHashes, key)
@@ -141,7 +141,7 @@ func blockHashes(messages map[common.Hash]map[common.Address]messageutils.Messag
 	return blockHashes
 }
 
-func getVoteState(s *messageutils.MessagesMap, round int64) (common.Hash, []tctypes.VoteState, []tctypes.VoteState) {
+func getVoteState(s *message.MessagesMap, round int64) (common.Hash, []tctypes.VoteState, []tctypes.VoteState) {
 	p := common.Hash{}
 
 	if s.GetOrCreate(round).Proposal() != nil && s.GetOrCreate(round).Proposal().ProposalBlock != nil {

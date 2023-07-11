@@ -89,5 +89,16 @@
   "ccce413b": "symbols(uint256)",
   "307de9b6": "vote(uint256,int256[],uint256)",
   "a7813587": "votePeriod()",
-  "5412b3ae": "votingInfo(address)"
+  "5412b3ae": "votingInfo(address)",
+  "1604e416": "epochReward()",
+  "96b477cb": "getEpochFromBlock(uint256)",
+  "5f7d3949": "getProposer(uint256,uint256)",
+  "d292e532": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,uint8))",
+  "1de9d9b6": "distributeRewards(address)",
+  "6c9789b0": "finalize(bool)",
+  "4dc925d3": "ACCUSATION_CONTRACT()",
+  "8e153dc3": "INNOCENCE_CONTRACT()",
+  "925c5492": "MISBEHAVIOUR_CONTRACT()",
+  "1250a28d": "setAccountabilityContract(address)",
+  "496ccd9b": "setOracleContract(address)"
 }

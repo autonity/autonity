@@ -60,10 +60,9 @@ var genesisTest = struct {
 					]
 				},
     			"oracle": {
-					"bytecode": "",
-      				"abi": "",
       				"votePeriod": 30
-				}
+				},
+				"chainId" : 1
 			}
 		}`,
 	// Chnage stake of validator as 2.
@@ -106,10 +105,9 @@ var genesisTest = struct {
 					]
 				},
     			"oracle": {
-					"bytecode": "",
-      				"abi": "",
       				"votePeriod": 30
-				}
+				},
+				"chainId" : 1
 			}
 		}`,
 	// Set daoForkSupport to be false.
@@ -143,7 +141,8 @@ var genesisTest = struct {
 					"bytecode": "",
       				"abi": "",
       				"votePeriod": 30
-				}
+				},
+				"chainId" : 1
 			}
 		}`,
 	query:  "eth.getBlock(0).nonce",

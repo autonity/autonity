@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/golang/mock/gomock"
@@ -538,15 +537,15 @@ func TestStart(t *testing.T) {
 	t.Run("engine is not running, no errors", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
+		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
+		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
-			blockchain:  &core.BlockChain{},
+			blockchain:  chain,
 		}
 
 		err := b.Start(ctx)
@@ -570,12 +569,12 @@ func TestStart(t *testing.T) {
 
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
-
+		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		chain, _ := newBlockChain(1)
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
-			blockchain:  &core.BlockChain{},
+			blockchain:  chain,
 		}
 
 		err := b.Start(ctx)
@@ -590,15 +589,15 @@ func TestStart(t *testing.T) {
 	t.Run("engine is not running, started from multiple goroutines", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
+		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(ctx, nil).MaxTimes(1)
+		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
 
 		b := &Backend{
 			core:        tendermintC,
 			coreStarted: false,
-			blockchain:  &core.BlockChain{},
+			blockchain:  chain,
 		}
 
 		var wg sync.WaitGroup
@@ -643,13 +642,13 @@ func TestMultipleRestart(t *testing.T) {
 	times := 5
 	ctx := context.Background()
 	tendermintC := interfaces.NewMockTendermint(ctrl)
-	tendermintC.EXPECT().Start(ctx, nil).MaxTimes(times)
+	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
-
+	chain, _ := newBlockChain(1)
 	b := &Backend{
 		core:        tendermintC,
 		coreStarted: false,
-		blockchain:  &core.BlockChain{},
+		blockchain:  chain,
 	}
 
 	for i := 0; i < times; i++ {

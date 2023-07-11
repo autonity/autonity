@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -43,36 +44,38 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, customHandler *node.CustomHandler, evMux *event.TypeMux,
-	ms *tendermintCore.MsgStore) *Backend {
+func New(privateKey *ecdsa.PrivateKey,
+	vmConfig *vm.Config,
+	services *node.TendermintServices,
+	evMux *event.TypeMux,
+	ms *tendermintCore.MsgStore,
+	log log.Logger) *Backend {
 
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
-	pub := crypto.PubkeyToAddress(privateKey.PublicKey).String()
-	logger := log.New("addr", pub)
-
 	backend := &Backend{
-		eventMux:       event.NewTypeMuxSilent(evMux, logger),
+		eventMux:       event.NewTypeMuxSilent(evMux, log),
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         logger,
+		logger:         log,
 		recents:        recents,
 		coreStarted:    false,
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
 		MsgStore:       ms,
+		jailed:         make(map[common.Address]uint64),
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 	core := tendermintCore.New(backend)
-	if customHandler != nil {
-		core.SetBroadcastHandler(customHandler.Broadcaster)
-		core.SetPrevoter(customHandler.Prevoter)
-		core.SetPrecommitter(customHandler.Precommitter)
-		core.SetProposer(customHandler.Proposer)
+	if services != nil {
+		core.SetBroadcaster(services.Broadcaster)
+		core.SetPrevoter(services.Prevoter)
+		core.SetPrecommitter(services.Precommitter)
+		core.SetProposer(services.Proposer)
 	}
 	backend.core = core
 	return backend
@@ -95,6 +98,7 @@ type Backend struct {
 	coreStarted       bool
 	core              interfaces.Tendermint
 	stopped           chan struct{}
+	wg                sync.WaitGroup
 	coreMu            sync.RWMutex
 
 	// Snapshots for recent block to speed up reorgs
@@ -107,13 +111,16 @@ type Backend struct {
 	Broadcaster consensus.Broadcaster
 
 	//TODO: ARCChace is patented by IBM, so probably need to stop using it
+	//Update: patent has expired https://patents.google.com/patent/US7167953B2/en
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
-	contractsMu sync.RWMutex
+	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
 
-	MsgStore *tendermintCore.MsgStore
+	MsgStore   *tendermintCore.MsgStore
+	jailed     map[common.Address]uint64
+	jailedLock sync.RWMutex
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
@@ -125,7 +132,7 @@ func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-// Broadcast implements tendermint.Backend.Broadcast
+// Broadcast implements tendermint.Backend.SignAndBroadcast
 func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
 	// send to others
 	sb.Gossip(ctx, committee, payload)
@@ -172,7 +179,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 					break
 				}
 				sb.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(tendermintSyncMsg, []byte{}) //nolint
+				go p.Send(SyncMsg, []byte{}) //nolint
 
 				member := header.CommitteeMember(addr)
 				if member == nil {
@@ -216,7 +223,7 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(tendermintMsg, payload) //nolint
+			go p.Send(TendermintMsg, payload) //nolint
 		}
 	}
 }
@@ -228,6 +235,10 @@ func (sb *Backend) KnownMsgHash() []common.Hash {
 		m = append(m, v.(common.Hash))
 	}
 	return m
+}
+
+func (sb *Backend) Logger() log.Logger {
+	return sb.logger
 }
 
 // Commit implements tendermint.Backend.Commit
@@ -244,7 +255,7 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 	// update block's header
 	proposal = proposal.WithSeal(h)
 
-	sb.logger.Info("Committed", "address", sb.Address(), "hash", proposal.Hash(), "number", proposal.Number().Uint64())
+	sb.logger.Info("Committed block", "hash", proposal.Hash(), "height", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to commit channel, which is being watched inside the engine.Seal() function.
 	// - otherwise, we try to insert the block.
@@ -263,42 +274,35 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 	return nil
 }
 
-func (sb *Backend) Post(ev interface{}) {
+func (sb *Backend) Post(ev any) {
 	sb.eventMux.Post(ev)
 }
 
-func (sb *Backend) Subscribe(types ...interface{}) *event.TypeMuxSubscription {
+func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {
 	return sb.eventMux.Subscribe(types...)
 }
 
-// VerifyProposal implements tendermint.Backend.VerifyProposal
-func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
-	// Check if the proposal is a valid block
+// VerifyProposal implements tendermint.Backend.VerifyProposal and verifiy if the proposal is valid
+func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) {
 	// TODO: fix always false statement and check for non nil
 	// TODO: use interface instead of type
-	block := &proposal
-	//if block == nil {
-	//	sb.logger.Error("Invalid proposal, %v", proposal)
-	//	return 0, errInvalidProposal
-	//}
 
-	// check bad block
-	if sb.HasBadProposal(block.Hash()) {
+	if sb.HasBadProposal(proposal.Hash()) {
 		return 0, core.ErrBannedHash
 	}
 
-	// verify the header of proposed block
-	err := sb.VerifyHeader(sb.blockchain, block.Header(), false)
+	// verify the header of proposed proposal
+	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
 	if err == nil || err == types.ErrEmptyCommittedSeals {
 		var (
 			receipts types.Receipts
 
 			usedGas        = new(uint64)
-			gp             = new(core.GasPool).AddGas(block.GasLimit())
-			header         = block.Header()
+			gp             = new(core.GasPool).AddGas(proposal.GasLimit())
+			header         = proposal.Header()
 			proposalNumber = header.Number.Uint64()
-			parent         = sb.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
+			parent         = sb.blockchain.GetBlock(proposal.ParentHash(), proposal.NumberU64()-1)
 		)
 
 		// Verify London hard fork attributes including min base fee
@@ -313,13 +317,13 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 		}
 
 		// Validate the body of the proposal
-		if err = sb.blockchain.Validator().ValidateBody(block); err != nil {
+		if err = sb.blockchain.Validator().ValidateBody(proposal); err != nil {
 			return 0, err
 		}
 
 		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
 		// Instead only the transactions are applied to the copied state
-		for i, tx := range block.Transactions() {
+		for i, tx := range proposal.Transactions() {
 			state.Prepare(tx.Hash(), i)
 			// Might be vulnerable to DoS Attack depending on gaslimit
 			// Todo : Double check
@@ -330,38 +334,41 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 			receipts = append(receipts, receipt)
 		}
 
-		state.Prepare(common.ACHash(block.Number()), len(block.Transactions()))
-		committeeSet, receipt, err := sb.Finalize(sb.blockchain, header, state, block.Transactions(), nil, receipts)
+		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
+		committee, receipt, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
+		if err != nil {
+			return 0, err
+		}
 		receipts = append(receipts, receipt)
 		//Validate the state of the proposal
-		if err = sb.blockchain.Validator().ValidateState(block, state, receipts, *usedGas); err != nil {
-			sb.logger.Error("block proposed, bad root state", err)
+		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, *usedGas); err != nil {
+			sb.logger.Error("proposal proposed, bad root state", err)
 			return 0, err
 		}
 
 		//Perform the actual comparison
-		if len(header.Committee) != len(committeeSet) {
+		if len(header.Committee) != len(committee) {
 			sb.logger.Error("wrong committee set",
 				"proposalNumber", proposalNumber,
 				"extraLen", len(header.Committee),
-				"currentLen", len(committeeSet),
+				"currentLen", len(committee),
 				"committee", header.Committee,
-				"current", committeeSet,
+				"current", committee,
 			)
 			return 0, consensus.ErrInconsistentCommitteeSet
 		}
 
-		for i := range committeeSet {
-			if header.Committee[i].Address != committeeSet[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committeeSet[i].VotingPower) != 0 {
+		for i := range committee {
+			if header.Committee[i].Address != committee[i].Address ||
+				header.Committee[i].VotingPower.Cmp(committee[i].VotingPower) != 0 {
 				sb.logger.Error("wrong committee member in the set",
 					"index", i,
 					"currentVerifier", sb.address.String(),
 					"proposalNumber", proposalNumber,
 					"headerCommittee", header.Committee[i],
-					"computedCommittee", committeeSet[i],
+					"computedCommittee", committee[i],
 					"fullHeader", header.Committee,
-					"fullComputed", committeeSet,
+					"fullComputed", committee,
 				)
 				return 0, consensus.ErrInconsistentCommitteeSet
 			}
@@ -370,7 +377,7 @@ func (sb *Backend) VerifyProposal(proposal types.Block) (time.Duration, error) {
 
 		return 0, nil
 	} else if err == consensus.ErrFutureTimestampBlock {
-		return time.Unix(int64(block.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
+		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
 	}
 	return 0, err
 }
@@ -381,7 +388,7 @@ func (sb *Backend) Sign(data []byte) ([]byte, error) {
 	return crypto.Sign(hashData, sb.privateKey)
 }
 
-// CheckSignature implements tendermint.Backend.CheckSignature
+// CheckSignature implements tendermint.Backend.VerifySignature
 func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
@@ -395,9 +402,8 @@ func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byt
 	return nil
 }
 
-func (sb *Backend) LastCommittedProposal() (*types.Block, common.Address) {
+func (sb *Backend) HeadBlock() (*types.Block, common.Address) {
 	block := sb.currentBlock()
-
 	var proposer common.Address
 	if block.Number().Cmp(common.Big0) > 0 {
 		var err error
@@ -419,9 +425,9 @@ func (sb *Backend) HasBadProposal(hash common.Hash) bool {
 	return sb.hasBadBlock(hash)
 }
 
-func (sb *Backend) GetContractABI() string {
+func (sb *Backend) GetContractABI() *abi.ABI {
 	// after the contract is upgradable, call it from contract object rather than from conf.
-	return sb.blockchain.GetAutonityContract().StringABI()
+	return sb.blockchain.ProtocolContracts().ABI()
 }
 
 func (sb *Backend) CoreState() tctypes.TendermintState {
@@ -436,7 +442,7 @@ func (sb *Backend) CommitteeEnodes() []string {
 		return nil
 	}
 
-	enodes, err := sb.blockchain.GetAutonityContract().GetCommitteeEnodes(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil
@@ -445,9 +451,8 @@ func (sb *Backend) CommitteeEnodes() []string {
 	return enodes.StrList
 }
 
-// Synchronize new connected peer with current height state
+// SyncPeer Synchronize new connected peer with current height messages
 func (sb *Backend) SyncPeer(address common.Address) {
-
 	if sb.Broadcaster == nil {
 		return
 	}
@@ -459,10 +464,10 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	if !connected {
 		return
 	}
-	messages := sb.core.GetCurrentHeightMessages()
+	messages := sb.core.CurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(tendermintMsg, msg.GetPayload()) //nolint
+		go p.Send(TendermintMsg, msg.GetBytes()) //nolint
 	}
 }
 

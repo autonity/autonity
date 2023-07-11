@@ -3,8 +3,9 @@ package core
 import (
 	"context"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
+	"github.com/autonity/autonity/rlp"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -12,53 +13,40 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
-type ProposeService struct {
+type Proposer struct {
 	*Core
 }
 
-func (c *ProposeService) SendProposal(ctx context.Context, p *types.Block) {
+func (c *Proposer) SendProposal(ctx context.Context, p *types.Block) {
 	logger := c.logger.New("step", c.step)
 
 	// If I'm the proposer and I have the same height with the proposal
 	if c.Height().Cmp(p.Number()) == 0 && c.IsProposer() && !c.sentProposal {
-
-		sigLitePro, err := LiteProposalSignature(c.backend, c.Height(), c.Round(), c.validRound, p.Hash())
+		proposalBlock := message.NewProposal(c.Round(), c.Height(), c.validRound, p, c.backend.Sign)
+		proposal, err := rlp.EncodeToBytes(proposalBlock)
 		if err != nil {
-			logger.Error("Failed to gen signature of lite proposal", "err", err.Error())
-			return
-		}
-		proposal := messageutils.NewProposal(c.Round(), c.Height(), c.validRound, p)
-		proposal.LiteSig = sigLitePro
-
-		encodedProposal, err := messageutils.Encode(proposal)
-		if err != nil {
-			logger.Error("Failed to encode", "Round", proposal.Round, "Height", proposal.Height, "ValidRound", c.validRound)
+			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
 			return
 		}
 
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
-		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", *proposal, c.address.String(), "broadcast")
+		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
 
-		c.Br().Broadcast(ctx, &messageutils.Message{
+		c.Br().SignAndBroadcast(ctx, &message.Message{
 			Code:          consensus.MsgProposal,
-			TbftMsgBytes:  encodedProposal,
+			Payload:       proposal,
 			Address:       c.address,
 			CommittedSeal: []byte{},
 		})
 	}
 }
 
-func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.Message) error {
-	var proposal messageutils.Proposal
-	err := msg.Decode(&proposal)
-	if err != nil {
-		return constants.ErrFailedDecodeProposal
-	}
-
+func (c *Proposer) HandleProposal(ctx context.Context, msg *message.Message) error {
+	proposal := msg.ConsensusMsg.(*message.Proposal)
 	// Ensure we have the same view with the Proposal message
-	if err := c.CheckMessage(proposal.Round, proposal.Height, tctypes.Propose); err != nil {
+	if err := c.CheckMessage(proposal.Round, proposal.Height.Uint64(), tctypes.Propose); err != nil {
 		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the
@@ -73,16 +61,16 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 				return err // do not gossip, TODO: accountability
 			}
 
-			if !c.IsProposerMsg(proposal.Round, msg.Address) {
-				c.logger.Warn("Ignore proposal messages from non-proposer")
+			if !c.IsFromProposer(proposal.Round, msg.Address) {
+				c.logger.Warn("Ignoring proposal from non-proposer")
 				return constants.ErrNotFromProposer
 			}
 			// We do not verify the proposal in this case.
-			roundMsgs.SetProposal(&proposal, msg, false)
+			roundMsgs.SetProposal(proposal, msg, false)
 
 			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-				if _, error := c.backend.VerifyProposal(*proposal.ProposalBlock); error != nil {
-					return error
+				if _, err2 := c.backend.VerifyProposal(proposal.ProposalBlock); err2 != nil {
+					return err2
 				}
 				c.logger.Debug("Committing old round proposal")
 				c.Commit(proposal.Round, roundMsgs)
@@ -93,13 +81,13 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 	}
 
 	// Check if the message comes from curRoundMessages proposer
-	if !c.IsProposerMsg(c.Round(), msg.Address) {
+	if !c.IsFromProposer(c.Round(), msg.Address) {
 		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return constants.ErrNotFromProposer
 	}
 
 	// Verify the proposal we received
-	if duration, err := c.backend.VerifyProposal(*proposal.ProposalBlock); err != nil {
+	if duration, err := c.backend.VerifyProposal(proposal.ProposalBlock); err != nil {
 
 		if timeoutErr := c.proposeTimeout.StopTimer(); timeoutErr != nil {
 			return timeoutErr
@@ -109,16 +97,13 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 		if err == consensus.ErrFutureTimestampBlock {
 			c.StopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				c.SendEvent(backlogEvent{
+				c.SendEvent(backlogMessageEvent{
 					msg: msg,
 				})
 			})
 			return err
 		}
-		badProposal := new(messageutils.BadProposalInfo)
-		badProposal.Sender = msg.Address
-		badProposal.Value = proposal.ProposalBlock.Hash()
-		c.prevoter.SendPrevote(ctx, true, badProposal)
+		c.prevoter.SendPrevote(ctx, true)
 		// do not to accept another proposal in current round
 		c.SetStep(tctypes.Prevote)
 
@@ -128,7 +113,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 	}
 
 	// Set the proposal for the current round
-	c.curRoundMessages.SetProposal(&proposal, msg, true)
+	c.curRoundMessages.SetProposal(proposal, msg, true)
 
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, msg.Address.String(), c.address.String())
 
@@ -152,7 +137,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 			// When lockedRound is set to any value other than -1 lockedValue is also
 			// set to a non nil value. So we can be sure that we will only try to access
 			// lockedValue when it is non nil.
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()), nil)
+			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
 			c.SetStep(tctypes.Prevote)
 			return nil
 		}
@@ -162,7 +147,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 		// vr >= 0 here
 		if vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()), nil)
+			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 			c.SetStep(tctypes.Prevote)
 		}
 	}
@@ -170,7 +155,7 @@ func (c *ProposeService) HandleProposal(ctx context.Context, msg *messageutils.M
 	return nil
 }
 
-func (c *ProposeService) HandleNewCandidateBlockMsg(ctx context.Context, candidateBlock *types.Block) {
+func (c *Proposer) HandleNewCandidateBlockMsg(ctx context.Context, candidateBlock *types.Block) {
 	if candidateBlock == nil {
 		return
 	}
@@ -198,13 +183,13 @@ func (c *ProposeService) HandleNewCandidateBlockMsg(ctx context.Context, candida
 	}
 }
 
-func (c *ProposeService) StopFutureProposalTimer() {
+func (c *Proposer) StopFutureProposalTimer() {
 	if c.futureProposalTimer != nil {
 		c.futureProposalTimer.Stop()
 	}
 }
 
-func (c *ProposeService) LogProposalMessageEvent(message string, proposal messageutils.Proposal, from, to string) {
+func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Proposal, from, to string) {
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,

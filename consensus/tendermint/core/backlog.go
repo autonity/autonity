@@ -3,18 +3,18 @@ package core
 import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 )
 
 const MaxSizeBacklogUnchecked = 1000
 
-type backlogEvent struct {
-	msg *messageutils.Message
+type backlogMessageEvent struct {
+	msg *message.Message
 }
-type backlogUncheckedEvent struct {
-	msg *messageutils.Message
+type backlogUntrustedMessageEvent struct {
+	msg *message.Message
 }
 
 // CheckMessage checks the message step
@@ -22,70 +22,64 @@ type backlogUncheckedEvent struct {
 // return errFutureHeightMessage if the message view is larger than curRoundMessages view
 // return errOldHeightMessage if the message view is smaller than curRoundMessages view
 // return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
-func (c *Core) CheckMessage(round int64, height *big.Int, step types.Step) error {
-	if height == nil || round < 0 || round > constants.MaxRound {
+func (c *Core) CheckMessage(round int64, height uint64, step types.Step) error {
+	h := new(big.Int).SetUint64(height)
+	switch {
+	case round < 0 || round > constants.MaxRound:
 		return constants.ErrInvalidMessage
-	}
-
-	if height.Cmp(c.Height()) > 0 {
+	case h.Cmp(c.Height()) > 0:
 		return constants.ErrFutureHeightMessage
-	} else if height.Cmp(c.Height()) < 0 {
+	case h.Cmp(c.Height()) < 0:
 		return constants.ErrOldHeightMessage
-	} else if round > c.Round() {
+	case round > c.Round():
 		return constants.ErrFutureRoundMessage
-	} else if round < c.Round() {
+	case round < c.Round():
 		return constants.ErrOldRoundMessage
-	} else if c.step == types.Propose && step > types.Propose {
+	case c.step == types.Propose && step > types.Propose:
 		return constants.ErrFutureStepMessage
 	}
-
 	return nil
 }
 
-func (c *Core) storeBacklog(msg *messageutils.Message, src common.Address) {
+func (c *Core) storeBacklog(msg *message.Message, src common.Address) {
 	logger := c.logger.New("from", src, "step", c.step)
 
 	if src == c.address {
-		logger.Warn("Backlog from self")
+		logger.Warn("Rejected backloging message, coming from local", "msg", msg)
 		return
 	}
 
-	logger.Debug("Store future message")
+	logger.Debug("Storing future message")
 	c.backlogs[src] = append(c.backlogs[src], msg)
 }
 
-// storeUncheckedBacklog push to a special backlog future height consensus messages
+// storeFutureMessage push to a special backlog future height consensus messages
 // this is done in a way that prevents memory exhaustion in the case of a malicious peer.
-func (c *Core) storeUncheckedBacklog(msg *messageutils.Message) {
+func (c *Core) storeFutureMessage(msg *message.Message) {
 	// future height messages of a gap wider than one block should not occur frequently as block sync should happen
 	// Todo : implement a double ended priority queue (DEPQ)
-
-	msgHeight, errHeight := msg.Height()
-	if errHeight != nil {
-		panic("error parsing height")
-	}
-
-	c.backlogUnchecked[msgHeight.Uint64()] = append(c.backlogUnchecked[msgHeight.Uint64()], msg)
-	c.backlogUncheckedLen++
+	msgHeight := msg.H()
+	c.backlogUntrusted[msgHeight] = append(c.backlogUntrusted[msgHeight], msg)
+	c.backlogUntrustedSize++
 	// We discard the furthest ahead messages in priority.
-	if c.backlogUncheckedLen == MaxSizeBacklogUnchecked+1 {
-		maxHeight := msgHeight.Uint64()
-		for k := range c.backlogUnchecked {
-			if k > maxHeight && len(c.backlogUnchecked[k]) > 0 {
+	if c.backlogUntrustedSize == MaxSizeBacklogUnchecked+1 {
+		maxHeight := msgHeight
+		for k := range c.backlogUntrusted {
+			if k > maxHeight && len(c.backlogUntrusted[k]) > 0 {
 				maxHeight = k
 			}
 		}
 
 		// Forget in the local cache that we ever received this message.
 		// It's needed for it to be able to be re-received and processed later, after a consensus sync, if needed.
-		c.backend.RemoveMessageFromLocalCache(c.backlogUnchecked[maxHeight][len(c.backlogUnchecked[maxHeight])-1].GetPayload())
+		c.backend.RemoveMessageFromLocalCache(c.backlogUntrusted[maxHeight][len(c.backlogUntrusted[maxHeight])-1].GetBytes())
 
 		// Remove it from the backlog buffer.
-		c.backlogUnchecked[maxHeight] = c.backlogUnchecked[maxHeight][:len(c.backlogUnchecked[maxHeight])-1]
-		c.backlogUncheckedLen--
+		c.backlogUntrusted[maxHeight] = c.backlogUntrusted[maxHeight][:len(c.backlogUntrusted[maxHeight])-1]
+		c.backlogUntrustedSize--
 
-		if len(c.backlogUnchecked[maxHeight]) == 0 {
-			delete(c.backlogUnchecked, maxHeight)
+		if len(c.backlogUntrusted[maxHeight]) == 0 {
+			delete(c.backlogUntrusted, maxHeight)
 		}
 	}
 
@@ -108,17 +102,17 @@ func (c *Core) processBacklog() {
 				offset := i - totalElemRemoved
 				curMsg := backlog[offset]
 
-				r, _ := curMsg.Round()
-				h, _ := curMsg.Height()
+				r := curMsg.R()
+				h := curMsg.H()
 				err := c.CheckMessage(r, h, types.Step(curMsg.Code))
 				if err == constants.ErrFutureHeightMessage || err == constants.ErrFutureRoundMessage || err == constants.ErrFutureStepMessage {
-					logger.Debug("Futrue message in backlog", "msg", curMsg, "err", err)
+					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue
 
 				}
 				logger.Debug("Post backlog event", "msg", curMsg)
 
-				go c.SendEvent(backlogEvent{
+				go c.SendEvent(backlogMessageEvent{
 					msg: curMsg,
 				})
 
@@ -128,7 +122,7 @@ func (c *Core) processBacklog() {
 			// We need to ensure that there is no memory leak by reallocating new memory if the original underlying
 			// array become very large and only a small part of it is being used by the slice.
 			if cap(backlog)/capToLenRatio > len(backlog) {
-				tmp := make([]*messageutils.Message, len(backlog))
+				tmp := make([]*message.Message, len(backlog))
 				copy(tmp, backlog)
 				backlog = tmp
 			}
@@ -136,17 +130,17 @@ func (c *Core) processBacklog() {
 		c.backlogs[src] = backlog
 
 	}
-	for height := range c.backlogUnchecked {
+	for height := range c.backlogUntrusted {
 		if height == c.height.Uint64() {
-			for _, msg := range c.backlogUnchecked[height] {
-				go c.SendEvent(backlogUncheckedEvent{
+			for _, msg := range c.backlogUntrusted[height] {
+				go c.SendEvent(backlogUntrustedMessageEvent{
 					msg: msg,
 				})
 				c.logger.Debug("Post unchecked backlog event", "msg", msg)
 			}
 		}
 		if height <= c.height.Uint64() {
-			delete(c.backlogUnchecked, height)
+			delete(c.backlogUntrusted, height)
 		}
 	}
 }

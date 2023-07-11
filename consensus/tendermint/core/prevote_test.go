@@ -2,28 +2,28 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/messageutils"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 	"reflect"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rlp"
+	"github.com/golang/mock/gomock"
 )
 
 func TestSendPrevote(t *testing.T) {
 	t.Run("proposal is empty and send prevote nil", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		messages := tcmessage.NewMessagesMap()
+		messages := message.NewMessagesMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		committeeSet := helpers.NewTestCommitteeSet(4)
@@ -40,32 +40,33 @@ func TestSendPrevote(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		c.prevoter.SendPrevote(context.Background(), true, nil)
+		c.prevoter.SendPrevote(context.Background(), true)
 	})
 
 	t.Run("valid proposal given, non nil prevote", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeSet := helpers.NewTestCommitteeSet(4)
+		committeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
 		member := committeSet.Committee()[0]
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := tcmessage.NewProposal(
+		proposal := message.NewProposal(
 			1,
 			big.NewInt(2),
 			1,
-			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(2)}))
+			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(2)}),
+			signer(keys[member.Address]))
 
-		messages := tcmessage.NewMessagesMap()
+		messages := message.NewMessagesMap()
 		curMessages := messages.GetOrCreate(2)
 		curMessages.SetProposal(proposal, nil, true)
 
-		expectedMsg := tcmessage.CreatePrevote(t, curMessages.GetProposalHash(), 1, big.NewInt(2), member)
+		expectedMsg := message.CreatePrevote(t, curMessages.GetProposalHash(), 1, big.NewInt(2), member)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil)
 
-		payload := expectedMsg.GetPayload()
+		payload := expectedMsg.GetBytes()
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
 
@@ -82,7 +83,7 @@ func TestSendPrevote(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		c.prevoter.SendPrevote(context.Background(), false, nil)
+		c.prevoter.SendPrevote(context.Background(), false)
 	})
 }
 
@@ -90,10 +91,10 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
 		committeeSet := helpers.NewTestCommitteeSet(4)
 		member := committeeSet.Committee()[0]
-		messages := tcmessage.NewMessagesMap()
+		messages := message.NewMessagesMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		expectedMsg := tcmessage.CreatePrevote(t, common.Hash{}, 2, big.NewInt(4), member)
+		expectedMsg := message.CreatePrevote(t, common.Hash{}, 2, big.NewInt(4), member)
 		c := &Core{
 			address:          member.Address,
 			round:            2,
@@ -114,10 +115,10 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with old height given, pre-vote not added", func(t *testing.T) {
 		committeeSet := helpers.NewTestCommitteeSet(4)
 		member := committeeSet.Committee()[0]
-		messages := tcmessage.NewMessagesMap()
+		messages := message.NewMessagesMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		expectedMsg := tcmessage.CreatePrevote(t, common.Hash{}, 1, big.NewInt(1), member)
+		expectedMsg := message.CreatePrevote(t, common.Hash{}, 1, big.NewInt(1), member)
 
 		c := &Core{
 			address:          member.Address,
@@ -143,20 +144,21 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		messages := tcmessage.NewMessagesMap()
-		committeeSet := helpers.NewTestCommitteeSet(4)
+		messages := message.NewMessagesMap()
+		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
 		member := committeeSet.Committee()[0]
 		curRoundMessages := messages.GetOrCreate(2)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := tcmessage.NewProposal(
+		proposal := message.NewProposal(
 			1,
 			big.NewInt(2),
 			1,
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			signer(keys[member.Address]))
 
 		curRoundMessages.SetProposal(proposal, nil, true)
-		expectedMsg := tcmessage.CreatePrevote(t, curRoundMessages.GetProposalHash(), 1, big.NewInt(2), member)
+		expectedMsg := message.CreatePrevote(t, curRoundMessages.GetProposalHash(), 1, big.NewInt(2), member)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		c := &Core{
@@ -186,43 +188,44 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given at pre-vote step, non-nil pre-commit sent", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet := helpers.NewTestCommitteeSet(1)
+		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(1)
 		logger := log.New("backend", "test", "id", 0)
 		member := committeeSet.Committee()[0]
-		proposal := tcmessage.NewProposal(
+		proposal := message.NewProposal(
 			2,
 			big.NewInt(3),
 			1,
-			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)}))
+			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)}),
+			signer(keys[member.Address]))
 
-		message := tcmessage.NewMessagesMap()
-		curRoundMessage := message.GetOrCreate(2)
+		messagesMap := message.NewMessagesMap()
+		curRoundMessage := messagesMap.GetOrCreate(2)
 		curRoundMessage.SetProposal(proposal, nil, true)
 
-		expectedMsg := tcmessage.CreatePrevote(t, curRoundMessage.GetProposalHash(), 2, big.NewInt(3), member)
+		expectedMsg := message.CreatePrevote(t, curRoundMessage.GetProposalHash(), 2, big.NewInt(3), member)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil).AnyTimes()
 
-		var precommit = tcmessage.Vote{
+		var precommit = message.Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: curRoundMessage.GetProposalHash(),
 		}
 
-		encodedVote, err := tcmessage.Encode(&precommit)
+		encodedVote, err := rlp.EncodeToBytes(&precommit)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		msg := &tcmessage.Message{
+		msg := &message.Message{
 			Code:          consensus.MsgPrecommit,
-			TbftMsgBytes:  encodedVote,
+			Payload:       encodedVote,
 			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
 			Power:         common.Big1,
 		}
-		payload := msg.GetPayload()
+		payload := msg.GetBytes()
 
 		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
 
@@ -257,37 +260,37 @@ func TestHandlePrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		committeSet := helpers.NewTestCommitteeSet(1)
-		messages := tcmessage.NewMessagesMap()
+		messages := message.NewMessagesMap()
 		member := committeSet.Committee()[0]
 		curRoundMessage := messages.GetOrCreate(2)
 
 		addr := common.HexToAddress("0x0123456789")
 
-		expectedMsg := tcmessage.CreatePrevote(t, common.Hash{}, 2, big.NewInt(3), member)
+		expectedMsg := message.CreatePrevote(t, common.Hash{}, 2, big.NewInt(3), member)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil).AnyTimes()
 
-		var precommit = tcmessage.Vote{
+		var precommit = message.Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: common.Hash{},
 		}
 
-		encodedVote, err := tcmessage.Encode(&precommit)
+		encodedVote, err := rlp.EncodeToBytes(&precommit)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		msg := &tcmessage.Message{
+		msg := &message.Message{
 			Code:          consensus.MsgPrecommit,
-			TbftMsgBytes:  encodedVote,
+			Payload:       encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
 			Signature:     []byte{0x1},
 			Power:         common.Big1,
 		}
 
-		payload := msg.GetPayload()
+		payload := msg.GetBytes()
 
 		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
 
@@ -317,37 +320,40 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given at pre-vote step, pre-vote Timeout triggered", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet := helpers.NewTestCommitteeSet(4)
-		messages := tcmessage.NewMessagesMap()
+		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
+		messages := message.NewMessagesMap()
+		member := committeeSet.Committee()[0]
 		curRoundMessages := messages.GetOrCreate(1)
 
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := tcmessage.NewProposal(
+		proposal := message.NewProposal(
 			1,
 			big.NewInt(2),
 			1,
-			types.NewBlockWithHeader(&types.Header{}))
+			types.NewBlockWithHeader(&types.Header{}),
+			signer(keys[member.Address]))
 
 		addr := common.HexToAddress("0x0123456789")
 
 		curRoundMessages.SetProposal(proposal, nil, true)
 
-		var preVote = tcmessage.Vote{
+		var preVote = message.Vote{
 			Round:             1,
 			Height:            big.NewInt(2),
 			ProposedBlockHash: curRoundMessages.GetProposalHash(),
 		}
 
-		encodedVote, err := tcmessage.Encode(&preVote)
+		encodedVote, err := rlp.EncodeToBytes(&preVote)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		expectedMsg := &tcmessage.Message{
+		expectedMsg := &message.Message{
 			Code:          consensus.MsgPrevote,
-			TbftMsgBytes:  encodedVote,
+			Payload:       encodedVote,
 			Address:       addr,
+			ConsensusMsg:  &preVote,
 			CommittedSeal: []byte{},
 			Signature:     []byte{0x1},
 			Power:         common.Big1,
@@ -355,6 +361,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(addr)
+		backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 
 		c := New(backendMock)
 		c.curRoundMessages = curRoundMessages

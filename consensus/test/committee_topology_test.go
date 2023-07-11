@@ -1,9 +1,10 @@
 package test
 
 import (
-	"github.com/autonity/autonity/common/graph"
 	"strings"
 	"testing"
+
+	"github.com/autonity/autonity/common/graph"
 )
 
 // Committee core network should keep liveness on different topology to make sure the gossiping works.

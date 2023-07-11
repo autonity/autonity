@@ -4,27 +4,23 @@ import (
 	"context"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
+	"github.com/autonity/autonity/rlp"
 
 	"github.com/autonity/autonity/common"
 )
 
-type PrevoteService struct {
+type Prevoter struct {
 	*Core
 }
 
-func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool, badProposal *messageutils.BadProposalInfo) {
+func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var prevote = messageutils.Vote{
+	var prevote = &message.Vote{
 		Round:  c.Round(),
 		Height: c.Height(),
-	}
-
-	if badProposal != nil {
-		prevote.MaliciousProposer = badProposal.Sender
-		prevote.MaliciousValue = badProposal.Value
 	}
 
 	if isNil {
@@ -37,7 +33,7 @@ func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool, badProposa
 		prevote.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
-	encodedVote, err := messageutils.Encode(&prevote)
+	encodedVote, err := rlp.EncodeToBytes(&prevote)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", prevote)
 		return
@@ -46,22 +42,17 @@ func (c *PrevoteService) SendPrevote(ctx context.Context, isNil bool, badProposa
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.Br().Broadcast(ctx, &messageutils.Message{
+	c.Br().SignAndBroadcast(ctx, &message.Message{
 		Code:          consensus.MsgPrevote,
-		TbftMsgBytes:  encodedVote,
+		Payload:       encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
 	})
 }
 
-func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Message) error {
-	var preVote messageutils.Vote
-	err := msg.Decode(&preVote)
-	if err != nil {
-		return constants.ErrFailedDecodePrevote
-	}
-
-	if err = c.CheckMessage(preVote.Round, preVote.Height, types.Prevote); err != nil {
+func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) error {
+	preVote := msg.ConsensusMsg.(*message.Vote)
+	if err := c.CheckMessage(preVote.Round, preVote.Height.Uint64(), types.Prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == constants.ErrOldRoundMessage {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
@@ -77,7 +68,7 @@ func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Me
 					rs := c.messages.GetOrCreate(vr)
 
 					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-						c.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()), nil)
+						c.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
 						c.SetStep(types.Prevote)
 						return nil
 					}
@@ -138,7 +129,7 @@ func (c *PrevoteService) HandlePrevote(ctx context.Context, msg *messageutils.Me
 	return nil
 }
 
-func (c *PrevoteService) LogPrevoteMessageEvent(message string, prevote messageutils.Vote, from, to string) {
+func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Vote, from, to string) {
 	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,

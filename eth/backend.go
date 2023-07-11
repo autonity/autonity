@@ -20,11 +20,6 @@ package eth
 import (
 	"errors"
 	"fmt"
-	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/consensus/tendermint/misbehaviourdetector"
-	"github.com/autonity/autonity/crypto"
-
 	"math/big"
 	"runtime"
 	"sync"
@@ -32,15 +27,20 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/accountability"
+	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/bloombits"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state/pruner"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/filters"
@@ -69,7 +69,7 @@ type Config = ethconfig.Config
 // Ethereum implements the Ethereum full node service.
 type Ethereum struct {
 	config *ethconfig.Config
-
+	log    log.Logger
 	// Handlers
 	txPool             *core.TxPool
 	blockchain         *core.BlockChain
@@ -90,36 +90,35 @@ type Ethereum struct {
 
 	APIBackend *EthAPIBackend
 
-	miner     *miner.Miner
-	gasPrice  *big.Int
-	etherbase common.Address
+	miner    *miner.Miner
+	gasPrice *big.Int
+	address  common.Address
 
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
 	p2pServer *p2p.Server
 
-	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and address)
 
-	chainHeadSub    event.Subscription
-	chainHeadCh     chan core.ChainHeadEvent
 	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully
 
-	misbehaviourDetector *misbehaviourdetector.FaultDetector
+	accountability *accountability.FaultDetector
 }
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) consensus.Engine) (*Ethereum, error) {
+func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
 	}
+
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
 	if config.Miner.GasPrice == nil || config.Miner.GasPrice.Cmp(common.Big0) <= 0 {
-		log.Warn("Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", ethconfig.Defaults.Miner.GasPrice)
+		stack.Logger().Warn("Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", ethconfig.Defaults.Miner.GasPrice)
 		config.Miner.GasPrice = new(big.Int).Set(ethconfig.Defaults.Miner.GasPrice)
 	}
 	if config.NoPruning && config.TrieDirtyCache > 0 {
@@ -131,7 +130,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		}
 		config.TrieDirtyCache = 0
 	}
-	log.Info("Allocated trie memory caches", "clean", common.StorageSize(config.TrieCleanCache)*1024*1024, "dirty", common.StorageSize(config.TrieDirtyCache)*1024*1024)
+	stack.Logger().Info("Allocated trie memory caches", "clean", common.StorageSize(config.TrieCleanCache)*1024*1024, "dirty", common.StorageSize(config.TrieDirtyCache)*1024*1024)
 
 	// Transfer mining-related config to the ethash config.
 	ethashConfig := config.Ethash
@@ -162,10 +161,10 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 			Preimages:           config.Preimages,
 		}
 	)
-	log.Info("Initialised chain configuration", "config", chainConfig)
+	stack.Logger().Info("Initialised chain configuration", "config", chainConfig)
 
 	if err := pruner.RecoverPruning(stack.ResolvePath(""), chainDb, stack.ResolvePath(config.TrieCleanCacheJournal)); err != nil {
-		log.Error("Failed to recover state", "error", err)
+		stack.Logger().Error("Failed to recover state", "error", err)
 	}
 
 	// The event mux is shared between the consensus engine and fault detector such that both of them will receive the
@@ -175,26 +174,23 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
-		config.Miner.Noverify, chainDb, &vmConfig, evMux, msgStore)
-	if cons != nil {
-		consensusEngine = cons(consensusEngine)
-	}
+		config.Miner.Noverify, &vmConfig, evMux, msgStore)
 
 	eth := &Ethereum{
 		config:            config,
 		chainDb:           chainDb,
+		log:               stack.Logger(),
 		eventMux:          stack.EventMux(),
 		accountManager:    stack.AccountManager(),
 		engine:            consensusEngine,
 		closeBloomHandler: make(chan struct{}),
-		networkID:         config.NetworkId,
+		networkID:         config.NetworkID,
 		gasPrice:          config.Miner.GasPrice,
-		etherbase:         config.Miner.Etherbase,
+		address:           crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey),
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
-		chainHeadCh:       make(chan core.ChainHeadEvent),
 	}
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
@@ -202,21 +198,22 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	if bcVersion != nil {
 		dbVer = fmt.Sprintf("%d", *bcVersion)
 	}
-	log.Info("Initialising Autonity protocol", "network", config.NetworkId, "dbversion", dbVer)
+	eth.log.Info("Initialising Autonity protocol", "network", config.NetworkID, "dbversion", dbVer)
 
 	if !config.SkipBcVersionCheck {
 		if bcVersion != nil && *bcVersion > core.BlockChainVersion {
 			return nil, fmt.Errorf("database version is v%d, Geth %s only supports v%d", *bcVersion, params.VersionWithMeta, core.BlockChainVersion)
 		} else if bcVersion == nil || *bcVersion < core.BlockChainVersion {
 			if bcVersion != nil { // only print warning on upgrade, not on init
-				log.Warn("Upgrade blockchain database version", "from", dbVer, "to", core.BlockChainVersion)
+				eth.log.Warn("Upgrade blockchain database version", "from", dbVer, "to", core.BlockChainVersion)
 			}
 			rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 		}
 	}
 	senderCacher := core.NewTxSenderCacher()
+	txSender := new(func(signedTx *types.Transaction) error)
 	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve,
-		senderCacher, &config.TxLookupLimit)
+		senderCacher, &config.TxLookupLimit, backends.NewInternalBackend(txSender), eth.log)
 
 	if err != nil {
 		return nil, err
@@ -230,7 +227,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	}
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
-		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+		eth.log.Warn("Rewinding chain to upgrade configuration", "err", compat)
 		eth.blockchain.SetHead(compat.RewindTo)
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
@@ -240,7 +237,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain, senderCacher)
-
+	*txSender = eth.txPool.AddLocal
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit + cacheConfig.SnapshotLimit
 	checkpoint := config.Checkpoint
@@ -251,7 +248,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 		Database:       chainDb,
 		Chain:          eth.blockchain,
 		TxPool:         eth.txPool,
-		Network:        config.NetworkId,
+		Network:        config.NetworkID,
 		Sync:           config.SyncMode,
 		BloomCache:     uint64(cacheLimit),
 		EventMux:       eth.eventMux,
@@ -276,12 +273,17 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
-	misbehaviourdetector.LoadAccountabilityPreCompiledContracts(eth.blockchain)
+	accountability.LoadPrecompiles(eth.blockchain)
 	// Create Fault Detector for each full node for the time being,
-	eth.misbehaviourDetector = misbehaviourdetector.NewFaultDetector(eth.blockchain, eth.etherbase,
-		evMux.Subscribe(events.MessageEvent{}), msgStore, eth.txPool, eth.APIBackend, stack.Config().NodeKey())
+	eth.accountability = accountability.NewFaultDetector(
+		eth.blockchain,
+		eth.address,
+		evMux.Subscribe(events.MessageEvent{}),
+		msgStore, eth.txPool, eth.APIBackend, stack.Config().NodeKey(),
+		eth.blockchain.ProtocolContracts(),
+		eth.log)
 	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
-	eth.misbehaviourDetector.SetBroadcaster(eth.handler)
+	eth.accountability.SetBroadcaster(eth.handler)
 
 	// Setup DNS discovery iterators.
 	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})
@@ -295,7 +297,7 @@ func New(stack *node.Node, config *Config, cons func(basic consensus.Engine) con
 	}
 
 	// Start the RPC service
-	eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, config.NetworkId)
+	eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, config.NetworkID)
 
 	// Register the backend on the node
 	stack.RegisterAPIs(eth.APIs())
@@ -337,7 +339,7 @@ func (s *Ethereum) APIs() []rpc.API {
 		apis = append(apis, rpc.API{
 			Namespace: "aut",
 			Version:   params.Version,
-			Service:   NewAutonityContractAPI(s.BlockChain(), s.BlockChain().GetAutonityContract()),
+			Service:   NewAutonityContractAPI(s.BlockChain(), s.BlockChain().ProtocolContracts()),
 			Public:    true,
 		})
 	}
@@ -397,19 +399,19 @@ func (s *Ethereum) ResetWithGenesisBlock(gb *types.Block) {
 
 func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 	s.lock.RLock()
-	etherbase := s.etherbase
+	etherbase := s.address
 	s.lock.RUnlock()
 
 	if etherbase != (common.Address{}) {
 		return etherbase, nil
 	}
-	return common.Address{}, fmt.Errorf("etherbase must be explicitly specified")
+	return common.Address{}, fmt.Errorf("address must be explicitly specified")
 }
 
 // isLocalBlock checks whether the specified block is mined
 // by local miner accounts.
 //
-// We regard two types of accounts as local miner account: etherbase
+// We regard two types of accounts as local miner account: address
 // and accounts specified via `txpool.locals` flag.
 func (s *Ethereum) isLocalBlock(header *types.Header) bool {
 	author, err := s.engine.Author(header)
@@ -417,9 +419,9 @@ func (s *Ethereum) isLocalBlock(header *types.Header) bool {
 		log.Warn("Failed to retrieve block author", "number", header.Number.Uint64(), "hash", header.Hash(), "err", err)
 		return false
 	}
-	// Check whether the given address is etherbase.
+	// Check whether the given address is address.
 	s.lock.RLock()
-	etherbase := s.etherbase
+	etherbase := s.address
 	s.lock.RUnlock()
 	if author == etherbase {
 		return true
@@ -466,7 +468,7 @@ func (s *Ethereum) StartMining(threads int) error {
 		SetThreads(threads int)
 	}
 	if th, ok := s.engine.(threaded); ok {
-		log.Info("Updated mining threads", "threads", threads)
+		s.log.Info("Updated mining threads", "threads", threads)
 		if threads == 0 {
 			threads = -1 // Disable the miner from within
 		}
@@ -482,8 +484,8 @@ func (s *Ethereum) StartMining(threads int) error {
 
 		// Configure the local mining address
 		if _, err := s.Etherbase(); err != nil {
-			log.Error("Cannot start mining without etherbase", "err", err)
-			return fmt.Errorf("etherbase missing: %v", err)
+			s.log.Error("Cannot start mining without address", "err", err)
+			return fmt.Errorf("address missing: %v", err)
 		}
 
 		// If mining is started, we can disable the transaction rejection mechanism
@@ -542,15 +544,10 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
+	go s.accountability.Start()
+	go s.newCommitteeWatcher()
 
-	if s.misbehaviourDetector != nil {
-		s.misbehaviourDetector.FaultDetectorEventLoop()
-	}
-
-	s.chainHeadSub = s.blockchain.SubscribeChainHeadEvent(s.chainHeadCh)
-	go s.chainHeadEventLoop(s.p2pServer)
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
-
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)
 
@@ -570,63 +567,62 @@ func (s *Ethereum) Start() error {
 	return nil
 }
 
-/*
-	This routine is responsible to takes some various actions
-
-depending if the local node is part of the consensus committee or not.
-*/
-func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
-	localAddress := crypto.PubkeyToAddress(*server.LocalNode().Node().Pubkey())
+// This routine is responsible to communicate to devp2p who are the other consensus members
+// if the local node is part of the consensus committee or not.
+// todo(youssef): listen to new epoch events instead
+func (s *Ethereum) newCommitteeWatcher() {
+	chainHeadCh := make(chan core.ChainHeadEvent)
+	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 
 	updateConsensusEnodes := func(block *types.Block) {
 		state, err := s.blockchain.StateAt(block.Header().Root)
 		if err != nil {
-			log.Error("could not retrieve state at head block", "err", err)
+			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := s.blockchain.GetAutonityContract().GetCommitteeEnodes(block, state)
+		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state)
 		if err != nil {
-			log.Error("could not retrieve consensus whitelist at head block", "err", err)
+			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
-		server.UpdateConsensusEnodes(enodesList.List)
+		s.p2pServer.UpdateConsensusEnodes(enodesList.List)
 	}
 
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
-	if currentBlock.Header().CommitteeMember(localAddress) != nil {
+	if currentBlock.Header().CommitteeMember(s.address) != nil {
 		updateConsensusEnodes(currentBlock)
 		s.miner.Start()
-		log.Info("Starting node as validator")
+		s.log.Info("Starting node as validator")
 		wasValidating = true
 	}
 
 	for {
 		select {
-		case event := <-s.chainHeadCh:
-			header := event.Block.Header()
+		case ev := <-chainHeadCh:
+			header := ev.Block.Header()
 			// check if the local node belongs to the consensus committee.
-			if header.CommitteeMember(localAddress) == nil {
+			if header.CommitteeMember(s.address) == nil {
 				// if the local node was part of the committee set for the previous block
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
 				if wasValidating {
-					server.UpdateConsensusEnodes(nil)
-					log.Info("Local node no longer detected part of the consensus committee, mining stopped")
+					s.p2pServer.UpdateConsensusEnodes(nil)
+					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
 					wasValidating = false
 				}
 				continue
 			}
-			updateConsensusEnodes(event.Block)
+			updateConsensusEnodes(ev.Block)
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
-				log.Info("Local node detected part of the consensus committee, mining started")
+				s.log.Info("Local node detected part of the consensus committee, mining started")
 				s.miner.Start()
 			}
 			wasValidating = true
 		// Err() channel will be closed when unsubscribing.
-		case <-s.chainHeadSub.Err():
+		case <-chainHeadSub.Err():
 			return
 		}
 	}
@@ -636,22 +632,18 @@ func (s *Ethereum) chainHeadEventLoop(server *p2p.Server) {
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
 	// Stop AFD first,
-	if s.misbehaviourDetector != nil {
-		s.misbehaviourDetector.Stop()
-	}
-
+	s.accountability.Stop()
+	s.engine.Close()
 	// Stop all the peer-related stuff then.
 	s.ethDialCandidates.Close()
 	s.snapDialCandidates.Close()
 	s.handler.Stop()
-	s.chainHeadSub.Unsubscribe()
 	// Then stop everything else.
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
 	s.txPool.Stop()
 	s.miner.Close()
 	s.blockchain.Stop()
-	s.engine.Close()
 
 	// Clean shutdown marker as the last thing before closing db
 	s.shutdownTracker.Stop()
@@ -660,4 +652,8 @@ func (s *Ethereum) Stop() error {
 	s.eventMux.Stop()
 
 	return nil
+}
+
+func (s *Ethereum) Logger() log.Logger {
+	return s.log
 }

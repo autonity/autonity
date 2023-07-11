@@ -6,9 +6,10 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	mUtils "github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
@@ -28,15 +29,15 @@ func newBlockHeader(height uint64, committee types.Committee) *types.Header {
 	}
 }
 
-func newVoteMsg(h uint64, r int64, code uint8, senderKey *ecdsa.PrivateKey, value common.Hash, committee types.Committee) *mUtils.Message { //nolint
+func newVoteMsg(h uint64, r int64, code uint8, senderKey *ecdsa.PrivateKey, value common.Hash, committee types.Committee) *message.Message { //nolint
 	lastHeader := newBlockHeader(h-1, committee)
-	var vote = mUtils.Vote{
+	var vote = message.Vote{
 		Round:             r,
 		Height:            new(big.Int).SetUint64(h),
 		ProposedBlockHash: value,
 	}
 
-	encodedVote, err := mUtils.Encode(&vote)
+	encodedVote, err := rlp.EncodeToBytes(&vote)
 	if err != nil {
 		return nil
 	}
@@ -62,14 +63,14 @@ func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []by
 	return val.Address, nil
 }
 
-func createMsg(rlpBytes []byte, code uint8, senderKey *ecdsa.PrivateKey) *mUtils.Message {
-	var msg = mUtils.Message{
+func createMsg(rlpBytes []byte, code uint8, senderKey *ecdsa.PrivateKey) *message.Message {
+	var msg = message.Message{
 		Code:          code,
-		TbftMsgBytes:  rlpBytes,
+		Payload:       rlpBytes,
 		Address:       crypto.PubkeyToAddress(senderKey.PublicKey),
 		CommittedSeal: []byte{},
 	}
-	data, err := msg.PayloadNoSig()
+	data, err := msg.BytesNoSignature()
 	if err != nil {
 		return nil
 	}
@@ -83,15 +84,13 @@ func createMsg(rlpBytes []byte, code uint8, senderKey *ecdsa.PrivateKey) *mUtils
 }
 
 // decode msg do the msg decoding and validation to recover the voting power and decodedMsg fields.
-func decodeMsg(msg *mUtils.Message, lastHeader *types.Header) *mUtils.Message {
-	m := new(mUtils.Message)
-	err := m.FromPayload(msg.GetPayload())
+func decodeMsg(msg *message.Message, lastHeader *types.Header) *message.Message {
+	m, err := message.FromBytes(msg.GetBytes())
 	if err != nil {
 		return nil
 	}
-
 	// validate msg and get voting power with last header.
-	if _, err = m.Validate(CheckValidatorSignature, lastHeader); err != nil {
+	if err = m.Validate(CheckValidatorSignature, lastHeader); err != nil {
 		return nil
 	}
 	return m
@@ -112,7 +111,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := NewMsgStore()
-		proposals := ms.Get(height, func(m *mUtils.Message) bool {
+		proposals := ms.Get(height, func(m *message.Message) bool {
 			return m.Type() == consensus.MsgProposal
 		})
 		assert.Equal(t, 0, len(proposals))
@@ -126,7 +125,7 @@ func TestMsgStore(t *testing.T) {
 		preVoteNoneNil := newVoteMsg(height, round, consensus.MsgPrevote, proposerKey, noneNilValue, committee)
 		ms.Save(preVoteNoneNil)
 		// check equivocated msg is also stored at msg store.
-		votes := ms.Get(height, func(m *mUtils.Message) bool {
+		votes := ms.Get(height, func(m *message.Message) bool {
 			return m.Type() == consensus.MsgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
 		})
 		assert.Equal(t, 2, len(votes))
@@ -137,7 +136,7 @@ func TestMsgStore(t *testing.T) {
 		preVote := newVoteMsg(height, round, consensus.MsgPrevote, proposerKey, NilValue, committee)
 		ms.Save(preVote)
 
-		votes := ms.Get(height, func(m *mUtils.Message) bool {
+		votes := ms.Get(height, func(m *message.Message) bool {
 			return m.Type() == consensus.MsgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
 				m.Value() == NilValue
 		})
@@ -158,7 +157,7 @@ func TestMsgStore(t *testing.T) {
 		preVoteNoneNil := newVoteMsg(height, round, consensus.MsgPrevote, keyBob, noneNilValue, committee)
 		ms.Save(preVoteNoneNil)
 
-		votes := ms.Get(height, func(m *mUtils.Message) bool {
+		votes := ms.Get(height, func(m *message.Message) bool {
 			return m.Type() == consensus.MsgPrevote && m.H() == height && m.R() == round
 		})
 
@@ -179,9 +178,9 @@ func TestMsgStore(t *testing.T) {
 		preVoteNoneNil := newVoteMsg(height, round, consensus.MsgPrevote, keyBob, noneNilValue, committee)
 		ms.Save(preVoteNoneNil)
 
-		ms.DeleteMsgsBeforeHeight(height)
+		ms.DeleteOlds(height)
 
-		votes := ms.Get(height, func(m *mUtils.Message) bool {
+		votes := ms.Get(height, func(m *message.Message) bool {
 			return m.H() == height
 		})
 

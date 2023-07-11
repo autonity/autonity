@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	tendermintMsg                       = 0x11
-	tendermintSyncMsg                   = 0x12
-	TendermintOffChainAccountabilityMsg = 0x13
+	TendermintMsg     = 0x11
+	SyncMsg           = 0x12
+	AccountabilityMsg = 0x13
 )
 
 type UnhandledMsg struct {
@@ -46,14 +46,14 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 		addr := unhandled.(UnhandledMsg).addr
 		msg := unhandled.(UnhandledMsg).msg
 		if _, err := sb.HandleMsg(addr, msg, nil); err != nil {
-			sb.logger.Error("could not handle cached message", "err", err)
+			sb.logger.Error("Could not handle cached message", "err", err)
 		}
 	}
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code != tendermintMsg && msg.Code != tendermintSyncMsg && msg.Code != TendermintOffChainAccountabilityMsg {
+	if msg.Code != TendermintMsg && msg.Code != SyncMsg && msg.Code != AccountabilityMsg {
 		return false, nil
 	}
 
@@ -61,7 +61,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	defer sb.coreMu.Unlock()
 
 	switch msg.Code {
-	case tendermintMsg:
+	case TendermintMsg:
 		if !sb.coreStarted {
 			buffer := new(bytes.Buffer)
 			if _, err := io.Copy(buffer, msg.Payload); err != nil {
@@ -72,14 +72,12 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 			sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: savedMsg})
 			return true, nil //return nil to avoid shutting down connection during block sync.
 		}
-
 		var data []byte
+		// todo(youssef): this will be decoded again in core, why?
 		if err := msg.Decode(&data); err != nil {
 			return true, errDecodeFailed
 		}
-
 		hash := types.RLPHash(data)
-
 		// Mark peer's message
 		ms, ok := sb.recentMessages.Get(addr)
 		var m *lru.ARCCache
@@ -90,27 +88,25 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 			sb.recentMessages.Add(addr, m)
 		}
 		m.Add(hash, true)
-
 		// Mark self known message
 		if _, ok := sb.knownMessages.Get(hash); ok {
 			return true, nil
 		}
 		sb.knownMessages.Add(hash, true)
-
 		sb.postEvent(events.MessageEvent{
 			Payload: data,
 			ErrCh:   errCh,
 		})
-	case tendermintSyncMsg:
+	case SyncMsg:
 		if !sb.coreStarted {
-			sb.logger.Info("Sync message received but core not running")
+			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
-		sb.logger.Info("Received sync message", "from", addr)
+		sb.logger.Debug("Received sync message", "from", addr)
 		sb.postEvent(events.SyncEvent{Addr: addr})
-	case TendermintOffChainAccountabilityMsg:
+	case AccountabilityMsg:
 		if !sb.coreStarted {
-			sb.logger.Info("TendermintOffChainAccountabilityMsg received but core not running")
+			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		var data []byte
@@ -120,8 +116,8 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		}
 
 		// post the off chain accountability msg to the event handler, let the event handler to handle DoS attack vectors.
-		sb.logger.Info("Received TendermintOffChainAccountabilityMsg", "from", addr)
-		sb.postEvent(events.AccountabilityOffChainEvent{Sender: addr, Payload: data, ErrCh: errCh})
+		sb.logger.Debug("Received Accountability Msg", "from", addr)
+		sb.postEvent(events.AccountabilityEvent{Sender: addr, Payload: data, ErrCh: errCh})
 
 	default:
 		return false, nil

@@ -18,7 +18,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/log"
 	"math/big"
 
@@ -37,10 +36,9 @@ import (
 //
 // StateProcessor implements Processor.
 type StateProcessor struct {
-	config           *params.ChainConfig // Chain configuration options
-	bc               *BlockChain         // Canonical block chain
-	engine           consensus.Engine    // Consensus engine used for block rewards
-	autonityContract *autonity.Contract
+	config *params.ChainConfig // Chain configuration options
+	bc     *BlockChain         // Canonical block chain
+	engine consensus.Engine    // Consensus engine used for block rewards
 }
 
 // NewStateProcessor initialises a new StateProcessor.
@@ -50,10 +48,6 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 		bc:     bc,
 		engine: engine,
 	}
-}
-
-func (p *StateProcessor) SetAutonityContract(contract *autonity.Contract) {
-	p.autonityContract = contract
 }
 
 // Process processes the state changes according to the Ethereum rules by running

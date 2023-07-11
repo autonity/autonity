@@ -115,7 +115,7 @@ func (c *typeCache) generate(typ reflect.Type, tags tags) *typeinfo {
 
 	// Generate.
 	info := c.infoWhileGenerating(typ, tags)
-
+	// todo(youssef): check how many time type caches are generated, I suspect we have an issue here
 	// next -> cur
 	c.cur.Store(c.next)
 	c.next = nil

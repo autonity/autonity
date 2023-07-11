@@ -224,7 +224,7 @@ func newTestClientHandler(backend *backends.SimulatedBackend, odr *LesOdr, index
 	client := &LightEthereum{
 		lesCommons: lesCommons{
 			genesis:     genesis.Hash(),
-			config:      &ethconfig.Config{LightPeers: 100, NetworkId: NetworkId},
+			config:      &ethconfig.Config{LightPeers: 100, NetworkID: NetworkId},
 			chainConfig: params.TestChainConfig,
 			iConfig:     light.TestClientIndexerConfig,
 			chainDb:     db,
@@ -292,7 +292,7 @@ func newTestServerHandler(blocks int, indexers []*core.ChainIndexer, db ethdb.Da
 	server := &LesServer{
 		lesCommons: lesCommons{
 			genesis:     genesis.Hash(),
-			config:      &ethconfig.Config{LightPeers: 100, NetworkId: NetworkId},
+			config:      &ethconfig.Config{LightPeers: 100, NetworkID: NetworkId},
 			chainConfig: params.TestChainConfig,
 			iConfig:     light.TestServerIndexerConfig,
 			chainDb:     db,

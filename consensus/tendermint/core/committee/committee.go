@@ -2,17 +2,21 @@ package committee
 
 import (
 	"errors"
-	"github.com/autonity/autonity/autonity"
 	"math/big"
 	"sort"
 	"sync"
 
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	ethcore "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 )
+
+var ErrEmptyCommitteeSet = errors.New("committee set can't be empty")
 
 type RoundRobinCommittee struct {
 	members           types.Committee
@@ -94,7 +98,7 @@ func (set *RoundRobinCommittee) GetProposer(round int64) types.CommitteeMember {
 	return v
 }
 
-func (set *RoundRobinCommittee) SetLastHeader(block *types.Block) {
+func (set *RoundRobinCommittee) SetLastHeader(_ *types.Header) {
 	return
 }
 
@@ -126,16 +130,20 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 }
 
 type WeightedRandomSamplingCommittee struct {
-	previousHeader   *types.Header
-	bc               *ethcore.BlockChain
-	autonityContract *autonity.Contract // proposer buffering are stored at contract wrapper side thus more components can share them.
+	previousHeader         *types.Header
+	bc                     *ethcore.BlockChain // Todo : remove this dependency
+	autonityContract       *autonity.Contracts
+	previousBlockStateRoot common.Hash
+	cachedProposer         map[int64]types.CommitteeMember
 }
 
-func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contract, bc *ethcore.BlockChain) *WeightedRandomSamplingCommittee {
+func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contracts, bc *ethcore.BlockChain) *WeightedRandomSamplingCommittee {
 	return &WeightedRandomSamplingCommittee{
-		previousHeader:   previousBlock.Header(),
-		bc:               bc,
-		autonityContract: autonityContract,
+		previousHeader:         previousBlock.Header(),
+		bc:                     bc,
+		autonityContract:       autonityContract,
+		previousBlockStateRoot: previousBlock.Root(),
+		cachedProposer:         make(map[int64]types.CommitteeMember),
 	}
 }
 
@@ -144,8 +152,10 @@ func (w *WeightedRandomSamplingCommittee) Committee() types.Committee {
 	return w.previousHeader.Committee
 }
 
-func (w *WeightedRandomSamplingCommittee) SetLastHeader(block *types.Block) {
-	w.previousHeader = block.Header()
+func (w *WeightedRandomSamplingCommittee) SetLastHeader(header *types.Header) {
+	w.previousHeader = header
+	w.previousBlockStateRoot = header.Root
+	w.cachedProposer = make(map[int64]types.CommitteeMember)
 }
 
 // Get validator by index
@@ -170,20 +180,24 @@ func (w *WeightedRandomSamplingCommittee) GetByAddress(addr common.Address) (int
 
 // Get the round proposer
 func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) types.CommitteeMember {
-	// If previous header was the genesis block then we will not yet have
-	// deployed the autonity contract so will take the proposer as the first
-	// defined validator of the genesis block.
-	if w.previousHeader.IsGenesis() {
-		sort.Sort(w.previousHeader.Committee)
-		return w.previousHeader.Committee[round%int64(len(w.previousHeader.Committee))]
+	// state.New has started taking a snapshot.Tree but it seems to be only for
+	// performance, see - https://github.com/autonity/autonity/pull/20152
+	statedb, err := state.New(w.previousBlockStateRoot, w.bc.StateCache(), nil)
+	if err != nil {
+		log.Error("cannot load state from block chain.")
+		return types.CommitteeMember{}
 	}
-	proposer := w.autonityContract.GetProposer(w.previousHeader, w.previousHeader.Number.Uint64(), round)
+	// todo(youssef): This seems like we have two caches here being used...
+	proposer := w.autonityContract.Proposer(w.previousHeader, statedb, w.previousHeader.Number.Uint64(), round)
 	member := w.previousHeader.CommitteeMember(proposer)
 	if member == nil {
 		//Should not happen in live network, edge case
+		log.Error("cannot find proposer")
 		return types.CommitteeMember{}
 	}
+	w.cachedProposer[round] = *member
 	return *member
+	// TODO make this return an error
 }
 
 // Get the optimal quorum size
@@ -194,8 +208,6 @@ func (w *WeightedRandomSamplingCommittee) Quorum() *big.Int {
 func (w *WeightedRandomSamplingCommittee) F() *big.Int {
 	return bft.F(w.previousHeader.TotalVotingPower())
 }
-
-var ErrEmptyCommitteeSet = errors.New("committee set can't be empty")
 
 func copyMembers(members types.Committee) types.Committee {
 	membersCopy := make(types.Committee, len(members))
