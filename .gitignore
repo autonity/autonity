@@ -30,6 +30,9 @@ coverage_all.out
 /build/cache/
 /build/bin/
 /autonity*.zip
+/node_modules/
+/package-lock.json
+/package.json
 
 # travis
 profile.tmp
