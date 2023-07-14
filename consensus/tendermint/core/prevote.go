@@ -2,7 +2,9 @@ package core
 
 import (
 	"context"
+
 	"github.com/autonity/autonity/consensus"
+
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"

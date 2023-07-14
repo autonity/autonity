@@ -4,27 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/consensus/misc"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/event"
-	"github.com/autonity/autonity/params"
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/trie"
-
-	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/consensus/tendermint/crypto"
-	"github.com/autonity/autonity/core"
-
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
+	"github.com/autonity/autonity/trie"
 )
 
 const (

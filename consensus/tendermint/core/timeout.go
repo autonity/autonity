@@ -13,15 +13,15 @@ func (c *Core) measureMetricsOnTimeOut(step uint8, r int64) {
 	switch step {
 	case consensus.MsgProposal:
 		duration := c.timeoutPropose(r)
-		types.TendermintProposeTimer.Update(duration)
+		types.ProposeTimer.Update(duration)
 		return
 	case consensus.MsgPrevote:
 		duration := c.timeoutPrevote(r)
-		types.TendermintPrevoteTimer.Update(duration)
+		types.PrevoteTimer.Update(duration)
 		return
 	case consensus.MsgPrecommit:
 		duration := c.timeoutPrecommit(r)
-		types.TendermintPrecommitTimer.Update(duration)
+		types.PrecommitTimer.Update(duration)
 		return
 	}
 }

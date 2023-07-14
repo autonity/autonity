@@ -82,11 +82,11 @@ func (t *Timeout) StopTimer() error {
 func (t *Timeout) MeasureMetricsOnStopTimer() {
 	switch t.Step {
 	case Propose:
-		TendermintProposeTimer.UpdateSince(t.Start)
+		ProposeTimer.UpdateSince(t.Start)
 	case Prevote:
-		TendermintPrevoteTimer.UpdateSince(t.Start)
+		PrevoteTimer.UpdateSince(t.Start)
 	case Precommit:
-		TendermintPrecommitTimer.UpdateSince(t.Start)
+		PrecommitTimer.UpdateSince(t.Start)
 	}
 }
 

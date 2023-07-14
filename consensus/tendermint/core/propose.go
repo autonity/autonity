@@ -2,15 +2,16 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/rlp"
 	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/rlp"
 )
 
 type Proposer struct {
@@ -32,6 +33,9 @@ func (c *Proposer) SendProposal(ctx context.Context, p *types.Block) {
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
+		if metrics.Enabled {
+			tctypes.ProposalSent.UpdateSince(c.newRound)
+		}
 		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
 
 		c.Br().SignAndBroadcast(ctx, &message.Message{
@@ -86,9 +90,20 @@ func (c *Proposer) HandleProposal(ctx context.Context, msg *message.Message) err
 		return constants.ErrNotFromProposer
 	}
 
-	// Verify the proposal we received
-	if duration, err := c.backend.VerifyProposal(proposal.ProposalBlock); err != nil {
+	// received a current round proposal
+	if metrics.Enabled {
+		tctypes.ProposalReceivedTimer.UpdateSince(c.newRound)
+	}
 
+	// Verify the proposal we received
+	start := time.Now()
+	duration, err := c.backend.VerifyProposal(proposal.ProposalBlock)
+
+	if metrics.Enabled {
+		tctypes.ProposalVerifiedTimer.UpdateSince(start)
+	}
+
+	if err != nil {
 		if timeoutErr := c.proposeTimeout.StopTimer(); timeoutErr != nil {
 			return timeoutErr
 		}

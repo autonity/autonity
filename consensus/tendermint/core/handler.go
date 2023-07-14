@@ -3,6 +3,9 @@ package core
 import (
 	"context"
 	"errors"
+	"math/big"
+	"time"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -12,8 +15,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"math/big"
-	"time"
 )
 
 // todo: resolve proper tendermint state synchronization timeout from block period.

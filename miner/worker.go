@@ -20,11 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -660,11 +662,16 @@ func (w *worker) taskLoop() {
 			w.pendingTasks[sealHash] = task
 			w.pendingMu.Unlock()
 
+			sealStart := time.Now()
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				w.eth.Logger().Warn("Block sealing failed", "err", err)
 				w.pendingMu.Lock()
 				delete(w.pendingTasks, sealHash)
 				w.pendingMu.Unlock()
+			}
+
+			if metrics.Enabled {
+				SealWorkTimer.UpdateSince(sealStart)
 			}
 		case <-w.exitCh:
 			interrupt()
@@ -704,6 +711,7 @@ func (w *worker) resultLoop() {
 				receipts = make([]*types.Receipt, len(task.receipts))
 				logs     []*types.Log
 			)
+			copyStart := time.Now()
 			for i, taskReceipt := range task.receipts {
 				receipt := new(types.Receipt)
 				receipts[i] = receipt
@@ -725,11 +733,19 @@ func (w *worker) resultLoop() {
 				}
 				logs = append(logs, receipt.Logs...)
 			}
+			if metrics.Enabled {
+				CopyWorkTimer.UpdateSince(copyStart)
+			}
+
 			// Commit block and state to database.
+			persistStart := time.Now()
 			_, err := w.chain.WriteBlockAndSetHead(block, receipts, logs, task.state, true)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
 				continue
+			}
+			if metrics.Enabled {
+				PersistWorkTimer.UpdateSince(persistStart)
 			}
 			w.eth.Logger().Info("🔨 Proposed block with success", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
@@ -1113,14 +1129,28 @@ func (w *worker) commitWork(interrupt *int32, noempty bool, timestamp int64) {
 	if err != nil {
 		return
 	}
+	if metrics.Enabled {
+		PrepareWorkTimer.UpdateSince(start)
+	}
+
 	// Create an empty block based on temporary copied state for
 	// sealing in advance without waiting block execution finished.
 	if !noempty && w.chainConfig.Ethash != nil && atomic.LoadUint32(&w.noempty) == 0 {
 		w.commit(work.copy(), nil, false, start)
 	}
+
+	fillTxStart := time.Now()
 	// Fill pending transactions from the txpool
 	w.fillTransactions(interrupt, work)
+	if metrics.Enabled {
+		FillWorkTimer.UpdateSince(fillTxStart)
+	}
+
+	commitWorkStart := time.Now()
 	w.commit(work.copy(), w.fullTaskHook, true, start)
+	if metrics.Enabled {
+		CommitWorkTimer.UpdateSince(commitWorkStart)
+	}
 
 	// Swap out the old work with the new one, terminating any leftover
 	// prefetcher processes in the mean time and starting a new one.
@@ -1139,12 +1169,17 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		if interval != nil {
 			interval()
 		}
+
+		finalizeStart := time.Now()
 		// Create a local environment copy, avoid the data race with snapshot state.
 		// https://github.com/autonity/autonity/issues/24299
 		env := env.copy()
 		block, err := w.engine.FinalizeAndAssemble(w.chain, env.header, env.state, env.txs, env.unclelist(), &env.receipts)
 		if err != nil {
 			return err
+		}
+		if metrics.Enabled {
+			FinalizeWorkTimer.UpdateSince(finalizeStart)
 		}
 		// If we're post merge, just ignore
 

@@ -3,16 +3,16 @@ package core
 import (
 	"bytes"
 	"context"
+	"math/big"
+
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/rlp"
-	"math/big"
-
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rlp"
 )
 
 type Precommiter struct {

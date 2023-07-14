@@ -4,19 +4,18 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"github.com/autonity/autonity/accounts/abi"
-	"github.com/autonity/autonity/consensus/misc"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/node"
 	"math/big"
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -24,6 +23,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/node"
 	lru "github.com/hashicorp/golang-lru"
 	ring "github.com/zfjagann/golang-ring"
 )
@@ -257,7 +257,7 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 
 	sb.logger.Info("Committed block", "hash", proposal.Hash(), "height", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
-	//   to commit channel, which is being watched inside the engine.Seal() function.
+	//   to resultCh channel, which is being watched inside the worker.ResultLoop() function.
 	// - otherwise, we try to insert the block.
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.

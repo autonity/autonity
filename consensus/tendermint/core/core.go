@@ -2,9 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 	"reflect"
 	"sync"
@@ -12,9 +9,13 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 // New creates an Tendermint consensus Core
@@ -40,6 +41,9 @@ func New(backend interfaces.Backend) *Core {
 		proposeTimeout:         tctypes.NewTimeout(tctypes.Propose, backend.Logger()),
 		prevoteTimeout:         tctypes.NewTimeout(tctypes.Prevote, backend.Logger()),
 		precommitTimeout:       tctypes.NewTimeout(tctypes.Precommit, backend.Logger()),
+		newHeight:              time.Now(),
+		newRound:               time.Now(),
+		stepChange:             time.Now(),
 	}
 	c.SetDefaultHandlers()
 	return c
@@ -145,6 +149,7 @@ type Core struct {
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	step                  tctypes.Step
+	stepChange            time.Time
 	curRoundMessages      *message.RoundMessages
 	messages              *message.MessagesMap
 	sentProposal          bool
@@ -171,6 +176,10 @@ type Core struct {
 	prevoter    interfaces.Prevoter
 	precommiter interfaces.Precommiter
 	proposer    interfaces.Proposer
+
+	// these timestamps are used to compute metrics for tendermint
+	newHeight time.Time
+	newRound  time.Time
 }
 
 func (c *Core) GetPrevoter() interfaces.Prevoter {
@@ -319,6 +328,9 @@ func (c *Core) SignMessage(msg *message.Message) ([]byte, error) {
 func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 	c.SetStep(tctypes.PrecommitDone)
 
+	// for metrics
+	start := time.Now()
+
 	proposal := messages.Proposal()
 	if proposal == nil {
 		// Should never happen really.
@@ -348,16 +360,20 @@ func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
+
+	if metrics.Enabled {
+		tctypes.CommitTimer.UpdateSince(start)
+	}
 }
 
 // Metric collecton of round change and height change.
 func (c *Core) MeasureHeightRoundMetrics(round int64) {
 	if round == 0 {
 		// in case of height change, round changed too, so count it also.
-		tctypes.TendermintRoundChangeMeter.Mark(1)
-		tctypes.TendermintHeightChangeMeter.Mark(1)
+		tctypes.RoundChangeMeter.Mark(1)
+		tctypes.HeightChangeMeter.Mark(1)
 	} else {
-		tctypes.TendermintRoundChangeMeter.Mark(1)
+		tctypes.RoundChangeMeter.Mark(1)
 	}
 }
 
@@ -410,6 +426,12 @@ func (c *Core) SetInitialState(r int64) {
 		c.validValue = nil
 		c.messages.Reset()
 		c.futureRoundChange = make(map[int64]map[common.Address]*big.Int)
+		// update height duration timer
+		if metrics.Enabled {
+			now := time.Now()
+			tctypes.HeightTimer.Update(now.Sub(c.newHeight))
+			c.newHeight = now
+		}
 	}
 
 	c.proposeTimeout.Reset(tctypes.Propose)
@@ -421,6 +443,13 @@ func (c *Core) SetInitialState(r int64) {
 	c.sentPrecommit = false
 	c.setValidRoundAndValue = false
 	c.setRound(r)
+
+	// update round duration timer
+	if metrics.Enabled {
+		now := time.Now()
+		tctypes.RoundTimer.Update(now.Sub(c.newRound))
+		c.newRound = now
+	}
 }
 
 func (c *Core) AcceptVote(roundMsgs *message.RoundMessages, step tctypes.Step, hash common.Hash, msg message.Message) {
@@ -433,8 +462,41 @@ func (c *Core) AcceptVote(roundMsgs *message.RoundMessages, step tctypes.Step, h
 }
 
 func (c *Core) SetStep(step tctypes.Step) {
-	c.logger.Debug("Moving to step "+step.String(), "round", c.Round())
+	if metrics.Enabled {
+		switch {
+		// "standard" tendermint transitions
+		case c.step == tctypes.PrecommitDone && step == tctypes.Propose: // precommitdone --> propose
+			tctypes.PrecommitDoneStepTimer.UpdateSince(c.stepChange)
+		case c.step == tctypes.Propose && step == tctypes.Prevote: // propose --> prevote
+			tctypes.ProposeStepTimer.UpdateSince(c.stepChange)
+		case c.step == tctypes.Prevote && step == tctypes.Precommit: // prevote --> precommit
+			tctypes.PrevoteStepTimer.UpdateSince(c.stepChange)
+		case c.step == tctypes.Precommit && step == tctypes.PrecommitDone: // precommit --> precommitDone
+			tctypes.PrecommitStepTimer.UpdateSince(c.stepChange)
+		// skipped to a future round
+		case c.step == tctypes.Propose && step == tctypes.Propose:
+			tctypes.ProposeStepTimer.UpdateSince(c.stepChange)
+		case c.step == tctypes.Prevote && step == tctypes.Propose:
+			tctypes.PrevoteStepTimer.UpdateSince(c.stepChange)
+		case c.step == tctypes.Precommit && step == tctypes.Propose:
+			tctypes.PrecommitStepTimer.UpdateSince(c.stepChange)
+		// committing an old round proposal
+		case c.step == tctypes.Propose && step == tctypes.PrecommitDone:
+			tctypes.ProposeStepTimer.UpdateSince(c.stepChange)
+		case c.step == tctypes.Prevote && step == tctypes.PrecommitDone:
+			tctypes.PrevoteStepTimer.UpdateSince(c.stepChange)
+		case c.step == tctypes.PrecommitDone && step == tctypes.PrecommitDone:
+			//this transition can also happen when we already received 2f+1 precommits but we did not start the new round yet.
+			tctypes.PrecommitDoneStepTimer.UpdateSince(c.stepChange)
+		default:
+			// TODO(lorenzo) this ideally should be a .Crit but these transitions do actually happen.
+			// see: https://github.com/autonity/autonity/issues/803
+			c.logger.Warn("Unexpected tendermint state transition", "c.step", c.step, "step", step)
+		}
+	}
+	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
 	c.step = step
+	c.stepChange = time.Now()
 	c.processBacklog()
 }
 

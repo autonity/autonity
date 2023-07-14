@@ -21,9 +21,22 @@ import (
 )
 
 var (
-	TendermintHeightChangeMeter = metrics.NewRegisteredMeter("tendermint/height/change", nil)
-	TendermintRoundChangeMeter  = metrics.NewRegisteredMeter("tendermint/round/change", nil)
-	TendermintProposeTimer      = metrics.NewRegisteredTimer("tendermint/timer/propose", nil)
-	TendermintPrevoteTimer      = metrics.NewRegisteredTimer("tendermint/timer/prevote", nil)
-	TendermintPrecommitTimer    = metrics.NewRegisteredTimer("tendermint/timer/precommit", nil)
+	HeightChangeMeter = metrics.NewRegisteredMeter("tendermint/height/change", nil)
+	RoundChangeMeter  = metrics.NewRegisteredMeter("tendermint/round/change", nil)
+	ProposeTimer      = metrics.NewRegisteredTimer("tendermint/timer/propose", nil)
+	PrevoteTimer      = metrics.NewRegisteredTimer("tendermint/timer/prevote", nil)
+	PrecommitTimer    = metrics.NewRegisteredTimer("tendermint/timer/precommit", nil)
+
+	// metrics to measure duration of tendermint phases
+	HeightTimer            = metrics.NewRegisteredTimer("tendermint/height", nil)             // duration of a height
+	RoundTimer             = metrics.NewRegisteredTimer("tendermint/round", nil)              // duration of a round
+	ProposeStepTimer       = metrics.NewRegisteredTimer("tendermint/step/propose", nil)       // duration of propose phase
+	PrevoteStepTimer       = metrics.NewRegisteredTimer("tendermint/step/prevote", nil)       // duration of prevote phase
+	PrecommitStepTimer     = metrics.NewRegisteredTimer("tendermint/step/precommit", nil)     // duration of precommit phase
+	PrecommitDoneStepTimer = metrics.NewRegisteredTimer("tendermint/step/precommitDone", nil) // duration of precommit done phase
+
+	ProposalSent          = metrics.NewRegisteredTimer("tendermint/proposal/sent", nil)     // time between round start and proposal sent
+	ProposalReceivedTimer = metrics.NewRegisteredTimer("tendermint/proposal/received", nil) // time between round start and proposal received
+	ProposalVerifiedTimer = metrics.NewRegisteredTimer("tendermint/proposal/verified", nil) // time to verify proposal
+	CommitTimer           = metrics.NewRegisteredTimer("tendermint/commit", nil)            // time between round start and commit (--> block queued for insertion)
 )
