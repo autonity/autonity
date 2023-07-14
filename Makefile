@@ -4,7 +4,6 @@
 
 .PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast
 
-NPMBIN= $(shell npm bin)
 BINDIR = ./build/bin
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
@@ -144,7 +143,7 @@ test-contracts: autonity contracts
 	@npm list web3 > /dev/null || npm install web3
 	@echo "check and install truffle-assertions.js"
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
-	@$(NPMBIN)/truffle version
+	@npx truffle version
 	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
 	@# Autonity can take some time to start up so we ping its port till we see it is listening.
 	@# The -z option to netcat exits with 0 only if the port at the given addresss is listening.
@@ -156,8 +155,8 @@ test-contracts: autonity contracts
 		echo waiting 2 more seconds for autonity to start ; \
 	    sleep 2 ; \
 	done
-	@cd $(CONTRACTS_TEST_DIR) && $(NPMBIN)/truffle test test.js --network autonity && cd -
-	@cd $(CONTRACTS_TEST_DIR) && $(NPMBIN)/truffle test oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test test.js --network autonity && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 
 docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
