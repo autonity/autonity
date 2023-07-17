@@ -1226,7 +1226,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	clientAddr := members[0].Address
 	currentHeight := big.NewInt(int64(rand.Intn(maxSize+1) + 1))
 	nextHeight := currentHeight.Uint64() + 1
-
+	t.Log("committee size", committeeSizeAndMaxRound, "current height", currentHeight)
 	nextProposalMsg, nextP := generateBlockProposal(t, 0, big.NewInt(int64(nextHeight)), int64(-1), clientAddr, false, privateKeys[clientAddr])
 
 	currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
@@ -1266,10 +1266,12 @@ func TestQuorumPrecommit(t *testing.T) {
 
 	// if the client is the next proposer
 	if newCommitteeSet.GetProposer(0).Address == clientAddr {
+		t.Log("is proposer")
+
 		c.pendingCandidateBlocks[nextHeight] = nextP.ProposalBlock
 		backendMock.EXPECT().SetProposedBlockHash(nextP.ProposalBlock.Hash())
 
-		backendMock.EXPECT().Sign(nextProposalMsg.Bytes).Return(nextProposalMsg.Signature, nil)
+		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(signer(privateKeys[clientAddr]))
 		backendMock.EXPECT().Broadcast(context.Background(), committeeSet.Committee(), nextProposalMsg.Bytes).Return(nil)
 	}
 
