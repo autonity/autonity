@@ -32,8 +32,7 @@ contract Accountability is IAccountability {
         PO,
         PVN,
         PVO,
-        PVO1,
-        PVO2,
+        PVO12,
         PVO3,
         C,
         C1,
@@ -42,9 +41,9 @@ contract Accountability is IAccountability {
         InvalidProposer, // A proposal sent from none proposer nodes of the committee.
         Equivocation,    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
 
-        InvalidRoundStep,          // message contains invalid round number or step.
-        AccountableGarbageMessage, // message was signed by sender, but it cannot be decoded.
-        MsgNotFromCommitteeMember // message sender is not the member of current committee.
+        InvalidRound,          // message contains invalid round number or step.
+        WrongValidRound, // message was signed by sender, but it cannot be decoded.
+        GarbageMessage // message sender is not the member of current committee.
     }
 
     enum Severity {
