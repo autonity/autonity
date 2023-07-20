@@ -304,8 +304,8 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @notice Take fund away from faulty node account.
-    * @dev Emit a {NodeSlashed} event for account that is fined.
+    * @notice Take funds away from faulty node account.
+    * @dev Emit a {SlashingEvent} event for the fined account.
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
@@ -325,7 +325,8 @@ contract Accountability is IAccountability {
             _slashingRate = SLASHING_RATE_PRECISION;
         }
 
-        uint256 _slashingAmount =  (_slashingRate * _val.bondedStake)/SLASHING_RATE_PRECISION;
+        uint256 _availableFunds = _val.bondedStake + _val.unbondingStake;
+        uint256 _slashingAmount =  (_slashingRate * _availableFunds)/SLASHING_RATE_PRECISION;
 
         // Implementation of Penalty Absorbing Stake:
         // Self-bonded stake gets slashed in priority.
@@ -341,7 +342,6 @@ contract Accountability is IAccountability {
         _val.jailReleaseBlock = block.number + JAIL_FACTOR * _val.provableFaultCount * epochPeriod;
         _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
 
-        // Todo(youssef): lock slashed amount
         autonity.updateValidatorAndTransferSlashedFunds(_val);
 
         emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
