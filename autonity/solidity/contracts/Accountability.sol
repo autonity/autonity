@@ -325,19 +325,44 @@ contract Accountability is IAccountability {
             _slashingRate = SLASHING_RATE_PRECISION;
         }
 
-        uint256 _availableFunds = _val.bondedStake + _val.unbondingStake;
+        uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
         uint256 _slashingAmount =  (_slashingRate * _availableFunds)/SLASHING_RATE_PRECISION;
-
-        // Implementation of Penalty Absorbing Stake:
-        // Self-bonded stake gets slashed in priority.
-        if(_val.selfBondedStake >= _slashingAmount){
-            _val.selfBondedStake -= _slashingAmount;
+        uint256 _remaining = _slashingAmount;
+        // -------------------------------------------
+        // Implementation of Penalty Absorbing Stake
+        // -------------------------------------------
+        // Self-unbonding stake gets slashed in priority.
+        if(_val.selfUnbondingStake >= _remaining){
+            _val.selfUnbondingStake -= _remaining;
+            _remaining = 0;
         } else {
-            _val.selfBondedStake = 0;
+            _remaining -= _val.selfUnbondingStake;
+            _val.selfUnbondingStake = 0;
         }
-        _val.bondedStake -= _slashingAmount;
-        _val.totalSlashed += _slashingAmount;
+        // Then self-bonded stake
+        if (_remaining > 0){
+            if(_val.selfBondedStake >= _remaining) {
+                _val.selfBondedStake -= _remaining;
+                _val.bondedStake -= _remaining;
+                _remaining = 0;
+            } else {
+                _remaining -= _val.selfBondedStake;
+                _val.bondedStake -= _val.selfBondedStake;
+                _val.selfBondedStake = 0;
+            }
+        }
+        // --------------------------------------------
+        // Remaining stake to be slashed is split equally between the delegated
+        // stake pool and the non-self unbonding stake pool.
+        if (_remaining > 0 && (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake) > 0)) {
+            uint256 _unbondingSlash = (_remaining * _val.unbondingStake) /
+                                        (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake));
+            _val.unbondingStake -= _unbondingSlash;
+            _remaining -= _unbondingSlash;
+            _val.bondedStake -= _remaining;
+        }
 
+        _val.totalSlashed += _slashingAmount - _remaining;
         _val.provableFaultCount += 1;
         _val.jailReleaseBlock = block.number + JAIL_FACTOR * _val.provableFaultCount * epochPeriod;
         _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
