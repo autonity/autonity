@@ -59,8 +59,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 requestBlock;
     }
     mapping(uint256 => BondingRequest) internal bondingMap;
-    uint256 public tailBondingID;
-    uint256 public headBondingID;
+    uint256 internal tailBondingID;
+    uint256 internal headBondingID;
 
     struct UnbondingRequest {
         address payable delegator;
@@ -72,8 +72,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         bool selfDelegation;
     }
     mapping(uint256 => UnbondingRequest) internal unbondingMap;
-    uint256 public tailUnbondingID;
-    uint256 public headUnbondingID;
+    uint256 internal tailUnbondingID;
+    uint256 internal headUnbondingID;
 
     /* Used to track commission rate change - See ADR-002 */
     struct CommissionRateChangeRequest {
@@ -259,9 +259,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             config.policy.delegationRate,   // validator commission rate
             0,                       // bonded stake
             0,                       // unbonding stake
-            0,                       // unbonding stake requested
+            0,                       // unbonding shares
             0,                       // self bonded stake
-            0,                       // self unbonding stake requested
+            0,                       // self unbonding stake
+            0,                       // self unbonding shares
             Liquid(address(0)),      // liquid token contract
             0,                       // liquid token supply
             block.number,            // registration block
@@ -277,7 +278,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     /**
     * @notice Create a bonding(delegation) request with the caller as delegator.
-    * @param _address address of the validator to delegate stake to.
+    * @param _validator address of the validator to delegate stake to.
     *        _amount total amount of NTN to bond.
     */
     function bond(address _validator, uint256 _amount) public {
@@ -288,7 +289,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     /**
     * @notice Create an unbonding request with the caller as delegator.
-    * @param _address address of the validator to unbond stake to.
+    * @param _validator address of the validator to unbond stake to.
     *        _amount total amount of NTN to unbond.
     */
     function unbond(address _validator, uint256 _amount) public {
@@ -327,9 +328,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @param _val Validator to be updated.
     */
     function updateValidatorAndTransferSlashedFunds(Validator calldata _val) external onlyAccountability {
-        //youssef: I'm not very happy with this function, this could be improved.
-        uint256 _diffNewtonBalance = validators[_val.nodeAddress].bondedStake - _val.bondedStake;
-        accounts[config.policy.treasuryAccount] += _diffNewtonBalance;
+        uint256 _diffNewtonBalance = (validators[_val.nodeAddress].bondedStake - _val.bondedStake) +
+                                     (validators[_val.nodeAddress].unbondingStake - _val.unbondingStake) +
+                                     (validators[_val.nodeAddress].selfUnbondingStake - _val.selfUnbondingStake);
+        accounts[config.treasuryAccount] += _diffNewtonBalance;
         validators[_val.nodeAddress] = _val;
     }
 
@@ -785,20 +787,65 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         revert("There is no validator left in the network");
     }
 
-    // lastId not included
-    function getBondingReq(uint256 _startID, uint256 _lastID) external view returns (BondingRequest[] memory) {
-        // the total length of bonding sets.
-        BondingRequest[] memory _results = new BondingRequest[](_lastID - _startID);
-        for (uint256 i = 0; i < _lastID - _startID; i++) {
+    /**
+     * @return Returns the ID of the last saved bonding request. Revert if no bonding requests
+     * has been processed yet.
+    */
+    function getLastRequestedBondingRequest() external view returns (uint256) {
+        require(headBondingID > 0, "no bonding request processed");
+        return headBondingID - 1;
+    }
+    /**
+    * @return Returns the ID of the last saved bonding request. Revert if no bonding requests
+    * has been processed yet.
+    */
+    function getFirstPendingBondingRequest() external view returns (uint256) {
+        require(tailBondingID != headBondingID, "no pending requests");
+        return tailBondingID;
+    }
+    /**
+     * @return Returns the ID of the last saved bonding request. Revert if no bonding requests
+     * has been processed yet.
+    */
+    function getLastRequestedUnbondingRequest() external view returns (uint256) {
+        require(headUnbondingID > 0, "no unbonding request processed");
+        return headUnbondingID - 1;
+    }
+    /**
+    * @return Returns the ID of the last saved bonding request. Revert if no bonding requests
+    * has been processed yet.
+    */
+    function getFirstPendingUnbondingRequest() external view returns (uint256) {
+        require(tailUnbondingID != headUnbondingID, "no pending requests");
+        return tailUnbondingID;
+    }
+
+    /**
+    * @return Returns a list of bonding requests in processing order.
+    * @param _startID Id of the first Bonding Request to be returned
+             _lastID Id of the last Bonding Request to be returned
+    */
+    function getBondingRequests(uint256 _startID, uint256 _lastID) external view returns (BondingRequest[] memory) {
+        require(_startID <= _lastID, "The start ID must be less or equal to the last id");
+        require(_lastID < headBondingID, "The last ID must be less or equal to the most recent request id");
+        BondingRequest[] memory _results = new BondingRequest[](_lastID + 1 - _startID);
+        for (uint256 i = 0; i < _results.length ; i++) {
             _results[i] = bondingMap[_startID + i];
         }
         return _results;
     }
 
-    function getUnbondingReq(uint256 _startID, uint256 _lastID) external view returns (BondingRequest[] memory) {
-        BondingRequest[] memory _results = new BondingRequest[](_lastID - _startID);
-        // the total length of bonding sets.
-        for (uint256 i = 0; i < _lastID - _startID; i++) {
+    /**
+    * @return Returns a list of unbonding requests in processing order.
+    * @param _startID Id of the first unbonding request to be returned
+             _lastID Id of the last unbonding request to be returned
+    */
+    function getUnbondingRequests(uint256 _startID, uint256 _lastID) external view returns (UnbondingRequest[] memory) {
+        require(_startID <= _lastID, "The start ID must be less or equal to the last id");
+        require(_lastID < headUnbondingID, "The last ID must be less or equal to the most recent request id");
+        UnbondingRequest[] memory _results = new UnbondingRequest[](_lastID  + 1 - _startID);
+
+        for (uint256 i = 0; i < _results.length; i++) {
             _results[i] = unbondingMap[_startID + i];
         }
         return _results;
@@ -1076,8 +1123,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         if(!_unbonding.selfDelegation){
             // Step 1: Unlock and burn requested liquid newtons
             uint256 _liquidAmount = _unbonding.amount;
-            _validator.liquidContract.unlock(_recipient, _liquidAmount);
-            _validator.liquidContract.burn(_recipient, _liquidAmount);
+            _validator.liquidContract.unlock(_unbonding.delegator, _liquidAmount);
+            _validator.liquidContract.burn(_unbonding.delegator, _liquidAmount);
 
             // Step 2: Calculate the amount of stake to reduce from the delegation pool.
             // Note: validator.liquidSupply cannot be equal to zero here
@@ -1098,10 +1145,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         } else {
             // self-delegated stake path, no LNTN<>NTN conversion
             _newtonAmount = _unbonding.amount;
-            if (_validator.selfUnbondingShares == 0) {
+            if (_validator.selfUnbondingStake == 0) {
                  _unbonding.unbondingShare = _newtonAmount;
             } else {
-                _unbonding.unbondingShare = (_newtonAmount * _validator.selfUnbondingShares)/_validator.selfBondedStake;
+                _unbonding.unbondingShare = (_newtonAmount * _validator.selfUnbondingShares)/_validator.selfUnbondingStake;
             }
             _validator.selfUnbondingStake += _newtonAmount;
             _validator.unbondingShares += _unbonding.unbondingShare;

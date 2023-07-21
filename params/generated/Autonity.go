@@ -43,7 +43,27 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
                },
                {
                   "internalType" : "uint256",
+                  "name" : "unbondingStake",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "unbondingShares",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
                   "name" : "selfBondedStake",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "selfUnbondingStake",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "selfUnbondingShares",
                   "type" : "uint256"
                },
                {
@@ -841,7 +861,7 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "name" : "getBondingReq",
+      "name" : "getBondingRequests",
       "outputs" : [
          {
             "components" : [
@@ -862,11 +882,11 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
                },
                {
                   "internalType" : "uint256",
-                  "name" : "startBlock",
+                  "name" : "requestBlock",
                   "type" : "uint256"
                }
             ],
-            "internalType" : "struct Autonity.Staking[]",
+            "internalType" : "struct Autonity.BondingRequest[]",
             "name" : "",
             "type" : "tuple[]"
          }
@@ -946,7 +966,59 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
    },
    {
       "inputs" : [],
+      "name" : "getFirstPendingBondingRequest",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "getFirstPendingUnbondingRequest",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
       "name" : "getLastEpochBlock",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "getLastRequestedBondingRequest",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "getLastRequestedUnbondingRequest",
       "outputs" : [
          {
             "internalType" : "uint256",
@@ -1103,7 +1175,7 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "name" : "getUnbondingReq",
+      "name" : "getUnbondingRequests",
       "outputs" : [
          {
             "components" : [
@@ -1124,11 +1196,26 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
                },
                {
                   "internalType" : "uint256",
-                  "name" : "startBlock",
+                  "name" : "unbondingShare",
                   "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "requestBlock",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "unlocked",
+                  "type" : "bool"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "selfDelegation",
+                  "type" : "bool"
                }
             ],
-            "internalType" : "struct Autonity.Staking[]",
+            "internalType" : "struct Autonity.UnbondingRequest[]",
             "name" : "",
             "type" : "tuple[]"
          }
@@ -1180,7 +1267,27 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
                },
                {
                   "internalType" : "uint256",
+                  "name" : "unbondingStake",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "unbondingShares",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
                   "name" : "selfBondedStake",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "selfUnbondingStake",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "selfUnbondingShares",
                   "type" : "uint256"
                },
                {
@@ -1243,32 +1350,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
    {
       "inputs" : [],
       "name" : "getVersion",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "headBondingID",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "headUnbondingID",
       "outputs" : [
          {
             "internalType" : "uint256",
@@ -1494,32 +1575,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "stateMutability" : "pure",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "tailBondingID",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "tailUnbondingID",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
       "type" : "function"
    },
    {

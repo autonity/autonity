@@ -354,6 +354,7 @@ contract Accountability is IAccountability {
         // --------------------------------------------
         // Remaining stake to be slashed is split equally between the delegated
         // stake pool and the non-self unbonding stake pool.
+        // As a reminder, the delegated stake pool is bondedStake - selfBondedStake.
         if (_remaining > 0 && (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake) > 0)) {
             uint256 _unbondingSlash = (_remaining * _val.unbondingStake) /
                                         (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake));
