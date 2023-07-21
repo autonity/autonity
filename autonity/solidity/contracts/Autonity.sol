@@ -1162,7 +1162,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function _applyNewCommissionRates() internal virtual {
         while(commissionRateChangeQueueFirst < commissionRateChangeQueueLast) {
             // check unbonding period
-
             CommissionRateChangeRequest storage _curRequest = commissionRateChangeQueue[commissionRateChangeQueueFirst];
             if(_curRequest.startBlock + config.policy.unbondingPeriod > block.number){
                 break;
