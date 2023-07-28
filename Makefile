@@ -133,7 +133,7 @@ test-race:
 	go test -race -v ./consensus/test/... -timeout 30m
 
 # This runs the contract tests using truffle against an Autonity node instance.
-test-contracts: autonity contracts
+test-contracts: autonity contracts test-contracts-asm
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statement if the first fails.
 	@# Nov, 2022, the latest release of Truffle, v5.6.6 does not works for the tests.
@@ -157,6 +157,12 @@ test-contracts: autonity contracts
 	done
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test test.js --network autonity && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
+
+test-contracts-asm:
+	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
+	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
+	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm
 
 docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
