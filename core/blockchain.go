@@ -20,14 +20,15 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
 	"io"
 	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/mclock"
@@ -71,6 +72,12 @@ var (
 	blockValidationTimer = metrics.NewRegisteredTimer("chain/validation", nil)
 	blockExecutionTimer  = metrics.NewRegisteredTimer("chain/execution", nil)
 	blockWriteTimer      = metrics.NewRegisteredTimer("chain/write", nil)
+
+	// instant metrics
+	blockInsertBg     = metrics.NewRegisteredBufferedGauge("chain/inserts.bg", nil)
+	blockValidationBg = metrics.NewRegisteredBufferedGauge("chain/validation.bg", nil)
+	blockExecutionBg  = metrics.NewRegisteredBufferedGauge("chain/execution.bg", nil)
+	blockWriteBg      = metrics.NewRegisteredBufferedGauge("chain/write.bg", nil)
 
 	blockReorgMeter         = metrics.NewRegisteredMeter("chain/reorg/executes", nil)
 	blockReorgAddMeter      = metrics.NewRegisteredMeter("chain/reorg/add", nil)
@@ -1628,6 +1635,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		trieproc += statedb.SnapshotStorageReads + statedb.StorageReads + statedb.StorageUpdates
 
 		blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
+		blockExecutionBg.Add((time.Since(substart) - trieproc - triehash).Nanoseconds())
 
 		// Validate the state using the default validator
 		substart = time.Now()
@@ -1642,6 +1650,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		accountHashTimer.Update(statedb.AccountHashes) // Account hashes are complete, we can mark them
 		storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
 		blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
+		blockValidationBg.Add((time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash)).Nanoseconds())
 
 		// Write the block to the chain and get the status.
 		substart = time.Now()
@@ -1662,7 +1671,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		snapshotCommitTimer.Update(statedb.SnapshotCommits) // Snapshot commits are complete, we can mark them
 
 		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits)
-		blockInsertTimer.UpdateSince(start)
+		blockWriteBg.Add((time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits).Nanoseconds())
+		now := time.Now()
+		blockInsertTimer.Update(now.Sub(start))
+		blockInsertBg.Add(now.Sub(start).Nanoseconds())
 
 		if !setHead {
 			// We did not setHead, so we don't have any stats to update

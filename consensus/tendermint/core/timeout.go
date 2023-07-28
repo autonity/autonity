@@ -2,10 +2,11 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 	"time"
+
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/types"
 )
 
 // ///////////// On Timeout Functions ///////////////
@@ -14,14 +15,17 @@ func (c *Core) measureMetricsOnTimeOut(step uint8, r int64) {
 	case consensus.MsgProposal:
 		duration := c.timeoutPropose(r)
 		types.ProposeTimer.Update(duration)
+		types.ProposeBg.Add(duration.Nanoseconds())
 		return
 	case consensus.MsgPrevote:
 		duration := c.timeoutPrevote(r)
 		types.PrevoteTimer.Update(duration)
+		types.PrevoteBg.Add(duration.Nanoseconds())
 		return
 	case consensus.MsgPrecommit:
 		duration := c.timeoutPrecommit(r)
 		types.PrecommitTimer.Update(duration)
+		types.PrecommitBg.Add(duration.Nanoseconds())
 		return
 	}
 }

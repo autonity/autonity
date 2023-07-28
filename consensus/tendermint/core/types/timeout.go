@@ -1,11 +1,12 @@
 package types
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/log"
 )
 
 const (
@@ -80,13 +81,17 @@ func (t *Timeout) StopTimer() error {
 }
 
 func (t *Timeout) MeasureMetricsOnStopTimer() {
+	now := time.Now()
 	switch t.Step {
 	case Propose:
-		ProposeTimer.UpdateSince(t.Start)
+		ProposeTimer.Update(now.Sub(t.Start))
+		ProposeBg.Add(now.Sub(t.Start).Nanoseconds())
 	case Prevote:
 		PrevoteTimer.UpdateSince(t.Start)
+		PrevoteBg.Add(now.Sub(t.Start).Nanoseconds())
 	case Precommit:
 		PrecommitTimer.UpdateSince(t.Start)
+		PrecommitBg.Add(now.Sub(t.Start).Nanoseconds())
 	}
 }
 

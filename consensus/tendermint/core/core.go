@@ -362,7 +362,9 @@ func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 	}
 
 	if metrics.Enabled {
-		tctypes.CommitTimer.UpdateSince(start)
+		now := time.Now()
+		tctypes.CommitTimer.Update(now.Sub(start))
+		tctypes.CommitBg.Add(now.Sub(start).Nanoseconds())
 	}
 }
 
@@ -430,6 +432,7 @@ func (c *Core) SetInitialState(r int64) {
 		if metrics.Enabled {
 			now := time.Now()
 			tctypes.HeightTimer.Update(now.Sub(c.newHeight))
+			tctypes.HeightBg.Add(now.Sub(c.newHeight).Nanoseconds())
 			c.newHeight = now
 		}
 	}
@@ -448,6 +451,7 @@ func (c *Core) SetInitialState(r int64) {
 	if metrics.Enabled {
 		now := time.Now()
 		tctypes.RoundTimer.Update(now.Sub(c.newRound))
+		tctypes.RoundBg.Add(now.Sub(c.newRound).Nanoseconds())
 		c.newRound = now
 	}
 }
@@ -462,32 +466,43 @@ func (c *Core) AcceptVote(roundMsgs *message.RoundMessages, step tctypes.Step, h
 }
 
 func (c *Core) SetStep(step tctypes.Step) {
+	now := time.Now()
 	if metrics.Enabled {
 		switch {
 		// "standard" tendermint transitions
 		case c.step == tctypes.PrecommitDone && step == tctypes.Propose: // precommitdone --> propose
-			tctypes.PrecommitDoneStepTimer.UpdateSince(c.stepChange)
+			tctypes.PrecommitDoneStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.PrecommitDoneStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == tctypes.Propose && step == tctypes.Prevote: // propose --> prevote
-			tctypes.ProposeStepTimer.UpdateSince(c.stepChange)
+			tctypes.ProposeStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == tctypes.Prevote && step == tctypes.Precommit: // prevote --> precommit
-			tctypes.PrevoteStepTimer.UpdateSince(c.stepChange)
+			tctypes.PrevoteStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == tctypes.Precommit && step == tctypes.PrecommitDone: // precommit --> precommitDone
-			tctypes.PrecommitStepTimer.UpdateSince(c.stepChange)
+			tctypes.PrecommitStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.PrecommitStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		// skipped to a future round
 		case c.step == tctypes.Propose && step == tctypes.Propose:
-			tctypes.ProposeStepTimer.UpdateSince(c.stepChange)
+			tctypes.ProposeStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == tctypes.Prevote && step == tctypes.Propose:
-			tctypes.PrevoteStepTimer.UpdateSince(c.stepChange)
+			tctypes.PrevoteStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == tctypes.Precommit && step == tctypes.Propose:
-			tctypes.PrecommitStepTimer.UpdateSince(c.stepChange)
+			tctypes.PrecommitStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.PrecommitStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		// committing an old round proposal
 		case c.step == tctypes.Propose && step == tctypes.PrecommitDone:
-			tctypes.ProposeStepTimer.UpdateSince(c.stepChange)
+			tctypes.ProposeStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == tctypes.Prevote && step == tctypes.PrecommitDone:
-			tctypes.PrevoteStepTimer.UpdateSince(c.stepChange)
+			tctypes.PrevoteStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == tctypes.PrecommitDone && step == tctypes.PrecommitDone:
 			//this transition can also happen when we already received 2f+1 precommits but we did not start the new round yet.
-			tctypes.PrecommitDoneStepTimer.UpdateSince(c.stepChange)
+			tctypes.PrecommitDoneStepTimer.Update(now.Sub(c.stepChange))
+			tctypes.PrecommitDoneStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		default:
 			// TODO(lorenzo) this ideally should be a .Crit but these transitions do actually happen.
 			// see: https://github.com/autonity/autonity/issues/803
@@ -496,7 +511,7 @@ func (c *Core) SetStep(step tctypes.Step) {
 	}
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
 	c.step = step
-	c.stepChange = time.Now()
+	c.stepChange = now
 	c.processBacklog()
 }
 

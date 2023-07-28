@@ -34,7 +34,9 @@ func (c *Proposer) SendProposal(ctx context.Context, p *types.Block) {
 		c.backend.SetProposedBlockHash(p.Hash())
 
 		if metrics.Enabled {
-			tctypes.ProposalSent.UpdateSince(c.newRound)
+			now := time.Now()
+			tctypes.ProposalSentTimer.Update(now.Sub(c.newRound))
+			tctypes.ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
 		}
 		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
 
@@ -92,7 +94,9 @@ func (c *Proposer) HandleProposal(ctx context.Context, msg *message.Message) err
 
 	// received a current round proposal
 	if metrics.Enabled {
-		tctypes.ProposalReceivedTimer.UpdateSince(c.newRound)
+		now := time.Now()
+		tctypes.ProposalReceivedTimer.Update(now.Sub(c.newRound))
+		tctypes.ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
 	}
 
 	// Verify the proposal we received
@@ -100,7 +104,9 @@ func (c *Proposer) HandleProposal(ctx context.Context, msg *message.Message) err
 	duration, err := c.backend.VerifyProposal(proposal.ProposalBlock)
 
 	if metrics.Enabled {
-		tctypes.ProposalVerifiedTimer.UpdateSince(start)
+		now := time.Now()
+		tctypes.ProposalVerifiedTimer.Update(now.Sub(start))
+		tctypes.ProposalVerifiedBg.Add(now.Sub(start).Nanoseconds())
 	}
 
 	if err != nil {

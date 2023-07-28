@@ -28,4 +28,14 @@ var (
 	SealWorkTimer     = metrics.NewRegisteredTimer("miner/work/seal", nil)     // time to seal block (taskloop, waits for timestamp to be ripe and then submits to consensus engine)
 	CopyWorkTimer     = metrics.NewRegisteredTimer("miner/work/copy", nil)     // time to do task deep copy (see worker ResultLoop()).
 	PersistWorkTimer  = metrics.NewRegisteredTimer("miner/work/persist", nil)  // time to writeBlockAndSetHead
+
+	// instant metrics
+
+	PrepareWorkBg  = metrics.NewRegisteredBufferedGauge("miner/work/prepare.bg", nil)  // time to prepare new work (block proposal)
+	FillWorkBg     = metrics.NewRegisteredBufferedGauge("miner/work/fill.bg", nil)     // time to fill new work with txs
+	CommitWorkBg   = metrics.NewRegisteredBufferedGauge("miner/work/commit.bg", nil)   // time to commit work (send it to the taskloop)
+	FinalizeWorkBg = metrics.NewRegisteredBufferedGauge("miner/work/finalize.bg", nil) // time to finalize work (substep of commit)
+	SealWorkBg     = metrics.NewRegisteredBufferedGauge("miner/work/seal.bg", nil)     // time to seal block (taskloop, waits for timestamp to be ripe and then submits to consensus engine)
+	CopyWorkBg     = metrics.NewRegisteredBufferedGauge("miner/work/copy.bg", nil)     // time to do task deep copy (see worker ResultLoop()).
+	PersistWorkBg  = metrics.NewRegisteredBufferedGauge("miner/work/persist.bg", nil)  // time to writeBlockAndSetHead
 )

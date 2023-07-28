@@ -671,7 +671,9 @@ func (w *worker) taskLoop() {
 			}
 
 			if metrics.Enabled {
-				SealWorkTimer.UpdateSince(sealStart)
+				now := time.Now()
+				SealWorkTimer.Update(now.Sub(sealStart))
+				SealWorkBg.Add(now.Sub(sealStart).Nanoseconds())
 			}
 		case <-w.exitCh:
 			interrupt()
@@ -734,7 +736,9 @@ func (w *worker) resultLoop() {
 				logs = append(logs, receipt.Logs...)
 			}
 			if metrics.Enabled {
-				CopyWorkTimer.UpdateSince(copyStart)
+				now := time.Now()
+				CopyWorkTimer.Update(now.Sub(copyStart))
+				CopyWorkBg.Add(now.Sub(copyStart).Nanoseconds())
 			}
 
 			// Commit block and state to database.
@@ -745,7 +749,9 @@ func (w *worker) resultLoop() {
 				continue
 			}
 			if metrics.Enabled {
-				PersistWorkTimer.UpdateSince(persistStart)
+				now := time.Now()
+				PersistWorkTimer.Update(now.Sub(persistStart))
+				PersistWorkBg.Add(now.Sub(persistStart).Nanoseconds())
 			}
 			w.eth.Logger().Info("🔨 Proposed block with success", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
@@ -1130,7 +1136,9 @@ func (w *worker) commitWork(interrupt *int32, noempty bool, timestamp int64) {
 		return
 	}
 	if metrics.Enabled {
-		PrepareWorkTimer.UpdateSince(start)
+		now := time.Now()
+		PrepareWorkTimer.Update(now.Sub(start))
+		PrepareWorkBg.Add(now.Sub(start).Nanoseconds())
 	}
 
 	// Create an empty block based on temporary copied state for
@@ -1143,13 +1151,17 @@ func (w *worker) commitWork(interrupt *int32, noempty bool, timestamp int64) {
 	// Fill pending transactions from the txpool
 	w.fillTransactions(interrupt, work)
 	if metrics.Enabled {
-		FillWorkTimer.UpdateSince(fillTxStart)
+		now := time.Now()
+		FillWorkTimer.Update(now.Sub(fillTxStart))
+		FillWorkBg.Add(now.Sub(fillTxStart).Nanoseconds())
 	}
 
 	commitWorkStart := time.Now()
 	w.commit(work.copy(), w.fullTaskHook, true, start)
 	if metrics.Enabled {
-		CommitWorkTimer.UpdateSince(commitWorkStart)
+		now := time.Now()
+		CommitWorkTimer.Update(now.Sub(commitWorkStart))
+		CommitWorkBg.Add(now.Sub(commitWorkStart).Nanoseconds())
 	}
 
 	// Swap out the old work with the new one, terminating any leftover
@@ -1179,7 +1191,9 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 			return err
 		}
 		if metrics.Enabled {
-			FinalizeWorkTimer.UpdateSince(finalizeStart)
+			now := time.Now()
+			FinalizeWorkTimer.Update(now.Sub(finalizeStart))
+			FinalizeWorkBg.Add(now.Sub(finalizeStart).Nanoseconds())
 		}
 		// If we're post merge, just ignore
 
