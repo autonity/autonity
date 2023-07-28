@@ -122,6 +122,16 @@ See the docs how to [Setup `aut` CLI](https://docs.autonity.org/account-holders/
 
 For details of public Autonity networks, see [docs.autonity.org/networks](https://docs.autonity.org/networks/).
 
+## Development
+
+To run the tests, you will need the following prerequisites installed:
+
+- `jq`
+- netcat (`nc`)
+- Node.js ([supported version](https://github.com/nodejs/release#release-schedule))
+- `pipx`
+- python3
+
 ## License
 
 The library (i.e. all code outside of the `cmd` directory) is licensed under the [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html), also included in the repository in the `COPYING.LESSER` file.
