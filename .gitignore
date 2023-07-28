@@ -36,6 +36,7 @@ __pycache__/
 /package.json
 /params/generated/**/*.abi
 /params/generated/**/*.bin
+nohup.out
 
 # travis
 profile.tmp

@@ -13,7 +13,7 @@ contract("Liquid", accounts => {
   // Accounts.
   let rewardSource = accounts[0];
   let treasury = accounts[1];
-  let validator = accounts[2];
+  let validator = accounts[6];
   let delegatorA = accounts[3];
   let delegatorB = accounts[4];
   let delegatorC = accounts[5];

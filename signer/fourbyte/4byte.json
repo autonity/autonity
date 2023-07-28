@@ -114,5 +114,8 @@
   "7eee288d": "unlock(address,uint256)",
   "84955c88": "unlockedBalanceOf(address)",
   "3a5381b5": "validator()",
-  "d861b0e8": "finalizeInitialization()"
+  "d861b0e8": "finalizeInitialization()",
+  "d372c07e": "setAcuContract(address)",
+  "cfd19fb9": "setStabilizationContract(address)",
+  "b3ecbadd": "setSupplyControlContract(address)"
 }
