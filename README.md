@@ -120,7 +120,7 @@ See the docs how to [Setup `aut` CLI](https://docs.autonity.org/account-holders/
 
 ### Testnets
 
-For details of public Autonity network see [docs.autonity.org/networks](https://docs.autonity.org/networks/).
+For details of public Autonity networks, see [docs.autonity.org/networks](https://docs.autonity.org/networks/).
 
 ## License
 
