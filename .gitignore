@@ -24,6 +24,7 @@ coverage_all.out
 *~
 .project
 .settings
+__pycache__/
 
 # used by the Makefile
 /build/_workspace/
