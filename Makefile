@@ -157,6 +157,7 @@ test-contracts: autonity contracts test-contracts-asm
 	done
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test test.js --network autonity && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
+	pkill autonity # terminate once tests are complete
 
 test-contracts-asm:
 	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
