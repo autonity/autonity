@@ -58,6 +58,8 @@ profile.cov
 /vendor
 
 # solidity
+/autonity/solidity/.build
+/autonity/solidity/node_modules/
 /autonity/solidity/package.json
 /autonity/solidity/package-lock.json
 /autonity/solidity/test/autonity/data/
