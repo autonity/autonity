@@ -33,6 +33,7 @@ coverage_all.out
 /node_modules/
 /package-lock.json
 /package.json
+/params/generated/
 
 # travis
 profile.tmp
