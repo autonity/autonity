@@ -57,31 +57,34 @@ autonity-docker:
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 define gen-contract
-	$(SOLC_BINARY) --overwrite --abi --bin -o $(1) $(CONTRACTS_DIR)/$(2).sol
+	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR)/$(1) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@echo Generating bytecode for $(2)
-	@echo 'package generated' > $(1)/$(2).go
-	@echo 'import "strings"' >> $(1)/$(2).go
-	@echo 'import "github.com/autonity/autonity/accounts/abi"' >> $(1)/$(2).go
-	@echo 'import "github.com/autonity/autonity/common"' >> $(1)/$(2).go
+	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo 'import "strings"' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo 'import "github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
 
-	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(1)/$(2).go
-	@cat  $(1)/$(2).bin >> $(1)/$(2).go
-	@echo '")\n' >> $(1)/$(2).go
+	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@cat  $(GENERATED_CONTRACT_DIR)/$(1)$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo '")\n' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
 
 	@echo Generating Abi for $(2)
-	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(1)/$(2).go
-	@cat  $(1)/$(2).abi | json_pp  >> $(1)/$(2).go
-	@echo '`))' >> $(1)/$(2).go
-	@gofmt -s -w $(1)/$(2).go
+	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@cat  $(GENERATED_CONTRACT_DIR)/$(1)$(2).abi | json_pp  >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo '`))' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@gofmt -s -w $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
 
 endef
 
 contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),Autonity)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),Oracle)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),AutonityUpgradeTest)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),Accountability)
+	@$(call gen-contract,,Autonity)
+	@$(call gen-contract,,Oracle)
+	@$(call gen-contract,,AutonityUpgradeTest)
+	@$(call gen-contract,,Accountability)
+	@$(call gen-contract,asm/,ACU)
+	@$(call gen-contract,asm/,SupplyControl)
+	@$(call gen-contract,asm/,Stabilisation)
 	# update 4byte selector for clef
 	build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate

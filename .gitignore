@@ -34,7 +34,8 @@ __pycache__/
 /node_modules/
 /package-lock.json
 /package.json
-/params/generated/
+/params/generated/**/*.abi
+/params/generated/**/*.bin
 
 # travis
 profile.tmp
