@@ -280,14 +280,13 @@ contract Oracle is IOracle {
     */
     function _votersSort(address[] memory _voters, int _low, int _high)
     internal pure {
+        if (_low >= _high) return;
         int _i = _low;
         int _j = _high;
-        if (_i == _j) return;
         address _pivot = _voters[uint(_low + (_high - _low) / 2)];
-        // Set the pivot element in its right sorted index in the array
         while (_i <= _j) {
-            while (_voters[uint(_i)] > _pivot) _i++;
-            while (_pivot > _voters[uint(_j)]) _j--;
+            while (_voters[uint(_i)] < _pivot) _i++;
+            while (_voters[uint(_j)] > _pivot) _j--;
             if (_i <= _j) {
                 (_voters[uint(_i)], _voters[uint(_j)]) =
                 (_voters[uint(_j)], _voters[uint(_i)]);
