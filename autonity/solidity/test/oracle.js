@@ -187,7 +187,12 @@ contract("Oracle", accounts => {
 
     it('Test get committee', async function () {
       let vs = await oracle.getVoters();
-      assert.deepEqual(voterAccounts.slice().sort(), vs.slice().sort(), "symbols are not as expected");
+      assert.deepEqual(
+        voterAccounts.slice().sort(function (a, b) {
+          return a.toLowerCase().localeCompare(b.toLowerCase());
+        }),
+        vs, "voters are not as expected"
+      );
     });
 
     it('Test get round', async function () {
@@ -197,6 +202,25 @@ contract("Oracle", accounts => {
   });
 
   describe('Contract set api test', function() {
+    it('Test sorting of voters', async function () {
+      let newVoters = [
+        "0xfF00000000000000000000000000000000000000",
+        "0xaa00000000000000000000000000000000000000",
+        "0x1100000000000000000000000000000000000000",
+        "0x6600000000000000000000000000000000000000",
+        "0xd228247B4f57587F6d2A479669e277699643135B",
+        "0xF7cA6855Df4B0f725aC0dA6B54DD5CDF7E4c21d8",
+      ]
+      await oracle.setVoters(newVoters, {from:autonity});
+      let updatedVoters = await oracle.getVoters();
+      //console.log(updatedVoters)
+      assert.deepEqual(
+        newVoters.slice().sort(function (a, b) {
+          return a.toLowerCase().localeCompare(b.toLowerCase());
+        }),
+        updatedVoters, "voters are not as expected"
+      );
+    });
     it('Test update voters', async function () {
       let newVoters = [
         accounts[0],
@@ -207,6 +231,12 @@ contract("Oracle", accounts => {
       await oracle.setVoters(newVoters, {from:autonity});
       let updatedVoters = await oracle.getVoters();
       assert.deepEqual(newVoters.slice().sort(), updatedVoters.slice().sort(), "voters are not as expected");
+      assert.deepEqual(
+        newVoters.slice().sort(function (a, b) {
+          return a.toLowerCase().localeCompare(b.toLowerCase());
+        }),
+        updatedVoters, "voters are not as expected"
+      );
     });
     it('Test update voters - empty voter list', async function () {
       let newVoters = [];
