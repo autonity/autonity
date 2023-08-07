@@ -45,11 +45,11 @@ func DeployStabilizationContract(config *params.ChainConfig, evm *vm.EVM) error 
 	} else {
 		config.ASM.StabilizationContractConfig.SetDefaults()
 	}
-	constructorParams, err := generated.StabilisationAbi.Pack("",
+	constructorParams, err := generated.StabilizationAbi.Pack("",
 		struct {
 			BorrowInterestRate        *big.Int
 			LiquidationRatio          *big.Int
-			MinCollateralisationRatio *big.Int
+			MinCollateralizationRatio *big.Int
 			MinDebtRequirement        *big.Int
 			RedemptionPrice           *big.Int
 		}{(*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
@@ -67,7 +67,7 @@ func DeployStabilizationContract(config *params.ChainConfig, evm *vm.EVM) error 
 		log.Error("formatting error", "err", err)
 		return err
 	}
-	data := append(generated.StabilisationBytecode, constructorParams...)
+	data := append(generated.StabilizationBytecode, constructorParams...)
 	gas := uint64(0xFFFFFFFF)
 	value := new(big.Int).SetUint64(0x00)
 
