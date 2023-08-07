@@ -84,7 +84,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,Accountability)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
-	@$(call gen-contract,asm/,Stabilisation)
+	@$(call gen-contract,asm/,Stabilization)
 	# update 4byte selector for clef
 	build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
