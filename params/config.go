@@ -129,6 +129,11 @@ var (
 			VotePeriod: OracleVotePeriod,
 			Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
 		},
+		ASM: AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
+		},
 	}
 
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
@@ -197,6 +202,11 @@ var (
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
 			Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+		},
+		ASM: AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
 	}
 
@@ -395,7 +405,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, AsmConfig{}}
 
 	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
@@ -419,10 +429,6 @@ var (
 			},
 		},
 	}
-	TestOracleContractConfig = OracleContractGenesis{
-		VotePeriod: OracleVotePeriod,
-		Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
-	}
 
 	TestChainConfig = &ChainConfig{
 		big.NewInt(1337),
@@ -445,7 +451,12 @@ var (
 		nil,
 		new(EthashConfig),
 		&TestAutonityContractConfig,
-		&TestOracleContractConfig,
+		DefaultGenesisOracleConfig,
+		AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
+		},
 	}
 
 	TestRules = TestChainConfig.Rules(new(big.Int), false)
@@ -543,6 +554,14 @@ type ChainConfig struct {
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonity,omitempty"`
 	OracleContractConfig   *OracleContractGenesis   `json:"oracle,omitempty"`
+
+	ASM AsmConfig `json:"asm,omitempty"`
+}
+
+type AsmConfig struct {
+	ACUContractConfig           *AcuContractGenesis           `json:"acu,omitempty"`
+	StabilizationContractConfig *StabilizationContractGenesis `json:"stabilization,omitempty"`
+	SupplyControlConfig         *SupplyControlGenesis         `json:"supplyControl,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
