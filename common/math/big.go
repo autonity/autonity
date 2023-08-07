@@ -20,6 +20,7 @@ package math
 import (
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 // Various big integer limit values.
@@ -112,7 +113,11 @@ func ParseBig256(s string) (*big.Int, bool) {
 	if len(s) >= 2 && (s[:2] == "0x" || s[:2] == "0X") {
 		bigint, ok = new(big.Int).SetString(s[2:], 16)
 	} else {
-		bigint, ok = new(big.Int).SetString(s, 10)
+		trimmed := strings.TrimLeft(s, "0")
+		if trimmed == "" {
+			return new(big.Int), true
+		}
+		bigint, ok = new(big.Int).SetString(trimmed, 0)
 	}
 	if ok && bigint.BitLen() > 256 {
 		bigint, ok = nil, false
@@ -227,10 +232,10 @@ func U256Bytes(n *big.Int) []byte {
 // S256 interprets x as a two's complement number.
 // x must not exceed 256 bits (the result is undefined if it does) and is not modified.
 //
-//   S256(0)        = 0
-//   S256(1)        = 1
-//   S256(2**255)   = -2**255
-//   S256(2**256-1) = -1
+//	S256(0)        = 0
+//	S256(1)        = 1
+//	S256(2**255)   = -2**255
+//	S256(2**256-1) = -1
 func S256(x *big.Int) *big.Int {
 	if x.Cmp(tt255) < 0 {
 		return x

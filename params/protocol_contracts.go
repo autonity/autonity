@@ -6,6 +6,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params/generated"
@@ -17,8 +18,34 @@ var (
 	GovernanceOperator = common.HexToAddress("0x1336000000000000000000000000000000000000")
 
 	//Oracle Contract defaults
-	OracleVotePeriod     = uint64(30)
-	OracleInitialSymbols = []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"}
+	OracleVotePeriod           = uint64(30)
+	OracleInitialSymbols       = []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"}
+	DefaultGenesisOracleConfig = &OracleContractGenesis{
+		Bytecode:   generated.OracleBytecode,
+		ABI:        &generated.OracleAbi,
+		Symbols:    OracleInitialSymbols,
+		VotePeriod: OracleVotePeriod,
+	}
+
+	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
+	DefaultAcuContractGenesis = &AcuContractGenesis{
+		Symbols:    []string{"AUD/USD", "CAD/USD", "EUR/USD", "GBP/USD", "JPY/USD", "USD/USD", "SEK/USD"},
+		Quantities: []uint64{21_300, 18_700, 14_300, 10_400, 1_760_000, 18_000, 141_000},
+		Scale:      uint64(5),
+	}
+
+	// DefaultStabilizationGenesis contains the default values for the ASM Stabilization contract
+	DefaultStabilizationGenesis = &StabilizationContractGenesis{
+		BorrowInterestRate:        (*math.HexOrDecimal256)(math.MustParseBig256("50_000_000_000_000_000")),
+		LiquidationRatio:          (*math.HexOrDecimal256)(math.MustParseBig256("1_500_000_000_000_000_000")),
+		MinCollateralizationRatio: (*math.HexOrDecimal256)(math.MustParseBig256("2_000_000_000_000_000_000")),
+		MinDebtRequirement:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000")),
+		RedemptionPrice:           (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000_000_000_000_000")),
+	}
+
+	DefaultSupplyControlGenesis = &SupplyControlGenesis{
+		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Exp(big.NewInt(2), big.NewInt(255), nil)),
+	}
 )
 
 type AutonityContractGenesis struct {
@@ -146,9 +173,9 @@ type OracleContractGenesis struct {
 	VotePeriod uint64        `json:"votePeriod"`
 }
 
-// Prepare prepares the AutonityContractGenesis by filling in missing fields.
+// SetDefaults prepares the AutonityContractGenesis by filling in missing fields.
 // It returns an error if the configuration is invalid.
-func (g *OracleContractGenesis) Prepare() error {
+func (g *OracleContractGenesis) SetDefaults() error {
 	if g.Bytecode == nil && g.ABI != nil || g.Bytecode != nil && g.ABI == nil {
 		return errors.New("it is an error to set only of oracle contract abi or bytecode")
 	}
@@ -168,11 +195,53 @@ func (g *OracleContractGenesis) Prepare() error {
 	return nil
 }
 
-func DefaultGenesisOracleConfig() *OracleContractGenesis {
-	return &OracleContractGenesis{
-		Bytecode:   generated.OracleBytecode,
-		ABI:        &generated.OracleAbi,
-		Symbols:    OracleInitialSymbols,
-		VotePeriod: OracleVotePeriod,
+type AcuContractGenesis struct {
+	Symbols    []string
+	Quantities []uint64
+	Scale      uint64
+}
+
+func (acu *AcuContractGenesis) SetDefaults() {
+	if acu.Symbols == nil {
+		acu.Symbols = DefaultAcuContractGenesis.Symbols
+	}
+	if acu.Quantities == nil {
+		acu.Quantities = DefaultAcuContractGenesis.Quantities
+	}
+}
+
+type StabilizationContractGenesis struct {
+	BorrowInterestRate        *math.HexOrDecimal256
+	LiquidationRatio          *math.HexOrDecimal256
+	MinCollateralizationRatio *math.HexOrDecimal256
+	MinDebtRequirement        *math.HexOrDecimal256
+	RedemptionPrice           *math.HexOrDecimal256
+}
+
+func (s *StabilizationContractGenesis) SetDefaults() {
+	if s.BorrowInterestRate == nil {
+		s.BorrowInterestRate = DefaultStabilizationGenesis.BorrowInterestRate
+	}
+	if s.LiquidationRatio == nil {
+		s.LiquidationRatio = DefaultStabilizationGenesis.LiquidationRatio
+	}
+	if s.MinCollateralizationRatio == nil {
+		s.MinCollateralizationRatio = DefaultStabilizationGenesis.MinCollateralizationRatio
+	}
+	if s.MinDebtRequirement == nil {
+		s.MinDebtRequirement = DefaultStabilizationGenesis.MinDebtRequirement
+	}
+	if s.RedemptionPrice == nil {
+		s.RedemptionPrice = DefaultStabilizationGenesis.RedemptionPrice
+	}
+}
+
+type SupplyControlGenesis struct {
+	InitialAllocation *math.HexOrDecimal256
+}
+
+func (s *SupplyControlGenesis) SetDefaults() {
+	if s.InitialAllocation == nil {
+		s.InitialAllocation = DefaultSupplyControlGenesis.InitialAllocation
 	}
 }

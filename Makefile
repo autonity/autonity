@@ -57,23 +57,23 @@ autonity-docker:
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 define gen-contract
-	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR)/$(1) $(CONTRACTS_DIR)/$(1)$(2).sol
+	$(SOLC_BINARY) --overwrite --abi --bin -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@echo Generating bytecode for $(2)
-	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@echo 'import "strings"' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@echo 'import "github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo 'import "strings"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo 'import "github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
-	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@cat  $(GENERATED_CONTRACT_DIR)/$(1)$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@echo '")\n' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@cat  $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '")\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo Generating Abi for $(2)
-	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@cat  $(GENERATED_CONTRACT_DIR)/$(1)$(2).abi | json_pp  >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@echo '`))' >> $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
-	@gofmt -s -w $(GENERATED_CONTRACT_DIR)/$(1)$(2).go
+	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@cat  $(GENERATED_CONTRACT_DIR)/$(2).abi | json_pp  >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '`))' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@gofmt -s -w $(GENERATED_CONTRACT_DIR)/$(2).go
 
 endef
 
