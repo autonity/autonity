@@ -35,6 +35,7 @@ func TestHexOrDecimal256(t *testing.T) {
 		{"0", big.NewInt(0), true},
 		{"0x0", big.NewInt(0), true},
 		{"12345678", big.NewInt(12345678), true},
+		{"123_456_788", big.NewInt(123456788), true},
 		{"0x12345678", big.NewInt(0x12345678), true},
 		{"0X12345678", big.NewInt(0x12345678), true},
 		// Tests for leading zero behaviour:

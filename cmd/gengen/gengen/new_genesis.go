@@ -109,6 +109,11 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 				Validators:       genesisValidators,
 			},
 			OracleContractConfig: &params.OracleContractGenesis{},
+			ASM: params.AsmConfig{
+				ACUContractConfig:           params.DefaultAcuContractGenesis,
+				StabilizationContractConfig: params.DefaultStabilizationGenesis,
+				SupplyControlConfig:         params.DefaultSupplyControlGenesis,
+			},
 		},
 	}
 

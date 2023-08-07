@@ -3,13 +3,13 @@ package autonity
 import (
 	"fmt"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
-	"math"
 	"math/big"
 	"reflect"
 )
@@ -26,6 +26,124 @@ func DeployContracts(genesisConfig *params.ChainConfig, evm *vm.EVM) error {
 	if err := DeployOracleContract(genesisConfig, evm); err != nil {
 		return fmt.Errorf("error %w when deploying the oracle contract", err)
 	}
+	if err := DeployACUContract(genesisConfig, evm); err != nil {
+		return fmt.Errorf("error %w when deploying the ACU contract", err)
+	}
+	if err := DeploySupplyControlContract(genesisConfig, evm); err != nil {
+		return fmt.Errorf("error %w when deploying the supply control contract", err)
+	}
+	if err := DeployStabilizationContract(genesisConfig, evm); err != nil {
+		return fmt.Errorf("error %w when deploying the stabilization contract", err)
+	}
+	return nil
+}
+
+func DeployStabilizationContract(config *params.ChainConfig, evm *vm.EVM) error {
+	if config.ASM.StabilizationContractConfig == nil {
+		log.Info("Config missing, using default parameters for the Stabilization contract")
+		config.ASM.StabilizationContractConfig = params.DefaultStabilizationGenesis
+	} else {
+		config.ASM.StabilizationContractConfig.SetDefaults()
+	}
+	constructorParams, err := generated.StabilisationAbi.Pack("",
+		struct {
+			BorrowInterestRate        *big.Int
+			LiquidationRatio          *big.Int
+			MinCollateralisationRatio *big.Int
+			MinDebtRequirement        *big.Int
+			RedemptionPrice           *big.Int
+		}{(*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
+			(*big.Int)(config.ASM.StabilizationContractConfig.LiquidationRatio),
+			(*big.Int)(config.ASM.StabilizationContractConfig.MinCollateralizationRatio),
+			(*big.Int)(config.ASM.StabilizationContractConfig.MinDebtRequirement),
+			(*big.Int)(config.ASM.StabilizationContractConfig.RedemptionPrice),
+		},
+		config.AutonityContractConfig.Operator,
+		OracleContractAddress,
+		SupplyControlContractAddress,
+		AutonityContractAddress,
+	)
+	if err != nil {
+		log.Error("formatting error", "err", err)
+		return err
+	}
+	data := append(generated.StabilisationBytecode, constructorParams...)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+
+	_, _, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	if vmerr != nil {
+		log.Error("evm create", "err", vmerr)
+		return vmerr
+	}
+	log.Info("Deployed Stabilization contract", "address", StabilizationContractAddress.String())
+
+	return nil
+}
+
+func DeploySupplyControlContract(config *params.ChainConfig, evm *vm.EVM) error {
+	if config.ASM.SupplyControlConfig == nil {
+		log.Info("Config missing, using default parameters for the Supply Control contract")
+		config.ASM.SupplyControlConfig = params.DefaultSupplyControlGenesis
+	} else {
+		config.ASM.SupplyControlConfig.SetDefaults()
+	}
+	constructorParams, err := generated.SupplyControlAbi.Pack("", config.AutonityContractConfig.Operator)
+	if err != nil {
+		log.Error("Supply Control contract err", "err", err)
+		return err
+	}
+
+	data := append(generated.SupplyControlBytecode, constructorParams...)
+	gas := uint64(0xFFFFFFFF)
+
+	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
+	evm.StateDB.AddBalance(DeployerAddress, value)
+	// Deploy the ASM contract
+	_, _, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	if vmerr != nil {
+		log.Error("SupplyControl evm create error", "err", vmerr)
+		return vmerr
+	}
+	log.Info("Deployed ASM supply control contract", "address", SupplyControlContractAddress.String())
+
+	return nil
+}
+
+func DeployACUContract(config *params.ChainConfig, evm *vm.EVM) error {
+	if config.ASM.ACUContractConfig == nil {
+		log.Info("Config missing, using default parameters for the ACU contract")
+		config.ASM.ACUContractConfig = params.DefaultAcuContractGenesis
+	} else {
+		config.ASM.ACUContractConfig.SetDefaults()
+	}
+
+	bigQuantities := make([]*big.Int, len(config.ASM.ACUContractConfig.Quantities))
+	for i := range config.ASM.ACUContractConfig.Quantities {
+		bigQuantities[i] = new(big.Int).SetUint64(config.ASM.ACUContractConfig.Quantities[i])
+	}
+	constructorParams, err := generated.ACUAbi.Pack("",
+		config.ASM.ACUContractConfig.Symbols,
+		bigQuantities,
+		new(big.Int).SetUint64(config.ASM.ACUContractConfig.Scale),
+		config.AutonityContractConfig.Operator,
+		OracleContractAddress,
+	)
+	if err != nil {
+		log.Error("formatting error", "err", err)
+		return err
+	}
+	data := append(generated.ACUBytecode, constructorParams...)
+	gas := uint64(0xFFFFFFFF)
+	value := new(big.Int).SetUint64(0x00)
+
+	_, _, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	if vmerr != nil {
+		log.Error("evm create", "err", vmerr)
+		return vmerr
+	}
+	log.Info("Deployed ACU contract", "address", ACUContractAddress.String())
+
 	return nil
 }
 
@@ -46,7 +164,7 @@ func DeployAccountabilityContract(evm *vm.EVM) error {
 		log.Error("DeployAutonityContract evm create", "err", vmerr)
 		return vmerr
 	}
-	log.Info("Deployed Accountability contract", "Address", AccountabilityContractAddress.String())
+	log.Info("Deployed Accountability contract", "address", AccountabilityContractAddress.String())
 
 	return nil
 }
@@ -87,7 +205,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, evm *
 		log.Error("DeployAutonityContract evm.Create", "err", vmerr)
 		return vmerr
 	}
-	log.Info("Deployed Autonity contract", "Address", AutonityContractAddress.String())
+	log.Info("Deployed Autonity contract", "address", AutonityContractAddress.String())
 
 	return nil
 }
@@ -95,9 +213,9 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, evm *
 func DeployOracleContract(genesisConfig *params.ChainConfig, evm *vm.EVM) error {
 	if genesisConfig.OracleContractConfig == nil {
 		log.Info("Using default genesis parameters for the Oracle Contract")
-		genesisConfig.OracleContractConfig = params.DefaultGenesisOracleConfig()
+		genesisConfig.OracleContractConfig = params.DefaultGenesisOracleConfig
 	}
-	if err := genesisConfig.OracleContractConfig.Prepare(); err != nil {
+	if err := genesisConfig.OracleContractConfig.SetDefaults(); err != nil {
 		log.Crit("Error with Oracle Contract configuration", "err", err)
 	}
 
@@ -126,7 +244,7 @@ func DeployOracleContract(genesisConfig *params.ChainConfig, evm *vm.EVM) error 
 		return err
 	}
 
-	log.Info("Deployed Oracle Contract", "Address", OracleContractAddress)
+	log.Info("Deployed Oracle Contract", "address", OracleContractAddress)
 	return nil
 }
 
