@@ -84,13 +84,12 @@ var (
 // dialer creates outbound connections and submits them into Server.
 // Two types of peer connections can be created:
 //
-//  - static dials are pre-configured connections. The dialer attempts
-//    keep these nodes connected at all times.
+//   - static dials are pre-configured connections. The dialer attempts
+//     keep these nodes connected at all times.
 //
-//  - dynamic dials are created from node discovery results. The dialer
-//    continuously reads candidate nodes from its input iterator and attempts
-//    to create peer connections to nodes arriving through the iterator.
-//
+//   - dynamic dials are created from node discovery results. The dialer
+//     continuously reads candidate nodes from its input iterator and attempts
+//     to create peer connections to nodes arriving through the iterator.
 type dialScheduler struct {
 	dialConfig
 	setupFunc   dialSetupFunc
@@ -256,7 +255,10 @@ loop:
 			d.doneSinceLastLog++
 
 		case c := <-d.addPeerCh:
-			if c.is(dynDialedConn) || c.is(staticDialedConn) {
+			// Exclude trusted nodes here -
+			// dialPeers is used to limit the number of dials based on maxPeers config, trusted nodes should be tried
+			// regardless of the maxPeers config
+			if (c.is(dynDialedConn) || c.is(staticDialedConn)) && !c.is(trustedConn) {
 				d.dialPeers++
 			}
 			id := c.node.ID()
@@ -269,7 +271,7 @@ loop:
 			// TODO: cancel dials to connected peers
 
 		case c := <-d.remPeerCh:
-			if c.is(dynDialedConn) || c.is(staticDialedConn) {
+			if (c.is(dynDialedConn) || c.is(staticDialedConn)) && !c.is(trustedConn) {
 				d.dialPeers--
 			}
 			delete(d.peers, c.node.ID())
