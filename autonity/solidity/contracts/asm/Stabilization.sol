@@ -30,7 +30,7 @@ struct Config {
     /// The minimum amount of debt required to maintain a CDP.
     uint256 minDebtRequirement;
     /// The ACU value of 1 unit of debt.
-    uint256 redemptionPrice;
+    uint256 targetPrice;
 }
 
 /// @title ASM Stabilization Contract
@@ -247,7 +247,7 @@ contract Stabilization {
         uint256 limit = borrowLimit(
             cdp.collateral,
             price,
-            config.redemptionPrice,
+            config.targetPrice,
             config.minCollateralizationRatio
         );
         if (debt > limit) revert InsufficientCollateral();
@@ -472,17 +472,17 @@ contract Stabilization {
     /// given amount of Collateral Token.
     /// @param collateral Amount of Collateral Token backing the debt
     /// @param price The price of Collateral Token in Auton
-    /// @param redemptionPrice The ACU value of 1 unit of debt
+    /// @param targetPrice The ACU value of 1 unit of debt
     /// @param mcr The minimum collateralization ratio
     /// @return The maximum Auton that can be borrowed
     function borrowLimit(
         uint256 collateral,
         uint256 price,
-        uint256 redemptionPrice,
+        uint256 targetPrice,
         uint256 mcr
     ) public pure returns (uint256) {
         if (price == 0 || mcr == 0) revert InvalidParameter();
-        return (collateral * price * redemptionPrice) / (mcr * SCALE_FACTOR);
+        return (collateral * price * targetPrice) / (mcr * SCALE_FACTOR);
     }
 
     /// Calculate the minimum amount of Collateral Token that must be deposited

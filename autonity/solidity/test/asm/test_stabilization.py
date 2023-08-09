@@ -35,7 +35,7 @@ def basic_config():
         liquidationRatio=int(1.5e18),
         minCollateralizationRatio=int(2.5e18),
         minDebtRequirement=int(1e6),  # megaton
-        redemptionPrice=int(1e18),
+        targetPrice=int(1e18),
     )
 
 
@@ -580,10 +580,10 @@ def test_borrow_limit(stabilization):
         (Decimal(100e18), Decimal("1.2e18"), Decimal("1.2e18"), 100000000000000000000),
         (Decimal(100e18), Decimal("0.8e18"), Decimal("1.2e18"), 66666666666666666666),
     ]
-    redemption_price = int(1e18)
+    target_price = int(1e18)
     for collateral, price, mcr, expected in tests:
         result = stabilization.borrowLimit(
-            int(collateral), int(price), redemption_price, int(mcr)
+            int(collateral), int(price), target_price, int(mcr)
         )
         assert result == expected
         calculated = quantize(collateral * price / mcr)
@@ -673,7 +673,7 @@ class Config:
     minCollateralizationRatio: int
     borrowInterestRate: int
     liquidationRatio: int
-    redemptionPrice: int
+    targetPrice: int
 
 
 @contextmanager
