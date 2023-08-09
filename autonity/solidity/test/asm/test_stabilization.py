@@ -10,6 +10,7 @@ import pytest
 from ape.api import AccountAPI
 from ape.contracts import ContractContainer
 from web3 import Web3
+from web3.constants import ADDRESS_ZERO
 
 ATN_TOTAL_SUPPLY = int(100 * 1e18)
 ERC20_CONTRACT = ape.project.path / pathlib.Path("test/asm/ERC20Basic.sol")
@@ -92,6 +93,10 @@ def oracle_factory(project, users):
 def supply_control(project, users):
     return project.SupplyControl.deploy(
         users.autonity,
+        # Unlike during the genesis sequence, we don't know the address of the
+        # Stabilization Contract at this point of the test setup. But once we know,
+        # then it is set by calling `setOperator`.
+        ADDRESS_ZERO,
         sender=users.deployer,
         value=ATN_TOTAL_SUPPLY,
     )

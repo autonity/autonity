@@ -50,12 +50,12 @@ contract SupplyControl is ISupplyControl {
 
     /// Deploy the contract and fund it with Auton supply.
     /// @param admin The address authorized to change the operator
-    /// @dev The operator is initially set to the admin. The message value is
-    /// the Auton supply to seed. The admin may be different than the contract
-    /// deployer.
-    constructor(address admin) payable nonZeroValue {
+    /// @param operator_ The address that is authorized to mint and burn
+    /// @dev The message value is the Auton supply to seed. The admin may be
+    /// different than the contract deployer.
+    constructor(address admin, address operator_) payable nonZeroValue {
         _admin = admin;
-        operator = admin;
+        operator = operator_;
         totalSupply = msg.value;
     }
 
