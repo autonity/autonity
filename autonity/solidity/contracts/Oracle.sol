@@ -130,9 +130,9 @@ contract Oracle is IOracle {
     }
     /**
      * @notice Called once per VotePeriod part of the state finalisation function.
-     *
+     * @return true if there is a new round and new symbol prices are available, false if not.
      */
-    function finalize() onlyAutonity public {
+    function finalize() onlyAutonity public returns (bool){
         if (block.number >= lastRoundBlock + votePeriod){
             for(uint i = 0; i < symbols.length; i += 1 ) {
                 aggregateSymbol(i);
@@ -146,7 +146,7 @@ contract Oracle is IOracle {
                     votingInfo[newVoters[i]].isVoter = true;
                 }
             }
-            //votingInfo update happens a round later then setting of new voters,
+            // votingInfo update happens a round later then setting of new voters,
             // because we still want to aggregate vote for lastVoterSet in the voterupdateround+1
             if (lastVoterUpdateRound+1 == int256(round)) {
                 _updateVotingInfo();
@@ -160,7 +160,9 @@ contract Oracle is IOracle {
                 symbols = newSymbols;
             }
             emit NewRound(round, block.number, block.timestamp, votePeriod);
+            return true;
         }
+        return false;
     }
     /**
      * @notice Level 2 aggregation routine. The final price

@@ -33,21 +33,6 @@ contract SupplyControl is ISupplyControl {
     error Unauthorized();
     error ZeroValue();
 
-    modifier nonZeroValue() {
-        if (msg.value == 0) revert ZeroValue();
-        _;
-    }
-
-    modifier onlyOperator() {
-        if (msg.sender != operator) revert Unauthorized();
-        _;
-    }
-
-    modifier onlyAdmin() {
-        if (msg.sender != _admin) revert Unauthorized();
-        _;
-    }
-
     /// Deploy the contract and fund it with Auton supply.
     /// @param admin The address authorized to change the operator
     /// @param operator_ The address that is authorized to mint and burn
@@ -90,4 +75,20 @@ contract SupplyControl is ISupplyControl {
     function availableSupply() external view returns (uint) {
         return address(this).balance;
     }
+
+    modifier nonZeroValue() {
+        if (msg.value == 0) revert ZeroValue();
+        _;
+    }
+
+    modifier onlyOperator() {
+        if (msg.sender != operator) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyAdmin() {
+        if (msg.sender != _admin) revert Unauthorized();
+        _;
+    }
+
 }

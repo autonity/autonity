@@ -9,6 +9,7 @@ import "./Precompiled.sol";
 import "./Helpers.sol";
 import "./lib/BytesLib.sol";
 import "./Oracle.sol";
+import "./asm/ACU.sol";
 import "./interfaces/IAccountability.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
@@ -66,6 +67,7 @@ contract Autonity is IERC20, Upgradeable {
         address operatorAccount;
         IAccountability accountabilityContract;
         Oracle oracleContract;
+        ACU acuContract;
         address payable treasuryAccount;
         uint256 treasuryFee;
         uint256 minBaseFee;
@@ -399,6 +401,7 @@ contract Autonity is IERC20, Upgradeable {
     */
     function setOracleContract(Oracle _address) public onlyOperator {
         config.oracleContract = _address;
+        config.acuContract.setOracle(_address);
     }
 
     /*
@@ -496,7 +499,11 @@ contract Autonity is IERC20, Upgradeable {
             epochID += 1;
             emit NewEpoch(epochID);
         }
-        config.oracleContract.finalize();
+
+        bool newPrices = config.oracleContract.finalize();
+        if (newPrices) {
+            try config.acuContract.update() {}
+        }
         return (contractUpgradeReady, committee);
     }
 

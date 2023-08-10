@@ -127,6 +127,7 @@ func DeployACUContract(config *params.ChainConfig, evm *vm.EVM) error {
 		bigQuantities,
 		new(big.Int).SetUint64(config.ASM.ACUContractConfig.Scale),
 		config.AutonityContractConfig.Operator,
+		AutonityContractAddress,
 		OracleContractAddress,
 	)
 	if err != nil {
