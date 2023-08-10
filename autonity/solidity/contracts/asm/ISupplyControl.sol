@@ -30,24 +30,24 @@ interface ISupplyControl {
     function availableSupply() external view returns (uint);
 
     /// The account that is authorized to mint and burn.
-    function operator() external view returns (address);
+    function stabilizer() external view returns (address);
 
     /// The total supply of Auton under management.
     function totalSupply() external view returns (uint256);
 
-    /// Update the operator that is authorized to mint and burn.
-    /// @param operator The new operator account
-    /// @dev Only the admin can update the operator account.
-    function setOperator(address operator) external;
+    /// Update the stabilizer account that is authorized to mint and burn.
+    /// @param _stabilizer The new stabilizer account
+    /// @dev Only the governance operator can update the operator account.
+    function setStabilizer(address _stabilizer) external;
 
     /// Mint Auton and send it to the recipient.
     /// @param recipient Recipient of the Auton
     /// @param amount Amount of Auton to mint (non-zero)
-    /// @dev Only the operator is authorized to mint Auton. The recipient
+    /// @dev Only the stabilizer is authorized to mint Auton. The recipient
     /// cannot be the operator or the zero address.
     function mint(address recipient, uint amount) external;
 
     /// Burn Auton by taking it out of circulation.
-    /// @dev Only the operator is authorized to burn Auton.
+    /// @dev Only the stabilizer is authorized to burn Auton.
     function burn() external payable;
 }

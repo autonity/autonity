@@ -13,17 +13,21 @@ o88o     o8888o 8""88888P'  o8o        o888o
 */
 
 import {ISupplyControl} from "./ISupplyControl.sol";
+import {Autonity} from "../Autonity.sol";
 
 /// @title ASM Supply Control Contract Implementation
 /// @notice Controls the supply of Auton on the network.
 /// @dev Intended to be deployed by the protocol at genesis. The operator is
 /// expected to be the Stabilization Contract.
 contract SupplyControl is ISupplyControl {
-    /// The account that is authorized to change the operator.
-    address private _admin;
+    /// The account that is authorized to change the stabilizer.
+    address private operator;
+
+    /// The Autonity Contract Address
+    Autonity private autonity;
 
     /// The account that is authorized to mint and burn.
-    address public operator;
+    address public stabilizer;
 
     /// The total supply of Auton under management.
     uint256 public totalSupply;
@@ -34,50 +38,60 @@ contract SupplyControl is ISupplyControl {
     error ZeroValue();
 
     /// Deploy the contract and fund it with Auton supply.
-    /// @param admin The address authorized to change the operator
-    /// @param operator_ The address that is authorized to mint and burn
-    /// @dev The message value is the Auton supply to seed. The admin may be
-    /// different than the contract deployer.
-    constructor(address admin, address operator_) payable nonZeroValue {
-        _admin = admin;
-        operator = operator_;
+    /// @param _autonity The Autonity Contract address
+    /// @dev The message value is the Auton supply to seed.
+    constructor(address payable _autonity, address _stabilizer) payable nonZeroValue {
+        autonity = Autonity(_autonity);
+        stabilizer = _stabilizer;
+        operator = autonity.getOperator();
         totalSupply = msg.value;
     }
 
     /// Mint Auton and send it to the recipient.
-    /// @param recipient Recipient of the Auton
-    /// @param amount Amount of Auton to mint (non-zero)
-    /// @dev Only the operator is authorized to mint Auton. The recipient
+    /// @param _recipient Recipient of the Auton
+    /// @param _amount Amount of Auton to mint (non-zero)
+    /// @dev Only the Stabilizer is authorized to mint Auton. The recipient
     /// cannot be the operator or the zero address.
-    function mint(address recipient, uint amount) external onlyOperator {
-        if (recipient == address(0) || recipient == operator)
+    function mint(address _recipient, uint _amount) external onlyStabilizer {
+        if (_recipient == address(0) || _recipient == stabilizer)
             revert InvalidRecipient();
-        if (amount == 0 || amount > address(this).balance)
+        if (_amount == 0 || _amount > address(this).balance)
             revert InvalidAmount();
-        payable(recipient).transfer(amount);
-        emit Mint(recipient, amount);
+        payable(_recipient).transfer(_amount);
+        emit Mint(_recipient, _amount);
     }
 
     /// Burn Auton by taking it out of circulation.
-    /// @dev Only the operator is authorized to burn Auton.
-    function burn() external payable nonZeroValue onlyOperator {
+    /// @dev Only the stabilizer is authorized to burn Auton.
+    function burn() external payable nonZeroValue onlyStabilizer {
         emit Burn(msg.value);
     }
 
-    /// Update the operator that is authorized to mint and burn.
-    /// @param operator_ The new operator account
-    /// @dev Only the admin can update the operator account.
-    function setOperator(address operator_) external onlyAdmin {
-        operator = operator_;
+    /// Update the stabilizer that is authorized to mint and burn.
+    /// @param _stabilizer The new operator account
+    /// @dev Only the Autonity governance operator can update the stabilizer account.
+    function setStabilizer(address _stabilizer) external onlyOperator {
+        stabilizer = _stabilizer;
+    }
+
+    /// Update the governance operator account.
+    /// @param _operator The new operator account.
+    function setOperator(address _operator) external  {
+        operator = _operator;
     }
 
     /// The supply of Auton available for minting.
     function availableSupply() external view returns (uint) {
         return address(this).balance;
     }
-
+    
     modifier nonZeroValue() {
         if (msg.value == 0) revert ZeroValue();
+        _;
+    }
+
+    modifier onlyStabilizer() {
+        if (msg.sender != stabilizer) revert Unauthorized();
         _;
     }
 
@@ -86,8 +100,8 @@ contract SupplyControl is ISupplyControl {
         _;
     }
 
-    modifier onlyAdmin() {
-        if (msg.sender != _admin) revert Unauthorized();
+    modifier onlyAutonity() {
+        if (msg.sender != address(autonity)) revert Unauthorized();
         _;
     }
 

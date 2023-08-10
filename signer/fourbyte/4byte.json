@@ -91,5 +91,15 @@
   "8e153dc3": "INNOCENCE_CONTRACT()",
   "925c5492": "MISBEHAVIOUR_CONTRACT()",
   "1de9d9b6": "distributeRewards(address)",
-  "6c9789b0": "finalize(bool)"
+  "6c9789b0": "finalize(bool)",
+  "833b1fce": "getOracle()",
+  "44b4708a": "modifyBasket(string[],uint256[],uint256)",
+  "a4125403": "quantities(uint256)",
+  "f51e181a": "scale()",
+  "683dd191": "scaleFactor()",
+  "7adbf973": "setOracle(address)",
+  "a2e62045": "update()",
+  "3fa4f245": "value()",
+  "4ff799c5": "InvalidBasket()",
+  "82b42900": "Unauthorized()"
 }
