@@ -13,18 +13,15 @@ o88o     o8888o 8""88888P'  o8o        o888o
 */
 
 import {ISupplyControl} from "./ISupplyControl.sol";
-import {Autonity} from "../Autonity.sol";
+import {IAutonity} from "../interfaces/IAutonity.sol";
 
 /// @title ASM Supply Control Contract Implementation
 /// @notice Controls the supply of Auton on the network.
 /// @dev Intended to be deployed by the protocol at genesis. The operator is
 /// expected to be the Stabilization Contract.
 contract SupplyControl is ISupplyControl {
-    /// The account that is authorized to change the stabilizer.
-    address private operator;
-
     /// The Autonity Contract Address
-    Autonity private autonity;
+    IAutonity private autonity;
 
     /// The account that is authorized to mint and burn.
     address public stabilizer;
@@ -41,9 +38,8 @@ contract SupplyControl is ISupplyControl {
     /// @param _autonity The Autonity Contract address
     /// @dev The message value is the Auton supply to seed.
     constructor(address payable _autonity, address _stabilizer) payable nonZeroValue {
-        autonity = Autonity(_autonity);
+        autonity = IAutonity(_autonity);
         stabilizer = _stabilizer;
-        operator = autonity.getOperator();
         totalSupply = msg.value;
     }
 
@@ -74,17 +70,11 @@ contract SupplyControl is ISupplyControl {
         stabilizer = _stabilizer;
     }
 
-    /// Update the governance operator account.
-    /// @param _operator The new operator account.
-    function setOperator(address _operator) external  {
-        operator = _operator;
-    }
-
     /// The supply of Auton available for minting.
     function availableSupply() external view returns (uint) {
         return address(this).balance;
     }
-    
+
     modifier nonZeroValue() {
         if (msg.value == 0) revert ZeroValue();
         _;
@@ -96,12 +86,7 @@ contract SupplyControl is ISupplyControl {
     }
 
     modifier onlyOperator() {
-        if (msg.sender != operator) revert Unauthorized();
-        _;
-    }
-
-    modifier onlyAutonity() {
-        if (msg.sender != address(autonity)) revert Unauthorized();
+        if (msg.sender != autonity.getOperator()) revert Unauthorized();
         _;
     }
 

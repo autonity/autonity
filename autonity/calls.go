@@ -51,15 +51,14 @@ func DeployStabilizationContract(config *params.ChainConfig, evm *vm.EVM) error 
 			LiquidationRatio          *big.Int
 			MinCollateralizationRatio *big.Int
 			MinDebtRequirement        *big.Int
-			RedemptionPrice           *big.Int
+			TargetPrice               *big.Int
 		}{(*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
 			(*big.Int)(config.ASM.StabilizationContractConfig.LiquidationRatio),
 			(*big.Int)(config.ASM.StabilizationContractConfig.MinCollateralizationRatio),
 			(*big.Int)(config.ASM.StabilizationContractConfig.MinDebtRequirement),
-			(*big.Int)(config.ASM.StabilizationContractConfig.RedemptionPrice),
+			(*big.Int)(config.ASM.StabilizationContractConfig.TargetPrice),
 		},
-		config.AutonityContractConfig.Operator,
-		OracleContractAddress,
+		AutonityContractAddress,
 		SupplyControlContractAddress,
 		AutonityContractAddress,
 	)
@@ -88,7 +87,9 @@ func DeploySupplyControlContract(config *params.ChainConfig, evm *vm.EVM) error 
 	} else {
 		config.ASM.SupplyControlConfig.SetDefaults()
 	}
-	constructorParams, err := generated.SupplyControlAbi.Pack("", config.AutonityContractConfig.Operator)
+	constructorParams, err := generated.SupplyControlAbi.Pack("",
+		AutonityContractAddress,
+		StabilizationContractAddress)
 	if err != nil {
 		log.Error("Supply Control contract err", "err", err)
 		return err

@@ -1,4 +1,4 @@
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
 /*
       .o.        .oooooo..o ooo        ooooo
@@ -13,12 +13,14 @@ o88o     o8888o 8""88888P'  o8o        o888o
 */
 
 import {IOracle} from "../interfaces/IOracle.sol";
+import {IAutonity} from "../interfaces/IAutonity.sol";
+import {IACU} from "./IACU.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
 /// 7 free-floating fiat currencies.
 /// @dev Intended to be deployed by the protocol at genesis.
-contract ACU {
+contract ACU is IACU {
     bytes32 private constant SYMBOL_USD = keccak256(abi.encodePacked("USD/USD"));
     /// The Oracle round of the current ACU value.
     uint256 public round;
@@ -28,13 +30,15 @@ contract ACU {
     /// The multiplier for scaling numbers to the ACU scaled representation.
     uint256 public scaleFactor;
 
-    string[] private symbols;
-    uint256[] private quantities;
-    int256 private value;
-    address private autonity;
-    address private operator;
-    IOracle private oracle;
+    string[] public symbols;
+    uint256[] public quantities;
 
+    /// The resulting computed ACU value
+    /// The initial value will be set to 0
+    int256 public value;
+
+    IOracle private oracle;
+    IAutonity private autonity;
 
     /// The ACU value was updated.
     event Updated(uint height, uint timestamp, uint256 round, int256 value);
@@ -42,31 +46,26 @@ contract ACU {
     event BasketModified(string[] symbols, uint256[] quantities, uint256 scale);
 
     error InvalidBasket();
-    error NoACUValue();
     error Unauthorized();
 
 
     /// Create and deploy the ASM ACU Contract.
-    /// @param symbols_ The symbols used to retrieve prices
-    /// @param quantities_ The basket quantity corresponding to each symbol
-    /// @param scale_ The scale for quantities and the ACU value
-    /// @param operator The account that is authorized to compute the ACU value
-    /// and to modify ACU parameters
-    /// @param oracle Address of the Oracle Contract
+    /// @param _symbols The symbols used to retrieve prices
+    /// @param _quantities The basket quantity corresponding to each symbol
+    /// @param _scale The scale for quantities and the ACU value
+    /// @param _autonity Address of the Autonity Contract
     constructor(
         string[] memory _symbols,
         uint256[] memory _quantities,
         uint256 _scale,
-        address _operator,
-        address _autonity,
-        address _oracle
+        address payable _autonity
     ) validBasket(_symbols, _quantities) {
         symbols = _symbols;
         quantities = _quantities;
         scale = _scale;
         scaleFactor = 10 ** _scale;
-        autonity = _autonity;
-        oracle = IOracle(_oracle);
+        autonity = IAutonity(_autonity);
+        oracle = IOracle(autonity.getOracle());
     }
 
     /*
@@ -114,9 +113,9 @@ contract ACU {
     }
 
     /// Modify the ACU symbols, quantites, or scale.
-    /// @param symbols_ The symbols used to retrieve prices
-    /// @param quantities_ The basket quantity corresponding to each symbol
-    /// @param scale_ The scale for quantities and the ACU value
+    /// @param _symbols The symbols used to retrieve prices
+    /// @param _quantities The basket quantity corresponding to each symbol
+    /// @param _scale The scale for quantities and the ACU value
     /// @dev Only the operator is authorized to modify the basket.
     function modifyBasket(
         string[] memory _symbols,
@@ -131,35 +130,10 @@ contract ACU {
     }
 
     /// Set the Oracle Contract address that is used to retrieve prices.
-    /// @param oracle Address of the new Oracle Contract
+    /// @param _oracle Address of the new Oracle Contract
     /// @dev Only the autonity contract is authorized to set the Oracle Contract address.
-    function setOracle(address oracle) external onlyAutonity {
-        oracle = IOracle(oracle);
-    }
-
-    /*
-    ┌────────────────┐
-    │ View Functions │
-    └────────────────┘
-    */
-
-    /// The latest ACU value that was computed.
-    /// @return ACU value in fixed-point integer representation
-    function value() external view returns (int256) {
-        if (round == 0) revert NoACUValue();
-        return value;
-    }
-
-    /// The symbols that are used to compute the ACU.
-    /// @return Array of symbols
-    function symbols() external view returns (string[] memory) {
-        return symbols;
-    }
-
-    /// The basket quantities that are used to compute the ACU.
-    /// @return Array of quantities
-    function quantities() external view returns (uint256[] memory) {
-        return quantities;
+    function setOracle(address payable _oracle) external onlyAutonity {
+        oracle = IOracle(_oracle);
     }
 
     /*
@@ -170,12 +144,12 @@ contract ACU {
 
 
     modifier onlyAutonity() {
-        if (msg.sender != autonity) revert Unauthorized();
+        if (msg.sender != address(autonity)) revert Unauthorized();
         _;
     }
 
     modifier onlyOperator() {
-        if (msg.sender != operator) revert Unauthorized();
+        if (msg.sender != autonity.getOperator()) revert Unauthorized();
         _;
     }
 
