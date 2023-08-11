@@ -127,9 +127,7 @@ func DeployACUContract(config *params.ChainConfig, evm *vm.EVM) error {
 		config.ASM.ACUContractConfig.Symbols,
 		bigQuantities,
 		new(big.Int).SetUint64(config.ASM.ACUContractConfig.Scale),
-		config.AutonityContractConfig.Operator,
 		AutonityContractAddress,
-		OracleContractAddress,
 	)
 	if err != nil {
 		log.Error("formatting error", "err", err)
@@ -173,18 +171,26 @@ func DeployAccountabilityContract(evm *vm.EVM) error {
 
 func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
 	contractConfig := AutonityConfig{
-		OperatorAccount:        genesisConfig.Operator,
-		TreasuryAccount:        genesisConfig.Treasury,
-		OracleContract:         OracleContractAddress,
-		TreasuryFee:            new(big.Int).SetUint64(genesisConfig.TreasuryFee),
-		MinBaseFee:             new(big.Int).SetUint64(genesisConfig.MinBaseFee),
-		DelegationRate:         new(big.Int).SetUint64(genesisConfig.DelegationRate),
-		EpochPeriod:            new(big.Int).SetUint64(genesisConfig.EpochPeriod),
-		UnbondingPeriod:        new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
-		CommitteeSize:          new(big.Int).SetUint64(genesisConfig.MaxCommitteeSize),
-		ContractVersion:        big.NewInt(1),
-		BlockPeriod:            new(big.Int).SetUint64(genesisConfig.BlockPeriod),
-		AccountabilityContract: AccountabilityContractAddress,
+		Policy: AutonityPolicy{
+			TreasuryFee:     new(big.Int).SetUint64(genesisConfig.TreasuryFee),
+			MinBaseFee:      new(big.Int).SetUint64(genesisConfig.MinBaseFee),
+			DelegationRate:  new(big.Int).SetUint64(genesisConfig.DelegationRate),
+			UnbondingPeriod: new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
+			TreasuryAccount: genesisConfig.Operator,
+		},
+		Contracts: AutonityContracts{
+			AccountabilityContract: AccountabilityContractAddress,
+			OracleContract:         OracleContractAddress,
+			AcuContract:            ACUContractAddress,
+			StabilizationContract:  StabilizationContractAddress,
+		},
+		Protocol: AutonityProtocol{
+			OperatorAccount: genesisConfig.Operator,
+			EpochPeriod:     new(big.Int).SetUint64(genesisConfig.EpochPeriod),
+			BlockPeriod:     new(big.Int).SetUint64(genesisConfig.BlockPeriod),
+			CommitteeSize:   new(big.Int).SetUint64(genesisConfig.MaxCommitteeSize),
+		},
+		ContractVersion: big.NewInt(1),
 	}
 
 	validators := make([]params.Validator, 0, len(genesisConfig.Validators))

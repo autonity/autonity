@@ -57,7 +57,7 @@ autonity-docker:
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 define gen-contract
-	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --abi --bin -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@echo Generating bytecode for $(2)
 	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
