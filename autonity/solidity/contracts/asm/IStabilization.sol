@@ -11,11 +11,11 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
        Auton Stabilization Mechanism
 */
-/// @title Stabilization Contract Interface
-/// @dev only meant to be used by the Autonity Contract.
 
+/// @title Stabilization Contract Interface
+/// @dev Only meant to be used by the Autonity Contract.
 interface IStabilization {
     /// Set the Oracle Contract address.
-    /// @dev Restricted to the autonity contract.
-    function setOracle(address _oracle) external;
+    /// @dev Restricted to the Autonity Contract.
+    function setOracle(address oracle) external;
 }

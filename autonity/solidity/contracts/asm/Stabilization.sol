@@ -12,11 +12,11 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
+import {IAutonity} from "../interfaces/IAutonity.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
-import {IAutonity} from "../interfaces/IAutonity.sol";
-import {ISupplyControl} from "./ISupplyControl.sol";
 import {IStabilization} from "./IStabilization.sol";
+import {ISupplyControl} from "./ISupplyControl.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
 
 /// @title ASM Stabilization Contract
@@ -30,17 +30,18 @@ contract Stabilization is IStabilization {
     struct Config {
         /// The annual continuously-compounded interest rate for borrowing.
         uint256 borrowInterestRate;
-        /// The minimum ACU value of collateral required to maintain 1 ACU value of
-        /// debt.
+        /// The minimum ACU value of collateral required to maintain 1 ACU
+        /// value of debt.
         uint256 liquidationRatio;
-        /// The minimum ACU value of collateral required to borrow 1 ACU value of
-        /// debt.
+        /// The minimum ACU value of collateral required to borrow 1 ACU value
+        /// of debt.
         uint256 minCollateralizationRatio;
         /// The minimum amount of debt required to maintain a CDP.
         uint256 minDebtRequirement;
         /// The ACU value of 1 unit of debt.
         uint256 targetPrice;
     }
+
     /// Represents a Collateralized Debt Position (CDP)
     struct CDP {
         /// The timestamp of the last borrow or repayment.
@@ -65,13 +66,11 @@ contract Stabilization is IStabilization {
     mapping(address => CDP) public cdps;
 
     string private constant NTN_SYMBOL = "NTN/ATN";
-    address[] public accounts;
-
-    IAutonity private autonity;
-
-    IERC20 private collateralToken;
-    IOracle private oracle;
-    ISupplyControl private supplyControl;
+    address[] private _accounts;
+    IAutonity private _autonity;
+    IERC20 private _collateralToken;
+    IOracle private _oracle;
+    ISupplyControl private _supplyControl;
 
     /// Collateral Token was deposited into a CDP
     /// @param account The CDP account address
@@ -109,26 +108,65 @@ contract Stabilization is IStabilization {
     error Unauthorized();
     error ZeroValue();
 
+    modifier goodTime(address account, uint timestamp) {
+        CDP storage cdp = cdps[account];
+        if (timestamp < cdp.timestamp) revert InvalidParameter();
+        _;
+    }
+
+    modifier nonZeroAmount(uint256 amount) {
+        if (amount == 0) revert InvalidAmount();
+        _;
+    }
+
+    modifier onlyAutonity() {
+        if (msg.sender != address(_autonity)) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyOperator() {
+        if (msg.sender != _autonity.getOperator()) revert Unauthorized();
+        _;
+    }
+
+    modifier positiveMCR(uint256 ratio) {
+        if (ratio == 0) revert InvalidParameter();
+        _;
+    }
+
+    modifier validPrice(uint256 price) {
+        if (price == 0) revert InvalidPrice();
+        _;
+    }
+
+    modifier validRatios(
+        uint256 liquidationRatio,
+        uint256 minCollateralizationRatio
+    ) {
+        if (liquidationRatio >= minCollateralizationRatio)
+            revert InvalidParameter();
+        _;
+    }
 
     /// Create and deploy the ASM Stabilization Contract.
-    /// @param _config Stabilization configuration
-    /// @param _autonity The address of the Autonity Contract
-    /// @param _supplyControl Address of the SupplyControl Contract
-    /// @param _collateralToken Address of the Collateral Token contract
+    /// @param config_ Stabilization configuration
+    /// @param autonity Address of the Autonity Contract
+    /// @param supplyControl Address of the SupplyControl Contract
+    /// @param collateralToken Address of the Collateral Token contract
     constructor(
-        Config memory _config,
-        address payable _autonity,
-        address _supplyControl,
-        IERC20 _collateralToken
+        Config memory config_,
+        address payable autonity,
+        address supplyControl,
+        IERC20 collateralToken
     )
-        positiveMCR(_config.minCollateralizationRatio)
-        validRatios(_config.liquidationRatio, _config.minCollateralizationRatio)
+        positiveMCR(config_.minCollateralizationRatio)
+        validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
-        config = _config;
-        collateralToken = _collateralToken;
-        autonity = IAutonity(_autonity);
-        oracle = IOracle(autonity.getOracle());
-        supplyControl = ISupplyControl(_supplyControl);
+        config = config_;
+        _autonity = IAutonity(autonity);
+        _oracle = IOracle(_autonity.getOracle());
+        _supplyControl = ISupplyControl(supplyControl);
+        _collateralToken = collateralToken;
     }
 
     /*
@@ -144,15 +182,15 @@ contract Stabilization is IStabilization {
     /// the full amount to be deposited.
     /// @param amount Units of Collateral Token to deposit (non-zero)
     function deposit(uint256 amount) external nonZeroAmount(amount) {
-        if (collateralToken.allowance(msg.sender, address(this)) < amount)
+        if (_collateralToken.allowance(msg.sender, address(this)) < amount)
             revert InsufficientAllowance();
 
         CDP storage cdp = cdps[msg.sender];
-        if (cdp.timestamp == 0) accounts.push(msg.sender);
+        if (cdp.timestamp == 0) _accounts.push(msg.sender);
         cdp.timestamp = block.timestamp; // opens the CDP
         cdp.collateral += amount;
 
-        if (!collateralToken.transferFrom(msg.sender, address(this), amount))
+        if (!_collateralToken.transferFrom(msg.sender, address(this), amount))
             revert TransferFailed();
         emit Deposit(msg.sender, amount);
     }
@@ -186,7 +224,7 @@ contract Stabilization is IStabilization {
 
         cdp.collateral -= amount;
 
-        if (!collateralToken.transfer(msg.sender, amount))
+        if (!_collateralToken.transfer(msg.sender, amount))
             revert TransferFailed();
         emit Withdraw(msg.sender, amount);
     }
@@ -223,7 +261,7 @@ contract Stabilization is IStabilization {
         cdp.principal += amount;
         cdp.interest += accrued;
 
-        supplyControl.mint(msg.sender, amount);
+        _supplyControl.mint(msg.sender, amount);
         emit Borrow(msg.sender, amount);
     }
 
@@ -251,7 +289,7 @@ contract Stabilization is IStabilization {
         cdp.principal -= principalRecv;
         cdp.interest -= interestRecv;
 
-        if (principalRecv > 0) supplyControl.burn{value: principalRecv}();
+        if (principalRecv > 0) _supplyControl.burn{value: principalRecv}();
         if (surplusRecv > 0) payable(msg.sender).transfer(surplusRecv);
         emit Repay(msg.sender, msg.value);
     }
@@ -291,9 +329,9 @@ contract Stabilization is IStabilization {
         cdp.principal = 0;
         cdp.interest = 0;
 
-        if (!collateralToken.transfer(msg.sender, collateral))
+        if (!_collateralToken.transfer(msg.sender, collateral))
             revert TransferFailed();
-        supplyControl.burn{value: debt - accrued}();
+        _supplyControl.burn{value: debt - accrued}();
         if (surplus > 0) payable(msg.sender).transfer(surplus);
         emit Liquidate(account, msg.sender);
     }
@@ -323,32 +361,32 @@ contract Stabilization is IStabilization {
     /// Must be positive and greater than the liquidation ratio.
     /// @dev Restricted to the operator.
     function setMinCollateralizationRatio(
-        uint256 _ratio
+        uint256 ratio
     )
         external
-        positiveMCR(_ratio)
-        validRatios(config.liquidationRatio, _ratio)
+        positiveMCR(ratio)
+        validRatios(config.liquidationRatio, ratio)
         onlyOperator
     {
-        config.minCollateralizationRatio = _ratio;
+        config.minCollateralizationRatio = ratio;
     }
 
     /// Set the minimum debt requirement.
     /// @dev Restricted to the operator.
-    function setMinDebtRequirement(uint256 _amount) external onlyOperator {
-        config.minDebtRequirement = _amount;
+    function setMinDebtRequirement(uint256 amount) external onlyOperator {
+        config.minDebtRequirement = amount;
     }
 
     /// Set the Oracle Contract address.
-    /// @dev Restricted to the autonity contract.
-    function setOracle(address _oracle) external onlyAutonity {
-        oracle = IOracle(_oracle);
+    /// @dev Restricted to the Autonity Contract.
+    function setOracle(address oracle) external onlyAutonity {
+        _oracle = IOracle(oracle);
     }
 
     /// Set the SupplyControl Contract address.
     /// @dev Restricted to the operator.
-    function setSupplyControl(address _supplyControl) external onlyOperator {
-        supplyControl = ISupplyControl(_supplyControl);
+    function setSupplyControl(address supplyControl) external onlyOperator {
+        _supplyControl = ISupplyControl(supplyControl);
     }
 
     /*
@@ -357,10 +395,16 @@ contract Stabilization is IStabilization {
     └────────────────┘
     */
 
+    /// Retrieve all the accounts that have opened a CDP.
+    /// @return Array of CDP account addresses
+    function accounts() external view returns (address[] memory) {
+        return _accounts;
+    }
+
     /// Calculate the current debt amount outstanding for a CDP.
     /// @return debt The debt amount
-    function debtAmount(address _account) external view returns (uint256 debt) {
-        return this.debtAmount(_account, block.timestamp);
+    function debtAmount(address account) external view returns (uint256 debt) {
+        return this.debtAmount(account, block.timestamp);
     }
 
     /// Calculate the debt amount outstanding for a CDP at the given timestamp.
@@ -369,11 +413,11 @@ contract Stabilization is IStabilization {
     /// borrow or repayment.
     /// @return debt The debt amount
     function debtAmount(
-        address _account,
-        uint _timestamp
-    ) external view goodTime(_account, _timestamp) returns (uint256 debt) {
-        CDP storage cdp = cdps[_account];
-        (debt, ) = _debtAmount(cdp, _timestamp);
+        address account,
+        uint timestamp
+    ) external view goodTime(account, timestamp) returns (uint256 debt) {
+        CDP storage cdp = cdps[account];
+        (debt, ) = _debtAmount(cdp, timestamp);
     }
 
     /// Determine if the CDP is currently liquidatable.
@@ -409,18 +453,18 @@ contract Stabilization is IStabilization {
     /// @return price Price of Collateral Token
     /// @dev The function reverts in case the price is invalid or unavailable.
     function collateralPrice() public view returns (uint256 price) {
-        IOracle.RoundData memory data = oracle.latestRoundData(NTN_SYMBOL);
+        IOracle.RoundData memory data = _oracle.latestRoundData(NTN_SYMBOL);
         if (data.status != 0) revert PriceUnavailable();
         if (data.price <= 0) revert InvalidPrice();
         // Convert price from Oracle precision to SCALE decimals
-        if (SCALE_FACTOR > oracle.getPrecision())
+        if (SCALE_FACTOR > _oracle.getPrecision())
             price =
                 uint256(data.price) *
-                (SCALE_FACTOR / oracle.getPrecision());
+                (SCALE_FACTOR / _oracle.getPrecision());
         else
             price =
                 uint256(data.price) /
-                (oracle.getPrecision() / SCALE_FACTOR);
+                (_oracle.getPrecision() / SCALE_FACTOR);
     }
 
     /*
@@ -536,53 +580,5 @@ contract Stabilization is IStabilization {
         principal = amount < debt ? amount - interest : cdp.principal;
         surplus = amount > debt ? amount - debt : 0;
     }
-
-    /*
-    ┌────────────────────┐
-    │ Modifiers          │
-    └────────────────────┘
-    */
-
-    modifier goodTime(address account, uint timestamp) {
-        CDP storage cdp = cdps[account];
-        if (timestamp < cdp.timestamp) revert InvalidParameter();
-        _;
-    }
-
-    modifier nonZeroAmount(uint256 amount) {
-        if (amount == 0) revert InvalidAmount();
-        _;
-    }
-
-    modifier onlyOperator() {
-        if (msg.sender != autonity.getOperator()) revert Unauthorized();
-        _;
-    }
-
-    modifier onlyAutonity() {
-        if (msg.sender != address(autonity)) revert Unauthorized();
-        _;
-    }
-
-    modifier positiveMCR(uint256 ratio) {
-        if (ratio == 0) revert InvalidParameter();
-        _;
-    }
-
-    modifier validPrice(uint256 price) {
-        if (price == 0) revert InvalidPrice();
-        _;
-    }
-
-    modifier validRatios(
-        uint256 liquidationRatio,
-        uint256 minCollateralizationRatio
-    ) {
-        if (liquidationRatio >= minCollateralizationRatio)
-            revert InvalidParameter();
-        _;
-    }
-
-
 }
 /* solhint-enable not-rely-on-time */

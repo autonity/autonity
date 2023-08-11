@@ -12,16 +12,15 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
-import {IOracle} from "../interfaces/IOracle.sol";
-import {IAutonity} from "../interfaces/IAutonity.sol";
 import {IACU} from "./IACU.sol";
+import {IAutonity} from "../interfaces/IAutonity.sol";
+import {IOracle} from "../interfaces/IOracle.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
 /// 7 free-floating fiat currencies.
 /// @dev Intended to be deployed by the protocol at genesis.
 contract ACU is IACU {
-    bytes32 private constant SYMBOL_USD = keccak256(abi.encodePacked("USD/USD"));
     /// The Oracle round of the current ACU value.
     uint256 public round;
     /// The decimal places used to represent the ACU as a fixed-point integer.
@@ -30,15 +29,13 @@ contract ACU is IACU {
     /// The multiplier for scaling numbers to the ACU scaled representation.
     uint256 public scaleFactor;
 
-    string[] public symbols;
-    uint256[] public quantities;
-
-    /// The resulting computed ACU value
-    /// The initial value will be set to 0
-    int256 public value;
-
-    IOracle private oracle;
-    IAutonity private autonity;
+    string[] private _symbols;
+    uint256[] private _quantities;
+    int256 private _value;
+    IAutonity private _autonity;
+    IOracle private _oracle;
+    bytes32 private constant SYMBOL_USD =
+        keccak256(abi.encodePacked("USD/USD"));
 
     /// The ACU value was updated.
     event Updated(uint height, uint timestamp, uint256 round, int256 value);
@@ -46,110 +43,16 @@ contract ACU is IACU {
     event BasketModified(string[] symbols, uint256[] quantities, uint256 scale);
 
     error InvalidBasket();
+    error NoACUValue();
     error Unauthorized();
 
-
-    /// Create and deploy the ASM ACU Contract.
-    /// @param _symbols The symbols used to retrieve prices
-    /// @param _quantities The basket quantity corresponding to each symbol
-    /// @param _scale The scale for quantities and the ACU value
-    /// @param _autonity Address of the Autonity Contract
-    constructor(
-        string[] memory _symbols,
-        uint256[] memory _quantities,
-        uint256 _scale,
-        address payable _autonity
-    ) validBasket(_symbols, _quantities) {
-        symbols = _symbols;
-        quantities = _quantities;
-        scale = _scale;
-        scaleFactor = 10 ** _scale;
-        autonity = IAutonity(_autonity);
-        oracle = IOracle(autonity.getOracle());
-    }
-
-    /*
-    ┌────────────────────┐
-    │ Operator Functions │
-    └────────────────────┘
-    */
-
-    /// Compute the ACU value and store it.
-    ///
-    /// It retrieves the latest prices from the Oracle Contract. If one or
-    /// more prices are unavailable from the Oracle, it will not compute the
-    /// value for that round.
-    ///
-    /// This function is intended to be called by the protocol during block
-    /// finalization, after the Oracle Contract finalization has completed.
-    /// @return status Whether the ACU value was updated successfully
-    /// @dev Only the operator is authorized to trigger the computation of ACU.
-    function update() external onlyAutonity returns (bool status) {
-        uint256 _latestRound = oracle.getRound() - 1;
-        if (round >= _latestRound) return false;
-        int256 _sumProduct = 0;
-        int256 _oraclePrecision = int256(oracle.getPrecision());
-        for (uint i = 0; i < symbols.length; i++) {
-            int256 _price;
-            if (keccak256(abi.encodePacked(symbols[i])) == SYMBOL_USD) {
-                _price = _oraclePrecision;
-            } else {
-                IOracle.RoundData memory roundData = oracle.getRoundData(
-                    _latestRound,
-                    symbols[i]
-                );
-                if (roundData.status != 0) return false;
-                _price = roundData.price;
-            }
-            _sumProduct += (_price * int256(quantities[i]));
-        }
-
-        value = _sumProduct / _oraclePrecision;
-        round = _latestRound;
-
-        // solhint-disable-next-line not-rely-on-time
-        emit Updated(block.number, block.timestamp, round, value);
-        return true;
-    }
-
-    /// Modify the ACU symbols, quantites, or scale.
-    /// @param _symbols The symbols used to retrieve prices
-    /// @param _quantities The basket quantity corresponding to each symbol
-    /// @param _scale The scale for quantities and the ACU value
-    /// @dev Only the operator is authorized to modify the basket.
-    function modifyBasket(
-        string[] memory _symbols,
-        uint256[] memory _quantities,
-        uint256 _scale
-    ) external validBasket(_symbols, _quantities) onlyOperator {
-        symbols = _symbols;
-        quantities = _quantities;
-        scale = _scale;
-        scaleFactor = 10 ** scale;
-        emit BasketModified(_symbols, _quantities, _scale);
-    }
-
-    /// Set the Oracle Contract address that is used to retrieve prices.
-    /// @param _oracle Address of the new Oracle Contract
-    /// @dev Only the autonity contract is authorized to set the Oracle Contract address.
-    function setOracle(address payable _oracle) external onlyAutonity {
-        oracle = IOracle(_oracle);
-    }
-
-    /*
-    ┌────────────────┐
-    │ Modifiers       │
-    └────────────────┘
-    */
-
-
     modifier onlyAutonity() {
-        if (msg.sender != address(autonity)) revert Unauthorized();
+        if (msg.sender != address(_autonity)) revert Unauthorized();
         _;
     }
 
     modifier onlyOperator() {
-        if (msg.sender != autonity.getOperator()) revert Unauthorized();
+        if (msg.sender != _autonity.getOperator()) revert Unauthorized();
         _;
     }
 
@@ -163,5 +66,125 @@ contract ACU is IACU {
                 revert InvalidBasket();
         }
         _;
+    }
+
+    /// Create and deploy the ASM ACU Contract.
+    /// @param symbols_ The symbols used to retrieve prices
+    /// @param quantities_ The basket quantity corresponding to each symbol
+    /// @param scale_ The scale for quantities and the ACU value
+    /// @param autonity Address of the Autonity Contract
+    constructor(
+        string[] memory symbols_,
+        uint256[] memory quantities_,
+        uint256 scale_,
+        address payable autonity
+    ) validBasket(symbols_, quantities_) {
+        _symbols = symbols_;
+        _quantities = quantities_;
+        scale = scale_;
+        scaleFactor = 10 ** scale_;
+        _autonity = IAutonity(autonity);
+        _oracle = IOracle(_autonity.getOracle());
+    }
+
+    /*
+    ┌────────────────────┐
+    │ Autonity Functions │
+    └────────────────────┘
+    */
+
+    /// Compute the ACU value and store it.
+    ///
+    /// It retrieves the latest prices from the Oracle Contract. If one or
+    /// more prices are unavailable from the Oracle, it will not compute the
+    /// value for that round.
+    ///
+    /// This function is intended to be called by the protocol during block
+    /// finalization, after the Oracle Contract finalization has completed.
+    /// @return status Whether the ACU value was updated successfully
+    /// @dev Only the Autonity Contract is authorized to trigger the
+    /// computation of the ACU.
+    function update() external onlyAutonity returns (bool status) {
+        uint256 latestRound = _oracle.getRound() - 1;
+        if (round >= latestRound) return false;
+        int256 sumProduct = 0;
+        int256 oraclePrecision = int256(_oracle.getPrecision());
+        for (uint i = 0; i < _symbols.length; i++) {
+            int256 price;
+            if (keccak256(abi.encodePacked(_symbols[i])) == SYMBOL_USD) {
+                price = oraclePrecision;
+            } else {
+                IOracle.RoundData memory roundData = _oracle.getRoundData(
+                    latestRound,
+                    _symbols[i]
+                );
+                if (roundData.status != 0) return false;
+                price = roundData.price;
+            }
+            sumProduct += (price * int256(_quantities[i]));
+        }
+
+        _value = sumProduct / oraclePrecision;
+        round = latestRound;
+
+        // solhint-disable-next-line not-rely-on-time
+        emit Updated(block.number, block.timestamp, round, _value);
+        return true;
+    }
+
+    /// Set the Oracle Contract address that is used to retrieve prices.
+    /// @param oracle Address of the new Oracle Contract
+    /// @dev Only the Autonity Contract is authorized to set the Oracle
+    /// Contract address.
+    function setOracle(address payable oracle) external onlyAutonity {
+        _oracle = IOracle(oracle);
+    }
+
+    /*
+    ┌────────────────────┐
+    │ Operator Functions │
+    └────────────────────┘
+    */
+
+    /// Modify the ACU symbols, quantites, or scale.
+    /// @param symbols_ The symbols used to retrieve prices
+    /// @param quantities_ The basket quantity corresponding to each symbol
+    /// @param scale_ The scale for quantities and the ACU value
+    /// @dev Only the operator is authorized to modify the basket.
+    function modifyBasket(
+        string[] memory symbols_,
+        uint256[] memory quantities_,
+        uint256 scale_
+    ) external validBasket(symbols_, quantities_) onlyOperator {
+        _symbols = symbols_;
+        _quantities = quantities_;
+        scale = scale_;
+        scaleFactor = 10 ** scale;
+        emit BasketModified(symbols_, quantities_, scale_);
+    }
+
+    /*
+    ┌────────────────┐
+    │ View Functions │
+    └────────────────┘
+    */
+
+    /// The latest ACU value that was computed.
+    /// @return ACU value in fixed-point integer representation
+    function value() external view returns (int256) {
+        if (round == 0) revert NoACUValue();
+        return _value;
+    }
+
+    /// The symbols that are used to compute the ACU.
+    /// @return Array of symbols
+    function symbols() external view returns (string[] memory) {
+        return _symbols;
+    }
+
+    /// The basket quantities that are used to compute the ACU.
+    /// @return Array of quantities
+    function quantities() external view returns (uint256[] memory) {
+        return _quantities;
     }
 }

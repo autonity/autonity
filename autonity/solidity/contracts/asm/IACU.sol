@@ -11,14 +11,15 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
        Auton Stabilization Mechanism
 */
-/// @title ACU Contract Interface
-/// @dev only meant to be used by the Autonity Contract.
 
+/// @title ACU Contract Interface
+/// @dev Only meant to be used by the Autonity Contract.
 interface IACU {
     /// Set the Oracle Contract address that is used to retrieve prices.
-    /// @param _oracle Address of the new Oracle Contract
-    /// @dev Only the autonity contract is authorized to set the Oracle Contract address.
-    function setOracle(address payable _oracle) external;
+    /// @param oracle Address of the new Oracle Contract
+    /// @dev Only the Autonity Contract is authorized to set the Oracle
+    /// Contract address.
+    function setOracle(address payable oracle) external;
 
     /// Compute the ACU value and store it.
     ///
@@ -29,6 +30,7 @@ interface IACU {
     /// This function is intended to be called by the protocol during block
     /// finalization, after the Oracle Contract finalization has completed.
     /// @return status Whether the ACU value was updated successfully
-    /// @dev Only the operator is authorized to trigger the computation of ACU.
+    /// @dev Only the Autonity Contract is authorized to trigger the
+    /// computation of the ACU.
     function update() external returns (bool status);
 }
