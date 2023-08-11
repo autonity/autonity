@@ -17,15 +17,6 @@ o88o     o8888o 8""88888P'  o8o        o888o
 /// @dev Intended to be deployed by the protocol at genesis. The operator is
 /// expected to be the Stabilization Contract.
 interface ISupplyControl {
-    /// Auton was minted.
-    /// @param recipient Recipient of the Auton
-    /// @param amount Amount of Auton minted
-    event Mint(address recipient, uint amount);
-
-    /// Auton was burned.
-    /// @param amount Amount of Auton burned
-    event Burn(uint amount);
-
     /// The supply of Auton available for minting.
     function availableSupply() external view returns (uint);
 
@@ -50,4 +41,14 @@ interface ISupplyControl {
     /// Burn Auton by taking it out of circulation.
     /// @dev Only the stabilizer is authorized to burn Auton.
     function burn() external payable;
+
+    /// Auton was minted.
+    /// @param recipient Recipient of the Auton
+    /// @param amount Amount of Auton minted
+    event Mint(address recipient, uint amount);
+
+    /// Auton was burned.
+    /// @param amount Amount of Auton burned
+    event Burn(uint amount);
+
 }
