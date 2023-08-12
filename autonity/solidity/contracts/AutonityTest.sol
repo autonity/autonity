@@ -15,7 +15,7 @@ contract AutonityTest is Autonity {
     constructor(Validator[] memory _validators,
                 Config memory _config) Autonity(_validators, _config) {
 
-        config.unbondingPeriod = 0;
+        config.policy.unbondingPeriod = 0;
     }
 
    function applyNewCommissionRates() public onlyProtocol {
