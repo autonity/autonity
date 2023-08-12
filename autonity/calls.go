@@ -187,6 +187,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, evm *
 			AccountabilityContract: AccountabilityContractAddress,
 			OracleContract:         OracleContractAddress,
 			AcuContract:            ACUContractAddress,
+			SupplyControlContract:  SupplyControlContractAddress,
 			StabilizationContract:  StabilizationContractAddress,
 		},
 		Protocol: AutonityProtocol{

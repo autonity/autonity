@@ -9,6 +9,7 @@ import "./Precompiled.sol";
 import "./Helpers.sol";
 import "./lib/BytesLib.sol";
 import "./asm/IACU.sol";
+import "./asm/ISupplyControl.sol";
 import "./asm/IStabilization.sol";
 import "./interfaces/IAccountability.sol";
 import "./interfaces/IOracle.sol";
@@ -68,6 +69,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         IAccountability accountabilityContract;
         IOracle oracleContract;
         IACU acuContract;
+        ISupplyControl supplyControlContract;
         IStabilization stabilizationContract;
     }
 
@@ -373,6 +375,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function setOperatorAccount(address _account) public onlyOperator {
         config.protocol.operatorAccount = _account;
         config.contracts.oracleContract.setOperator(_account);
+        config.contracts.acuContract.setOperator(_account);
+        config.contracts.supplyControlContract.setOperator(_account);
+        config.contracts.stabilizationContract.setOperator(_account);
     }
 
     /*
