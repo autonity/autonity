@@ -1,3 +1,4 @@
+pragma solidity ^0.8.19;
 /**
  * @dev Interface of the Autonity Contract.
  * Import this over Autonity.sol.
