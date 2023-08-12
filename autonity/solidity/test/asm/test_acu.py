@@ -24,12 +24,11 @@ INVALID_BASKET_ERROR = "0x4ff799c5"
 @dataclasses.dataclass
 class Accounts:
     deployer: AccountAPI
+    autonity: AccountAPI
     # ACU Contract
     operator: AccountAPI
     caller: AccountAPI
     # Oracle Contract
-    autonity: AccountAPI
-    oracle_operator: AccountAPI
     voter: AccountAPI
 
 
@@ -37,11 +36,10 @@ class Accounts:
 def users(accounts):
     return Accounts(
         deployer=accounts[0],
-        operator=accounts[1],
-        caller=accounts[2],
-        autonity=accounts[3],
-        oracle_operator=accounts[4],
-        voter=accounts[5],
+        autonity=accounts[1],
+        operator=accounts[2],
+        caller=accounts[3],
+        voter=accounts[4],
     )
 
 
@@ -90,7 +88,13 @@ def acu_basic(project, users, oracle_factory):
     scale_factor = int(1e5)
     quantities = [i * scale_factor for i in range(len(symbols))]
     contract = project.ACU.deploy(
-        symbols, quantities, scale, users.operator, oracle, sender=users.deployer
+        symbols,
+        quantities,
+        scale,
+        users.autonity,
+        users.operator,
+        oracle,
+        sender=users.deployer,
     )
     return ACUTestData(
         contract=contract,
@@ -143,7 +147,13 @@ def acu_primed(project, users, oracle_factory):
     for symbol, price in zip(symbols, prices):
         assert oracle.latestRoundData(symbol).price == price
     contract = project.ACU.deploy(
-        symbols, quantities, scale, users.operator, oracle, sender=users.deployer
+        symbols,
+        quantities,
+        scale,
+        users.autonity,
+        users.operator,
+        oracle,
+        sender=users.deployer,
     )
     return ACUTestData(
         contract=contract,
@@ -163,11 +173,23 @@ def test_constructor(acu_basic):
 def test_constructor_invalid_size(project, users):
     with ape.reverts(INVALID_BASKET_ERROR):
         project.ACU.deploy(
-            ["FOO"], [], 1, users.operator, ADDRESS_ZERO, sender=users.deployer
+            ["FOO"],
+            [],
+            1,
+            ADDRESS_ZERO,
+            ADDRESS_ZERO,
+            ADDRESS_ZERO,
+            sender=users.deployer,
         )
     with ape.reverts(INVALID_BASKET_ERROR):
         project.ACU.deploy(
-            [], [1], 1, users.operator, ADDRESS_ZERO, sender=users.deployer
+            [],
+            [1, 2, 3],
+            1,
+            ADDRESS_ZERO,
+            ADDRESS_ZERO,
+            ADDRESS_ZERO,
+            sender=users.deployer,
         )
 
 
@@ -177,7 +199,8 @@ def test_constructor_bad_quantity(project, users):
             ["foo"],
             [1 + INT256_MAX],
             1,
-            users.operator,
+            ADDRESS_ZERO,
+            ADDRESS_ZERO,
             ADDRESS_ZERO,
             sender=users.deployer,
         )
@@ -203,8 +226,9 @@ def test_modify_basket(acu_basic, users):
 
 
 def test_modify_basket_unauthorized(acu_basic, users):
-    with ape.reverts(acu_basic.contract.Unauthorized):
-        acu_basic.contract.modifyBasket(["X", "Y"], [1, 2], 1, sender=users.caller)
+    for unauth_user in [users.deployer, users.autonity, users.caller]:
+        with ape.reverts(acu_basic.contract.Unauthorized):
+            acu_basic.contract.modifyBasket(["X", "Y"], [1, 2], 1, sender=unauth_user)
 
 
 def test_modify_basket_invalid_size(acu_basic, users):
@@ -221,6 +245,20 @@ def test_modify_basket_bad_quantity(acu_basic, users):
         )
 
 
+def test_set_operator(acu_basic, accounts, users):
+    new_operator = accounts.generate_test_account()
+    acu_basic.contract.setOperator(new_operator, sender=users.autonity)
+    users.deployer.transfer(new_operator, int(1e18))
+    acu_basic.contract.modifyBasket(["A"], [1], 1, sender=new_operator)
+
+
+def test_set_operator_unauthorized(acu_basic, accounts, users):
+    new_operator = accounts.generate_test_account()
+    for unauth_user in [users.deployer, users.operator, users.caller]:
+        with ape.reverts(acu_basic.contract.Unauthorized):
+            acu_basic.contract.setOperator(new_operator, sender=unauth_user)
+
+
 def test_set_oracle(acu_basic, oracle_factory, users):
     symbols = ["FOO"]
     prices = [123]
@@ -228,13 +266,14 @@ def test_set_oracle(acu_basic, oracle_factory, users):
     new_oracle = oracle_factory(symbols, prices, voting_period)
     for symbol, price in zip(symbols, prices):
         assert new_oracle.latestRoundData(symbol).price == price
-    acu_basic.contract.setOracle(new_oracle, sender=users.operator)
+    acu_basic.contract.setOracle(new_oracle, sender=users.autonity)
 
 
 def test_set_oracle_unauthorized(acu_basic, oracle_factory, users):
     new_oracle = oracle_factory(["FOO"])
-    with ape.reverts(acu_basic.contract.Unauthorized):
-        acu_basic.contract.setOracle(new_oracle, sender=users.caller)
+    for unauth_user in [users.deployer, users.operator, users.caller]:
+        with ape.reverts(acu_basic.contract.Unauthorized):
+            acu_basic.contract.setOracle(new_oracle, sender=unauth_user)
 
 
 def test_value_novalue(acu_basic):
@@ -243,7 +282,7 @@ def test_value_novalue(acu_basic):
 
 
 def test_update(acu_primed, users, chain, tracing):
-    receipt = acu_primed.contract.update(sender=users.operator)
+    receipt = acu_primed.contract.update(sender=users.autonity)
     assert receipt.return_value is True
     value = compute_acu(
         acu_primed.symbols,
@@ -263,14 +302,13 @@ def test_update(acu_primed, users, chain, tracing):
 
 
 def test_update_unauthorized(acu_primed, users):
-    with ape.reverts(acu_primed.contract.Unauthorized):
-        acu_primed.contract.update(sender=users.deployer)
-    with ape.reverts(acu_primed.contract.Unauthorized):
-        acu_primed.contract.update(sender=users.caller)
+    for unauth_user in [users.deployer, users.operator, users.caller]:
+        with ape.reverts(acu_primed.contract.Unauthorized):
+            acu_primed.contract.update(sender=unauth_user)
 
 
 def test_update_same_round(acu_primed, accounts, users, tracing):
-    with accounts.use_sender(users.operator):
+    with accounts.use_sender(users.autonity):
         receipt = acu_primed.contract.update()
         assert receipt.return_value is True
         round_before = acu_primed.contract.round()
@@ -285,7 +323,7 @@ def test_update_missing_price(acu_basic, users, tracing):
     acu_basic.oracle.finalize(sender=users.autonity)
     for symbol in acu_basic.symbols:
         assert acu_basic.oracle.latestRoundData(symbol).status == 1
-    receipt = acu_basic.contract.update(sender=users.operator)
+    receipt = acu_basic.contract.update(sender=users.autonity)
     assert receipt.return_value is False
     with ape.reverts(acu_basic.contract.NoACUValue):
         acu_basic.contract.value(sender=users.caller)
