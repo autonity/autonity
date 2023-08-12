@@ -12,7 +12,6 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
-import {IAutonity} from "../interfaces/IAutonity.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IStabilization} from "./IStabilization.sol";
@@ -67,7 +66,8 @@ contract Stabilization is IStabilization {
 
     string private constant NTN_SYMBOL = "NTN/ATN";
     address[] private _accounts;
-    IAutonity private _autonity;
+    address private _autonity;
+    address private _operator;
     IERC20 private _collateralToken;
     IOracle private _oracle;
     ISupplyControl private _supplyControl;
@@ -120,12 +120,12 @@ contract Stabilization is IStabilization {
     }
 
     modifier onlyAutonity() {
-        if (msg.sender != address(_autonity)) revert Unauthorized();
+        if (msg.sender != _autonity) revert Unauthorized();
         _;
     }
 
     modifier onlyOperator() {
-        if (msg.sender != _autonity.getOperator()) revert Unauthorized();
+        if (msg.sender != _operator) revert Unauthorized();
         _;
     }
 
@@ -151,11 +151,15 @@ contract Stabilization is IStabilization {
     /// Create and deploy the ASM Stabilization Contract.
     /// @param config_ Stabilization configuration
     /// @param autonity Address of the Autonity Contract
+    /// @param operator Address of the Governance Operator
+    /// @param oracle Address of the Oracle Contract
     /// @param supplyControl Address of the SupplyControl Contract
     /// @param collateralToken Address of the Collateral Token contract
     constructor(
         Config memory config_,
         address autonity,
+        address operator,
+        address oracle,
         address supplyControl,
         IERC20 collateralToken
     )
@@ -163,8 +167,9 @@ contract Stabilization is IStabilization {
         validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
         config = config_;
-        _autonity = IAutonity(autonity);
-        _oracle = IOracle(_autonity.getOracle());
+        _autonity = autonity;
+        _operator = operator;
+        _oracle = IOracle(oracle);
         _supplyControl = ISupplyControl(supplyControl);
         _collateralToken = collateralToken;
     }
@@ -377,16 +382,30 @@ contract Stabilization is IStabilization {
         config.minDebtRequirement = amount;
     }
 
-    /// Set the Oracle Contract address.
-    /// @dev Restricted to the Autonity Contract.
-    function setOracle(address oracle) external onlyAutonity {
-        _oracle = IOracle(oracle);
-    }
-
     /// Set the SupplyControl Contract address.
     /// @dev Restricted to the operator.
     function setSupplyControl(address supplyControl) external onlyOperator {
         _supplyControl = ISupplyControl(supplyControl);
+    }
+
+    /*
+    ┌────────────────────┐
+    │ Autonity Functions │
+    └────────────────────┘
+    */
+
+    /// Set the Governance Operator account address.
+    /// @param operator Address of the new Governance Operator
+    /// @dev Restricted to the Autonity Contract.
+    function setOperator(address operator) external onlyAutonity {
+        _operator = operator;
+    }
+
+    /// Set the Oracle Contract address.
+    /// @param oracle Address of the new Oracle Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setOracle(address oracle) external onlyAutonity {
+        _oracle = IOracle(oracle);
     }
 
     /*

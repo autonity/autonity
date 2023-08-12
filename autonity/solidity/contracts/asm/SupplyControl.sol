@@ -12,7 +12,6 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
-import {IAutonity} from "../interfaces/IAutonity.sol";
 import {ISupplyControl} from "./ISupplyControl.sol";
 
 /// @title ASM Supply Control Contract Implementation
@@ -27,7 +26,10 @@ contract SupplyControl is ISupplyControl {
     uint256 public totalSupply;
 
     /// The Autonity Contract address.
-    IAutonity private _autonity;
+    address private _autonity;
+
+    /// The Governance Operator account address.
+    address private _operator;
 
     error InvalidAmount();
     error InvalidRecipient();
@@ -39,8 +41,13 @@ contract SupplyControl is ISupplyControl {
         _;
     }
 
+    modifier onlyAutonity() {
+        if (msg.sender != _autonity) revert Unauthorized();
+        _;
+    }
+
     modifier onlyOperator() {
-        if (msg.sender != _autonity.getOperator()) revert Unauthorized();
+        if (msg.sender != _operator) revert Unauthorized();
         _;
     }
 
@@ -51,13 +58,16 @@ contract SupplyControl is ISupplyControl {
 
     /// Deploy the contract and fund it with Auton supply.
     /// @param autonity Address of the Autonity Contract
+    /// @param operator Address of the Governance Operator
     /// @param stabilizer_ The address that is authorized to mint and burn
     /// @dev The message value is the Auton supply to seed.
     constructor(
         address autonity,
+        address operator,
         address stabilizer_
     ) payable nonZeroValue {
-        _autonity = IAutonity(autonity);
+        _autonity = autonity;
+        _operator = operator;
         stabilizer = stabilizer_;
         totalSupply = msg.value;
     }
@@ -82,9 +92,17 @@ contract SupplyControl is ISupplyControl {
         emit Burn(msg.value);
     }
 
+    /// Set the Governance Operator account address.
+    /// @param operator Address of the new Governance Operator
+    /// @dev Only the Autonity Contract is authorized to set the Governance
+    /// Operator account address.
+    function setOperator(address operator) external onlyAutonity {
+        _operator = operator;
+    }
+
     /// Update the stabilizer that is authorized to mint and burn.
     /// @param stabilizer_ The new stabilizer account
-    /// @dev Only the operator can update the stabilizer account.
+    /// @dev Only the operator can update the stabilizer address.
     function setStabilizer(address stabilizer_) external onlyOperator {
         stabilizer = stabilizer_;
     }

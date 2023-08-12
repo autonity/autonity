@@ -13,7 +13,6 @@ o88o     o8888o 8""88888P'  o8o        o888o
 */
 
 import {IACU} from "./IACU.sol";
-import {IAutonity} from "../interfaces/IAutonity.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 
 /// @title ASM ACU Contract
@@ -32,7 +31,8 @@ contract ACU is IACU {
     string[] private _symbols;
     uint256[] private _quantities;
     int256 private _value;
-    IAutonity private _autonity;
+    address private _autonity;
+    address private _operator;
     IOracle private _oracle;
     bytes32 private constant SYMBOL_USD =
         keccak256(abi.encodePacked("USD/USD"));
@@ -47,12 +47,12 @@ contract ACU is IACU {
     error Unauthorized();
 
     modifier onlyAutonity() {
-        if (msg.sender != address(_autonity)) revert Unauthorized();
+        if (msg.sender != _autonity) revert Unauthorized();
         _;
     }
 
     modifier onlyOperator() {
-        if (msg.sender != _autonity.getOperator()) revert Unauthorized();
+        if (msg.sender != _operator) revert Unauthorized();
         _;
     }
 
@@ -73,18 +73,23 @@ contract ACU is IACU {
     /// @param quantities_ The basket quantity corresponding to each symbol
     /// @param scale_ The scale for quantities and the ACU value
     /// @param autonity Address of the Autonity Contract
+    /// @param operator Address of the Governance Operator
+    /// @param oracle Address of the Oracle Contract
     constructor(
         string[] memory symbols_,
         uint256[] memory quantities_,
         uint256 scale_,
-        address autonity
+        address autonity,
+        address operator,
+        address oracle
     ) validBasket(symbols_, quantities_) {
         _symbols = symbols_;
         _quantities = quantities_;
         scale = scale_;
         scaleFactor = 10 ** scale_;
-        _autonity = IAutonity(autonity);
-        _oracle = IOracle(_autonity.getOracle());
+        _autonity = autonity;
+        _operator = operator;
+        _oracle = IOracle(oracle);
     }
 
     /*
@@ -132,11 +137,19 @@ contract ACU is IACU {
         return true;
     }
 
+    /// Set the Governance Operator account address.
+    /// @param operator Address of the new Governance Operator
+    /// @dev Only the Autonity Contract is authorized to set the Governance
+    /// Operator account address.
+    function setOperator(address operator) external onlyAutonity {
+        _operator = operator;
+    }
+
     /// Set the Oracle Contract address that is used to retrieve prices.
     /// @param oracle Address of the new Oracle Contract
     /// @dev Only the Autonity Contract is authorized to set the Oracle
     /// Contract address.
-    function setOracle(address payable oracle) external onlyAutonity {
+    function setOracle(address oracle) external onlyAutonity {
         _oracle = IOracle(oracle);
     }
 

@@ -15,11 +15,17 @@ o88o     o8888o 8""88888P'  o8o        o888o
 /// @title ACU Contract Interface
 /// @dev Only meant to be used by the Autonity Contract.
 interface IACU {
+    /// Set the Governance Operator account address.
+    /// @param operator Address of the new Governance Operator
+    /// @dev Only the Autonity Contract is authorized to set the Governance
+    /// Operator account address.
+    function setOperator(address operator) external;
+
     /// Set the Oracle Contract address that is used to retrieve prices.
     /// @param oracle Address of the new Oracle Contract
     /// @dev Only the Autonity Contract is authorized to set the Oracle
     /// Contract address.
-    function setOracle(address payable oracle) external;
+    function setOracle(address oracle) external;
 
     /// Compute the ACU value and store it.
     ///

@@ -59,6 +59,8 @@ func DeployStabilizationContract(config *params.ChainConfig, evm *vm.EVM) error 
 			(*big.Int)(config.ASM.StabilizationContractConfig.TargetPrice),
 		},
 		AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
+		OracleContractAddress,
 		SupplyControlContractAddress,
 		AutonityContractAddress,
 	)
@@ -89,6 +91,7 @@ func DeploySupplyControlContract(config *params.ChainConfig, evm *vm.EVM) error 
 	}
 	constructorParams, err := generated.SupplyControlAbi.Pack("",
 		AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
 		StabilizationContractAddress)
 	if err != nil {
 		log.Error("Supply Control contract err", "err", err)
@@ -128,6 +131,8 @@ func DeployACUContract(config *params.ChainConfig, evm *vm.EVM) error {
 		bigQuantities,
 		new(big.Int).SetUint64(config.ASM.ACUContractConfig.Scale),
 		AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
+		OracleContractAddress,
 	)
 	if err != nil {
 		log.Error("formatting error", "err", err)
