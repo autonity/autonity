@@ -101,5 +101,9 @@
   "a2e62045": "update()",
   "3fa4f245": "value()",
   "4ff799c5": "InvalidBasket()",
-  "82b42900": "Unauthorized()"
+  "82b42900": "Unauthorized()",
+  "7ecc2b56": "availableSupply()",
+  "44df8e70": "burn()",
+  "db7f521a": "setStabilizer(address)",
+  "7e47961c": "stabilizer()"
 }
