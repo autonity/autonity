@@ -517,8 +517,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         bool newRound = config.contracts.oracleContract.finalize();
         if (newRound) {
-            //try config.contracts.acuContract.update() {}
-            //catch {}
+            try config.contracts.acuContract.update() {}
+            catch {}
         }
         return (contractUpgradeReady, committee);
     }
