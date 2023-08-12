@@ -155,7 +155,7 @@ contract Stabilization is IStabilization {
     /// @param collateralToken Address of the Collateral Token contract
     constructor(
         Config memory config_,
-        address payable autonity,
+        address autonity,
         address supplyControl,
         IERC20 collateralToken
     )

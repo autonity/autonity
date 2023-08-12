@@ -54,7 +54,7 @@ contract SupplyControl is ISupplyControl {
     /// @param stabilizer_ The address that is authorized to mint and burn
     /// @dev The message value is the Auton supply to seed.
     constructor(
-        address payable autonity,
+        address autonity,
         address stabilizer_
     ) payable nonZeroValue {
         _autonity = IAutonity(autonity);

@@ -77,7 +77,7 @@ contract ACU is IACU {
         string[] memory symbols_,
         uint256[] memory quantities_,
         uint256 scale_,
-        address payable autonity
+        address autonity
     ) validBasket(symbols_, quantities_) {
         _symbols = symbols_;
         _quantities = quantities_;
