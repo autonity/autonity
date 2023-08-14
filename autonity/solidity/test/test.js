@@ -25,20 +25,30 @@ contract('Autonity', function (accounts) {
   const treasuryFee = 1;
   const minimumEpochPeriod = 30;
   const version = 1;
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
 
   const config = {
-    "operatorAccount": operator,
-    "treasuryAccount": treasuryAccount,
-    "oracleContract" : treasuryAccount, //temporary
-    "accountabilityContract": treasuryAccount,
-    "treasuryFee": treasuryFee,
-    "minBaseFee": minBaseFee,
-    "delegationRate": delegationRate,
-    "epochPeriod": epochPeriod,
-    "unbondingPeriod": unBondingPeriod,
-    "committeeSize": committeeSize,
-    "contractVersion": version,
-    "blockPeriod": minimumEpochPeriod,
+    "policy": {
+      "treasuryFee": treasuryFee,
+      "minBaseFee": minBaseFee,
+      "delegationRate": delegationRate,
+      "unbondingPeriod" : unBondingPeriod,
+      "treasuryAccount": treasuryAccount,
+    },
+    "contracts": {
+      "oracleContract" : zeroAddress, //temporary
+      "accountabilityContract": zeroAddress,
+      "acuContract" :zeroAddress,
+      "supplyControlContract" :zeroAddress,
+      "stabilizationContract" :zeroAddress,
+    },
+    "protocol": {
+      "operatorAccount": operator,
+      "epochPeriod": epochPeriod,
+      "blockPeriod": minimumEpochPeriod,
+      "committeeSize": committeeSize,
+    },
+    "contractVersion":version,
   };
 
   const validators = [
@@ -52,7 +62,6 @@ contract('Autonity', function (accounts) {
       "selfBondedStake": 0,
       "totalSlashed": 0,
       "jailReleaseBlock": 0,
-      "totalSlashed":0,
       "provableFaultCount" :0,
       "liquidContract": accounts[0],
       "liquidSupply": 0,
@@ -69,7 +78,6 @@ contract('Autonity', function (accounts) {
       "selfBondedStake": 0,
       "totalSlashed": 0,
       "jailReleaseBlock": 0,
-      "totalSlashed":0,
       "provableFaultCount" :0,
       "liquidContract": accounts[1],
       "liquidSupply": 0,
@@ -86,7 +94,6 @@ contract('Autonity', function (accounts) {
       "selfBondedStake": 0,
       "totalSlashed": 0,
       "jailReleaseBlock": 0,
-      "totalSlashed":0,
       "provableFaultCount" :0,
       "liquidContract": accounts[3],
       "liquidSupply": 0,
@@ -103,7 +110,6 @@ contract('Autonity', function (accounts) {
       "selfBondedStake": 0,
       "totalSlashed": 0,
       "jailReleaseBlock": 0,
-      "totalSlashed":0,
       "provableFaultCount" :0,
       "liquidContract": accounts[4],
       "liquidSupply": 0,

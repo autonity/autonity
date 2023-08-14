@@ -51,13 +51,14 @@ func DeployStabilizationContract(config *params.ChainConfig, evm *vm.EVM) error 
 			LiquidationRatio          *big.Int
 			MinCollateralizationRatio *big.Int
 			MinDebtRequirement        *big.Int
-			RedemptionPrice           *big.Int
+			TargetPrice               *big.Int
 		}{(*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
 			(*big.Int)(config.ASM.StabilizationContractConfig.LiquidationRatio),
 			(*big.Int)(config.ASM.StabilizationContractConfig.MinCollateralizationRatio),
 			(*big.Int)(config.ASM.StabilizationContractConfig.MinDebtRequirement),
-			(*big.Int)(config.ASM.StabilizationContractConfig.RedemptionPrice),
+			(*big.Int)(config.ASM.StabilizationContractConfig.TargetPrice),
 		},
+		AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
 		OracleContractAddress,
 		SupplyControlContractAddress,
@@ -88,7 +89,10 @@ func DeploySupplyControlContract(config *params.ChainConfig, evm *vm.EVM) error 
 	} else {
 		config.ASM.SupplyControlConfig.SetDefaults()
 	}
-	constructorParams, err := generated.SupplyControlAbi.Pack("", config.AutonityContractConfig.Operator)
+	constructorParams, err := generated.SupplyControlAbi.Pack("",
+		AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
+		StabilizationContractAddress)
 	if err != nil {
 		log.Error("Supply Control contract err", "err", err)
 		return err
@@ -126,6 +130,7 @@ func DeployACUContract(config *params.ChainConfig, evm *vm.EVM) error {
 		config.ASM.ACUContractConfig.Symbols,
 		bigQuantities,
 		new(big.Int).SetUint64(config.ASM.ACUContractConfig.Scale),
+		AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
 		OracleContractAddress,
 	)
@@ -171,18 +176,27 @@ func DeployAccountabilityContract(evm *vm.EVM) error {
 
 func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, evm *vm.EVM) error {
 	contractConfig := AutonityConfig{
-		OperatorAccount:        genesisConfig.Operator,
-		TreasuryAccount:        genesisConfig.Treasury,
-		OracleContract:         OracleContractAddress,
-		TreasuryFee:            new(big.Int).SetUint64(genesisConfig.TreasuryFee),
-		MinBaseFee:             new(big.Int).SetUint64(genesisConfig.MinBaseFee),
-		DelegationRate:         new(big.Int).SetUint64(genesisConfig.DelegationRate),
-		EpochPeriod:            new(big.Int).SetUint64(genesisConfig.EpochPeriod),
-		UnbondingPeriod:        new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
-		CommitteeSize:          new(big.Int).SetUint64(genesisConfig.MaxCommitteeSize),
-		ContractVersion:        big.NewInt(1),
-		BlockPeriod:            new(big.Int).SetUint64(genesisConfig.BlockPeriod),
-		AccountabilityContract: AccountabilityContractAddress,
+		Policy: AutonityPolicy{
+			TreasuryFee:     new(big.Int).SetUint64(genesisConfig.TreasuryFee),
+			MinBaseFee:      new(big.Int).SetUint64(genesisConfig.MinBaseFee),
+			DelegationRate:  new(big.Int).SetUint64(genesisConfig.DelegationRate),
+			UnbondingPeriod: new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
+			TreasuryAccount: genesisConfig.Operator,
+		},
+		Contracts: AutonityContracts{
+			AccountabilityContract: AccountabilityContractAddress,
+			OracleContract:         OracleContractAddress,
+			AcuContract:            ACUContractAddress,
+			SupplyControlContract:  SupplyControlContractAddress,
+			StabilizationContract:  StabilizationContractAddress,
+		},
+		Protocol: AutonityProtocol{
+			OperatorAccount: genesisConfig.Operator,
+			EpochPeriod:     new(big.Int).SetUint64(genesisConfig.EpochPeriod),
+			BlockPeriod:     new(big.Int).SetUint64(genesisConfig.BlockPeriod),
+			CommitteeSize:   new(big.Int).SetUint64(genesisConfig.MaxCommitteeSize),
+		},
+		ContractVersion: big.NewInt(1),
 	}
 
 	validators := make([]params.Validator, 0, len(genesisConfig.Validators))

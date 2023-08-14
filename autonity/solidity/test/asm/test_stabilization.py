@@ -10,6 +10,7 @@ import pytest
 from ape.api import AccountAPI
 from ape.contracts import ContractContainer
 from web3 import Web3
+from web3.constants import ADDRESS_ZERO
 
 ATN_TOTAL_SUPPLY = int(100 * 1e18)
 ERC20_CONTRACT = ape.project.path / pathlib.Path("test/asm/ERC20Basic.sol")
@@ -34,7 +35,7 @@ def basic_config():
         liquidationRatio=int(1.5e18),
         minCollateralizationRatio=int(2.5e18),
         minDebtRequirement=int(1e6),  # megaton
-        redemptionPrice=int(1e18),
+        targetPrice=int(1e18),
     )
 
 
@@ -92,6 +93,11 @@ def oracle_factory(project, users):
 def supply_control(project, users):
     return project.SupplyControl.deploy(
         users.autonity,
+        users.operator,
+        # Unlike during the genesis sequence, we don't know the address of the
+        # Stabilization Contract at this point of the test setup. But once we know,
+        # then it is set by calling `setStabilizer()`.
+        ADDRESS_ZERO,
         sender=users.deployer,
         value=ATN_TOTAL_SUPPLY,
     )
@@ -104,13 +110,14 @@ def stabilization(
     oracle = oracle_factory(PRICE_NTN)
     contract = project.Stabilization.deploy(
         dataclasses.asdict(basic_config),
+        users.autonity,
         users.operator,
         oracle.address,
         supply_control.address,
         collateral_token,
         sender=users.deployer,
     )
-    supply_control.setOperator(contract.address, sender=users.autonity)
+    supply_control.setStabilizer(contract.address, sender=users.operator)
     return contract
 
 
@@ -173,11 +180,12 @@ def test_constructor_zero_mcr(
     project, users, collateral_token, basic_config, oracle_factory, supply_control
 ):
     basic_config.minCollateralizationRatio = 0
-    oracle = oracle_factory(PRICE_NTN)  # InvalidParameter
-    with ape.reverts("0x613970e0"):
+    oracle = oracle_factory(PRICE_NTN)
+    with ape.reverts("0x613970e0"):  # InvalidParameter
         project.Stabilization.deploy(
             dataclasses.asdict(basic_config),
             collateral_token,
+            users.autonity,
             users.operator,
             oracle.address,
             supply_control.address,
@@ -195,6 +203,7 @@ def test_constructor_invalid_ratios(
     with ape.reverts("0x613970e0"):  # InvalidParameter
         project.Stabilization.deploy(
             dataclasses.asdict(basic_config),
+            users.autonity,
             users.operator,
             oracle.address,
             supply_control.address,
@@ -206,6 +215,7 @@ def test_constructor_invalid_ratios(
     with ape.reverts("0x613970e0"):  # InvalidParameter
         project.Stabilization.deploy(
             dataclasses.asdict(basic_config),
+            users.autonity,
             users.operator,
             oracle.address,
             supply_control.address,
@@ -575,10 +585,10 @@ def test_borrow_limit(stabilization):
         (Decimal(100e18), Decimal("1.2e18"), Decimal("1.2e18"), 100000000000000000000),
         (Decimal(100e18), Decimal("0.8e18"), Decimal("1.2e18"), 66666666666666666666),
     ]
-    redemption_price = int(1e18)
+    target_price = int(1e18)
     for collateral, price, mcr, expected in tests:
         result = stabilization.borrowLimit(
-            int(collateral), int(price), redemption_price, int(mcr)
+            int(collateral), int(price), target_price, int(mcr)
         )
         assert result == expected
         calculated = quantize(collateral * price / mcr)
@@ -636,6 +646,7 @@ def test_collateral_price_is_scaled(
     oracle = oracle_factory(PRICE_NTN)
     contract = project.Stabilization.deploy(
         dataclasses.asdict(basic_config),
+        users.autonity,
         users.operator,
         oracle.address,
         supply_control,
@@ -643,6 +654,35 @@ def test_collateral_price_is_scaled(
         sender=users.deployer,
     )
     assert contract.collateralPrice() == PRICE_NTN_18D
+
+
+# ┌────────────────────┐
+# │ Autonity Functions │
+# └────────────────────┘
+
+
+def test_set_operator(stabilization, accounts, users):
+    new_operator = accounts.generate_test_account()
+    stabilization.setOperator(new_operator, sender=users.autonity)
+
+
+def test_set_operator_unauthorized(stabilization, accounts, users):
+    new_operator = accounts.generate_test_account()
+    for unauth_user in [users.deployer, users.operator, users.account1]:
+        with ape.reverts(stabilization.Unauthorized):
+            stabilization.setOperator(new_operator, sender=unauth_user)
+
+
+def test_set_oracle(stabilization, oracle_factory, users):
+    new_oracle = oracle_factory(PRICE_NTN)
+    stabilization.setOracle(new_oracle, sender=users.autonity)
+
+
+def test_set_oracle_unauthorized(stabilization, oracle_factory, users):
+    new_oracle = oracle_factory(PRICE_NTN)
+    for unauth_user in [users.deployer, users.operator, users.account1]:
+        with ape.reverts(stabilization.Unauthorized):
+            stabilization.setOracle(new_oracle, sender=unauth_user)
 
 
 # ┌──────────────┐
@@ -668,7 +708,7 @@ class Config:
     minCollateralizationRatio: int
     borrowInterestRate: int
     liquidationRatio: int
-    redemptionPrice: int
+    targetPrice: int
 
 
 @contextmanager

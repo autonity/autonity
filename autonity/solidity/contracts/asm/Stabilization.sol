@@ -14,24 +14,9 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import {IStabilization} from "./IStabilization.sol";
 import {ISupplyControl} from "./ISupplyControl.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
-
-/// Stabilization Configuration.
-struct Config {
-    /// The annual continuously-compounded interest rate for borrowing.
-    uint256 borrowInterestRate;
-    /// The minimum ACU value of collateral required to maintain 1 ACU value of
-    /// debt.
-    uint256 liquidationRatio;
-    /// The minimum ACU value of collateral required to borrow 1 ACU value of
-    /// debt.
-    uint256 minCollateralizationRatio;
-    /// The minimum amount of debt required to maintain a CDP.
-    uint256 minDebtRequirement;
-    /// The ACU value of 1 unit of debt.
-    uint256 redemptionPrice;
-}
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
@@ -39,7 +24,23 @@ struct Config {
 /// rates, ratios, prices, and amounts are represented as fixed-point integers
 /// with `SCALE` decimal places.
 /* solhint-disable not-rely-on-time */
-contract Stabilization {
+contract Stabilization is IStabilization {
+    /// Stabilization Configuration.
+    struct Config {
+        /// The annual continuously-compounded interest rate for borrowing.
+        uint256 borrowInterestRate;
+        /// The minimum ACU value of collateral required to maintain 1 ACU
+        /// value of debt.
+        uint256 liquidationRatio;
+        /// The minimum ACU value of collateral required to borrow 1 ACU value
+        /// of debt.
+        uint256 minCollateralizationRatio;
+        /// The minimum amount of debt required to maintain a CDP.
+        uint256 minDebtRequirement;
+        /// The ACU value of 1 unit of debt.
+        uint256 targetPrice;
+    }
+
     /// Represents a Collateralized Debt Position (CDP)
     struct CDP {
         /// The timestamp of the last borrow or repayment.
@@ -65,6 +66,7 @@ contract Stabilization {
 
     string private constant NTN_SYMBOL = "NTN/ATN";
     address[] private _accounts;
+    address private _autonity;
     address private _operator;
     IERC20 private _collateralToken;
     IOracle private _oracle;
@@ -117,6 +119,11 @@ contract Stabilization {
         _;
     }
 
+    modifier onlyAutonity() {
+        if (msg.sender != _autonity) revert Unauthorized();
+        _;
+    }
+
     modifier onlyOperator() {
         if (msg.sender != _operator) revert Unauthorized();
         _;
@@ -143,12 +150,14 @@ contract Stabilization {
 
     /// Create and deploy the ASM Stabilization Contract.
     /// @param config_ Stabilization configuration
-    /// @param operator The operator is authorized to change parameters
+    /// @param autonity Address of the Autonity Contract
+    /// @param operator Address of the Governance Operator
     /// @param oracle Address of the Oracle Contract
     /// @param supplyControl Address of the SupplyControl Contract
     /// @param collateralToken Address of the Collateral Token contract
     constructor(
         Config memory config_,
+        address autonity,
         address operator,
         address oracle,
         address supplyControl,
@@ -158,10 +167,11 @@ contract Stabilization {
         validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
         config = config_;
-        _collateralToken = collateralToken;
+        _autonity = autonity;
         _operator = operator;
         _oracle = IOracle(oracle);
         _supplyControl = ISupplyControl(supplyControl);
+        _collateralToken = collateralToken;
     }
 
     /*
@@ -247,7 +257,7 @@ contract Stabilization {
         uint256 limit = borrowLimit(
             cdp.collateral,
             price,
-            config.redemptionPrice,
+            config.targetPrice,
             config.minCollateralizationRatio
         );
         if (debt > limit) revert InsufficientCollateral();
@@ -372,16 +382,30 @@ contract Stabilization {
         config.minDebtRequirement = amount;
     }
 
-    /// Set the Oracle Contract address.
-    /// @dev Restricted to the operator.
-    function setOracle(address oracle) external onlyOperator {
-        _oracle = IOracle(oracle);
-    }
-
     /// Set the SupplyControl Contract address.
     /// @dev Restricted to the operator.
     function setSupplyControl(address supplyControl) external onlyOperator {
         _supplyControl = ISupplyControl(supplyControl);
+    }
+
+    /*
+    ┌────────────────────┐
+    │ Autonity Functions │
+    └────────────────────┘
+    */
+
+    /// Set the Governance Operator account address.
+    /// @param operator Address of the new Governance Operator
+    /// @dev Restricted to the Autonity Contract.
+    function setOperator(address operator) external onlyAutonity {
+        _operator = operator;
+    }
+
+    /// Set the Oracle Contract address.
+    /// @param oracle Address of the new Oracle Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setOracle(address oracle) external onlyAutonity {
+        _oracle = IOracle(oracle);
     }
 
     /*
@@ -472,17 +496,17 @@ contract Stabilization {
     /// given amount of Collateral Token.
     /// @param collateral Amount of Collateral Token backing the debt
     /// @param price The price of Collateral Token in Auton
-    /// @param redemptionPrice The ACU value of 1 unit of debt
+    /// @param targetPrice The ACU value of 1 unit of debt
     /// @param mcr The minimum collateralization ratio
     /// @return The maximum Auton that can be borrowed
     function borrowLimit(
         uint256 collateral,
         uint256 price,
-        uint256 redemptionPrice,
+        uint256 targetPrice,
         uint256 mcr
     ) public pure returns (uint256) {
         if (price == 0 || mcr == 0) revert InvalidParameter();
-        return (collateral * price * redemptionPrice) / (mcr * SCALE_FACTOR);
+        return (collateral * price * targetPrice) / (mcr * SCALE_FACTOR);
     }
 
     /// Calculate the minimum amount of Collateral Token that must be deposited

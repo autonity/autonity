@@ -16,17 +16,20 @@ import {ISupplyControl} from "./ISupplyControl.sol";
 
 /// @title ASM Supply Control Contract Implementation
 /// @notice Controls the supply of Auton on the network.
-/// @dev Intended to be deployed by the protocol at genesis. The operator is
+/// @dev Intended to be deployed by the protocol at genesis. The stabilizer is
 /// expected to be the Stabilization Contract.
 contract SupplyControl is ISupplyControl {
-    /// The account that is authorized to change the operator.
-    address private _admin;
-
     /// The account that is authorized to mint and burn.
-    address public operator;
+    address public stabilizer;
 
     /// The total supply of Auton under management.
     uint256 public totalSupply;
+
+    /// The Autonity Contract address.
+    address private _autonity;
+
+    /// The Governance Operator account address.
+    address private _operator;
 
     error InvalidAmount();
     error InvalidRecipient();
@@ -38,34 +41,44 @@ contract SupplyControl is ISupplyControl {
         _;
     }
 
-    modifier onlyOperator() {
-        if (msg.sender != operator) revert Unauthorized();
+    modifier onlyAutonity() {
+        if (msg.sender != _autonity) revert Unauthorized();
         _;
     }
 
-    modifier onlyAdmin() {
-        if (msg.sender != _admin) revert Unauthorized();
+    modifier onlyOperator() {
+        if (msg.sender != _operator) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyStabilizer() {
+        if (msg.sender != stabilizer) revert Unauthorized();
         _;
     }
 
     /// Deploy the contract and fund it with Auton supply.
-    /// @param admin The address authorized to change the operator
-    /// @dev The operator is initially set to the admin. The message value is
-    /// the Auton supply to seed. The admin may be different than the contract
-    /// deployer.
-    constructor(address admin) payable nonZeroValue {
-        _admin = admin;
-        operator = admin;
+    /// @param autonity Address of the Autonity Contract
+    /// @param operator Address of the Governance Operator
+    /// @param stabilizer_ The address that is authorized to mint and burn
+    /// @dev The message value is the Auton supply to seed.
+    constructor(
+        address autonity,
+        address operator,
+        address stabilizer_
+    ) payable nonZeroValue {
+        _autonity = autonity;
+        _operator = operator;
+        stabilizer = stabilizer_;
         totalSupply = msg.value;
     }
 
     /// Mint Auton and send it to the recipient.
     /// @param recipient Recipient of the Auton
     /// @param amount Amount of Auton to mint (non-zero)
-    /// @dev Only the operator is authorized to mint Auton. The recipient
-    /// cannot be the operator or the zero address.
-    function mint(address recipient, uint amount) external onlyOperator {
-        if (recipient == address(0) || recipient == operator)
+    /// @dev Only the stabilizer is authorized to mint Auton. The recipient
+    /// cannot be the stabilizer or the zero address.
+    function mint(address recipient, uint amount) external onlyStabilizer {
+        if (recipient == address(0) || recipient == stabilizer)
             revert InvalidRecipient();
         if (amount == 0 || amount > address(this).balance)
             revert InvalidAmount();
@@ -74,16 +87,24 @@ contract SupplyControl is ISupplyControl {
     }
 
     /// Burn Auton by taking it out of circulation.
-    /// @dev Only the operator is authorized to burn Auton.
-    function burn() external payable nonZeroValue onlyOperator {
+    /// @dev Only the stabilizer is authorized to burn Auton.
+    function burn() external payable nonZeroValue onlyStabilizer {
         emit Burn(msg.value);
     }
 
-    /// Update the operator that is authorized to mint and burn.
-    /// @param operator_ The new operator account
-    /// @dev Only the admin can update the operator account.
-    function setOperator(address operator_) external onlyAdmin {
-        operator = operator_;
+    /// Set the Governance Operator account address.
+    /// @param operator Address of the new Governance Operator
+    /// @dev Only the Autonity Contract is authorized to set the Governance
+    /// Operator account address.
+    function setOperator(address operator) external onlyAutonity {
+        _operator = operator;
+    }
+
+    /// Update the stabilizer that is authorized to mint and burn.
+    /// @param stabilizer_ The new stabilizer account
+    /// @dev Only the operator can update the stabilizer address.
+    function setStabilizer(address stabilizer_) external onlyOperator {
+        stabilizer = stabilizer_;
     }
 
     /// The supply of Auton available for minting.

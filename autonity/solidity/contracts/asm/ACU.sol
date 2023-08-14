@@ -1,4 +1,4 @@
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
 /*
       .o.        .oooooo..o ooo        ooooo
@@ -12,13 +12,14 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
+import {IACU} from "./IACU.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
 /// 7 free-floating fiat currencies.
 /// @dev Intended to be deployed by the protocol at genesis.
-contract ACU {
+contract ACU is IACU {
     /// The Oracle round of the current ACU value.
     uint256 public round;
     /// The decimal places used to represent the ACU as a fixed-point integer.
@@ -30,6 +31,7 @@ contract ACU {
     string[] private _symbols;
     uint256[] private _quantities;
     int256 private _value;
+    address private _autonity;
     address private _operator;
     IOracle private _oracle;
     bytes32 private constant SYMBOL_USD =
@@ -43,6 +45,11 @@ contract ACU {
     error InvalidBasket();
     error NoACUValue();
     error Unauthorized();
+
+    modifier onlyAutonity() {
+        if (msg.sender != _autonity) revert Unauthorized();
+        _;
+    }
 
     modifier onlyOperator() {
         if (msg.sender != _operator) revert Unauthorized();
@@ -65,13 +72,14 @@ contract ACU {
     /// @param symbols_ The symbols used to retrieve prices
     /// @param quantities_ The basket quantity corresponding to each symbol
     /// @param scale_ The scale for quantities and the ACU value
-    /// @param operator The account that is authorized to compute the ACU value
-    /// and to modify ACU parameters
+    /// @param autonity Address of the Autonity Contract
+    /// @param operator Address of the Governance Operator
     /// @param oracle Address of the Oracle Contract
     constructor(
         string[] memory symbols_,
         uint256[] memory quantities_,
         uint256 scale_,
+        address autonity,
         address operator,
         address oracle
     ) validBasket(symbols_, quantities_) {
@@ -79,13 +87,14 @@ contract ACU {
         _quantities = quantities_;
         scale = scale_;
         scaleFactor = 10 ** scale_;
+        _autonity = autonity;
         _operator = operator;
         _oracle = IOracle(oracle);
     }
 
     /*
     ┌────────────────────┐
-    │ Operator Functions │
+    │ Autonity Functions │
     └────────────────────┘
     */
 
@@ -98,8 +107,9 @@ contract ACU {
     /// This function is intended to be called by the protocol during block
     /// finalization, after the Oracle Contract finalization has completed.
     /// @return status Whether the ACU value was updated successfully
-    /// @dev Only the operator is authorized to trigger the computation of ACU.
-    function update() external onlyOperator returns (bool status) {
+    /// @dev Only the Autonity Contract is authorized to trigger the
+    /// computation of the ACU.
+    function update() external onlyAutonity returns (bool status) {
         uint256 latestRound = _oracle.getRound() - 1;
         if (round >= latestRound) return false;
         int256 sumProduct = 0;
@@ -127,6 +137,28 @@ contract ACU {
         return true;
     }
 
+    /// Set the Governance Operator account address.
+    /// @param operator Address of the new Governance Operator
+    /// @dev Only the Autonity Contract is authorized to set the Governance
+    /// Operator account address.
+    function setOperator(address operator) external onlyAutonity {
+        _operator = operator;
+    }
+
+    /// Set the Oracle Contract address that is used to retrieve prices.
+    /// @param oracle Address of the new Oracle Contract
+    /// @dev Only the Autonity Contract is authorized to set the Oracle
+    /// Contract address.
+    function setOracle(address oracle) external onlyAutonity {
+        _oracle = IOracle(oracle);
+    }
+
+    /*
+    ┌────────────────────┐
+    │ Operator Functions │
+    └────────────────────┘
+    */
+
     /// Modify the ACU symbols, quantites, or scale.
     /// @param symbols_ The symbols used to retrieve prices
     /// @param quantities_ The basket quantity corresponding to each symbol
@@ -142,13 +174,6 @@ contract ACU {
         scale = scale_;
         scaleFactor = 10 ** scale;
         emit BasketModified(symbols_, quantities_, scale_);
-    }
-
-    /// Set the Oracle Contract address that is used to retrieve prices.
-    /// @param oracle Address of the new Oracle Contract
-    /// @dev Only the operator is authorized to set the Oracle Contract address.
-    function setOracle(address oracle) external onlyOperator {
-        _oracle = IOracle(oracle);
     }
 
     /*

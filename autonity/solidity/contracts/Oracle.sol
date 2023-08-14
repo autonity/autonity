@@ -130,9 +130,9 @@ contract Oracle is IOracle {
     }
     /**
      * @notice Called once per VotePeriod part of the state finalisation function.
-     *
+     * @return true if there is a new round and new symbol prices are available, false if not.
      */
-    function finalize() onlyAutonity public {
+    function finalize() onlyAutonity external returns (bool){
         if (block.number >= lastRoundBlock + votePeriod){
             for(uint i = 0; i < symbols.length; i += 1 ) {
                 aggregateSymbol(i);
@@ -146,7 +146,7 @@ contract Oracle is IOracle {
                     votingInfo[newVoters[i]].isVoter = true;
                 }
             }
-            //votingInfo update happens a round later then setting of new voters,
+            // votingInfo update happens a round later then setting of new voters,
             // because we still want to aggregate vote for lastVoterSet in the voterupdateround+1
             if (lastVoterUpdateRound+1 == int256(round)) {
                 _updateVotingInfo();
@@ -160,7 +160,9 @@ contract Oracle is IOracle {
                 symbols = newSymbols;
             }
             emit NewRound(round, block.number, block.timestamp, votePeriod);
+            return true;
         }
+        return false;
     }
     /**
      * @notice Level 2 aggregation routine. The final price
@@ -268,7 +270,7 @@ contract Oracle is IOracle {
         voters = newVoters;
     }
 
-    function setVoters(address[] memory _newVoters) onlyAutonity public {
+    function setVoters(address[] memory _newVoters) onlyAutonity external {
         require(_newVoters.length != 0, "Voters can't be empty");
         _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
         newVoters = _newVoters;
@@ -359,10 +361,12 @@ contract Oracle is IOracle {
         require(autonity == msg.sender, "restricted to the autonity contract");
         _;
     }
+
     modifier onlyOperator {
         require(operator == msg.sender, "restricted to operator");
         _;
     }
+
     /**
     * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
     *

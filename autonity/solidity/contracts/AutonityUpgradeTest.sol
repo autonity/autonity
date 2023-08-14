@@ -21,7 +21,7 @@ contract AutonityUpgradeTest is Autonity {
         Autonity.validators[Autonity.validatorList[1]].bondedStake /= 2;
         Autonity.validators[Autonity.validatorList[1]].selfBondedStake /= 2;
         Autonity.config.contractVersion = 2;
-        Autonity.accounts[Autonity.config.operatorAccount] = 1000;
+        Autonity.accounts[Autonity.config.protocol.operatorAccount] = 1000;
         delete Upgradeable.newContractBytecode;
         delete Upgradeable.newContractABI;
         Upgradeable.contractUpgradeReady = false;

@@ -40,7 +40,7 @@ var (
 		LiquidationRatio:          (*math.HexOrDecimal256)(math.MustParseBig256("1_800_000_000_000_000_000")),
 		MinCollateralizationRatio: (*math.HexOrDecimal256)(math.MustParseBig256("2_000_000_000_000_000_000")),
 		MinDebtRequirement:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000")),
-		RedemptionPrice:           (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000_000_000_000_000")),
+		TargetPrice:               (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000_000_000_000_000")),
 	}
 
 	DefaultSupplyControlGenesis = &SupplyControlGenesis{
@@ -215,7 +215,7 @@ type StabilizationContractGenesis struct {
 	LiquidationRatio          *math.HexOrDecimal256
 	MinCollateralizationRatio *math.HexOrDecimal256
 	MinDebtRequirement        *math.HexOrDecimal256
-	RedemptionPrice           *math.HexOrDecimal256
+	TargetPrice               *math.HexOrDecimal256
 }
 
 func (s *StabilizationContractGenesis) SetDefaults() {
@@ -231,8 +231,8 @@ func (s *StabilizationContractGenesis) SetDefaults() {
 	if s.MinDebtRequirement == nil {
 		s.MinDebtRequirement = DefaultStabilizationGenesis.MinDebtRequirement
 	}
-	if s.RedemptionPrice == nil {
-		s.RedemptionPrice = DefaultStabilizationGenesis.RedemptionPrice
+	if s.TargetPrice == nil {
+		s.TargetPrice = DefaultStabilizationGenesis.TargetPrice
 	}
 }
 
