@@ -423,23 +423,3 @@ func (c *caller) getNewContract() ([]byte, string, error) {
 	})
 	return byteCode, abi, err
 }
-
-func (c *caller) getBondingReq(startID *big.Int, lastID *big.Int) ([]autonity.AutonityStaking, error) {
-	var reqs []autonity.AutonityStaking
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
-		r, err := instance.GetBondingReq(opts, startID, lastID)
-		reqs = r
-		return err
-	})
-	return reqs, err
-}
-
-func (c *caller) getUnBondingReq(startID *big.Int, lastID *big.Int) ([]autonity.AutonityStaking, error) {
-	var reqs []autonity.AutonityStaking
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
-		r, err := instance.GetUnbondingReq(opts, startID, lastID)
-		reqs = r
-		return err
-	})
-	return reqs, err
-}
