@@ -74,6 +74,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     mapping(uint256 => UnbondingRequest) internal unbondingMap;
     uint256 internal tailUnbondingID;
     uint256 internal headUnbondingID;
+    uint256 internal lastUnlockedUnbonding;
 
     /* Used to track commission rate change - See ADR-002 */
     struct CommissionRateChangeRequest {
@@ -150,8 +151,29 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     event MintedStake(address indexed addr, uint256 amount);
     event BurnedStake(address indexed addr, uint256 amount);
     event CommissionRateChange(address indexed validator, uint256 rate);
+
+    /** @notice This event is emitted when a bonding request to a validator node has been registered.
+    * This request will only be effective at the end of the current epoch however the stake will be
+    * put in custody immediately from the delegator's account.
+    * @param validator The validator node account.
+    * @param delegator The caller.
+    * @param selfBonded True if the validator treasury initiated the request. No LNEW will be issued.
+    * @param amount The amount of NEWTON to be delegated.
+    */
     event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
+
+    /** @notice This event is emitted when an unbonding request to a validator node has been registered.
+    * This request will only be effective after the unbonding period, rounded to the next epoch.
+    * Please note that because of potential slashing events during this delay period, the released amount
+    * may or may not be correspond to the amount requested.
+    * @param validator The validator node account.
+    * @param delegator The caller.
+    * @param selfBonded True if the validator treasury initiated the request.
+    * @param amount If self-bonded this is the requested amount of NEWTON to be unbonded.
+    * If not self-bonded, this is the amount of Liquid Newton to be unbonded.
+    */
     event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
+
     event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidContract);
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
@@ -879,7 +901,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 uint256 _delegationReward = _reward - _selfReward;
                 if (_selfReward > 0) {
                     // todo: handle failure scenario here although not critical.
-                    _val.treasury.call{value: _treasuryReward, gas:2300}("");
+                    _val.treasury.call{value: _selfReward, gas:2300}("");
                 }
                 if(_delegationReward > 0){
                     _val.liquidContract.redistribute{value : _delegationReward}();
@@ -1094,7 +1116,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 _unbonding.unbondingShare = (_newtonAmount * _validator.selfUnbondingShares)/_validator.selfUnbondingStake;
             }
             _validator.selfUnbondingStake += _newtonAmount;
-            _validator.unbondingShares += _unbonding.unbondingShare;
+            _validator.selfUnbondingShares += _unbonding.unbondingShare;
         }
 
         _unbonding.unlocked = true;
@@ -1133,9 +1155,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             return;
         }
         // Process the fresh unbonding requests, unbond NTN and burn LNTN
-        for (uint256 i = headUnbondingID - 1;
-                     i >= tailUnbondingID && !unbondingMap[i].unlocked;
-                      _applyUnbonding(i--)){}
+        for (uint256 i = lastUnlockedUnbonding;
+                     i < headUnbondingID;
+                      _applyUnbonding(i++)){}
+        lastUnlockedUnbonding = headUnbondingID;
+
         // Finally we release the locked NTN tokens
         uint256 _processedId = tailUnbondingID;
         for (uint256 i = tailUnbondingID; i < headUnbondingID; i++) {
