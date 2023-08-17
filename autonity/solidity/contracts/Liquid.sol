@@ -99,7 +99,7 @@ contract Liquid is IERC20
         // treasury account.
         uint256 _validatorReward =
             (_reward * commissionRate) / COMMISSION_RATE_PRECISION;
-        require(_validatorReward < _reward, "invalid validator reward");
+        require(_validatorReward <= _reward, "invalid validator reward");
         _reward -= _validatorReward;
 
         // TODO: handle failure

@@ -63,8 +63,8 @@ contract Accountability is IAccountability {
         address offender;    // The corresponding node address of this accountability event.
         bytes rawProof;      // rlp encoded bytes of Proof object.
 
-        uint256 block;          // block when the event occured. Will be populated internally.
-        uint256 epoch;          // epoch when the event occured. Will be populated internally.
+        uint256 block;          // block when the event occurred. Will be populated internally.
+        uint256 epoch;          // epoch when the event occurred. Will be populated internally.
         uint256 reportingBlock; // block when the event got reported. Will be populated internally.
         uint256 messageHash;    // hash of the main evidence. Will be populated internally.
     }
@@ -116,7 +116,7 @@ contract Accountability is IAccountability {
         // same accused validator are created during the same epoch.
         // In this case we only reward the last reporter.
         address _reporterTreasury = autonity.getValidator(beneficiaries[_validator]).treasury;
-        // if for some reasons, funds can't be transfered to the reporter treasury (sneaky contract)
+        // if for some reasons, funds can't be transferred to the reporter treasury (sneaky contract)
         (bool ok, ) = _reporterTreasury.call{value:msg.value, gas: 2300}("");
         // well, too bad, it goes to the autonity global treasury.
         if(!ok) {
@@ -127,8 +127,8 @@ contract Accountability is IAccountability {
 
     /**
     * @notice Handle an accountability event. Need to be called by a registered validator account
-    * as the treasury-linked account will be used in case of a succesfull slashing event.
-    * todo(youssef): rethink modifiers here, consider splititng into multiple functions.
+    * as the treasury-linked account will be used in case of a successful slashing event.
+    * todo(youssef): rethink modifiers here, consider splitting this into multiple functions.
     */
     function handleEvent(Event memory _event) public onlyValidator {
         require(_event.reporter == msg.sender, "event reporter must be caller");
@@ -363,7 +363,7 @@ contract Accountability is IAccountability {
             _val.bondedStake -= _remaining;
         }
 
-        _val.totalSlashed += _slashingAmount - _remaining;
+        _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
         _val.jailReleaseBlock = block.number + JAIL_FACTOR * _val.provableFaultCount * epochPeriod;
         _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus

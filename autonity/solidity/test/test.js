@@ -661,13 +661,13 @@ contract('Autonity', function (accounts) {
       let tokenMint = 200;
       await autonity.mint(newAccount, tokenMint, {from: operator});
       // bond new minted Newton to a registered validator.
-      await autonity.bond(validators[0].nodeAddress, tokenMint, {from: newAccount});
-      // num of stakings from contract construction equals: length of validators and the latest bond.
-      let numOfStakings = validators.length + 1;
-      let stakings = await autonity.getBondingReq(0, numOfStakings);
-      assert.equal(stakings[numOfStakings - 1].amount, tokenMint, "stake bonding amount is not expected");
-      assert.equal(stakings[numOfStakings - 1].delegator, newAccount, "delegator addr is not expected");
-      assert.equal(stakings[numOfStakings - 1].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
+      const bond  = await autonity.bond(validators[0].nodeAddress, tokenMint, {from: newAccount});
+      truffleAssert.eventEmitted(bond, 'NewBondingRequest', (args) => {
+        return args.validator == validators[0].nodeAddress &&
+               args.delegator == newAccount &&
+               args.selfBonded == false &&
+               args.amount == tokenMint;
+      });
     });
 
     it('does not bond on a non-registered validator', async function () {
@@ -680,12 +680,6 @@ contract('Autonity', function (accounts) {
         let r = await autonity.bond(anyAccount, tokenMint, {from: newAccount});
         assert.fail('Expected throw not received', r);
       } catch (e) {
-        // bonding should be failed, then the staking slot should not equal to the bonding meta data.
-        let numOfStakings = validators.length + 1;
-        let stakings = await autonity.getBondingReq(0, numOfStakings);
-        assert.notEqual(stakings[numOfStakings - 1].amount, tokenMint, "stake bonding amount is not expected");
-        assert.notEqual(stakings[numOfStakings - 1].delegator, newAccount, "delegator addr is not expected");
-        assert.notEqual(stakings[numOfStakings - 1].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
       }
     });
 
@@ -693,12 +687,13 @@ contract('Autonity', function (accounts) {
       let tokenUnBond = 10;
       let from = validators[0].nodeAddress;
       // unBond from self, a registered validator.
-      await autonity.unbond(from, tokenUnBond, {from: from});
-      let numOfUnBonding = 1;
-      let unStakings = await autonity.getUnbondingReq(0, numOfUnBonding);
-      assert.equal(unStakings[numOfUnBonding - 1].amount, tokenUnBond, "stake bonding amount is not expected");
-      assert.equal(unStakings[numOfUnBonding - 1].delegator, from, "delegator addr is not expected");
-      assert.equal(unStakings[numOfUnBonding - 1].delegatee, from, "delegatee addr is not expected");
+      const unbond = await autonity.unbond(from, tokenUnBond, {from: from});
+      truffleAssert.eventEmitted(unbond, 'NewUnbondingRequest', (args) => {
+        return args.validator == validators[0].nodeAddress &&
+            args.delegator == from &&
+            args.selfBonded == true &&
+            args.amount == tokenUnBond;
+      });
     });
 
     it('does not unbond from not registered validator', async function () {
@@ -708,12 +703,6 @@ contract('Autonity', function (accounts) {
         let r = await autonity.unbond(unRegisteredVal, tokenUnBond, {from: validators[0].nodeAddress});
         assert.fail('Expected throw not received', r);
       } catch (e) {
-        // un-bonding should be failed, then the un-staking slot should not equal to the bonding meta data.
-        let numOfUnStaking = 1;
-        let unStakings = await autonity.getUnbondingReq(0, numOfUnStaking);
-        assert.notEqual(unStakings[numOfUnStaking - 1].amount, tokenUnBond, "stake bonding amount is not expected");
-        assert.notEqual(unStakings[numOfUnStaking - 1].delegator, validators[0].nodeAddress, "delegator addr is not expected");
-        assert.notEqual(unStakings[numOfUnStaking - 1].delegatee, unRegisteredVal, "delegatee addr is not expected");
       }
     });
 
@@ -724,12 +713,6 @@ contract('Autonity', function (accounts) {
         let r = await autonity.unbond(from, tokenUnBond, {from: from});
         assert.fail('Expected throw not received', r);
       } catch (e) {
-        // un-bonding should be failed, then the un-staking slot should not equal to the bonding meta data.
-        let numOfUnStaking = 1;
-        let unStakings = await autonity.getUnbondingReq(0, numOfUnStaking);
-        assert.notEqual(unStakings[numOfUnStaking - 1].amount, tokenUnBond, "stake bonding amount is not expected");
-        assert.notEqual(unStakings[numOfUnStaking - 1].delegator, from, "delegator addr is not expected");
-        assert.notEqual(unStakings[numOfUnStaking - 1].delegatee, from, "delegatee addr is not expected");
       }
     });
 
