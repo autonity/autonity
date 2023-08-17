@@ -32,8 +32,7 @@ contract Accountability is IAccountability {
         PO,
         PVN,
         PVO,
-        PVO1,
-        PVO2,
+        PVO12,
         PVO3,
         C,
         C1,
@@ -42,9 +41,9 @@ contract Accountability is IAccountability {
         InvalidProposer, // A proposal sent from none proposer nodes of the committee.
         Equivocation,    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
 
-        InvalidRoundStep,          // message contains invalid round number or step.
-        AccountableGarbageMessage, // message was signed by sender, but it cannot be decoded.
-        MsgNotFromCommitteeMember // message sender is not the member of current committee.
+        InvalidRound,          // message contains invalid round number or step.
+        WrongValidRound, // message was signed by sender, but it cannot be decoded.
+        GarbageMessage // message sender is not the member of current committee.
     }
 
     enum Severity {
@@ -64,8 +63,8 @@ contract Accountability is IAccountability {
         address offender;    // The corresponding node address of this accountability event.
         bytes rawProof;      // rlp encoded bytes of Proof object.
 
-        uint256 block;          // block when the event occured. Will be populated internally.
-        uint256 epoch;          // epoch when the event occured. Will be populated internally.
+        uint256 block;          // block when the event occurred. Will be populated internally.
+        uint256 epoch;          // epoch when the event occurred. Will be populated internally.
         uint256 reportingBlock; // block when the event got reported. Will be populated internally.
         uint256 messageHash;    // hash of the main evidence. Will be populated internally.
     }
@@ -117,7 +116,7 @@ contract Accountability is IAccountability {
         // same accused validator are created during the same epoch.
         // In this case we only reward the last reporter.
         address _reporterTreasury = autonity.getValidator(beneficiaries[_validator]).treasury;
-        // if for some reasons, funds can't be transfered to the reporter treasury (sneaky contract)
+        // if for some reasons, funds can't be transferred to the reporter treasury (sneaky contract)
         (bool ok, ) = _reporterTreasury.call{value:msg.value, gas: 2300}("");
         // well, too bad, it goes to the autonity global treasury.
         if(!ok) {
@@ -128,8 +127,8 @@ contract Accountability is IAccountability {
 
     /**
     * @notice Handle an accountability event. Need to be called by a registered validator account
-    * as the treasury-linked account will be used in case of a succesfull slashing event.
-    * todo(youssef): rethink modifiers here, consider splititng into multiple functions.
+    * as the treasury-linked account will be used in case of a successful slashing event.
+    * todo(youssef): rethink modifiers here, consider splitting this into multiple functions.
     */
     function handleEvent(Event memory _event) public onlyValidator {
         require(_event.reporter == msg.sender, "event reporter must be caller");
@@ -305,8 +304,8 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @notice Take fund away from faulty node account.
-    * @dev Emit a {NodeSlashed} event for account that is fined.
+    * @notice Take funds away from faulty node account.
+    * @dev Emit a {SlashingEvent} event for the fined account.
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
@@ -326,23 +325,49 @@ contract Accountability is IAccountability {
             _slashingRate = SLASHING_RATE_PRECISION;
         }
 
-        uint256 _slashingAmount =  (_slashingRate * _val.bondedStake)/SLASHING_RATE_PRECISION;
-
-        // Implementation of Penalty Absorbing Stake:
-        // Self-bonded stake gets slashed in priority.
-        if(_val.selfBondedStake >= _slashingAmount){
-            _val.selfBondedStake -= _slashingAmount;
+        uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
+        uint256 _slashingAmount =  (_slashingRate * _availableFunds)/SLASHING_RATE_PRECISION;
+        uint256 _remaining = _slashingAmount;
+        // -------------------------------------------
+        // Implementation of Penalty Absorbing Stake
+        // -------------------------------------------
+        // Self-unbonding stake gets slashed in priority.
+        if(_val.selfUnbondingStake >= _remaining){
+            _val.selfUnbondingStake -= _remaining;
+            _remaining = 0;
         } else {
-            _val.selfBondedStake = 0;
+            _remaining -= _val.selfUnbondingStake;
+            _val.selfUnbondingStake = 0;
         }
-        _val.bondedStake -= _slashingAmount;
-        _val.totalSlashed += _slashingAmount;
+        // Then self-bonded stake
+        if (_remaining > 0){
+            if(_val.selfBondedStake >= _remaining) {
+                _val.selfBondedStake -= _remaining;
+                _val.bondedStake -= _remaining;
+                _remaining = 0;
+            } else {
+                _remaining -= _val.selfBondedStake;
+                _val.bondedStake -= _val.selfBondedStake;
+                _val.selfBondedStake = 0;
+            }
+        }
+        // --------------------------------------------
+        // Remaining stake to be slashed is split equally between the delegated
+        // stake pool and the non-self unbonding stake pool.
+        // As a reminder, the delegated stake pool is bondedStake - selfBondedStake.
+        if (_remaining > 0 && (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake) > 0)) {
+            uint256 _unbondingSlash = (_remaining * _val.unbondingStake) /
+                                        (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake));
+            _val.unbondingStake -= _unbondingSlash;
+            _remaining -= _unbondingSlash;
+            _val.bondedStake -= _remaining;
+        }
 
+        _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
         _val.jailReleaseBlock = block.number + JAIL_FACTOR * _val.provableFaultCount * epochPeriod;
         _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
 
-        // Todo(youssef): lock slashed amount
         autonity.updateValidatorAndTransferSlashedFunds(_val);
 
         emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);

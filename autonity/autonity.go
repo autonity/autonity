@@ -169,6 +169,7 @@ func (c *Contracts) FinalizeAndGetCommittee(header *types.Header, statedb *state
 		"block", header.Number.Uint64())
 
 	upgradeContract, committee, err := c.callFinalize(statedb, header)
+
 	if err != nil {
 		return nil, nil, err
 	}

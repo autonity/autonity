@@ -105,5 +105,13 @@
   "7ecc2b56": "availableSupply()",
   "44df8e70": "burn()",
   "db7f521a": "setStabilizer(address)",
-  "7e47961c": "stabilizer()"
+  "7e47961c": "stabilizer()",
+  "6e74c554": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,uint8))",
+  "5ea1d6f8": "commissionRate()",
+  "282d3fdf": "lock(address,uint256)",
+  "59355736": "lockedBalanceOf(address)",
+  "61d027b3": "treasury()",
+  "7eee288d": "unlock(address,uint256)",
+  "84955c88": "unlockedBalanceOf(address)",
+  "3a5381b5": "validator()"
 }

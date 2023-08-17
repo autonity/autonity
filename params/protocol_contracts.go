@@ -91,20 +91,24 @@ func (g *AutonityContractGenesis) Prepare() error {
 }
 
 type Validator struct {
-	Treasury           common.Address  `abi:"treasury"`
-	NodeAddress        *common.Address `abi:"nodeAddress"`
-	OracleAddress      common.Address  `abi:"oracleAddress"`
-	Enode              string          `abi:"enode"`
-	CommissionRate     *big.Int        `abi:"commissionRate"`
-	BondedStake        *big.Int        `abi:"bondedStake"`
-	SelfBondedStake    *big.Int        `abi:"selfBondedStake"`
-	TotalSlashed       *big.Int        `abi:"totalSlashed"`
-	LiquidContract     *common.Address `abi:"liquidContract"`
-	LiquidSupply       *big.Int        `abi:"liquidSupply"`
-	RegistrationBlock  *big.Int        `abi:"registrationBlock"`
-	JailReleaseBlock   *big.Int        `abi:"jailReleaseBlock"`
-	ProvableFaultCount *big.Int        `abi:"provableFaultCount"`
-	State              *uint8          `abi:"state"`
+	Treasury            common.Address
+	NodeAddress         *common.Address
+	OracleAddress       common.Address
+	Enode               string
+	CommissionRate      *big.Int
+	BondedStake         *big.Int
+	UnbondingStake      *big.Int
+	UnbondingShares     *big.Int
+	SelfBondedStake     *big.Int
+	SelfUnbondingStake  *big.Int
+	SelfUnbondingShares *big.Int
+	LiquidContract      *common.Address
+	LiquidSupply        *big.Int
+	RegistrationBlock   *big.Int
+	TotalSlashed        *big.Int
+	JailReleaseBlock    *big.Int
+	ProvableFaultCount  *big.Int
+	State               *uint8
 }
 
 // AddressFromEnode gets the account address from the user enode.
@@ -152,6 +156,18 @@ func (v *Validator) Validate() error {
 	}
 	if v.SelfBondedStake == nil {
 		v.SelfBondedStake = new(big.Int)
+	}
+	if v.SelfUnbondingStake == nil {
+		v.SelfUnbondingStake = new(big.Int)
+	}
+	if v.SelfUnbondingShares == nil {
+		v.SelfUnbondingShares = new(big.Int)
+	}
+	if v.UnbondingShares == nil {
+		v.UnbondingShares = new(big.Int)
+	}
+	if v.UnbondingStake == nil {
+		v.UnbondingStake = new(big.Int)
 	}
 	if v.JailReleaseBlock == nil {
 		v.JailReleaseBlock = new(big.Int)
