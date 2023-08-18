@@ -355,10 +355,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		if oracleVote {
 			// Refund tx Fee, if this is a successful vote transaction
 			gasUsed := new(big.Int).SetUint64(st.gasUsed())
-			fee := new(big.Int).Mul(st.evm.Context.BaseFee, gasUsed)
+			fee := new(big.Int).Mul(st.gasPrice, gasUsed)
 			st.state.AddBalance(st.msg.From(), fee)
-			//fmt.Println("Refunding Used Fee:", fee, " Base Fee:",
-			//st.evm.Context.BaseFee, " Gas used:", gasUsed, " gasPrice:", st.gasPrice)
 		}
 	}
 
