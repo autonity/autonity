@@ -23,10 +23,10 @@ const syncTimeOut = 30 * time.Second
 var ErrValidatorJailed = errors.New("jailed validator")
 
 // Start implements core.Tendermint.Start
-func (c *Core) Start(ctx context.Context, contract *autonity.Contracts) {
-	c.autonityContract = contract
+func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
+	c.protocolContracts = contract
 	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
-		c.autonityContract,
+		c.protocolContracts,
 		c.backend.BlockChain())
 	c.setCommitteeSet(committeeSet)
 	ctx, c.cancel = context.WithCancel(ctx)

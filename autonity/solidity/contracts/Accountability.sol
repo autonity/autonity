@@ -6,17 +6,18 @@ import "./Autonity.sol";
 
 contract Accountability is IAccountability {
 
-    uint256 constant internal SLASHING_RATE_PRECISION = 10_000;
+    struct Config {
+        uint256 innocenceProofSubmissionWindow;
+        uint256 latestAccountabilityEventsRange;
 
-    /** Todo(youssef): config struct with genesis.json initialization */
-    uint256 constant public INNOCENCE_PROOF_SUBMISSION_WINDOW = 600;
-
-    // Slashing parameters
-    uint256 constant public BASE_SLASHING_RATE_LOW = 1000; // 10%
-    uint256 constant public BASE_SLASHING_RATE_MID = 2000; // 20%
-    uint256 constant public COLLUSION_FACTOR = 800; // 8%
-    uint256 constant public HISTORY_FACTOR = 500; // 5%
-    uint256 constant public JAIL_FACTOR = 2; // two epochs
+        // Slashing parameters
+        uint256 baseSlashingRateLow;
+        uint256 baseSlashingRateMid;
+        uint256 collusionFactor;
+        uint256 historyFactor;
+        uint256 jailFactor;
+        uint256 slashingRatePrecision;
+    }
 
     uint256 public epochPeriod;
 
@@ -73,6 +74,7 @@ contract Accountability is IAccountability {
 
     Autonity internal autonity;
     Event[] public events;
+    Config public config;
 
     // slashing rewards beneficiaries: validator => reporter
     mapping(address => address) public beneficiaries;
@@ -93,9 +95,11 @@ contract Accountability is IAccountability {
     uint256[] private accusationsQueue;
     uint256 internal accusationsQueueFirst = 0;
 
-    constructor(address payable _autonity){
+    constructor(address payable _autonity, Config memory _config){
         autonity = Autonity(_autonity);
         epochPeriod = autonity.getEpochPeriod();
+
+        config = _config;
     }
 
     /**
@@ -106,7 +110,7 @@ contract Accountability is IAccountability {
     function finalize(bool _epochEnd) external onlyAutonity {
         // on each block, try to promote accusations without proof of innocence into misconducts.
         _promoteGuiltyAccusations();
-        if(_epochEnd){
+        if (_epochEnd) {
             _performSlashingTasks();
         }
     }
@@ -136,7 +140,7 @@ contract Accountability is IAccountability {
         if (_event.chunks > 1) {
             bool _readyToProcess = _storeChunk(_event);
             // for the last chunk we should process directly the event from here.
-            if (!_readyToProcess){
+            if (!_readyToProcess) {
                 return;
             }
             _event = reporterChunksMap[msg.sender];
@@ -177,7 +181,7 @@ contract Accountability is IAccountability {
         } else if (validatorAccusation[_offender] != 0){
             Event storage _accusation =  events[validatorAccusation[_offender] - 1];
             _result = false;
-            _deadline = _accusation.block + INNOCENCE_PROOF_SUBMISSION_WINDOW;
+            _deadline = _accusation.block + config.innocenceProofSubmissionWindow;
         } else {
             _result = true;
             _deadline = 0;
@@ -308,6 +312,7 @@ contract Accountability is IAccountability {
     * @dev Emit a {SlashingEvent} event for the fined account.
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
+
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
         //_val must be returned - no error check
         Autonity.Validator memory _val = autonity.getValidator(_event.offender);
@@ -318,15 +323,15 @@ contract Accountability is IAccountability {
         uint256 _history = _val.provableFaultCount;
 
         uint256 _slashingRate = _baseRate +
-                                _epochOffencesCount * COLLUSION_FACTOR +
-                                _history * HISTORY_FACTOR;
+            (_epochOffencesCount * config.collusionFactor) +
+            ( _history * config.historyFactor);
 
-        if(_slashingRate > SLASHING_RATE_PRECISION) {
-            _slashingRate = SLASHING_RATE_PRECISION;
+        if(_slashingRate > config.slashingRatePrecision) {
+            _slashingRate = config.slashingRatePrecision;
         }
 
         uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
-        uint256 _slashingAmount =  (_slashingRate * _availableFunds)/SLASHING_RATE_PRECISION;
+        uint256 _slashingAmount =  (_slashingRate * _availableFunds)/config.slashingRatePrecision;
         uint256 _remaining = _slashingAmount;
         // -------------------------------------------
         // Implementation of Penalty Absorbing Stake
@@ -365,7 +370,7 @@ contract Accountability is IAccountability {
 
         _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
-        _val.jailReleaseBlock = block.number + JAIL_FACTOR * _val.provableFaultCount * epochPeriod;
+        _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
         _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
@@ -413,7 +418,7 @@ contract Accountability is IAccountability {
             _id -= 1; // shift by one to handle event id = 0
             Event memory _ev = events[_id];
             //todo(youssef): complete
-            if(_ev.reportingBlock + INNOCENCE_PROOF_SUBMISSION_WINDOW > block.number) {
+            if(_ev.reportingBlock + config.innocenceProofSubmissionWindow > block.number) {
                 // The queue is ordered by time of submission so we can break here.
                 break;
             }
@@ -446,19 +451,19 @@ contract Accountability is IAccountability {
         return uint256(Severity.Mid);
     }
 
-    function _baseSlashingRate(uint256 _severity) internal pure returns (uint256) {
+    function _baseSlashingRate(uint256 _severity) internal view returns (uint256) {
         //
         if (_severity == uint256(Severity.Minor)) {
-            return BASE_SLASHING_RATE_MID;
+            return config.baseSlashingRateMid;
         }
         if (_severity == uint256(Severity.Low)) {
-            return BASE_SLASHING_RATE_MID;
+            return config.baseSlashingRateMid;
         }
         if (_severity == uint256(Severity.Mid)) {
-            return BASE_SLASHING_RATE_MID;
+            return config.baseSlashingRateMid;
         }
         if (_severity == uint256(Severity.High)) {
-            return BASE_SLASHING_RATE_MID;
+            return config.baseSlashingRateMid;
         }
         if (_severity == uint256(Severity.Critical)) {
             return 10000;

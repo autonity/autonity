@@ -63,6 +63,19 @@ type AutonityContractGenesis struct {
 	Validators       []*Validator   `json:"validators"`
 }
 
+type AccountabilityGenesis struct {
+	InnocenceProofSubmissionWindow  uint64 `json:"innocenceProofSubmissionWindow"`
+	LatestAccountabilityEventsRange uint64 `json:"latestAccountabilityEventsRange"`
+
+	// Slashing parameters
+	BaseSlashingRateLow   uint64 `json:"baseSlashingRateLow"`
+	BaseSlashingRateMid   uint64 `json:"baseSlashingRateMid"`
+	CollusionFactor       uint64 `json:"collusionFactor"`
+	HistoryFactor         uint64 `json:"historyFactor"`
+	JailFactor            uint64 `json:"jailFactor"`
+	SlashingRatePrecision uint64 `json:"slashingRatePrecision"`
+}
+
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.
 // It returns an error if the configuration is invalid.
 func (g *AutonityContractGenesis) Prepare() error {

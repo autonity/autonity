@@ -22,7 +22,10 @@ type Validator struct {
 	// InitialEth defines the starting eth in wei (1 ETH is 10^18 wei).
 	InitialEth *big.Int
 	// Stake defines the amount of Stake token a user has in the system.
+	// Note this is the sum of tokens delegates and SelfBondedStake
 	Stake uint64
+	// SelfBondedStake defines the amount of penalty absorbing stake
+	SelfBondedStake uint64
 	// NodeIP is the ip that this user's node can be reached at.
 	NodeIP net.IP
 	// NodePort is the port that this user's node can be reached at.
@@ -37,13 +40,15 @@ type Validator struct {
 	TendermintServices *node.TendermintServices
 }
 
+type GenesisOption func(*core.Genesis)
+
 // NewGenesis parses the input from the commandline and uses it to generate a
 // genesis struct. It returns the generated genesis and associated user keys,
 // if user keys were provided they will be returned, otherwise a set of
 // generated keys will be returned. See gengen command help for a description
 // of userStrings and userKeys, userKeys must either have a key for each user
 // or be nil.
-func NewGenesis(validators []*Validator) (*core.Genesis, error) {
+func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesis, error) {
 	if len(validators) < 1 {
 		return nil, fmt.Errorf("at least one user must be specified")
 	}
@@ -56,6 +61,50 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 	chainID := big.NewInt(1234)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random chainID: %v", err)
+	}
+
+	config := &params.ChainConfig{
+		ChainID:             chainID,
+		HomesteadBlock:      big.NewInt(0),
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(0),
+		MuirGlacierBlock:    big.NewInt(0),
+		BerlinBlock:         big.NewInt(0),
+		LondonBlock:         big.NewInt(0),
+		ArrowGlacierBlock:   big.NewInt(0),
+		AutonityContractConfig: &params.AutonityContractGenesis{
+			MaxCommitteeSize: 21,
+			BlockPeriod:      1,
+			UnbondingPeriod:  120,
+			EpochPeriod:      30,   //seconds
+			DelegationRate:   1200, // 12%
+			Treasury:         common.Address{120},
+			TreasuryFee:      1500000000000000, // 0.15%,
+			MinBaseFee:       10000000000,
+			Operator:         *operatorAddress,
+			Validators:       genesisValidators,
+		},
+		AccountabilityConfig: &params.AccountabilityGenesis{
+			InnocenceProofSubmissionWindow:  30,
+			LatestAccountabilityEventsRange: 256,
+			BaseSlashingRateLow:             500,  // 5%
+			BaseSlashingRateMid:             1000, // 10%
+			CollusionFactor:                 500,  // 5%
+			HistoryFactor:                   750,  // 7.5%
+			JailFactor:                      60,   // two epochs
+			SlashingRatePrecision:           10_000,
+		},
+		OracleContractConfig: &params.OracleContractGenesis{},
+		ASM: params.AsmConfig{
+			ACUContractConfig:           params.DefaultAcuContractGenesis,
+			StabilizationContractConfig: params.DefaultStabilizationGenesis,
+			SupplyControlConfig:         params.DefaultSupplyControlGenesis,
+		},
 	}
 
 	genesis := &core.Genesis{
@@ -82,39 +131,11 @@ func NewGenesis(validators []*Validator) (*core.Genesis, error) {
 
 		Alloc: genesisAlloc,
 
-		Config: &params.ChainConfig{
-			ChainID:             chainID,
-			HomesteadBlock:      big.NewInt(0),
-			EIP150Block:         big.NewInt(0),
-			EIP155Block:         big.NewInt(0),
-			EIP158Block:         big.NewInt(0),
-			ByzantiumBlock:      big.NewInt(0),
-			ConstantinopleBlock: big.NewInt(0),
-			PetersburgBlock:     big.NewInt(0),
-			IstanbulBlock:       big.NewInt(0),
-			MuirGlacierBlock:    big.NewInt(0),
-			BerlinBlock:         big.NewInt(0),
-			LondonBlock:         big.NewInt(0),
-			ArrowGlacierBlock:   big.NewInt(0),
-			AutonityContractConfig: &params.AutonityContractGenesis{
-				MaxCommitteeSize: 21,
-				BlockPeriod:      1,
-				UnbondingPeriod:  120,
-				EpochPeriod:      30,   //seconds
-				DelegationRate:   1200, // 12%
-				Treasury:         common.Address{120},
-				TreasuryFee:      1500000000000000, // 0.15%,
-				MinBaseFee:       10000000000,
-				Operator:         *operatorAddress,
-				Validators:       genesisValidators,
-			},
-			OracleContractConfig: &params.OracleContractGenesis{},
-			ASM: params.AsmConfig{
-				ACUContractConfig:           params.DefaultAcuContractGenesis,
-				StabilizationContractConfig: params.DefaultStabilizationGenesis,
-				SupplyControlConfig:         params.DefaultSupplyControlGenesis,
-			},
-		},
+		Config: config,
+	}
+
+	for _, genesisOption := range options {
+		genesisOption(genesis)
 	}
 
 	return genesis, nil
@@ -174,10 +195,14 @@ func generateValidatorState(validators []*Validator) (
 			u.TreasuryKey, _ = crypto.GenerateKey()
 		}
 		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
+		if u.SelfBondedStake > u.Stake {
+			return nil, nil, nil, fmt.Errorf("selfBondedStake (%d) cannot be higher than total stake (%d)", u.SelfBondedStake, u.Stake)
+		}
 		gu := params.Validator{
-			Enode:       e.String(),
-			Treasury:    treasuryAddress, // rewards goes here
-			BondedStake: new(big.Int).SetUint64(u.Stake),
+			Enode:           e.String(),
+			Treasury:        treasuryAddress, // rewards goes here
+			BondedStake:     new(big.Int).SetUint64(u.Stake),
+			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
 		}
 		err := gu.Validate()
 		if err != nil {

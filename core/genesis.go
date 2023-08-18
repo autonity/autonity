@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/p2p/enode"
 	"math/big"
 	"net"
 	"sort"
@@ -40,6 +39,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
@@ -87,11 +87,25 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
+	ret := make(autonity.GenesisBonds, len(*ga))
+	for addr, alloc := range *ga {
+		ret[addr] = autonity.GenesisBond{
+			NewtonBalance: alloc.NewtonBalance,
+			Bonds:         alloc.Bonds,
+		}
+	}
+	return ret
+}
+
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
-	Code       []byte                      `json:"code,omitempty"`
-	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`
-	Balance    *big.Int                    `json:"balance" gencodec:"required"`
+	Code          []byte                      `json:"code,omitempty"`
+	Storage       map[common.Hash]common.Hash `json:"storage,omitempty"`
+	Balance       *big.Int                    `json:"balance" gencodec:"required"`
+	NewtonBalance *big.Int                    `json:"newtonBalance"`
+	// validator address to amount bond to this validator
+	Bonds      map[common.Address]*big.Int `json:"bonds"`
 	Nonce      uint64                      `json:"nonce,omitempty"`
 	PrivateKey []byte                      `json:"secretKey,omitempty"` // for tests
 }
@@ -311,10 +325,16 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		}
 	}
 
-	evm := genesisEVM(g, statedb)
+	genesisBonds := g.Alloc.ToGenesisBonds()
 
-	if err := autonity.DeployContracts(g.Config, evm); err != nil {
-		return nil, err
+	evmProvider := func(statedb *state.StateDB) *vm.EVM {
+		return genesisEVM(g, statedb)
+	}
+
+	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
+
+	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
+		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
 
 	root := statedb.IntermediateRoot(false)

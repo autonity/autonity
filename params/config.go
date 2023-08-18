@@ -405,7 +405,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, AsmConfig{}}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}}
 
 	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
@@ -430,6 +430,22 @@ var (
 		},
 	}
 
+	TestAccountabilityConfig = AccountabilityGenesis{
+		InnocenceProofSubmissionWindow:  30,
+		LatestAccountabilityEventsRange: 256,
+		BaseSlashingRateLow:             500,  // 5%
+		BaseSlashingRateMid:             1000, // 10%
+		CollusionFactor:                 550,  // 5%
+		HistoryFactor:                   750,  // 7.5%
+		JailFactor:                      60,   // two epochs
+		SlashingRatePrecision:           10_000,
+	}
+
+	TestOracleContractConfig = OracleContractGenesis{
+		VotePeriod: OracleVotePeriod,
+		Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+	}
+
 	TestChainConfig = &ChainConfig{
 		big.NewInt(1337),
 		big.NewInt(0),
@@ -451,6 +467,7 @@ var (
 		nil,
 		new(EthashConfig),
 		&TestAutonityContractConfig,
+		&TestAccountabilityConfig,
 		DefaultGenesisOracleConfig,
 		AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
@@ -553,6 +570,7 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonity,omitempty"`
+	AccountabilityConfig   *AccountabilityGenesis   `json:"accountability,omitempty"`
 	OracleContractConfig   *OracleContractGenesis   `json:"oracle,omitempty"`
 
 	ASM AsmConfig `json:"asm,omitempty"`

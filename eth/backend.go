@@ -275,6 +275,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
 	accountability.LoadPrecompiles(eth.blockchain)
 	// Create Fault Detector for each full node for the time being,
+
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,

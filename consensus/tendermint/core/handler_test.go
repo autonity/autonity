@@ -10,6 +10,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"testing"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"github.com/golang/mock/gomock"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {

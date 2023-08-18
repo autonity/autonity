@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"math/big"
 	"reflect"
@@ -222,4 +223,32 @@ func TestGenesis_Commit(t *testing.T) {
 	if stored.Cmp(genesisBlock.Difficulty()) != 0 {
 		t.Errorf("inequal difficulty; stored: %v, genesisBlock: %v", stored, genesisBlock.Difficulty())
 	}
+}
+
+func TestGenesis_InitialNewton_Bindings(t *testing.T) {
+
+	key, _ := crypto.GenerateKey()
+
+	address := crypto.PubkeyToAddress(key.PublicKey)
+
+	config := params.TestChainConfig
+	//config.AutonityContractConfig.Operator = autonity.DeployerAddress
+
+	genesis := &Genesis{
+		BaseFee: big.NewInt(params.InitialBaseFee),
+		Config:  config,
+		Alloc: GenesisAlloc{
+			address: GenesisAccount{
+				NewtonBalance: big.NewInt(1_000),
+				Balance:       big.NewInt(1_000),
+			},
+		},
+	}
+
+	db := rawdb.NewMemoryDatabase()
+	_, err := genesis.Commit(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }

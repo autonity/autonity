@@ -25,7 +25,7 @@ require (
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
 	github.com/go-stack/stack v1.8.0
-	github.com/golang/mock v1.6.0
+	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.4
 	github.com/google/gofuzz v1.2.1-0.20220503160820-4a35382e8fc8
@@ -60,11 +60,12 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef
 	github.com/zfjagann/golang-ring v0.0.0-20210116075443-7c86fdb43134
 	go.uber.org/goleak v1.1.12
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	go.uber.org/mock v0.2.0
+	golang.org/x/crypto v0.11.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.1.0
-	golang.org/x/text v0.3.6
+	golang.org/x/sync v0.3.0
+	golang.org/x/sys v0.10.0
+	golang.org/x/text v0.11.0
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
@@ -103,7 +104,8 @@ require (
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/tklauser/numcpus v0.2.2 // indirect
-	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d // indirect
+	golang.org/x/net v0.12.0 // indirect
+	golang.org/x/tools v0.11.1 // indirect
 	google.golang.org/protobuf v1.23.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect

@@ -219,7 +219,7 @@ type BlockChain struct {
 	forker     *ForkChoice
 	vmConfig   vm.Config
 
-	protocolContracts *autonity.Contracts
+	protocolContracts *autonity.ProtocolContracts
 
 	// senderCacher is a concurrent transaction sender recoverer and cacher
 	senderCacher *TxSenderCacher
@@ -281,7 +281,7 @@ func NewBlockChain(db ethdb.Database,
 	if contractBackendCreator != nil {
 		contractBackend = contractBackendCreator(bc, db)
 	}
-	if bc.protocolContracts, err = autonity.New(chainConfig, db, GetDefaultEVM(bc), contractBackend); err != nil {
+	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend); err != nil {
 		return nil, err
 	}
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped)
@@ -2348,6 +2348,6 @@ func (bc *BlockChain) HasBadBlock(hash common.Hash) bool {
 	return block != nil
 }
 
-func (bc *BlockChain) ProtocolContracts() *autonity.Contracts {
+func (bc *BlockChain) ProtocolContracts() *autonity.ProtocolContracts {
 	return bc.protocolContracts
 }

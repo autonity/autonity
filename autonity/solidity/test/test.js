@@ -27,7 +27,7 @@ contract('Autonity', function (accounts) {
   const version = 1;
   const zeroAddress = "0x0000000000000000000000000000000000000000";
 
-  const config = {
+  const autonityConfig = {
     "policy": {
       "treasuryFee": treasuryFee,
       "minBaseFee": minBaseFee,
@@ -50,7 +50,16 @@ contract('Autonity', function (accounts) {
     },
     "contractVersion":version,
   };
-
+    const accountabilityConfig = {
+        "innocenceProofSubmissionWindow": 30,
+        "latestAccountabilityEventsRange": 256,
+        "baseSlashingRateLow": 500,
+        "baseSlashingRateMid": 1000,
+        "collusionFactor": 550,
+        "historyFactor": 750,
+        "jailFactor": 60,
+        "slashingRatePrecision": 10000
+    }
   const baseValidator = {
     "selfBondedStake": 0,
     "totalSlashed": 0,
@@ -123,7 +132,7 @@ contract('Autonity', function (accounts) {
 
   describe('Contract initial state', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContract(validators, config, {from: deployer});
+      autonity = await utils.deployContract(validators, autonityConfig, accountabilityConfig, {from: deployer});
     });
 
     it('test get token name', async function () {
@@ -209,7 +218,7 @@ contract('Autonity', function (accounts) {
 
   describe("Validator commission rate", () => {
     beforeEach(async function () {
-      autonity = await utils.deployTestContract(validators, config, {from: deployer});
+      autonity = await utils.deployTestContract(validators, autonityConfig, {from: deployer});
     });
 
     it("should revert with bad input", async () => {
@@ -271,7 +280,7 @@ contract('Autonity', function (accounts) {
 
   describe('Set protocol parameters only by operator account', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContract(validators, config, {from: deployer});
+      autonity = await utils.deployContract(validators, autonityConfig, accountabilityConfig, {from: deployer});
     });
 
     it('test set min base fee by operator', async function () {
@@ -389,7 +398,7 @@ contract('Autonity', function (accounts) {
 
   describe('Test cases for ERC-20 token management', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContract(validators, config, {from: deployer});
+      autonity = await utils.deployContract(validators, autonityConfig, accountabilityConfig, {from: deployer});
     });
 
     it('test mint Newton by operator', async function () {
@@ -506,7 +515,7 @@ contract('Autonity', function (accounts) {
 
   describe('Validator management', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContract(validators, config, {from: deployer});
+      autonity = await utils.deployContract(validators, autonityConfig, accountabilityConfig, {from: deployer});
     });
 
     it('Add validator with already registered address', async function () {
@@ -653,7 +662,7 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContract(validators, config, {from: deployer});
+      autonity = await utils.deployContract(validators, autonityConfig, accountabilityConfig, {from: deployer});
     });
 
     it('Bond to a valid validator', async function () {

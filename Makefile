@@ -48,6 +48,10 @@ autonity:
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
+bindings:
+	@echo Generating protocol contracts bindings
+	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol "$(CONTRACTS_DIR)/bindings.sol" --out ./autonity/bindings.go
+
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
 # glibc for solc.
 autonity-docker:
@@ -90,7 +94,8 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	cd signer/fourbyte && go generate
 	# Generate go bindings
 	@echo Generating protocol contracts bindings
-	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/Accountability.sol --out ./autonity/bindings.go
+	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/bindings.go
+
 
 
 $(SOLC_BINARY):
@@ -106,7 +111,8 @@ $(GOBINDATA_BINARY):
 $(ABIGEN_BINARY):
 	go build -o $(ABIGEN_BINARY) ./cmd/abigen
 
-all:
+all: contracts
+	make bindings
 	go run build/ci.go install
 
 android:
@@ -175,9 +181,12 @@ docker-e2e-test: contracts
 	cd docker_e2e_test && sudo python3 test_via_docker.py ..
 
 mock-gen:
-	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
+	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
+	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
+	mockgen -source=interfaces.go -package=ethereum -destination=interfaces_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
+	mockgen -source=consensus/tendermint/core/interfaces/tendermint.go -package=interfaces -destination=consensus/tendermint/core/interfaces/tendermint_mock.go
 
 lint-dead:
 	@./.github/tools/golangci-lint run \
@@ -221,12 +230,12 @@ clean:
 # You need to put $BINDIR (or $GOPATH/bin) in your PATH to use 'go generate'.
 
 devtools:
-	go get -u github.com/golang/mock/mockgen
+	go get -u go.uber.org/mock/mockgen
 	env BINDIR= go get -u golang.org/x/tools/cmd/stringer
-	env BINDIR= go get -u github.com/kevinburke/go-bindata/go-bindata
+	env BINDIR= go install github.com/kevinburke/go-bindata/v4/...@latest
 	env BINDIR= go get -u github.com/fjl/gencodec
 	env BINDIR= go get -u github.com/golang/protobuf/protoc-gen-go
-	env BINDIR= go install ./cmd/abigen
+	go build -o $BINDIR/abigen ./cmd/abigen
 	@type "npm" 2> /dev/null || echo 'Please install node.js and npm'
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'

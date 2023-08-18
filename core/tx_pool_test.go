@@ -20,7 +20,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/autonity"
 	"io/ioutil" //nolint
 	"math/big"
 	"math/rand"
@@ -88,10 +87,6 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) even
 
 func (bc *testBlockChain) Config() *params.ChainConfig {
 	return params.TestChainConfig
-}
-
-func (bc *testBlockChain) ProtocolContracts() *autonity.Contracts {
-	return new(autonity.Contracts)
 }
 
 func transaction(nonce uint64, gaslimit uint64, key *ecdsa.PrivateKey) *types.Transaction {

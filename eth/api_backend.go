@@ -305,7 +305,7 @@ func (b *EthAPIBackend) AccountManager() *accounts.Manager {
 	return b.eth.AccountManager()
 }
 
-func (b *EthAPIBackend) AutonityContract() *autonity.Contracts {
+func (b *EthAPIBackend) AutonityContract() *autonity.ProtocolContracts {
 	return b.eth.blockchain.ProtocolContracts()
 }
 

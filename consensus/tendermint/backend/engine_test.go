@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
 	"sync"
@@ -16,7 +17,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/golang/mock/gomock"
 )
 
 func TestPrepare(t *testing.T) {

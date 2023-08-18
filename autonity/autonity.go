@@ -3,6 +3,7 @@ package autonity
 import (
 	"bytes"
 	"errors"
+	"github.com/autonity/autonity/params/generated"
 	"math/big"
 	"strings"
 	"sync"
@@ -43,20 +44,41 @@ var (
 // EVMProvider provides a new evm. This allows us to decouple the contract from *core.blockchain which is required to build a new evm.
 type EVMProvider func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM
 
-type Contracts struct {
-	evmProvider     EVMProvider
-	contractABI     *abi.ABI
-	db              ethdb.Database
-	chainConfig     *params.ChainConfig
-	contractBackend bind.ContractBackend
-	// map[Height]map[Round]proposer_address
-	proposers map[uint64]map[int64]common.Address
+// GenesisEVMProvider returns new, preconfigured EVM. Useful for genesis EVMs which depends on fixed set of parameters
+// which can be closed in this function
+type GenesisEVMProvider func(statedb *state.StateDB) *vm.EVM
 
-	*Accountability
+type EVMContract struct {
+	evmProvider EVMProvider
+	contractABI *abi.ABI
+	db          ethdb.Database
+	chainConfig *params.ChainConfig
+
 	sync.RWMutex
 }
 
-func New(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend) (*Contracts, error) {
+func NewEVMContract(evmProvider EVMProvider, contractABI *abi.ABI, db ethdb.Database, chainConfig *params.ChainConfig) *EVMContract {
+	return &EVMContract{
+		evmProvider: evmProvider,
+		contractABI: contractABI,
+		db:          db,
+		chainConfig: chainConfig,
+	}
+}
+
+//revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
+type AutonityContract struct {
+	EVMContract
+
+	proposers map[uint64]map[int64]common.Address
+}
+
+type ProtocolContracts struct {
+	AutonityContract
+	*Accountability
+}
+
+func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend) (*ProtocolContracts, error) {
 	if config.AutonityContractConfig == nil {
 		return nil, ErrNoAutonityConfig
 	}
@@ -71,30 +93,33 @@ func New(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, co
 	}
 	accountabilityContract, _ := NewAccountability(AccountabilityContractAddress, contractBackend)
 
-	contract := Contracts{
-		evmProvider:     provider,
-		contractBackend: contractBackend,
-		chainConfig:     config,
-		contractABI:     ABI,
-		db:              db,
-		proposers:       make(map[uint64]map[int64]common.Address),
-		Accountability:  accountabilityContract,
+	contract := ProtocolContracts{
+		AutonityContract: AutonityContract{
+			EVMContract: EVMContract{
+				evmProvider: provider,
+				contractABI: ABI,
+				db:          db,
+				chainConfig: config,
+			},
+			proposers: make(map[uint64]map[int64]common.Address),
+		},
+		Accountability: accountabilityContract,
 	}
 	return &contract, nil
 }
 
-func (c *Contracts) CommitteeEnodes(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
+func (c *AutonityContract) CommitteeEnodes(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
 	return c.callGetCommitteeEnodes(db, block.Header())
 }
 
-func (c *Contracts) MinimumBaseFee(block *types.Header, db *state.StateDB) (uint64, error) {
+func (c *AutonityContract) MinimumBaseFee(block *types.Header, db *state.StateDB) (uint64, error) {
 	if block.Number.Uint64() <= 1 {
 		return c.chainConfig.AutonityContractConfig.MinBaseFee, nil
 	}
 	return c.callGetMinimumBaseFee(db, block)
 }
 
-func (c *Contracts) Proposer(header *types.Header, _ *state.StateDB, height uint64, round int64) common.Address {
+func (c *AutonityContract) Proposer(header *types.Header, _ *state.StateDB, height uint64, round int64) common.Address {
 	c.Lock()
 	defer c.Unlock()
 	roundMap, ok := c.proposers[height]
@@ -120,7 +145,7 @@ func (c *Contracts) Proposer(header *types.Header, _ *state.StateDB, height uint
 
 // electProposer is a part of consensus, that it elect proposer from parent header's committee list which was returned
 // from autonity contract stable ordered by voting power in evm context.
-func (c *Contracts) electProposer(parentHeader *types.Header, height uint64, round int64) common.Address {
+func (c *AutonityContract) electProposer(parentHeader *types.Header, height uint64, round int64) common.Address {
 	seed := big.NewInt(constants.MaxRound)
 	totalVotingPower := big.NewInt(0)
 	for _, c := range parentHeader.Committee {
@@ -148,7 +173,7 @@ func (c *Contracts) electProposer(parentHeader *types.Header, height uint64, rou
 	return parentHeader.Committee[round%int64(len(parentHeader.Committee))].Address
 }
 
-func (c *Contracts) trimProposerCache(height uint64) {
+func (c *AutonityContract) trimProposerCache(height uint64) {
 	if len(c.proposers) > consensus.AccountabilityHeightRange*2 && height > consensus.AccountabilityHeightRange*2 {
 		gcFrom := height - consensus.AccountabilityHeightRange*2
 		// keep at least consensus.AccountabilityHeightRange heights in the buffer.
@@ -159,7 +184,7 @@ func (c *Contracts) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *Contracts) FinalizeAndGetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
 	if header.Number.Uint64() == 0 {
 		return nil, nil, nil
 	}
@@ -194,7 +219,7 @@ func (c *Contracts) FinalizeAndGetCommittee(header *types.Header, statedb *state
 	return committee, receipt, nil
 }
 
-func (c *Contracts) upgradeAutonityContract(statedb *state.StateDB, header *types.Header) error {
+func (c *AutonityContract) upgradeAutonityContract(statedb *state.StateDB, header *types.Header) error {
 	log.Info("Initiating Autonity Contracts upgrade", "header", header.Number.Uint64())
 
 	// get contract binary and abi set by system operator before.
@@ -225,7 +250,15 @@ func (c *Contracts) upgradeAutonityContract(statedb *state.StateDB, header *type
 	return nil
 }
 
-func (c *Contracts) upgradeAbiCache(newAbi string) error {
+func (c *AutonityContract) CallContractFunc(statedb *state.StateDB, header *types.Header, packedArgs []byte) ([]byte, error) {
+	return c.EVMContract.CallContractFunc(statedb, header, AutonityContractAddress, packedArgs)
+}
+
+func (c *AutonityContract) CallContractFuncAs(statedb *state.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {
+	return c.EVMContract.CallContractFuncAs(statedb, header, AutonityContractAddress, origin, packedArgs)
+}
+
+func (c *EVMContract) upgradeAbiCache(newAbi string) error {
 	c.Lock()
 	defer c.Unlock()
 	newABI, err := abi.JSON(strings.NewReader(newAbi))
@@ -237,6 +270,185 @@ func (c *Contracts) upgradeAbiCache(newAbi string) error {
 }
 
 // ABI returns the current autonity contract's ABI
-func (c *Contracts) ABI() *abi.ABI {
+func (c *EVMContract) ABI() *abi.ABI {
 	return c.contractABI
+}
+
+func (c *EVMContract) DeployContractWithValue(header *types.Header, origin common.Address, statedb *state.StateDB, bytecode []byte, value *big.Int, args ...interface{}) error {
+	constructorParams, err := c.contractABI.Pack("", args...)
+	if err != nil {
+		log.Error("contractABI.Pack returns err", "err", err)
+		return err
+	}
+
+	data := append(bytecode, constructorParams...)
+	gas := uint64(0xFFFFFFFF)
+
+	evm := c.evmProvider(header, origin, statedb)
+
+	_, _, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	if vmerr != nil {
+		log.Error("evm.Create failed", "err", vmerr)
+		return vmerr
+	}
+
+	return nil
+}
+
+func (c *EVMContract) DeployContract(header *types.Header, origin common.Address, statedb *state.StateDB, bytecode []byte, args ...interface{}) error {
+	return c.DeployContractWithValue(header, origin, statedb, bytecode, new(big.Int).SetUint64(0x00), args...)
+}
+
+type OracleContract struct {
+	EVMContract
+}
+
+type AccountabilityContract struct {
+	EVMContract
+}
+
+type ACUContract struct {
+	EVMContract
+}
+
+type SupplyControlContract struct {
+	EVMContract
+}
+
+type StabilizationContract struct {
+	EVMContract
+}
+
+func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb *state.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
+	evmProvider := func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
+		if header != nil {
+			panic("genesis evm provider must use nil header")
+		}
+		return genesisEvmProvider(statedb)
+	}
+	return &GenesisEVMContracts{
+		AutonityContract: AutonityContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.AutonityAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+			proposers: make(map[uint64]map[int64]common.Address),
+		},
+		AccountabilityContract: AccountabilityContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.AccountabilityAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		OracleContract: OracleContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.OracleAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		ACUContract: ACUContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.ACUAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			}},
+		SupplyControlContract: SupplyControlContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.SupplyControlAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		StabilizationContract: StabilizationContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.StabilizationAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		statedb: statedb,
+	}
+}
+
+type GenesisEVMContracts struct {
+	AutonityContract
+	AccountabilityContract
+	OracleContract
+	ACUContract
+	SupplyControlContract
+	StabilizationContract
+
+	statedb *state.StateDB
+}
+
+func (c *GenesisEVMContracts) DeployAutonityContract(bytecode []byte, validators []params.Validator, config AutonityConfig) error {
+	return c.AutonityContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, validators, config)
+}
+
+func (c *GenesisEVMContracts) DeployAccountabilityContract(autonityAddress common.Address, config AccountabilityConfig, bytecode []byte) error {
+	return c.AccountabilityContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, autonityAddress, config)
+}
+
+func (c *GenesisEVMContracts) Mint(address common.Address, amount *big.Int) error {
+	return c.AutonityContract.Mint(nil, c.statedb, address, amount)
+}
+
+func (c *GenesisEVMContracts) Bond(from common.Address, validatorAddress common.Address, amount *big.Int) error {
+	return c.AutonityContract.Bond(nil, c.statedb, from, validatorAddress, amount)
+}
+
+func (c *GenesisEVMContracts) FinalizeInitialization() error {
+	return c.AutonityContract.FinalizeInitialization(nil, c.statedb)
+}
+
+func (c *GenesisEVMContracts) DeployOracleContract(
+	voters []common.Address,
+	autonityAddress common.Address,
+	operator common.Address,
+	symbols []string,
+	votePeriod *big.Int,
+	bytecode []byte,
+) error {
+	return c.OracleContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, voters, autonityAddress, operator, symbols, votePeriod)
+}
+
+func (c *GenesisEVMContracts) DeployACUContract(
+	symbols []string,
+	quantities []*big.Int,
+	scale *big.Int,
+	autonity common.Address,
+	operator common.Address,
+	oracle common.Address,
+	bytecode []byte,
+) error {
+	return c.ACUContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, symbols, quantities, scale, autonity, operator, oracle)
+}
+
+func (c *GenesisEVMContracts) DeploySupplyControlContract(autonity common.Address, operator common.Address, stabilizationContract common.Address, bytecode []byte, value *big.Int) error {
+	return c.SupplyControlContract.DeployContractWithValue(nil, DeployerAddress, c.statedb, bytecode, value, autonity, operator, stabilizationContract)
+}
+
+func (c *GenesisEVMContracts) AddBalance(address common.Address, value *big.Int) {
+	c.statedb.AddBalance(address, value)
+}
+
+func (c *GenesisEVMContracts) DeployStabilizationContract(
+	stabilizationConfig StabilizationConfig,
+	autonity common.Address,
+	operator common.Address,
+	oracle common.Address,
+	supplyControl common.Address,
+	collateral common.Address,
+	bytecode []byte,
+) error {
+	return c.StabilizationContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, stabilizationConfig, autonity, operator, oracle, supplyControl, collateral)
 }

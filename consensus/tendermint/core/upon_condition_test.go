@@ -14,6 +14,7 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -23,7 +24,6 @@ import (
 	tcrypto "github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -910,8 +910,8 @@ func TestQuorumPrevote(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		//randomly choose prevote or precommit step
-		currentStep := tctypes.Step(rand.Intn(2) + 1)                                                                                                                                                             //nolint:gosec
-		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false, privateKeys[members[currentRound].Address]) //nolint:gosec
+		currentStep := tctypes.Step(rand.Intn(2) + 1)                                                                                                                                                           //nolint:gosec
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1))), members[currentRound].Address, false, privateKeys[members[currentRound].Address]) //nolint:gosec
 		sender := 1
 		prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
 		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, consensus.MsgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])

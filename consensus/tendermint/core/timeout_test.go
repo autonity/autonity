@@ -7,6 +7,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
+	"go.uber.org/mock/gomock"
 
 	"math/big"
 	"sync"
@@ -18,7 +19,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/rlp"
-	"github.com/golang/mock/gomock"
 )
 
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {

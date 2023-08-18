@@ -113,5 +113,6 @@
   "61d027b3": "treasury()",
   "7eee288d": "unlock(address,uint256)",
   "84955c88": "unlockedBalanceOf(address)",
-  "3a5381b5": "validator()"
+  "3a5381b5": "validator()",
+  "d861b0e8": "finalizeInitialization()"
 }

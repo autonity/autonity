@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
@@ -19,8 +20,6 @@ import (
 
 	"github.com/autonity/autonity/consensus"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/golang/mock/gomock"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"

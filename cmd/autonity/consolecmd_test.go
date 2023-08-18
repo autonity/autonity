@@ -65,6 +65,16 @@ var genesis = `{
 						}
 					]
 				},
+				"accountability": {
+					  "innocenceProofSubmissionWindow": 30,
+					  "latestAccountabilityEventsRange": 256,
+					  "baseSlashingRateLow": 500,
+					  "baseSlashingRateMid": 1000,
+					  "collusionFactor": 550,
+					  "historyFactor": 750,
+					  "jailFactor": 60,
+					  "slashingRatePrecision": 10000
+					},
     			"oracle": {
       				"votePeriod": 30
 				},

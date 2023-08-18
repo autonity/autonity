@@ -169,7 +169,7 @@ type Core struct {
 
 	futureRoundChange map[int64]map[common.Address]*big.Int
 
-	autonityContract *autonity.Contracts
+	protocolContracts *autonity.ProtocolContracts
 
 	// tendermint behaviour interfaces, can be used in customizing the behaviours
 	// during malicious testing

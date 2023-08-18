@@ -620,7 +620,7 @@ type AutonityContractAPI struct {
 // themselves make no use of the method receiver. This design is required to be
 // able to fit into the current approach taken for registering rpc services.
 // See rpc.Server.RegisterName().
-func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.Contracts) *AutonityContractAPI {
+func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.ProtocolContracts) *AutonityContractAPI {
 	var contractABI = ac.ABI()
 	var contractViewMethods = make(map[string]reflect.Value)
 
