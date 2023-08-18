@@ -18,10 +18,11 @@ package core
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/params/generated"
 	"math"
 	"math/big"
+
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/common"
 	cmath "github.com/autonity/autonity/common/math"
@@ -360,12 +361,10 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		}
 	}
 
-	if london {
+	if london && !oracleVote {
 		effectiveTip := cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 		st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
-		if !oracleVote {
-			st.state.AddBalance(autonity.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
-		}
+		st.state.AddBalance(autonity.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
 	}
 
 	return &ExecutionResult{
