@@ -181,7 +181,7 @@ start-autonity:
 # start a ganache network for fast contract tests
 start-ganache:
 	@echo "starting ganache"
-	@nohup ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
+	@nohup npx ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
 	@sleep 2
 	@pgrep -f ganache
 	@lsof -i :8545 | grep node
@@ -191,6 +191,8 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
 	@echo "killing test autonity network and cleaning chaindata"
@@ -202,6 +204,8 @@ test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@echo "killing ganache"
 	@-pkill -f "ganache"
 

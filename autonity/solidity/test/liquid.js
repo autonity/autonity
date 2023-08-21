@@ -9,7 +9,6 @@ const toBN = web3.utils.toBN;
 // is implemented in the LiquidNewtonPullFees contract.
 
 contract("Liquid", accounts => {
-
   // Accounts.
   let rewardSource = accounts[0];
   let treasury = accounts[1];
@@ -286,6 +285,13 @@ contract("Liquid", accounts => {
     await truffleAssert.fails(lnew.transferFrom.sendTransaction(
       delegatorA, delegatorB, toWei("4001", "ether"), {from: delegatorC}));
   });
-
-
+  it("locking", async () => {
+    // TODO(tariq) test the LNTN locking mechanism. 
+    // It is worth to cover at least these scenarios:
+    // - cannot lock more than balance
+    // - locked LNTN cannot be transfered
+    // - locked LNTN cannot be burnt
+    // - cannot unlock more than lockedbalance
+    // - once unlocked LNTN can be transfered and burnt
+  });
 });
