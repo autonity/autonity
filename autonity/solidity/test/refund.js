@@ -1,4 +1,5 @@
 const Oracle = artifacts.require("Oracle")
+const Autonity = artifacts.require("Autonity")
 const truffleAssert = require('truffle-assertions');
 const assert = require('assert')
 const utils = require('./utils.js');
@@ -15,6 +16,43 @@ contract("Oracle", accounts => {
       // for testing the refund we need to interact with the oracle contract deployed at genesis.
       // the refund logic checks if the vote is sent to this specific oracle contract.
       oracle = await Oracle.at("0x47e9Fbef8C83A1714F1951F142132E6e90F5fa5D")
+      autonity = await Autonity.at("0xbd770416a3345f91e4b34576cb804a576fa48eb1")
+
+      // register a new validator that we will use for voting in the refund test.
+      // using the genesis validator makes fees computations harder because it receives the tip when a block is added to the chain
+      let treasury = accounts[8];
+      let oracleAddr = accounts[8]
+      let nodeAddr = "0xDE03B7806f885Ae79d2aa56568b77caDB0de073E"
+      let enode = "enode://a7ecd2c1b8c0c7d7ab9cc12e620605a762865d381eb1bc5417dcf07599571f84ce5725f404f66d3e254d590ae04e4e8f18fe9e23cd29087d095a0c37d0443252@3.209.45.79:30303"
+      let nodeKey = "e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b"
+      let treasuryProof = web3.eth.accounts.sign(treasury, nodeKey);
+      let oracleProof = await web3.eth.sign(treasury, oracleAddr);
+      let multisig = treasuryProof.signature + oracleProof.substring(2)
+      await autonity.registerValidator(enode, oracleAddr, multisig, {from: treasury});
+
+      // bond to it
+      await autonity.bond(nodeAddr, 10, {from: accounts[8]});
+
+      // wait for epoch to end so that accounts[8] becomes a committee member
+      let currentEpoch = (await autonity.epochID()).toNumber()
+      for (;;){
+        await utils.timeout(5000)
+        let epoch = (await autonity.epochID()).toNumber()
+        if(epoch > currentEpoch){
+          break;
+        }
+      }
+      
+      // wait for an additional oracle round so that he is a "fully valid" oracle voter
+      let currentRound = (await oracle.getRound()).toNumber()
+      for (;;){
+        await utils.timeout(5000)
+        let round = (await oracle.getRound()).toNumber()
+        if(round > currentRound){
+          break;
+        }
+      }
+
     })
     afterEach(async() => {
       // after each test we wait for a round change, to have a clean contract state again
@@ -25,100 +63,76 @@ contract("Oracle", accounts => {
         curRound = await oracle.getRound();
       }
     })
+    it('fee is refunded for valid vote', async function () {
+      const origBalance = toBN(await web3.eth.getBalance(accounts[8]));
 
-    //TODO(lorenzo) these tests can probably be merged/simplified, as they came from when we were refunding only the basefee
-    it('fee is refunded for valid vote (no tip)', async function () {
-      const origBalance = toBN(await web3.eth.getBalance(accounts[2]));
-
-      txret = await oracle.vote(0, [], 0, {from:accounts[2], maxPriorityFeePerGas:0});
-      
-      // fetch base fee that got applied to the vote tx
-      //txBlock = await web3.eth.getBlock(txret.receipt.blockNumber)
-      //baseFee = toBN(txBlock.baseFeePerGas)
+      await oracle.vote(0, [], 0, {from:accounts[8]});
      
-      // compute total gasCost, refund (cost from basefee) + tip
-      const tx = await web3.eth.getTransaction(txret.tx);
-      const gasCost = toBN(tx.gasPrice).mul(toBN(txret.receipt.gasUsed));
-      //const effectiveTip = BN.min(toBN(tx.maxPriorityFeePerGas),toBN(tx.maxFeePerGas).sub(baseFee))
-      //const tip = effectiveTip.mul(toBN(txret.receipt.gasUsed));
-      //const refund = toBN(baseFee).mul(toBN(txret.receipt.gasUsed));
-
-      // gasCost = refund + tip
-      //assert.equal(gasCost.toString(),refund.add(tip).toString())
-
-      //const expectedBalance = origBalance.sub(gasCost).add(refund);
-      const updatedBalance = toBN(await web3.eth.getBalance(accounts[2]))
-
+      // check that voter balance did not change (refund was successfull)
+      const updatedBalance = toBN(await web3.eth.getBalance(accounts[8]))
       assert.equal(updatedBalance.toString(), origBalance.toString());
-    });
-    it('fee is refunded for valid vote (with tip)', async function () {
-      const origBalance = toBN(await web3.eth.getBalance(accounts[2]));
 
-      txret = await oracle.vote(0, [], 0, {from:accounts[2]});
-      
-      // fetch base fee that got applied to the vote tx
-      //txBlock = await web3.eth.getBlock(txret.receipt.blockNumber)
-      //baseFee = toBN(txBlock.baseFeePerGas)
-     
-      // compute total gasCost, refund (cost from basefee) + tip
-      const tx = await web3.eth.getTransaction(txret.tx);
-      const gasCost = toBN(tx.gasPrice).mul(toBN(txret.receipt.gasUsed));
-      //const effectiveTip = BN.min(toBN(tx.maxPriorityFeePerGas),toBN(tx.maxFeePerGas).sub(baseFee))
-      //const tip = effectiveTip.mul(toBN(txret.receipt.gasUsed));
-      //const refund = toBN(baseFee).mul(toBN(txret.receipt.gasUsed));
-
-      // gasCost = refund + tip
-      //assert.equal(gasCost.toString(),refund.add(tip).toString())
-
-      //expectedBalance = origBalance - gasCost + refund (we pay only the tip)
-      //const expectedBalance = origBalance.sub(gasCost).add(refund);
-      const updatedBalance = toBN(await web3.eth.getBalance(accounts[2]))
-
-      assert.equal(updatedBalance.toString(), origBalance.toString());
+      /* TODO(tariq) 
+       *  normally the baseFee gets sent to the Autonity Contract for redistribution and the tip to the block proposer (see core/state_transition.go TransitionDb())
+       * since for the oracle vote we are refunding both the baseFee and the tip, the balance of the AC and the block proposer should not change.
+       * add asserts for these two conditions to ensure that we are not duplicating money.
+       */
     });
     it('double vote, only first is refunded', async function () {
-      let origBalance = toBN(await web3.eth.getBalance(accounts[2]));
-
-      let round = await oracle.getRound()
-
-      let txret = await oracle.vote(0, [], 0, {from:accounts[2]});
+      let currentEpoch = (await autonity.epochID()).toNumber()
       
-      // fetch base fee that got applied to the vote tx
-      //let txBlock = await web3.eth.getBlock(txret.receipt.blockNumber)
-      //let baseFee = toBN(txBlock.baseFeePerGas)
-     
-      // compute total gasCost, refund (cost from basefee) + tip
-      let tx = await web3.eth.getTransaction(txret.tx);
-      let gasCost = toBN(tx.gasPrice).mul(toBN(txret.receipt.gasUsed));
-      //let effectiveTip = BN.min(toBN(tx.maxPriorityFeePerGas),toBN(tx.maxFeePerGas).sub(baseFee))
-      //let tip = effectiveTip.mul(toBN(txret.receipt.gasUsed));
-      //let refund = toBN(baseFee).mul(toBN(txret.receipt.gasUsed));
-
-      // gasCost = refund + tip
-      //assert.equal(gasCost.toString(),refund.add(tip).toString())
-
-      //expectedBalance = origBalance - gasCost + refund (we pay only the tip)
-      //let expectedBalance = origBalance.sub(gasCost).add(refund);
-      let updatedBalance = toBN(await web3.eth.getBalance(accounts[2]))
-
+      // first vote gets refunded
+      let origBalance = toBN(await web3.eth.getBalance(accounts[8]));
+      let round = await oracle.getRound()
+      await oracle.vote(0, [], 0, {from:accounts[8]});
+      let updatedBalance = toBN(await web3.eth.getBalance(accounts[8]))
       assert.equal(updatedBalance.toString(), origBalance.toString());
+      
+      /* TODO(tariq) 
+       *  normally the baseFee gets sent to the Autonity Contract for redistribution and the tip to the block proposer (see core/state_transition.go TransitionDb())
+       * since for the oracle vote we are refunding both the baseFee and the tip, the balance of the AC and the block proposer should not change.
+       * add asserts for these two conditions to ensure that we are not duplicating money.
+       */
 
       // make sure we are still in the same round
       round2 = await oracle.getRound()
       assert.equal(round.toString(),round2.toString())
       
-      // second vote with 0 tip, base fee should not be refunded
+      // second vote should fail, with !=0 gas expense
       await truffleAssert.fails(
-        oracle.vote(0, [], 0, {from:accounts[2],maxPriorityFeePerGas:0}),
+        oracle.vote(0,[],0,{from:accounts[8]}),
         truffleAssert.ErrorType.REVERT,
         "already voted"
       );
+      let failedTxHash = (await web3.eth.getBlock("latest")).transactions[0]
+      const tx = await web3.eth.getTransaction(failedTxHash);
+      const receipt = await web3.eth.getTransactionReceipt(failedTxHash);
+      assert.equal(receipt.status,false)
       
-      updatedBalance2 = toBN(await web3.eth.getBalance(accounts[2]))
+      // compute total gasCost, baseFee and effectiveTip
+      txBlock = await web3.eth.getBlock(tx.blockNumber)
+      baseFee = toBN(txBlock.baseFeePerGas)
+      const gasCost = toBN(tx.gasPrice).mul(toBN(receipt.gasUsed));
+      const effectiveTip = BN.min(toBN(tx.maxPriorityFeePerGas),toBN(tx.maxFeePerGas).sub(baseFee))
+      const tip = effectiveTip.mul(toBN(receipt.gasUsed));
+      const baseCost = toBN(baseFee).mul(toBN(receipt.gasUsed));
 
-      // some gas should have been spent
-      assert.notEqual(updatedBalance.toString(), updatedBalance2.toString());
+      // gasCost = baseCost + tip
+      assert.equal(gasCost.toString(),baseCost.add(tip).toString())
+    
+      // make sure that we are still in the same epoch --> no fee redistribution has happened
+      let epoch = (await autonity.epochID()).toNumber()
+      assert.equal(epoch,currentEpoch)
+      
+      // gasCost should have been spent
+      updatedBalance2 = toBN(await web3.eth.getBalance(accounts[8]))
+      assert.equal(updatedBalance2.toString(), updatedBalance.sub(gasCost).toString());
+
+      /* TODO(tariq) 
+       * No refund in case of failed vote.
+       * check that the basefee has been sent to the autonity contract and the tip to the proposer
+       * the proposer is always accounts[2] since we are running on a 1-node autonity test network
+       */
     });
-
   });
 });
