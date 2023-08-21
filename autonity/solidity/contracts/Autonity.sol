@@ -477,6 +477,30 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
     }
+    
+    /*
+    * @notice Set the ACU contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setAcuContract(IACU _address) public onlyOperator {
+        config.contracts.acuContract = _address;
+    }
+    
+    /*
+    * @notice Set the SupplyControl contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setSupplyControlContract(ISupplyControl _address) public onlyOperator {
+        config.contracts.supplyControlContract = _address;
+    }
+    
+    /*
+    * @notice Set the Stabilization contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setStabilizationContract(IStabilization _address) public onlyOperator {
+        config.contracts.stabilizationContract = _address;
+    }
 
     /*
     * @notice Mint new stake token (NTN) and add it to the recipient balance. Restricted to the Operator account.

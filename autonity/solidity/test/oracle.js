@@ -1,14 +1,14 @@
 const OracleContract = artifacts.require("Oracle")
 const truffleAssert = require('truffle-assertions');
 const assert = require('assert')
+const utils = require('./utils.js');
 const VOTE_PERIOD = 3;
 var Web3 = require("web3");
 
-// Note, tokens are denominted in Wei in this example, but it may not
-// be possible to use such small units, depending on how the division
-// is implemented in the LiquidNewtonPullFees contract.
-
 contract("Oracle", accounts => {
+  before(async() => {
+    await deployOracleContract();
+  })
 
   const operator = accounts[0];
   const autonity = accounts[6];
@@ -37,28 +37,21 @@ contract("Oracle", accounts => {
     let round =  await oracle.getRound();
     let curRound = +round;
     while (+curRound != (+round + numRounds)) {
-      curRound = await oracle.getRound();
-      await timeout(100);
+      await utils.timeout(100);
       await oracle.finalize({from:autonity});
+      curRound = await oracle.getRound();
     }
   }
 
-  before(async() => {
-    await deployContracts();
-  })
 
-  function timeout(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  async function deployContracts() {
+  async function deployOracleContract() {
     oracle = await OracleContract.new(voterAccounts, autonity, operator, symbols, VOTE_PERIOD);
     await web3.eth.sendTransaction({
       from: deployer,
       to: oracle.address,
       value: web3.utils.toWei("999854114594577", "wei")
     });
-    console.log("oracle address:"+oracle.address);
+    //console.log("oracle address:"+oracle.address);
     // using websocket provider to access apis
     /*
     let w3       = new Web3(new Web3.providers.WebsocketProvider(web3.eth.currentProvider.host));
@@ -179,7 +172,7 @@ contract("Oracle", accounts => {
     }
   }
 
-  describe('Contract initial sate', function() {
+  describe('Contract initial state', function() {
     it('Test get symbols', async function () {
       let syms = await oracle.getSymbols();
       assert.deepEqual(syms.slice().sort(), symbols.slice().sort(), "symbols are not as expected");
@@ -197,7 +190,7 @@ contract("Oracle", accounts => {
 
     it('Test get round', async function () {
       let round = await oracle.getRound();
-      assert(round == 1, "round value must be zero at initialization")
+      assert(round == 1, "round value must be one at initialization")
     });
   });
 
@@ -230,7 +223,6 @@ contract("Oracle", accounts => {
       ]
       await oracle.setVoters(newVoters, {from:autonity});
       let updatedVoters = await oracle.getVoters();
-      assert.deepEqual(newVoters.slice().sort(), updatedVoters.slice().sort(), "voters are not as expected");
       assert.deepEqual(
         newVoters.slice().sort(function (a, b) {
           return a.toLowerCase().localeCompare(b.toLowerCase());
@@ -240,7 +232,11 @@ contract("Oracle", accounts => {
     });
     it('Test update voters - empty voter list', async function () {
       let newVoters = [];
-      await truffleAssert.reverts(oracle.setVoters(newVoters, {from:autonity}));
+      await truffleAssert.fails(
+        oracle.setVoters(newVoters, {from:autonity}),
+        truffleAssert.ErrorType.REVERT,
+        "Voters can't be empty"
+      );
     });
 
     it('Test update symbols', async function () {
@@ -253,7 +249,11 @@ contract("Oracle", accounts => {
 
     it('Test update empty symbol list', async function () {
       let newSymbols = [];
-      await truffleAssert.reverts(oracle.setSymbols(newSymbols, {from:operator}));
+      await truffleAssert.fails(
+      oracle.setSymbols(newSymbols, {from:operator}),
+      truffleAssert.ErrorType.REVERT,
+      "symbols can't be empty"
+    );
     });
 
     it('Test round update', async function () {
@@ -265,35 +265,30 @@ contract("Oracle", accounts => {
   });
 
 
-  describe('Contract running sate', function() {
+  describe('Contract running state', function() {
     beforeEach(async() => {
-      await deployContracts()
+      await deployOracleContract()
     })
     it('Test update Symbols in same round ', async function () {
       let newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY"];
       await oracle.setSymbols(newSymbols, {from:operator});
       newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP"];
-      await truffleAssert.reverts(oracle.setSymbols(newSymbols, {from:operator}));
+      await truffleAssert.fails(
+        oracle.setSymbols(newSymbols, {from:operator}),
+        truffleAssert.ErrorType.REVERT,
+        "can't be updated in this round"
+      );
     });
 
     it('Test update Symbols in subsequent round ', async function () {
       let newSymbols = ["NTN/USD","NTN/AUD","NTN/CAD","NTN/EUR","NTN/GBP","NTN/JPY"]
       await oracle.setSymbols(newSymbols, {from:operator});
       await waitForNRounds(1)
-      await truffleAssert.reverts(oracle.setSymbols(newSymbols, {from:operator}));
-    });
-
-    it('Test vote - fee refund for new voter', async function () {
-      generateRoundData(2, symbols);
-      //console.log(JSON.stringify(rounds));
-      // round starts with 1
-      let commit = web3.utils.soliditySha3(...rounds[1].voters[0].pricesWithCommit);
-      // balance before vote
-      console.log("Balance Before:" + await web3.eth.getBalance(accounts[0]));
-      console.log("contract Balance Before:" + await web3.eth.getBalance(oracle.address));
-      await oracle.vote(commit, [], 0, {from:voterAccounts[0]});
-      console.log("Balance After:" + await web3.eth.getBalance(accounts[0]));
-      console.log("contract Balance After:" + await web3.eth.getBalance(oracle.address));
+      await truffleAssert.fails(
+        oracle.setSymbols(newSymbols, {from:operator}),
+        truffleAssert.ErrorType.REVERT,
+        "can't be updated in this round"
+      );
     });
 
     it('Test vote - multiple votes in same round', async function () {
@@ -303,7 +298,11 @@ contract("Oracle", accounts => {
       // balance before vote
       await oracle.vote(commit, [], 0, {from:voterAccounts[0]});
       // second vote should revert
-      await truffleAssert.reverts(oracle.vote(commit, [], 0, {from:voterAccounts[0]}));
+      await truffleAssert.fails(
+        oracle.vote(commit, [], 0, {from:voterAccounts[0]}),
+        truffleAssert.ErrorType.REVERT,
+        "already voted",
+      );
     });
 
     it('Test vote - empty report for existing voter', async function () {
@@ -318,7 +317,7 @@ contract("Oracle", accounts => {
             await oracle.vote(commit, [], 0, {from:voterAccounts[i]});
           } else {
             const pricesWithcommit = rounds[rId-1].voters[i].pricesWithCommit;
-            const salt = pricesWithcommit[pricesWithcommit.length -1].v;
+            const salt = pricesWithcommit[pricesWithcommit.length -2].v;
             // should return because price report lenth doesn't match symbol length
             //TODO: should be verified by slashing event
             await oracle.vote(commit, [], salt, {from:voterAccounts[i]});
@@ -346,11 +345,11 @@ contract("Oracle", accounts => {
         await waitForNRounds(1)
       }
       let roundData = await oracle.latestRoundData("NTN/GBP");
-      console.log("Price data received for round latest:"+ roundData[0] +
-          " price:"+roundData[1]+ " timestamp: "+roundData[2] + " status:"+roundData[3]);
+      //console.log("Price data received for round latest:"+ roundData[0] +
+          //" price:"+roundData[1]+ " timestamp: "+roundData[2] + " status:"+roundData[3]);
       const roundID = roundData[0];
       const symIndex = getSymbolIndex("NTN/GBP");
-      console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
+      //console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
 
@@ -379,11 +378,9 @@ contract("Oracle", accounts => {
       // since we skipped round 3 - did not send commit and report both,
       // price will not be calculated in round 3 and 4 both
       let roundData = await oracle.getRoundData(3, "NTN/GBP");
-      let status = +roundData[2];
-      assert(status != 0, "status should not be success");
+      assert(roundData.status != 0, "status should not be success");
       roundData = await oracle.getRoundData(4, "NTN/GBP");
-      status = +roundData[2];
-      assert(status != 0, "price is not as expected");
+      assert(roundData.status != 0, "status should not be success");
     });
 
     it('Test vote - commit mismatch', async function () {
@@ -396,7 +393,7 @@ contract("Oracle", accounts => {
           let commit = web3.utils.soliditySha3(...voter.pricesWithCommit);
           if (rId == 1) {
               commit = 243432; // wrong commit values for all voters
-            await oracle.vote(commit, [], 0, {from:voterAccounts[i]});
+              await oracle.vote(commit, [], 0, {from:voterAccounts[i]});
           } else {
             const pricesWithcommit = rounds[rId-1].voters[i].pricesWithCommit;
             const salt = pricesWithcommit[pricesWithcommit.length -2].v;
@@ -408,6 +405,7 @@ contract("Oracle", accounts => {
       let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
       const symIndex = getSymbolIndex("NTN/GBP");
+      assert(roundData.status != 0, "status should not be success");
       assert(+roundData[1] != +rounds[roundID-1].expPrice[symIndex], "price should not be as expected");
     });
 
@@ -459,7 +457,7 @@ contract("Oracle", accounts => {
       let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
       const symIndex = getSymbolIndex("NTN/GBP");
-      console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
+      //console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
 
@@ -500,7 +498,7 @@ contract("Oracle", accounts => {
       let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
       const symIndex = getSymbolIndex("NTN/GBP");
-      console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
+      //console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
 
@@ -560,7 +558,7 @@ contract("Oracle", accounts => {
       let roundData = await oracle.latestRoundData("NTN/GBP");
       const roundID = roundData[0];
       const symIndex = getSymbolIndex("NTN/GBP");
-      console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
+      //console.log("exp Price:"+ rounds[roundID-1].expPrice[symIndex], " rec price:"+ +roundData[1]);
       assert(+roundData[1] == +rounds[roundID-1].expPrice[symIndex], "price is not as expected");
     });
   });

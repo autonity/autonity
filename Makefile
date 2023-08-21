@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre
 
 BINDIR = ./build/bin
 GO ?= latest
@@ -141,11 +141,10 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
-# This runs the contract tests using truffle against an Autonity node instance.
-
 test-contracts: autonity contracts test-contracts-asm test-contracts-truffle
 
-test-contracts-truffle:
+# prerequisites for testing contracts
+test-contracts-pre:
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statement if the first fails.
 	@# Nov, 2022, the latest release of Truffle, v5.6.6 does not works for the tests.
@@ -155,26 +154,52 @@ test-contracts-truffle:
 	@npm list web3 > /dev/null || npm install web3
 	@echo "check and install truffle-assertions.js"
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
+	@echo "check and install ganache"
+	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
-	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	@# Autonity can take some time to start up so we ping its port till we see it is listening.
-	@# The -z option to netcat exits with 0 only if the port at the given addresss is listening.
-	@for x in {1..10}; do \
-		nc -z localhost 8545 ; \
-	    if [ $$? -eq 0 ] ; then \
-	        break ; \
-	    fi ; \
-		echo waiting 2 more seconds for autonity to start ; \
-	    sleep 2 ; \
-	done
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test test.js --network autonity && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 
 test-contracts-asm:
 	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
 	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm
+
+# start an autonity network for contract tests
+start-autonity:
+	@echo "starting autonity test network"
+	@cd $(CONTRACTS_TEST_DIR)/autonity/ && nohup ./autonity-start.sh >/dev/null 2>&1 &
+	@# give some time for autonity to start
+	@sleep 10
+	@# check that autonity started correctly and is listening on the correct port
+	@pgrep autonity
+	@lsof -i :8545 | grep autonity
+
+# start a ganache network for fast contract tests
+start-ganache:
+	@echo "starting ganache"
+	@nohup ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
+	@sleep 2
+	@pgrep -f ganache
+	@lsof -i :8545 | grep node
+
+# This runs the contract tests using truffle against an Autonity node instance.
+test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
+	@echo "killing test autonity network and cleaning chaindata"
+	@-pkill autonity
+	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data
+
+# This runs the contract tests using truffle against a Ganache instance
+test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@echo "killing ganache"
+	@-pkill -f "ganache"
 
 docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
