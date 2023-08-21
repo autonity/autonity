@@ -4,6 +4,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/consensus"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -15,10 +20,6 @@ import (
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
 	"go.uber.org/mock/gomock"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
 
 	"github.com/autonity/autonity/common"
 	tcrypto "github.com/autonity/autonity/consensus/tendermint/crypto"
@@ -577,7 +578,7 @@ func TestOldProposal(t *testing.T) {
 	})
 	t.Run("receive proposal with vr >= 0 and clients is lockedRound > vr with a different value", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound) + 1)
 		clientLockedValue := generateBlock(currentHeight)
 		// vr >= 0 && vr < round_p
 		proposalValidRound := int64(rand.Intn(int(currentRound)))
