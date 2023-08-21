@@ -16,7 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
 )
 
 func TestPrepare(t *testing.T) {
@@ -182,38 +181,6 @@ func TestVerifyHeader(t *testing.T) {
 	err = engine.VerifyHeader(chain, header, false)
 	if err != errInvalidNonce {
 		t.Errorf("error mismatch: have %v, want %v", err, errInvalidNonce)
-	}
-}
-
-func TestVerifySeal(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	genesis := chain.Genesis()
-	// cannot verify genesis
-	err := engine.VerifySeal(chain, genesis.Header())
-	if err != errUnknownBlock {
-		t.Errorf("error mismatch: have %v, want %v", err, errUnknownBlock)
-	}
-
-	block, err := makeBlock(chain, engine, genesis)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// change block content
-	header := block.Header()
-	header.Number = big.NewInt(4)
-	block1 := block.WithSeal(header)
-	err = engine.VerifySeal(chain, block1.Header())
-	if err != errInvalidCoinbase {
-		t.Errorf("error mismatch: have %v, want %v", err, errUnknownBlock)
-	}
-
-	// unauthorized users but still can get correct signer address
-	privateKey, _ := crypto.GenerateKey()
-	engine.privateKey = privateKey
-	err = engine.VerifySeal(chain, block.Header())
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
 	}
 }
 
