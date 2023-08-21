@@ -1076,7 +1076,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         Validator storage _validator = validators[_validatorAddress];
         bool selfDelegation = _recipient == _validator.treasury;
         if(!selfDelegation) {
-            // Burn LNTN if it was issued (non self-delegated stake case)
+            // Lock LNTN if it was issued (non self-delegated stake case)
             uint256 liqBalance = _validator.liquidContract.unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
             _validator.liquidContract.lock(_recipient, _amount);

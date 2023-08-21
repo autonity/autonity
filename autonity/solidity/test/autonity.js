@@ -771,7 +771,8 @@ contract('Autonity', function (accounts) {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
 
-    it('Bond to a valid validator', async function () {
+    //TODO(tariq) replicate this test for a selfBonded bond request --> no LNTN minting for selfBonded stake
+    it('Bond to a valid validator (not selfBonded)', async function () {
       // mint Newton for a new account.
       let newAccount = accounts[8];
       let tokenMint = 200;
@@ -782,10 +783,13 @@ contract('Autonity', function (accounts) {
       truffleAssert.eventEmitted(tx, 'NewBondingRequest', (ev) => {
         return ev.validator === validators[0].nodeAddress && ev.delegator === newAccount && ev.selfBonded === false && ev.amount.toNumber() === tokenMint
       }, 'should emit newBondingRequest event');
-      //TODO(lorenzo) check end of epoch state transition + differentiate self and delegated bond
+      //TODO(tariq) check effects of bond:
+      //                                  1. bonded NTN is substracted from balance of delegator
+      //                                  2. LNTN is minted to delegator at epoch end (to trigger epoch end, see endEpoch function helper)
       
-      /* TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-       * if we want to keep these checks we need another contract that inherits autonity and exposes these fields
+      /* TODO(tariq) the internal queues for bond and unbond are not publicly accessible anymore.
+       * To run these checks we need another contract that inherits Autonity and exposes the bondingMap and unbondingMap.
+       * See AutonityTest.sol for the same approach applied to applyNewCommissionRates()
       // num of stakings from contract construction equals: length of validators and the latest bond.
       let numOfStakings = validators.length + 1;
       // ids start from 0
@@ -800,7 +804,7 @@ contract('Autonity', function (accounts) {
       */
     });
 
-    it('does not bond on a non-registered validator', async function () {
+    it('does not bond on a non registered validator', async function () {
       // mint Newton for a new account.
       let newAccount = accounts[8];
       let tokenMint = 200;
@@ -812,21 +816,6 @@ contract('Autonity', function (accounts) {
         truffleAssert.ErrorType.REVERT,
         "validator not registered"
       );
-
-      /* TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-       * if we want to keep these checks we need another contract that inherits autonity and exposes these fields
-      // bonding should be failed, bonding request should not have been added to the queue
-      let numOfStakings = validators.length;
-      // ids start from 0
-      let latestBondingReqId = numOfStakings - 1       
-
-      assert.equal(latestBondingReqId, (await autonity.getLastRequestedBondingRequest()).toNumber())
-
-      let stakings = await autonity.getBondingRequests(0, latestBondingReqId);
-      assert.notEqual(stakings[latestBondingReqId].amount, tokenMint, "stake bonding amount is not expected");
-      assert.notEqual(stakings[latestBondingReqId].delegator, newAccount, "delegator addr is not expected");
-      assert.notEqual(stakings[latestBondingReqId].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
-      */
     });
     
     it("can't bond to a paused validator", async function () {
@@ -837,22 +826,13 @@ contract('Autonity', function (accounts) {
         truffleAssert.ErrorType.REVERT,
         "validator need to be active"
       );
-      /* TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-       * if we want to keep these checks we need another contract that inherits autonity and exposes these fields
-      // bonding should be failed, bonding request should not have been added to the queue
-      let numOfStakings = validators.length;
-      // ids start from 0
-      let latestBondingReqId = numOfStakings - 1       
-
-      assert.equal(latestBondingReqId, (await autonity.getLastRequestedBondingRequest()).toNumber())
-
-      let stakings = await autonity.getBondingRequests(0, latestBondingReqId);
-      assert.notEqual(stakings[latestBondingReqId].amount, 100, "stake bonding amount is not expected");
-      assert.notEqual(stakings[latestBondingReqId].delegator, validators[0].treasury, "delegator addr is not expected");
-      assert.notEqual(stakings[latestBondingReqId].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
-      */
     });
 
+    //TODO(tariq) replicate this test for a non-selfBonded unbond request --> 
+    //                                                                        1. LNTN locked when unbonding request issued
+    //                                                                        2. LNTN burned at the end of the epoch following the unbonding request
+    //                                                                        3. Unbonding shares issued at the end of the epoch
+    //                                                                        4. Unbonding shares converted to NTNs and released at the end of the unbonding period
     it('un-bond from a valid validator', async function () {
       let tokenUnBond = 10;
       let from = validators[0].treasury;
@@ -862,10 +842,13 @@ contract('Autonity', function (accounts) {
       truffleAssert.eventEmitted(tx, 'NewUnbondingRequest', (ev) => {
         return ev.validator === validators[0].nodeAddress && ev.delegator === from && ev.selfBonded === true && ev.amount.toNumber() === tokenUnBond
       }, 'should emit newUnbondingRequest event');
-      //TODO(lorenzo) check end of epoch state transition + differentiate self and delegated bond
+      //TODO(tariq) check effects of unbond (selfBonded):
+      //                                  1. unbonded NTN enters "unbonding" state at epoch end and unbonding shares are issued. validator voting power (bondedStake) decreases
+      //                                  3. At the end of the unbonding period the unbonding shares are converted back to NTNs and released.
 
-      /* TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-       * if we want to keep these checks we need another contract that inherits autonity and exposes these fields
+      /* TODO(tariq) the internal queues for bond and unbond are not publicly accessible anymore.
+       * To run these checks we need another contract that inherits Autonity and exposes the bondingMap and unbondingMap.
+       * See AutonityTest.sol for the same approach applied to applyNewCommissionRates()
       let numOfUnBonding = 1;
       let latestUnbondingReqId = numOfUnBonding - 1
 
@@ -887,21 +870,6 @@ contract('Autonity', function (accounts) {
         truffleAssert.ErrorType.REVERT,
         "validator not registered",
       );
-
-      /* TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-       * if we want to keep these checks we need another contract that inherits autonity and exposes these fields
-      // un-bonding should be failed, it shouldn't have been added to the queue
-      await truffleAssert.fails(
-        autonity.getLastRequestedUnbondingRequest(),
-        truffleAssert.ErrorType.REVERT,
-        "no unbonding request processed",
-      );
-      await truffleAssert.fails(
-        autonity.getUnbondingRequests(0,0),
-        truffleAssert.ErrorType.REVERT,
-        "The last ID must be less or equal to the most recent request id",
-      );
-      */
     });
 
     it("can't unbond from  avalidator with the amount exceeding the available balance", async function () {
@@ -913,24 +881,12 @@ contract('Autonity', function (accounts) {
         truffleAssert.ErrorType.REVERT,
         "insufficient self bonded newton balance"
       );
-      /* TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-       * if we want to keep these checks we need another contract that inherits autonity and exposes these fields
-      // un-bonding should be failed, it shouldn't have been added to the queue
-      await truffleAssert.fails(
-        autonity.getLastRequestedUnbondingRequest(),
-        truffleAssert.ErrorType.REVERT,
-        "no unbonding request processed"
-      );
-      await truffleAssert.fails(
-        autonity.getUnbondingRequests(0,0),
-        truffleAssert.ErrorType.REVERT,
-        "The last ID must be less or equal to the most recent request id"
-      );
-      */
     });
     
-    // TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-    // if we want to keep this test we need another contract that inherits autonity and exposes these fields
+    /* TODO(tariq) the internal queues for bond and unbond are not publicly accessible anymore.
+     * To run these checks we need another contract that inherits Autonity and exposes the bondingMap and unbondingMap.
+     * See AutonityTest.sol for the same approach applied to applyNewCommissionRates()
+     */
     it.skip('test bonding queue logic', async function () {
       // num of stakings from contract construction equals: length of validators 
       let numOfStakings = validators.length;
@@ -964,8 +920,10 @@ contract('Autonity', function (accounts) {
       assert.equal(stakings[0].delegator, newAccount, "delegator addr is not expected");
       assert.equal(stakings[0].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
     });
-    // TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
-    // if we want to keep this test we need another contract that inherits autonity and exposes these fields
+    /* TODO(tariq) the internal queues for bond and unbond are not publicly accessible anymore.
+     * To run these checks we need another contract that inherits Autonity and exposes the bondingMap and unbondingMap.
+     * See AutonityTest.sol for the same approach applied to applyNewCommissionRates()
+     */
     it.skip('test unbonding queue logic', async function () {
       // no unbondings from contract construction
       await truffleAssert.fails(
@@ -1284,7 +1242,6 @@ contract('Autonity', function (accounts) {
           totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV3).add(commissionIncomeV3)
           
           // check delegators unclaimed reward
-          // TODO(lorenzo) test also claim? see liquid.js --> withdrawAndCheck function helper
           // TODO(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are some times 1 wei lower than what we expect.
           // I suspect it is due to some rounding done in Liquid.sol, to be investigated and dealt with in a better way
           let val0Liquid = await liquidContract.at(val0.liquidContract)
