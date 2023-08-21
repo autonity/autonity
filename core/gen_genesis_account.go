@@ -17,11 +17,13 @@ var _ = (*genesisAccountMarshaling)(nil)
 // MarshalJSON marshals as JSON.
 func (g GenesisAccount) MarshalJSON() ([]byte, error) {
 	type GenesisAccount struct {
-		Code       hexutil.Bytes               `json:"code,omitempty"`
-		Storage    map[storageJSON]storageJSON `json:"storage,omitempty"`
-		Balance    *math.HexOrDecimal256       `json:"balance" gencodec:"required"`
-		Nonce      math.HexOrDecimal64         `json:"nonce,omitempty"`
-		PrivateKey hexutil.Bytes               `json:"secretKey,omitempty"`
+		Code          hexutil.Bytes               `json:"code,omitempty"`
+		Storage       map[storageJSON]storageJSON `json:"storage,omitempty"`
+		Balance       *math.HexOrDecimal256       `json:"balance" gencodec:"required"`
+		NewtonBalance *math.HexOrDecimal256       `json:"newtonBalance"`
+		Bonds         map[common.Address]*big.Int `json:"bonds"`
+		Nonce         math.HexOrDecimal64         `json:"nonce,omitempty"`
+		PrivateKey    hexutil.Bytes               `json:"secretKey,omitempty"`
 	}
 	var enc GenesisAccount
 	enc.Code = g.Code
@@ -32,6 +34,8 @@ func (g GenesisAccount) MarshalJSON() ([]byte, error) {
 		}
 	}
 	enc.Balance = (*math.HexOrDecimal256)(g.Balance)
+	enc.NewtonBalance = (*math.HexOrDecimal256)(g.NewtonBalance)
+	enc.Bonds = g.Bonds
 	enc.Nonce = math.HexOrDecimal64(g.Nonce)
 	enc.PrivateKey = g.PrivateKey
 	return json.Marshal(&enc)
@@ -40,11 +44,13 @@ func (g GenesisAccount) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (g *GenesisAccount) UnmarshalJSON(input []byte) error {
 	type GenesisAccount struct {
-		Code       *hexutil.Bytes              `json:"code,omitempty"`
-		Storage    map[storageJSON]storageJSON `json:"storage,omitempty"`
-		Balance    *math.HexOrDecimal256       `json:"balance" gencodec:"required"`
-		Nonce      *math.HexOrDecimal64        `json:"nonce,omitempty"`
-		PrivateKey *hexutil.Bytes              `json:"secretKey,omitempty"`
+		Code          *hexutil.Bytes              `json:"code,omitempty"`
+		Storage       map[storageJSON]storageJSON `json:"storage,omitempty"`
+		Balance       *math.HexOrDecimal256       `json:"balance" gencodec:"required"`
+		NewtonBalance *math.HexOrDecimal256       `json:"newtonBalance"`
+		Bonds         map[common.Address]*big.Int `json:"bonds"`
+		Nonce         *math.HexOrDecimal64        `json:"nonce,omitempty"`
+		PrivateKey    *hexutil.Bytes              `json:"secretKey,omitempty"`
 	}
 	var dec GenesisAccount
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -63,6 +69,12 @@ func (g *GenesisAccount) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'balance' for GenesisAccount")
 	}
 	g.Balance = (*big.Int)(dec.Balance)
+	if dec.NewtonBalance != nil {
+		g.NewtonBalance = (*big.Int)(dec.NewtonBalance)
+	}
+	if dec.Bonds != nil {
+		g.Bonds = dec.Bonds
+	}
 	if dec.Nonce != nil {
 		g.Nonce = uint64(*dec.Nonce)
 	}

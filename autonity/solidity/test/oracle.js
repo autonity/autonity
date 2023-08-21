@@ -262,6 +262,9 @@ contract("Oracle", accounts => {
       const newRound = await oracle.getRound();
       assert(+curRound+1 == +newRound, "round is not updated");
     });
+    //TODO(tariq) low priority. add test that checks that only voters can actually call vote
+    //TODO(tariq) low priority. add test that checks that only autonity can call finalize(), setVoters() and setOperator()
+    //TODO(tariq) low priority. add test that checks that only operator can call setSymbols()
   });
 
 
@@ -334,6 +337,7 @@ contract("Oracle", accounts => {
         for (let i = 0; i < round.voters.length; i++){
           const voter = round.voters[i];
           const commit = web3.utils.soliditySha3(...voter.pricesWithCommit);
+          //TODO(tariq) low priority. check that vote correctly trigger the update of the `reports` structure
           if (rId == 1) {
             await oracle.vote(commit, [], 0, {from:voterAccounts[i]});
           } else {
@@ -344,6 +348,7 @@ contract("Oracle", accounts => {
         }
         await waitForNRounds(1)
       }
+      //TODO(tariq) low priority. check that the price is what we expect for the other symbols as well
       let roundData = await oracle.latestRoundData("NTN-GBP");
       //console.log("Price data received for round latest:"+ roundData[0] +
           //" price:"+roundData[1]+ " timestamp: "+roundData[2] + " status:"+roundData[3]);
@@ -391,6 +396,8 @@ contract("Oracle", accounts => {
           const voter = round.voters[i];
 
           let commit = web3.utils.soliditySha3(...voter.pricesWithCommit);
+          //TODO(tariq) low priority. check that invalid vote correctly trigger the update of the `reports` structure
+          //  reports[symbols[i]][msg.sender] = INVALID_PRICE;
           if (rId == 1) {
               commit = 243432; // wrong commit values for all voters
               await oracle.vote(commit, [], 0, {from:voterAccounts[i]});
