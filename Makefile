@@ -177,7 +177,7 @@ start-autonity:
 # start a ganache network for fast contract tests
 start-ganache:
 	@echo "starting ganache"
-	@nohup ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
+	@nohup npx ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
 	@sleep 2
 	@pgrep -f ganache
 	@lsof -i :8545 | grep node
