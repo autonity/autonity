@@ -1242,32 +1242,59 @@ contract('Autonity', function (accounts) {
           totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV3).add(commissionIncomeV3)
           
           // check delegators unclaimed reward
-          // TODO(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are some times 1 wei lower than what we expect.
-          // I suspect it is due to some rounding done in Liquid.sol, to be investigated and dealt with in a better way
+          const fee_factor_unit_recip = toBN(1000000000)
+
           let val0Liquid = await liquidContract.at(val0.liquidContract)
           let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards(alice)
+          // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
           assert.equal(unclaimedRewardsV0.toString(),delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV0)
+          // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
+          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV0).add(toBN(1)) 
+          
+          // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
+          let supplyV0 = toBN(await val0Liquid.totalSupply())
+          let _rewardV0 = delegatorRewardV0.sub(commissionIncomeV0)
+          let _unclaimedRewardsV0 = _rewardV0.mul(fee_factor_unit_recip).div(supplyV0).mul(toBN(120)).div(fee_factor_unit_recip)
+          assert.equal(unclaimedRewardsV0.toString(),_unclaimedRewardsV0.toString())
           
           let val1Liquid = await liquidContract.at(val1.liquidContract)
           let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards(bob)
+          // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
           assert.equal(unclaimedRewardsV1.toString(),delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV1)
+          // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
+          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV1).add(toBN(1))
+          
+          // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
+          let supplyV1 = toBN(await val1Liquid.totalSupply())
+          let _rewardV1 = delegatorRewardV1.sub(commissionIncomeV1)
+          let _unclaimedRewardsV1 = _rewardV1.mul(fee_factor_unit_recip).div(supplyV1).mul(toBN(150)).div(fee_factor_unit_recip)
+          assert.equal(unclaimedRewardsV1.toString(),_unclaimedRewardsV1.toString())
 
           let val2Liquid = await liquidContract.at(val2.liquidContract)
           let unclaimedRewardsV2 = await val2Liquid.unclaimedRewards(alice)
           assert.equal(unclaimedRewardsV2.toString(),delegatorRewardV2.sub(commissionIncomeV2).toString())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV2)
           
+          // mirror computation in liquid.sol
+          let supplyV2 = toBN(await val2Liquid.totalSupply())
+          let _rewardV2 = delegatorRewardV2.sub(commissionIncomeV2)
+          let _unclaimedRewardsV2 = _rewardV2.mul(fee_factor_unit_recip).div(supplyV2).mul(toBN(80)).div(fee_factor_unit_recip)
+          assert.equal(unclaimedRewardsV2.toString(),_unclaimedRewardsV2.toString())
+          
           let val3Liquid = await liquidContract.at(val3.liquidContract)
           let unclaimedRewardsV3 = await val3Liquid.unclaimedRewards(bob)
           assert.equal(unclaimedRewardsV3.toString(),delegatorRewardV3.sub(commissionIncomeV3).toString())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV3)
+          
+          // mirror computation in liquid.sol
+          let supplyV3 = toBN(await val3Liquid.totalSupply())
+          let _rewardV3 = delegatorRewardV3.sub(commissionIncomeV3)
+          let _unclaimedRewardsV3 = _rewardV3.mul(fee_factor_unit_recip).div(supplyV3).mul(toBN(50)).div(fee_factor_unit_recip)
+          assert.equal(unclaimedRewardsV3.toString(),_unclaimedRewardsV3.toString())
 
           // Autonity contract should have left only dust ATN
           let leftFund = toBN(await web3.eth.getBalance(token.address));
-          // TODO(lorenzo) sub(toBN(2)) added for the same reason as before
-          assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).sub(toBN(2)).toString())
+          assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).toString())
     });
   });
 });
