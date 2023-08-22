@@ -7,18 +7,24 @@ import (
 )
 
 type Committee interface {
-	// Return the underlying types.Committee
+	// Committee Return the underlying types.Committee
 	Committee() types.Committee
-	// Get validator by index
+
+	// GetByIndex Get validator by index
 	GetByIndex(i int) (types.CommitteeMember, error)
-	// Get validator by given address
+
+	// GetByAddress Get validator by given address
 	GetByAddress(addr common.Address) (int, types.CommitteeMember, error)
-	// Get the round proposer
+
+	// GetProposer Get the round proposer
 	GetProposer(round int64) types.CommitteeMember
-	// Update with lastest block
-	SetLastBlock(block *types.Block)
-	// Get the optimal quorum size
+
+	// SetLastHeader Update with lastest block header
+	SetLastHeader(block *types.Header)
+
+	// Quorum Get the optimal quorum size
 	Quorum() *big.Int
-	// Get the maximum number of faulty nodes
+
+	// F Get the maximum number of faulty nodes
 	F() *big.Int
 }

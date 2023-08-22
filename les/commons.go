@@ -96,7 +96,7 @@ func (c *lesCommons) nodeInfo() interface{} {
 	head := c.chainReader.CurrentHeader()
 	hash := head.Hash()
 	return &NodeInfo{
-		Network:    c.config.NetworkId,
+		Network:    c.config.NetworkID,
 		Difficulty: rawdb.ReadTd(c.chainDb, hash, head.Number.Uint64()),
 		Genesis:    c.genesis,
 		Config:     c.chainConfig,

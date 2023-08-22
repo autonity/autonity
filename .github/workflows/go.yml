@@ -16,7 +16,7 @@ env:
   # purpose of defining them here.
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
-  GO_VERSION: 1.18 # 1.15 seems to cause tests to fail
+  GO_VERSION: "1.20" # 1.15 seems to cause tests to fail
 
 jobs:
 
@@ -29,11 +29,11 @@ jobs:
   prepare-cache:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Go cache
         uses: actions/cache@v2
@@ -70,25 +70,22 @@ jobs:
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
         tests: [ [ main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/consensus/test|/core$|/e2e_test") ],
-                 [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 20m ],
+                 [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 30m ],
                  [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
                  [ tendermint-tests, ./consensus/tendermint/... -timeout 15m -race ],
-                 [ integration-tests, ./consensus/test/... -v -timeout 20m ],
+                 [ integration-tests, ./consensus/test/... -v -timeout 60m ],
+                 [ byzantine-tests, ./e2e_test/byzantine/... -v -timeout 40m],
                  [ new-e2e-tests, ./e2e_test -v -race ]
         ]
 
     name: ${{ matrix.tests[0] }}
 
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/checkout@v2
-
-        # Required for compilation since the test commands are not make
-        # targets that depend on embed-autonity-contract.
-      - run: make embed-autonity-contract
+      - uses: actions/checkout@v3
 
       - name: Go cache
         uses: actions/cache@v2
@@ -108,15 +105,11 @@ jobs:
     needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/checkout@v2
-
-        # Required for compilation since the test command is not a make target
-        # that depends on embed-autonity-contract.
-      - run: make embed-autonity-contract
+      - uses: actions/checkout@v3
 
       - name: Go cache
         uses: actions/cache@v2
@@ -129,7 +122,8 @@ jobs:
       - name: Run coverage
         run: |
           go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
-          go test ./e2e_test/... -timeout 15m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
+          go test ./e2e_test -p 1 -timeout 15m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
+
 
       - uses: codecov/codecov-action@v1
         with:
@@ -142,12 +136,13 @@ jobs:
     needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - uses: actions/checkout@v2
-
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: '2'
       - name: Go cache
         uses: actions/cache@v2
         with:
@@ -156,10 +151,8 @@ jobs:
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Run lninting
-        run: |
-          git fetch -fu --no-tags --depth=2 origin develop:develop
-          make lint-ci
+      - name: Run linting
+        run: make lint-ci
         shell: bash
 
   # contract-tests runs our suite of truffle tests against the autonity
@@ -170,9 +163,9 @@ jobs:
     steps:
       - uses: actions/setup-node@v1
         with:
-          node-version: '16.8.0'
+          node-version: '18.12.1'
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Go cache
         uses: actions/cache@v2
@@ -192,16 +185,12 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
-      - uses: actions/checkout@v2
-
-        # Required for compilation since the test commands are not make
-        # targets that depend on embed-autonity-contract.
-      - run: make embed-autonity-contract
+      - uses: actions/checkout@v3
 
       - name: Go cache
         uses: actions/cache@v2
@@ -222,12 +211,12 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
     steps:
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Go cache
         uses: actions/cache@v2

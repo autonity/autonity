@@ -23,6 +23,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/autonity/autonity/log"
 	"io/ioutil"
 	"net"
 	"os"
@@ -510,7 +511,7 @@ func (t *handshakeTest) close() {
 
 func (n *handshakeTestNode) init(key *ecdsa.PrivateKey, ip net.IP, clock mclock.Clock) {
 	db, _ := enode.OpenDB("")
-	n.ln = enode.NewLocalNode(db, key)
+	n.ln = enode.NewLocalNode(db, key, log.Root())
 	n.ln.SetStaticIP(ip)
 	n.c = NewCodec(n.ln, key, clock)
 }

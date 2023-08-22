@@ -20,6 +20,7 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"io"
 	"io/ioutil"
 	"math"
@@ -152,7 +153,7 @@ var (
 	NetworkIdFlag = cli.Uint64Flag{
 		Name:  "networkid",
 		Usage: "Explicitly set network id (integer)(For testnets: use --piccadilly instead)",
-		Value: ethconfig.Defaults.NetworkId,
+		Value: ethconfig.Defaults.NetworkID,
 	}
 	IdentityFlag = cli.StringFlag{
 		Name:  "identity",
@@ -618,6 +619,14 @@ var (
 	NodeKeyHexFlag = cli.StringFlag{
 		Name:  "nodekeyhex",
 		Usage: "P2P node key as hex (for testing)",
+	}
+	OracleKeyFileFlag = cli.StringFlag{
+		Name:  "oraclekey",
+		Usage: "oracle account key file",
+	}
+	OracleKeyHexFlag = cli.StringFlag{
+		Name:  "oraclekeyhex",
+		Usage: "oracle account key as hex (for testing)",
 	}
 	WriteAddrFlag = cli.BoolFlag{
 		Name:  "writeaddress",
@@ -1423,7 +1432,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
 	}
 	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
-		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
+		cfg.NetworkID = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
@@ -1510,20 +1519,20 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Override any default configs for hard coded networks.
 	if ctx.GlobalBool(PiccadillyFlag.Name) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 65_100_000
+			cfg.NetworkID = 65_100_000
 		}
 		cfg.Genesis = core.DefaultPiccadillyGenesisBlock()
 	}
 	if ctx.GlobalBool(BakerlooFlag.Name) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 65_010_000
+			cfg.NetworkID = 65_010_000
 		}
 		cfg.Genesis = core.DefaultBakerlooGenesisBlock()
 	}
 
 	if ctx.Bool(DeveloperFlag.Name) {
 		if !ctx.IsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 65111111
+			cfg.NetworkID = 65111111
 		}
 		cfg.SyncMode = downloader.FullSync
 		// Create new developer account or reuse existing one
@@ -1585,7 +1594,7 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 		stack.RegisterAPIs(tracers.APIs(backend.ApiBackend))
 		return backend.ApiBackend, nil
 	}
-	backend, err := eth.New(stack, cfg, nil)
+	backend, err := eth.New(stack, cfg)
 	if err != nil {
 		Fatalf("Failed to register the Autonity service: %v", err)
 	}
@@ -1776,7 +1785,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 
 	// TODO(rjl493456442) disable snapshot generation/wiping if the chain is read only.
 	// Disable transaction indexing/unindexing by default.
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, &core.TxSenderCacher{}, nil)
+	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}

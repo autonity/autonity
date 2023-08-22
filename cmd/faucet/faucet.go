@@ -249,7 +249,7 @@ func newFaucet(genesis *core.Genesis, port int, enodes []*enode.Node, network ui
 	// Assemble the Ethereum light client protocol
 	cfg := ethconfig.Defaults
 	cfg.SyncMode = downloader.LightSync
-	cfg.NetworkId = network
+	cfg.NetworkID = network
 	cfg.Genesis = genesis
 
 	block, err := genesis.ToBlock(nil)

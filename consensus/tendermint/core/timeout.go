@@ -2,26 +2,30 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
-	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 	"time"
+
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/types"
 )
 
-/////////////// On Timeout Functions ///////////////
-func (c *Core) measureMetricsOnTimeOut(step uint64, r int64) {
+// ///////////// On Timeout Functions ///////////////
+func (c *Core) measureMetricsOnTimeOut(step uint8, r int64) {
 	switch step {
-	case messageutils.MsgProposal:
+	case consensus.MsgProposal:
 		duration := c.timeoutPropose(r)
-		types.TendermintProposeTimer.Update(duration)
+		types.ProposeTimer.Update(duration)
+		types.ProposeBg.Add(duration.Nanoseconds())
 		return
-	case messageutils.MsgPrevote:
+	case consensus.MsgPrevote:
 		duration := c.timeoutPrevote(r)
-		types.TendermintPrevoteTimer.Update(duration)
+		types.PrevoteTimer.Update(duration)
+		types.PrevoteBg.Add(duration.Nanoseconds())
 		return
-	case messageutils.MsgPrecommit:
+	case consensus.MsgPrecommit:
 		duration := c.timeoutPrecommit(r)
-		types.TendermintPrecommitTimer.Update(duration)
+		types.PrecommitTimer.Update(duration)
+		types.PrecommitBg.Add(duration.Nanoseconds())
 		return
 	}
 }
@@ -30,7 +34,7 @@ func (c *Core) onTimeoutPropose(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             messageutils.MsgProposal,
+		Step:             consensus.MsgProposal,
 	}
 	// It's unsafe to call logTimeoutEvent here !
 	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
@@ -42,7 +46,7 @@ func (c *Core) onTimeoutPrevote(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             messageutils.MsgPrevote,
+		Step:             consensus.MsgPrevote,
 	}
 	c.logger.Debug("TimeoutEvent(Prevote): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.Step, r)
@@ -53,14 +57,14 @@ func (c *Core) onTimeoutPrecommit(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             messageutils.MsgPrecommit,
+		Step:             consensus.MsgPrecommit,
 	}
 	c.logger.Debug("TimeoutEvent(Precommit): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.Step, r)
 	c.SendEvent(msg)
 }
 
-/////////////// Handle Timeout Functions ///////////////
+// ///////////// Handle Timeout Functions ///////////////
 func (c *Core) handleTimeoutPropose(ctx context.Context, msg types.TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == types.Propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
@@ -78,14 +82,13 @@ func (c *Core) handleTimeoutPrevote(ctx context.Context, msg types.TimeoutEvent)
 }
 
 func (c *Core) handleTimeoutPrecommit(ctx context.Context, msg types.TimeoutEvent) {
-
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
 		c.StartRound(ctx, c.Round()+1)
 	}
 }
 
-/////////////// Calculate Timeout Duration Functions ///////////////
+// ///////////// Calculate Timeout Duration Functions ///////////////
 // The Timeout may need to be changed depending on the Step
 func (c *Core) timeoutPropose(round int64) time.Duration {
 	return types.InitialProposeTimeout + time.Duration(c.blockPeriod)*time.Second + time.Duration(round)*types.ProposeTimeoutDelta
@@ -100,7 +103,6 @@ func (c *Core) timeoutPrecommit(round int64) time.Duration {
 }
 
 func (c *Core) logTimeoutEvent(message string, msgType string, timeout types.TimeoutEvent) {
-
 	c.logger.Debug(message,
 		"from", c.address.String(),
 		"type", msgType,

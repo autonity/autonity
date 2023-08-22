@@ -6,11 +6,15 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/consensus/misc"
+	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
+	"go.uber.org/mock/gomock"
 	"math"
 	"math/big"
 	"os"
@@ -20,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
@@ -46,8 +49,8 @@ func TestAskSync(t *testing.T) {
 	counter := uint64(0)
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(uint64(tendermintSyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer := ethereum.NewMockPeer(ctrl)
+		mockedPeer.EXPECT().Send(uint64(SyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -92,14 +95,14 @@ func TestGossip(t *testing.T) {
 	counter := uint64(0)
 	for i, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := consensus.NewMockPeer(ctrl)
+		mockedPeer := ethereum.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
 			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Times(0)
 		} else {
 			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == uint64(tendermintMsg) && reflect.DeepEqual(data, payload) {
+				if msgCode == uint64(TendermintMsg) && reflect.DeepEqual(data, payload) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
@@ -170,7 +173,7 @@ func TestVerifyProposal(t *testing.T) {
 
 		// We need to sleep to avoid verifying a block in the future
 		time.Sleep(time.Duration(1) * time.Second)
-		if _, err := backend.VerifyProposal(*block); err != nil {
+		if _, err := backend.VerifyProposal(block); err != nil {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
 		// VerifyProposal dont need committed seals
@@ -271,7 +274,7 @@ func TestCheckSignature(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	t.Run("broadcaster is not set", func(t *testing.T) {
+	t.Run("Broadcaster is not set", func(t *testing.T) {
 		_, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
@@ -337,7 +340,7 @@ func TestCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("broadcaster is set", func(t *testing.T) {
+	t.Run("Broadcaster is set", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -358,7 +361,7 @@ func TestCommit(t *testing.T) {
 		broadcaster.EXPECT().Enqueue(fetcherID, gomock.Any())
 
 		b := &Backend{
-			broadcaster: broadcaster,
+			Broadcaster: broadcaster,
 			logger:      log.New("backend", "test", "id", 0),
 		}
 		b.SetBroadcaster(broadcaster)
@@ -371,7 +374,7 @@ func TestCommit(t *testing.T) {
 }
 
 func TestSyncPeer(t *testing.T) {
-	t.Run("no broadcaster set, nothing done", func(t *testing.T) {
+	t.Run("no Broadcaster set, nothing done", func(t *testing.T) {
 		b := &Backend{}
 		b.SyncPeer(common.HexToAddress("0x0123456789"))
 	})
@@ -381,7 +384,7 @@ func TestSyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []*messageutils.Message{
+		messages := []*message.Message{
 			{
 				Address: peerAddr1,
 			},
@@ -390,10 +393,10 @@ func TestSyncPeer(t *testing.T) {
 		peersAddrMap := make(map[common.Address]struct{})
 		peersAddrMap[peerAddr1] = struct{}{}
 
-		payload := messages[0].GetPayload()
+		payload := messages[0].GetBytes()
 
-		peer1Mock := consensus.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().Send(uint64(tendermintMsg), payload)
+		peer1Mock := ethereum.NewMockPeer(ctrl)
+		peer1Mock.EXPECT().Send(uint64(TendermintMsg), payload)
 
 		peers := make(map[common.Address]ethereum.Peer)
 		peers[peerAddr1] = peer1Mock
@@ -407,7 +410,7 @@ func TestSyncPeer(t *testing.T) {
 		}
 
 		tendermintC := interfaces.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().GetCurrentHeightMessages().Return(messages)
+		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
 
 		b := &Backend{
 			logger:         log.New("backend", "test", "id", 0),
@@ -434,7 +437,7 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 			logger: log.New("backend", "test", "id", 0),
 		}
 
-		bl, _ := b.LastCommittedProposal()
+		bl, _ := b.HeadBlock()
 		if !reflect.DeepEqual(bl, block) {
 			t.Fatalf("expected %v, got %v", block, bl)
 		}
@@ -452,7 +455,7 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 			logger: log.New("backend", "test", "id", 0),
 		}
 
-		bl, _ := b.LastCommittedProposal()
+		bl, _ := b.HeadBlock()
 		if !reflect.DeepEqual(bl, &types.Block{}) {
 			t.Fatalf("expected empty block, got %v", bl)
 		}
@@ -533,12 +536,13 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys := getGenesisAndKeys(n)
 
 	memDB := rawdb.NewMemoryDatabase()
+	msgStore := new(tdmcore.MsgStore)
 	// Use the first key as private key
-	b := New(nodeKeys[0], &vm.Config{}, nil)
+	b := New(nodeKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root())
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil)
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		panic(err)
 	}
@@ -589,6 +593,10 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 		genesis.Config.AutonityContractConfig = &params.AutonityContractGenesis{}
 	}
 
+	if genesis.Config.OracleContractConfig == nil {
+		genesis.Config.OracleContractConfig = &params.OracleContractGenesis{}
+	}
+
 	for i := range keys {
 		addr := crypto.PubkeyToAddress(keys[i].PublicKey)
 		node := enode.NewV4(&keys[i].PublicKey, nil, 0, 0)
@@ -596,7 +604,7 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 
 			genesis.Config.AutonityContractConfig.Validators,
 			&params.Validator{
-				Address:     &addr,
+				NodeAddress: &addr,
 				Treasury:    addr,
 				Enode:       node.URLv4(),
 				BondedStake: new(big.Int).SetUint64(100),

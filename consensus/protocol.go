@@ -23,6 +23,24 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
+// Place consensus message codes in protocol to break dependency circle in between tendermint and fault detectors.
+// Todo(youssef): consider putting them in the message package.
+const (
+	MsgProposal uint8 = iota
+	MsgPrevote
+	MsgPrecommit
+	// MsgLightProposal is only used by accountability that it converts full proposal to a lite one
+	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
+	MsgLightProposal
+)
+
+// setting for Autonity accountability protocol, they are a part of consensus.
+const (
+	ReportingSlotPeriod       = 20  // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
+	DeltaBlocks               = 10  // Wait until the GST + delta blocks to start accounting.
+	AccountabilityHeightRange = 256 // Default msg buffer range for AFD.
+)
+
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer
 type Broadcaster interface {
 	// Enqueue add a block into fetcher queue

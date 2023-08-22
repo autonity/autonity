@@ -19,6 +19,7 @@ package downloader
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/core"
 	"math/big"
 	"strings"
 	"sync"
@@ -87,7 +88,7 @@ func newTester() *downloadTester {
 		ancientChainTd:  map[common.Hash]*big.Int{testGenesis.Hash(): testGenesis.Difficulty()},
 	}
 	tester.stateDb = rawdb.NewMemoryDatabase()
-	tester.stateDb.Put(testGenesis.Root().Bytes(), []byte{0x00})
+	core.GenesisBlockForTesting(tester.stateDb, testAddress, big.NewInt(1000000000000000))
 
 	tester.downloader = New(0, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer)
 	return tester
@@ -528,7 +529,6 @@ func TestCanonicalSynchronisation66Light(t *testing.T) { testCanonSync(t, eth.ET
 
 func testCanonSync(t *testing.T, protocol uint, mode SyncMode) {
 	t.Parallel()
-
 	tester := newTester()
 	defer tester.terminate()
 

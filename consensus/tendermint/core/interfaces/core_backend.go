@@ -4,10 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	ethcore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
 )
 
 // Backend provides application specific functions for Istanbul Core
@@ -25,7 +27,8 @@ type Backend interface {
 	// The delivered proposal will be put into blockchain.
 	Commit(proposalBlock *types.Block, round int64, seals [][]byte) error
 
-	GetContractABI() string
+	// GetContractABI returns the Autonity Contract ABI
+	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(ctx context.Context, committee types.Committee, payload []byte)
@@ -34,10 +37,10 @@ type Backend interface {
 
 	HandleUnhandledMsgs(ctx context.Context)
 
-	// LastCommittedProposal retrieves latest committed proposal and the address of proposer
-	LastCommittedProposal() (*types.Block, common.Address)
+	// HeadBlock retrieves latest committed proposal and the address of proposer
+	HeadBlock() (*types.Block, common.Address)
 
-	Post(ev interface{})
+	Post(ev any)
 
 	// Setter for proposed block hash
 	SetProposedBlockHash(hash common.Hash)
@@ -45,14 +48,15 @@ type Backend interface {
 	// Sign signs input data with the backend's private key
 	Sign([]byte) ([]byte, error)
 
-	Subscribe(types ...interface{}) *event.TypeMuxSubscription
+	Subscribe(types ...any) *event.TypeMuxSubscription
 
 	SyncPeer(address common.Address)
 
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
-	VerifyProposal(types.Block) (time.Duration, error)
+	VerifyProposal(*types.Block) (time.Duration, error)
 
+	// Returns the main blockchain object.
 	BlockChain() *ethcore.BlockChain
 
 	//Used to set the blockchain on this
@@ -61,4 +65,10 @@ type Backend interface {
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
 	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
 	RemoveMessageFromLocalCache(payload []byte)
+
+	// Logger returns the object used for logging purposes.
+	Logger() log.Logger
+
+	// IsJailed returns true if the address belongs to the jailed validator list.
+	IsJailed(address common.Address) bool
 }

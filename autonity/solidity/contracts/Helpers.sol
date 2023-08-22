@@ -29,22 +29,22 @@ library Helpers {
     }
 
     /**
-    * @dev Splits a `bytes` signature into v, r, s values
+    * @dev extract v, r, s value from a `bytes` signature array given the starting index of signature
+    * @param _multisig is the bytes array which can have one or more than one signature
+    * @param _startIndex is the starting index of the signature in the byte array
      */
-    function splitProof(bytes memory proof) internal pure returns (bytes32 r, bytes32 s, uint8 v){
-        require(proof.length == 65, "invalid proof");
-
+    function extractRSV(bytes memory _multisig, uint _startIndex) internal pure returns (bytes32 r, bytes32 s, uint8 v){
         assembly {
         // signature format is packed
         // [bytes32 r] [bytes32 s] [uint8 v]
         // extract first 32 bytes
-            r := mload(add(proof, 32))
+            r := mload(add(_multisig, _startIndex))
         // extract second 32 bytes
-            s := mload(add(proof, 64))
+            s := mload(add(_multisig, add(_startIndex, 32)))
         // last 32 bytes,
         // we need the uint8 format and there is no uint8 mload or mload8
         // extract the byte here
-            v := byte(0, mload(add(proof, 96)))
+            v := byte(0, mload(add(_multisig, add(_startIndex, 64))))
         }
 
         // Value for the v could possibly be [0,1,27,28] and solidity ecrecover assumes it to be 27 or 28

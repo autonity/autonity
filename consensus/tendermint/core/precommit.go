@@ -3,24 +3,26 @@ package core
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/rlp"
 )
 
-type PrecommitService struct {
+type Precommiter struct {
 	*Core
 }
 
-func (c *PrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
+func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
-	var precommit = messageutils.Vote{
+	var precommit = &message.Vote{
 		Round:  c.Round(),
 		Height: c.Height(),
 	}
@@ -35,7 +37,7 @@ func (c *PrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 		precommit.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
 	}
 
-	encodedVote, err := messageutils.Encode(&precommit)
+	encodedVote, err := rlp.EncodeToBytes(&precommit)
 	if err != nil {
 		logger.Error("Failed to encode", "subject", precommit)
 		return
@@ -43,9 +45,9 @@ func (c *PrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
-	msg := &messageutils.Message{
-		Code:          messageutils.MsgPrecommit,
-		Msg:           encodedVote,
+	msg := &message.Message{
+		Code:          consensus.MsgPrecommit,
+		Payload:       encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},
 	}
@@ -58,31 +60,25 @@ func (c *PrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	c.sentPrecommit = true
-	c.Br().Broadcast(ctx, msg)
+	c.Br().SignAndBroadcast(ctx, msg)
 }
 
-func (c *PrecommitService) HandlePrecommit(ctx context.Context, msg *messageutils.Message) error {
-	var preCommit messageutils.Vote
-	err := msg.Decode(&preCommit)
-	if err != nil {
-		return constants.ErrFailedDecodePrecommit
-	}
+func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
+	preCommit := msg.ConsensusMsg.(*message.Vote)
 	precommitHash := preCommit.ProposedBlockHash
-
-	if err := c.CheckMessage(preCommit.Round, preCommit.Height, tctypes.Precommit); err != nil {
-
+	if err := c.CheckMessage(preCommit.Round, preCommit.Height.Uint64(), tctypes.Precommit); err != nil {
 		if err == constants.ErrOldRoundMessage {
 			roundMsgs := c.messages.GetOrCreate(preCommit.Round)
-			if error := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); error != nil {
-				return error
+			if err2 := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err2 != nil {
+				return err2
 			}
 			c.AcceptVote(roundMsgs, tctypes.Precommit, precommitHash, *msg)
 			oldRoundProposalHash := roundMsgs.GetProposalHash()
 			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
 				if !roundMsgs.IsProposalVerified() {
-					if _, error := c.backend.VerifyProposal(*roundMsgs.Proposal().ProposalBlock); error != nil {
-						return error
+					if _, err2 := c.backend.VerifyProposal(roundMsgs.Proposal().ProposalBlock); err2 != nil {
+						return err2
 					}
 				}
 				c.Commit(preCommit.Round, c.curRoundMessages)
@@ -126,7 +122,7 @@ func (c *PrecommitService) HandlePrecommit(ctx context.Context, msg *messageutil
 	return nil
 }
 
-func (c *PrecommitService) VerifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
+func (c *Precommiter) VerifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
 	committedSeal := helpers.PrepareCommittedSeal(proposedBlockHash, round, height)
 
 	sealerAddress, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
@@ -145,19 +141,19 @@ func (c *PrecommitService) VerifyCommittedSeal(addressMsg common.Address, commit
 	return nil
 }
 
-func (c *PrecommitService) HandleCommit(ctx context.Context) {
+func (c *Precommiter) HandleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.step)
-	lastBlock, _ := c.backend.LastCommittedProposal()
+	lastBlock, _ := c.backend.HeadBlock()
 	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 	if height.Cmp(c.Height()) == 0 {
-		c.logger.Debug("discarding event as Core is at the same height", "height", c.Height())
+		c.logger.Debug("Discarding event as Core is at the same height", "height", c.Height())
 	} else {
-		c.logger.Debug("new chain head ahead of consensus Core height", "height", c.Height(), "block_height", height)
+		c.logger.Debug("New chain head ahead of consensus Core height", "height", c.Height(), "block_height", height)
 		c.StartRound(ctx, 0)
 	}
 }
 
-func (c *PrecommitService) LogPrecommitMessageEvent(message string, precommit messageutils.Vote, from, to string) {
+func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Vote, from, to string) {
 	currentProposalHash := c.curRoundMessages.GetProposalHash()
 	c.logger.Debug(message,
 		"from", from,

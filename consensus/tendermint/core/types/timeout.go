@@ -1,11 +1,12 @@
 package types
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/log"
 )
 
 const (
@@ -21,7 +22,7 @@ type TimeoutEvent struct {
 	RoundWhenCalled  int64
 	HeightWhenCalled *big.Int
 	// message type: MsgProposal MsgPrevote	MsgPrecommit
-	Step uint64
+	Step uint8
 }
 
 type Timeout struct {
@@ -80,20 +81,24 @@ func (t *Timeout) StopTimer() error {
 }
 
 func (t *Timeout) MeasureMetricsOnStopTimer() {
+	now := time.Now()
 	switch t.Step {
 	case Propose:
-		TendermintProposeTimer.UpdateSince(t.Start)
+		ProposeTimer.Update(now.Sub(t.Start))
+		ProposeBg.Add(now.Sub(t.Start).Nanoseconds())
 	case Prevote:
-		TendermintPrevoteTimer.UpdateSince(t.Start)
+		PrevoteTimer.UpdateSince(t.Start)
+		PrevoteBg.Add(now.Sub(t.Start).Nanoseconds())
 	case Precommit:
-		TendermintPrecommitTimer.UpdateSince(t.Start)
+		PrecommitTimer.UpdateSince(t.Start)
+		PrecommitBg.Add(now.Sub(t.Start).Nanoseconds())
 	}
 }
 
 func (t *Timeout) Reset(s Step) {
 	err := t.StopTimer()
 	if err != nil {
-		t.Logger.Info("cant stop timer", "err", err)
+		t.Logger.Debug("Can't stop consensus timer", "err", err)
 	}
 
 	t.Lock()

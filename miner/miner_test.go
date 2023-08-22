@@ -18,7 +18,8 @@
 package miner
 
 import (
-	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/log"
 	"math/big"
 	"testing"
 	"time"
@@ -40,6 +41,10 @@ import (
 type mockBackend struct {
 	bc     *core.BlockChain
 	txPool *core.TxPool
+}
+
+func (m *mockBackend) Logger() log.Logger {
+	return log.Root()
 }
 
 func NewMockBackend(bc *core.BlockChain, txPool *core.TxPool) *mockBackend {
@@ -66,12 +71,8 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) GetMinBaseFee(header *types.Header) (*big.Int, error) {
+func (bc *testBlockChain) MinBaseFee(_ *types.Header) (*big.Int, error) {
 	return new(big.Int), nil
-}
-
-func (bc *testBlockChain) GetAutonityContract() *autonity.Contract {
-	return nil
 }
 
 func (bc *testBlockChain) Config() *params.ChainConfig {
@@ -250,7 +251,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create Ethereum backend
 	limit := uint64(1000)
 	senderCacher := new(core.TxSenderCacher)
-	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), chainConfig, engine, vm.Config{}, isLocalBlock, senderCacher, &limit)
+	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), chainConfig, engine, vm.Config{}, isLocalBlock, senderCacher, &limit, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}

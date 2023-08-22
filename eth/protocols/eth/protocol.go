@@ -43,10 +43,12 @@ var ProtocolVersions = []uint{ETH66}
 
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-var protocolLengths = map[uint]uint64{ETH66: 19}
+// var protocolLengths = map[uint]uint64{ETH66: 19}
+// as off chain accountability introduced a new protocol msg, we have to increase this number to 20.
+var protocolLengths = map[uint]uint64{ETH66: 20}
 
-// maxMessageSize is the maximum cap on the size of a protocol message.
-const maxMessageSize = 10 * 1024 * 1024
+// MaxMessageSize is the maximum cap on the size of a protocol message.
+const MaxMessageSize = 10 * 1024 * 1024
 
 const (
 	StatusMsg                     = 0x00
@@ -57,13 +59,18 @@ const (
 	GetBlockBodiesMsg             = 0x05
 	BlockBodiesMsg                = 0x06
 	NewBlockMsg                   = 0x07
-	GetNodeDataMsg                = 0x0d
-	NodeDataMsg                   = 0x0e
-	GetReceiptsMsg                = 0x0f
-	ReceiptsMsg                   = 0x10
 	NewPooledTransactionHashesMsg = 0x08
 	GetPooledTransactionsMsg      = 0x09
 	PooledTransactionsMsg         = 0x0a
+	// 0x0b ?
+	// 0x0c ?
+	GetNodeDataMsg = 0x0d
+	NodeDataMsg    = 0x0e
+	GetReceiptsMsg = 0x0f
+	ReceiptsMsg    = 0x10
+	// 0x11 reserved for tendermintMsg
+	// 0x12 reserved for tendermintSyncMsg
+	// 0x13 reserved for TendermintOffChainAccountabilityMsg
 )
 
 var (

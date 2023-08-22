@@ -150,6 +150,18 @@ func (r *reporter) send() error {
 				},
 				Time: now,
 			})
+		case metrics.BufferedGauge:
+			ms := metric.SnapshotAndClear()
+			for _, v := range ms.Values() {
+				pts = append(pts, client.Point{
+					Measurement: fmt.Sprintf("%s%s.bufferedgauge", namespace, name),
+					Tags:        r.tags,
+					Fields: map[string]interface{}{
+						"value": v.Value(),
+					},
+					Time: v.Timestamp(),
+				})
+			}
 		case metrics.GaugeFloat64:
 			ms := metric.Snapshot()
 			pts = append(pts, client.Point{

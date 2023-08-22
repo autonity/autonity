@@ -2,6 +2,7 @@ ignore:
   - "**/*_mock.go"  # ignore mock files
   - "**/*_gen.go"  # ignore generated client
   - "**/mock*.go"
+  - "**/*_simulator.go" # ignore fault_simulator.go for accountability integration test.
   - "**/*.^go"
 coverage:
   precision: 2

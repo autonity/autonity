@@ -27,7 +27,6 @@ var (
 		"aut_totalSupply",
 		"aut_getMaxCommitteeSize",
 		"aut_getMinimumBaseFee",
-		"aut_getProposer",
 	}
 )
 
@@ -55,10 +54,6 @@ func TestDynamicRpcs(t *testing.T) {
 					body.Params = []string{validatorAddress}
 				case "aut_getUser":
 					body.Params = []string{validatorAddress}
-				case "aut_getProposer":
-					height := 1
-					round := 0
-					body.Params = []int{height, round}
 				}
 				payload, err := json.Marshal(body)
 				require.NoError(t, err)

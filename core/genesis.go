@@ -22,7 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/accounts/abi"
+	"math/big"
+	"net"
+	"sort"
+	"strings"
+	"time"
+
 	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -38,12 +43,6 @@ import (
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
-	"math/big"
-	"net"
-	"sort"
-	"strings"
-	"sync"
-	"time"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -70,7 +69,6 @@ type Genesis struct {
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 
-	mu      sync.RWMutex
 	BaseFee *big.Int `json:"baseFeePerGas"`
 }
 
@@ -89,11 +87,25 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
+	ret := make(autonity.GenesisBonds, len(*ga))
+	for addr, alloc := range *ga {
+		ret[addr] = autonity.GenesisBond{
+			NewtonBalance: alloc.NewtonBalance,
+			Bonds:         alloc.Bonds,
+		}
+	}
+	return ret
+}
+
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
-	Code       []byte                      `json:"code,omitempty"`
-	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`
-	Balance    *big.Int                    `json:"balance" gencodec:"required"`
+	Code          []byte                      `json:"code,omitempty"`
+	Storage       map[common.Hash]common.Hash `json:"storage,omitempty"`
+	Balance       *big.Int                    `json:"balance" gencodec:"required"`
+	NewtonBalance *big.Int                    `json:"newtonBalance"`
+	// validator address to amount bond to this validator
+	Bonds      map[common.Address]*big.Int `json:"bonds"`
 	Nonce      uint64                      `json:"nonce,omitempty"`
 	PrivateKey []byte                      `json:"secretKey,omitempty"` // for tests
 }
@@ -155,10 +167,10 @@ func (e *GenesisMismatchError) Error() string {
 // SetupGenesisBlock writes or updates the genesis block in db.
 // The behavior of it is:
 //
-//                            genesis == nil         genesis != nil
-//                       +------------------------------------------
-//     db has no genesis |  Return An Error      |  apply genesis to db
-//     db has genesis    |  Use genesis from DB  |  apply genesis (if compatible)
+//	                       genesis == nil         genesis != nil
+//	                  +------------------------------------------
+//	db has no genesis |  Return An Error      |  apply genesis to db
+//	db has genesis    |  Use genesis from DB  |  apply genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
 // specify a fork block below the local head block). In case of a conflict, the
@@ -280,21 +292,20 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
-	var committee types.Committee
 	if g.Config.AutonityContractConfig == nil {
 		return nil, fmt.Errorf("autonity config section missing in genesis")
 	}
-	g.mu.Lock()
+	g.setDefaultHardforks()
+	if err := g.Config.AutonityContractConfig.Prepare(); err != nil {
+		return nil, err
+	}
 	if g.Difficulty == nil {
 		g.Difficulty = params.GenesisDifficulty
 	}
-	g.mu.Unlock()
-
 	if g.Difficulty.Cmp(big.NewInt(0)) != 0 {
 		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 0, instead got %v", g.Difficulty)
 	}
-	var err error
-	committee, err = extractCommittee(g.Config.AutonityContractConfig.GetValidators())
+	committee, err := extractCommittee(g.Config.AutonityContractConfig.Validators)
 	if err != nil {
 		return nil, err
 	}
@@ -314,24 +325,25 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		}
 	}
 
-	evm := genesisEVM(g, statedb)
+	genesisBonds := g.Alloc.ToGenesisBonds()
 
-	abi, err := abi.JSON(strings.NewReader(g.Config.AutonityContractConfig.ABI))
-	if err != nil {
-		return nil, err
+	evmProvider := func(statedb *state.StateDB) *vm.EVM {
+		return genesisEVM(g, statedb)
 	}
 
-	err = autonity.DeployContract(&abi, g.Config.AutonityContractConfig, evm)
-	if err != nil {
-		return nil, err
+	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
+
+	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
+		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
+
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       g.Timestamp,
 		ParentHash: g.ParentHash,
-		Extra:      g.GetExtraData(),
+		Extra:      g.ExtraData,
 		GasLimit:   g.GasLimit,
 		GasUsed:    g.GasUsed,
 		BaseFee:    g.BaseFee,
@@ -375,7 +387,7 @@ func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
 	}
 
 	txContext := vm.TxContext{
-		Origin:   autonity.Deployer,
+		Origin:   autonity.DeployerAddress,
 		GasPrice: new(big.Int).SetUint64(0x0),
 	}
 
@@ -402,9 +414,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		return nil, errors.New("can't commit genesis block with number > 0")
 	}
 
-	g.mu.RLock()
 	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
-	g.mu.RUnlock()
 	rawdb.WriteBlock(db, block)
 	rawdb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
 	rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
@@ -423,7 +433,7 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 	var committee types.Committee
 	for _, v := range validators {
 		member := types.CommitteeMember{
-			Address:     *v.Address,
+			Address:     *v.NodeAddress,
 			VotingPower: v.BondedStake,
 		}
 		committee = append(committee, member)
@@ -434,8 +444,47 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 	}
 
 	sort.Sort(committee)
-	log.Info("Starting DPoS-BFT consensus protocol", "validators", committee)
+	log.Info("Starting DPoS-BFT protocol", "genesis_committee", committee)
 	return committee, nil
+}
+
+func (g *Genesis) setDefaultHardforks() {
+	if g.Config.ByzantiumBlock == nil {
+		g.Config.ByzantiumBlock = new(big.Int)
+	}
+	if g.Config.HomesteadBlock == nil {
+		g.Config.HomesteadBlock = new(big.Int)
+	}
+	if g.Config.ConstantinopleBlock == nil {
+		g.Config.ConstantinopleBlock = new(big.Int)
+	}
+	if g.Config.PetersburgBlock == nil {
+		g.Config.PetersburgBlock = new(big.Int)
+	}
+	if g.Config.IstanbulBlock == nil {
+		g.Config.IstanbulBlock = new(big.Int)
+	}
+	if g.Config.MuirGlacierBlock == nil {
+		g.Config.MuirGlacierBlock = new(big.Int)
+	}
+	if g.Config.BerlinBlock == nil {
+		g.Config.BerlinBlock = new(big.Int)
+	}
+	if g.Config.LondonBlock == nil {
+		g.Config.LondonBlock = new(big.Int)
+	}
+	if g.Config.ArrowGlacierBlock == nil {
+		g.Config.ArrowGlacierBlock = new(big.Int)
+	}
+	if g.Config.EIP158Block == nil {
+		g.Config.EIP158Block = new(big.Int)
+	}
+	if g.Config.EIP150Block == nil {
+		g.Config.EIP150Block = new(big.Int)
+	}
+	if g.Config.EIP155Block == nil {
+		g.Config.EIP155Block = new(big.Int)
+	}
 }
 
 // MustCommit writes the genesis block and state to db, panicking on error.
@@ -446,20 +495,6 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 		panic(err)
 	}
 	return block
-}
-
-func (g *Genesis) GetExtraData() []byte {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	return append([]byte{}, g.ExtraData...)
-}
-
-func (g *Genesis) SetExtraData(extraData []byte) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.ExtraData = extraData
 }
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
@@ -600,6 +635,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			LondonBlock:            big.NewInt(0),
 			ArrowGlacierBlock:      big.NewInt(0),
 			AutonityContractConfig: &testAutonityContractConfig,
+			OracleContractConfig:   &params.OracleContractGenesis{},
 		},
 	}
 }

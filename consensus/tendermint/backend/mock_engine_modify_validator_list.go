@@ -24,10 +24,10 @@ type Modifier interface {
 }
 
 type marker interface {
-	markMalicious(types.Block)
+	markMalicious(*types.Block)
 }
 
-func (m *ModifyCommitteeEngine) VerifyProposal(block types.Block) (time.Duration, error) {
+func (m *ModifyCommitteeEngine) VerifyProposal(block *types.Block) (time.Duration, error) {
 	if block.Number().Uint64() < 2 {
 		// skip genesis and the first block
 		return m.Backend.VerifyProposal(block)
@@ -63,7 +63,7 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 		return block, nil
 	}
 
-	lastMinedBlock, _ := m.Backend.LastCommittedProposal()
+	lastMinedBlock, _ := m.Backend.HeadBlock()
 	if lastMinedBlock.Number().Cmp(header.Number) != 0 {
 		return block, nil
 	}
@@ -79,7 +79,7 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	}
 
 	// we want be sure that the block is modified but not broken
-	switch _, err = m.Backend.VerifyProposal(*newBlock); err {
+	switch _, err = m.Backend.VerifyProposal(newBlock); err {
 	case consensus.ErrInconsistentCommitteeSet:
 	// nothing to do
 	default:
@@ -115,7 +115,7 @@ func newChangeValidator(blocksFromRemoved map[common.Hash]uint64, blocksFromAdde
 	}
 }
 
-func (o changeValidator) markMalicious(block types.Block) {
+func (o changeValidator) markMalicious(block *types.Block) {
 	if _, ok := o.brokenValidators.added[block.Coinbase()]; ok {
 		o.blocksFromAdded[block.Hash()] = block.Number().Uint64()
 	}

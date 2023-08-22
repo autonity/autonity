@@ -69,6 +69,7 @@ const (
 	DiscUnexpectedIdentity
 	DiscSelf
 	DiscReadTimeout
+	DiscJailed
 	DiscSubprotocolError = 0x10
 )
 
@@ -85,6 +86,7 @@ var discReasonToString = [...]string{
 	DiscUnexpectedIdentity:  "unexpected identity",
 	DiscSelf:                "connected to self",
 	DiscReadTimeout:         "read timeout",
+	DiscJailed:              "jailed node",
 	DiscSubprotocolError:    "subprotocol error",
 }
 

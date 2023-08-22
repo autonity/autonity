@@ -165,3 +165,26 @@ func (method Method) IsConstant() bool {
 func (method Method) IsPayable() bool {
 	return method.StateMutability == "payable" || method.Payable
 }
+
+func (method Method) jsonField() jsonField {
+	identity := "function"
+	if method.Type == Fallback {
+		identity = "fallback"
+	} else if method.Type == Receive {
+		identity = "receive"
+	} else if method.Type == Constructor {
+		identity = "constructor"
+	}
+	field := jsonField{
+		Type:     identity,
+		Name:     method.RawName,
+		Inputs:   method.Inputs,
+		Outputs:  method.Outputs,
+		Constant: &method.Constant,
+		Payable:  &method.Payable,
+	}
+	if method.StateMutability != "" {
+		field.StateMutability = &method.StateMutability
+	}
+	return field
+}

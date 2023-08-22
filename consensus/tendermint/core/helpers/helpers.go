@@ -15,10 +15,11 @@ import (
 
 type AddressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-// PrepareCommittedSeal returns a committed seal for the given hash
+// PrepareCommittedSeal returns a committed seal for the given hashbytes
 func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte {
 	var buf bytes.Buffer
 	roundBytes := make([]byte, 8)
+	// todo(youssef): endianness seems wrong and the buffer length for the height should be invariant
 	binary.LittleEndian.PutUint64(roundBytes, uint64(round))
 	buf.Write(roundBytes)
 	buf.Write(height.Bytes())
@@ -43,7 +44,6 @@ func GenerateCommittee(n int) (types.Committee, AddressKeyMap) {
 }
 
 func NewTestCommitteeSet(n int) interfaces.Committee {
-
 	validators, _ := GenerateCommittee(n)
 	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators[0].Address)
 	return set

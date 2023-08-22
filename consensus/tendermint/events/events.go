@@ -42,3 +42,9 @@ type CommitEvent struct{}
 type SyncEvent struct {
 	Addr common.Address
 }
+
+type AccountabilityEvent struct {
+	Sender  common.Address
+	Payload []byte
+	ErrCh   chan<- error
+}

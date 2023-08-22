@@ -24,12 +24,19 @@ coverage_all.out
 *~
 .project
 .settings
+__pycache__/
 
 # used by the Makefile
 /build/_workspace/
 /build/cache/
 /build/bin/
 /autonity*.zip
+/node_modules/
+/package-lock.json
+/package.json
+/params/generated/**/*.abi
+/params/generated/**/*.bin
+nohup.out
 
 # travis
 profile.tmp
@@ -52,3 +59,10 @@ profile.cov
 **/yarn-error.log
 
 /vendor
+
+# solidity
+/autonity/solidity/.build
+/autonity/solidity/node_modules/
+/autonity/solidity/package.json
+/autonity/solidity/package-lock.json
+/autonity/solidity/test/autonity/data/

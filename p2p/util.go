@@ -18,6 +18,7 @@ package p2p
 
 import (
 	"container/heap"
+	"sync"
 
 	"github.com/autonity/autonity/common/mclock"
 )
@@ -72,4 +73,31 @@ func (h *expHeap) Pop() interface{} {
 	x := old[n-1]
 	*h = old[0 : n-1]
 	return x
+}
+
+// Thread-safe version of ExpHeap
+type safeExpHeap struct {
+	expHeap
+	sync.RWMutex
+}
+
+// add adds an item and sets its expiry time.
+func (h *safeExpHeap) add(item string, exp mclock.AbsTime) {
+	h.Lock()
+	defer h.Unlock()
+	h.expHeap.add(item, exp)
+}
+
+// contains checks whether an item is present.
+func (h *safeExpHeap) contains(item string) bool {
+	h.RLock()
+	defer h.RUnlock()
+	return h.expHeap.contains(item)
+}
+
+// expire removes items with expiry time before 'now'.
+func (h *safeExpHeap) expire(now mclock.AbsTime, onExp func(string)) {
+	h.Lock()
+	defer h.Unlock()
+	h.expHeap.expire(now, onExp)
 }

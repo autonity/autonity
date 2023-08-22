@@ -158,9 +158,6 @@ func runTest(t *testing.T, test *testCase) {
 			fmt.Sprintf("127.0.0.1:%d", peer.port),
 			peer.rpcPort, rates.in, rates.out)
 
-		if err != nil {
-			t.Fatal("cant make a node", i, err)
-		}
 		wg.Go(func() error {
 			return peer.startNode()
 		})
@@ -200,8 +197,7 @@ func runTest(t *testing.T, test *testCase) {
 				}
 
 				peer.node.Wait()
-
-				return nil
+				return os.RemoveAll(peer.nodeConfig.DataDir)
 			})
 		}
 

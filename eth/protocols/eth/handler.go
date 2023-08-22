@@ -198,8 +198,8 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 	if err != nil {
 		return err
 	}
-	if msg.Size > maxMessageSize {
-		return fmt.Errorf("%w: %v > %v", errMsgTooLarge, msg.Size, maxMessageSize)
+	if msg.Size > MaxMessageSize {
+		return fmt.Errorf("%w: %v > %v", errMsgTooLarge, msg.Size, MaxMessageSize)
 	}
 	defer msg.Discard()
 

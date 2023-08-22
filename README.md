@@ -1,5 +1,5 @@
 <div align="center">
-  <img src=".github/autonity-logo.svg">
+  <img src=".github/autonity-text-grey-framed.svg">
   <br/>
   <b>Main client software for Autonity networks</b>
 </div>
@@ -65,8 +65,6 @@ To build you will need :
 * Docker Engine [Server](https://docs.docker.com/engine/install/#server)
 * [GNU Make](https://www.gnu.org/software/make/) utility to generate the executable from source files
 
-To install and run the Autonity NodeJS Console you will need [nodejs](https://nodejs.org/en/download/) and [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
-
 #### Get the source code
 
 Clone the Autonity Go Client repository:
@@ -122,10 +120,20 @@ See the docs how to [Setup the Autonity Utility Tool (aut)](https://docs.autonit
 
 ### Testnets
 
-For details of how to connect your node to a public Autonity network see [docs.autonity.org/networks](https://docs.autonity.org/networks).
+For details of public Autonity networks, see [docs.autonity.org/networks](https://docs.autonity.org/networks/).
+
+## Development
+
+To run the tests, you will need the following prerequisites installed:
+
+- `jq`
+- netcat (`nc`)
+- Node.js ([supported version](https://github.com/nodejs/release#release-schedule))
+- `pipx`
+- python3
 
 ## License
 
-The go-ethereum library (i.e. all code outside of the `cmd` directory) is licensed under the [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html), also included in the repository in the `COPYING.LESSER` file.
+The library (i.e. all code outside of the `cmd` directory) is licensed under the [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html), also included in the repository in the `COPYING.LESSER` file.
 
-The go-ethereum binaries (i.e. all code inside of the `cmd` directory) is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also included in the repository in the `COPYING` file.
+The binaries (i.e. all code inside of the `cmd` directory) is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also included in the repository in the `COPYING` file.

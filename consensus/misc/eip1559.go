@@ -28,7 +28,7 @@ import (
 )
 
 type BaseFeeGetter interface {
-	GetMinBaseFee(header *types.Header) (*big.Int, error)
+	MinBaseFee(header *types.Header) (*big.Int, error)
 }
 
 // VerifyEip1559Header verifies some header attributes which were changed in EIP-1559,
@@ -94,9 +94,9 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter Bas
 		minBaseFee := big.NewInt(0)
 		if feeGetter != nil {
 			var err error
-			minBaseFee, err = feeGetter.GetMinBaseFee(parent)
+			minBaseFee, err = feeGetter.MinBaseFee(parent)
 			if err != nil {
-				log.Crit("could not calculate minimum base fee...", err)
+				log.Crit("Could not calculate minimum base fee...", "err", err, "height", parent.Number)
 			}
 		}
 		return math.BigMax(

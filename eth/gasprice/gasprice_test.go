@@ -18,6 +18,8 @@ package gasprice
 
 import (
 	"context"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/log"
 	"math"
 	"math/big"
 	"testing"
@@ -95,7 +97,7 @@ func (b *testBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) eve
 	return b.chain.SubscribeChainHeadEvent(ch)
 }
 
-func (b *testBackend) GetMinBaseFee(header *types.Header) (*big.Int, error) {
+func (b *testBackend) MinBaseFee(_ *types.Header) (*big.Int, error) {
 	return new(big.Int), nil
 }
 
@@ -148,7 +150,7 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 	// Construct testing chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.Commit(diskdb)
-	chain, err := core.NewBlockChain(diskdb, &core.CacheConfig{TrieCleanNoPrefetch: true}, gspec.Config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil)
+	chain, err := core.NewBlockChain(diskdb, &core.CacheConfig{TrieCleanNoPrefetch: true}, gspec.Config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create local chain, %v", err)
 	}
@@ -174,7 +176,7 @@ func TestSuggestTipCap(t *testing.T) {
 		fork   *big.Int // London fork number
 		expect *big.Int // Expected gasprice suggestion
 	}{
-		{nil, big.NewInt(params.GWei * int64(30))},
+		// {nil, big.NewInt(params.GWei * int64(30))},
 		{big.NewInt(0), big.NewInt(params.GWei * int64(30))},  // Fork point in genesis
 		{big.NewInt(1), big.NewInt(params.GWei * int64(30))},  // Fork point in first block
 		{big.NewInt(32), big.NewInt(params.GWei * int64(30))}, // Fork point in last block

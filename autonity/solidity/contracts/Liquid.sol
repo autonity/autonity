@@ -54,6 +54,8 @@ contract Liquid is IERC20
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
     mapping(address => uint256) private balances;
+    mapping(address => uint256) private lockedBalances;
+
     mapping(address => mapping (address => uint256)) private allowances;
     uint256 private supply;
 
@@ -63,10 +65,10 @@ contract Liquid is IERC20
 
     string private _name;
     string private _symbol;
-    
-    address validator;
-    address payable treasury;
-    uint256 commissionRate;
+
+    address public validator;
+    address payable public treasury;
+    uint256 public commissionRate;
 
     constructor(
         address _validator,
@@ -97,9 +99,11 @@ contract Liquid is IERC20
         // treasury account.
         uint256 _validatorReward =
             (_reward * commissionRate) / COMMISSION_RATE_PRECISION;
-        require(_validatorReward < _reward, "invalid validator reward");
+        require(_validatorReward <= _reward, "invalid validator reward");
         _reward -= _validatorReward;
-        treasury.transfer(_validatorReward);
+
+        // TODO: handle failure
+        treasury.call{value: _validatorReward, gas:2300}("");
 
         // Step 2 : perform redistribution amongst liquid stake token
         // holders for this validator.
@@ -170,7 +174,7 @@ contract Liquid is IERC20
     * @return the number of decimals the LNTN token uses.
     * @dev ERC-20 Optional.
     */
-    function decimals() public view returns (uint8) {
+    function decimals() public pure returns (uint8) {
         return DECIMALS;
     }
 
@@ -183,6 +187,23 @@ contract Liquid is IERC20
         return balances[_delegator];
     }
 
+    /**
+    * @notice Returns the amount of locked liquid newtons held by the account.
+    */
+    function lockedBalanceOf(address _delegator)
+        external view returns (uint256)
+    {
+        return lockedBalances[_delegator];
+    }
+
+    /**
+    * @notice Returns the amount of unlocked liquid newtons held by the account.
+    */
+    function unlockedBalanceOf(address _delegator)
+        external view returns (uint256)
+    {
+        return  balances[_delegator] - lockedBalances[_delegator];
+    }
 
     /**
     * @notice Moves `_amount` LNEW tokens from the caller's account to the recipient `_to`.
@@ -255,14 +276,34 @@ contract Liquid is IERC20
     function setCommissionRate(uint256 _rate) public onlyAutonity {
         commissionRate = _rate;
     }
-    
+
+    /**
+      * @notice Add amount to the locked funds, restricted to the Autonity Contract.
+      * @param _account address of the account to lock funds .
+               _amount LNTN amount of tokens to lock.
+      */
+    function lock(address _account, uint256 _amount) public onlyAutonity {
+        require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
+        lockedBalances[_account] += _amount;
+    }
+
+    /**
+      * @notice Unlock the locked funds, restricted to the Autonity Contract.
+      * @param _account address of the account to lock funds .
+               _amount LNTN amount of tokens to lock.
+      */
+    function unlock(address _account, uint256 _amount) public onlyAutonity {
+        require(lockedBalances[_account] >= _amount, "can't unlock more funds than locked");
+        lockedBalances[_account] -= _amount;
+    }
+
     /**
     * @notice returns the name of this Liquid Newton contract
     */
     function name() external view returns (string memory){
         return _name;
     }
-    
+
     /**
     * @notice returns the symbol of this Liquid Newton contract
     */
@@ -292,11 +333,11 @@ contract Liquid is IERC20
     {
         _realiseFees(_delegator); // always updates fee factor
         uint256 _balance = balances[_delegator];
-        require(_value <= _balance);
-        if (_value < _balance) {
-            balances[_delegator] = _balance - _value;
-        } else {
-            delete balances[_delegator]; // this one is prob not necessary..
+        require(_value <= _balance - lockedBalances[_delegator], "insufficient unlocked funds");
+        balances[_delegator] = _balance - _value;
+
+        if (_value == _balance) { // aka balances[_delegator] == 0
+            // get back some gas
             delete unrealisedFeeFactors[_delegator];
         }
         // when transferring, this value will just be increased

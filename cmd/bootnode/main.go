@@ -122,7 +122,7 @@ func main() {
 	printNotice(&nodeKey.PublicKey, *realaddr)
 
 	db, _ := enode.OpenDB("")
-	ln := enode.NewLocalNode(db, nodeKey)
+	ln := enode.NewLocalNode(db, nodeKey, log.Root())
 	cfg := discover.Config{
 		PrivateKey:  nodeKey,
 		NetRestrict: restrictList,

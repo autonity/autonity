@@ -110,7 +110,7 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
 	if confOverride != nil {
 		confOverride(ethConf)
 	}
-	ethBackend, err := eth.New(stack, ethConf, nil)
+	ethBackend, err := eth.New(stack, ethConf)
 	if err != nil {
 		t.Fatalf("failed to register Autonity protocol: %v", err)
 	}

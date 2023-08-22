@@ -30,6 +30,7 @@ import (
 	"github.com/autonity/autonity/core/bloombits"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/filters"
 	"github.com/autonity/autonity/eth/gasprice"
@@ -112,7 +113,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 		eventMux:        stack.EventMux(),
 		reqDist:         newRequestDistributor(peers, &mclock.System{}),
 		accountManager:  stack.AccountManager(),
-		engine:          ethconfig.CreateConsensusEngine(stack, chainConfig, config, nil, false, chainDb, nil),
+		engine:          ethconfig.CreateConsensusEngine(stack, chainConfig, config, nil, false, &vm.Config{}, nil, nil),
 		bloomRequests:   make(chan chan *bloombits.Retrieval),
 		bloomIndexer:    core.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
 		p2pServer:       stack.Server(),
@@ -179,7 +180,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 		leth.blockchain.DisableCheckFreq()
 	}
 
-	leth.netRPCService = ethapi.NewPublicNetAPI(leth.p2pServer, leth.config.NetworkId)
+	leth.netRPCService = ethapi.NewPublicNetAPI(leth.p2pServer, leth.config.NetworkID)
 
 	// Register the backend on the node
 	stack.RegisterAPIs(leth.APIs())

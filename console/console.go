@@ -176,7 +176,7 @@ func (c *Console) init(preload []string) error {
 func (c *Console) contractBinding() {
 	if _, err := c.jsre.Run(`
 		if (typeof(tendermint) != 'undefined') {
-			var autonity_contract_abi = JSON.parse(tendermint.getContractABI());
+			var autonity_contract_abi = tendermint.getContractABI();
 			var autonity_contract_addr = tendermint.getContractAddress();
 			var autonity = eth.contract(autonity_contract_abi).at(autonity_contract_addr);
 		}

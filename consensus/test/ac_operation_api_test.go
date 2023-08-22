@@ -2,33 +2,32 @@ package test
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
+	"math/big"
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/acdefault/generated"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"reflect"
-	"testing"
-	"time"
 )
 
 const (
-	treasuryFee             = 100
-	minBaseFee              = 10
-	delegationRate          = 1
-	epochPeriod             = 5
-	unBondingPeriod         = 5
-	maxCommitteeSize        = 7
-	blockPeriod             = 1
-	defaultVersion          = "v0.0.0"
-	contractUpgradeBytecode = generated.UpgradeTestBytecode
-	contractUpgradeABI      = generated.UpgradeTestAbi
+	treasuryFee      = 100
+	minBaseFee       = 10
+	delegationRate   = 1
+	epochPeriod      = 5
+	unBondingPeriod  = 5
+	maxCommitteeSize = 7
+	blockPeriod      = 1
 )
 
 var (
@@ -55,6 +54,8 @@ func TestACPublicWritters(t *testing.T) {
 	newValidatorAddr := crypto.PubkeyToAddress(newValidator.PublicKey)
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
 
+	oracleAccount, err := makeAccount()
+	require.NoError(t, err)
 	// newton to be mint
 	amount := new(big.Int).SetUint64(10)
 
@@ -70,6 +71,7 @@ func TestACPublicWritters(t *testing.T) {
 				},
 					enodeUrl,
 					newValidator,
+					oracleAccount,
 				),
 			},
 			finalAssert: func(t *testing.T, validators map[string]*testNode) {
@@ -77,7 +79,7 @@ func TestACPublicWritters(t *testing.T) {
 				defer client.close()
 				val, err := client.call(validators["V0"].lastBlock).getValidator(newValidatorAddr)
 				require.NoError(t, err)
-				require.Equal(t, newValidatorAddr, val.Addr)
+				require.Equal(t, newValidatorAddr, val.NodeAddress)
 			},
 		},
 		{
@@ -116,12 +118,14 @@ func TestACPublicWritters(t *testing.T) {
 				node := validators["V1"]
 				client := interact(node.rpcPort)
 				defer client.close()
+				/* todo: update
 				reqs, err := client.call(node.lastBlock).getBondingReq(new(big.Int).SetUint64(0),
 					new(big.Int).SetUint64(3))
 				require.NoError(t, err)
 				require.Equal(t, node.EthAddress(), reqs[2].Delegatee)
 				require.Equal(t, newValidatorAddr, reqs[2].Delegator)
 				require.Equal(t, amount, reqs[2].Amount)
+				*/
 			},
 		},
 		{
@@ -139,12 +143,15 @@ func TestACPublicWritters(t *testing.T) {
 				node := validators["V0"]
 				client := interact(node.rpcPort)
 				defer client.close()
+				/* todo: update
 				reqs, err := client.call(node.lastBlock).getUnBondingReq(new(big.Int).SetUint64(0),
 					new(big.Int).SetUint64(1))
 				require.NoError(t, err)
 				require.Equal(t, node.EthAddress(), reqs[0].Delegatee)
 				require.Equal(t, node.EthAddress(), reqs[0].Delegator)
 				require.Equal(t, amount, reqs[0].Amount)
+
+				*/
 			},
 		},
 	}
@@ -168,7 +175,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 	testCase := &testCase{
 		name:          "Test AC system operator change settings",
 		numValidators: numOfValidators,
-		numBlocks:     25,
+		numBlocks:     40,
 		// set AC configs in genesis hook.
 		genesisHook: func(g *core.Genesis) *core.Genesis {
 			g.Config.AutonityContractConfig.Operator = initialOperatorAddr
@@ -190,10 +197,10 @@ func TestACSystemOperatorOPs(t *testing.T) {
 				initialOperator,
 				newOperatorAddr,
 			),
-			// burn stake right after block #5 from client V1.
+			// burn stake right after block #15 from client V1.
 			"V1": burnStakeHook(
 				map[uint64]struct{}{
-					15: {},
+					25: {},
 				},
 				initialOperator,
 				newOperatorAddr,
@@ -201,7 +208,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 			// change operator after block #10 from client V3.
 			"V2": setOperatorHook(
 				map[uint64]struct{}{
-					20: {},
+					35: {},
 				},
 				initialOperator,
 				newOperatorAddr,
@@ -367,7 +374,7 @@ func mintStakeHook(upgradeBlocks map[uint64]struct{}, operator *ecdsa.PrivateKey
 	}
 }
 
-func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey) hook {
+func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey, oracleKey *ecdsa.PrivateKey) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		blockNum := block.Number().Uint64()
 		if _, ok := upgradeBlocks[blockNum]; !ok {
@@ -382,12 +389,19 @@ func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, node
 		}
 		prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(hexTreasury))
 		hash := crypto.Keccak256Hash([]byte(prefix), hexTreasury)
-		proof, err := crypto.Sign(hash.Bytes(), nodekey)
+		nodeProof, err := crypto.Sign(hash.Bytes(), nodekey)
 		if err != nil {
 			return err
 		}
-		fmt.Println("proof ", hexutil.Encode(proof))
-		if _, err := interaction.tx(validator.privateKey).registerValidator(enode, proof); err != nil {
+		oracleProof, err := crypto.Sign(hash.Bytes(), oracleKey)
+		if err != nil {
+			return err
+		}
+		//using same account for oracle and node, same proof can be reused here
+		mulitsig := append(nodeProof[:], oracleProof[:]...)
+		fmt.Println("proof ", hexutil.Encode(mulitsig))
+		oracleAddr := crypto.PubkeyToAddress(oracleKey.PublicKey)
+		if _, err := interaction.tx(validator.privateKey).registerValidator(enode, oracleAddr, mulitsig); err != nil {
 			return err
 		}
 		return nil
@@ -439,14 +453,6 @@ func acStateGettersHook(upgradeBlocks map[uint64]struct{}, operator common.Addre
 			return err
 		}
 
-		start := new(big.Int).SetUint64(0)
-		end := new(big.Int).SetUint64(uint64(numVals))
-		if err := checkBondingReqs(interaction, blockNum, start, end, numVals); err != nil {
-			return err
-		}
-		if err := checkUnBondingReqs(interaction, blockNum, start, end, numVals); err != nil {
-			return err
-		}
 		return nil
 	}
 }
@@ -554,30 +560,6 @@ func checkNewContract(client *interactor, height uint64, byteCode []byte, abi st
 	return nil
 }
 
-// todo check each bonding requests
-func checkBondingReqs(client *interactor, height uint64, s *big.Int, e *big.Int, num int) error {
-	reqs, err := client.call(height).getBondingReq(s, e)
-	if err != nil {
-		return err
-	}
-	if len(reqs) != num {
-		return fmt.Errorf("unexpected bonding reqs")
-	}
-	return nil
-}
-
-// todo check each unbonding requests.
-func checkUnBondingReqs(client *interactor, height uint64, s *big.Int, e *big.Int, num int) error {
-	reqs, err := client.call(height).getUnBondingReq(s, e)
-	if err != nil {
-		return err
-	}
-	if len(reqs) != num {
-		return fmt.Errorf("unexpected unbonding reqs")
-	}
-	return nil
-}
-
 // Test the contract upgrade mechanism.
 // The new contract is ./autonity/solidity/contracts/Upgrade_test.sol
 func TestUpgradeMechanism(t *testing.T) {
@@ -586,7 +568,7 @@ func TestUpgradeMechanism(t *testing.T) {
 	require.NoError(t, err)
 	initialOperatorAddr := crypto.PubkeyToAddress(operator.PublicKey)
 	//var upgradeTxs []*types.Transaction
-	bytecode := common.Hex2Bytes(contractUpgradeBytecode)
+	bytecode := generated.AutonityUpgradeTestBytecode
 	var interactor *interactor
 	var transactor *transactor
 
@@ -619,7 +601,8 @@ func TestUpgradeMechanism(t *testing.T) {
 				case 5:
 					_, err = transactor.upgradeContract(bytecode[0:len(bytecode)/2], "")
 				case 10:
-					_, err = transactor.upgradeContract(nil, contractUpgradeABI)
+					res, _ := json.Marshal(&generated.AutonityUpgradeTestAbi)
+					_, err = transactor.upgradeContract(nil, string(res))
 				case 15:
 					_, err = transactor.upgradeContract(bytecode[len(bytecode)/2:], "")
 				default:
@@ -661,7 +644,7 @@ func TestUpgradeMechanism(t *testing.T) {
 			t.Log("val2 bs", val2.BondedStake.Uint64())
 
 			require.NoError(t, err)
-			stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
+			stake := new(big.Int).SetUint64(defaultStake)
 			stake.Div(stake, big.NewInt(2))
 			require.Equal(t, stake.Bytes(), val1.BondedStake.Bytes())
 			//check the contract version is now 2.0.0

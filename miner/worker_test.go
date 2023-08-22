@@ -17,6 +17,8 @@
 package miner
 
 import (
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
@@ -85,7 +87,7 @@ func init() {
 
 	tendermintChainConfig = params.TestChainConfig
 	tendermintChainConfig.Ethash = nil
-	tendermintChainConfig.AutonityContractConfig.Validators[0].Address = &testUserAddress
+	tendermintChainConfig.AutonityContractConfig.Validators[0].NodeAddress = &testUserAddress
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Enode = enode.NewV4(&testUserKey.PublicKey, nil, 0, 0).URLv4()
 	tendermintChainConfig.AutonityContractConfig.Prepare()
 
@@ -106,6 +108,10 @@ type testWorkerBackend struct {
 	uncleBlock *types.Block
 }
 
+func (b *testWorkerBackend) Logger() log.Logger {
+	return log.Root()
+}
+
 func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, n int) *testWorkerBackend {
 	var gspec = core.Genesis{
 		Config:     chainConfig,
@@ -124,7 +130,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 
 	genesis := gspec.MustCommit(db)
 	senderCacher := &core.TxSenderCacher{}
-	chain, err := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher, nil)
+	chain, err := core.NewBlockChain(db, &core.CacheConfig{TrieDirtyDisabled: true}, gspec.Config, engine, vm.Config{}, nil, senderCacher, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +225,9 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 
 	if isTendermint {
 		chainConfig = tendermintChainConfig
-		engine = tendermintBackend.New(testUserKey, &vm.Config{}, nil)
+		evMux := new(event.TypeMux)
+		msgStore := tendermintcore.NewMsgStore()
+		engine = tendermintBackend.New(testUserKey, &vm.Config{}, nil, evMux, msgStore, log.Root())
 	} else {
 		chainConfig = ethashChainConfig
 		engine = ethash.NewFaker()
@@ -231,7 +239,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 	// This test chain imports the mined blocks.
 	db2 := rawdb.NewMemoryDatabase()
 	b.genesis.MustCommit(db2)
-	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, core.NewTxSenderCacher(1), nil)
+	chain, _ := core.NewBlockChain(db2, nil, b.chain.Config(), engine, vm.Config{}, nil, core.NewTxSenderCacher(1), nil, backends.NewInternalBackend(nil), log.Root())
 	defer chain.Stop()
 
 	// Ignore empty commit here for less noise.
@@ -271,7 +279,11 @@ func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
 func TestEmptyWorkTendermint(t *testing.T) {
-	testEmptyWork(t, tendermintChainConfig, tendermintBackend.New(testUserKey, new(vm.Config), nil), true)
+	evMux := new(event.TypeMux)
+	msgStore := tendermintcore.NewMsgStore()
+	testEmptyWork(t, tendermintChainConfig,
+		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore, log.Root()),
+		true)
 }
 
 // We're no longer doing empty work with tendermint.
@@ -378,7 +390,11 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockTendermint(t *testing.T) {
-	testRegenerateMiningBlock(t, tendermintChainConfig, tendermintBackend.New(testUserKey, new(vm.Config), nil), true)
+	evMux := new(event.TypeMux)
+	msgStore := tendermintcore.NewMsgStore()
+	testRegenerateMiningBlock(t, tendermintChainConfig,
+		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore, log.Root()),
+		true)
 }
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, isTendermint bool) {
@@ -441,7 +457,10 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, tendermintChainConfig, tendermintBackend.New(testUserKey, new(vm.Config), nil))
+	evMux := new(event.TypeMux)
+	msgStore := tendermintcore.NewMsgStore()
+	testAdjustInterval(t, tendermintChainConfig,
+		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore, log.Root()))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {

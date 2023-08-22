@@ -37,6 +37,13 @@ import (
 	"github.com/prometheus/tsdb/fileutil"
 )
 
+type TendermintServices struct {
+	Broadcaster  interfaces.Broadcaster
+	Prevoter     interfaces.Prevoter
+	Proposer     interfaces.Proposer
+	Precommitter interfaces.Precommiter
+}
+
 // Node is a container on which services can be registered.
 type Node struct {
 	eventmux      *event.TypeMux
@@ -59,16 +66,18 @@ type Node struct {
 	ipc           *ipcServer  // Stores information about the ipc http server
 	inprocHandler *rpc.Server // In-process RPC request handler to process the API requests
 
-	databases   map[*closeTrackingDB]struct{} // All open databases
-	custhandler *CustomHandler
+	databases map[*closeTrackingDB]struct{} // All open databases
+
+	tendermintServices *TendermintServices
 }
 
-func (n *Node) SetCustomHandler(handler *CustomHandler) {
-	n.custhandler = handler
+// todo(youssef): put that in the node config
+func (n *Node) SetTendermintServices(handler *TendermintServices) {
+	n.tendermintServices = handler
 }
 
-func (n *Node) GetCustomHandler() *CustomHandler {
-	return n.custhandler
+func (n *Node) TendermintServices() *TendermintServices {
+	return n.tendermintServices
 }
 
 const (
@@ -556,6 +565,10 @@ func (n *Node) IPCEndpoint() string {
 	return n.ipc.endpoint
 }
 
+func (n *Node) Logger() log.Logger {
+	return n.config.Logger
+}
+
 // HTTPEndpoint returns the URL of the HTTP server. Note that this URL does not
 // contain the JSON-RPC path prefix set by HTTPPathPrefix.
 func (n *Node) HTTPEndpoint() string {
@@ -642,21 +655,6 @@ func (n *Node) ResolvePath(x string) string {
 	return n.config.ResolvePath(x)
 }
 
-// closeTrackingDB wraps the Close method of a database. When the database is closed by the
-// service, the wrapper removes it from the node's database map. This ensures that Node
-// won't auto-close the database if it is closed by the service that opened it.
-type closeTrackingDB struct {
-	ethdb.Database
-	n *Node
-}
-
-func (db *closeTrackingDB) Close() error {
-	db.n.lock.Lock()
-	delete(db.n.databases, db)
-	db.n.lock.Unlock()
-	return db.Database.Close()
-}
-
 // wrapDatabase ensures the database will be auto-closed when Node is closed.
 func (n *Node) wrapDatabase(db ethdb.Database) ethdb.Database {
 	wrapper := &closeTrackingDB{db, n}
@@ -675,9 +673,17 @@ func (n *Node) closeDatabases() (errors []error) {
 	return errors
 }
 
-type CustomHandler struct {
-	Broadcaster  interfaces.Broadcaster
-	Prevoter     interfaces.Prevoter
-	Proposer     interfaces.Proposer
-	Precommitter interfaces.Precommiter
+// closeTrackingDB wraps the Close method of a database. When the database is closed by the
+// service, the wrapper removes it from the node's database map. This ensures that Node
+// won't auto-close the database if it is closed by the service that opened it.
+type closeTrackingDB struct {
+	ethdb.Database
+	n *Node
+}
+
+func (db *closeTrackingDB) Close() error {
+	db.n.lock.Lock()
+	delete(db.n.databases, db)
+	db.n.lock.Unlock()
+	return db.Database.Close()
 }

@@ -20,7 +20,7 @@ func TestTendermintMessage(t *testing.T) {
 	// generate one msg
 	data := []byte("data1")
 	hash := types.RLPHash(data)
-	msg := makeMsg(tendermintMsg, data)
+	msg := makeMsg(TendermintMsg, data)
 	addr := common.BytesToAddress([]byte("address"))
 
 	// 1. this message should not be in cache
@@ -57,14 +57,14 @@ func TestTendermintMessage(t *testing.T) {
 
 func TestSynchronisationMessage(t *testing.T) {
 	t.Run("engine not running, ignored", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
 			coreStarted: false,
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(tendermintSyncMsg, []byte{})
+		msg := makeMsg(SyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -79,14 +79,14 @@ func TestSynchronisationMessage(t *testing.T) {
 	})
 
 	t.Run("engine running, sync returned", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(log.New("backend", "test", "id", 0))
+		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
 			coreStarted: true,
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(tendermintSyncMsg, []byte{})
+		msg := makeMsg(SyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -126,7 +126,7 @@ func TestNewChainHead(t *testing.T) {
 	t.Run("engine is running, no errors", func(t *testing.T) {
 		b := &Backend{
 			coreStarted: true,
-			eventMux:    event.NewTypeMuxSilent(log.New("backend", "test", "id", 0)),
+			eventMux:    event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0)),
 		}
 
 		err := b.NewChainHead()

@@ -177,6 +177,9 @@ func initGenesis(ctx *cli.Context) error {
 	if genesis.Config.AutonityContractConfig == nil {
 		utils.Fatalf("No Autonity Contract config section in genesis.json")
 	}
+	if genesis.Config.OracleContractConfig == nil {
+		utils.Fatalf("No Oracle Contract config section in genesis.json")
+	}
 
 	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
 		spew.Dump(genesis.Config.AutonityContractConfig)

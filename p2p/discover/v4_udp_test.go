@@ -68,7 +68,7 @@ func newUDPTest(t *testing.T) *udpTest {
 	}
 
 	test.db, _ = enode.OpenDB("")
-	ln := enode.NewLocalNode(test.db, test.localkey)
+	ln := enode.NewLocalNode(test.db, test.localkey, log.Root())
 	test.udp, _ = ListenV4(test.pipe, ln, Config{
 		PrivateKey: test.localkey,
 		Log:        testlog.Logger(t, log.LvlTrace),
@@ -553,7 +553,7 @@ func startLocalhostV4(t *testing.T, cfg Config) *UDPv4 {
 
 	cfg.PrivateKey = newkey()
 	db, _ := enode.OpenDB("")
-	ln := enode.NewLocalNode(db, cfg.PrivateKey)
+	ln := enode.NewLocalNode(db, cfg.PrivateKey, log.Root())
 
 	// Prefix logs with node ID.
 	lprefix := fmt.Sprintf("(%s)", ln.ID().TerminalString())

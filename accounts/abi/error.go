@@ -89,3 +89,12 @@ func (e *Error) Unpack(data []byte) (interface{}, error) {
 	}
 	return e.Inputs.Unpack(data[4:])
 }
+
+func (e *Error) jsonField() jsonField {
+	field := jsonField{
+		Type:   "error",
+		Name:   e.Name,
+		Inputs: e.Inputs,
+	}
+	return field
+}

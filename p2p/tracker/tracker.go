@@ -102,7 +102,7 @@ func (t *Tracker) Track(peer string, version uint, reqCode uint64, resCode uint6
 		log.Error("Request tracker exceeded allowance", "pending", pending, "peer", peer, "protocol", t.protocol, "version", version, "code", reqCode)
 		return
 	}
-	// Id doesn't exist yet, start tracking it
+	// ID doesn't exist yet, start tracking it
 	t.pending[id] = &request{
 		peer:    peer,
 		version: version,

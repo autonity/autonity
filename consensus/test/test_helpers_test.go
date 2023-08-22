@@ -4,36 +4,36 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/miner"
-	"io/ioutil"
 	"math"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
-	"golang.org/x/sync/errgroup"
-
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
+
+const defaultStake = 100
 
 func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core.Genesis {
 	// generate genesis block
 	genesis := core.DefaultGenesisBlock()
 	genesis.ExtraData = nil
-	genesis.GasLimit = 200_000_000
+	genesis.GasLimit = 10000000000
 	genesis.GasUsed = 0
 	genesis.Timestamp = 0
 	genesis.Nonce = 0
@@ -53,14 +53,16 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 
 	validators := make([]*params.Validator, 0, len(nodes))
 	for _, name := range names {
-		stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
+		stake := big.NewInt(defaultStake)
+		//stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 		if strings.HasPrefix(name, ValidatorPrefix) {
 			address := crypto.PubkeyToAddress(nodes[name].privateKey.PublicKey)
 			validators = append(validators, &params.Validator{
-				Address:     &address,
-				Enode:       nodes[name].url,
-				Treasury:    address,
-				BondedStake: stake,
+				NodeAddress:    &address,
+				Enode:          nodes[name].url,
+				Treasury:       address,
+				BondedStake:    stake,
+				CommissionRate: new(big.Int).SetUint64(0),
 			})
 		}
 	}
@@ -71,9 +73,9 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	return genesis
 }
 
-func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *eth.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
 	// Define the basic configurations for the Ethereum node
-	datadir, err := ioutil.TempDir("", "")
+	datadir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
 
 	if listenAddr == "" {
@@ -100,9 +102,9 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		configNode.P2P.OutRate = outRate
 	}
 
-	ethConfig := &eth.Config{
+	ethConfig := &ethconfig.Config{
 		Genesis:         genesis,
-		NetworkId:       genesis.Config.ChainID.Uint64(),
+		NetworkID:       genesis.Config.ChainID.Uint64(),
 		SyncMode:        downloader.FullSync,
 		DatabaseCache:   256,
 		DatabaseHandles: 256,

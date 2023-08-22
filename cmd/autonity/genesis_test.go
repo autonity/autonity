@@ -58,7 +58,22 @@ var genesisTest = struct {
 							"bondedStake" : 1
 						}
 					]
-				}
+				},
+    			"oracle": {
+      				"votePeriod": 30
+				},
+
+				"accountability": {
+					  "innocenceProofSubmissionWindow": 30,
+					  "latestAccountabilityEventsRange": 256,
+					  "baseSlashingRateLow": 500,
+					  "baseSlashingRateMid": 1000,
+					  "collusionFactor": 550,
+					  "historyFactor": 750,
+					  "jailFactor": 60,
+					  "slashingRatePrecision": 10000
+				},
+				"chainId" : 1
 			}
 		}`,
 	// Chnage stake of validator as 2.
@@ -99,7 +114,11 @@ var genesisTest = struct {
 							"bondedStake" : 2
 						}
 					]
-				}
+				},
+    			"oracle": {
+      				"votePeriod": 30
+				},
+				"chainId" : 1
 			}
 		}`,
 	// Set daoForkSupport to be false.
@@ -128,7 +147,13 @@ var genesisTest = struct {
 							"bondedStake" : 1
 						}
 					]
-				}
+				},
+    			"oracle": {
+					"bytecode": "",
+      				"abi": "",
+      				"votePeriod": 30
+				},
+				"chainId" : 1
 			}
 		}`,
 	query:  "eth.getBlock(0).nonce",

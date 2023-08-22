@@ -565,7 +565,7 @@ func TestTransactionFetcherBroadcasts(t *testing.T) {
 					"A": {testTxsHashes[0]},
 				},
 			},
-			// Broadcast all the transactions and ensure everything gets cleaned
+			// SignAndBroadcast all the transactions and ensure everything gets cleaned
 			// up, but the dangling request is left alone to avoid doing multiple
 			// concurrent requests.
 			doTxEnqueue{peer: "A", txs: []*types.Transaction{testTxs[0], testTxs[1], testTxs[2]}, direct: false},

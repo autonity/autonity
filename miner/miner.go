@@ -41,6 +41,7 @@ type Backend interface {
 	BlockChain() *core.BlockChain
 	TxPool() *core.TxPool
 	StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error)
+	Logger() log.Logger
 }
 
 // Config is the configuration parameters of mining.
@@ -117,7 +118,7 @@ func (miner *Miner) update() {
 				if wasMining {
 					// Resume mining after sync was finished
 					shouldStart = true
-					log.Info("Mining aborted due to sync")
+					miner.eth.Logger().Info("Mining aborted due to sync")
 				}
 			case downloader.FailedEvent:
 				canStart = true

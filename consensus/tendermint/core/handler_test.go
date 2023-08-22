@@ -2,13 +2,15 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/messageutils"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"testing"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"github.com/golang/mock/gomock"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
@@ -27,8 +28,8 @@ func TestHandleCheckedMessage(t *testing.T) {
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
 
-	createPrevote := func(round int64, height int64) *messageutils.Message {
-		vote := &messageutils.Vote{
+	createPrevote := func(round int64, height int64) *message.Message {
+		vote := &message.Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -37,16 +38,17 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		return &messageutils.Message{
-			Code:    messageutils.MsgPrevote,
-			Msg:     encoded,
-			Address: sender.Address,
-			Power:   common.Big1,
+		return &message.Message{
+			Code:         consensus.MsgPrevote,
+			Payload:      encoded,
+			ConsensusMsg: vote,
+			Address:      sender.Address,
+			Power:        common.Big1,
 		}
 	}
 
-	createPrecommit := func(round int64, height int64) *messageutils.Message {
-		vote := &messageutils.Vote{
+	createPrecommit := func(round int64, height int64) *message.Message {
+		vote := &message.Vote{
 			Round:             round,
 			Height:            big.NewInt(height),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
@@ -61,11 +63,12 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error signing")
 		}
-		return &messageutils.Message{
-			Code:          messageutils.MsgPrecommit,
-			Msg:           encoded,
+		return &message.Message{
+			Code:          consensus.MsgPrecommit,
+			Payload:       encoded,
 			Address:       sender.Address,
 			CommittedSeal: commitSign,
+			ConsensusMsg:  vote,
 			Power:         common.Big1,
 		}
 	}
@@ -74,7 +77,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		round   int64
 		height  *big.Int
 		step    types.Step
-		message *messageutils.Message
+		message *message.Message
 		outcome error
 		panic   bool
 	}{
@@ -138,11 +141,11 @@ func TestHandleCheckedMessage(t *testing.T) {
 
 	for _, testCase := range cases {
 		logger := log.New("backend", "test", "id", 0)
-		messageMap := messageutils.NewMessagesMap()
+		messageMap := message.NewMessagesMap()
 		engine := Core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]*messageutils.Message),
+			backlogs:          make(map[common.Address][]*message.Message),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
@@ -167,7 +170,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 				}
 			}()
 
-			err := engine.handleCheckedMsg(context.Background(), testCase.message)
+			err := engine.handleValidMsg(context.Background(), testCase.message)
 
 			if err != testCase.outcome {
 				t.Fatal("unexpected handlecheckedmsg returning ",
@@ -193,24 +196,24 @@ func TestHandleMsg(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*messageutils.Message),
+			backlogs: make(map[common.Address][]*message.Message),
 			step:     types.Propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
 		c.SetDefaultHandlers()
-		vote := &messageutils.Vote{
+		vote := &message.Vote{
 			Round:             2,
 			Height:            big.NewInt(1),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        payload,
-			DecodedMsg: vote,
-			Address:    common.Address{},
+		msg := &message.Message{
+			Code:         consensus.MsgPrevote,
+			Payload:      payload,
+			ConsensusMsg: vote,
+			Address:      common.Address{},
 		}
 
 		if err := c.handleMsg(context.Background(), msg); err != constants.ErrOldHeightMessage {
@@ -226,31 +229,31 @@ func TestHandleMsg(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*messageutils.Message),
-			backlogUnchecked: map[uint64][]*messageutils.Message{},
+			backlogs:         make(map[common.Address][]*message.Message),
+			backlogUntrusted: map[uint64][]*message.Message{},
 			step:             types.Propose,
 			round:            1,
 			height:           big.NewInt(2),
 		}
 		c.SetDefaultHandlers()
-		vote := &messageutils.Vote{
+		vote := &message.Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
 			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
 		}
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
-		msg := &messageutils.Message{
-			Code:       messageutils.MsgPrevote,
-			Msg:        payload,
-			DecodedMsg: vote,
-			Address:    common.Address{},
+		msg := &message.Message{
+			Code:         consensus.MsgPrevote,
+			Payload:      payload,
+			ConsensusMsg: vote,
+			Address:      common.Address{},
 		}
 
 		if err := c.handleMsg(context.Background(), msg); err != constants.ErrFutureHeightMessage {
 			t.Fatal("errFutureHeightMessage not returned")
 		}
-		if backlog, ok := c.backlogUnchecked[3]; !(ok && len(backlog) > 0 && deep.Equal(backlog[0], msg)) {
+		if backlog, ok := c.backlogUntrusted[3]; !(ok && len(backlog) > 0 && deep.Equal(backlog[0], msg)) {
 			t.Fatal("future message not saved in the untrusted buffer")
 		}
 	})
@@ -262,10 +265,11 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 	addr := common.HexToAddress("0x0123456789")
 
 	backendMock := interfaces.NewMockBackend(ctrl)
+	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 	backendMock.EXPECT().Address().AnyTimes().Return(addr)
 
 	logger := log.New("testAddress", "0x0000")
-	eMux := event.NewTypeMuxSilent(logger)
+	eMux := event.NewTypeMuxSilent(nil, logger)
 	sub := eMux.Subscribe(events.MessageEvent{})
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)

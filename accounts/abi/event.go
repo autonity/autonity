@@ -98,3 +98,13 @@ func NewEvent(name, rawName string, anonymous bool, inputs Arguments) Event {
 func (e Event) String() string {
 	return e.str
 }
+
+func (e Event) jsonField() jsonField {
+	field := jsonField{
+		Type:      "event",
+		Name:      e.RawName,
+		Inputs:    e.Inputs,
+		Anonymous: &e.Anonymous,
+	}
+	return field
+}

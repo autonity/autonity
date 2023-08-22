@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/log"
 	"math/big"
 	"time"
 
@@ -79,7 +81,7 @@ func getChain() *core.BlockChain {
 		SnapshotWait:        true,
 	}
 	trieRoot = blocks[len(blocks)-1].Root()
-	bc, _ := core.NewBlockChain(db, cacheConf, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil)
+	bc, _ := core.NewBlockChain(db, cacheConf, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if _, err := bc.InsertChain(blocks); err != nil {
 		panic(err)
 	}
