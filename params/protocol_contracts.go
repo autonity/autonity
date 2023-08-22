@@ -65,8 +65,7 @@ type AutonityContractGenesis struct {
 }
 
 type AccountabilityGenesis struct {
-	InnocenceProofSubmissionWindow  uint64 `json:"innocenceProofSubmissionWindow"`
-	LatestAccountabilityEventsRange uint64 `json:"latestAccountabilityEventsRange"`
+	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
 
 	// Slashing parameters
 	BaseSlashingRateLow   uint64 `json:"baseSlashingRateLow"`

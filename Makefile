@@ -262,7 +262,7 @@ devtools:
 	go get -u go.uber.org/mock/mockgen
 	env BINDIR= go get -u golang.org/x/tools/cmd/stringer
 	env BINDIR= go install github.com/kevinburke/go-bindata/v4/...@latest
-	env BINDIR= go get -u github.com/fjl/gencodec
+	env BINDIR= go install github.com/fjl/gencodec@latest
 	env BINDIR= go get -u github.com/golang/protobuf/protoc-gen-go
 	go build -o $BINDIR/abigen ./cmd/abigen
 	@type "npm" 2> /dev/null || echo 'Please install node.js and npm'

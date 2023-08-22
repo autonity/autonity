@@ -121,8 +121,6 @@ type genesisSpecMarshaling struct {
 	Difficulty *math.HexOrDecimal256
 	BaseFee    *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
-
-	VotingPowers []math.HexOrDecimal64
 }
 
 type genesisAccountMarshaling struct {

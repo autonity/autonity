@@ -90,14 +90,13 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 			Validators:       genesisValidators,
 		},
 		AccountabilityConfig: &params.AccountabilityGenesis{
-			InnocenceProofSubmissionWindow:  30,
-			LatestAccountabilityEventsRange: 256,
-			BaseSlashingRateLow:             500,  // 5%
-			BaseSlashingRateMid:             1000, // 10%
-			CollusionFactor:                 500,  // 5%
-			HistoryFactor:                   750,  // 7.5%
-			JailFactor:                      60,   // two epochs
-			SlashingRatePrecision:           10_000,
+			InnocenceProofSubmissionWindow: 30,
+			BaseSlashingRateLow:            500,  // 5%
+			BaseSlashingRateMid:            1000, // 10%
+			CollusionFactor:                500,  // 5%
+			HistoryFactor:                  750,  // 7.5%
+			JailFactor:                     60,   // two epochs
+			SlashingRatePrecision:          10_000,
 		},
 		OracleContractConfig: &params.OracleContractGenesis{},
 		ASM: params.AsmConfig{
