@@ -116,7 +116,7 @@ The recommended way of interacting with an Autonity node is via `aut`, which pro
 
 For source code, installation, and usage see the [aut repository](https://github.com/autonity/aut).
 
-See the docs how to [Setup the Autonity Utility Tool (aut)](https://docs.autonity.org/howto/setup-aut/) for how to make calls and submit transactions.
+See the docs how to [Setup the Autonity Utility Tool (aut)](https://docs.autonity.org/account-holders/setup-aut/) for how to make calls and submit transactions.
 
 ## Networks
 
