@@ -187,6 +187,7 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
 	@echo "killing test autonity network and cleaning chaindata"
@@ -198,6 +199,7 @@ test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@echo "killing ganache"
 	@-pkill -f "ganache"
 

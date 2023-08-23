@@ -1009,23 +1009,6 @@ contract('Autonity', function (accounts) {
        */
 
     });
-    it('test unbonding shares logic with slashings', async function () {
-      //TODO(tariq) same as before but with slashing events happening. You can trigger slashing events using the _slash function.
-      // When a slashing event happens, the ratio of exchange between "unbonding shares" <--> "unbonding stake" changes and it is not 1:1 anymore
-      // Example:
-      // unbondingShares = 100
-      // unbondingStake = 100
-      // exchange ratio 1 share : 1 NTN
-      //
-      // Then slash of 50 NTNs. Now:
-      //
-      // unbondingShares = 100
-      // unbondingStake = 50
-      // exchange ratio 2 share : 1 NTN
-      //
-      // The value of the share decreased, as you now need 2 shares to redeem 1 NTN
-    });
-
   });
 
   describe('Test committee members rotation through bonding/unbonding', function () {
@@ -1374,16 +1357,6 @@ contract('Autonity', function (accounts) {
           // Autonity contract should have left only dust ATN
           let leftFund = toBN(await web3.eth.getBalance(token.address));
           assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).toString())
-    });
-    it('jailed validator rewards go to proof reporter', async function () {
-      /* TODO(tariq) verify that if a validators is jailed (it has been slashed for a misbehaviour)
-       * his share of rewards goes to the proof reporter. relevant code in _performRedistribution() function of Autonity.sol
-       *          if (_val.state == ValidatorState.jailed) {
-       *             config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
-       *             continue;
-       *         }
-       */         
-
     });
   });
   describe('Test epoch parameters updates', function () {
