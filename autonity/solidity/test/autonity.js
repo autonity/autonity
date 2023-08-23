@@ -197,6 +197,20 @@ contract('Autonity', function (accounts) {
 
   let autonity;
   describe('Contract initial state', function () {
+    /* TODO(tariq) add getter tests for:
+     * struct Policy {
+          uint256 treasuryFee;
+          uint256 delegationRate;
+          uint256 unbondingPeriod;
+          address payable treasuryAccount;
+      }
+ 
+      struct Protocol {
+          address operatorAccount;
+          uint256 epochPeriod;
+          uint256 blockPeriod;
+      }
+    */
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig,  deployer, operator);
     });
@@ -221,7 +235,7 @@ contract('Autonity', function (accounts) {
       assert(version == v, `version of contract is not expected, has ${v} want ${version}`);
     });
 
-    it('test get committee size after contract construction', async function () {
+    it('test get max committee size after contract construction', async function () {
       let cS = await autonity.getMaxCommitteeSize({from: anyAccount});
       assert(committeeSize == cS, "committee size is not expected");
     });
