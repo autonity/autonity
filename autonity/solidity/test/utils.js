@@ -81,50 +81,63 @@ async function _mineEmptyBlock() {
   });
 }
 
+const createAutonityContract = async (validators, autonityConfig, deployer) => {
+    return Autonity.new(validators, autonityConfig, deployer);
+}
+
+const createAutonityTestContract = async (validators, autonityConfig, deployer) => {
+  return AutonityTest.new(validators, autonityConfig, deployer);
+}
+
+async function initialize(autonity, validators, accountabilityConfig, deployer, operator) {
+  await autonity.finalizeInitialization({from: deployer});
+
+  // accountability contract
+  const accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
+  
+  // oracle contract
+  let voters = validators.map((item, index) => (item.oracleAddress));
+  const oracle = await Oracle.new(voters, autonity.address, operator, [], 30, {from: deployer});
+
+  // acu contract (temporary empty basket and scale = 2)
+  const acu = await Acu.new([], [], 2, autonity.address, operator, oracle.address, {from: deployer});
+  
+  // supply control contract. we will set the stabilizer address later
+  const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000",{from:deployer,value:1})
+
+  // stabilization contract, random temporary config and zeroAddress as collateral token
+  config = { 
+    "borrowInterestRate" : 0,
+    "liquidationRatio" : 1,
+    "minCollateralizationRatio" : 2,
+    "minDebtRequirement" : 0,
+    "targetPrice" : 0,
+  }
+  const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
+
+  // setters
+  await supplyControl.setStabilizer(stabilization.address,{from:operator});
+  
+  await autonity.setAccountabilityContract(accountability.address, {from:operator});
+  await autonity.setAcuContract(acu.address, {from: operator});
+  await autonity.setSupplyControlContract(acu.address, {from: operator});
+  await autonity.setStabilizationContract(acu.address, {from: operator});
+  await autonity.setOracleContract(oracle.address, {from:operator});
+}
+
 // deploys protocol contracts
 const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
     // autonity contract
-    const autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-    await autonity.finalizeInitialization({from: deployer});
-
-    // accountability contract
-    const accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
-    
-    // oracle contract
-    let voters = validators.map((item, index) => (item.oracleAddress));
-    const oracle = await Oracle.new(voters, autonity.address, operator, [], 30, {from: deployer});
-
-    // acu contract (temporary empty basket and scale = 2)
-    const acu = await Acu.new([], [], 2, autonity.address, operator, oracle.address, {from: deployer});
-    
-    // supply control contract. we will set the stabilizer address later
-    const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000",{from:deployer,value:1})
-
-    // stabilization contract, random temporary config and zeroAddress as collateral token
-    config = { 
-      "borrowInterestRate" : 0,
-      "liquidationRatio" : 1,
-      "minCollateralizationRatio" : 2,
-      "minDebtRequirement" : 0,
-      "targetPrice" : 0,
-    }
-    const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
-
-    // setters
-    await supplyControl.setStabilizer(stabilization.address,{from:operator});
-    
-    await autonity.setAccountabilityContract(accountability.address, {from:operator});
-    await autonity.setAcuContract(acu.address, {from: operator});
-    await autonity.setSupplyControlContract(acu.address, {from: operator});
-    await autonity.setStabilizationContract(acu.address, {from: operator});
-    await autonity.setOracleContract(oracle.address, {from:operator});
-    
-    return autonity
+    const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
+    await initialize(autonity, validators, accountabilityConfig, deployer, operator);
+    return autonity;
 };
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
-const deployAutonityTestContract = async (validators, config, deployer) => {
-    return AutonityTest.new(validators, config, deployer);
+const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+    const autonityTest = await AutonityTest.new(validators, autonityConfig, {from: deployer});
+    await initialize(autonityTest, validators, accountabilityConfig, deployer, operator);
+    return autonityTest;
 };
 
 
