@@ -85,8 +85,8 @@ const createAutonityContract = async (validators, autonityConfig, deployer) => {
     return Autonity.new(validators, autonityConfig, deployer);
 }
 
-const createAutonityTestContract = async (validators, autonityConfig, deployer) => {
-  return AutonityTest.new(validators, autonityConfig, deployer);
+const createAutonityTestContract = async (validators, autonityConfig, unbondingPeriod, deployer) => {
+  return AutonityTest.new(validators, autonityConfig, unbondingPeriod, deployer);
 }
 
 async function initialize(autonity, validators, accountabilityConfig, deployer, operator) {
@@ -134,8 +134,8 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 };
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
-const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
-    const autonityTest = await AutonityTest.new(validators, autonityConfig, {from: deployer});
+const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, unbondingPeriod = 0) => {
+    const autonityTest = await createAutonityTestContract(validators, autonityConfig, unbondingPeriod, {from: deployer});
     await initialize(autonityTest, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
 };

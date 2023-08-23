@@ -803,10 +803,9 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator, unBondingPeriod);
     });
 
-    //TODO(tariq) replicate this test for a selfBonded bond request --> no LNTN minting for selfBonded stake
     it('Bond to a valid validator (not selfBonded)', async function () {
       // mint Newton for a new account.
       let newAccount = accounts[8];
@@ -839,11 +838,53 @@ contract('Autonity', function (accounts) {
       
 
       // LNTN is minted to delegator at epoch end
-      await endEpoch(autonity, operator, deployer);
       let validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
       const valLiquid = await liquidContract.at(validatorINfo.liquidContract);
       balance = (await valLiquid.balanceOf(newAccount)).toNumber();
+      assert.equal(balance, 0, "LNTN minted before epoch end");
+      await endEpoch(autonity, operator, deployer);
+      balance = (await valLiquid.balanceOf(newAccount)).toNumber();
       assert.equal(balance, tokenMint, "incorrect LNTN minted");
+    });
+
+    it('Bond to a valid validator (selfBonded)', async function () {
+      // mint Newton for a treasury
+      let treasury = validators[0].treasury;
+      let validator = validators[0].nodeAddress;
+      let tokenMint = 200;
+      let balance = (await autonity.balanceOf(treasury)).toNumber();
+      await autonity.mint(treasury, tokenMint, {from: operator});
+      balance += tokenMint;
+      let actualBalance = (await autonity.balanceOf(treasury)).toNumber();
+      assert.equal(actualBalance, balance, "incorrect balance before bonding");
+
+      // bond new minted Newton to a registered validator.
+      let tx = await autonity.bond(validator, tokenMint, {from: treasury});
+      truffleAssert.eventEmitted(tx, 'NewBondingRequest', (ev) => {
+        return ev.validator === validator && ev.delegator === treasury && ev.selfBonded === true && ev.amount.toNumber() === tokenMint
+      }, 'should emit NewBondingRequest event');
+
+      // bonded NTN is substracted from balance of delegator
+      balance -= tokenMint;
+      actualBalance = (await autonity.balanceOf(treasury)).toNumber();
+      assert.equal(actualBalance, balance, "incorrect balance after bonding");
+      
+
+      // num of stakings from contract construction equals: length of validators and the latest bond.
+      // ids start from 0
+      let latestBondingReqId = validators.length;      
+      let bondingRequest = await autonity.getBondingRequest(latestBondingReqId);
+      assert.equal(bondingRequest.amount, tokenMint, "stake bonding amount is not expected");
+      assert.equal(bondingRequest.delegator, treasury, "delegator addr is not expected");
+      assert.equal(bondingRequest.delegatee, validator, "delegatee addr is not expected");
+      
+
+      // for selfBonded, no LNTN is minted to delegator at epoch end
+      await endEpoch(autonity, operator, deployer);
+      let validatorINfo = await autonity.getValidator(validator);
+      const valLiquid = await liquidContract.at(validatorINfo.liquidContract);
+      balance = (await valLiquid.balanceOf(treasury)).toNumber();
+      assert.equal(balance, 0, "LNTN minted for selfBonded");
     });
 
     it('does not bond on a non registered validator', async function () {
@@ -878,29 +919,48 @@ contract('Autonity', function (accounts) {
     it('un-bond from a valid validator', async function () {
       let tokenUnBond = 10;
       let from = validators[0].treasury;
+      let balance = (await autonity.balanceOf(from)).toNumber();
       // unBond from self, a registered validator.
       let tx = await autonity.unbond(validators[0].nodeAddress, tokenUnBond, {from: from});
       
       truffleAssert.eventEmitted(tx, 'NewUnbondingRequest', (ev) => {
         return ev.validator === validators[0].nodeAddress && ev.delegator === from && ev.selfBonded === true && ev.amount.toNumber() === tokenUnBond
       }, 'should emit newUnbondingRequest event');
-      //TODO(tariq) check effects of unbond (selfBonded):
-      //                                  1. unbonded NTN enters "unbonding" state at epoch end and unbonding shares are issued. validator voting power (bondedStake) decreases
-      //                                  3. At the end of the unbonding period the unbonding shares are converted back to NTNs and released.
 
-      /* TODO(tariq) the internal queues for bond and unbond are not publicly accessible anymore.
-       * To run these checks we need another contract that inherits Autonity and exposes the bondingMap and unbondingMap.
-       * See AutonityTest.sol for the same approach applied to applyNewCommissionRates()
       let numOfUnBonding = 1;
       let latestUnbondingReqId = numOfUnBonding - 1
 
-      assert.equal(latestUnbondingReqId, (await autonity.getLastRequestedUnbondingRequest()).toNumber())
+      let unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
+      assert.equal(unbondingRequest.amount, tokenUnBond, "stake unbonding amount is not expected");
+      assert.equal(unbondingRequest.delegator, from, "delegator addr is not expected");
+      assert.equal(unbondingRequest.delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
+      assert.equal(unbondingRequest.unbondingShare, 0, "unboding share is issued before epoch end");
+      assert.equal(unbondingRequest.unlocked, false, "unbonding applied before epoch end");
 
-      let unStakings = await autonity.getUnbondingRequests(0, latestUnbondingReqId);
-      assert.equal(unStakings[latestUnbondingReqId].amount, tokenUnBond, "stake unbonding amount is not expected");
-      assert.equal(unStakings[latestUnbondingReqId].delegator, from, "delegator addr is not expected");
-      assert.equal(unStakings[latestUnbondingReqId].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
-      */
+      // check effects of unbond (selfBonded):
+      // unbonded NTN enters "unbonding" state at epoch end and unbonding shares are issued. validator voting power (bondedStake) decreases
+      let validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
+      let bondedStake = validatorINfo.bondedStake;
+      await endEpoch(autonity, operator, deployer);
+      unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
+      assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unboding share is not expected");
+      assert.equal(unbondingRequest.unlocked, true, "unbonding not applied at epoch end");
+      validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
+      assert.equal(validatorINfo.bondedStake, bondedStake - tokenUnBond, "validator bondedStake is not expected");
+
+      // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
+      let currentBalance = (await autonity.balanceOf(from)).toNumber();
+      assert.equal(currentBalance, balance, "NTN released before unbonding period");
+      let height = (await web3.eth.getBlockNumber()) + (await autonity.getUnbondingPeriod()).toNumber();
+      // mine blocks until we unbonding period is reached
+      while (await web3.eth.getBlockNumber() <= height) {
+        await utils.mineEmptyBlock();
+      }
+      await endEpoch(autonity, operator, deployer);
+      currentBalance = (await autonity.balanceOf(from)).toNumber();
+      assert.equal(currentBalance, balance + tokenUnBond, "NTN not released after unbonding period");
+
+     
     });
 
     it('does not unbond from not registered validator', async function () {

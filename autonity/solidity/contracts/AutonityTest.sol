@@ -13,9 +13,10 @@ import "./Autonity.sol";
 contract AutonityTest is Autonity {
 
     constructor(Validator[] memory _validators,
-                Config memory _config) Autonity(_validators, _config) {
+                Config memory _config,
+                uint256 _unbodingPeriod) Autonity(_validators, _config) {
 
-        config.policy.unbondingPeriod = 0;
+        config.policy.unbondingPeriod = _unbodingPeriod;
     }
 
    function applyNewCommissionRates() public onlyProtocol {
@@ -24,6 +25,10 @@ contract AutonityTest is Autonity {
 
    function getBondingRequest(uint256 _id) public view returns (BondingRequest memory) {
         return bondingMap[_id];
+   }
+
+   function getUnbondingRequest(uint256 _id) public view returns (UnbondingRequest memory) {
+        return unbondingMap[_id];
    }
 
 }
