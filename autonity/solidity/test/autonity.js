@@ -1359,6 +1359,16 @@ contract('Autonity', function (accounts) {
           let leftFund = toBN(await web3.eth.getBalance(token.address));
           assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).toString())
     });
+    it('jailed validator rewards go to proof reporter', async function () {
+      /* TODO(tariq) verify that if a validators is jailed (it has been slashed for a misbehaviour)
+       * his share of rewards goes to the proof reporter. relevant code in _performRedistribution() function of Autonity.sol
+       *          if (_val.state == ValidatorState.jailed) {
+       *             config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
+       *             continue;
+       *         }
+       */         
+
+    });
   });
   describe('Test epoch parameters updates', function () {
       let copyParams = autonityConfig;
