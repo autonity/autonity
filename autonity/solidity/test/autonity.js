@@ -290,7 +290,7 @@ contract('Autonity', function (accounts) {
   describe("Validator commission rate", () => {
     beforeEach(async function () {
       // the test contract exposes the applyNewCommissionRates function
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, {from: deployer});
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
 
     it("should revert with bad input", async () => {
@@ -803,7 +803,7 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
 
     //TODO(tariq) replicate this test for a selfBonded bond request --> no LNTN minting for selfBonded stake
@@ -811,32 +811,39 @@ contract('Autonity', function (accounts) {
       // mint Newton for a new account.
       let newAccount = accounts[8];
       let tokenMint = 200;
+      let balance = (await autonity.balanceOf(newAccount)).toNumber();
       await autonity.mint(newAccount, tokenMint, {from: operator});
+      balance += tokenMint;
+      let actualBalance = (await autonity.balanceOf(newAccount)).toNumber();
+      assert.equal(actualBalance, balance, "incorrect balance before bonding");
 
       // bond new minted Newton to a registered validator.
       let tx = await autonity.bond(validators[0].nodeAddress, tokenMint, {from: newAccount});
       truffleAssert.eventEmitted(tx, 'NewBondingRequest', (ev) => {
         return ev.validator === validators[0].nodeAddress && ev.delegator === newAccount && ev.selfBonded === false && ev.amount.toNumber() === tokenMint
       }, 'should emit newBondingRequest event');
-      //TODO(tariq) check effects of bond:
-      //                                  1. bonded NTN is substracted from balance of delegator
-      //                                  2. LNTN is minted to delegator at epoch end (to trigger epoch end, see endEpoch function helper)
+
+      // bonded NTN is substracted from balance of delegator
+      balance -= tokenMint;
+      actualBalance = (await autonity.balanceOf(newAccount)).toNumber();
+      assert.equal(actualBalance, balance, "incorrect balance after bonding");
       
-      /* TODO(tariq) the internal queues for bond and unbond are not publicly accessible anymore.
-       * To run these checks we need another contract that inherits Autonity and exposes the bondingMap and unbondingMap.
-       * See AutonityTest.sol for the same approach applied to applyNewCommissionRates()
+
       // num of stakings from contract construction equals: length of validators and the latest bond.
-      let numOfStakings = validators.length + 1;
       // ids start from 0
-      let latestBondingReqId = numOfStakings - 1       
+      let latestBondingReqId = validators.length;      
+      let bondingRequest = await autonity.getBondingRequest(latestBondingReqId);
+      assert.equal(bondingRequest.amount, tokenMint, "stake bonding amount is not expected");
+      assert.equal(bondingRequest.delegator, newAccount, "delegator addr is not expected");
+      assert.equal(bondingRequest.delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
+      
 
-      assert.equal(latestBondingReqId, (await autonity.getLastRequestedBondingRequest()).toNumber())
-
-      let stakings = await autonity.getBondingRequests(0, latestBondingReqId);
-      assert.equal(stakings[latestBondingReqId].amount, tokenMint, "stake bonding amount is not expected");
-      assert.equal(stakings[latestBondingReqId].delegator, newAccount, "delegator addr is not expected");
-      assert.equal(stakings[latestBondingReqId].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
-      */
+      // LNTN is minted to delegator at epoch end
+      await endEpoch(autonity, operator, deployer);
+      let validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
+      const valLiquid = await liquidContract.at(validatorINfo.liquidContract);
+      balance = (await valLiquid.balanceOf(newAccount)).toNumber();
+      assert.equal(balance, tokenMint, "incorrect LNTN minted");
     });
 
     it('does not bond on a non registered validator', async function () {
