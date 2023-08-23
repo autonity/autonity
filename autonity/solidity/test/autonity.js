@@ -830,7 +830,7 @@ contract('Autonity', function (accounts) {
 
     //TODO(tariq) replicate this test for a non-selfBonded unbond request --> 
     //                                                                        1. LNTN locked when unbonding request issued
-    //                                                                        2. LNTN burned at the end of the epoch following the unbonding request
+    //                                                                        2. LNTN burned at the end of the epoch following the unbonding request. Unbonding request becomes unlocked.
     //                                                                        3. Unbonding shares issued at the end of the epoch
     //                                                                        4. Unbonding shares converted to NTNs and released at the end of the unbonding period
     it('un-bond from a valid validator', async function () {
@@ -951,6 +951,28 @@ contract('Autonity', function (accounts) {
       assert.equal(unstakings[0].amount, tokenUnBond, "stake unbonding amount is not expected");
       assert.equal(unstakings[0].delegator, validators[0].treasury, "delegator addr is not expected");
       assert.equal(unstakings[0].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
+    });
+    it('test unbonding shares logic' async function () {
+      /* TODO(tariq) issue multiple unbonding requests (both selfBonded and not) in different epochs
+       * and check that the unbonding shares related fields change accordingly. Relevant fields to check:
+       * struct Validator {
+            uint256 bondedStake;
+            uint256 unbondingStake;
+            uint256 unbondingShares; 
+            uint256 selfBondedStake;
+            uint256 selfUnbondingStake;
+            uint256 selfUnbondingShares;
+            uint256 liquidSupply;
+          }
+          struct UnbondingRequest {
+            address payable delegator;
+            address delegatee;
+            uint256 amount; 
+            uint256 unbondingShare;
+            bool selfDelegation;
+          }
+       */
+
     });
 
   });
