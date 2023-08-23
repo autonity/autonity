@@ -197,7 +197,8 @@ contract('Autonity', function (accounts) {
 
   let autonity;
   describe('Contract initial state', function () {
-    /* TODO(tariq) add getter tests for:
+    /* TODO(tariq) low priority change, leave for last
+     * add getter tests for:
      * struct Policy {
           uint256 treasuryFee;
           uint256 delegationRate;
