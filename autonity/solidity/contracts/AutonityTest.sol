@@ -22,4 +22,8 @@ contract AutonityTest is Autonity {
         Autonity._applyNewCommissionRates();
    }
 
+   function getBondingRequest(uint256 _id) public view returns (BondingRequest memory) {
+        return bondingMap[_id];
+   }
+
 }
