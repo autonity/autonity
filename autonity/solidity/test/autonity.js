@@ -207,7 +207,6 @@ contract('Autonity', function (accounts) {
       }
  
       struct Protocol {
-          address operatorAccount;
           uint256 epochPeriod;
           uint256 blockPeriod;
       }
@@ -355,6 +354,18 @@ contract('Autonity', function (accounts) {
   })
 
   describe('Set protocol parameters only by operator account', function () {
+    /*TODO(tariq) low priority change, leave for last
+     * add similar tests as the following ones for:
+     * - blockPeriod --> there is not a setter yet in the Autonity contract, but we will add it in the future. For now let's add a skipped test, so that we do not forget to add it
+     * - setters for all the protocol contracts
+     *   struct Contracts {
+           IAccountability accountabilityContract;
+           IOracle oracleContract;
+           IACU acuContract;
+           ISupplyControl supplyControlContract;
+           IStabilization stabilizationContract;
+       }
+       */
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -503,6 +514,15 @@ contract('Autonity', function (accounts) {
       let treasuryFee = await autonity.getTreasuryFee({from: operator});
       assert.equal(treasuryFee.toString(),initFee.toString())
     });
+  });
+  describe('Test onlyAccountability and onlyProtocol', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+    });
+    //TODO(tariq) low priority change, leave for last
+    // add test to check that:
+    // - updateValidatorAndTransferSlashedFunds can only be called by the accountability contract
+    // - finalize, finalizeInitialize and computeCommittee can only be called by the protocol (autonity)
   });
 
   describe('Test cases for ERC-20 token management', function () {
@@ -967,7 +987,7 @@ contract('Autonity', function (accounts) {
       assert.equal(unstakings[0].delegator, validators[0].treasury, "delegator addr is not expected");
       assert.equal(unstakings[0].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
     });
-    it('test unbonding shares logic' async function () {
+    it('test unbonding shares logic', async function () {
       /* TODO(tariq) issue multiple unbonding requests (both selfBonded and not) in different epochs
        * and check that the unbonding shares related fields change accordingly. Relevant fields to check:
        * struct Validator {
@@ -1104,6 +1124,12 @@ contract('Autonity', function (accounts) {
             }
           }
           assert.equal(presented, true);
+      });
+      it('test more than committeeSize bonded validators, the ones with less stake should remain outside of the committee', async function() {
+        //TODO(tariq) low priority change, leave for last
+        // check that computeCommittee correctly excludes lower stake validators in case of more validators than seats in the committee.
+        // check also that epochTotalBondedStake is what we expect
+        // feel free to lower the max committeesize to speed up the test
       });
   });
 
@@ -1333,5 +1359,25 @@ contract('Autonity', function (accounts) {
           let leftFund = toBN(await web3.eth.getBalance(token.address));
           assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).toString())
     });
+  });
+  describe('Test epoch parameters updates', function () {
+      let copyParams = autonityConfig;
+      let token;
+      beforeEach(async function () {
+          // set short epoch period 
+          let customizedEpochPeriod = 20;
+          copyParams.protocol.epochPeriod = customizedEpochPeriod;
+
+          token = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator);
+          assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
+      });
+      it('test epochid and lastEpochBlock', async function () {
+        //TODO(tariq) low priority change, leave for last
+        // check that epochid and lastEpochBlock grow as we expect. Terminate a couple epochs and check the variables.
+      });
+      it('test getEpochFromBlock and blockEpochMap', async function () {
+        //TODO(tariq) low priority change, leave for last
+        // check that blockEpochMap and getEpochFromBlock return the numbers we expect. Terminate a couple epochs and check the variables.
+      });
   });
 });
