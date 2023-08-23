@@ -955,7 +955,7 @@ contract('Autonity', function (accounts) {
 
   });
 
-  describe('Test apply bonding and un-bonding with epoch finalize()', function () {
+  describe('Test committee members rotation through bonding/unbonding', function () {
       let vals = [
         { ...baseValidator,
           "treasury": accounts[0],
@@ -1070,7 +1070,7 @@ contract('Autonity', function (accounts) {
       });
   });
 
-  describe('Test DPoS reward distribution with weighted staking', function () {
+  describe('Test DPoS reward distribution', function () {
       let copyParams = autonityConfig;
       let token;
       beforeEach(async function () {
