@@ -911,11 +911,6 @@ contract('Autonity', function (accounts) {
       );
     });
 
-    //TODO(tariq) replicate this test for a non-selfBonded unbond request --> 
-    //                                                                        1. LNTN locked when unbonding request issued
-    //                                                                        2. LNTN burned at the end of the epoch following the unbonding request. Unbonding request becomes unlocked.
-    //                                                                        3. Unbonding shares issued at the end of the epoch
-    //                                                                        4. Unbonding shares converted to NTNs and released at the end of the unbonding period
     it('un-bond from a valid validator', async function () {
       let tokenUnBond = 10;
       let from = validators[0].treasury;
@@ -950,14 +945,83 @@ contract('Autonity', function (accounts) {
 
       // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
       let currentBalance = (await autonity.balanceOf(from)).toNumber();
+      // for this assert to work, the following needs to be true:
+      // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
+      // otherwise NTN is already released at last epoch end
       assert.equal(currentBalance, balance, "NTN released before unbonding period");
-      let height = (await web3.eth.getBlockNumber()) + (await autonity.getUnbondingPeriod()).toNumber();
+      let unbodingHeight = unbondingRequest.requestBlock + (await autonity.getUnbondingPeriod()).toNumber();
       // mine blocks until we unbonding period is reached
-      while (await web3.eth.getBlockNumber() <= height) {
+      while (await web3.eth.getBlockNumber() < unbodingHeight) {
         await utils.mineEmptyBlock();
       }
+      // trigger endEpoch for NTN release
       await endEpoch(autonity, operator, deployer);
       currentBalance = (await autonity.balanceOf(from)).toNumber();
+      assert.equal(currentBalance, balance + tokenUnBond, "NTN not released after unbonding period");
+
+     
+    });
+
+    it('un-bond from a valid validator (non-self-bonded)', async function () {
+      const tokenUnBond = 10;
+      const newAccount = accounts[8];
+      const tokenMint = 100;
+      // give me some money
+      await autonity.mint(newAccount, tokenMint, {from: operator});
+      // bond to a valid validator (non-self-bonded)
+      const validator = validators[0].nodeAddress;
+      await autonity.bond(validator, tokenMint, {from: newAccount});
+      let balance = (await autonity.balanceOf(newAccount)).toNumber();
+      // let LNTN mint to delegator
+      await endEpoch(autonity, operator, deployer);
+      // unBond from validator.
+      let tx = await autonity.unbond(validator, tokenUnBond, {from: newAccount});
+      
+      truffleAssert.eventEmitted(tx, 'NewUnbondingRequest', (ev) => {
+        return ev.validator === validator && ev.delegator === newAccount && ev.selfBonded === false && ev.amount.toNumber() === tokenUnBond
+      }, 'should emit newUnbondingRequest event');
+
+      let numOfUnBonding = 1;
+      let latestUnbondingReqId = numOfUnBonding - 1
+
+      let unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
+      assert.equal(unbondingRequest.amount, tokenUnBond, "stake unbonding amount is not expected");
+      assert.equal(unbondingRequest.delegator, newAccount, "delegator addr is not expected");
+      assert.equal(unbondingRequest.delegatee, validator, "delegatee addr is not expected");
+      assert.equal(unbondingRequest.unbondingShare, 0, "unboding share is issued before epoch end");
+      assert.equal(unbondingRequest.unlocked, false, "unbonding applied before epoch end");
+
+      // check effects of unbond (non-self-bonded):
+      // LNTN is locked
+      let validatorInfo = await autonity.getValidator(validator);
+      const valLiquid = await liquidContract.at(validatorINfo.liquidContract);
+      assert.equal((await valLiquid.lockedBalanceOf(newAccount)).toNumber(), tokenUnBond);
+
+      // LNTN burned at the end of the epoch. Unbonding request becomes unlocked.
+      // Unbonding shares issued at the end of the epoch. validator voting power (bondedStake) decreases
+      let bondedStake = validatorINfo.bondedStake;
+      await endEpoch(autonity, operator, deployer);
+      unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
+      assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unboding share is not expected");
+      assert.equal(unbondingRequest.unlocked, true, "unbonding not applied at epoch end");
+      validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
+      assert.equal(validatorINfo.bondedStake, bondedStake - tokenUnBond, "validator bondedStake is not expected");
+      assert.equal((await valLiquid.lockedBalanceOf(newAccount)).toNumber(), 0, "LNTN not unlocked after epoch end");
+      assert.equal((await valLiquid.balanceOf(newAccount)).toNumber(), tokenMint - tokenUnBond, "LNTN not burned after epoch end");
+
+      // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
+      let currentBalance = (await autonity.balanceOf(newAccount)).toNumber();
+      // for this assert to work, the following needs to be true:
+      // UnbondingPeriod > CurrentEpochStartHeight - UnbondingRequestBlock
+      assert.equal(currentBalance, balance, "NTN released before unbonding period");
+      let unbodingHeight = unbondingRequest.requestBlock + (await autonity.getUnbondingPeriod()).toNumber();
+      // mine blocks until we unbonding period is reached
+      while (await web3.eth.getBlockNumber() < unbodingHeight) {
+        await utils.mineEmptyBlock();
+      }
+      // trigger endEpoch for NTN release
+      await endEpoch(autonity, operator, deployer);
+      currentBalance = (await autonity.balanceOf(newAccount)).toNumber();
       assert.equal(currentBalance, balance + tokenUnBond, "NTN not released after unbonding period");
 
      
