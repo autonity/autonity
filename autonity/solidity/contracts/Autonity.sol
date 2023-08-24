@@ -321,8 +321,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     */
     function unbond(address _validator, uint256 _amount) public {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
-        // in case _amount = 0, it is harmless, yet can trigger contract to fail in end-epoch phase
-        // in some limited case
         require(_amount > 0, "unbonding amount is 0");
         _unbond(_validator, _amount, payable(msg.sender));
     }
