@@ -13,10 +13,8 @@ import "./Autonity.sol";
 contract AutonityTest is Autonity {
 
     constructor(Validator[] memory _validators,
-                Config memory _config,
-                uint256 _unbodingPeriod) Autonity(_validators, _config) {
+                Config memory _config) Autonity(_validators, _config) {
 
-        config.policy.unbondingPeriod = _unbodingPeriod;
     }
 
    function applyNewCommissionRates() public onlyProtocol {

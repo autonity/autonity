@@ -87,6 +87,21 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses
     }
   }
 
+  // all requests are processed sequentially, lastRequest will be processed at last
+  let lastRequest = await autonity.getUnbondingRequest(requestId - 1);
+  let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
+  let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
+  let unbondingReleaseHeight = Number(lastRequest.requestBlock) + currentUnbondingPeriod;
+  // the following needs to be true:
+  // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
+  assert(
+    unbondingReleaseHeight > lastEpochBlock,
+    `unbonding period too short for testing, request-block: ${Number(lastRequest.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
+    + `last-epoch-block: ${lastEpochBlock}`
+  );
+  // otherwise NTN is already released at last epoch end
+
+  // check validator state after unbonding applied but before NTN is released
   // total-unbond amount for each delegatee
   let totalUnboded = tokenUnbond * treasuryAddrses.length;
   let valInfo = await validatorState(autonity, delegatee);
@@ -95,11 +110,8 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses
   }
 
   expectedValInfo = await validatorState(autonity, delegatee);
-  // all requests are processed sequentially, lastRequest will be processed at last
-  let lastRequest = await autonity.getUnbondingRequest(requestId - 1);
-  let unbodingHeight = Number(lastRequest.requestBlock) + (await autonity.getUnbondingPeriod()).toNumber();
   // mine blocks until unbonding period is reached
-  while (await web3.eth.getBlockNumber() < unbodingHeight) {
+  while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
     await utils.mineEmptyBlock();
   }
   // trigger endEpoch for NTN release
@@ -409,7 +421,9 @@ contract('Autonity', function (accounts) {
   describe("Validator commission rate", () => {
     beforeEach(async function () {
       // the test contract exposes the applyNewCommissionRates function
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      let config = JSON.parse(JSON.stringify(autonityConfig));
+      config.policy.unbondingPeriod = 0;
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
     });
 
     it("should revert with bad input", async () => {
@@ -922,7 +936,7 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator, unBondingPeriod);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
 
     it('Bond to a valid validator (not selfBonded)', async function () {
@@ -1048,7 +1062,7 @@ contract('Autonity', function (accounts) {
       assert.equal(unbondingRequest.amount, tokenUnBond, "stake unbonding amount is not expected");
       assert.equal(unbondingRequest.delegator, from, "delegator addr is not expected");
       assert.equal(unbondingRequest.delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
-      assert.equal(unbondingRequest.unbondingShare, 0, "unboding share is issued before epoch end");
+      assert.equal(unbondingRequest.unbondingShare, 0, "unbonding share is issued before epoch end");
       assert.equal(unbondingRequest.unlocked, false, "unbonding applied before epoch end");
 
       // check effects of unbond (selfBonded):
@@ -1057,20 +1071,27 @@ contract('Autonity', function (accounts) {
       let bondedStake = validatorINfo.bondedStake;
       await endEpoch(autonity, operator, deployer);
       unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
-      assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unboding share is not expected");
+      assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unbonding share is not expected");
       assert.equal(unbondingRequest.unlocked, true, "unbonding not applied at epoch end");
       validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
       assert.equal(validatorINfo.bondedStake, bondedStake - tokenUnBond, "validator bondedStake is not expected");
 
       // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
       let currentBalance = (await autonity.balanceOf(from)).toNumber();
-      // for this assert to work, the following needs to be true:
+      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
+      let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
+      let unbondingReleaseHeight = Number(unbondingRequest.requestBlock) + currentUnbondingPeriod;
+      // the following needs to be true:
       // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
+      assert(
+        unbondingReleaseHeight > lastEpochBlock,
+        `unbonding period too short for testing, request-block: ${Number(unbondingRequest.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
+        + `last-epoch-block: ${lastEpochBlock}`
+      );
       // otherwise NTN is already released at last epoch end
       assert.equal(currentBalance, balance, "NTN released before unbonding period");
-      let unbodingHeight = Number(unbondingRequest.requestBlock) + (await autonity.getUnbondingPeriod()).toNumber();
       // mine blocks until unbonding period is reached
-      while (await web3.eth.getBlockNumber() < unbodingHeight) {
+      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
         await utils.mineEmptyBlock();
       }
       // trigger endEpoch for NTN release
@@ -1107,7 +1128,7 @@ contract('Autonity', function (accounts) {
       assert.equal(unbondingRequest.amount, tokenUnBond, "stake unbonding amount is not expected");
       assert.equal(unbondingRequest.delegator, newAccount, "delegator addr is not expected");
       assert.equal(unbondingRequest.delegatee, validator, "delegatee addr is not expected");
-      assert.equal(unbondingRequest.unbondingShare, 0, "unboding share is issued before epoch end");
+      assert.equal(unbondingRequest.unbondingShare, 0, "unbonding share is issued before epoch end");
       assert.equal(unbondingRequest.unlocked, false, "unbonding applied before epoch end");
 
       // check effects of unbond (non-self-bonded):
@@ -1121,7 +1142,7 @@ contract('Autonity', function (accounts) {
       let bondedStake = validatorInfo.bondedStake;
       await endEpoch(autonity, operator, deployer);
       unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
-      assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unboding share is not expected");
+      assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unbonding share is not expected");
       assert.equal(unbondingRequest.unlocked, true, "unbonding not applied at epoch end");
       validatorInfo = await autonity.getValidator(validators[0].nodeAddress);
       assert.equal(validatorInfo.bondedStake, bondedStake - tokenUnBond, "validator bondedStake is not expected");
@@ -1130,12 +1151,20 @@ contract('Autonity', function (accounts) {
 
       // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
       let currentBalance = (await autonity.balanceOf(newAccount)).toNumber();
-      // for this assert to work, the following needs to be true:
-      // UnbondingPeriod > CurrentEpochStartHeight - UnbondingRequestBlock
+      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
+      let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
+      let unbondingReleaseHeight = Number(unbondingRequest.requestBlock) + currentUnbondingPeriod;
+      // the following needs to be true:
+      // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
+      assert(
+        unbondingReleaseHeight > lastEpochBlock,
+        `unbonding period too short for testing, request-block: ${Number(unbondingRequest.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
+        + `last-epoch-block: ${lastEpochBlock}`
+      );
+      // otherwise NTN is already released at last epoch end
       assert.equal(currentBalance, balance, "NTN released before unbonding period");
-      let unbodingHeight = Number(unbondingRequest.requestBlock) + (await autonity.getUnbondingPeriod()).toNumber();
       // mine blocks until unbonding period is reached
-      while (await web3.eth.getBlockNumber() < unbodingHeight) {
+      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
         await utils.mineEmptyBlock();
       }
       // trigger endEpoch for NTN release
