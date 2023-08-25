@@ -1142,6 +1142,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             }
             _validator.selfUnbondingStake += _newtonAmount;
             _validator.selfUnbondingShares += _unbonding.unbondingShare;
+            _validator.selfBondedStake -= _newtonAmount;
         }
 
         _unbonding.unlocked = true;
