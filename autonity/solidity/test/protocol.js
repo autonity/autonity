@@ -30,7 +30,7 @@ contract('Protocol', function (accounts) {
   const treasuryAccount = accounts[8];
   const treasuryFee = "10000000000000000";
   const minimumEpochPeriod = 30;
-  const version = 1;
+  const version = 0;
   const zeroAddress = "0x0000000000000000000000000000000000000000";
 
   const autonityConfig = {

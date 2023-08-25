@@ -312,7 +312,6 @@ contract Accountability is IAccountability {
     * @dev Emit a {SlashingEvent} event for the fined account.
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
-
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
         //_val must be returned - no error check
         Autonity.Validator memory _val = autonity.getValidator(_event.offender);
