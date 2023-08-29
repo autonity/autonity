@@ -1044,7 +1044,7 @@ contract('Autonity', function (accounts) {
       );
     });
 
-    it('un-bond from a valid validator', async function () {
+    it('un-bond from a valid validator (selfBonded)', async function () {
       let tokenUnBond = 10;
       let from = validators[0].treasury;
       let balance = (await autonity.balanceOf(from)).toNumber();
