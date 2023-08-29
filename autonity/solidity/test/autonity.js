@@ -36,10 +36,10 @@ function generateMultiSig(nodekey,oraclekey,treasuryAddr) {
       return multisig
 }
 
-async function validatorState(autonity, validatorAddrses) {
+async function validatorState(autonity, validatorAddresses) {
   let expectedValInfo = [];
-  for (let i = 0; i < validatorAddrses.length; i++) {
-    expectedValInfo.push(await autonity.getValidator(validatorAddrses[i]));
+  for (let i = 0; i < validatorAddresses.length; i++) {
+    expectedValInfo.push(await autonity.getValidator(validatorAddresses[i]));
   }
   return expectedValInfo;
 }
@@ -71,18 +71,18 @@ async function bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbond
   }
 }
 
-async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses, delegatee, tokenUnbond) {
-  await bulkUnbondingRequest(autonity, treasuryAddrses, delegatee, tokenUnbond);
+async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond) {
+  await bulkUnbondingRequest(autonity, treasuryAddresses, delegatee, tokenUnbond);
   let requestId = (await autonity.getFirstPendingUnbondingRequest()).toNumber();
   let expectedValInfo = await validatorState(autonity, delegatee);
   await endEpoch(autonity, operator, deployer);
 
-  // treasuryAddrses[i] is treasury of delegatee[i], so if all treasuryAddrses bond to all delegatee
+  // treasuryAddresses[i] is treasury of delegatee[i], so if all treasuryAddresses bond to all delegatee
   // there will be one self-bond for each delegatee
-  for (let i = 0; i < treasuryAddrses.length; i++) {
+  for (let i = 0; i < treasuryAddresses.length; i++) {
     for (let j = 0; j < delegatee.length; j++) {
       let request = await autonity.getUnbondingRequest(requestId);
-      checkUnbondingShare(request, delegatee[j], treasuryAddrses[i], tokenUnbond, i == j, true);
+      checkUnbondingShare(request, delegatee[j], treasuryAddresses[i], tokenUnbond, i == j, true);
       requestId++;
     }
   }
@@ -103,10 +103,10 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses
 
   // check validator state after unbonding applied but before NTN is released
   // total-unbond amount for each delegatee
-  let totalUnboded = tokenUnbond * treasuryAddrses.length;
+  let totalUnbonded = tokenUnbond * treasuryAddresses.length;
   let valInfo = await validatorState(autonity, delegatee);
   for (let i = 0; i < delegatee.length; i++) {
-    checkValInfoAfterUnbonding(valInfo[i], expectedValInfo[i], tokenUnbond, totalUnboded);
+    checkValInfoAfterUnbonding(valInfo[i], expectedValInfo[i], tokenUnbond, totalUnbonded);
   }
 
   expectedValInfo = await validatorState(autonity, delegatee);
@@ -118,7 +118,7 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses
   await endEpoch(autonity, operator, deployer);
   valInfo = await validatorState(autonity, delegatee);
   for (let i = 0; i < delegatee.length; i++) {
-    checkValInfoAfterRelease(valInfo[i], expectedValInfo[i], tokenUnbond, totalUnboded);
+    checkValInfoAfterRelease(valInfo[i], expectedValInfo[i], tokenUnbond, totalUnbonded);
   }
 }
 
@@ -971,8 +971,8 @@ contract('Autonity', function (accounts) {
       
 
       // LNTN is minted to delegator at epoch end
-      let validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
-      const valLiquid = await liquidContract.at(validatorINfo.liquidContract);
+      let validatorInfo = await autonity.getValidator(validators[0].nodeAddress);
+      const valLiquid = await liquidContract.at(validatorInfo.liquidContract);
       balance = (await valLiquid.balanceOf(newAccount)).toNumber();
       assert.equal(balance, 0, "LNTN minted before epoch end");
       await endEpoch(autonity, operator, deployer);
@@ -1014,8 +1014,8 @@ contract('Autonity', function (accounts) {
 
       // for selfBonded, no LNTN is minted to delegator at epoch end
       await endEpoch(autonity, operator, deployer);
-      let validatorINfo = await autonity.getValidator(validator);
-      const valLiquid = await liquidContract.at(validatorINfo.liquidContract);
+      let validatorInfo = await autonity.getValidator(validator);
+      const valLiquid = await liquidContract.at(validatorInfo.liquidContract);
       balance = (await valLiquid.balanceOf(treasury)).toNumber();
       assert.equal(balance, 0, "LNTN minted for selfBonded");
     });
@@ -1067,14 +1067,13 @@ contract('Autonity', function (accounts) {
 
       // check effects of unbond (selfBonded):
       // unbonded NTN enters "unbonding" state at epoch end and unbonding shares are issued. validator voting power (bondedStake) decreases
-      let validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
-      let bondedStake = validatorINfo.bondedStake;
+      let oldValInfo = await autonity.getValidator(validators[0].nodeAddress);
       await endEpoch(autonity, operator, deployer);
       unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
       assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unbonding share is not expected");
       assert.equal(unbondingRequest.unlocked, true, "unbonding not applied at epoch end");
-      validatorINfo = await autonity.getValidator(validators[0].nodeAddress);
-      assert.equal(validatorINfo.bondedStake, bondedStake - tokenUnBond, "validator bondedStake is not expected");
+      let validatorInfo = await autonity.getValidator(validators[0].nodeAddress);
+      checkValInfoAfterUnbonding(validatorInfo, oldValInfo, tokenUnBond, tokenUnBond);
 
       // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
       let currentBalance = (await autonity.balanceOf(from)).toNumber();
@@ -1098,6 +1097,7 @@ contract('Autonity', function (accounts) {
       await endEpoch(autonity, operator, deployer);
       currentBalance = (await autonity.balanceOf(from)).toNumber();
       assert.equal(currentBalance, balance + tokenUnBond, "NTN not released after unbonding period");
+      checkValInfoAfterRelease(await autonity.getValidator(validators[0].nodeAddress), validatorInfo, tokenUnBond, tokenUnBond);
 
      
     });
@@ -1139,13 +1139,12 @@ contract('Autonity', function (accounts) {
 
       // LNTN burned at the end of the epoch. Unbonding request becomes unlocked.
       // Unbonding shares issued at the end of the epoch. validator voting power (bondedStake) decreases
-      let bondedStake = validatorInfo.bondedStake;
       await endEpoch(autonity, operator, deployer);
       unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
       assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unbonding share is not expected");
       assert.equal(unbondingRequest.unlocked, true, "unbonding not applied at epoch end");
-      validatorInfo = await autonity.getValidator(validators[0].nodeAddress);
-      assert.equal(validatorInfo.bondedStake, bondedStake - tokenUnBond, "validator bondedStake is not expected");
+      let newValInfo = await autonity.getValidator(validator);
+      checkValInfoAfterUnbonding(newValInfo, validatorInfo, 0, tokenUnBond);
       assert.equal((await valLiquid.lockedBalanceOf(newAccount)).toNumber(), 0, "LNTN not unlocked after epoch end");
       assert.equal((await valLiquid.balanceOf(newAccount)).toNumber(), tokenMint - tokenUnBond, "LNTN not burned after epoch end");
 
@@ -1171,6 +1170,7 @@ contract('Autonity', function (accounts) {
       await endEpoch(autonity, operator, deployer);
       currentBalance = (await autonity.balanceOf(newAccount)).toNumber();
       assert.equal(currentBalance, balance + tokenUnBond, "NTN not released after unbonding period");
+      checkValInfoAfterRelease(await autonity.getValidator(validator), newValInfo, 0, tokenUnBond);
 
      
     });
@@ -1202,15 +1202,12 @@ contract('Autonity', function (accounts) {
       let numOfStakings = validators.length;
 
       // they are all processed at contract construction time, so there should be no pending requests
-      await truffleAssert.fails(
-        autonity.getFirstPendingBondingRequest(),
-        truffleAssert.ErrorType.REVERT,
-        "No pending bonding requests"
-      );
+      let tailBondingID = (await autonity.getFirstPendingBondingRequest()).toNumber();
+      assert(tailBondingID >= (await autonity.getHeadBondingID()).toNumber(), "Pending bonding request found");
       
       // ids start from 0
       let latestBondingReqId = numOfStakings - 1;
-      assert.equal(latestBondingReqId, (await autonity.getLastRequestedBondingRequest()).toNumber(), "last bonding request id mismatch");
+      assert.equal(latestBondingReqId, (await autonity.getHeadBondingID()).toNumber() - 1, "last bonding request id mismatch");
       
       // do a new bonding req
       let newAccount = accounts[8];
@@ -1221,7 +1218,7 @@ contract('Autonity', function (accounts) {
       
       // ids start from 0
       latestBondingReqId = numOfStakings - 1;
-      assert.equal(latestBondingReqId, (await autonity.getLastRequestedBondingRequest()).toNumber(), "last bonding request id mismatch");
+      assert.equal(latestBondingReqId, (await autonity.getHeadBondingID()).toNumber() - 1, "last bonding request id mismatch");
       assert.equal(latestBondingReqId, (await autonity.getFirstPendingBondingRequest()).toNumber(), "first bonding request id mismatch");
 
       let staking = await autonity.getBondingRequest(latestBondingReqId);
@@ -1233,16 +1230,10 @@ contract('Autonity', function (accounts) {
 
     it('test unbonding queue logic', async function () {
       // no unbondings from contract construction
-      await truffleAssert.fails(
-        autonity.getFirstPendingUnbondingRequest(),
-        truffleAssert.ErrorType.REVERT,
-        "No pending unbonding request"
-      );
-      await truffleAssert.fails(
-        autonity.getLastRequestedUnbondingRequest(),
-        truffleAssert.ErrorType.REVERT,
-        "No unbonding is requested",
-      );
+      let lastUnlockedUnbonding = (await autonity.getFirstPendingUnbondingRequest()).toNumber();
+      let headUnbondingID = (await autonity.getHeadUnbondingID()).toNumber();
+      assert(lastUnlockedUnbonding >= headUnbondingID, "Pending unbonding request found");
+      assert(headUnbondingID == 0, "Unbonding is requested");
       
       // do a new unbonding req
       let tokenUnBond = 10;
@@ -1250,7 +1241,7 @@ contract('Autonity', function (accounts) {
       await autonity.unbond(validators[0].nodeAddress, tokenUnBond, {from: from});
       
       let latestUnbondingReqId = 0;
-      assert.equal(latestUnbondingReqId, (await autonity.getLastRequestedUnbondingRequest()).toNumber(), "last unbonding request id mismatch");
+      assert.equal(latestUnbondingReqId, (await autonity.getHeadUnbondingID()).toNumber() - 1, "last unbonding request id mismatch");
       assert.equal(latestUnbondingReqId, (await autonity.getFirstPendingUnbondingRequest()).toNumber(), "first unbonding request id mismatch");
 
       let unstaking = await autonity.getUnbondingRequest(latestUnbondingReqId);
@@ -1283,34 +1274,34 @@ contract('Autonity', function (accounts) {
       */
 
       let delegatee = [];
-      let treasuryAddrses = [];
+      let treasuryAddresses = [];
 
       for (let i = 0; i < validators.length; i++) {
-        treasuryAddrses.push(validators[i].treasury);
+        treasuryAddresses.push(validators[i].treasury);
         delegatee.push(validators[i].nodeAddress);
       }
 
       const tokenMint = 100;
       const tokenUnbond = 10;
-      await bulkBondingRequest(autonity, operator, deployer, treasuryAddrses, delegatee, tokenMint);
+      await bulkBondingRequest(autonity, operator, deployer, treasuryAddresses, delegatee, tokenMint);
       // unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses, delegatee, tokenUnbond);
+      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
       // again unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses, delegatee, tokenUnbond);
+      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
 
       // repeat
-      await bulkBondingRequest(autonity, operator, deployer, treasuryAddrses, delegatee, tokenMint);
+      await bulkBondingRequest(autonity, operator, deployer, treasuryAddresses, delegatee, tokenMint);
       // unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses, delegatee, tokenUnbond);
+      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
       // again unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses, delegatee, tokenUnbond);
+      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
 
       // repeat again
-      await bulkBondingRequest(autonity, operator, deployer, treasuryAddrses, delegatee, tokenMint);
+      await bulkBondingRequest(autonity, operator, deployer, treasuryAddresses, delegatee, tokenMint);
       // unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses, delegatee, tokenUnbond);
+      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
       // again unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddrses, delegatee, tokenUnbond);
+      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
 
     });
   });

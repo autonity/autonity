@@ -30,23 +30,19 @@ contract AutonityTest is Autonity {
    }
 
    function getFirstPendingBondingRequest() public view returns (uint256) {
-     require(tailBondingID < headBondingID, "No pending bonding requests");
      return tailBondingID;
    }
 
-   function getLastRequestedBondingRequest() public view returns (uint256) {
-     require(headBondingID > 0, "No bonding is requested");
-     return headBondingID - 1;     
+   function getHeadBondingID() public view returns (uint256) {
+     return headBondingID;
    }
 
    function getFirstPendingUnbondingRequest() public view returns (uint256) {
-     require(lastUnlockedUnbonding < headUnbondingID, "No pending unbonding request");
      return lastUnlockedUnbonding;     
    }
 
-   function getLastRequestedUnbondingRequest() public view returns (uint256) {
-     require(headUnbondingID > 0, "No unbonding is requested");
-     return headUnbondingID - 1;
+   function getHeadUnbondingID() public view returns (uint256) {
+     return headUnbondingID;
    }
 
 }
