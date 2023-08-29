@@ -226,6 +226,13 @@ contract('Protocol', function (accounts) {
        *             continue;
        *         }
        */         
+    });
+    it('jailed validator cannot be activated', async function () {
+      /* TODO(tariq) verify that if a validators is jailed (it has been slashed for a misbehaviour)
+       * he cannot be re-activated until the jail period has expired. see Autonity.sol activateValidator()
+       * require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
+       * Once the jail period has expired, the validator operator should be allowed to re-activate its validator
+       */         
 
     });
   });
