@@ -43,7 +43,7 @@ const AccountabilityTest = artifacts.require("AccountabilityTest");
 const toBN = web3.utils.toBN
 
 function ruleToRate(accountabilityConfig,rule){
-  //TODO(lorenzo) create mapping rule to rate. bypass severity conversion?
+  //TODO(lorenzo) create mapping rule to rate once finalized in autonity.sol. bypass severity conversion?
   return accountabilityConfig.baseSlashingRateMid
 }
 
@@ -61,8 +61,12 @@ async function slashAndVerify(autonity,accountability,accountabilityConfig,event
   let availableFunds = toBN(offender.bondedStake).add(toBN(offender.unbondingStake)).add(toBN(offender.selfUnbondingStake))
   let slashingAmount = (slashingRate.mul(availableFunds).div(toBN(accountabilityConfig.slashingRatePrecision))).toNumber() 
   let originalSlashingAmount = slashingAmount
-  
+
+  let autonityTreasury = await autonity.getTreasuryAccount()
+  let autonityTreasuryBalance = await autonity.balanceOf(autonityTreasury)
+ 
   await accountability.slash(event,epochOffenceCount)
+  let slashingBlock = await web3.eth.getBlockNumber()
   let offenderSlashed = await autonity.getValidator(offender.nodeAddress);
   
   // first unbonding self stake is slashed (PAS)
@@ -88,6 +92,20 @@ async function slashAndVerify(autonity,accountability,accountabilityConfig,event
 
   // check total slashed
   assert.equal(parseInt(offenderSlashed.totalSlashed), parseInt(offender.totalSlashed) + originalSlashingAmount)
+
+  // check provable fault count increases
+  assert.equal(parseInt(offenderSlashed.provableFaultCount), parseInt(offender.provableFaultCount) + 1)
+
+  // check that validator is jailed for correct amount of time
+  // state: 0 --> active, 1 --> paused, 2 --> jailed
+  let currentEpochPeriod = await autonity.getEpochPeriod();
+  let jailSentence = toBN(offenderSlashed.provableFaultCount).mul(toBN(accountabilityConfig.jailFactor)).mul(currentEpochPeriod)
+  assert.equal(parseInt(offenderSlashed.state), 2)
+  assert.equal(parseInt(offenderSlashed.jailReleaseBlock),slashingBlock + jailSentence.toNumber())
+  
+  // check that slashed amount goes to the autonity treasury
+  let autonityTreasuryBalanceAfterSlash = await autonity.balanceOf(autonityTreasury)
+  assert.equal(autonityTreasuryBalanceAfterSlash.toString(), autonityTreasuryBalance.add(toBN(originalSlashingAmount)).toString())
 }
 
 contract('Accountability', function (accounts) {
@@ -335,11 +353,6 @@ contract('Accountability', function (accounts) {
       // let's slash another time to make sure to slash also the non-pas stake this time
       epochOffenceCount = 8
       await slashAndVerify(autonity,accountability,accountabilityConfig,event,epochOffenceCount);
- 
-      /* TODO(lorenzo) maybe in a different test?
-      *    5. slashed validator gets jailed for the amount of time we expect
-      *    6. slashed funds gets moved to the autonity treasury (this particular condition might be better to address it in protocol.js, since it is an interaction with Autonity.sol... to decide)
-      *    */
     });
   });
 });
