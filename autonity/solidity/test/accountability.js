@@ -1,8 +1,6 @@
 /* TODO(tariq) tests for accountability.sol
  *
  * high priority:
- * 2. verify that when having multiple slashing events in the slashing queue, the offenceCount goes up (and consequently the slashing rate). _performSlashingTasks function
- * 3. verify that a validator with an history of past offences gets slashed more than a clean one (and exactly the amount more we expect).
  * 4. Accusation flow tests (test canAccuse/canSlash when appriopriate)
  *    0. issue multiple accusations on different blocks --> check that only the one who expired get converted to misbehavior
       1. Validator is accused and submit proof of innocence before the window is expired --> no slashing
@@ -352,6 +350,93 @@ contract('Accountability', function (accounts) {
       
       // let's slash another time to make sure to slash also the non-pas stake this time
       epochOffenceCount = 8
+      await slashAndVerify(autonity,accountability,accountabilityConfig,event,epochOffenceCount);
+    });
+    it("multiple slashing events in the same epoch should lead to increased penalties (collusion)",async function() {
+      // insert multiple slashing events for the same epoch with different validators as offender
+      const offenderAddresses = [validators[0].nodeAddress, validators[1].nodeAddress, validators[2].nodeAddress]
+      const epochOffenceCount = offenderAddresses.length
+      const reporter = validators[3].treasury
+      const event = {
+        "chunks": 1, 
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": 0, // PN rule --> severity mid
+        "reporter": reporter,
+        "offender":"",
+        "rawProof": [], 
+        "block": 1,
+        "epoch": 0,
+        "reportingBlock": 2,
+        "messageHash": 0, 
+      }
+      let offenders = [];
+      for (const offenderAddress of offenderAddresses) {
+        event.offender = offenderAddress
+        let offender = await autonity.getValidator(offenderAddress)
+        // they should have only selfbonded stake
+        assert.equal(offender.bondedStake,offender.selfBondedStake)
+        offenders.push(offender)
+        await accountability.handleValidFaultProof(event)
+      }
+
+      await accountability.performSlashingTasks()
+
+      for (const offender of offenders) {
+        let offenderSlashed = await autonity.getValidator(offender.nodeAddress);
+
+        let baseRate = ruleToRate(accountabilityConfig,event.rule);
+
+        let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(offender.provableFaultCount).mul(toBN(accountabilityConfig.historyFactor)));  
+        // cannot slash more than 100%
+        if(slashingRate.gt(toBN(accountabilityConfig.slashingRatePrecision))) {
+          slashingRate = toBN(accountabilityConfig.slashingRatePrecision)
+        }
+
+        let availableFunds = toBN(offender.bondedStake).add(toBN(offender.unbondingStake)).add(toBN(offender.selfUnbondingStake))
+        let slashingAmount = (slashingRate.mul(availableFunds).div(toBN(accountabilityConfig.slashingRatePrecision))).toNumber() 
+
+        assert.equal(parseInt(offenderSlashed.bondedStake),parseInt(offender.bondedStake) - slashingAmount)
+      }
+    });
+    it("a validator with a history of misbehaviour should get slashed more",async function() {
+      let currentEpochPeriod = (await autonity.getEpochPeriod()).toNumber()
+      let reporter = validators[0]
+      let offender = validators[1]
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": 0, // PN rule --> severity mid
+        "reporter": reporter.treasury,
+        "offender": offender.nodeAddress,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0, 
+      }
+
+      // insert 3 past offences in different epochs
+      await accountability.handleValidFaultProof(event)
+      event.block += currentEpochPeriod
+      event.epoch += 1
+      event.reportingBlock = event.block + 1
+      await accountability.handleValidFaultProof(event)
+      event.block += currentEpochPeriod
+      event.epoch += 1
+      event.reportingBlock = event.block + 1
+      await accountability.handleValidFaultProof(event)
+
+      await accountability.performSlashingTasks()
+      let offenderValidator = await autonity.getValidator(offender.nodeAddress)
+      assert.equal(offenderValidator.provableFaultCount,'3')
+
+      // check slashing rate on fourth offence
+      let epochOffenceCount = 0
+      event.block += currentEpochPeriod
+      event.epoch += 1
+      event.reportingBlock = event.block + 1
       await slashAndVerify(autonity,accountability,accountabilityConfig,event,epochOffenceCount);
     });
   });

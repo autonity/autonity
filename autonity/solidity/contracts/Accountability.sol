@@ -215,23 +215,28 @@ contract Accountability is IAccountability {
         if(_block == 0){
             _block = block.number - 1;
         }
-
-        uint256 _severity = _ruleSeverity(_ev.rule);
+        
         uint256 _epoch = autonity.getEpochFromBlock(_block);
-        require(slashingHistory[_offender][_epoch] < _severity, "already slashed at the proof's epoch");
-
+        
         _ev.block = _block;
         _ev.epoch = _epoch;
         _ev.reportingBlock = block.number;
         _ev.messageHash = _messageHash;
 
+        _handleValidFaultProof(_ev);
+    }
+
+    function _handleValidFaultProof(Event memory _ev) internal{
+        uint256 _severity = _ruleSeverity(_ev.rule);
+        require(slashingHistory[_ev.offender][_ev.epoch] < _severity, "already slashed at the proof's epoch");
+
         events.push(_ev);
         uint256 _eventId = events.length - 1;
         validatorFaults[_ev.offender].push(_eventId);
         slashingQueue.push(_eventId);
-        slashingHistory[_offender][_epoch] = _severity;
+        slashingHistory[_ev.offender][_ev.epoch] = _severity;
 
-        emit NewFaultProof(_offender, _severity, _eventId);
+        emit NewFaultProof(_ev.offender, _severity, _eventId);
     }
 
     function _handleAccusation(Event memory _ev) internal {
@@ -243,15 +248,21 @@ contract Accountability is IAccountability {
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
         require(_block < block.number, "can't be in the future");
 
-        uint256 _severity = _ruleSeverity(_ev.rule);
-        uint256 _epoch = autonity.getEpochFromBlock(_block);
-        require(slashingHistory[_offender][_epoch] < _severity, "already slashed at the proof's epoch");
         require(validatorAccusation[_ev.offender] == 0, "already processing an accusation");
+
+        uint256 _epoch = autonity.getEpochFromBlock(_block);
 
         _ev.block = _block;
         _ev.epoch = _epoch;
         _ev.reportingBlock = block.number;
         _ev.messageHash = _messageHash;
+
+        _handleValidAccusation(_ev);
+    }
+    
+    function _handleValidAccusation(Event memory _ev) internal {
+        uint256 _severity = _ruleSeverity(_ev.rule);
+        require(slashingHistory[_ev.offender][_ev.epoch] < _severity, "already slashed at the proof's epoch");
 
         events.push(_ev);
         uint256 _eventId = events.length - 1;
@@ -260,25 +271,31 @@ contract Accountability is IAccountability {
         validatorAccusation[_ev.offender] = _eventId + 1;
         accusationsQueue.push(_eventId + 1);
 
-        emit NewAccusation(_offender, _severity, _eventId);
+        emit NewAccusation(_ev.offender, _severity, _eventId);
     }
 
-    function _handleInnocenceProof(Event memory _event) internal {
+    function _handleInnocenceProof(Event memory _ev) internal {
         (bool _success, address _offender, uint256 _ruleId, uint256 _block, uint256 _messageHash) =
-                Precompiled.verifyAccountabilityEvent(Precompiled.INNOCENCE_CONTRACT, _event.rawProof);
+                Precompiled.verifyAccountabilityEvent(Precompiled.INNOCENCE_CONTRACT, _ev.rawProof);
 
         require(_success, "failed innocence verification");
-        require(_offender == _event.offender, "offender mismatch");
-        require(_ruleId == uint256(_event.rule), "rule id mismatch");
+        require(_offender == _ev.offender, "offender mismatch");
+        require(_ruleId == uint256(_ev.rule), "rule id mismatch");
         require(_block < block.number, "can't be in the future");
+        
+        _ev.block = _block;
+        _ev.messageHash = _messageHash;
 
-        uint256 _accusation = validatorAccusation[_event.offender];
+        _handleValidInnocenceProof(_ev);
+    }
+
+    function _handleValidInnocenceProof(Event memory _ev) internal {
+        uint256 _accusation = validatorAccusation[_ev.offender];
         require(_accusation != 0, "no associated accusation");
 
-
-        require(events[_accusation - 1].rule == Rule(_ruleId), "unmatching proof and accusation rule id");
-        require(events[_accusation - 1].block == _block, "unmatching proof and accusation block");
-        require(events[_accusation - 1].messageHash == _messageHash, "unmatching proof and accusation hash");
+        require(events[_accusation - 1].rule == _ev.rule, "unmatching proof and accusation rule id");
+        require(events[_accusation - 1].block == _ev.block, "unmatching proof and accusation block");
+        require(events[_accusation - 1].messageHash == _ev.messageHash, "unmatching proof and accusation hash");
 
         // innocence proof is valid, remove accusation.
         for(uint256 i = accusationsQueueFirst;
@@ -288,9 +305,9 @@ contract Accountability is IAccountability {
                 break;
             }
         }
-        validatorAccusation[_offender] = 0;
+        validatorAccusation[_ev.offender] = 0;
 
-        emit InnocenceProven(_event.offender, 0);
+        emit InnocenceProven(_ev.offender, 0);
     }
 
     // @dev only supporting one chunked event per sender
