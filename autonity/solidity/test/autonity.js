@@ -64,31 +64,60 @@ async function bulkBondingRequest(autonity, operator, deployer, delegators, dele
 }
 
 async function bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbond) {
+  let unbondingCount = 0;
   for (let i = 0; i < delegators.length; i++) {
     for (let j = 0; j < delegatee.length; j++) {
       await autonity.unbond(delegatee[j], tokenUnbond, {from: delegators[i]});
+      unbondingCount++;
     }
   }
+  return unbondingCount;
 }
 
 async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond) {
-  await bulkUnbondingRequest(autonity, treasuryAddresses, delegatee, tokenUnbond);
-  let requestId = (await autonity.getFirstPendingUnbondingRequest()).toNumber();
-  let expectedValInfo = await validatorState(autonity, delegatee);
-  await endEpoch(autonity, operator, deployer);
-
-  // treasuryAddresses[i] is treasury of delegatee[i], so if all treasuryAddresses bond to all delegatee
-  // there will be one self-bond for each delegatee
+  // store balance to check them in different phases
+  let balanceLNTN = [];
+  let balanceLockedLNTN = [];
+  let balanceNTN = [];
+  let valLiquidContract = [];
   for (let i = 0; i < treasuryAddresses.length; i++) {
-    for (let j = 0; j < delegatee.length; j++) {
-      let request = await autonity.getUnbondingRequest(requestId);
-      checkUnbondingShare(request, delegatee[j], treasuryAddresses[i], tokenUnbond, i == j, true);
-      requestId++;
+    balanceNTN.push((await autonity.balanceOf(treasuryAddresses[i])).toNumber());
+  }
+  for (let i = 0; i < delegatee.length; i++) {
+    let validatorInfo = await autonity.getValidator(delegatee[i]);
+    const valLiquid = await liquidContract.at(validatorInfo.liquidContract);
+    valLiquidContract.push(valLiquid);
+    let valLiquidBalance = [];
+    let valLiquidBalanceLocked = [];
+    for (let j = 0; j < treasuryAddresses.length; j++) {
+      valLiquidBalance.push((await valLiquid.balanceOf(treasuryAddresses[j])).toNumber());
+      valLiquidBalanceLocked.push((await valLiquid.lockedBalanceOf(treasuryAddresses[j])).toNumber());
     }
+    balanceLNTN.push(valLiquidBalance);
+    balanceLockedLNTN.push(valLiquidBalanceLocked);
   }
 
+  let unbondingCount = await bulkUnbondingRequest(autonity, treasuryAddresses, delegatee, tokenUnbond);
+  let requestId = (await autonity.getFirstPendingUnbondingRequest()).toNumber();
+  let expectedValInfo = await validatorState(autonity, delegatee);
+  // check if LNTN balance is locked
+  for (let i = 0; i < delegatee.length; i++) {
+    const valLiquid = valLiquidContract[i];
+    for (let j = 0; j < treasuryAddresses.length; j++) {
+      if (i != j) balanceLockedLNTN[i][j] += tokenUnbond;
+      assert.equal((await valLiquid.balanceOf(treasuryAddresses[j])).toNumber(), balanceLNTN[i][j], "LNTN balance unexpected");
+      assert.equal(
+        (await valLiquid.lockedBalanceOf(treasuryAddresses[j])).toNumber(),
+        balanceLockedLNTN[i][j],
+        "locked LNTN balance unexpected"
+      );
+    }
+  }
+  await endEpoch(autonity, operator, deployer);
+
+
   // all requests are processed sequentially, lastRequest will be processed at last
-  let lastRequest = await autonity.getUnbondingRequest(requestId - 1);
+  let lastRequest = await autonity.getUnbondingRequest(requestId + unbondingCount - 1);
   let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
   let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
   let unbondingReleaseHeight = Number(lastRequest.requestBlock) + currentUnbondingPeriod;
@@ -103,10 +132,36 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
 
   // check validator state after unbonding applied but before NTN is released
   // total-unbond amount for each delegatee
+  // check if LNTN is burned
   let totalUnbonded = tokenUnbond * treasuryAddresses.length;
   let valInfo = await validatorState(autonity, delegatee);
   for (let i = 0; i < delegatee.length; i++) {
     checkValInfoAfterUnbonding(valInfo[i], expectedValInfo[i], tokenUnbond, totalUnbonded);
+    const valLiquid = valLiquidContract[i];
+    for (let j = 0; j < treasuryAddresses.length; j++) {
+      if (i != j) {
+        balanceLNTN[i][j] -= tokenUnbond;
+        balanceLockedLNTN[i][j] -= tokenUnbond;
+      }
+      assert.equal((await valLiquid.balanceOf(treasuryAddresses[j])).toNumber(), balanceLNTN[i][j], "LNTN balance unexpected");
+      assert.equal(
+        (await valLiquid.lockedBalanceOf(treasuryAddresses[j])).toNumber(),
+        balanceLockedLNTN[i][j],
+        "locked LNTN balance unexpected"
+      );
+    }
+  }
+
+  // treasuryAddresses[i] is treasury of delegatee[i], so if all treasuryAddresses bond to all delegatee
+  // there will be one self-bond for each delegatee
+  // NTN should not be released before unbonding period
+  for (let i = 0; i < treasuryAddresses.length; i++) {
+    for (let j = 0; j < delegatee.length; j++) {
+      let request = await autonity.getUnbondingRequest(requestId);
+      checkUnbondingShare(request, delegatee[j], treasuryAddresses[i], tokenUnbond, i == j, true);
+      requestId++;
+    }
+    assert.equal((await autonity.balanceOf(treasuryAddresses[i])).toNumber(), balanceNTN[i]);
   }
 
   expectedValInfo = await validatorState(autonity, delegatee);
@@ -119,6 +174,11 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   valInfo = await validatorState(autonity, delegatee);
   for (let i = 0; i < delegatee.length; i++) {
     checkValInfoAfterRelease(valInfo[i], expectedValInfo[i], tokenUnbond, totalUnbonded);
+  }
+
+  // NTN should be released
+  for (let i = 0; i < treasuryAddresses.length; i++) {
+    assert.equal((await autonity.balanceOf(treasuryAddresses[i])).toNumber(), balanceNTN[i] + totalUnbonded)
   }
 }
 
@@ -1253,50 +1313,20 @@ contract('Autonity', function (accounts) {
     });
 
     it('test unbonding shares logic', async function () {
-      /* issue multiple unbonding requests (both selfBonded and not) in different epochs
-       * and check that the unbonding shares related fields change accordingly. Relevant fields to check:
-       * struct Validator {
-            uint256 bondedStake;
-            uint256 unbondingStake;
-            uint256 unbondingShares; 
-            uint256 selfBondedStake;
-            uint256 selfUnbondingStake;
-            uint256 selfUnbondingShares;
-            uint256 liquidSupply;
-          }
-          struct UnbondingRequest {
-            address payable delegator;
-            address delegatee;
-            uint256 amount; 
-            uint256 unbondingShare;
-            bool selfDelegation;
-          }
-      */
+      // issue multiple unbonding requests (both selfBonded and not) in different epochs
+      // and check that the unbonding shares related fields change accordingly. Relevant fields to check:
 
       let delegatee = [];
       let treasuryAddresses = [];
+      const maxCount = 3;
 
-      for (let i = 0; i < validators.length; i++) {
+      for (let i = 0; i < Math.min(validators.length, maxCount); i++) {
         treasuryAddresses.push(validators[i].treasury);
         delegatee.push(validators[i].nodeAddress);
       }
 
       const tokenMint = 100;
       const tokenUnbond = 10;
-      await bulkBondingRequest(autonity, operator, deployer, treasuryAddresses, delegatee, tokenMint);
-      // unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
-      // again unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
-
-      // repeat
-      await bulkBondingRequest(autonity, operator, deployer, treasuryAddresses, delegatee, tokenMint);
-      // unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
-      // again unbond some amount and check unbonding share
-      await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
-
-      // repeat again
       await bulkBondingRequest(autonity, operator, deployer, treasuryAddresses, delegatee, tokenMint);
       // unbond some amount and check unbonding share
       await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
