@@ -77,7 +77,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 internal headUnbondingID;
     uint256 internal lastUnlockedUnbonding;
 
-    /* Used to track commission rate change - See ADR-002 */
+    /* Used to track commission rate change*/
     struct CommissionRateChangeRequest {
         address validator;
         uint256 startBlock;
@@ -325,7 +325,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /**
-    * @notice Pause the validator and stop it accepting delegations. See ADR-004 for more details.
+    * @notice Pause the validator and stop it accepting delegations.
     * @param _address address to be disabled.
     * @dev emit a {DisabledValidator} event.
     */
@@ -336,7 +336,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /**
-    * @notice Re-activate the specified validator. See ADR-004 for more details.
+    * @notice Re-activate the specified validator.
     * @param _address address to be enabled.
     */
     function activateValidator(address _address) public {
@@ -363,7 +363,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /**
-    * @notice Change commission rate for the specified validator. See ADR-002 for more details.
+    * @notice Change commission rate for the specified validator.
     * @param _validator address to be enabled.
             _rate new commission rate, ranging between 0-10000 (10000 = 100%).
     */
