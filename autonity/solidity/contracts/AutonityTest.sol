@@ -29,7 +29,7 @@ contract AutonityTest is Autonity {
         return unbondingMap[_id];
    }
 
-   function getFirstPendingBondingRequest() public view returns (uint256) {
+   function getTailBondingID() public view returns (uint256) {
      return tailBondingID;
    }
 
@@ -37,7 +37,7 @@ contract AutonityTest is Autonity {
      return headBondingID;
    }
 
-   function getFirstPendingUnbondingRequest() public view returns (uint256) {
+   function getLastUnlockedUnbonding() public view returns (uint256) {
      return lastUnlockedUnbonding;     
    }
 

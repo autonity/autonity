@@ -98,7 +98,7 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   }
 
   let unbondingCount = await bulkUnbondingRequest(autonity, treasuryAddresses, delegatee, tokenUnbond);
-  let requestId = (await autonity.getFirstPendingUnbondingRequest()).toNumber();
+  let requestId = (await autonity.getLastUnlockedUnbonding()).toNumber();
   let expectedValInfo = await validatorState(autonity, delegatee);
   // check if LNTN balance is locked
   for (let i = 0; i < delegatee.length; i++) {
@@ -1262,7 +1262,7 @@ contract('Autonity', function (accounts) {
       let numOfStakings = validators.length;
 
       // they are all processed at contract construction time, so there should be no pending requests
-      let tailBondingID = (await autonity.getFirstPendingBondingRequest()).toNumber();
+      let tailBondingID = (await autonity.getTailBondingID()).toNumber();
       assert(tailBondingID >= (await autonity.getHeadBondingID()).toNumber(), "Pending bonding request found");
       
       // ids start from 0
@@ -1279,7 +1279,7 @@ contract('Autonity', function (accounts) {
       // ids start from 0
       latestBondingReqId = numOfStakings - 1;
       assert.equal(latestBondingReqId, (await autonity.getHeadBondingID()).toNumber() - 1, "last bonding request id mismatch");
-      assert.equal(latestBondingReqId, (await autonity.getFirstPendingBondingRequest()).toNumber(), "first bonding request id mismatch");
+      assert.equal(latestBondingReqId, (await autonity.getTailBondingID()).toNumber(), "first bonding request id mismatch");
 
       let staking = await autonity.getBondingRequest(latestBondingReqId);
 
@@ -1290,7 +1290,7 @@ contract('Autonity', function (accounts) {
 
     it('test unbonding queue logic', async function () {
       // no unbondings from contract construction
-      let lastUnlockedUnbonding = (await autonity.getFirstPendingUnbondingRequest()).toNumber();
+      let lastUnlockedUnbonding = (await autonity.getLastUnlockedUnbonding()).toNumber();
       let headUnbondingID = (await autonity.getHeadUnbondingID()).toNumber();
       assert(lastUnlockedUnbonding >= headUnbondingID, "Pending unbonding request found");
       assert(headUnbondingID == 0, "Unbonding is requested");
@@ -1302,7 +1302,7 @@ contract('Autonity', function (accounts) {
       
       let latestUnbondingReqId = 0;
       assert.equal(latestUnbondingReqId, (await autonity.getHeadUnbondingID()).toNumber() - 1, "last unbonding request id mismatch");
-      assert.equal(latestUnbondingReqId, (await autonity.getFirstPendingUnbondingRequest()).toNumber(), "first unbonding request id mismatch");
+      assert.equal(latestUnbondingReqId, (await autonity.getLastUnlockedUnbonding()).toNumber(), "first unbonding request id mismatch");
 
       let unstaking = await autonity.getUnbondingRequest(latestUnbondingReqId);
 
