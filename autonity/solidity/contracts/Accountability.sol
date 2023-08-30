@@ -248,8 +248,6 @@ contract Accountability is IAccountability {
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
         require(_block < block.number, "can't be in the future");
 
-        require(validatorAccusation[_ev.offender] == 0, "already processing an accusation");
-
         uint256 _epoch = autonity.getEpochFromBlock(_block);
 
         _ev.block = _block;
@@ -261,6 +259,7 @@ contract Accountability is IAccountability {
     }
     
     function _handleValidAccusation(Event memory _ev) internal {
+        require(validatorAccusation[_ev.offender] == 0, "already processing an accusation");
         uint256 _severity = _ruleSeverity(_ev.rule);
         require(slashingHistory[_ev.offender][_ev.epoch] < _severity, "already slashed at the proof's epoch");
 

@@ -1,34 +1,14 @@
-/* TODO(tariq) tests for accountability.sol
- *
- * high priority:
- * 4. Accusation flow tests (test canAccuse/canSlash when appriopriate)
- *    0. issue multiple accusations on different blocks --> check that only the one who expired get converted to misbehavior
-      1. Validator is accused and submit proof of innocence before the window is expired --> no slashing
-      2. Validator is accused and does not submit proof of innocence --> accusation is promoted to misbehavior and validator gets slashed
-      3. Validator is accused and submits proof of innocence **after** the window is expired --> accusation is promoted to misbehavior and validator gets slashed
-      3. Validator is accused while already under accusation --> 2nd accusation reverts
-        - canAccuse should return a deadline for when we can submit the 2nd accusation
-      4. Validators is under accusation and someone sends proof of misbehavior against him (for the same epoch of the accusation). 
-         The accused validator does not publish proof of innocence for the accusation. Outcome:
-           - if misbehaviour severity > accusation severity --> only misbehaviour slashing takes effect
-           - if misbehaviour severity < accusation severity --> both offences are slashed
-  * 5. cannot submit misbehaviour for validator already slashed for the offence epoch with a higher severity than the submitted misb
-  *       require(slashingHistory[_offender][_epoch] < _severity, "already slashed at the proof's epoch");
-  *     - also canSlash should return false
-  * 6. same thing for accusation
-  *     - canAccuse should return false.
-  * 7. edge scenario. validator is sentenced for 2 misbehaviour with 1st misb severity < 2nd misb severity in the same epoch. He should be slashed for both
-  * 8. validator already slashed for an epoch, but accusation with higher severity is issued against him --> accusation is valid and should lead to slashing if not addressed
-  * 9. other edge cases?
-
-low priority:
- * 3. verify rule --> severity mapping
- * 4. verify severity --> slashign rate mapping
- * 5. test chunked event processing (handleEvent function)
+/* TODO(tariq) tests for accountability.sol (low priority)
+ * 1. edge case scenario: validator is sentenced for 2 misbehavior in the same epoch. For this to happen the 1st submitted misb needs to have severity < 2nd misb severity. The offender should be slashed for both misb. Instead if the 1st submitted misb has severity >= 2nd misb, only the first misb should lead to slashing. Currently this test case cannot be implemented since we use only severity mid in the autonity contract. 
+ * 2. verify rule --> severity mapping
+ * 3. verify severity --> slashign rate mapping
+ * 4. test chunked event processing (handleEvent function)
  *      - test also case where multiple validators are sending interleaved chunks
- * 6. test _handle* functions edge cases (e.g. invalid proof, block in future, etc.) --> tx should revert
- * 7. whitebox testing (better to leave for when the implementation will be less prone to changes)
+ * 5. test _handle* functions edge cases (e.g. invalid proof, block in future, etc.) --> tx should revert
+ * 6. whitebox testing (better to leave for when the implementation will be less prone to changes)
  *    - verify that the accusation queue, the slashing queue update and the other internal structures are updated as we expect
+ *
+ * There might be additional edge cases for slashing, misbehavior and accusation flow to test.
  */
 
 'use strict';
@@ -399,7 +379,7 @@ contract('Accountability', function (accounts) {
         assert.equal(parseInt(offenderSlashed.bondedStake),parseInt(offender.bondedStake) - slashingAmount)
       }
     });
-    it("a validator with a history of misbehaviour should get slashed more",async function() {
+    it("a validator with a history of misbehavior should get slashed more",async function() {
       let currentEpochPeriod = (await autonity.getEpochPeriod()).toNumber()
       let reporter = validators[0]
       let offender = validators[1]
@@ -438,6 +418,294 @@ contract('Accountability', function (accounts) {
       event.epoch += 1
       event.reportingBlock = event.block + 1
       await slashAndVerify(autonity,accountability,accountabilityConfig,event,epochOffenceCount);
+    });
+    /*  Validator is under accusation and someone sends proof of misbehavior against him (for the same epoch of the accusation). 
+    *   The accused validator does not publish proof of innocence for the accusation. Outcome:
+    *     - if misbehavior severity >= accusation severity --> only misbehavior slashing takes effect
+    *     - if misbehavior severity < accusation severity --> both offences are slashed 
+    */
+    it('edge case: concurrent accusation and misbehavior submission (misb severity >= accusation severity)',async function() {
+      let reporter = validators[0]
+      let offender = validators[1]
+      let offenderInfo = await autonity.getValidator(offender.nodeAddress)
+      let PNrule = 0
+      let currentBlock = await web3.eth.getBlockNumber()
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": offender.nodeAddress,
+        "rawProof": [],
+        "block": currentBlock - 1,
+        "epoch": 0,
+        "reportingBlock": currentBlock,
+        "messageHash": 0, 
+      }
+      
+      // only selfbondedstake
+      assert.equal(offenderInfo.bondedStake,offenderInfo.selfBondedStake)
+      
+      // insert accusation
+      let canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block);
+      assert.strictEqual(canAccuse._result,true);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+      await accountability.handleValidAccusation(event);
+
+      // insert misbheavior with same severity
+      assert.strictEqual(await accountability.canSlash(offender.nodeAddress,PNrule,event.block),true);
+      await accountability.handleValidFaultProof(event);
+      
+      // wait for accusation to expire
+      for (let i = 0; i < accountabilityConfig.innocenceProofSubmissionWindow; i++) { await utils.mineEmptyBlock() }
+
+      // promote guilty accusations (no accusation should be promoted since misb severity == accusation severity)
+      let tx = await accountability.promoteGuiltyAccusations();
+      truffleAssert.eventNotEmitted(tx, 'NewFaultProof')
+
+      // misb should lead to slashing
+      tx = await accountability.performSlashingTasks()
+      truffleAssert.eventEmitted(tx,'SlashingEvent')
+        
+      let offenderSlashed = await autonity.getValidator(offender.nodeAddress);
+
+      let epochOffenceCount = 1;
+      let baseRate = ruleToRate(accountabilityConfig,event.rule);
+
+      let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(offender.provableFaultCount).mul(toBN(accountabilityConfig.historyFactor)));  
+      // cannot slash more than 100%
+      if(slashingRate.gt(toBN(accountabilityConfig.slashingRatePrecision))) {
+        slashingRate = toBN(accountabilityConfig.slashingRatePrecision)
+      }
+
+      let availableFunds = toBN(offender.bondedStake).add(toBN(offender.unbondingStake)).add(toBN(offender.selfUnbondingStake))
+      let slashingAmount = (slashingRate.mul(availableFunds).div(toBN(accountabilityConfig.slashingRatePrecision))).toNumber() 
+
+      assert.equal(parseInt(offenderSlashed.bondedStake),parseInt(offender.bondedStake) - slashingAmount)
+    }); 
+    it.skip('edge case: concurrent accusation and misbehavior submission (misb severity < accusation severity)',async function() {
+      //TODO(tariq) implement this test case. currently not implementable since we use only severity mid in autonity contract.
+    }); 
+  });
+  describe('misbehavior flow', function () {
+    beforeEach(async function () {
+      autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
+      await autonity.finalizeInitialization({from: deployer});
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
+    it("cannot submit misbehavior with severity X for validator already slashed for the offence epoch with severity Y >= X", async function() {
+      let reporter = validators[0]
+      let offender = validators[1]
+      let PNrule = 0
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": offender.nodeAddress,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0, 
+      }
+      
+      assert.strictEqual(await accountability.canSlash(offender.nodeAddress,PNrule,event.block),true);
+
+      await accountability.handleValidFaultProof(event);
+
+      assert.strictEqual(await accountability.canSlash(offender.nodeAddress,PNrule,event.block + 1),false);
+
+      await truffleAssert.fails(
+        accountability.handleValidFaultProof(event),
+        truffleAssert.ErrorType.REVERT,
+        "already slashed at the proof's epoch"
+      );
+      // TODO(lorenzo) once implemented in contract
+      // add canSlash and handleValidFaultProof asserts when submitting a proof of higher severity (slashing is possible in that case)
+    });
+  });
+  describe('accusation flow', function () {
+    beforeEach(async function () {
+      autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
+      await autonity.finalizeInitialization({from: deployer});
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
+    it("cannot submit accusation with severity X for validator already slashed for the offence epoch with severity Y >= X", async function() {
+      let reporter = validators[0]
+      let offender = validators[1]
+      let PNrule = 0
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": offender.nodeAddress,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0, 
+      }
+      
+      let canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block);
+      assert.strictEqual(canAccuse._result,true);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+
+      await accountability.handleValidFaultProof(event);
+      
+      canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block+1);
+      assert.strictEqual(canAccuse._result,false);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+
+      await truffleAssert.fails(
+        accountability.handleValidAccusation(event),
+        truffleAssert.ErrorType.REVERT,
+        "already slashed at the proof's epoch"
+      );
+      // TODO(lorenzo) once implemented in contract
+      // add canAccuse and handleValidAccusation asserts when submitting an accusation of higher severity (slashing is possible in that case)
+
+    });
+    it("Cannot accuse validator already under accusation", async function() {
+      let reporter = validators[0]
+      let offender = validators[1]
+      let PNrule = 0
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": offender.nodeAddress,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0, 
+      }
+      let canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block);
+      assert.strictEqual(canAccuse._result,true);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+
+      await accountability.handleValidAccusation(event);
+      
+      canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block+1);
+      assert.strictEqual(canAccuse._result,false);
+      assert.strictEqual(canAccuse._deadline.toNumber(),event.block + accountabilityConfig.innocenceProofSubmissionWindow);
+
+      await truffleAssert.fails(
+        accountability.handleValidAccusation(event),
+        truffleAssert.ErrorType.REVERT,
+        "already processing an accusation"
+      );
+    });
+    it("Only expired unadressed accusations are promoted to misbehavior and lead to slashing", async function() {
+      let reporter = validators[0]
+      let offender1 = validators[1] // will not post an innocence proof before accusation promotion --> slashed
+      let offender2 = validators[2] // will post an innocence proof before accusation promotion --> no slashing
+      let offender3 = validators[3] // will be accused later than offender1 and offender2, thus his accusation will not be expired when accusation are promoted
+      let PNrule = 0
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": "", // tofill
+        "rawProof": [],
+        "block": 0, // tofill
+        "epoch": 0,
+        "reportingBlock": 0, //tofill
+        "messageHash": 0, 
+      }
+      // accuse offender1
+      let currentBlock = await web3.eth.getBlockNumber()
+      event.offender = offender1.nodeAddress
+      event.block = currentBlock - 1
+      let offender1Block = event.block
+      event.reportingBlock = currentBlock
+      let canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
+      assert.strictEqual(canAccuse._result,true);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+      await accountability.handleValidAccusation(event);
+      
+      // accuse offender2
+      currentBlock = await web3.eth.getBlockNumber()
+      event.offender = offender2.nodeAddress
+      event.block = currentBlock - 1
+      let offender2Block = event.block
+      event.reportingBlock = currentBlock
+      canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
+      assert.strictEqual(canAccuse._result,true);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+      await accountability.handleValidAccusation(event);
+      
+      // accuse offender3 with reportingBlock in the future
+      currentBlock = await web3.eth.getBlockNumber()
+      event.offender = offender3.nodeAddress
+      event.block = currentBlock - 1
+      event.reportingBlock = currentBlock + 500
+      canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
+      assert.strictEqual(canAccuse._result,true);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+      await accountability.handleValidAccusation(event);
+
+      // submit valid proof of innocence for offender2
+      const proof = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": offender2.nodeAddress,
+        "rawProof": [],
+        "block": offender2Block,
+        "epoch": 0,
+        "reportingBlock": 0, // does not matter
+        "messageHash": 0, // must match accusation's one
+      }
+      await accountability.handleValidInnocenceProof(proof);
+
+      // wait for accusations to expire
+      for (let i = 0; i < accountabilityConfig.innocenceProofSubmissionWindow; i++) { await utils.mineEmptyBlock() }
+
+      // promote accusations. only offender1's accusation should be promoted to misbehavior
+      let tx = await accountability.promoteGuiltyAccusations();
+      // severity mid == 2
+      truffleAssert.eventEmitted(tx, 'NewFaultProof', (ev) => {
+        return ev._offender === offender1.nodeAddress && ev._severity == 2 && ev._id == 0
+      });
+
+      // canSlash should return false only for offender1
+      assert.strictEqual(await accountability.canSlash(offender1.nodeAddress,PNrule,currentBlock),false);
+      assert.strictEqual(await accountability.canSlash(offender2.nodeAddress,PNrule,currentBlock),true);
+      assert.strictEqual(await accountability.canSlash(offender3.nodeAddress,PNrule,currentBlock),true);
+
+      // offender1 should fail to submit proof of innocence, he is too late
+      const proof2 = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": offender1.nodeAddress,
+        "rawProof": [],
+        "block": offender1Block,
+        "epoch": 0,
+        "reportingBlock": 0, // does not matter
+        "messageHash": 0, // must match accusation's one
+      }
+      await truffleAssert.fails(
+        accountability.handleValidInnocenceProof(proof2),
+        truffleAssert.ErrorType.REVERT,
+        "no associated accusation",
+      );
     });
   });
 });

@@ -25,4 +25,7 @@ contract AccountabilityTest is Accountability {
    function performSlashingTasks() public {
       Accountability._performSlashingTasks();
    }
+   function promoteGuiltyAccusations() public {
+      Accountability._promoteGuiltyAccusations();
+   }
 }
