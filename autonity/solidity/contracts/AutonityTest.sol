@@ -15,11 +15,34 @@ contract AutonityTest is Autonity {
     constructor(Validator[] memory _validators,
                 Config memory _config) Autonity(_validators, _config) {
 
-        config.policy.unbondingPeriod = 0;
     }
 
    function applyNewCommissionRates() public onlyProtocol {
         Autonity._applyNewCommissionRates();
+   }
+
+   function getBondingRequest(uint256 _id) public view returns (BondingRequest memory) {
+        return bondingMap[_id];
+   }
+
+   function getUnbondingRequest(uint256 _id) public view returns (UnbondingRequest memory) {
+        return unbondingMap[_id];
+   }
+
+   function getTailBondingID() public view returns (uint256) {
+     return tailBondingID;
+   }
+
+   function getHeadBondingID() public view returns (uint256) {
+     return headBondingID;
+   }
+
+   function getLastUnlockedUnbonding() public view returns (uint256) {
+     return lastUnlockedUnbonding;     
+   }
+
+   function getHeadUnbondingID() public view returns (uint256) {
+     return headUnbondingID;
    }
 
 }

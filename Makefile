@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast
 
 BINDIR = ./build/bin
 GO ?= latest
@@ -141,7 +141,9 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
-test-contracts: autonity contracts test-contracts-asm test-contracts-truffle
+test-contracts: test-contracts-asm test-contracts-truffle
+
+test-contracts-fast: test-contracts-asm test-contracts-truffle-fast
 
 # prerequisites for testing contracts
 test-contracts-pre:
