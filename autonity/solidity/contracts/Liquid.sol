@@ -1,6 +1,4 @@
-// Copyright (c) 2015-2021 Clearmatics Technologies Ltd
-//
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";

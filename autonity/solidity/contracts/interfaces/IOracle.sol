@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.2 < 0.9.0;
 /**
  * @dev Interface of the Oracle Contract
