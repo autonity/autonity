@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
 import "./Accountability.sol";
@@ -27,5 +27,9 @@ contract AccountabilityTest is Accountability {
    }
    function promoteGuiltyAccusations() public {
       Accountability._promoteGuiltyAccusations();
+   }
+
+   function getReporterChunksMap() public view returns (Event memory) {
+      return reporterChunksMap[msg.sender];
    }
 }
