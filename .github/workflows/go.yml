@@ -209,7 +209,7 @@ jobs:
   docker-e2e-tests:
     needs: prepare-cache
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/rpr-dkr-e2e-test'
+    #if: github.ref == 'refs/heads/rpr-dkr-e2e-test'
     steps:
       - uses: actions/setup-go@v4
         with:
