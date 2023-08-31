@@ -208,7 +208,7 @@ jobs:
   # run during normal development.
   docker-e2e-tests:
     needs: prepare-cache
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     #if: github.ref == 'refs/heads/rpr-dkr-e2e-test'
     steps:
       - uses: actions/setup-go@v4

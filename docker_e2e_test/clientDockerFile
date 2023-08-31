@@ -1,5 +1,5 @@
 # Autonity client docker file.
-FROM jrei/systemd-ubuntu:18.04
+FROM jrei/systemd-ubuntu:22.04
 RUN  apt-get update && \
   apt-get dist-upgrade --yes && \
   apt-get install --yes iptables && \

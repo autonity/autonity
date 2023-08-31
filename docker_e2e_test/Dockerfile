@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 RUN  apt-get update && \
   apt-get dist-upgrade --yes && \
   apt-get install --yes python3 && \
