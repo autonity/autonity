@@ -5,6 +5,48 @@ import log
 from client.client import Client
 from conf import conf
 
+DefaultGenesis = {
+  "config": {
+    "chainId": 1,
+    "autonity": {
+      "minBaseFee": 5000,
+      "delegationRate": 1000,
+      "blockPeriod": 1,
+      "maxCommitteeSize": 21,
+      "unbondingPeriod": 120,
+      "epochPeriod": 30,
+      "treasury": "",
+      "treasuryFee": 150000000,
+      "operator": "",
+      "validators": []
+    },
+    "oracle": {
+      "votePeriod": 30
+    },
+    "accountability": {
+      "innocenceProofSubmissionWindow": 30,
+      "latestAccountabilityEventsRange": 256,
+      "baseSlashingRateLow": 500,
+      "baseSlashingRateMid": 1000,
+      "collusionFactor": 550,
+      "historyFactor": 750,
+      "jailFactor": 60,
+      "slashingRatePrecision": 10000
+    }
+  },
+  "nonce": "0x0",
+  "timestamp": "0x0",
+  "baseFee": "15000000000",
+  "gasLimit": "0xffffffffffff",
+  "difficulty": "0x0",
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "number": "0x0",
+  "gasUsed": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+  "alloc": {}
+}
+
 
 class NetworkPlanner(object):
     def __init__(self, autonity_path):
@@ -52,11 +94,20 @@ class NetworkPlanner(object):
         for client in self.clients:
             client.create_work_dir(data_dir)
 
-    def generate_accounts(self):
-        self.logger.info("===== ACCOUNTS CREATION =====")
+    def generate_l1_nodes_accounts(self):
+        self.logger.info("===== L1 Nodes ACCOUNTS CREATION =====")
         accounts = []
         for client in self.clients:
-            account = client.generate_new_account()
+            account = client.new_l1_node_account()
+            if account:
+                accounts.append(account)
+        self.logger.info(accounts)
+
+    def generate_l2_oracles_accounts(self):
+        self.logger.info("===== L2 Oracle Nodes ACCOUNTS CREATION =====")
+        accounts = []
+        for client in self.clients:
+            account = client.new_l2_oracle_account()
             if account:
                 accounts.append(account)
         self.logger.info(accounts)
@@ -120,49 +171,24 @@ class NetworkPlanner(object):
     def generate_genesis(self):
         self.logger.info("===== GENESIS GENERATION =====")
         #   The following parameters should not be modified unless you know what you're doing.   #
-        genesis = {
-            "config": {
-                "chainId": 1,
-                "autonityContract": {
-                    "bytecode": "",
-                    "abi": "",
-                    "minBaseFee": 5000,
-                    "blockPeriod": 1,
-                    "unbondingPeriod": 120,
-                    "epochPeriod": 30,
-                    "treasuryFee": 150000000,
-                    "validators": [],
-                }
-            },
-            "nonce": "0x0",
-            "timestamp": "0x0",
-            "baseFee": "15000000000",
-            "gasLimit": "10000000000",
-            "difficulty": "0x0",
-            "coinbase": "0x0000000000000000000000000000000000000000",
-            "number": "0x0",
-            "gasUsed": "0x0",
-            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
-        }
+        genesis = DefaultGenesis
 
-        # Default balance
-        starting_balance = "0x000000000000000000100000000000000000000000000000000000000000000"
-        genesis["alloc"] = {}
-        genesis["config"]["autonityContract"]["operator"] = "0x{}".format(self.clients[0].coin_base)
-        genesis["config"]["autonityContract"]["treasury"] = "0x{}".format(self.clients[0].coin_base)
+        genesis["config"]["autonity"]["operator"] = "0x{}".format(self.clients[0].coin_base)
+        genesis["config"]["autonity"]["treasury"] = "0x{}".format(self.clients[0].coin_base)
 
+        pre_mint = {"balance": "0x200000000000000000000000000000000000000000000000000000000000000"}
         for index, client in enumerate(self.clients):
             coinbase = "0x{}".format(client.coin_base)
+            oracle = "0x{}".format(client.oracle)
             validator = {
                 "treasury": coinbase,
                 "enode": client.e_node,
-                "bondedStake": 10000  if client.role  == "validator" else 5000,
-                "commissionRate": 10000,
-                "extra": "",
+                "oracleAddress": client.oracle,
+                "bondedStake": 10000 if client.role == "validator" else 5000,
             }
-            genesis["alloc"][coinbase] = {"balance": starting_balance}
-            genesis["config"]["autonityContract"]["validators"].append(validator)
+            genesis["config"]["autonity"]["validators"].append(validator)
+            genesis["alloc"][coinbase] = pre_mint
+            genesis["alloc"][oracle] = pre_mint
 
         with open("./network-data/genesis.json", 'w') as out:
             out.write(json.dumps(genesis, indent=4) + '\n')
@@ -181,7 +207,8 @@ class NetworkPlanner(object):
         self.prepare_network_ips()
         self.prepare_client_instances()
         self.create_work_dir()
-        self.generate_accounts()
+        self.generate_l1_nodes_accounts()
+        self.generate_l2_oracles_accounts()
         self.generate_testbed_conf()
         self.generate_enodes()
         self.generate_genesis()

@@ -61,7 +61,7 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 class Client(object):
     def __init__(self, host=None, p2p_port=None, rpc_port=None, ws_port=None, net_interface=None,
                  coin_base=None, ssh_user=None, ssh_pass=None, ssh_key=None, sudo_pass=None, autonity_path=None,
-                 bootnode_path=None, role=None, index=None, e_node=None):
+                 bootnode_path=None, role=None, index=None, e_node=None, oracle=None):
         self.autonity_path = autonity_path
         self.bootnode_path = bootnode_path
         self.host = host
@@ -74,6 +74,7 @@ class Client(object):
         self.ssh_key = ssh_key
         self.sudo_pass = sudo_pass
         self.coin_base = coin_base
+        self.oracle = oracle
         self.role = role
         self.index = index
         self.e_node = e_node
@@ -89,7 +90,7 @@ class Client(object):
         work_dir = "{}/{}".format(data_dir, self.host)
         utility.create_dir(work_dir)
 
-    def generate_new_account(self):
+    def new_account(self):
         folder = self.host
         utility.execute("echo 123 > ./network-data/{}/pass.txt".format(folder))
         output = utility.execute(
@@ -102,8 +103,21 @@ class Client(object):
             self.logger.error("Aborting - account creation failed")
             return None
         else:
-            self.coin_base = m[0]
-            return self.coin_base
+            return m[0]
+
+    def new_l1_node_account(self):
+        account = self.new_account()
+        if account:
+            self.coin_base = account
+            return account
+        return None
+
+    def new_l2_oracle_account(self):
+        account = self.new_account()
+        if account:
+            self.oracle = account
+            return account
+        return None
 
     def generate_enode(self):
         folder = self.host
@@ -129,11 +143,14 @@ class Client(object):
                    "[Service]\n" \
                    "Type=simple\n" \
                    "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
-                   "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' "\
+                   "--http --http.port {} --http.addr '0.0.0.0' --http.corsdomain '*' " \
                    "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                   "--ws --ws.port {} --ws.addr '0.0.0.0' " \
+                   "--ws.api 'tendermint,eth,web3,admin,debug,miner,personal,txpool,net' "\
                    "--allow-insecure-unlock --graphql " \
                    "--unlock 0x{} --password {} " \
-                   "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
+                   "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000 " \
+                   "--miner.gastarget 100000000000 --metrics --pprof \n" \
                    "KillMode=process\n" \
                    "KillSignal=SIGINT\n" \
                    "TimeoutStopSec=1\n" \
