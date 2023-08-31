@@ -97,7 +97,7 @@ class Client(object):
             '{} --datadir "./network-data/{}/data" --password "./network-data/{}/pass.txt" account new'
             .format(self.autonity_path, folder, folder)
         )
-        self.logger.debug(output)
+        self.logger.info(output)
         m = re.findall(r'0x(.{40})', output[0], re.MULTILINE)
         if len(m) == 0:
             self.logger.error("Aborting - account creation failed")
