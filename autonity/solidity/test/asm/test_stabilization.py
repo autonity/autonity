@@ -67,7 +67,7 @@ def oracle_factory(project, users):
             [users.voter],
             users.autonity,
             users.autonity,
-            ["NTN/ATN"],
+            ["NTN-ATN"],
             voting_period,
             sender=users.deployer,
         )

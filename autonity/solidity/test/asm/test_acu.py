@@ -111,13 +111,13 @@ def acu_primed(project, users, oracle_factory):
     scale = 5
     scale_factor = int(10**scale)
     symbols = [
-        "AUD/USD",
-        "CAD/USD",
-        "EUR/USD",
-        "GBP/USD",
-        "JPY/USD",
-        "USD/USD",
-        "SEK/USD",
+        "AUD-USD",
+        "CAD-USD",
+        "EUR-USD",
+        "GBP-USD",
+        "JPY-USD",
+        "USD-USD",
+        "SEK-USD",
     ]
     prices = [
         int(price * ORACLE_SCALE_FACTOR)
@@ -338,7 +338,7 @@ def test_view_functions(acu_basic):
 def compute_acu(symbols, prices, quantities):
     value = 0
     for s, p, q in zip(symbols, prices, quantities):
-        if s == "USD/USD":
+        if s == "USD-USD":
             p = ORACLE_SCALE_FACTOR
         pscaled = int(Decimal(p) * Decimal(q))
         value += pscaled
