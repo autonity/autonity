@@ -19,7 +19,7 @@ var (
 
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
-	OracleInitialSymbols       = []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"}
+	OracleInitialSymbols       = []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"}
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
 		Bytecode:   generated.OracleBytecode,
 		ABI:        &generated.OracleAbi,
@@ -29,7 +29,7 @@ var (
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
 	DefaultAcuContractGenesis = &AcuContractGenesis{
-		Symbols:    []string{"AUD/USD", "CAD/USD", "EUR/USD", "GBP/USD", "JPY/USD", "USD/USD", "SEK/USD"},
+		Symbols:    []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "USD-USD", "SEK-USD"},
 		Quantities: []uint64{21_300, 18_700, 14_300, 10_400, 1_760_000, 18_000, 141_000},
 		Scale:      uint64(5),
 	}

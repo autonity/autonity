@@ -65,7 +65,7 @@ contract Stabilization is IStabilization {
     /// A mapping to retrieve the CDP for an account address.
     mapping(address => CDP) public cdps;
 
-    string private constant NTN_SYMBOL = "NTN/ATN";
+    string private constant NTN_SYMBOL = "NTN-ATN";
     address[] private _accounts;
     address private _autonity;
     address private _operator;

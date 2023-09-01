@@ -127,7 +127,7 @@ var (
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
-			Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+			Symbols:    []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"},
 		},
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
@@ -201,7 +201,7 @@ var (
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
-			Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+			Symbols:    []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"},
 		},
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
@@ -443,7 +443,7 @@ var (
 
 	TestOracleContractConfig = OracleContractGenesis{
 		VotePeriod: OracleVotePeriod,
-		Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+		Symbols:    []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"},
 	}
 
 	TestChainConfig = &ChainConfig{

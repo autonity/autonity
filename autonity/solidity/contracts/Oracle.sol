@@ -219,7 +219,7 @@ contract Oracle is IOracle {
         RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, uint(_p.status));
         return _d;
     }
-    // ["NTNUSD", "NTNEUR", ... ]
+    // ["NTN-USD", "NTN-EUR", ... ]
     function setSymbols(string[] memory _symbols) external onlyOperator {
         require(_symbols.length != 0, "symbols can't be empty");
         require((symbolUpdatedRound+1 != int256(round)) && (symbolUpdatedRound != int256(round)), "can't be updated in this round");

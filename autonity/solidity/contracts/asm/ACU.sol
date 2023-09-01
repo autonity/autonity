@@ -36,7 +36,7 @@ contract ACU is IACU {
     address private _operator;
     IOracle private _oracle;
     bytes32 private constant SYMBOL_USD =
-        keccak256(abi.encodePacked("USD/USD"));
+        keccak256(abi.encodePacked("USD-USD"));
 
     /// The ACU value was updated.
     event Updated(uint height, uint timestamp, uint256 round, int256 value);
