@@ -1036,7 +1036,7 @@ contract('Autonity', function (accounts) {
       await truffleAssert.fails(
         autonity.unbond(validator, tokenUnbond, {from: treasury}),
         truffleAssert.ErrorType.REVERT,
-        ""
+        "insufficient self bonded newton balance"
       );
 
       // let the unbonding apply
