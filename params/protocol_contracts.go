@@ -3,6 +3,8 @@ package params
 import (
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -10,7 +12,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params/generated"
-	"math/big"
 )
 
 var (
@@ -104,24 +105,25 @@ func (g *AutonityContractGenesis) Prepare() error {
 }
 
 type Validator struct {
-	Treasury            common.Address
-	NodeAddress         *common.Address
-	OracleAddress       common.Address
-	Enode               string
-	CommissionRate      *big.Int
-	BondedStake         *big.Int
-	UnbondingStake      *big.Int
-	UnbondingShares     *big.Int
-	SelfBondedStake     *big.Int
-	SelfUnbondingStake  *big.Int
-	SelfUnbondingShares *big.Int
-	LiquidContract      *common.Address
-	LiquidSupply        *big.Int
-	RegistrationBlock   *big.Int
-	TotalSlashed        *big.Int
-	JailReleaseBlock    *big.Int
-	ProvableFaultCount  *big.Int
-	State               *uint8
+	Treasury                 common.Address
+	NodeAddress              *common.Address
+	OracleAddress            common.Address
+	Enode                    string
+	CommissionRate           *big.Int
+	BondedStake              *big.Int
+	UnbondingStake           *big.Int
+	UnbondingShares          *big.Int
+	SelfBondedStake          *big.Int
+	SelfUnbondingStake       *big.Int
+	SelfUnbondingShares      *big.Int
+	SelfUnbondingStakeLocked *big.Int
+	LiquidContract           *common.Address
+	LiquidSupply             *big.Int
+	RegistrationBlock        *big.Int
+	TotalSlashed             *big.Int
+	JailReleaseBlock         *big.Int
+	ProvableFaultCount       *big.Int
+	State                    *uint8
 }
 
 // AddressFromEnode gets the account address from the user enode.
@@ -169,6 +171,9 @@ func (v *Validator) Validate() error {
 	}
 	if v.SelfBondedStake == nil {
 		v.SelfBondedStake = new(big.Int)
+	}
+	if v.SelfUnbondingStakeLocked == nil {
+		v.SelfUnbondingStakeLocked = new(big.Int)
 	}
 	if v.SelfUnbondingStake == nil {
 		v.SelfUnbondingStake = new(big.Int)
