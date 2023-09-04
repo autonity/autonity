@@ -159,9 +159,13 @@ test-contracts-pre:
 	@npx truffle version
 
 test-contracts-asm:
+	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
+	@echo "check and install hardhat"
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
+	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
+	@echo "run tests for the asm contracts"
 	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm
 
 # start an autonity network for contract tests
