@@ -1,3 +1,4 @@
+const assert = require('assert');
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
 const Oracle = artifacts.require("Oracle")
@@ -6,6 +7,65 @@ const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
+
+
+// while testing we might ran into situations were currentHeight > lastEpochBlock + epochPeriod
+// in this case in order to be able to finalize we need to setEpochPeriod to a bigger value
+// also we need to take into account that if we are running against autonity, the network will keep mining as we do these operations
+async function endEpoch(contract,operator,deployer){
+  let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
+  let currentHeight = await web3.eth.getBlockNumber();
+  let currentEpoch = (await contract.epochID()).toNumber()
+  let delta = currentHeight - lastEpochBlock
+  let epochPeriod = delta + 5
+
+  await contract.setEpochPeriod(epochPeriod,{from: operator})
+
+  assert.equal(epochPeriod,(await contract.getEpochPeriod()).toNumber())
+
+  // close epoch
+  for (let i=0;i<(lastEpochBlock + epochPeriod) - currentHeight;i++) {
+    let height = await web3.eth.getBlockNumber()
+    contract.finalize({from: deployer})
+    await waitForNewBlock(height);
+  }
+  let newEpoch = (await contract.epochID()).toNumber()
+  assert.equal(currentEpoch+1,newEpoch)
+}
+
+async function validatorState(autonity, validatorAddresses) {
+  let expectedValInfo = [];
+  for (let i = 0; i < validatorAddresses.length; i++) {
+    expectedValInfo.push(await autonity.getValidator(validatorAddresses[i]));
+  }
+  return expectedValInfo;
+}
+
+async function bulkBondingRequest(autonity, operator, delegators, delegatee, tokenMint) {
+
+  let totalMint = tokenMint * delegatee.length;
+  let bondingCount = 0;
+  for (let i = 0; i < delegators.length; i++) {
+    await autonity.mint(delegators[i], totalMint, {from: operator});
+    for (let j = 0; j < delegatee.length; j++) {
+      await autonity.bond(delegatee[j], tokenMint, {from: delegators[i]});
+      bondingCount++;
+    }
+  }
+  return bondingCount;
+
+}
+
+async function bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbond) {
+  let unbondingCount = 0;
+  for (let i = 0; i < delegators.length; i++) {
+    for (let j = 0; j < delegatee.length; j++) {
+      await autonity.unbond(delegatee[j], tokenUnbond, {from: delegators[i]});
+      unbondingCount++;
+    }
+  }
+  return unbondingCount;
+}
 
 // nodejs sleep
 function timeout(ms) {
@@ -148,3 +208,7 @@ module.exports.setCode = setCode;
 module.exports.mockEnodePrecompile = mockEnodePrecompile;
 module.exports.timeout = timeout;
 module.exports.waitForNewBlock = waitForNewBlock;
+module.exports.endEpoch = endEpoch;
+module.exports.validatorState = validatorState;
+module.exports.bulkBondingRequest = bulkBondingRequest;
+module.exports.bulkUnbondingRequest = bulkUnbondingRequest;
