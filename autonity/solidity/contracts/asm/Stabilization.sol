@@ -351,6 +351,7 @@ contract Stabilization is IStabilization {
     /// Set the liquidation ratio.
     ///
     /// Must be less than the minimum collateralization ratio.
+    /// @param ratio The liquidation ratio
     /// @dev Restricted to the operator.
     function setLiquidationRatio(
         uint256 ratio
@@ -365,6 +366,7 @@ contract Stabilization is IStabilization {
     /// Set the minimum collateralization ratio.
     ///
     /// Must be positive and greater than the liquidation ratio.
+    /// @param ratio The minimum collateralization ratio
     /// @dev Restricted to the operator.
     function setMinCollateralizationRatio(
         uint256 ratio
@@ -378,12 +380,14 @@ contract Stabilization is IStabilization {
     }
 
     /// Set the minimum debt requirement.
+    /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
     function setMinDebtRequirement(uint256 amount) external onlyOperator {
         config.minDebtRequirement = amount;
     }
 
     /// Set the SupplyControl Contract address.
+    /// @param supplyControl The SupplyControl Contract address
     /// @dev Restricted to the operator.
     function setSupplyControl(address supplyControl) external onlyOperator {
         _supplyControl = ISupplyControl(supplyControl);
@@ -422,6 +426,7 @@ contract Stabilization is IStabilization {
     }
 
     /// Calculate the current debt amount outstanding for a CDP.
+    /// @param account The CDP account address
     /// @return debt The debt amount
     function debtAmount(address account) external view returns (uint256 debt) {
         return this.debtAmount(account, block.timestamp);
@@ -431,6 +436,8 @@ contract Stabilization is IStabilization {
     ///
     /// The timestamp must be equal or later than the time of the CDP last
     /// borrow or repayment.
+    /// @param account The CDP account address
+    /// @param timestamp The timestamp to value the debt
     /// @return debt The debt amount
     function debtAmount(
         address account,
@@ -441,6 +448,7 @@ contract Stabilization is IStabilization {
     }
 
     /// Determine if the CDP is currently liquidatable.
+    /// @param account The CDP account address
     /// @return Whether the CDP is liquidatable
     function isLiquidatable(address account) external view returns (bool) {
         CDP storage cdp = cdps[account];
