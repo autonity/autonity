@@ -443,20 +443,8 @@ contract Stabilization is IStabilization {
     /// Determine if the CDP is currently liquidatable.
     /// @return Whether the CDP is liquidatable
     function isLiquidatable(address account) external view returns (bool) {
-        return this.isLiquidatable(account, block.timestamp);
-    }
-
-    /// Determine if the CDP is liquidatable at the given timestamp.
-    ///
-    /// The timestamp must be equal or later than the time of the CDP last
-    /// borrow or repayment.
-    /// @return Whether the CDP is liquidatable
-    function isLiquidatable(
-        address account,
-        uint timestamp
-    ) external view goodTime(account, timestamp) returns (bool) {
         CDP storage cdp = cdps[account];
-        (uint256 debt, ) = _debtAmount(cdp, timestamp);
+        (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
         return
             underCollateralized(
                 cdp.collateral,
