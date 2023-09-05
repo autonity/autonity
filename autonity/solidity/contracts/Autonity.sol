@@ -321,6 +321,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     */
     function unbond(address _validator, uint256 _amount) public {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
+        require(_amount > 0, "unbonding amount is 0");
         _unbond(_validator, _amount, payable(msg.sender));
     }
 
@@ -1142,6 +1143,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             }
             _validator.selfUnbondingStake += _newtonAmount;
             _validator.selfUnbondingShares += _unbonding.unbondingShare;
+            // decrease _validator.selfBondedStake for self-delegation
+            _validator.selfBondedStake -= _newtonAmount;
         }
 
         _unbonding.unlocked = true;

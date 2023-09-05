@@ -929,6 +929,20 @@ contract('Autonity', function (accounts) {
       */
     });
     
+    it("non-self-unbond 0 amount without bonding first, and trigger end-epoch", async function() {
+      const newAccount = accounts[8];
+      const validator = validators[0].nodeAddress;
+      // should fail
+      await truffleAssert.fails(
+        autonity.unbond(validator, 0, {from: newAccount}),
+        truffleAssert.ErrorType.REVERT,
+        "unbonding amount is 0"
+      );
+      // if the tx above is not failed, then triggering end-epoch will fail
+      // and autonity contract will not be able to end epoch
+      await endEpoch(autonity, operator, deployer);
+    });
+    
     // TODO(lorenzo) the internal queues for bond and unbond are not accessible anymore.
     // if we want to keep this test we need another contract that inherits autonity and exposes these fields
     it.skip('test bonding queue logic', async function () {
