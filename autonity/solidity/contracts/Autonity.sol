@@ -1086,7 +1086,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validator.liquidContract.lock(_recipient, _amount);
         } else {
             require(
-                _validator.selfBondedStake > _validator.selfUnbondingStakeLocked && _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
+                _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
                 "insufficient self bonded newton balance"
             );
             _validator.selfUnbondingStakeLocked += _amount;
