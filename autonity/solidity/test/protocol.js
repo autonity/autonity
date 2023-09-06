@@ -14,6 +14,18 @@ const ValidatorState = {
   jailed : 2
 }
 
+const midSeveritySlashingRatePercent = 10;
+
+async function modifiedSlashingFeeAccountability(autonity, accountabilityConfig, operator, deployer) {
+  let config = JSON.parse(JSON.stringify(accountabilityConfig));
+  // so that we don't encounter error due to fraction and we don't do 100% slashing
+  config.collusionFactor = 0,
+  config.historyFactor = 0;
+  let accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});
+  await autonity.setAccountabilityContract(accountability.address, {from:operator});
+  return accountability;
+}
+
 async function slash(accountability, epochOffenceCount, offender, reporter) {
   const event = {
     "chunks": 1, 
@@ -37,13 +49,66 @@ async function slash(accountability, epochOffenceCount, offender, reporter) {
   return txEvent;
 }
 
+// only self-unbond
+async function selfUnbondAndSlash(autonity, accountability, delegator, validator, tokenUnbond, count, operator, deployer) {
+  const initBalance = (await autonity.balanceOf(delegator)).toNumber();
+  let valInfo = await autonity.getValidator(validator);
+  let tokenUnbondArray = [];
+  let requestID = (await autonity.getHeadUnbondingID()).toNumber();
+  for (let i = 0; i < count; i++) {
+    tokenUnbondArray.push((1+i)*tokenUnbond);
+    await autonity.unbond(validator, tokenUnbondArray[i], {from: delegator});
+  }
+  // let unbonding apply
+  await utils.endEpoch(autonity, operator, deployer);
+
+  valInfo = await autonity.getValidator(validator);
+  let totalCurrentStake = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake);
+  let selfUnbondingShares = Number(valInfo.selfUnbondingShares);
+  let selfUnbondingStake = Number(valInfo.selfUnbondingStake);
+  let requests = [];
+  for (let i = 0; i < count; i++) {
+    let request = await autonity.getUnbondingRequest(requestID);
+    requests.push(request);
+    let share = tokenUnbondArray[i] * selfUnbondingShares / selfUnbondingStake;
+    checkUnbondingRequest(request, tokenUnbondArray[i], share, true);
+    requestID++;
+  }
+
+  // slash
+  let txEvent = await slash(accountability, 1, validator, validator);
+  valInfo = await autonity.getValidator(validator);
+  assert.equal(
+    Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake),
+    totalCurrentStake - txEvent.amount.toNumber(),
+    "slashing amount does not match"
+  );
+  assert.equal(txEvent.amount.toNumber(), totalCurrentStake * midSeveritySlashingRatePercent / 100, "unexpected slashing");
+  let selfUnbondingStakeAfterSlash = Number(valInfo.selfUnbondingStake);
+  assert(selfUnbondingStakeAfterSlash > 0, "slashing all selfUnbondingStake does not work well in this case");
+  await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
+  // release NTN
+  await utils.endEpoch(autonity, operator, deployer);
+  let balanceIncrease = 0;
+  let factor = selfUnbondingStakeAfterSlash / selfUnbondingStake;
+  for (let i = 0; i < count; i++) {
+    let balanceIncreaseFraction = selfUnbondingStakeAfterSlash * Number(requests[i].unbondingShare) / selfUnbondingShares;
+    let expectedIncrease = selfUnbondingStake * Number(requests[i].unbondingShare) / selfUnbondingShares;
+    assert.equal(balanceIncreaseFraction, expectedIncrease * factor, "unexpected slashing");
+    balanceIncrease += balanceIncreaseFraction;
+  }
+  assert.equal((await autonity.balanceOf(delegator)).toNumber(), initBalance + balanceIncrease, "incorrect balance");
+}
+
 // only non-self-unbond
 // make sure selfBondedStake = 0 so that slashing can be applied to unbondingStake and delegatedStake
-async function slashAndUnbond(autonity, accountability, delegators, validator, tokenUnbond, operator, deployer) {
+async function unbondAndSlash(autonity, accountability, delegators, validator, tokenUnbond, operator, deployer, slashCount) {
   // not applicable for 100% slash
   let balances = [];
+  let tokenUnbondArray = [];
   for (let i = 0; i < delegators.length; i++) {
     balances.push((await autonity.balanceOf(delegators[i])).toNumber());
+    tokenUnbondArray.push((i+1)*tokenUnbond);
   }
   let valInfo = await autonity.getValidator(validator);
   let liquidSupply = Number(valInfo.liquidSupply);
@@ -52,26 +117,23 @@ async function slashAndUnbond(autonity, accountability, delegators, validator, t
   let delegatee = [];
   delegatee.push(validator);
   let requestID = (await autonity.getHeadUnbondingID()).toNumber();
-  let count = await utils.bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbond);
+  await utils.bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbondArray);
   // let unbonding apply
   await utils.endEpoch(autonity, operator, deployer);
   valInfo = await autonity.getValidator(validator);
   let unbondingStakes = Number(valInfo.unbondingStake);
   let unbondingShares = Number(valInfo.unbondingShares);
   let requests = [];
-  while (count > 0) {
+  for (let i = 0; i < delegators.length; i++) {
     let request = await autonity.getUnbondingRequest(requestID);
     requests.push(request);
-    let newtonAmount = tokenUnbond * delegatedStakes / liquidSupply;
+    let newtonAmount = tokenUnbondArray[i] * delegatedStakes / liquidSupply;
     let share = newtonAmount * unbondingShares / unbondingStakes;
-    assert.equal(request.amount, tokenUnbond, "unexpected unbonding amount");
-    assert.equal(request.unbondingShare, share, "unexpected unbonding share");
-    assert.equal(request.selfDelegation, false, "unexpected self delegation");
-    assert.equal(request.unlocked, true, "unexpected unbondingRequest.unlocked");
+    checkUnbondingRequest(request, tokenUnbondArray[i], share, false);
     requestID++;
-    count--;
   }
   let txEvent = await slash(accountability, 1, validator, validator);
+  slashCount++;
   valInfo = await autonity.getValidator(validator);
   assert.equal(
     Number(valInfo.bondedStake) + Number(valInfo.unbondingStake),
@@ -84,25 +146,17 @@ async function slashAndUnbond(autonity, accountability, delegators, validator, t
   unbondingStakes = Number(valInfo.unbondingStake);
   unbondingShares = Number(valInfo.unbondingShares);
   assert(delegatedStakes > 0, "100% slashing");
-  let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
-  let lastRequest = requests[requests.length - 1];
-  let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
-  let unbondingReleaseHeight = Number(lastRequest.requestBlock) + currentUnbondingPeriod;
-  // the following needs to be true:
-  // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
-  assert(
-    unbondingReleaseHeight > lastEpochBlock,
-    `unbonding period too short for testing, request-block: ${Number(lastRequest.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
-    + `last-epoch-block: ${lastEpochBlock}`
-  );
-  // mine blocks until unbonding period is reached
-  while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
-    await utils.mineEmptyBlock();
-  }
+  await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
   // release NTN
   await utils.endEpoch(autonity, operator, deployer);
+  let factor = 1;
+  while (slashCount > 0) {
+    factor = factor * (100 - midSeveritySlashingRatePercent) / 100;
+    slashCount--;
+  }
   for (let i = 0; i < delegators.length; i++) {
     let balanceIncrease = unbondingStakes * Number(requests[i].unbondingShare) / unbondingShares;
+    assert.equal(balanceIncrease, tokenUnbondArray[i] * factor, "unexpected slashing");
     assert.equal((await autonity.balanceOf(delegators[i])).toNumber(), balances[i] + balanceIncrease, "unexpected balance");
   }
 
@@ -111,31 +165,35 @@ async function slashAndUnbond(autonity, accountability, delegators, validator, t
 
 // only non-self-unbond
 // make sure selfBondedStake = 0 so that slashing can be applied to delegatedStake
-async function slashAndBond(autonity, accountability, delegators, validator, tokenBond, tokenUnbond, operator, deployer) {
+async function bondSlashUnbond(autonity, accountability, delegators, validator, tokenBond, tokenUnbond, operator, deployer) {
   // not applicable for 100% slash
   let valInfo = await autonity.getValidator(validator);
   const valLiquid = await liquidContract.at(valInfo.liquidContract);
   let balances = [];
+  let tokenBondArray = [];
+  let tokenUnbondArray = [];
   for (let i = 0; i < delegators.length; i++) {
     balances.push((await valLiquid.balanceOf(delegators[i])).toNumber());
+    tokenBondArray.push((i+1)*tokenBond);
+    tokenUnbondArray.push((i+1)*tokenUnbond);
   }
   let delegatee = [];
   delegatee.push(validator);
   valInfo = await autonity.getValidator(validator);
   let liquidSupply = Number(valInfo.liquidSupply);
   let delegatedStakes = Number(valInfo.bondedStake) - Number(valInfo.selfBondedStake);
-  await utils.bulkBondingRequest(autonity, operator, delegators, delegatee, tokenBond);
+  await utils.bulkBondingRequest(autonity, operator, delegators, delegatee, tokenBondArray);
   // let bonding apply
   await utils.endEpoch(autonity, operator, deployer);
   // LNTN minted
   for (let i = 0; i < delegators.length; i++) {
     let liquidAmount;
     if (delegatedStakes == 0) {
-      liquidAmount = tokenBond;
+      liquidAmount = tokenBondArray[i];
     } else {
-      liquidAmount = Math.floor(tokenBond * liquidSupply / delegatedStakes);
+      liquidAmount = tokenBondArray[i] * liquidSupply / delegatedStakes;
     }
-    delegatedStakes += tokenBond;
+    delegatedStakes += tokenBondArray[i];
     liquidSupply += liquidAmount;
     assert.equal((await valLiquid.balanceOf(delegators[i])).toNumber(), balances[i] + liquidAmount, "unexpected LNTN balance");
   }
@@ -144,6 +202,9 @@ async function slashAndBond(autonity, accountability, delegators, validator, tok
   assert.equal(Number(valInfo.liquidSupply), liquidSupply, "liquid supply mismatch");
   let totalCurrentStake = delegatedStakes + Number(valInfo.unbondingStake);
 
+  // to compare with expected NTN without slashing, need to store old ratio
+  const oldLiquidSupply = liquidSupply;
+  const oldDelegatedStakes = delegatedStakes;
   let txEvent = await slash(accountability, 1, validator, validator);
   valInfo = await autonity.getValidator(validator);
   assert.equal(
@@ -158,30 +219,39 @@ async function slashAndBond(autonity, accountability, delegators, validator, tok
   let unbondingShares = Number(valInfo.unbondingShares);
   assert(delegatedStakes > 0, "100% slashing");
   let requestID = (await autonity.getHeadUnbondingID()).toNumber();
-  let count = await utils.bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbond);
+  await utils.bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbondArray);
   // let unbonding apply
   await utils.endEpoch(autonity, operator, deployer);
-  while (count > 0) {
+  valInfo = await autonity.getValidator(validator);
+  for (let i = 0; i < delegators.length; i++) {
     let request = await autonity.getUnbondingRequest(requestID);
-    let newtonAmount = Math.floor(tokenUnbond * delegatedStakes / liquidSupply);
-    liquidSupply -= tokenUnbond;
+    let newtonAmount = tokenUnbondArray[i] * delegatedStakes / liquidSupply;
+    let expectedNewton = tokenUnbondArray[i] * oldDelegatedStakes / oldLiquidSupply;
+    assert.equal(newtonAmount, expectedNewton * (100 - midSeveritySlashingRatePercent) / 100, "unexpected NTN conversion");
+    liquidSupply -= tokenUnbondArray[i];
     delegatedStakes -= newtonAmount;
     let share;
     if (unbondingStakes == 0) {
       share = newtonAmount;
     } else {
-      share = Math.floor(newtonAmount * unbondingShares / unbondingStakes);
+      share = newtonAmount * unbondingShares / unbondingStakes;
     }
     unbondingShares += share;
     unbondingStakes += newtonAmount;
-    assert.equal(request.amount, tokenUnbond, "unexpected unbonding amount");
-    assert.equal(request.unbondingShare, share, "unexpected unbonding share");
-    assert.equal(request.selfDelegation, false, "unexpected self delegation");
-    assert.equal(request.unlocked, true, "unexpected unbondingRequest.unlocked");
+    checkUnbondingRequest(request, tokenUnbondArray[i], share, false);
     requestID++;
-    count--;
   }
+  // release NTN so slashing affects only LNTN:NTN
+  await utils.mineTillUnbondingRelease(autonity, operator, deployer);
   return txEvent.releaseBlock.toNumber();
+}
+
+
+function checkUnbondingRequest(request, newtonAmount, share, selfDelegation) {
+  assert.equal(request.amount, newtonAmount, "unexpected unbonding amount");
+  assert.equal(request.unbondingShare, share, "unexpected unbonding share");
+  assert.equal(request.selfDelegation, selfDelegation, "unexpected self delegation");
+  assert.equal(request.unlocked, true, "unexpected unbondingRequest.unlocked");
 }
 
 contract('Protocol', function (accounts) {
@@ -353,23 +423,22 @@ contract('Protocol', function (accounts) {
     });
 
     it('unbondingShares:unbondingStake conversion ratio', async function () {
-      // issue multiple unbonding requests (both selfBonded and not) in different epochs, interleaved with slashing events
-      // and check that the unbonding shares related fields change accordingly.
+      // issue multiple unbonding requests (non-selfBonded) in different epochs, interleaved with slashing events
+      // and check that the unbonding shares related fields change accordingly
 
 
-      let config = JSON.parse(JSON.stringify(accountabilityConfig));
-      // so that we don't encounter error due to fraction and we don't do 100% slashing
-      config.collusionFactor = 0,
-      config.historyFactor = 0;
-      accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});
-      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+      accountability = await modifiedSlashingFeeAccountability(autonity, accountabilityConfig, operator, deployer);
       
       let delegatee = [];
       let delegators = [];
+      let tokenBondArray = []
       const maxCount = 3;
+      const tokenBond = 100000000;
+      const tokenUnbond = 1000;
 
       for (let i = 0; i < Math.min(validators.length, maxCount); i++) {
         delegators.push(validators[i].treasury);
+        tokenBondArray.push(tokenBond);
       }
       let validator = validators[maxCount].nodeAddress;
       let treasury = validators[maxCount].treasury;
@@ -377,29 +446,51 @@ contract('Protocol', function (accounts) {
       let valInfo = await autonity.getValidator(validator);
       // so slashing applies to delegated stake and unbonding stake
       await autonity.unbond(validator, Number(valInfo.selfBondedStake), {from: treasury});
-      const tokenBond = 100000000;
-      const tokenUnbond = 1000000;
-      await utils.bulkBondingRequest(autonity, operator, delegators, delegatee, tokenBond);
+      await utils.bulkBondingRequest(autonity, operator, delegators, delegatee, tokenBondArray);
 
-      let requestID = (await autonity.getHeadUnbondingID()).toNumber() - 1;
-      let request = await autonity.getUnbondingRequest(requestID);
-      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
-      let unbondingReleaseHeight = Number(request.requestBlock) + currentUnbondingPeriod;
       // mine blocks until unbonding period is reached
-      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
-        await utils.mineEmptyBlock();
-      }
+      await utils.mineTillUnbondingRelease(autonity, operator, deployer);
       // requests will be processed at epoch end
       await utils.endEpoch(autonity, operator, deployer);
       // request unbonding and slash
-      await slashAndUnbond(autonity, accountability, delegators, validator, tokenUnbond, operator, deployer);
+      await unbondAndSlash(autonity, accountability, delegators, validator, tokenUnbond, operator, deployer, 0);
       // repeat
-      await slashAndUnbond(autonity, accountability, delegators, validator, tokenUnbond, operator, deployer);
+      await unbondAndSlash(autonity, accountability, delegators, validator, tokenUnbond, operator, deployer, 1);
+    });
+
+
+    it('selfUnbondingShares:selfUnbondingStake conversion ratio', async function () {
+      // issue multiple unbonding requests (selfBonded) in different epochs, interleaved with slashing events
+      // and check that the unbonding shares related fields change accordingly
+
+
+      accountability = await modifiedSlashingFeeAccountability(autonity, accountabilityConfig, operator, deployer);
+      
+      const validator = validators[0].nodeAddress;
+      const delegator = validators[0].treasury;
+      const tokenBond = 100000000 - validators[0].bondedStake;
+      const maxCount = 4;
+
+      await autonity.mint(delegator, tokenBond, {from: operator});
+      await autonity.bond(validator, tokenBond, {from: delegator});
+      await utils.endEpoch(autonity, operator, deployer);
+      let valInfo = await autonity.getValidator(validator);
+      assert.equal(Number(valInfo.bondedStake) - Number(valInfo.selfBondedStake), 0, "delegated stake exists");
+      let totalSelfBonded = Number(valInfo.bondedStake);
+      let tokenUnbond = totalSelfBonded * 2 / 100;
+
+      await selfUnbondAndSlash(autonity, accountability, delegator, validator, tokenUnbond, maxCount, operator, deployer);
+      
+      // repeat
+      valInfo = await autonity.getValidator(validator);
+      totalSelfBonded = Number(valInfo.bondedStake);
+      tokenUnbond = totalSelfBonded * 2 / 100;
+      await selfUnbondAndSlash(autonity, accountability, delegator, validator, tokenUnbond, maxCount, operator, deployer);
+
     });
 
     it.skip('unbondingShares:unbondingStake 100% slash edge case', async function () {
       // see https://github.com/autonity/autonity/issues/819
-      // low priority for now as we already now that the problem is there, however we need a test for the future fix
       // unbonding period needs to be increased for this test to work
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
@@ -470,6 +561,8 @@ contract('Protocol', function (accounts) {
     it('LNTN:NTN conversion ratio', async function () {
       // issue multiple bond and unbond request with interleaved slashing events, and check that the NTN:LNTN ratio is always what we expect
       
+      accountability = await modifiedSlashingFeeAccountability(autonity, accountabilityConfig, operator, deployer);
+
       let delegatee = [];
       let delegators = [];
       const maxCount = 3;
@@ -484,31 +577,24 @@ contract('Protocol', function (accounts) {
       // so slashing applies to delegated stake and unbonding stake
       await autonity.unbond(validator, Number(valInfo.selfBondedStake), {from: treasury});
 
-      let requestID = (await autonity.getHeadUnbondingID()).toNumber() - 1;
-      let request = await autonity.getUnbondingRequest(requestID);
-      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
-      let unbondingReleaseHeight = Number(request.requestBlock) + currentUnbondingPeriod;
       // mine blocks until unbonding period is reached
-      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
-        await utils.mineEmptyBlock();
-      }
-      // requests will be processed at epoch end
-      await utils.endEpoch(autonity, operator, deployer);
-      const tokenBond = 100000000;
-      const factor = 1000;
+      await utils.mineTillUnbondingRelease(autonity, operator, deployer);
+      const tokenBond = 1000;
+      const tokenUnbond = 100;
+      let factor = 10000;
       // request bonding and slash
-      let releaseBlock = await slashAndBond(autonity, accountability, delegators, validator, tokenBond, factor, operator, deployer);
+      let releaseBlock = await bondSlashUnbond(autonity, accountability, delegators, validator, tokenBond * factor, tokenUnbond, operator, deployer);
       while (await web3.eth.getBlockNumber() < releaseBlock) {
         await utils.mineEmptyBlock();
       }
       await autonity.activateValidator(validator, {from: treasury});
       // repeat
-      await slashAndBond(autonity, accountability, delegators, validator, tokenBond, factor, operator, deployer);
+      factor = (factor / 100) * (100 - midSeveritySlashingRatePercent);
+      await bondSlashUnbond(autonity, accountability, delegators, validator, tokenBond * factor, tokenUnbond, operator, deployer);
     });
 
     it.skip('LNTN:NTN 100% slash edge case', async function () {
       // see https://github.com/autonity/autonity/issues/819
-      // low priority for now as we already now that the problem is there, however we need a test for the future fix
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
       const delegatorA = accounts[8];
@@ -624,7 +710,6 @@ contract('Protocol', function (accounts) {
         utils.mineEmptyBlock();
       }
       let tx = await autonity.activateValidator(validator, {from: treasury});
-      let height = await web3.eth.getBlockNumber();
       truffleAssert.eventEmitted(tx, 'ActivatedValidator', (ev) => {
         return ev.treasury === treasury && ev.addr === validator;
       });
