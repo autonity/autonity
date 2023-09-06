@@ -99,7 +99,6 @@ contract("Oracle", accounts => {
       /*
        * normally the baseFee gets sent to the Autonity Contract for redistribution and the tip to the block proposer (see core/state_transition.go TransitionDb())
        * since for the oracle vote we are refunding both the baseFee and the tip, the balance of the AC and the block proposer should not change.
-       * add asserts for these two conditions to ensure that we are not duplicating money.
        */
       assert.equal(await web3.eth.getBalance(proposer), proposerInitBalance.toString(), "proposer balance changed");
       assert.equal(await web3.eth.getBalance(autonity.address), autonityInitBalance.toString(), "autonity balance changed");
