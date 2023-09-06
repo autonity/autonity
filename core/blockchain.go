@@ -277,13 +277,6 @@ func NewBlockChain(db ethdb.Database,
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
 	bc.processor = NewStateProcessor(chainConfig, bc, engine)
 	var err error
-	var contractBackend bind.ContractBackend
-	if contractBackendCreator != nil {
-		contractBackend = contractBackendCreator(bc, db)
-	}
-	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend); err != nil {
-		return nil, err
-	}
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped)
 	if err != nil {
 		return nil, err
@@ -408,6 +401,15 @@ func NewBlockChain(db ethdb.Database,
 			recover = true
 		}
 		bc.snaps, _ = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, head.Root(), !bc.cacheConfig.SnapshotWait, true, recover)
+	}
+
+	// here our blockchain and current state should be fully initialized
+	var contractBackend bind.ContractBackend
+	if contractBackendCreator != nil {
+		contractBackend = contractBackendCreator(bc, db)
+	}
+	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend); err != nil {
+		return nil, err
 	}
 
 	// Start future block processor.
