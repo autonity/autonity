@@ -64,7 +64,10 @@ contract("Oracle", accounts => {
       }
     })
     it('fee is refunded for valid vote', async function () {
+      const proposer = accounts[2];
       const origBalance = toBN(await web3.eth.getBalance(accounts[8]));
+      const proposerInitBalance = toBN(await web3.eth.getBalance(proposer));
+      const autonityInitBalance = toBN(await web3.eth.getBalance(autonity.address));
 
       await oracle.vote(0, [], 0, {from:accounts[8]});
      
@@ -72,14 +75,18 @@ contract("Oracle", accounts => {
       const updatedBalance = toBN(await web3.eth.getBalance(accounts[8]))
       assert.equal(updatedBalance.toString(), origBalance.toString());
 
-      /* TODO(tariq) 
-       *  normally the baseFee gets sent to the Autonity Contract for redistribution and the tip to the block proposer (see core/state_transition.go TransitionDb())
+      /*
+       * normally the baseFee gets sent to the Autonity Contract for redistribution and the tip to the block proposer (see core/state_transition.go TransitionDb())
        * since for the oracle vote we are refunding both the baseFee and the tip, the balance of the AC and the block proposer should not change.
-       * add asserts for these two conditions to ensure that we are not duplicating money.
        */
+      assert.equal(await web3.eth.getBalance(proposer), proposerInitBalance.toString(), "proposer balance changed");
+      assert.equal(await web3.eth.getBalance(autonity.address), autonityInitBalance.toString(), "autonity balance changed");
     });
     it('double vote, only first is refunded', async function () {
       let currentEpoch = (await autonity.epochID()).toNumber()
+      const proposer = accounts[2];
+      let proposerInitBalance = toBN(await web3.eth.getBalance(proposer));
+      let autonityInitBalance = toBN(await web3.eth.getBalance(autonity.address));
       
       // first vote gets refunded
       let origBalance = toBN(await web3.eth.getBalance(accounts[8]));
@@ -88,11 +95,12 @@ contract("Oracle", accounts => {
       let updatedBalance = toBN(await web3.eth.getBalance(accounts[8]))
       assert.equal(updatedBalance.toString(), origBalance.toString());
       
-      /* TODO(tariq) 
-       *  normally the baseFee gets sent to the Autonity Contract for redistribution and the tip to the block proposer (see core/state_transition.go TransitionDb())
+      /*
+       * normally the baseFee gets sent to the Autonity Contract for redistribution and the tip to the block proposer (see core/state_transition.go TransitionDb())
        * since for the oracle vote we are refunding both the baseFee and the tip, the balance of the AC and the block proposer should not change.
-       * add asserts for these two conditions to ensure that we are not duplicating money.
        */
+      assert.equal(await web3.eth.getBalance(proposer), proposerInitBalance.toString(), "proposer balance changed");
+      assert.equal(await web3.eth.getBalance(autonity.address), autonityInitBalance.toString(), "autonity balance changed");
 
       // make sure we are still in the same round
       round2 = await oracle.getRound()
@@ -128,11 +136,13 @@ contract("Oracle", accounts => {
       updatedBalance2 = toBN(await web3.eth.getBalance(accounts[8]))
       assert.equal(updatedBalance2.toString(), updatedBalance.sub(gasCost).toString());
 
-      /* TODO(tariq) 
+      /*
        * No refund in case of failed vote.
        * check that the basefee has been sent to the autonity contract and the tip to the proposer
        * the proposer is always accounts[2] since we are running on a 1-node autonity test network
        */
+      assert.equal(await web3.eth.getBalance(proposer), proposerInitBalance.add(tip).toString(), "proposer did not receive tip");
+      assert.equal(await web3.eth.getBalance(autonity.address), autonityInitBalance.add(baseCost).toString(), "autonity did not receive basefee");
     });
   });
 });
