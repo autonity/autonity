@@ -354,7 +354,7 @@ contract('Protocol', function (accounts) {
 
     it('unbondingShares:unbondingStake conversion ratio', async function () {
       // issue multiple unbonding requests (both selfBonded and not) in different epochs, interleaved with slashing events
-      // and check that the unbonding shares related fields change accordingly. Relevant fields to check:
+      // and check that the unbonding shares related fields change accordingly.
 
 
       let config = JSON.parse(JSON.stringify(accountabilityConfig));
