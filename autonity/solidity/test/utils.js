@@ -43,12 +43,12 @@ async function validatorState(autonity, validatorAddresses) {
 
 async function bulkBondingRequest(autonity, operator, delegators, delegatee, tokenMint) {
 
-  let totalMint = tokenMint * delegatee.length;
   let bondingCount = 0;
   for (let i = 0; i < delegators.length; i++) {
+    let totalMint = tokenMint[i] * delegatee.length;
     await autonity.mint(delegators[i], totalMint, {from: operator});
     for (let j = 0; j < delegatee.length; j++) {
-      await autonity.bond(delegatee[j], tokenMint, {from: delegators[i]});
+      await autonity.bond(delegatee[j], tokenMint[i], {from: delegators[i]});
       bondingCount++;
     }
   }
@@ -60,11 +60,32 @@ async function bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbond
   let unbondingCount = 0;
   for (let i = 0; i < delegators.length; i++) {
     for (let j = 0; j < delegatee.length; j++) {
-      await autonity.unbond(delegatee[j], tokenUnbond, {from: delegators[i]});
+      await autonity.unbond(delegatee[j], tokenUnbond[i], {from: delegators[i]});
       unbondingCount++;
     }
   }
   return unbondingCount;
+}
+
+async function mineTillUnbondingRelease(autonity, operator, deployer, maybeReleasedAlready = true) {
+  let requestID = (await autonity.getHeadUnbondingID()).toNumber() - 1;
+  let request = await autonity.getUnbondingRequest(requestID);
+  let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
+  let unbondingReleaseHeight = Number(request.requestBlock) + currentUnbondingPeriod;
+  let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
+  if (!maybeReleasedAlready) {
+    // the following needs to be true in case unbonding not released already:
+    // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
+    assert(
+      unbondingReleaseHeight > lastEpochBlock,
+      `unbonding period too short for testing, request-block: ${Number(request.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
+      + `last-epoch-block: ${lastEpochBlock}`
+    );
+  }
+  // mine blocks until unbonding period is reached
+  while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
+    await mineEmptyBlock();
+  }
 }
 
 // nodejs sleep
@@ -212,3 +233,4 @@ module.exports.endEpoch = endEpoch;
 module.exports.validatorState = validatorState;
 module.exports.bulkBondingRequest = bulkBondingRequest;
 module.exports.bulkUnbondingRequest = bulkUnbondingRequest;
+module.exports.mineTillUnbondingRelease = mineTillUnbondingRelease;

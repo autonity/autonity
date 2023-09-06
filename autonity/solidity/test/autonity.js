@@ -19,8 +19,10 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   let balanceLockedLNTN = [];
   let balanceNTN = [];
   let valLiquidContract = [];
+  let tokenUnbondArray = [];
   for (let i = 0; i < treasuryAddresses.length; i++) {
     balanceNTN.push((await autonity.balanceOf(treasuryAddresses[i])).toNumber());
+    tokenUnbondArray.push(tokenUnbond);
   }
   for (let i = 0; i < delegatee.length; i++) {
     let validatorInfo = await autonity.getValidator(delegatee[i]);
@@ -36,7 +38,7 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
     balanceLockedLNTN.push(valLiquidBalanceLocked);
   }
 
-  let unbondingCount = await utils.bulkUnbondingRequest(autonity, treasuryAddresses, delegatee, tokenUnbond);
+  await utils.bulkUnbondingRequest(autonity, treasuryAddresses, delegatee, tokenUnbondArray);
   let requestId = (await autonity.getLastUnlockedUnbonding()).toNumber();
   let expectedValInfo = await utils.validatorState(autonity, delegatee);
   // check if LNTN balance is locked
@@ -54,20 +56,6 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   }
   await utils.endEpoch(autonity, operator, deployer);
 
-
-  // all requests are processed sequentially, lastRequest will be processed at last
-  let lastRequest = await autonity.getUnbondingRequest(requestId + unbondingCount - 1);
-  let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
-  let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
-  let unbondingReleaseHeight = Number(lastRequest.requestBlock) + currentUnbondingPeriod;
-  // the following needs to be true:
-  // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
-  assert(
-    unbondingReleaseHeight > lastEpochBlock,
-    `unbonding period too short for testing, request-block: ${Number(lastRequest.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
-    + `last-epoch-block: ${lastEpochBlock}`
-  );
-  // otherwise NTN is already released at last epoch end
 
   // check validator state after unbonding applied but before NTN is released
   // total-unbond amount for each delegatee
@@ -105,9 +93,7 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
 
   expectedValInfo = await utils.validatorState(autonity, delegatee);
   // mine blocks until unbonding period is reached
-  while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
-    await utils.mineEmptyBlock();
-  }
+  await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
   // trigger endEpoch for NTN release
   await utils.endEpoch(autonity, operator, deployer);
   valInfo = await utils.validatorState(autonity, delegatee);
@@ -1076,22 +1062,9 @@ contract('Autonity', function (accounts) {
 
       // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
       let currentBalance = (await autonity.balanceOf(from)).toNumber();
-      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
-      let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
-      let unbondingReleaseHeight = Number(unbondingRequest.requestBlock) + currentUnbondingPeriod;
-      // the following needs to be true:
-      // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
-      assert(
-        unbondingReleaseHeight > lastEpochBlock,
-        `unbonding period too short for testing, request-block: ${Number(unbondingRequest.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
-        + `last-epoch-block: ${lastEpochBlock}`
-      );
-      // otherwise NTN is already released at last epoch end
       assert.equal(currentBalance, balance, "NTN released before unbonding period");
       // mine blocks until unbonding period is reached
-      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
-        await utils.mineEmptyBlock();
-      }
+      await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
       // trigger endEpoch for NTN release
       await utils.endEpoch(autonity, operator, deployer);
       currentBalance = (await autonity.balanceOf(from)).toNumber();
@@ -1149,22 +1122,9 @@ contract('Autonity', function (accounts) {
 
       // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
       let currentBalance = (await autonity.balanceOf(newAccount)).toNumber();
-      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
-      let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
-      let unbondingReleaseHeight = Number(unbondingRequest.requestBlock) + currentUnbondingPeriod;
-      // the following needs to be true:
-      // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
-      assert(
-        unbondingReleaseHeight > lastEpochBlock,
-        `unbonding period too short for testing, request-block: ${Number(unbondingRequest.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
-        + `last-epoch-block: ${lastEpochBlock}`
-      );
-      // otherwise NTN is already released at last epoch end
       assert.equal(currentBalance, balance, "NTN released before unbonding period");
       // mine blocks until unbonding period is reached
-      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
-        await utils.mineEmptyBlock();
-      }
+      await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
       // trigger endEpoch for NTN release
       await utils.endEpoch(autonity, operator, deployer);
       currentBalance = (await autonity.balanceOf(newAccount)).toNumber();
@@ -1257,17 +1217,19 @@ contract('Autonity', function (accounts) {
 
       let delegatee = [];
       let treasuryAddresses = [];
+      let tokenMintArray = [];
       const maxCount = 3;
+      const tokenMint = 100;
+      const tokenUnbond = 10;
 
       for (let i = 0; i < Math.min(validators.length, maxCount); i++) {
         treasuryAddresses.push(validators[i].treasury);
         delegatee.push(validators[i].nodeAddress);
+        tokenMintArray.push(tokenMint);
       }
 
-      const tokenMint = 100;
-      const tokenUnbond = 10;
       let expectedValInfo = await utils.validatorState(autonity, delegatee);
-      await utils.bulkBondingRequest(autonity, operator, treasuryAddresses, delegatee, tokenMint);
+      await utils.bulkBondingRequest(autonity, operator, treasuryAddresses, delegatee, tokenMintArray);
       // requests will be processed at epoch end
       await utils.endEpoch(autonity, operator, deployer);
       let valInfo = await utils.validatorState(autonity, delegatee);
