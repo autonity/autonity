@@ -562,17 +562,18 @@ contract('Protocol', function (accounts) {
       await utils.mineTillUnbondingRelease(autonity, operator, deployer);
       const tokenBond = 1000;
       const tokenUnbond = 100;
-      let factor = 10000;
+      let roundingFactor = 10000;
       // request bonding and slash
-      let releaseBlock = await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * factor, tokenUnbond, operator, deployer);
+      let releaseBlock = await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * roundingFactor, tokenUnbond, operator, deployer);
       while (await web3.eth.getBlockNumber() < releaseBlock) {
         await utils.mineEmptyBlock();
       }
       await autonity.activateValidator(validator, {from: treasury});
       // repeat
       let slashingRate = utils.ruleToRate(accountabilityConfig, 0) / accountabilityConfig.slashingRatePrecision; // rule 0 --> severity mid
-      factor = factor * (1 - slashingRate);
-      await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * factor, tokenUnbond, operator, deployer);
+      // multiplying tokenBond with roundingFactor so we don't get fraction ratio of LNTN:NTN or unbondingShare:unbondingStake
+      roundingFactor = roundingFactor * (1 - slashingRate);
+      await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * roundingFactor, tokenUnbond, operator, deployer);
     });
 
     it.skip('LNTN:NTN 100% slash edge case', async function () {
