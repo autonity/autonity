@@ -3,10 +3,11 @@ package autonity
 import (
 	"bytes"
 	"errors"
-	"github.com/autonity/autonity/params/generated"
 	"math/big"
 	"strings"
 	"sync"
+
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -69,6 +70,7 @@ func NewEVMContract(evmProvider EVMProvider, contractABI *abi.ABI, db ethdb.Data
 //revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
 type AutonityContract struct {
 	EVMContract
+	*AutonityFilterer // allows to watch for Autonity Contract events
 
 	proposers map[uint64]map[int64]common.Address
 }
@@ -93,6 +95,10 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 	}
 	accountabilityContract, _ := NewAccountability(AccountabilityContractAddress, contractBackend)
 
+	autonityFilterer, err := NewAutonityFilterer(AutonityContractAddress, contractBackend.(bind.ContractFilterer))
+	if err != nil {
+		return nil, err
+	}
 	contract := ProtocolContracts{
 		AutonityContract: AutonityContract{
 			EVMContract: EVMContract{
@@ -101,7 +107,8 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 				db:          db,
 				chainConfig: config,
 			},
-			proposers: make(map[uint64]map[int64]common.Address),
+			AutonityFilterer: autonityFilterer,
+			proposers:        make(map[uint64]map[int64]common.Address),
 		},
 		Accountability: accountabilityContract,
 	}
