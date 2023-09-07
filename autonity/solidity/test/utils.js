@@ -221,6 +221,11 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
     return autonityTest;
 };
 
+function ruleToRate(accountabilityConfig,rule){
+  //TODO(lorenzo) create mapping rule to rate once finalized in autonity.sol. bypass severity conversion?
+  return accountabilityConfig.baseSlashingRateMid
+}
+
 
 module.exports.deployContracts = deployContracts;
 module.exports.deployAutonityTestContract = deployAutonityTestContract;
@@ -234,3 +239,4 @@ module.exports.validatorState = validatorState;
 module.exports.bulkBondingRequest = bulkBondingRequest;
 module.exports.bulkUnbondingRequest = bulkUnbondingRequest;
 module.exports.mineTillUnbondingRelease = mineTillUnbondingRelease;
+module.exports.ruleToRate = ruleToRate;
