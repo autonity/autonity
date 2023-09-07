@@ -9,6 +9,13 @@ const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
 
 
+// end epoch so the LastEpochBlock is closer
+// then set epoch period 
+async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
+  await endEpoch(autonity, operator, deployer);
+  await autonity.setEpochPeriod(epochPeriod, {from: operator});
+}
+
 // while testing we might ran into situations were currentHeight > lastEpochBlock + epochPeriod
 // in this case in order to be able to finalize we need to setEpochPeriod to a bigger value
 // also we need to take into account that if we are running against autonity, the network will keep mining as we do these operations
@@ -170,7 +177,7 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
   return AutonityTest.new(validators, autonityConfig, deployer);
 }
 
-async function initialize(autonity, validators, accountabilityConfig, deployer, operator) {
+async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator) {
   await autonity.finalizeInitialization({from: deployer});
 
   // accountability contract
@@ -204,20 +211,21 @@ async function initialize(autonity, validators, accountabilityConfig, deployer, 
   await autonity.setSupplyControlContract(acu.address, {from: operator});
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
+  await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
 }
 
 // deploys protocol contracts
 const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
     // autonity contract
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
-    await initialize(autonity, validators, accountabilityConfig, deployer, operator);
+    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonity;
 };
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
-    await initialize(autonityTest, validators, accountabilityConfig, deployer, operator);
+    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
 };
 
