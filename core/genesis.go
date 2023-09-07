@@ -635,6 +635,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			LondonBlock:            big.NewInt(0),
 			ArrowGlacierBlock:      big.NewInt(0),
 			AutonityContractConfig: &testAutonityContractConfig,
+			AccountabilityConfig:   &params.TestAccountabilityConfig,
 			OracleContractConfig:   &params.OracleContractGenesis{},
 		},
 	}
