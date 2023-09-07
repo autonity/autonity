@@ -36,6 +36,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         // bonded stake = selfBounded stake + delegated stake
         uint256 selfUnbondingStake;
         uint256 selfUnbondingShares; // not effective - used for accounting purposes
+        uint256 selfUnbondingStakeLocked;
         Liquid liquidContract;
         uint256 liquidSupply;
         uint256 registrationBlock;
@@ -217,6 +218,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.policy.delegationRate;
             _validators[i].state = ValidatorState.active;
+            _validators[i].selfUnbondingStakeLocked = 0;
 
             _registerValidator(_validators[i]);
 
@@ -290,6 +292,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             0,                       // self bonded stake
             0,                       // self unbonding stake
             0,                       // self unbonding shares
+            0,                       // self unbonding stake locked
             Liquid(address(0)),      // liquid token contract
             0,                       // liquid token supply
             block.number,            // registration block
@@ -1082,7 +1085,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
             _validator.liquidContract.lock(_recipient, _amount);
         } else {
-            require(_validator.selfBondedStake >= _amount, "insufficient self bonded newton balance");
+            require(
+                _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
+                "insufficient self bonded newton balance"
+            );
+            _validator.selfUnbondingStakeLocked += _amount;
         }
         unbondingMap[headUnbondingID] = UnbondingRequest(_recipient, _validatorAddress, _amount,
                                                          0, block.number, false, selfDelegation);
@@ -1136,6 +1143,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         } else {
             // self-delegated stake path, no LNTN<>NTN conversion
             _newtonAmount = _unbonding.amount;
+            if (_newtonAmount > _validator.selfBondedStake) {
+                _newtonAmount = _validator.selfBondedStake;
+            }
             if (_validator.selfUnbondingStake == 0) {
                  _unbonding.unbondingShare = _newtonAmount;
             } else {
@@ -1145,6 +1155,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validator.selfUnbondingShares += _unbonding.unbondingShare;
             // decrease _validator.selfBondedStake for self-delegation
             _validator.selfBondedStake -= _newtonAmount;
+            _validator.selfUnbondingStakeLocked -= _unbonding.amount;
         }
 
         _unbonding.unlocked = true;

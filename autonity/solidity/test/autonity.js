@@ -136,6 +136,7 @@ contract('Autonity', function (accounts) {
 
   const baseValidator = {
     "selfBondedStake": 0,
+    "selfUnbondingStakeLocked": 0,
     "totalSlashed": 0,
     "jailReleaseBlock": 0,
     "provableFaultCount" :0,
@@ -1008,6 +1009,92 @@ contract('Autonity', function (accounts) {
       assert.equal(unstakings[0].delegator, validators[0].treasury, "delegator addr is not expected");
       assert.equal(unstakings[0].delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
     });
+
+    it('Self-unbond more than bonded', async function () {
+      // mint Newton for a treasury
+      let treasury = validators[0].treasury;
+      let validator = validators[0].nodeAddress;
+      let tokenMint = 1000;
+      let tokenBond = 1000;
+      let tokenUnbond = tokenBond;
+      await autonity.mint(treasury, tokenMint, {from: operator});
+      const initBalance = (await autonity.balanceOf(treasury)).toNumber();
+
+      // bond new minted Newton to a registered validator.
+      await autonity.bond(validator, tokenBond, {from: treasury});
+
+      // let the bonding apply
+      await endEpoch(autonity, operator, deployer);
+
+      // self-unbond the same amount, but twice
+      let tx = await autonity.unbond(validator, tokenUnbond, {from: treasury});
+      truffleAssert.eventEmitted(tx, 'NewUnbondingRequest', (ev) => {
+        return ev.validator === validator && ev.delegator === treasury && ev.selfBonded === true && ev.amount.toNumber() === tokenUnbond
+      }, 'should emit newUnbondingRequest event');
+
+      // if the following does not fail, then we will have panic error in epoch end due to arithmetic underflow
+      await truffleAssert.fails(
+        autonity.unbond(validator, tokenUnbond, {from: treasury}),
+        truffleAssert.ErrorType.REVERT,
+        "insufficient self bonded newton balance"
+      );
+
+      // let the unbonding apply
+      await endEpoch(autonity, operator, deployer);
+      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
+      let unbondingReleaseHeight = await web3.eth.getBlockNumber() + currentUnbondingPeriod;
+      // mine blocks until unbonding period is reached
+      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
+        await utils.mineEmptyBlock();
+      }
+      await endEpoch(autonity, operator, deployer);
+
+      const finalBalance = (await autonity.balanceOf(treasury)).toNumber();
+      assert.equal(finalBalance, initBalance, "balance mismatch");
+    })
+
+    it('Non-self-unbond more than bonded', async function () {
+      // mint Newton for a newAccount
+      let newAccount = accounts[8];
+      let validator = validators[0].nodeAddress;
+      let tokenMint = 1000;
+      let tokenBond = 1000;
+      let tokenUnbond = tokenBond;
+      await autonity.mint(newAccount, tokenMint, {from: operator});
+      const initBalance = (await autonity.balanceOf(newAccount)).toNumber();
+
+      // bond new minted Newton to a registered validator.
+      await autonity.bond(validator, tokenBond, {from: newAccount});
+
+      // let the bonding apply
+      await endEpoch(autonity, operator, deployer);
+
+      // non-self-unbond the same amount, but twice
+      let tx = await autonity.unbond(validator, tokenUnbond, {from: newAccount});
+      truffleAssert.eventEmitted(tx, 'NewUnbondingRequest', (ev) => {
+        return ev.validator === validator && ev.delegator === newAccount && ev.selfBonded === false && ev.amount.toNumber() === tokenUnbond
+      }, 'should emit newUnbondingRequest event');
+
+      // if the following does not fail, then we will have panic error in epoch end due to arithmetic underflow
+      await truffleAssert.fails(
+        autonity.unbond(validator, tokenUnbond, {from: newAccount}),
+        truffleAssert.ErrorType.REVERT,
+        "insufficient unlocked Liquid Newton balance"
+      );
+
+      // let the unbonding apply
+      await endEpoch(autonity, operator, deployer);
+      let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
+      let unbondingReleaseHeight = await web3.eth.getBlockNumber() + currentUnbondingPeriod;
+      // mine blocks until unbonding period is reached
+      while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
+        await utils.mineEmptyBlock();
+      }
+      await endEpoch(autonity, operator, deployer);
+
+      const finalBalance = (await autonity.balanceOf(newAccount)).toNumber();
+      assert.equal(finalBalance, initBalance, "balance mismatch");
+    })
 
   });
 
