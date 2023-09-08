@@ -1458,10 +1458,28 @@ contract('Autonity', function (accounts) {
           assert.equal(presented, true);
       });
       it('test more than committeeSize bonded validators, the ones with less stake should remain outside of the committee', async function() {
-        //TODO(tariq) low priority change, leave for last
-        // check that computeCommittee correctly excludes lower stake validators in case of more validators than seats in the committee.
-        // check also that epochTotalBondedStake is what we expect
-        // feel free to lower the max committeesize to speed up the test
+        // re-deploy with 4 validators instead of 1
+        autonity = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator);
+
+        // set committeeSize to 0, minimum stake validator should be excluded
+        await autonity.setCommitteeSize(3, {from: operator});
+        await autonity.computeCommittee({from:deployer})
+        
+        let minimumStakeAddress;
+        let minimumStake = Number.MAX_VALUE
+        for (let i=0; i<validators.length; i++) {
+          if(validators[i].bondedStake < minimumStake) {
+            minimumStake = validators[i].bondedStake
+            minimumStakeAddress = validators[i].nodeAddress
+          }
+        }
+        let committee = await autonity.getCommittee({from: anyAccount})
+       
+        assert.equal(committee.length,3)
+        for (let i=0; i<committee.length; i++) {
+          assert.notEqual(committee[i].addr,minimumStakeAddress)
+        }
+        
       });
   });
 
