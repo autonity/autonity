@@ -20,15 +20,11 @@ const Accountability = artifacts.require("Accountability");
 const AccountabilityTest = artifacts.require("AccountabilityTest");
 const toBN = web3.utils.toBN
 
-function ruleToRate(accountabilityConfig,rule){
-  //TODO(lorenzo) create mapping rule to rate once finalized in autonity.sol. bypass severity conversion?
-  return accountabilityConfig.baseSlashingRateMid
-}
 
 async function slashAndVerify(autonity,accountability,accountabilityConfig,event,epochOffenceCount){
   let offender = await autonity.getValidator(event.offender)
 
-  let baseRate = ruleToRate(accountabilityConfig,event.rule)
+  let baseRate = utils.ruleToRate(accountabilityConfig,event.rule)
 
   let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(offender.provableFaultCount).mul(toBN(accountabilityConfig.historyFactor)));  
   // cannot slash more than 100%
@@ -365,7 +361,7 @@ contract('Accountability', function (accounts) {
       for (const offender of offenders) {
         let offenderSlashed = await autonity.getValidator(offender.nodeAddress);
 
-        let baseRate = ruleToRate(accountabilityConfig,event.rule);
+        let baseRate = utils.ruleToRate(accountabilityConfig,event.rule);
 
         let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(offender.provableFaultCount).mul(toBN(accountabilityConfig.historyFactor)));  
         // cannot slash more than 100%
@@ -471,7 +467,7 @@ contract('Accountability', function (accounts) {
       let offenderSlashed = await autonity.getValidator(offender.nodeAddress);
 
       let epochOffenceCount = 1;
-      let baseRate = ruleToRate(accountabilityConfig,event.rule);
+      let baseRate = utils.ruleToRate(accountabilityConfig,event.rule);
 
       let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(offender.provableFaultCount).mul(toBN(accountabilityConfig.historyFactor)));  
       // cannot slash more than 100%
