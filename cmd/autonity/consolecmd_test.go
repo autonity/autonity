@@ -159,6 +159,22 @@ To exit, press ctrl-d or type exit
 	autonity.ExpectExit()
 }
 
+func TestDevMode(t *testing.T) {
+	//dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	//defer os.RemoveAll(dir)
+	ws := tmpdir(t)
+	defer os.RemoveAll(ws)
+	ipc := filepath.Join(ws, "autonity.ipc")
+	// Start a autonity client via console sub command.
+	autonity := runAutonity(t,
+		"--dev", "--ipcpath", ipc)
+
+	// Wait for autonity.
+	waitForEndpoint(t, ipc, 3*time.Second)
+
+	autonity.ExpectExit()
+}
+
 // Tests that a console can be attached to a running node via various means.
 func TestIPCAttachWelcome(t *testing.T) {
 	var ipc string
