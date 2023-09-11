@@ -39,8 +39,8 @@ async function slashAndVerify(autonity,accountability,accountabilityConfig,event
   let autonityTreasury = await autonity.getTreasuryAccount()
   let autonityTreasuryBalance = await autonity.balanceOf(autonityTreasury)
  
-  await accountability.slash(event,epochOffenceCount)
-  let slashingBlock = await web3.eth.getBlockNumber()
+  let tx = await accountability.slash(event,epochOffenceCount)
+  let slashingBlock = tx.receipt.blockNumber
   let offenderSlashed = await autonity.getValidator(offender.nodeAddress);
   
   // first unbonding self stake is slashed (PAS)
