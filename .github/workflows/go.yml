@@ -7,6 +7,11 @@ on:
   # pull_request triggers this workflow on both internal and forked pull
   # requests.
   pull_request:
+    types:
+      - opened            # default
+      - synchronize       # default
+      - reopened          # default
+      - ready_for_review  # added, makes it so that when a PR gets marked as rfr, contract tests execute
 
 env:
   # We don't have access to the HOME environment variable here since we are not
@@ -155,9 +160,11 @@ jobs:
         run: make lint-ci
         shell: bash
 
-  # contract-tests runs our suite of truffle tests against the autonity
-  # contract.
+  # contract-tests runs:
+  # - the asm tests using the APE framework
+  # - truffle tests against an autonity node (slow, run only when PR is not draft)
   contract-tests:
+    if: '! github.event.pull_request.draft'
     runs-on: ubuntu-latest
     needs: prepare-cache
     steps:
@@ -177,6 +184,30 @@ jobs:
 
       - name: Run contract tests
         run: make test-contracts
+  
+  # contract-tests-fast runs:
+  # - the asm tests using the APE framework
+  # - truffle tests against a ganache node
+  contract-tests-fast:
+    runs-on: ubuntu-latest
+    needs: prepare-cache
+    steps:
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '18.12.1'
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Run contract tests
+        run: make test-contracts-fast
 
   # These are the end to end tests run with a block time of 1 second, they are
   # only run on merges to develop.

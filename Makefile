@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast
 
 BINDIR = ./build/bin
 GO ?= latest
@@ -143,6 +143,8 @@ test-race:
 
 test-contracts: test-contracts-asm test-contracts-truffle
 
+test-contracts-fast: test-contracts-asm test-contracts-truffle-fast
+
 # prerequisites for testing contracts
 test-contracts-pre:
 	@# npm list returns 0 only if the package is not installed and the shell only
@@ -158,7 +160,7 @@ test-contracts-pre:
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
 
-test-contracts-asm: autonity contracts
+test-contracts-asm:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
 	@echo "check and install hardhat"
