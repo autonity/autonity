@@ -144,14 +144,13 @@ func DeployACUContract(config *params.ChainConfig, evmContracts *GenesisEVMContr
 func DeployAccountabilityContract(accountabilityGenesis *params.AccountabilityGenesis, evmContracts *GenesisEVMContracts) error {
 
 	accountabilityConfig := AccountabilityConfig{
-		InnocenceProofSubmissionWindow:  new(big.Int).SetUint64(accountabilityGenesis.InnocenceProofSubmissionWindow),
-		LatestAccountabilityEventsRange: new(big.Int).SetUint64(accountabilityGenesis.LatestAccountabilityEventsRange),
-		BaseSlashingRateLow:             new(big.Int).SetUint64(accountabilityGenesis.BaseSlashingRateLow),
-		BaseSlashingRateMid:             new(big.Int).SetUint64(accountabilityGenesis.BaseSlashingRateMid),
-		CollusionFactor:                 new(big.Int).SetUint64(accountabilityGenesis.CollusionFactor),
-		HistoryFactor:                   new(big.Int).SetUint64(accountabilityGenesis.HistoryFactor),
-		JailFactor:                      new(big.Int).SetUint64(accountabilityGenesis.JailFactor),
-		SlashingRatePrecision:           new(big.Int).SetUint64(accountabilityGenesis.SlashingRatePrecision),
+		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(accountabilityGenesis.InnocenceProofSubmissionWindow),
+		BaseSlashingRateLow:            new(big.Int).SetUint64(accountabilityGenesis.BaseSlashingRateLow),
+		BaseSlashingRateMid:            new(big.Int).SetUint64(accountabilityGenesis.BaseSlashingRateMid),
+		CollusionFactor:                new(big.Int).SetUint64(accountabilityGenesis.CollusionFactor),
+		HistoryFactor:                  new(big.Int).SetUint64(accountabilityGenesis.HistoryFactor),
+		JailFactor:                     new(big.Int).SetUint64(accountabilityGenesis.JailFactor),
+		SlashingRatePrecision:          new(big.Int).SetUint64(accountabilityGenesis.SlashingRatePrecision),
 	}
 
 	err := evmContracts.DeployAccountabilityContract(AutonityContractAddress, accountabilityConfig, generated.AccountabilityBytecode)
@@ -212,7 +211,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			balanceToMint.Add(balanceToMint, amount)
 		}
 
-		if balanceToMint.Int64() > 0 {
+		if balanceToMint.Uint64() > 0 {
 			err := evmContracts.Mint(addr, balanceToMint)
 			if err != nil {
 				return fmt.Errorf("error while minting Newton: %w", err)

@@ -8,7 +8,6 @@ contract Accountability is IAccountability {
 
     struct Config {
         uint256 innocenceProofSubmissionWindow;
-        uint256 latestAccountabilityEventsRange;
 
         // Slashing parameters
         uint256 baseSlashingRateLow;

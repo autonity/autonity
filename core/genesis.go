@@ -121,16 +121,16 @@ type genesisSpecMarshaling struct {
 	Difficulty *math.HexOrDecimal256
 	BaseFee    *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
-
-	VotingPowers []math.HexOrDecimal64
 }
 
 type genesisAccountMarshaling struct {
-	Code       hexutil.Bytes
-	Balance    *math.HexOrDecimal256
-	Nonce      math.HexOrDecimal64
-	Storage    map[storageJSON]storageJSON
-	PrivateKey hexutil.Bytes
+	Code          hexutil.Bytes
+	Balance       *math.HexOrDecimal256
+	NewtonBalance *math.HexOrDecimal256
+	Bonds         map[common.Address]*math.HexOrDecimal256
+	Nonce         math.HexOrDecimal64
+	Storage       map[storageJSON]storageJSON
+	PrivateKey    hexutil.Bytes
 }
 
 // storageJSON represents a 256 bit byte array, but allows less than 256 bits when
