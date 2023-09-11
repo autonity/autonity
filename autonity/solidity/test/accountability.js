@@ -181,6 +181,7 @@ contract('Accountability', function (accounts) {
 
   const baseValidator = {
     "selfBondedStake": 0,
+    "selfUnbondingStakeLocked": 0,
     "totalSlashed": 0,
     "jailReleaseBlock": 0,
     "provableFaultCount" :0,

@@ -1168,7 +1168,7 @@ contract('Autonity', function (accounts) {
       );
       // if the tx above is not failed, then triggering end-epoch will fail
       // and autonity contract will not be able to end epoch
-      await endEpoch(autonity, operator, deployer);
+      await utils.endEpoch(autonity, operator, deployer);
     });
     
     it('test bonding queue logic', async function () {
@@ -1256,6 +1256,7 @@ contract('Autonity', function (accounts) {
       await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
       // again unbond some amount and check unbonding share
       await checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond);
+    });
 
     it('Self-unbond more than bonded', async function () {
       // mint Newton for a treasury
@@ -1271,7 +1272,7 @@ contract('Autonity', function (accounts) {
       await autonity.bond(validator, tokenBond, {from: treasury});
 
       // let the bonding apply
-      await endEpoch(autonity, operator, deployer);
+      await utils.endEpoch(autonity, operator, deployer);
 
       // self-unbond the same amount, but twice
       let tx = await autonity.unbond(validator, tokenUnbond, {from: treasury});
@@ -1287,14 +1288,14 @@ contract('Autonity', function (accounts) {
       );
 
       // let the unbonding apply
-      await endEpoch(autonity, operator, deployer);
+      await utils.endEpoch(autonity, operator, deployer);
       let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
       let unbondingReleaseHeight = await web3.eth.getBlockNumber() + currentUnbondingPeriod;
       // mine blocks until unbonding period is reached
       while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
         await utils.mineEmptyBlock();
       }
-      await endEpoch(autonity, operator, deployer);
+      await utils.endEpoch(autonity, operator, deployer);
 
       const finalBalance = (await autonity.balanceOf(treasury)).toNumber();
       assert.equal(finalBalance, initBalance, "balance mismatch");
@@ -1314,7 +1315,7 @@ contract('Autonity', function (accounts) {
       await autonity.bond(validator, tokenBond, {from: newAccount});
 
       // let the bonding apply
-      await endEpoch(autonity, operator, deployer);
+      await utils.endEpoch(autonity, operator, deployer);
 
       // non-self-unbond the same amount, but twice
       let tx = await autonity.unbond(validator, tokenUnbond, {from: newAccount});
@@ -1330,14 +1331,14 @@ contract('Autonity', function (accounts) {
       );
 
       // let the unbonding apply
-      await endEpoch(autonity, operator, deployer);
+      await utils.endEpoch(autonity, operator, deployer);
       let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
       let unbondingReleaseHeight = await web3.eth.getBlockNumber() + currentUnbondingPeriod;
       // mine blocks until unbonding period is reached
       while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
         await utils.mineEmptyBlock();
       }
-      await endEpoch(autonity, operator, deployer);
+      await utils.endEpoch(autonity, operator, deployer);
 
       const finalBalance = (await autonity.balanceOf(newAccount)).toNumber();
       assert.equal(finalBalance, initBalance, "balance mismatch");
