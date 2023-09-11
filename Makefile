@@ -141,7 +141,7 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
-test-contracts: autonity contracts test-contracts-asm test-contracts-truffle
+test-contracts: test-contracts-asm test-contracts-truffle
 
 # prerequisites for testing contracts
 test-contracts-pre:
@@ -158,7 +158,7 @@ test-contracts-pre:
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
 
-test-contracts-asm:
+test-contracts-asm: autonity contracts
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
 	@echo "check and install hardhat"
