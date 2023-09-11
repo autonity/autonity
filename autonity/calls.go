@@ -211,7 +211,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			balanceToMint.Add(balanceToMint, amount)
 		}
 
-		if balanceToMint.Uint64() > 0 {
+		if balanceToMint.Cmp(common.Big0) > 0 {
 			err := evmContracts.Mint(addr, balanceToMint)
 			if err != nil {
 				return fmt.Errorf("error while minting Newton: %w", err)
