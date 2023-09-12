@@ -234,6 +234,27 @@ function ruleToRate(accountabilityConfig,rule){
   return accountabilityConfig.baseSlashingRateMid
 }
 
+async function signTransaction(from, to, privateKey, methodRequest = null) {
+  let data = "0x";
+  let gasLimit = 1000000000;
+  if (methodRequest != null) {
+    data = methodRequest.data;
+    gasLimit = methodRequest.gas;
+  }
+  let tx = {
+    from: from,
+    to: to,
+    gas: gasLimit,
+    data: data
+  }
+  return await web3.eth.accounts.signTransaction(tx, privateKey);
+}
+
+async function signAndSendTransaction(from, to, privateKey, methodRequest = null) {
+  let signedTx = await signTransaction(from, to, privateKey, methodRequest);
+  return await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+}
+
 
 module.exports.deployContracts = deployContracts;
 module.exports.deployAutonityTestContract = deployAutonityTestContract;
@@ -248,3 +269,5 @@ module.exports.bulkBondingRequest = bulkBondingRequest;
 module.exports.bulkUnbondingRequest = bulkUnbondingRequest;
 module.exports.mineTillUnbondingRelease = mineTillUnbondingRelease;
 module.exports.ruleToRate = ruleToRate;
+module.exports.signTransaction = signTransaction;
+module.exports.signAndSendTransaction = signAndSendTransaction;
