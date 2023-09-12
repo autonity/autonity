@@ -1054,11 +1054,13 @@ contract('Autonity', function (accounts) {
       // check effects of unbond (selfBonded):
       // unbonded NTN enters "unbonding" state at epoch end and unbonding shares are issued. validator voting power (bondedStake) decreases
       let oldValInfo = await autonity.getValidator(validators[0].nodeAddress);
+      assert.equal(oldValInfo.selfUnbondingStakeLocked, tokenUnBond, "selfUnbondingStakeLocked did not increase");
       await utils.endEpoch(autonity, operator, deployer);
       unbondingRequest = await autonity.getUnbondingRequest(latestUnbondingReqId);
       assert.equal(unbondingRequest.unbondingShare, tokenUnBond, "unbonding share is not expected");
       assert.equal(unbondingRequest.unlocked, true, "unbonding not applied at epoch end");
       let validatorInfo = await autonity.getValidator(validators[0].nodeAddress);
+      assert.equal(validatorInfo.selfUnbondingStakeLocked, 0, "selfUnbondingStakeLocked did not decrease");
       checkValInfoAfterUnbonding(validatorInfo, oldValInfo, tokenUnBond, tokenUnBond);
 
       // after unbonding period, at the next endEpoch the unbonding shares are converted back to NTNs and released.
