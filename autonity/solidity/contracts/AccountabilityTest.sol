@@ -28,4 +28,8 @@ contract AccountabilityTest is Accountability {
    function promoteGuiltyAccusations() public {
       Accountability._promoteGuiltyAccusations();
    }
+
+   function getReporterChunksMap() public view returns (Event memory) {
+      return reporterChunksMap[msg.sender];
+   }
 }
