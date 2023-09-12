@@ -63,8 +63,8 @@ type ChainReader interface {
 	// Engine retrieves the chain's consensus engine.
 	Engine() Engine
 
-	// MinbaseFee returns the minimum base
-	MinBaseFee(header *types.Header) (*big.Int, error)
+	// MinbaseFee returns the minimum base fee
+	MinBaseFee() *big.Int
 }
 
 // Engine is an algorithm agnostic consensus engine.

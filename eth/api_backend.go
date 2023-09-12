@@ -19,7 +19,10 @@ package eth
 import (
 	"context"
 	"errors"
-	"github.com/autonity/autonity"
+	"math/big"
+	"time"
+
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -36,8 +39,6 @@ import (
 	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
-	"math/big"
-	"time"
 )
 
 // EthAPIBackend implements ethapi.Backend for full nodes
@@ -364,6 +365,6 @@ func (b *EthAPIBackend) StateAtTransaction(ctx context.Context, block *types.Blo
 	return b.eth.stateAtTransaction(block, txIndex, reexec)
 }
 
-func (b *EthAPIBackend) MinBaseFee(header *types.Header) (*big.Int, error) {
-	return b.eth.blockchain.MinBaseFee(header)
+func (b *EthAPIBackend) MinBaseFee() *big.Int {
+	return b.eth.blockchain.MinBaseFee()
 }

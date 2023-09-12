@@ -18,7 +18,6 @@ package misc
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -28,7 +27,7 @@ import (
 )
 
 type BaseFeeGetter interface {
-	MinBaseFee(header *types.Header) (*big.Int, error)
+	MinBaseFee() *big.Int
 }
 
 // VerifyEip1559Header verifies some header attributes which were changed in EIP-1559,
@@ -93,11 +92,7 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter Bas
 
 		minBaseFee := big.NewInt(0)
 		if feeGetter != nil {
-			var err error
-			minBaseFee, err = feeGetter.MinBaseFee(parent)
-			if err != nil {
-				log.Crit("Could not calculate minimum base fee...", "err", err, "height", parent.Number)
-			}
+			minBaseFee = feeGetter.MinBaseFee()
 		}
 		return math.BigMax(
 			x.Sub(parent.BaseFee, baseFeeDelta),

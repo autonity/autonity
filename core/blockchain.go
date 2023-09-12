@@ -408,9 +408,15 @@ func NewBlockChain(db ethdb.Database,
 	if contractBackendCreator != nil {
 		contractBackend = contractBackendCreator(bc, db)
 	}
-	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend); err != nil {
+	currentState, err := bc.State()
+	if err != nil {
 		return nil, err
 	}
+	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend, bc.CurrentHeader(), currentState); err != nil {
+		return nil, err
+	}
+
+	go bc.Log()
 
 	// Start future block processor.
 	bc.wg.Add(1)
@@ -438,6 +444,17 @@ func NewBlockChain(db ethdb.Database,
 		}()
 	}
 	return bc, nil
+}
+
+// TODO(lorenzo) to remove, debug purposes
+func (bc *BlockChain) Log() {
+	for {
+		state, _ := bc.State()
+		head := bc.CurrentHeader()
+		minBaseFee, _ := bc.protocolContracts.AutonityContract.MinimumBaseFee(head, state)
+		log.Warn("fetched from AC", "minBaseFee", minBaseFee)
+		time.Sleep(1 * time.Second)
+	}
 }
 
 // empty returns an indicator whether the blockchain is empty.
@@ -2331,17 +2348,8 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	return 0, err
 }
 
-func (bc *BlockChain) MinBaseFee(header *types.Header) (*big.Int, error) {
-	statedb, err := state.New(header.Root, bc.stateCache, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	minBaseFee, err := bc.protocolContracts.MinimumBaseFee(header, statedb)
-	if err != nil {
-		return nil, err
-	}
-	return new(big.Int).SetUint64(minBaseFee), nil
+func (bc *BlockChain) MinBaseFee() *big.Int {
+	return bc.protocolContracts.Cache.MinimumBaseFee()
 }
 
 // HasBadBlock returns whether the block with the hash is a bad block

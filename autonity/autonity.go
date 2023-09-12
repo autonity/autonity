@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -67,6 +68,35 @@ func NewEVMContract(evmProvider EVMProvider, contractABI *abi.ABI, db ethdb.Data
 	}
 }
 
+type Cache struct {
+	minBaseFee    *big.Int
+	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
+	subMinBaseFee event.Subscription
+	subscriptions event.SubscriptionScope
+	sync.RWMutex
+}
+
+func newCache(ac AutonityContract, head *types.Header, state *state.StateDB) (Cache, error) {
+	minBaseFee, err := ac.MinimumBaseFee(head, state)
+	if err != nil {
+		return Cache{}, err
+	}
+	minBaseFeeCh := make(chan *AutonityMinimumBaseFeeUpdated)
+	subMinBaseFee, err := ac.WatchMinimumBaseFeeUpdated(nil, minBaseFeeCh)
+	if err != nil {
+		return Cache{}, err
+	}
+	cache := Cache{
+		minBaseFee:    minBaseFee,
+		minBaseFeeCh:  minBaseFeeCh,
+		subMinBaseFee: subMinBaseFee,
+		subscriptions: event.SubscriptionScope{},
+	}
+	cache.subscriptions.Track(subMinBaseFee)
+	go cache.Listen()
+	return cache, nil
+}
+
 //revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
 type AutonityContract struct {
 	EVMContract
@@ -77,10 +107,11 @@ type AutonityContract struct {
 
 type ProtocolContracts struct {
 	AutonityContract
+	Cache
 	*Accountability
 }
 
-func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend) (*ProtocolContracts, error) {
+func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend, head *types.Header, state *state.StateDB) (*ProtocolContracts, error) {
 	if config.AutonityContractConfig == nil {
 		return nil, ErrNoAutonityConfig
 	}
@@ -93,35 +124,70 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 		}
 		ABI = &jsonABI
 	}
-	accountabilityContract, _ := NewAccountability(AccountabilityContractAddress, contractBackend)
 
+	// create autonity EVM contract
 	autonityFilterer, err := NewAutonityFilterer(AutonityContractAddress, contractBackend.(bind.ContractFilterer))
 	if err != nil {
 		return nil, err
 	}
-	contract := ProtocolContracts{
-		AutonityContract: AutonityContract{
-			EVMContract: EVMContract{
-				evmProvider: provider,
-				contractABI: ABI,
-				db:          db,
-				chainConfig: config,
-			},
-			AutonityFilterer: autonityFilterer,
-			proposers:        make(map[uint64]map[int64]common.Address),
+	autonityContract := AutonityContract{
+		EVMContract: EVMContract{
+			evmProvider: provider,
+			contractABI: ABI,
+			db:          db,
+			chainConfig: config,
 		},
-		Accountability: accountabilityContract,
+		AutonityFilterer: autonityFilterer,
+		proposers:        make(map[uint64]map[int64]common.Address),
 	}
+
+	// initialize protocol contract cache
+	cache, err := newCache(autonityContract, head, state)
+	if err != nil {
+		return nil, err
+	}
+
+	// bind to accountability contract
+	accountabilityContract, _ := NewAccountability(AccountabilityContractAddress, contractBackend)
+
+	contract := ProtocolContracts{
+		AutonityContract: autonityContract,
+		Cache:            cache,
+		Accountability:   accountabilityContract,
+	}
+
 	return &contract, nil
+}
+
+func (c Cache) Listen() {
+	defer c.subscriptions.Close()
+
+	for {
+		select {
+		case <-c.subMinBaseFee.Err():
+			return
+		case ev := <-c.minBaseFeeCh:
+			c.Lock()
+			c.minBaseFee = ev.GasPrice
+			log.Warn("Updated minimumbasefee from event", "minBaseFee", c.minBaseFee)
+			c.Unlock()
+		}
+	}
+}
+
+func (c Cache) MinimumBaseFee() *big.Int {
+	defer c.RUnlock()
+	c.RLock()
+	return c.minBaseFee
 }
 
 func (c *AutonityContract) CommitteeEnodes(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
 	return c.callGetCommitteeEnodes(db, block.Header())
 }
 
-func (c *AutonityContract) MinimumBaseFee(block *types.Header, db *state.StateDB) (uint64, error) {
+func (c *AutonityContract) MinimumBaseFee(block *types.Header, db *state.StateDB) (*big.Int, error) {
 	if block.Number.Uint64() <= 1 {
-		return c.chainConfig.AutonityContractConfig.MinBaseFee, nil
+		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.MinBaseFee), nil
 	}
 	return c.callGetMinimumBaseFee(db, block)
 }

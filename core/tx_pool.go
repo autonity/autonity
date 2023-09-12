@@ -147,7 +147,7 @@ type blockChain interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
-	MinBaseFee(header *types.Header) (*big.Int, error)
+	MinBaseFee() *big.Int
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -644,12 +644,8 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return err
 	}
 
-	if gp, err := pool.chain.MinBaseFee(pool.chain.CurrentBlock().Header()); err == nil {
-		if gp.Cmp(tx.GasPrice()) > 0 {
-			return errors.New("fee cap less than Autonity minimum base fee")
-		}
-	} else {
-		return err
+	if pool.chain.MinBaseFee().Cmp(tx.GasPrice()) > 0 {
+		return errors.New("fee cap less than Autonity minimum base fee")
 	}
 
 	if tx.Gas() < intrGas {
