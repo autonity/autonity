@@ -762,9 +762,9 @@ contract('Accountability', function (accounts) {
       let signedTx = await utils.signTransaction(reporter, accountability.address, reporterPrivateKey, request);
       
       await truffleAssert.fails(
-        web3.eth.sendSignedTransaction(signedTx.rawTransaction),
+        accountability.handleEvent.call(event, {from: reporter}),
         truffleAssert.ErrorType.REVERT,
-        ""
+        "chunks must be contiguous"
       );
       
       let eventCount = 3;
