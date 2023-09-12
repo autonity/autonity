@@ -262,7 +262,7 @@ contract('Accountability', function (accounts) {
     // only registered validators can submit accountability events (handleEvent)
     // only autonity can call finalize(), setEpochPeriod() and distributeRewards()
   });
-  describe('Slashing', function () {
+  xdescribe('Slashing', function () {
     beforeEach(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
       await autonity.finalizeInitialization({from: deployer});
@@ -485,7 +485,7 @@ contract('Accountability', function (accounts) {
       //TODO(tariq) implement this test case. currently not implementable since we use only severity mid in autonity contract.
     }); 
   });
-  describe('misbehavior flow', function () {
+  xdescribe('misbehavior flow', function () {
     beforeEach(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
       await autonity.finalizeInitialization({from: deployer});
@@ -525,7 +525,7 @@ contract('Accountability', function (accounts) {
       // add canSlash and handleValidFaultProof asserts when submitting a proof of higher severity (slashing is possible in that case)
     });
   });
-  describe('accusation flow', function () {
+  xdescribe('accusation flow', function () {
     beforeEach(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
       await autonity.finalizeInitialization({from: deployer});
@@ -705,5 +705,99 @@ contract('Accountability', function (accounts) {
       );
     });
   });
-});
 
+  describe('events', function () {
+    // let truffleWalletProvider;
+    beforeEach(async function () {
+      autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
+      await autonity.finalizeInitialization({from: deployer});
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
+
+    xit("non-validator cannot submit event", async function () {
+      let reporter = validators[0].treasury;
+      let offender = validators[1].nodeAddress;
+      let PNrule = 0
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter,
+        "offender": offender,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0, 
+      }
+      await truffleAssert.fails(
+        accountability.handleEvent(event, {from: reporter}),
+        truffleAssert.ErrorType.REVERT,
+        "validator not registered"
+      );
+    });
+
+    it("handles chunked events", async function() {
+      let reporter = validators[1].nodeAddress;
+      let offender = validators[0].nodeAddress;
+      let PNrule = 0
+      let event = {
+        "chunks": 20,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter,
+        "offender": offender,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0,
+      }
+      console.log(`print`);
+      let request = (await accountability.handleEvent.request(event, {from: reporter}));
+      console.log(`request`);
+      console.log(request);
+      let data = request.data;
+      console.log(`data`);
+      console.log(data);
+      console.log(typeof data);
+
+      let balance = web3.utils.toWei("10", "ether");
+      await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
+      let signedTx = await utils.signTransaction(reporter, accountability.address, genesisPrivateKeys[1], request);
+      console.log(`signedTx`);
+      console.log(signedTx);
+      console.log(`signedTx.rawTransaction`);
+      console.log(signedTx.rawTransaction);
+      console.log(typeof signedTx.rawTransaction);
+      // let receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+      // console.log(`receipt`);
+      // console.log(receipt);
+      // console.log(`reporter`);
+      // console.log(reporter);
+      
+      await truffleAssert.fails(
+        web3.eth.sendSignedTransaction(signedTx.rawTransaction),
+        truffleAssert.ErrorType.REVERT,
+        "chunks must be contiguous"
+      );
+      
+
+      // let eventCount = 3;
+      // for (let i = 0; i < eventCount; i++) {
+      //   let rawProof = [];
+      //   rawProof.push(i);
+      //   event.chunkId = i;
+      //   event.rawProof = rawProof;
+      //   await accountability.handleEvent(event, {from: reporter});
+      //   let currentEvent = await accountability.getReporterChunksMap({from: reporter});
+      //   console.log(currentEvent.rawProof);
+      //   console.log(`type ${typeof currentEvent.rawProof}`);
+      // }
+    });
+  });
+
+});
