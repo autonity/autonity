@@ -756,10 +756,8 @@ contract('Accountability', function (accounts) {
         "reportingBlock": 11,
         "messageHash": 0,
       }
-      let request = (await accountability.handleEvent.request(event, {from: reporter}));
       let balance = web3.utils.toWei("10", "ether");
       await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
-      let signedTx = await utils.signTransaction(reporter, accountability.address, reporterPrivateKey, request);
       
       await truffleAssert.fails(
         accountability.handleEvent.call(event, {from: reporter}),
