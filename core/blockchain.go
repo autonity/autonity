@@ -416,8 +416,6 @@ func NewBlockChain(db ethdb.Database,
 		return nil, err
 	}
 
-	go bc.Log()
-
 	// Start future block processor.
 	bc.wg.Add(1)
 	go bc.updateFutureBlocks()
@@ -444,17 +442,6 @@ func NewBlockChain(db ethdb.Database,
 		}()
 	}
 	return bc, nil
-}
-
-// TODO(lorenzo) to remove, debug purposes
-func (bc *BlockChain) Log() {
-	for {
-		state, _ := bc.State()
-		head := bc.CurrentHeader()
-		minBaseFee, _ := bc.protocolContracts.AutonityContract.MinimumBaseFee(head, state)
-		log.Warn("fetched from AC", "minBaseFee", minBaseFee)
-		time.Sleep(1 * time.Second)
-	}
 }
 
 // empty returns an indicator whether the blockchain is empty.
@@ -822,6 +809,7 @@ func (bc *BlockChain) Stop() {
 	// Signal shutdown to all goroutines.
 	close(bc.quit)
 	bc.StopInsert()
+	bc.protocolContracts.Stop()
 
 	// Now wait for all chain modifications to end and persistent goroutines to exit.
 	//

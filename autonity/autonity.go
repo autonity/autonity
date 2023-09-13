@@ -72,7 +72,9 @@ type Cache struct {
 	minBaseFee    *big.Int
 	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
 	subMinBaseFee event.Subscription
-	subscriptions event.SubscriptionScope
+	subscriptions event.SubscriptionScope // will be useful when we have multiple subscriptions
+	quit          chan struct{}
+	wg            sync.WaitGroup
 	sync.RWMutex
 }
 
@@ -90,9 +92,10 @@ func newCache(ac AutonityContract, head *types.Header, state *state.StateDB) (Ca
 		minBaseFee:    minBaseFee,
 		minBaseFeeCh:  minBaseFeeCh,
 		subMinBaseFee: subMinBaseFee,
-		subscriptions: event.SubscriptionScope{},
+		quit:          make(chan struct{}),
 	}
 	cache.subscriptions.Track(subMinBaseFee)
+	cache.wg.Add(1)
 	go cache.Listen()
 	return cache, nil
 }
@@ -160,19 +163,31 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 }
 
 func (c Cache) Listen() {
-	defer c.subscriptions.Close()
+	defer func() {
+		c.subscriptions.Close()
+		c.wg.Done()
+	}()
 
 	for {
 		select {
 		case <-c.subMinBaseFee.Err():
-			return
+			// This should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
+			// In that case network errors can occur. Since everything is local here, no error should ever occur.
+			// we crash the client to avoid using a out-of-date value of minBaseFee in case something goes very wrong.
+			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case ev := <-c.minBaseFeeCh:
 			c.Lock()
 			c.minBaseFee = ev.GasPrice
-			log.Warn("Updated minimumbasefee from event", "minBaseFee", c.minBaseFee)
 			c.Unlock()
+		case <-c.quit:
+			return
 		}
 	}
+}
+
+func (c Cache) Stop() {
+	c.quit <- struct{}{}
+	c.wg.Wait()
 }
 
 func (c Cache) MinimumBaseFee() *big.Int {
