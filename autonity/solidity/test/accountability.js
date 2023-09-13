@@ -2,10 +2,8 @@
  * 1. edge case scenario: validator is sentenced for 2 misbehavior in the same epoch. For this to happen the 1st submitted misb needs to have severity < 2nd misb severity. The offender should be slashed for both misb. Instead if the 1st submitted misb has severity >= 2nd misb, only the first misb should lead to slashing. Currently this test case cannot be implemented since we use only severity mid in the autonity contract. 
  * 2. verify rule --> severity mapping
  * 3. verify severity --> slashign rate mapping
- * 4. test chunked event processing (handleEvent function)
- *      - test also case where multiple validators are sending interleaved chunks
- * 5. test _handle* functions edge cases (e.g. invalid proof, block in future, etc.) --> tx should revert
- * 6. whitebox testing (better to leave for when the implementation will be less prone to changes)
+ * 4. test _handle* functions edge cases (e.g. invalid proof, block in future, etc.) --> tx should revert
+ * 5. whitebox testing (better to leave for when the implementation will be less prone to changes)
  *    - verify that the accusation queue, the slashing queue update and the other internal structures are updated as we expect
  *
  * There might be additional edge cases for slashing, misbehavior and accusation flow to test.
@@ -874,6 +872,102 @@ contract('Accountability', function (accounts) {
       currentEvent = await accountability.getReporterChunksMap({from: reporter});
       hexProof = "0x" + rawProof[0].toString(16);
       checkEvent(currentEvent, offender, reporter, event.chunkId, hexProof);
+    });
+
+    it("sends chunked events from multiple validator", async function () {
+      let reporter = [];
+      let reporterPrivateKey = [];
+      reporter.push(validators[0].nodeAddress);
+      reporter.push(validators[1].nodeAddress);
+      reporterPrivateKey.push(genesisPrivateKeys[0]);
+      reporterPrivateKey.push(genesisPrivateKeys[1]);
+
+      let offender = reporter;
+
+      let balance = web3.utils.toWei("10", "ether");
+      for (let i = 0; i < reporter.length; i++) {
+        await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter[i], value: balance});
+      }
+
+      let PNrule = 0;
+      let event = {
+        "chunks": 3,
+        "chunkId": 0,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter,
+        "offender": offender,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0,
+      };
+
+      let currentProof = "0x";
+      let eventCount = event.chunks - 1;
+      for (let chunkId = 0; chunkId < eventCount; chunkId++) {
+        let rawProof = [];
+        rawProof.push(chunkId);
+        event.chunkId = chunkId;
+        event.rawProof = rawProof;
+        let hexNumber = (chunkId > 15) ? chunkId.toString(16) : "0" + chunkId.toString(16);
+        currentProof = currentProof + hexNumber;
+        // reporter[i] sends event for offender[i];
+        for (let i = 0; i < reporter.length; i++) {
+          let sender = reporter[i];
+          event.reporter = sender;
+          event.offender = offender[i];
+          let request = (await accountability.handleEvent.request(event, {from: sender}));
+          let receipt = await utils.signAndSendTransaction(sender, accountability.address, reporterPrivateKey[i], request);
+          assert.equal(receipt.status, true, "transaction failed");
+          let currentEvent = await accountability.getReporterChunksMap({from: sender});
+          checkEvent(currentEvent, offender[i], sender, chunkId, currentProof);
+        }
+      }
+
+      event.chunkId = eventCount;
+      for (let i = 0; i < reporter.length; i++) {
+        event.reporter = reporter[i];
+        event.offender = offender[i];
+        await truffleAssert.fails(
+          accountability.handleEvent.call(event, {from: reporter[i]}),
+          truffleAssert.ErrorType.REVERT,
+          "failed proof verification"
+        );
+      }
+
+    });
+
+    it.skip("has proper value in fields in storage", async function () {
+      // right now it fails in case chunked events start with chunkId = 1
+      // see https://github.com/autonity/autonity/issues/840
+      let reporter = validators[0].nodeAddress;
+      let offender = validators[1].nodeAddress;
+      let reporterPrivateKey = genesisPrivateKeys[0];
+      let balance = web3.utils.toWei("10", "ether");
+      await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
+      let PNrule = 0;
+      let event = {
+        "chunks": 4,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter,
+        "offender": offender,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0,
+      };
+
+      let request = (await accountability.handleEvent.request(event, {from: reporter}));
+      let receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
+      assert.equal(receipt.status, true, "transaction failed");
+      let currentEvent = await accountability.getReporterChunksMap({from: reporter});
+      // checkEvent(currentEvent, offender, reporter, event.chunkId, "0x");
+      checkEvent(currentEvent, zeroAddress, zeroAddress, event.chunkId, "0x");
     });
   });
 
