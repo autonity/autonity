@@ -64,7 +64,7 @@ var (
 
 	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
 	PiccaddillyChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_100_000),
+		ChainID:                 big.NewInt(65_100_001),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -127,18 +127,19 @@ var (
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
-			Symbols:    []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"},
+			Symbols:    OracleInitialSymbols,
 		},
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
 			StabilizationContractConfig: DefaultStabilizationGenesis,
 			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
+		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
 	BakerlooChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_010_000),
+		ChainID:                 big.NewInt(65_010_001),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -201,13 +202,14 @@ var (
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
-			Symbols:    []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"},
+			Symbols:    OracleInitialSymbols,
 		},
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
 			StabilizationContractConfig: DefaultStabilizationGenesis,
 			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
+		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
 	// MainnetChainConfig is the chain parameters to run a node on the main network.

@@ -20,7 +20,7 @@ var (
 
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
-	OracleInitialSymbols       = []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"}
+	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USD", "NTN-USD"}
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
 		Bytecode:   generated.OracleBytecode,
 		ABI:        &generated.OracleAbi,
@@ -45,7 +45,17 @@ var (
 	}
 
 	DefaultSupplyControlGenesis = &SupplyControlGenesis{
-		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Exp(big.NewInt(2), big.NewInt(255), nil)),
+		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), common.Big1)),
+	}
+
+	DefaultAccountabilityConfig = &AccountabilityGenesis{
+		InnocenceProofSubmissionWindow: 100,
+		BaseSlashingRateLow:            1000, // 10%
+		BaseSlashingRateMid:            2000, // 20%
+		CollusionFactor:                500,  // 5%
+		HistoryFactor:                  750,  // 7.5%
+		JailFactor:                     48,   // 1 day with 30 mins epoch
+		SlashingRatePrecision:          10_000,
 	}
 )
 
@@ -66,7 +76,6 @@ type AutonityContractGenesis struct {
 
 type AccountabilityGenesis struct {
 	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
-
 	// Slashing parameters
 	BaseSlashingRateLow   uint64 `json:"baseSlashingRateLow"`
 	BaseSlashingRateMid   uint64 `json:"baseSlashingRateMid"`

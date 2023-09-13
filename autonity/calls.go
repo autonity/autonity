@@ -141,18 +141,19 @@ func DeployACUContract(config *params.ChainConfig, evmContracts *GenesisEVMContr
 	return nil
 }
 
-func DeployAccountabilityContract(accountabilityGenesis *params.AccountabilityGenesis, evmContracts *GenesisEVMContracts) error {
-
-	accountabilityConfig := AccountabilityConfig{
-		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(accountabilityGenesis.InnocenceProofSubmissionWindow),
-		BaseSlashingRateLow:            new(big.Int).SetUint64(accountabilityGenesis.BaseSlashingRateLow),
-		BaseSlashingRateMid:            new(big.Int).SetUint64(accountabilityGenesis.BaseSlashingRateMid),
-		CollusionFactor:                new(big.Int).SetUint64(accountabilityGenesis.CollusionFactor),
-		HistoryFactor:                  new(big.Int).SetUint64(accountabilityGenesis.HistoryFactor),
-		JailFactor:                     new(big.Int).SetUint64(accountabilityGenesis.JailFactor),
-		SlashingRatePrecision:          new(big.Int).SetUint64(accountabilityGenesis.SlashingRatePrecision),
+func DeployAccountabilityContract(config *params.AccountabilityGenesis, evmContracts *GenesisEVMContracts) error {
+	if config == nil {
+		config = params.DefaultAccountabilityConfig
 	}
-
+	accountabilityConfig := AccountabilityConfig{
+		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(config.InnocenceProofSubmissionWindow),
+		BaseSlashingRateLow:            new(big.Int).SetUint64(config.BaseSlashingRateLow),
+		BaseSlashingRateMid:            new(big.Int).SetUint64(config.BaseSlashingRateMid),
+		CollusionFactor:                new(big.Int).SetUint64(config.CollusionFactor),
+		HistoryFactor:                  new(big.Int).SetUint64(config.HistoryFactor),
+		JailFactor:                     new(big.Int).SetUint64(config.JailFactor),
+		SlashingRatePrecision:          new(big.Int).SetUint64(config.SlashingRatePrecision),
+	}
 	err := evmContracts.DeployAccountabilityContract(AutonityContractAddress, accountabilityConfig, generated.AccountabilityBytecode)
 	if err != nil {
 		return fmt.Errorf("failed to deploy accountability contract: %w", err)

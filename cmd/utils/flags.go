@@ -1519,13 +1519,13 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Override any default configs for hard coded networks.
 	if ctx.GlobalBool(PiccadillyFlag.Name) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkID = 65_100_000
+			cfg.NetworkID = params.PiccaddillyChainConfig.ChainID.Uint64()
 		}
 		cfg.Genesis = core.DefaultPiccadillyGenesisBlock()
 	}
 	if ctx.GlobalBool(BakerlooFlag.Name) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkID = 65_010_000
+			cfg.NetworkID = params.BakerlooChainConfig.ChainID.Uint64()
 		}
 		cfg.Genesis = core.DefaultBakerlooGenesisBlock()
 	}
