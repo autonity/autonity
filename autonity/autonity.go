@@ -88,13 +88,15 @@ func newCache(ac AutonityContract, head *types.Header, state *state.StateDB) (*C
 	if err != nil {
 		return nil, err
 	}
+	var scope event.SubscriptionScope
+	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
 	cache := &Cache{
 		minBaseFee:    minBaseFee,
 		minBaseFeeCh:  minBaseFeeCh,
-		subMinBaseFee: subMinBaseFee,
+		subMinBaseFee: subMinBaseFeeWrapped,
+		subscriptions: scope,
 		quit:          make(chan struct{}),
 	}
-	cache.subscriptions.Track(subMinBaseFee)
 	cache.wg.Add(1)
 	go cache.Listen()
 	return cache, nil
