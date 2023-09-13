@@ -51,6 +51,7 @@ func TestProtocolContractCache(t *testing.T) {
 		tx, err := autonityContract.SetMinimumBaseFee(transactOpts, updatedMinBaseFee)
 		require.NoError(t, err)
 		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
 
 		// contract should be updated
 		minBaseFee, err := autonityContract.GetMinimumBaseFee(new(bind.CallOpts))

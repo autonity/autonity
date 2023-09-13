@@ -72,13 +72,13 @@ type Cache struct {
 	minBaseFee    *big.Int
 	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
 	subMinBaseFee event.Subscription
-	subscriptions event.SubscriptionScope // will be useful when we have multiple subscriptions
+	subscriptions *event.SubscriptionScope // will be useful when we have multiple subscriptions
 	quit          chan struct{}
 	wg            sync.WaitGroup
 	sync.RWMutex
 }
 
-func newCache(ac AutonityContract, head *types.Header, state *state.StateDB) (*Cache, error) {
+func newCache(ac *AutonityContract, head *types.Header, state *state.StateDB) (*Cache, error) {
 	minBaseFee, err := ac.MinimumBaseFee(head, state)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func newCache(ac AutonityContract, head *types.Header, state *state.StateDB) (*C
 	if err != nil {
 		return nil, err
 	}
-	var scope event.SubscriptionScope
+	scope := new(event.SubscriptionScope)
 	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
 	cache := &Cache{
 		minBaseFee:    minBaseFee,
@@ -111,7 +111,7 @@ type AutonityContract struct {
 }
 
 type ProtocolContracts struct {
-	AutonityContract
+	*AutonityContract
 	*Cache
 	*Accountability
 }
@@ -135,7 +135,7 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 	if err != nil {
 		return nil, err
 	}
-	autonityContract := AutonityContract{
+	autonityContract := &AutonityContract{
 		EVMContract: EVMContract{
 			evmProvider: provider,
 			contractABI: ABI,
