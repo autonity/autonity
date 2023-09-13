@@ -78,17 +78,17 @@ type Cache struct {
 	sync.RWMutex
 }
 
-func newCache(ac AutonityContract, head *types.Header, state *state.StateDB) (Cache, error) {
+func newCache(ac AutonityContract, head *types.Header, state *state.StateDB) (*Cache, error) {
 	minBaseFee, err := ac.MinimumBaseFee(head, state)
 	if err != nil {
-		return Cache{}, err
+		return nil, err
 	}
 	minBaseFeeCh := make(chan *AutonityMinimumBaseFeeUpdated)
 	subMinBaseFee, err := ac.WatchMinimumBaseFeeUpdated(nil, minBaseFeeCh)
 	if err != nil {
-		return Cache{}, err
+		return nil, err
 	}
-	cache := Cache{
+	cache := &Cache{
 		minBaseFee:    minBaseFee,
 		minBaseFeeCh:  minBaseFeeCh,
 		subMinBaseFee: subMinBaseFee,
@@ -110,7 +110,7 @@ type AutonityContract struct {
 
 type ProtocolContracts struct {
 	AutonityContract
-	Cache
+	*Cache
 	*Accountability
 }
 
@@ -162,7 +162,7 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 	return &contract, nil
 }
 
-func (c Cache) Listen() {
+func (c *Cache) Listen() {
 	defer func() {
 		c.subscriptions.Close()
 		c.wg.Done()
@@ -185,12 +185,12 @@ func (c Cache) Listen() {
 	}
 }
 
-func (c Cache) Stop() {
+func (c *Cache) Stop() {
 	c.quit <- struct{}{}
 	c.wg.Wait()
 }
 
-func (c Cache) MinimumBaseFee() *big.Int {
+func (c *Cache) MinimumBaseFee() *big.Int {
 	defer c.RUnlock()
 	c.RLock()
 	return c.minBaseFee
