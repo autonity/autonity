@@ -18,11 +18,12 @@
 package miner
 
 import (
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -71,8 +72,8 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) MinBaseFee(_ *types.Header) (*big.Int, error) {
-	return new(big.Int), nil
+func (bc *testBlockChain) MinBaseFee() *big.Int {
+	return new(big.Int)
 }
 
 func (bc *testBlockChain) Config() *params.ChainConfig {

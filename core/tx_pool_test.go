@@ -63,8 +63,8 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) MinBaseFee(_ *types.Header) (*big.Int, error) {
-	return big.NewInt(0), nil
+func (bc *testBlockChain) MinBaseFee() *big.Int {
+	return big.NewInt(0)
 }
 
 func (bc *testBlockChain) CurrentBlock() *types.Block {

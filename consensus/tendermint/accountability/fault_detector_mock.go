@@ -183,18 +183,17 @@ func (mr *MockChainContextMockRecorder) HasBadBlock(hash interface{}) *gomock.Ca
 }
 
 // MinBaseFee mocks base method.
-func (m *MockChainContext) MinBaseFee(header *types.Header) (*big.Int, error) {
+func (m *MockChainContext) MinBaseFee() *big.Int {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MinBaseFee", header)
+	ret := m.ctrl.Call(m, "MinBaseFee")
 	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // MinBaseFee indicates an expected call of MinBaseFee.
-func (mr *MockChainContextMockRecorder) MinBaseFee(header interface{}) *gomock.Call {
+func (mr *MockChainContextMockRecorder) MinBaseFee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainContext)(nil).MinBaseFee), header)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainContext)(nil).MinBaseFee))
 }
 
 // ProtocolContracts mocks base method.

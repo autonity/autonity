@@ -18,11 +18,12 @@ package gasprice
 
 import (
 	"context"
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/log"
 	"math"
 	"math/big"
 	"testing"
+
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -97,8 +98,8 @@ func (b *testBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) eve
 	return b.chain.SubscribeChainHeadEvent(ch)
 }
 
-func (b *testBackend) MinBaseFee(_ *types.Header) (*big.Int, error) {
-	return new(big.Int), nil
+func (b *testBackend) MinBaseFee() *big.Int {
+	return new(big.Int)
 }
 
 func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBackend {
