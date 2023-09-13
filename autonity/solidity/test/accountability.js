@@ -21,6 +21,13 @@ const AccountabilityTest = artifacts.require("AccountabilityTest");
 const toBN = web3.utils.toBN
 
 
+function checkEvent(event, offender, reporter, chunkId, rawProof) {
+  assert.equal(event.offender, offender, "event offender mismatch");
+  assert.equal(event.reporter, reporter, "event reporter mismatch");
+  assert.equal(event.chunkId, chunkId, "event chunkId mismatch");
+  assert.equal(event.rawProof, rawProof, "event rawProof mismatch")
+}
+
 async function slashAndVerify(autonity,accountability,accountabilityConfig,event,epochOffenceCount){
   let offender = await autonity.getValidator(event.offender)
 
@@ -715,7 +722,7 @@ contract('Accountability', function (accounts) {
     });
 
     it("non-validator cannot submit event", async function () {
-      let reporter = validators[0].treasury;
+      let reporter = anyAccount;
       let offender = validators[1].nodeAddress;
       let PNrule = 0
       const event = {
@@ -738,13 +745,13 @@ contract('Accountability', function (accounts) {
       );
     });
 
-    it("handles chunked events", async function() {
+    it("handles chunked events", async function () {
       let reporter = validators[1].nodeAddress;
       let offender = validators[0].nodeAddress;
       let reporterPrivateKey = genesisPrivateKeys[1];
-      let PNrule = 0
+      let PNrule = 0;
       let event = {
-        "chunks": 20,
+        "chunks": 4,
         "chunkId": 2,
         "eventType": 0,
         "rule": PNrule,
@@ -755,17 +762,20 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
-      }
+      };
       let balance = web3.utils.toWei("10", "ether");
       await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
       
+      // cannot submit transaction from reporter because the address is not unlocked and will require signing
+      // however sendSignedTransaction method returns general error message instead of detailed error message
+      // using call is similar to sending transaction but it will always revert, so does not require signing
       await truffleAssert.fails(
         accountability.handleEvent.call(event, {from: reporter}),
         truffleAssert.ErrorType.REVERT,
         "chunks must be contiguous"
       );
       
-      let eventCount = 3;
+      let eventCount = event.chunks - 1;
       let currentProof = "0x";
       for (let i = 0; i < eventCount; i++) {
         let rawProof = [];
@@ -774,12 +784,96 @@ contract('Accountability', function (accounts) {
         event.rawProof = rawProof;
         let request = (await accountability.handleEvent.request(event, {from: reporter}));
         let receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
-        assert.equal(receipt.status, true, "transcation failed");
+        assert.equal(receipt.status, true, "transaction failed");
         let currentEvent = await accountability.getReporterChunksMap({from: reporter});
         let hexNumber = (i > 15) ? i.toString(16) : "0" + i.toString(16);
         currentProof = currentProof + hexNumber;
-        assert.equal(currentEvent.rawProof, currentProof, "proof mismatch");
+        checkEvent(currentEvent, offender, reporter, i, currentProof);
       }
+
+      // the error prooves that it is the last call and is ready to process
+      event.chunkId = eventCount;
+      await truffleAssert.fails(
+        accountability.handleEvent.call(event, {from: reporter}),
+        truffleAssert.ErrorType.REVERT,
+        "failed proof verification"
+      );
+    });
+
+    it("cannot submit event for another reporter", async function () {
+      let reporter = validators[0].nodeAddress;
+      let offender = validators[1].nodeAddress;
+      let PNrule = 0;
+      let event = {
+        "chunks": 4,
+        "chunkId": 2,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter,
+        "offender": offender,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0,
+      };
+
+      // cannot submit transaction from reporter because the address is not unlocked and will require signing
+      // however sendSignedTransaction method returns general error message instead of detailed error message
+      // using call is similar to sending transaction but it will always revert, so does not require signing
+      await truffleAssert.fails(
+        accountability.handleEvent.call(event, {from: offender}),
+        truffleAssert.ErrorType.REVERT,
+        "event reporter must be caller"
+      );
+    });
+
+    it("can reset event", async function () {
+      let reporter = validators[0].nodeAddress;
+      let offender = validators[1].nodeAddress;
+      let reporterPrivateKey = genesisPrivateKeys[0];
+      let balance = web3.utils.toWei("10", "ether");
+      await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
+      let PNrule = 0;
+      let event = {
+        "chunks": 4,
+        "chunkId": 0,
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter,
+        "offender": offender,
+        "rawProof": [],
+        "block": 10,
+        "epoch": 0,
+        "reportingBlock": 11,
+        "messageHash": 0,
+      };
+      let rawProof = [];
+      rawProof.push(20);
+      event.rawProof = rawProof;
+
+      let request = (await accountability.handleEvent.request(event, {from: reporter}));
+      let receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
+      assert.equal(receipt.status, true, "transaction failed");
+      
+      event.chunkId = 1;
+      request = (await accountability.handleEvent.request(event, {from: reporter}));
+      receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
+      assert.equal(receipt.status, true, "transaction failed");
+
+      let currentEvent = await accountability.getReporterChunksMap({from: reporter});
+      let hexProof = "0x" + rawProof[0].toString(16) + rawProof[0].toString(16);
+      checkEvent(currentEvent, offender, reporter, event.chunkId, hexProof);
+
+      // reset
+      event.chunkId = 0;
+      request = (await accountability.handleEvent.request(event, {from: reporter}));
+      receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
+      assert.equal(receipt.status, true, "transaction failed");
+
+      currentEvent = await accountability.getReporterChunksMap({from: reporter});
+      hexProof = "0x" + rawProof[0].toString(16);
+      checkEvent(currentEvent, offender, reporter, event.chunkId, hexProof);
     });
   });
 
