@@ -803,13 +803,13 @@ func (bc *BlockChain) Stop() {
 		return
 	}
 
+	bc.protocolContracts.Stop()
 	// Unsubscribe all subscriptions registered from blockchain.
 	bc.scope.Close()
 
 	// Signal shutdown to all goroutines.
 	close(bc.quit)
 	bc.StopInsert()
-	bc.protocolContracts.Stop()
 
 	// Now wait for all chain modifications to end and persistent goroutines to exit.
 	//
