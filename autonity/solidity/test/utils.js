@@ -255,6 +255,14 @@ async function signAndSendTransaction(from, to, privateKey, methodRequest = null
   return await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 }
 
+function bytesToHex(bytes) {
+  let hex = "0x";
+  for (let i = 0; i < bytes.length; i++) {
+    hex += (bytes[i] > 15) ? bytes[i].toString(16) : "0" + bytes[i].toString(16);
+  }
+  return hex;
+}
+
 
 module.exports.deployContracts = deployContracts;
 module.exports.deployAutonityTestContract = deployAutonityTestContract;
@@ -271,3 +279,4 @@ module.exports.mineTillUnbondingRelease = mineTillUnbondingRelease;
 module.exports.ruleToRate = ruleToRate;
 module.exports.signTransaction = signTransaction;
 module.exports.signAndSendTransaction = signAndSendTransaction;
+module.exports.bytesToHex = bytesToHex;

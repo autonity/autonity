@@ -877,10 +877,14 @@ contract('Accountability', function (accounts) {
     it("sends chunked events from multiple validator", async function () {
       let reporter = [];
       let reporterPrivateKey = [];
+      let rawProof = [];
       reporter.push(validators[0].nodeAddress);
       reporter.push(validators[1].nodeAddress);
       reporterPrivateKey.push(genesisPrivateKeys[0]);
       reporterPrivateKey.push(genesisPrivateKeys[1]);
+      for (let i = 0; i < reporter.length; i++) {
+        rawProof.push([]);
+      }
 
       let offender = reporter;
 
@@ -906,23 +910,23 @@ contract('Accountability', function (accounts) {
 
       let currentProof = "0x";
       let eventCount = event.chunks - 1;
+      let count = 0;
       for (let chunkId = 0; chunkId < eventCount; chunkId++) {
-        let rawProof = [];
-        rawProof.push(chunkId);
         event.chunkId = chunkId;
-        event.rawProof = rawProof;
-        let hexNumber = (chunkId > 15) ? chunkId.toString(16) : "0" + chunkId.toString(16);
-        currentProof = currentProof + hexNumber;
         // reporter[i] sends event for offender[i];
         for (let i = 0; i < reporter.length; i++) {
           let sender = reporter[i];
+          event.rawProof = [];
+          event.rawProof.push(count);
           event.reporter = sender;
           event.offender = offender[i];
           let request = (await accountability.handleEvent.request(event, {from: sender}));
           let receipt = await utils.signAndSendTransaction(sender, accountability.address, reporterPrivateKey[i], request);
           assert.equal(receipt.status, true, "transaction failed");
           let currentEvent = await accountability.getReporterChunksMap({from: sender});
-          checkEvent(currentEvent, offender[i], sender, chunkId, currentProof);
+          rawProof[i].push(count);
+          checkEvent(currentEvent, offender[i], sender, chunkId, utils.bytesToHex(rawProof[i]));
+          count++;
         }
       }
 
@@ -939,7 +943,7 @@ contract('Accountability', function (accounts) {
 
     });
 
-    it.skip("has proper value in fields in storage", async function () {
+    it.skip("Can send event chunks with chunkId = 1", async function () {
       // right now it fails in case chunked events start with chunkId = 1
       // see https://github.com/autonity/autonity/issues/840
       let reporter = validators[0].nodeAddress;
