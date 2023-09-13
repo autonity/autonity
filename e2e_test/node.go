@@ -534,7 +534,7 @@ func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, star
 	return network, nil
 }
 
-// NewNetwork generates a network of nodes that are running, but not mining.
+// NewNetwork generates a network of nodes that are running and mining.
 // For an explanation of the parameters see 'Validators'.
 func NewNetwork(t *testing.T, count int, formatString string) (Network, error) {
 	users, err := Validators(t, count, formatString)

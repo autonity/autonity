@@ -32,6 +32,37 @@ func TestSendingValue(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestProtocolContractCache(t *testing.T) {
+	t.Run("If minimum base fee is updated, cached value is updated as well", func(t *testing.T) {
+		network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s")
+		require.NoError(t, err)
+		defer network.Shutdown()
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		initialMinBaseFee, _ := new(big.Int).SetString("10000000000", 10)
+		require.Equal(t, initialMinBaseFee.Bytes(), network[0].Eth.BlockChain().MinBaseFee().Bytes())
+		require.Equal(t, initialMinBaseFee.Bytes(), network[1].Eth.BlockChain().MinBaseFee().Bytes())
+
+		// update min base fee
+		updatedMinBaseFee, _ := new(big.Int).SetString("30000000000", 10)
+		autonityContract, _ := autonity.NewAutonity(AutonityContractAddr, network[0].WsClient)
+		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, big.NewInt(1234))
+		tx, err := autonityContract.SetMinimumBaseFee(transactOpts, updatedMinBaseFee)
+		require.NoError(t, err)
+		err = network.AwaitTransactions(ctx, tx)
+
+		// contract should be updated
+		minBaseFee, err := autonityContract.GetMinimumBaseFee(new(bind.CallOpts))
+		require.NoError(t, err)
+		require.Equal(t, updatedMinBaseFee.Bytes(), minBaseFee.Bytes())
+
+		// caches should be updated too
+		require.Equal(t, updatedMinBaseFee.Bytes(), network[0].Eth.BlockChain().MinBaseFee().Bytes())
+		require.Equal(t, updatedMinBaseFee.Bytes(), network[1].Eth.BlockChain().MinBaseFee().Bytes())
+	})
+}
+
 // This test checks that when a transaction is processed the fees are divided
 // between validators and stakeholders.
 func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
