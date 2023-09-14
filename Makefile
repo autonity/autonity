@@ -216,6 +216,8 @@ mock-gen:
 	mockgen -source=interfaces.go -package=ethereum -destination=interfaces_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/tendermint.go -package=interfaces -destination=consensus/tendermint/core/interfaces/tendermint_mock.go
+	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
+
 
 lint-dead:
 	@./.github/tools/golangci-lint run \

@@ -1983,7 +1983,7 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
