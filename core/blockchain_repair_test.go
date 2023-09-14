@@ -1784,7 +1784,7 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, coretest.FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
@@ -1841,7 +1841,7 @@ func testRepair(t *testing.T, tt *rewindTest, snapshots bool) {
 	}
 	defer db.Close()
 
-	newChain, err := NewBlockChain(db, nil, params.TestChainConfig, engine, vm.Config{}, nil, new(TxSenderCacher), nil, FakeContractBackendProvider, log.Root())
+	newChain, err := NewBlockChain(db, nil, params.TestChainConfig, engine, vm.Config{}, nil, new(TxSenderCacher), nil, coretest.FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -1912,7 +1912,7 @@ func TestIssue23496(t *testing.T) {
 			SnapshotWait:   true,
 		}
 	)
-	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, coretest.FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
@@ -1958,7 +1958,7 @@ func TestIssue23496(t *testing.T) {
 	}
 	defer db.Close()
 
-	chain, err = NewBlockChain(db, nil, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+	chain, err = NewBlockChain(db, nil, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, coretest.FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}

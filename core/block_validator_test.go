@@ -17,16 +17,11 @@
 package core
 
 import (
-	"context"
 	"math/big"
 	"runtime"
 	"testing"
 	"time"
 
-	ethereum "github.com/autonity/autonity"
-	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/consensus/ethash"
@@ -35,62 +30,6 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
 )
-
-type FakeContractBackend struct{}
-
-func FakeContractBackendProvider(_ *BlockChain, _ ethdb.Database) bind.ContractBackend {
-	return new(FakeContractBackend)
-}
-func (*FakeContractBackend) CodeAt(_ context.Context, _ common.Address, _ *big.Int) ([]byte, error) {
-	return make([]byte, 0), nil
-}
-func (*FakeContractBackend) CallContract(_ context.Context, _ ethereum.CallMsg, _ *big.Int) ([]byte, error) {
-	return make([]byte, 0), nil
-}
-
-func (*FakeContractBackend) HeaderByNumber(_ context.Context, _ *big.Int) (*types.Header, error) {
-	return &types.Header{}, nil
-}
-
-func (*FakeContractBackend) PendingCodeAt(_ context.Context, _ common.Address) ([]byte, error) {
-	return make([]byte, 0), nil
-}
-
-func (*FakeContractBackend) PendingNonceAt(_ context.Context, _ common.Address) (uint64, error) {
-	return 0, nil
-}
-
-func (*FakeContractBackend) SuggestGasPrice(_ context.Context) (*big.Int, error) {
-	return new(big.Int), nil
-}
-
-func (*FakeContractBackend) SuggestGasTipCap(_ context.Context) (*big.Int, error) {
-	return new(big.Int), nil
-}
-
-func (*FakeContractBackend) EstimateGas(_ context.Context, _ ethereum.CallMsg) (gas uint64, err error) {
-	return 0, nil
-}
-
-func (*FakeContractBackend) SendTransaction(_ context.Context, _ *types.Transaction) error {
-	return nil
-}
-
-func (*FakeContractBackend) FilterLogs(_ context.Context, _ ethereum.FilterQuery) ([]types.Log, error) {
-	return make([]types.Log, 0), nil
-}
-
-func (*FakeContractBackend) SubscribeFilterLogs(_ context.Context, _ ethereum.FilterQuery, _ chan<- types.Log) (ethereum.Subscription, error) {
-	return new(FakeSubscription), nil
-}
-
-type FakeSubscription struct{}
-
-func (*FakeSubscription) Unsubscribe() {}
-
-func (*FakeSubscription) Err() <-chan error {
-	return make(chan error)
-}
 
 // Tests that simple header verification works, for both good and bad blocks.
 func TestHeaderVerification(t *testing.T) {
@@ -106,7 +45,7 @@ func TestHeaderVerification(t *testing.T) {
 		headers[i] = block.Header()
 	}
 	// Run the header checker for blocks one-by-one, checking for both valid and invalid nonces
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, coretest.FakeContractBackendProvider, log.Root())
 	defer chain.Stop()
 
 	for i := 0; i < len(blocks); i++ {
@@ -170,11 +109,11 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 		var results <-chan error
 
 		if valid {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, coretest.FakeContractBackendProvider, log.Root())
 			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
 			chain.Stop()
 		} else {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeFailer(uint64(len(headers)-1)), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeFailer(uint64(len(headers)-1)), vm.Config{}, nil, NewTxSenderCacher(), nil, coretest.FakeContractBackendProvider, log.Root())
 			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
 			chain.Stop()
 		}
@@ -237,7 +176,7 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 	defer runtime.GOMAXPROCS(old)
 
 	// Start the verifications and immediately abort
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeDelayer(time.Millisecond), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
+	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeDelayer(time.Millisecond), vm.Config{}, nil, NewTxSenderCacher(), nil, coretest.FakeContractBackendProvider, log.Root())
 	defer chain.Stop()
 
 	abort, results := chain.engine.VerifyHeaders(chain, headers, seals)
