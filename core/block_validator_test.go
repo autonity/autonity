@@ -44,51 +44,49 @@ func FakeContractBackendProvider(_ *BlockChain, _ ethdb.Database) bind.ContractB
 func (*FakeContractBackend) CodeAt(_ context.Context, _ common.Address, _ *big.Int) ([]byte, error) {
 	return make([]byte, 0), nil
 }
-func (*FakeContractBackend) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+func (*FakeContractBackend) CallContract(_ context.Context, _ ethereum.CallMsg, _ *big.Int) ([]byte, error) {
 	return make([]byte, 0), nil
 }
 
-func (*FakeContractBackend) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+func (*FakeContractBackend) HeaderByNumber(_ context.Context, _ *big.Int) (*types.Header, error) {
 	return &types.Header{}, nil
 }
 
-func (*FakeContractBackend) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+func (*FakeContractBackend) PendingCodeAt(_ context.Context, _ common.Address) ([]byte, error) {
 	return make([]byte, 0), nil
 }
 
-func (*FakeContractBackend) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+func (*FakeContractBackend) PendingNonceAt(_ context.Context, _ common.Address) (uint64, error) {
 	return 0, nil
 }
 
-func (*FakeContractBackend) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+func (*FakeContractBackend) SuggestGasPrice(_ context.Context) (*big.Int, error) {
 	return new(big.Int), nil
 }
 
-func (*FakeContractBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+func (*FakeContractBackend) SuggestGasTipCap(_ context.Context) (*big.Int, error) {
 	return new(big.Int), nil
 }
 
-func (*FakeContractBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+func (*FakeContractBackend) EstimateGas(_ context.Context, _ ethereum.CallMsg) (gas uint64, err error) {
 	return 0, nil
 }
 
-func (*FakeContractBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (*FakeContractBackend) SendTransaction(_ context.Context, _ *types.Transaction) error {
 	return nil
 }
 
-func (*FakeContractBackend) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+func (*FakeContractBackend) FilterLogs(_ context.Context, _ ethereum.FilterQuery) ([]types.Log, error) {
 	return make([]types.Log, 0), nil
 }
 
-func (*FakeContractBackend) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+func (*FakeContractBackend) SubscribeFilterLogs(_ context.Context, _ ethereum.FilterQuery, _ chan<- types.Log) (ethereum.Subscription, error) {
 	return new(FakeSubscription), nil
 }
 
 type FakeSubscription struct{}
 
-func (*FakeSubscription) Unsubscribe() {
-	return
-}
+func (*FakeSubscription) Unsubscribe() {}
 
 func (*FakeSubscription) Err() <-chan error {
 	return make(chan error)
