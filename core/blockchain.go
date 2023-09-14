@@ -404,14 +404,11 @@ func NewBlockChain(db ethdb.Database,
 	}
 
 	// here our blockchain and current state should be fully initialized
-	var contractBackend bind.ContractBackend
-	if contractBackendCreator != nil {
-		contractBackend = contractBackendCreator(bc, db)
-	}
 	currentState, err := bc.State()
 	if err != nil {
 		return nil, err
 	}
+	contractBackend := contractBackendCreator(bc, db)
 	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend, bc.CurrentHeader(), currentState); err != nil {
 		return nil, err
 	}

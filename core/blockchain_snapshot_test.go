@@ -22,12 +22,13 @@ package core
 import (
 	"bytes"
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -81,7 +82,7 @@ func (basic *snapshotTestBasic) prepare(t *testing.T) (*BlockChain, []*types.Blo
 		cacheConfig = defaultCacheConfig
 	)
 	(&Genesis{BaseFee: big.NewInt(params.InitialBaseFee), Config: params.TestChainConfig}).MustCommit(gendb)
-	chain, err := NewBlockChain(db, cacheConfig, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	chain, err := NewBlockChain(db, cacheConfig, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
@@ -224,7 +225,7 @@ func (snaptest *snapshotTest) test(t *testing.T) {
 
 	// Restart the chain normally
 	chain.Stop()
-	newchain, err := NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err := NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -260,13 +261,13 @@ func (snaptest *crashSnapshotTest) test(t *testing.T) {
 	// the crash, we do restart twice here: one after the crash and one
 	// after the normal stop. It's used to ensure the broken snapshot
 	// can be detected all the time.
-	newchain, err := NewBlockChain(newdb, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err := NewBlockChain(newdb, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
 	newchain.Stop()
 
-	newchain, err = NewBlockChain(newdb, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err = NewBlockChain(newdb, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -302,7 +303,7 @@ func (snaptest *gappedSnapshotTest) test(t *testing.T) {
 		TrieTimeLimit:  5 * time.Minute,
 		SnapshotLimit:  0,
 	}
-	newchain, err := NewBlockChain(snaptest.db, cacheConfig, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err := NewBlockChain(snaptest.db, cacheConfig, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -310,7 +311,7 @@ func (snaptest *gappedSnapshotTest) test(t *testing.T) {
 	newchain.Stop()
 
 	// Restart the chain with enabling the snapshot
-	newchain, err = NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err = NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -338,7 +339,7 @@ func (snaptest *setHeadSnapshotTest) test(t *testing.T) {
 	chain.SetHead(snaptest.setHead)
 	chain.Stop()
 
-	newchain, err := NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err := NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -369,7 +370,7 @@ func (snaptest *restartCrashSnapshotTest) test(t *testing.T) {
 	// and state committed.
 	chain.Stop()
 
-	newchain, err := NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err := NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -386,7 +387,7 @@ func (snaptest *restartCrashSnapshotTest) test(t *testing.T) {
 	// journal and latest state will be committed
 
 	// Restart the chain after the crash
-	newchain, err = NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err = NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -421,7 +422,7 @@ func (snaptest *wipeCrashSnapshotTest) test(t *testing.T) {
 		TrieTimeLimit:  5 * time.Minute,
 		SnapshotLimit:  0,
 	}
-	newchain, err := NewBlockChain(snaptest.db, config, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err := NewBlockChain(snaptest.db, config, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
@@ -437,13 +438,13 @@ func (snaptest *wipeCrashSnapshotTest) test(t *testing.T) {
 		SnapshotLimit:  256,
 		SnapshotWait:   false, // Don't wait rebuild
 	}
-	_, err = NewBlockChain(snaptest.db, config, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	_, err = NewBlockChain(snaptest.db, config, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}
 	// Simulate the blockchain crash.
 
-	newchain, err = NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	newchain, err = NewBlockChain(snaptest.db, nil, params.TestChainConfig, snaptest.engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to recreate chain: %v", err)
 	}

@@ -21,12 +21,13 @@ package core
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -1982,7 +1983,7 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider, log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
