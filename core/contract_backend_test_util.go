@@ -1,4 +1,4 @@
-package coretest
+package core
 
 import (
 	"context"
@@ -7,16 +7,16 @@ import (
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/ethdb"
 )
 
-type FakeContractBackend struct{}
-
-func FakeContractBackendProvider(_ *core.BlockChain, _ ethdb.Database) bind.ContractBackend {
+func FakeContractBackendProvider(_ *BlockChain, _ ethdb.Database) bind.ContractBackend {
 	return new(FakeContractBackend)
 }
+
+type FakeContractBackend struct{}
+
 func (*FakeContractBackend) CodeAt(_ context.Context, _ common.Address, _ *big.Int) ([]byte, error) {
 	return make([]byte, 0), nil
 }

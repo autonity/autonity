@@ -151,7 +151,7 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 	// Construct testing chain
 	diskdb := rawdb.NewMemoryDatabase()
 	gspec.Commit(diskdb)
-	chain, err := core.NewBlockChain(diskdb, &core.CacheConfig{TrieCleanNoPrefetch: true}, gspec.Config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, coretest.FakeContractBackendProvider, backends.NewInternalBackend(nil), log.Root())
+	chain, err := core.NewBlockChain(diskdb, &core.CacheConfig{TrieCleanNoPrefetch: true}, gspec.Config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create local chain, %v", err)
 	}
