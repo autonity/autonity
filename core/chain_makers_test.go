@@ -19,7 +19,6 @@ package core
 import (
 	"fmt"
 	"math/big"
-	"testing"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/log"
@@ -32,8 +31,7 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-// TODO(lorenzo) don't know why the linter says this function should be without arguments. to investigate.
-func ExampleGenerateChain(t *testing.T) { //nolint
+func ExampleGenerateChain() {
 	var (
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		key2, _ = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
@@ -85,7 +83,7 @@ func ExampleGenerateChain(t *testing.T) { //nolint
 	})
 
 	// Import the chain. This runs all block validation rules.
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(nil), log.Root())
 	defer blockchain.Stop()
 
 	if i, err := blockchain.InsertChain(chain); err != nil {
