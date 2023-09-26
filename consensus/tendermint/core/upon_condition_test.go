@@ -4,6 +4,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/consensus"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -14,16 +19,12 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
+	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
 	tcrypto "github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -577,7 +578,7 @@ func TestOldProposal(t *testing.T) {
 	})
 	t.Run("receive proposal with vr >= 0 and clients is lockedRound > vr with a different value", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound)) + 1 //+1 to prevent 0 passed to randoms
 		clientLockedValue := generateBlock(currentHeight)
 		// vr >= 0 && vr < round_p
 		proposalValidRound := int64(rand.Intn(int(currentRound)))
@@ -910,8 +911,8 @@ func TestQuorumPrevote(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		//randomly choose prevote or precommit step
-		currentStep := tctypes.Step(rand.Intn(2) + 1)                                                                                                                                                             //nolint:gosec
-		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1)-1)), members[currentRound].Address, false, privateKeys[members[currentRound].Address]) //nolint:gosec
+		currentStep := tctypes.Step(rand.Intn(2) + 1)                                                                                                                                                           //nolint:gosec
+		proposalMsg, proposal := generateBlockProposal(t, currentRound, currentHeight, int64(rand.Intn(int(currentRound+1))), members[currentRound].Address, false, privateKeys[members[currentRound].Address]) //nolint:gosec
 		sender := 1
 		prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, currentRound, currentHeight, proposal.ProposalBlock.Hash(), members[sender].Address, privateKeys[members[sender].Address])
 		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, consensus.MsgPrecommit, currentRound, currentHeight, proposal.ProposalBlock.Hash(), clientAddr, privateKeys[clientAddr])

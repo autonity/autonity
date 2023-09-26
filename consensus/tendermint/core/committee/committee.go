@@ -132,12 +132,12 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 type WeightedRandomSamplingCommittee struct {
 	previousHeader         *types.Header
 	bc                     *ethcore.BlockChain // Todo : remove this dependency
-	autonityContract       *autonity.Contracts
+	autonityContract       *autonity.ProtocolContracts
 	previousBlockStateRoot common.Hash
 	cachedProposer         map[int64]types.CommitteeMember
 }
 
-func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.Contracts, bc *ethcore.BlockChain) *WeightedRandomSamplingCommittee {
+func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.ProtocolContracts, bc *ethcore.BlockChain) *WeightedRandomSamplingCommittee {
 	return &WeightedRandomSamplingCommittee{
 		previousHeader:         previousBlock.Header(),
 		bc:                     bc,

@@ -208,13 +208,13 @@ func (n *Node) Start() error {
 	// setting EtherBase for miner
 	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(n.Node.Config().NodeKey().PublicKey)
 	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
-		return err
+		return fmt.Errorf("cannot create new eth: %w", err)
 	}
 	if _, _, err = core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis); err != nil {
-		return err
+		return fmt.Errorf("cannot setup genesis block: %w", err)
 	}
 	if err = n.Node.Start(); err != nil {
-		return err
+		return fmt.Errorf("failed to start a node: %w", err)
 	}
 	if n.WsClient, err = ethclient.Dial(n.WSEndpoint()); err != nil {
 		return err
@@ -467,14 +467,46 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int) error {
 	}
 }
 
+// WaitForHeight waits for all nodes in the network to mine at least a given height
+func (nw Network) WaitForHeight(height uint64, numSec int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numSec)*time.Second)
+	defer cancel()
+	// cache current chain height for all nodes
+	syncTicker := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-syncTicker.C:
+			totalRunning := 0
+			syncedNodes := 0
+			for _, n := range nw {
+				// skipping nodes which are not running
+				if !n.isRunning {
+					continue
+				}
+				currHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+				if currHeight >= height {
+					syncedNodes++
+				}
+				totalRunning++
+			}
+			// all the running nodes should reach the required chainHeight
+			if syncedNodes == totalRunning {
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 // NewNetworkFromValidators generates a network of nodes that are running and
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, start bool) (Network, error) {
-	g, err := Genesis(validators)
+func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
+	g, err := Genesis(validators, options...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed the genesis: %w", err)
 	}
 	network := make([]*Node, len(validators))
 	for i, u := range validators {
@@ -599,8 +631,8 @@ func communicatePort(port int) {
 }
 
 // Genesis creates a genesis instance from the provided users.
-func Genesis(users []*gengen.Validator) (*core.Genesis, error) {
-	g, err := gengen.NewGenesis(users)
+func Genesis(users []*gengen.Validator, options ...gengen.GenesisOption) (*core.Genesis, error) {
+	g, err := gengen.NewGenesis(users, options...)
 	if err != nil {
 		return nil, err
 	}

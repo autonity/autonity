@@ -2,16 +2,15 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre
 
-NPMBIN= $(shell npm bin)
 BINDIR = ./build/bin
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
-SOLC_VERSION = 0.8.19
+SOLC_VERSION = 0.8.21
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 GOBINDATA_VERSION = 3.23.0
 GOBINDATA_BINARY = $(BINDIR)/go-bindata
@@ -49,6 +48,10 @@ autonity:
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
+bindings:
+	@echo Generating protocol contracts bindings
+	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol "$(CONTRACTS_DIR)/bindings.sol" --out ./autonity/bindings.go
+
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
 # glibc for solc.
 autonity-docker:
@@ -58,37 +61,41 @@ autonity-docker:
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 define gen-contract
-	$(SOLC_BINARY) --overwrite --abi --bin -o $(1) $(CONTRACTS_DIR)/$(2).sol
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@echo Generating bytecode for $(2)
-	@echo 'package generated' > $(1)/$(2).go
-	@echo 'import "strings"' >> $(1)/$(2).go
-	@echo 'import "github.com/autonity/autonity/accounts/abi"' >> $(1)/$(2).go
-	@echo 'import "github.com/autonity/autonity/common"' >> $(1)/$(2).go
+	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo 'import "strings"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo 'import "github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
-	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(1)/$(2).go
-	@cat  $(1)/$(2).bin >> $(1)/$(2).go
-	@echo '")\n' >> $(1)/$(2).go
+	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@cat  $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '")\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo Generating Abi for $(2)
-	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(1)/$(2).go
-	@cat  $(1)/$(2).abi | json_pp  >> $(1)/$(2).go
-	@echo '`))' >> $(1)/$(2).go
-	@gofmt -s -w $(1)/$(2).go
+	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@cat  $(GENERATED_CONTRACT_DIR)/$(2).abi | json_pp  >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '`))' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@gofmt -s -w $(GENERATED_CONTRACT_DIR)/$(2).go
 
 endef
 
 contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),Autonity)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),Oracle)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),AutonityUpgradeTest)
-	@$(call gen-contract,$(GENERATED_CONTRACT_DIR),Accountability)
+	@$(call gen-contract,,Autonity)
+	@$(call gen-contract,,Oracle)
+	@$(call gen-contract,,AutonityUpgradeTest)
+	@$(call gen-contract,,Accountability)
+	@$(call gen-contract,asm/,ACU)
+	@$(call gen-contract,asm/,SupplyControl)
+	@$(call gen-contract,asm/,Stabilization)
 	# update 4byte selector for clef
 	build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
 	# Generate go bindings
 	@echo Generating protocol contracts bindings
-	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/Accountability.sol --out ./autonity/bindings.go
+	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/bindings.go
+
 
 
 $(SOLC_BINARY):
@@ -104,7 +111,8 @@ $(GOBINDATA_BINARY):
 $(ABIGEN_BINARY):
 	go build -o $(ABIGEN_BINARY) ./cmd/abigen
 
-all:
+all: contracts
+	make bindings
 	go run build/ci.go install
 
 android:
@@ -133,8 +141,10 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
-# This runs the contract tests using truffle against an Autonity node instance.
-test-contracts: autonity contracts
+test-contracts: autonity contracts test-contracts-asm test-contracts-truffle
+
+# prerequisites for testing contracts
+test-contracts-pre:
 	@# npm list returns 0 only if the package is not installed and the shell only
 	@# executes the second part of an or statement if the first fails.
 	@# Nov, 2022, the latest release of Truffle, v5.6.6 does not works for the tests.
@@ -144,29 +154,68 @@ test-contracts: autonity contracts
 	@npm list web3 > /dev/null || npm install web3
 	@echo "check and install truffle-assertions.js"
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
-	@$(NPMBIN)/truffle version
-	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data && ./autonity-start.sh &
-	@# Autonity can take some time to start up so we ping its port till we see it is listening.
-	@# The -z option to netcat exits with 0 only if the port at the given addresss is listening.
-	@for x in {1..10}; do \
-		nc -z localhost 8545 ; \
-	    if [ $$? -eq 0 ] ; then \
-	        break ; \
-	    fi ; \
-		echo waiting 2 more seconds for autonity to start ; \
-	    sleep 2 ; \
-	done
-	@cd $(CONTRACTS_TEST_DIR) && $(NPMBIN)/truffle test test.js --network autonity && cd -
-	@cd $(CONTRACTS_TEST_DIR) && $(NPMBIN)/truffle test oracle.js && cd -
+	@echo "check and install ganache"
+	@npm list ganache > /dev/null || npm install ganache
+	@npx truffle version
+
+test-contracts-asm:
+	@echo "check and install ape framework"
+	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
+	@echo "check and install hardhat"
+	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
+	@echo "install ape framework plugins"
+	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
+	@echo "run tests for the asm contracts"
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm
+
+# start an autonity network for contract tests
+start-autonity:
+	@echo "starting autonity test network"
+	@cd $(CONTRACTS_TEST_DIR)/autonity/ && nohup ./autonity-start.sh >/dev/null 2>&1 &
+	@# give some time for autonity to start
+	@sleep 10
+	@# check that autonity started correctly and is listening on the correct port
+	@pgrep autonity
+	@lsof -i :8545 | grep autonity
+
+# start a ganache network for fast contract tests
+start-ganache:
+	@echo "starting ganache"
+	@nohup ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
+	@sleep 2
+	@pgrep -f ganache
+	@lsof -i :8545 | grep node
+
+# This runs the contract tests using truffle against an Autonity node instance.
+test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
+	@echo "killing test autonity network and cleaning chaindata"
+	@-pkill autonity
+	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data
+
+# This runs the contract tests using truffle against a Ganache instance
+test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@echo "killing ganache"
+	@-pkill -f "ganache"
 
 docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
 	cd docker_e2e_test && sudo python3 test_via_docker.py ..
 
 mock-gen:
-	mockgen -source=consensus/tendermint/core/core_backend.go -package=core -destination=consensus/tendermint/core/backend_mock.go
+	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
+	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
 	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
+	mockgen -source=interfaces.go -package=ethereum -destination=interfaces_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
+	mockgen -source=consensus/tendermint/core/interfaces/tendermint.go -package=interfaces -destination=consensus/tendermint/core/interfaces/tendermint_mock.go
 
 lint-dead:
 	@./.github/tools/golangci-lint run \
@@ -210,12 +259,12 @@ clean:
 # You need to put $BINDIR (or $GOPATH/bin) in your PATH to use 'go generate'.
 
 devtools:
-	go get -u github.com/golang/mock/mockgen
+	go get -u go.uber.org/mock/mockgen
 	env BINDIR= go get -u golang.org/x/tools/cmd/stringer
-	env BINDIR= go get -u github.com/kevinburke/go-bindata/go-bindata
-	env BINDIR= go get -u github.com/fjl/gencodec
+	env BINDIR= go install github.com/kevinburke/go-bindata/v4/...@latest
+	env BINDIR= go install github.com/fjl/gencodec@latest
 	env BINDIR= go get -u github.com/golang/protobuf/protoc-gen-go
-	env BINDIR= go install ./cmd/abigen
+	go build -o $BINDIR/abigen ./cmd/abigen
 	@type "npm" 2> /dev/null || echo 'Please install node.js and npm'
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'

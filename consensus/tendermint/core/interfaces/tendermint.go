@@ -8,7 +8,7 @@ import (
 )
 
 type Tendermint interface {
-	Start(ctx context.Context, contract *autonity.Contracts)
+	Start(ctx context.Context, contract *autonity.ProtocolContracts)
 	Stop()
 	CurrentHeightMessages() []*message.Message
 	CoreState() types.TendermintState

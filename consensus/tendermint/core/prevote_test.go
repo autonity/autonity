@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
@@ -16,7 +17,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"github.com/golang/mock/gomock"
 )
 
 func TestSendPrevote(t *testing.T) {

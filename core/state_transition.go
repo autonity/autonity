@@ -18,10 +18,11 @@ package core
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/params/generated"
 	"math"
 	"math/big"
+
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/common"
 	cmath "github.com/autonity/autonity/common/math"
@@ -355,19 +356,15 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		if oracleVote {
 			// Refund tx Fee, if this is a successful vote transaction
 			gasUsed := new(big.Int).SetUint64(st.gasUsed())
-			fee := new(big.Int).Mul(st.evm.Context.BaseFee, gasUsed)
+			fee := new(big.Int).Mul(st.gasPrice, gasUsed)
 			st.state.AddBalance(st.msg.From(), fee)
-			//fmt.Println("Refunding Used Fee:", fee, " Base Fee:",
-			//st.evm.Context.BaseFee, " Gas used:", gasUsed, " gasPrice:", st.gasPrice)
 		}
 	}
 
-	if london {
+	if london && !oracleVote {
 		effectiveTip := cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 		st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
-		if !oracleVote {
-			st.state.AddBalance(autonity.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
-		}
+		st.state.AddBalance(autonity.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
 	}
 
 	return &ExecutionResult{

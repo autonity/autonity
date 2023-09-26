@@ -14,6 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
+	"go.uber.org/mock/gomock"
 	"math"
 	"math/big"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
@@ -49,7 +49,7 @@ func TestAskSync(t *testing.T) {
 	counter := uint64(0)
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := consensus.NewMockPeer(ctrl)
+		mockedPeer := ethereum.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(uint64(SyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
@@ -95,7 +95,7 @@ func TestGossip(t *testing.T) {
 	counter := uint64(0)
 	for i, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := consensus.NewMockPeer(ctrl)
+		mockedPeer := ethereum.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
 			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Times(0)
@@ -395,7 +395,7 @@ func TestSyncPeer(t *testing.T) {
 
 		payload := messages[0].GetBytes()
 
-		peer1Mock := consensus.NewMockPeer(ctrl)
+		peer1Mock := ethereum.NewMockPeer(ctrl)
 		peer1Mock.EXPECT().Send(uint64(TendermintMsg), payload)
 
 		peers := make(map[common.Address]ethereum.Peer)
@@ -410,7 +410,7 @@ func TestSyncPeer(t *testing.T) {
 		}
 
 		tendermintC := interfaces.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().GetCurrentHeightMessages().Return(messages)
+		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
 
 		b := &Backend{
 			logger:         log.New("backend", "test", "id", 0),

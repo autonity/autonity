@@ -34,7 +34,7 @@ type ChainContext interface {
 	CurrentBlock() *types.Block
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	State() (*state.StateDB, error)
-	ProtocolContracts() *autonity.Contracts
+	ProtocolContracts() *autonity.ProtocolContracts
 	StateAt(root common.Hash) (*state.StateDB, error)
 	HasBadBlock(hash common.Hash) bool
 	Validator() core.Validator
@@ -82,7 +82,7 @@ type Proof struct {
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
 	innocenceProofBuff *InnocenceProofBuffer
-	protocolContracts  *autonity.Contracts
+	protocolContracts  *autonity.ProtocolContracts
 	rateLimiter        *AccusationRateLimiter
 
 	wg               sync.WaitGroup
@@ -130,7 +130,7 @@ func NewFaultDetector(
 	txPool *core.TxPool,
 	ethBackend ethapi.Backend,
 	nodeKey *ecdsa.PrivateKey,
-	protocolContracts *autonity.Contracts,
+	protocolContracts *autonity.ProtocolContracts,
 	logger log.Logger) *FaultDetector {
 
 	transactOps, err := bind.NewKeyedTransactorWithChainID(nodeKey, chain.Config().ChainID)
@@ -161,7 +161,12 @@ func NewFaultDetector(
 	// todo(youssef): analyze chainEvent vs chainHeadEvent and very important: what to do during sync !
 	fd.ruleEngineBlockSub = fd.blockchain.SubscribeChainEvent(fd.ruleEngineBlockCh)
 	fd.msgHandlerBlockSub = fd.blockchain.SubscribeChainEvent(fd.msgHandlerBlockCh)
-	fd.accountabilityEventSub, _ = protocolContracts.WatchNewAccusation(nil, fd.accountabilityEventCh, []common.Address{nodeAddress})
+
+	fd.accountabilityEventSub, _ = protocolContracts.WatchNewAccusation(
+		nil,
+		fd.accountabilityEventCh,
+		[]common.Address{nodeAddress},
+	)
 	return fd
 }
 
@@ -477,15 +482,21 @@ func (fd *FaultDetector) Stop() {
 // convert the raw proofs into on-chain Proof which contains raw bytes of messages.
 func (fd *FaultDetector) eventFromProof(p *Proof) *autonity.AccountabilityEvent {
 
+	// Temp fix
+	height := uint64(0)
+	if p.Message.ConsensusMsg != nil {
+		height = p.Message.H()
+	}
+
 	var ev = &autonity.AccountabilityEvent{
 		EventType:      uint8(p.Type),
 		Rule:           uint8(p.Rule),
 		Reporter:       fd.address,
 		Offender:       p.Message.Address,
-		Block:          common.Big0, // assigned contract-side
-		ReportingBlock: common.Big0, // assigned contract-side
-		Epoch:          common.Big0, // assigned contract-side
-		MessageHash:    common.Big0, // assigned contract-side
+		Block:          new(big.Int).SetUint64(height), // assigned contract-side
+		ReportingBlock: common.Big0,                    // assigned contract-side
+		Epoch:          common.Big0,                    // assigned contract-side
+		MessageHash:    common.Big0,                    // assigned contract-side
 	}
 	// error is ignored here as there is no reason why encoding should fail
 	rProof, _ := rlp.EncodeToBytes(p)

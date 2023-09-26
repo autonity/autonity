@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.2 < 0.9.0;
 /**
  * @dev Interface of the Oracle Contract
@@ -48,6 +48,25 @@ interface IOracle {
     returns (RoundData memory data);
 
     /**
+     * @notice Called once per VotePeriod part of the state finalisation function.
+     * @dev Only accessible from the Autonity Contract.
+     * @return true if there is a new round and new symbol prices are available, false if not.
+     */
+    function finalize() external returns (bool);
+
+    /**
+     * @notice Called to update the list of the oracle voters.
+     * @dev Only accessible from the Autonity Contract.
+     */
+    function setVoters(address[] memory _newVoters) external;
+
+    /**
+     * @notice Called to update the governance operator account.
+     * @dev Only accessible from the Autonity Contract.
+     */
+    function setOperator(address _operator) external;
+
+    /**
     * @notice Retrieve the vote period.
     */
     function getVotePeriod() external view returns (uint);
@@ -63,6 +82,8 @@ interface IOracle {
     * @notice Precision to be used with price reports
     */
     function getPrecision() external view returns (uint256);
+
+
     /**
      * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
      */

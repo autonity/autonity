@@ -65,6 +65,15 @@ var genesis = `{
 						}
 					]
 				},
+				"accountability": {
+					  "innocenceProofSubmissionWindow": 30,
+					  "baseSlashingRateLow": 500,
+					  "baseSlashingRateMid": 1000,
+					  "collusionFactor": 550,
+					  "historyFactor": 750,
+					  "jailFactor": 60,
+					  "slashingRatePrecision": 10000
+					},
     			"oracle": {
       				"votePeriod": 30
 				},
@@ -146,6 +155,22 @@ at block: 0 ({{niltime}})
 To exit, press ctrl-d or type exit
 > {{.InputLine "exit"}}
 `)
+	autonity.ExpectExit()
+}
+
+func TestDevMode(t *testing.T) {
+	//dir, jsonFile := tmpDataDirWithGenesisFile(t)
+	//defer os.RemoveAll(dir)
+	ws := tmpdir(t)
+	defer os.RemoveAll(ws)
+	ipc := filepath.Join(ws, "autonity.ipc")
+	// Start a autonity client via console sub command.
+	autonity := runAutonity(t,
+		"--dev", "--ipcpath", ipc)
+
+	// Wait for autonity.
+	waitForEndpoint(t, ipc, 3*time.Second)
+
 	autonity.ExpectExit()
 }
 

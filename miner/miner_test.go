@@ -19,7 +19,6 @@ package miner
 
 import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/log"
 	"math/big"
 	"testing"
@@ -74,10 +73,6 @@ type testBlockChain struct {
 
 func (bc *testBlockChain) MinBaseFee(_ *types.Header) (*big.Int, error) {
 	return new(big.Int), nil
-}
-
-func (bc *testBlockChain) ProtocolContracts() *autonity.Contracts {
-	return nil
 }
 
 func (bc *testBlockChain) Config() *params.ChainConfig {

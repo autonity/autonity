@@ -753,7 +753,7 @@ func (w *worker) resultLoop() {
 				PersistWorkTimer.Update(now.Sub(persistStart))
 				PersistWorkBg.Add(now.Sub(persistStart).Nanoseconds())
 			}
-			w.eth.Logger().Info("🔨 Proposed block with success", "number", block.Number(), "sealhash", sealhash, "hash", hash,
+			w.eth.Logger().Info("🔨 Proposed block validated with success", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 
 			// SignAndBroadcast the block and announce chain insertion event
@@ -1199,7 +1199,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 
 		select {
 		case w.taskCh <- &task{receipts: env.receipts, state: env.state, block: block, createdAt: time.Now()}:
-			w.eth.Logger().Info("Preparing new block", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
+			w.eth.Logger().Info("Preparing new block proposal", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
 				"uncles", len(env.uncles), "txs", env.tcount,
 				"gas", block.GasUsed(), "fees", totalFees(block, env.receipts),
 				"elapsed", common.PrettyDuration(time.Since(start))) // Consider moving that to DEBUG level

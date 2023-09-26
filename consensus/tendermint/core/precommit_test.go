@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/rlp"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
@@ -23,7 +24,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
-	"github.com/golang/mock/gomock"
 )
 
 func TestSendPrecommit(t *testing.T) {

@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/p2p/enode"
 	"math/big"
 	"net"
 	"sort"
@@ -40,6 +39,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
@@ -87,11 +87,25 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
+	ret := make(autonity.GenesisBonds, len(*ga))
+	for addr, alloc := range *ga {
+		ret[addr] = autonity.GenesisBond{
+			NewtonBalance: alloc.NewtonBalance,
+			Bonds:         alloc.Bonds,
+		}
+	}
+	return ret
+}
+
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
-	Code       []byte                      `json:"code,omitempty"`
-	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`
-	Balance    *big.Int                    `json:"balance" gencodec:"required"`
+	Code          []byte                      `json:"code,omitempty"`
+	Storage       map[common.Hash]common.Hash `json:"storage,omitempty"`
+	Balance       *big.Int                    `json:"balance" gencodec:"required"`
+	NewtonBalance *big.Int                    `json:"newtonBalance"`
+	// validator address to amount bond to this validator
+	Bonds      map[common.Address]*big.Int `json:"bonds"`
 	Nonce      uint64                      `json:"nonce,omitempty"`
 	PrivateKey []byte                      `json:"secretKey,omitempty"` // for tests
 }
@@ -107,16 +121,16 @@ type genesisSpecMarshaling struct {
 	Difficulty *math.HexOrDecimal256
 	BaseFee    *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
-
-	VotingPowers []math.HexOrDecimal64
 }
 
 type genesisAccountMarshaling struct {
-	Code       hexutil.Bytes
-	Balance    *math.HexOrDecimal256
-	Nonce      math.HexOrDecimal64
-	Storage    map[storageJSON]storageJSON
-	PrivateKey hexutil.Bytes
+	Code          hexutil.Bytes
+	Balance       *math.HexOrDecimal256
+	NewtonBalance *math.HexOrDecimal256
+	Bonds         map[common.Address]*math.HexOrDecimal256
+	Nonce         math.HexOrDecimal64
+	Storage       map[storageJSON]storageJSON
+	PrivateKey    hexutil.Bytes
 }
 
 // storageJSON represents a 256 bit byte array, but allows less than 256 bits when
@@ -311,10 +325,16 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		}
 	}
 
-	evm := genesisEVM(g, statedb)
+	genesisBonds := g.Alloc.ToGenesisBonds()
 
-	if err := autonity.DeployContracts(g.Config, evm); err != nil {
-		return nil, err
+	evmProvider := func(statedb *state.StateDB) *vm.EVM {
+		return genesisEVM(g, statedb)
+	}
+
+	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
+
+	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
+		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
 
 	root := statedb.IntermediateRoot(false)
@@ -615,6 +635,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			LondonBlock:            big.NewInt(0),
 			ArrowGlacierBlock:      big.NewInt(0),
 			AutonityContractConfig: &testAutonityContractConfig,
+			AccountabilityConfig:   &params.TestAccountabilityConfig,
 			OracleContractConfig:   &params.OracleContractGenesis{},
 		},
 	}

@@ -64,7 +64,7 @@ var (
 
 	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
 	PiccaddillyChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_100_000),
+		ChainID:                 big.NewInt(65_100_001),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -127,13 +127,19 @@ var (
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
-			Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+			Symbols:    OracleInitialSymbols,
 		},
+		ASM: AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
+		},
+		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
 	BakerlooChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_010_000),
+		ChainID:                 big.NewInt(65_010_001),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -196,8 +202,14 @@ var (
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
-			Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+			Symbols:    OracleInitialSymbols,
 		},
+		ASM: AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
+		},
+		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
@@ -395,7 +407,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}}
 
 	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
@@ -419,9 +431,20 @@ var (
 			},
 		},
 	}
+
+	TestAccountabilityConfig = AccountabilityGenesis{
+		InnocenceProofSubmissionWindow: 30,
+		BaseSlashingRateLow:            500,  // 5%
+		BaseSlashingRateMid:            1000, // 10%
+		CollusionFactor:                550,  // 5%
+		HistoryFactor:                  750,  // 7.5%
+		JailFactor:                     60,   // two epochs
+		SlashingRatePrecision:          10_000,
+	}
+
 	TestOracleContractConfig = OracleContractGenesis{
 		VotePeriod: OracleVotePeriod,
-		Symbols:    []string{"NTN/USD", "NTN/AUD", "NTN/CAD", "NTN/EUR", "NTN/GBP", "NTN/JPY", "NTN/SEK"},
+		Symbols:    []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"},
 	}
 
 	TestChainConfig = &ChainConfig{
@@ -445,7 +468,13 @@ var (
 		nil,
 		new(EthashConfig),
 		&TestAutonityContractConfig,
-		&TestOracleContractConfig,
+		&TestAccountabilityConfig,
+		DefaultGenesisOracleConfig,
+		AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
+		},
 	}
 
 	TestRules = TestChainConfig.Rules(new(big.Int), false)
@@ -542,7 +571,16 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
 	AutonityContractConfig *AutonityContractGenesis `json:"autonity,omitempty"`
+	AccountabilityConfig   *AccountabilityGenesis   `json:"accountability,omitempty"`
 	OracleContractConfig   *OracleContractGenesis   `json:"oracle,omitempty"`
+
+	ASM AsmConfig `json:"asm,omitempty"`
+}
+
+type AsmConfig struct {
+	ACUContractConfig           *AcuContractGenesis           `json:"acu,omitempty"`
+	StabilizationContractConfig *StabilizationContractGenesis `json:"stabilization,omitempty"`
+	SupplyControlConfig         *SupplyControlGenesis         `json:"supplyControl,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.

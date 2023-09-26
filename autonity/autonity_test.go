@@ -17,7 +17,7 @@ func TestElectProposer(t *testing.T) {
 	height := uint64(9999)
 	samePowers := []int{100, 100, 100, 100}
 	linearPowers := []int{100, 200, 400, 800}
-	var ac = &Contracts{}
+	var ac = &AutonityContract{}
 	t.Run("Proposer election should be deterministic", func(t *testing.T) {
 		committee := generateCommittee(samePowers)
 		parentHeader := newBlockHeader(height, committee)

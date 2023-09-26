@@ -273,29 +273,6 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	return nil
 }
 
-// VerifySeal checks whether the crypto seal on a header is valid according to
-// the consensus rules of the given engine.
-func (sb *Backend) VerifySeal(chain consensus.ChainHeaderReader, header *types.Header) error {
-	// Ensure the signer is part of the committee
-
-	// The genesis block is not signed.
-	if header.IsGenesis() {
-		return errUnknownBlock
-	}
-
-	// ensure that the difficulty equals to defaultDifficulty
-	if header.Difficulty.Cmp(defaultDifficulty) != 0 {
-		return errInvalidDifficulty
-	}
-
-	parent := chain.GetHeaderByHash(header.ParentHash)
-	if parent == nil {
-		// TODO make this ErrUnknownAncestor
-		return errUnknownBlock
-	}
-	return sb.verifySigner(header, parent)
-}
-
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
 func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {

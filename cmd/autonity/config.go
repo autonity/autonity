@@ -188,7 +188,7 @@ func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
 			return nil, fmt.Errorf("no Oracle Contract config section in genesis")
 		}
 
-		if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
+		if err := genesis.Config.AutonityContractConfig.SetDefaults(); err != nil {
 			spew.Dump(genesis.Config.AutonityContractConfig)
 			return nil, err
 		}

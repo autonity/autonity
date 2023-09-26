@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.19;
 
@@ -8,14 +8,18 @@ import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
 import "./lib/BytesLib.sol";
-import "./Oracle.sol";
+import "./asm/IACU.sol";
+import "./asm/ISupplyControl.sol";
+import "./asm/IStabilization.sol";
 import "./interfaces/IAccountability.sol";
+import "./interfaces/IOracle.sol";
+import "./interfaces/IAutonity.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 enum ValidatorState {active, paused, jailed}
 uint8 constant DECIMALS = 18;
 
-contract Autonity is IERC20, Upgradeable {
+contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
@@ -26,7 +30,13 @@ contract Autonity is IERC20, Upgradeable {
         string enode; //addr must match provided enode
         uint256 commissionRate;
         uint256 bondedStake;
+        uint256 unbondingStake;
+        uint256 unbondingShares; // not effective - used for accounting purposes
         uint256 selfBondedStake;
+        // bonded stake = selfBounded stake + delegated stake
+        uint256 selfUnbondingStake;
+        uint256 selfUnbondingShares; // not effective - used for accounting purposes
+        uint256 selfUnbondingStakeLocked;
         Liquid liquidContract;
         uint256 liquidSupply;
         uint256 registrationBlock;
@@ -41,40 +51,72 @@ contract Autonity is IERC20, Upgradeable {
         uint256 votingPower;
     }
 
+    /**************************************************/
+    // Todo: Create a FIFO structure library, integrate with Staking{}
     /* Used for epoched staking */
-    struct Staking {
+    struct BondingRequest {
         address payable delegator;
         address delegatee;
         uint256 amount;
-        uint256 startBlock;
+        uint256 requestBlock;
     }
+    mapping(uint256 => BondingRequest) internal bondingMap;
+    uint256 internal tailBondingID;
+    uint256 internal headBondingID;
 
-    /* Used to track commission rate change - See ADR-002 */
+    struct UnbondingRequest {
+        address payable delegator;
+        address delegatee;
+        uint256 amount; // NTN for self-delegation, LNTN otherwise
+        uint256 unbondingShare;
+        uint256 requestBlock;
+        bool unlocked;
+        bool selfDelegation;
+    }
+    mapping(uint256 => UnbondingRequest) internal unbondingMap;
+    uint256 internal tailUnbondingID;
+    uint256 internal headUnbondingID;
+    uint256 internal lastUnlockedUnbonding;
+
+    /* Used to track commission rate change*/
     struct CommissionRateChangeRequest {
         address validator;
         uint256 startBlock;
         uint256 rate;
     }
-    // Todo: Create a FIFO structure library, integrate with Staking{}
     mapping(uint256 => CommissionRateChangeRequest) internal commissionRateChangeQueue;
     uint256 internal commissionRateChangeQueueFirst = 0;
     uint256 internal commissionRateChangeQueueLast = 0;
 
     /**************************************************/
-
-    struct Config {
-        address operatorAccount;
+    struct Contracts {
         IAccountability accountabilityContract;
-        Oracle oracleContract;
-        address payable treasuryAccount;
+        IOracle oracleContract;
+        IACU acuContract;
+        ISupplyControl supplyControlContract;
+        IStabilization stabilizationContract;
+    }
+
+    struct Policy {
         uint256 treasuryFee;
         uint256 minBaseFee;
         uint256 delegationRate;
-        uint256 epochPeriod;
         uint256 unbondingPeriod;
-        uint256 committeeSize;
-        uint256 contractVersion;
+        address payable treasuryAccount;
+    }
+
+    struct Protocol {
+        address operatorAccount;
+        uint256 epochPeriod;
         uint256 blockPeriod;
+        uint256 committeeSize;
+    }
+
+    struct Config {
+        Policy policy;
+        Contracts contracts;
+        Protocol protocol;
+        uint256 contractVersion;
     }
 
     Config public config;
@@ -92,15 +134,6 @@ contract Autonity is IERC20, Upgradeable {
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
-    /*
-    Keep track of bonding and unbonding requests.
-    */
-    mapping(uint256 => Staking) internal bondingMap;
-    uint256 public tailBondingID;
-    uint256 public headBondingID;
-    mapping(uint256 => Staking) internal unbondingMap;
-    uint256 public tailUnbondingID;
-    uint256 public headUnbondingID;
 
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
@@ -117,13 +150,36 @@ contract Autonity is IERC20, Upgradeable {
     address public deployer;
 
     /* Events */
-    event MintedStake(address addr, uint256 amount);
-    event BurnedStake(address addr, uint256 amount);
-    event CommissionRateChange(address validator, uint256 rate);
+    event MintedStake(address indexed addr, uint256 amount);
+    event BurnedStake(address indexed addr, uint256 amount);
+    event CommissionRateChange(address indexed validator, uint256 rate);
+
+    /** @notice This event is emitted when a bonding request to a validator node has been registered.
+    * This request will only be effective at the end of the current epoch however the stake will be
+    * put in custody immediately from the delegator's account.
+    * @param validator The validator node account.
+    * @param delegator The caller.
+    * @param selfBonded True if the validator treasury initiated the request. No LNEW will be issued.
+    * @param amount The amount of NEWTON to be delegated.
+    */
+    event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
+
+    /** @notice This event is emitted when an unbonding request to a validator node has been registered.
+    * This request will only be effective after the unbonding period, rounded to the next epoch.
+    * Please note that because of potential slashing events during this delay period, the released amount
+    * may or may not be correspond to the amount requested.
+    * @param validator The validator node account.
+    * @param delegator The caller.
+    * @param selfBonded True if the validator treasury initiated the request.
+    * @param amount If self-bonded this is the requested amount of NEWTON to be unbonded.
+    * If not self-bonded, this is the amount of Liquid Newton to be unbonded.
+    */
+    event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
+
     event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidContract);
-    event PausedValidator(address treasury, address addr, uint256 effectiveBlock);
-    event ActivatedValidator(address treasury, address addr, uint256 effectiveBlock);
-    event Rewarded(address addr, uint256 amount);
+    event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
+    event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
+    event Rewarded(address indexed addr, uint256 amount);
     event EpochPeriodUpdated(uint256 period);
     event NewEpoch(uint256 epoch);
 
@@ -134,7 +190,7 @@ contract Autonity is IERC20, Upgradeable {
     event MinimumBaseFeeUpdated(uint256 gasPrice);
 
     constructor(Validator[] memory _validators,
-                    Config memory _config) {
+        Config memory _config) {
         if (config.contractVersion == 0) {
             deployer = msg.sender;
             _initialize(_validators, _config);
@@ -160,8 +216,9 @@ contract Autonity is IERC20, Upgradeable {
             _validators[i].liquidContract = Liquid(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].registrationBlock = 0;
-            _validators[i].commissionRate = config.delegationRate;
+            _validators[i].commissionRate = config.policy.delegationRate;
             _validators[i].state = ValidatorState.active;
+            _validators[i].selfUnbondingStakeLocked = 0;
 
             _registerValidator(_validators[i]);
 
@@ -169,7 +226,10 @@ contract Autonity is IERC20, Upgradeable {
             stakeSupply += _bondedStake;
             _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
         }
-        _stakingTransitions();
+    }
+
+    function finalizeInitialization() onlyProtocol public {
+        _stakingOperations();
         computeCommittee();
     }
 
@@ -184,7 +244,6 @@ contract Autonity is IERC20, Upgradeable {
     *
     */
     fallback() external payable {}
-
 
     /**
     * @return the name of the stake token.
@@ -226,9 +285,14 @@ contract Autonity is IERC20, Upgradeable {
             address(0),              // address
             _oracleAddress,          // voter Address
             _enode,                  // enode
-            config.delegationRate,   // validator commission rate
+            config.policy.delegationRate,   // validator commission rate
             0,                       // bonded stake
+            0,                       // unbonding stake
+            0,                       // unbonding shares
             0,                       // self bonded stake
+            0,                       // self unbonding stake
+            0,                       // self unbonding shares
+            0,                       // self unbonding stake locked
             Liquid(address(0)),      // liquid token contract
             0,                       // liquid token supply
             block.number,            // registration block
@@ -242,19 +306,30 @@ contract Autonity is IERC20, Upgradeable {
         emit RegisteredValidator(msg.sender, _val.nodeAddress, _oracleAddress, _enode, address(_val.liquidContract));
     }
 
+    /**
+    * @notice Create a bonding(delegation) request with the caller as delegator.
+    * @param _validator address of the validator to delegate stake to.
+    *        _amount total amount of NTN to bond.
+    */
     function bond(address _validator, uint256 _amount) public {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(validators[_validator].state == ValidatorState.active, "validator need to be active");
         _bond(_validator, _amount, payable(msg.sender));
     }
 
+    /**
+    * @notice Create an unbonding request with the caller as delegator.
+    * @param _validator address of the validator to unbond stake to.
+    *        _amount total amount of NTN to unbond.
+    */
     function unbond(address _validator, uint256 _amount) public {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
+        require(_amount > 0, "unbonding amount is 0");
         _unbond(_validator, _amount, payable(msg.sender));
     }
 
     /**
-    * @notice Pause the validator and stop it accepting delegations. See ADR-004 for more details.
+    * @notice Pause the validator and stop it accepting delegations.
     * @param _address address to be disabled.
     * @dev emit a {DisabledValidator} event.
     */
@@ -265,7 +340,7 @@ contract Autonity is IERC20, Upgradeable {
     }
 
     /**
-    * @notice Re-activate the specified validator. See ADR-004 for more details.
+    * @notice Re-activate the specified validator.
     * @param _address address to be enabled.
     */
     function activateValidator(address _address) public {
@@ -273,9 +348,9 @@ contract Autonity is IERC20, Upgradeable {
         Validator storage _val = validators[_address];
         require(_val.treasury == msg.sender, "require caller to be validator treasury account");
         require(_val.state != ValidatorState.active, "validator already active");
-        require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock < block.number), "validator still in jail");
+        require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
         _val.state = ValidatorState.active;
-        emit ActivatedValidator(_val.treasury, _address,  lastEpochBlock + config.epochPeriod);
+        emit ActivatedValidator(_val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
     }
 
     /**
@@ -284,14 +359,15 @@ contract Autonity is IERC20, Upgradeable {
     * @param _val Validator to be updated.
     */
     function updateValidatorAndTransferSlashedFunds(Validator calldata _val) external onlyAccountability {
-        //youssef: I'm not very happy with this function, this could be improved.
-        uint256 _diffNewtonBalance = validators[_val.nodeAddress].bondedStake - _val.bondedStake;
-        accounts[config.treasuryAccount] += _diffNewtonBalance;
+        uint256 _diffNewtonBalance = (validators[_val.nodeAddress].bondedStake - _val.bondedStake) +
+                                     (validators[_val.nodeAddress].unbondingStake - _val.unbondingStake) +
+                                     (validators[_val.nodeAddress].selfUnbondingStake - _val.selfUnbondingStake);
+        accounts[config.policy.treasuryAccount] += _diffNewtonBalance;
         validators[_val.nodeAddress] = _val;
     }
 
     /**
-    * @notice Change commission rate for the specified validator. See ADR-002 for more details.
+    * @notice Change commission rate for the specified validator.
     * @param _validator address to be enabled.
             _rate new commission rate, ranging between 0-10000 (10000 = 100%).
     */
@@ -311,7 +387,7 @@ contract Autonity is IERC20, Upgradeable {
     * @dev Emit a {MinimumBaseFeeUpdated} event.
     */
     function setMinimumBaseFee(uint256 _price) public onlyOperator {
-        config.minBaseFee = _price;
+        config.policy.minBaseFee = _price;
         emit MinimumBaseFeeUpdated(_price);
     }
 
@@ -321,7 +397,7 @@ contract Autonity is IERC20, Upgradeable {
     */
     function setCommitteeSize(uint256 _size) public onlyOperator {
         require(_size > 0, "committee size can't be 0");
-        config.committeeSize = _size;
+        config.protocol.committeeSize = _size;
     }
 
     /*
@@ -329,7 +405,7 @@ contract Autonity is IERC20, Upgradeable {
     * @param _size Positive integer.
     */
     function setUnbondingPeriod(uint256 _period) public onlyOperator {
-        config.unbondingPeriod = _period;
+        config.policy.unbondingPeriod = _period;
     }
 
     /*
@@ -340,13 +416,13 @@ contract Autonity is IERC20, Upgradeable {
         // to decrease the epoch period, we need to check if current chain head already exceed the window:
         // lastBlockEpoch + _newPeriod, if so, the _newPeriod cannot be applied since the finalization of current epoch
         // at finalize function will never be triggered, in such case, operator need to find better timing to do so.
-        if (_period < config.epochPeriod) {
+        if (_period < config.protocol.epochPeriod) {
             if (block.number >= lastEpochBlock + _period) {
                 revert("current chain head exceed the window: lastBlockEpoch + _newPeriod, try again latter on.");
             }
         }
-        config.epochPeriod = _period;
-        config.accountabilityContract.setEpochPeriod(_period);
+        config.protocol.epochPeriod = _period;
+        config.contracts.accountabilityContract.setEpochPeriod(_period);
         emit EpochPeriodUpdated(_period);
     }
 
@@ -355,8 +431,11 @@ contract Autonity is IERC20, Upgradeable {
     * @param _account the new operator account.
     */
     function setOperatorAccount(address _account) public onlyOperator {
-        config.operatorAccount = _account;
-        config.oracleContract.setOperator(_account);
+        config.protocol.operatorAccount = _account;
+        config.contracts.oracleContract.setOperator(_account);
+        config.contracts.acuContract.setOperator(_account);
+        config.contracts.supplyControlContract.setOperator(_account);
+        config.contracts.stabilizationContract.setOperator(_account);
     }
 
     /*
@@ -365,7 +444,7 @@ contract Autonity is IERC20, Upgradeable {
     * @param _period Positive integer.
 
     function setBlockPeriod(uint256 _period) public onlyOperator {
-        config.blockPeriod = _period;
+        config.protocol.blockPeriod = _period;
     }
      */
 
@@ -374,7 +453,7 @@ contract Autonity is IERC20, Upgradeable {
     * @param _account New treasury account.
     */
     function setTreasuryAccount(address payable _account) public onlyOperator {
-        config.treasuryAccount = _account;
+        config.policy.treasuryAccount = _account;
     }
 
     /*
@@ -382,7 +461,7 @@ contract Autonity is IERC20, Upgradeable {
     * @param _treasuryFee Treasury fee. Precision TBD.
     */
     function setTreasuryFee(uint256 _treasuryFee) public onlyOperator {
-        config.treasuryFee = _treasuryFee;
+        config.policy.treasuryFee = _treasuryFee;
     }
 
    /*
@@ -390,15 +469,41 @@ contract Autonity is IERC20, Upgradeable {
     * @param _address the contract address
     */
     function setAccountabilityContract(IAccountability _address) public onlyOperator {
-        config.accountabilityContract = _address;
+        config.contracts.accountabilityContract = _address;
     }
 
     /*
     * @notice Set the oracle contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setOracleContract(Oracle _address) public onlyOperator {
-        config.oracleContract = _address;
+    function setOracleContract(address payable _address) public onlyOperator {
+        config.contracts.oracleContract = IOracle(_address);
+        config.contracts.acuContract.setOracle(_address);
+        config.contracts.stabilizationContract.setOracle(_address);
+    }
+    
+    /*
+    * @notice Set the ACU contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setAcuContract(IACU _address) public onlyOperator {
+        config.contracts.acuContract = _address;
+    }
+    
+    /*
+    * @notice Set the SupplyControl contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setSupplyControlContract(ISupplyControl _address) public onlyOperator {
+        config.contracts.supplyControlContract = _address;
+    }
+    
+    /*
+    * @notice Set the Stabilization contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setStabilizationContract(IStabilization _address) public onlyOperator {
+        config.contracts.stabilizationContract = _address;
     }
 
     /*
@@ -482,21 +587,26 @@ contract Autonity is IERC20, Upgradeable {
     function finalize() external virtual onlyProtocol
     returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
-        bool epochEnded = lastEpochBlock + config.epochPeriod == block.number;
+        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
-        config.accountabilityContract.finalize(epochEnded);
+        config.contracts.accountabilityContract.finalize(epochEnded);
 
         if (epochEnded) {
             _performRedistribution();
-            _stakingTransitions();
+            _stakingOperations();
             _applyNewCommissionRates();
             address[] memory voters = computeCommittee();
-            config.oracleContract.setVoters(voters);
+            config.contracts.oracleContract.setVoters(voters);
             lastEpochBlock = block.number;
             epochID += 1;
             emit NewEpoch(epochID);
         }
-        config.oracleContract.finalize();
+
+        bool newRound = config.contracts.oracleContract.finalize();
+        if (newRound) {
+            try config.contracts.acuContract.update() {}
+            catch {}
+        }
         return (contractUpgradeReady, committee);
     }
 
@@ -519,7 +629,7 @@ contract Autonity is IERC20, Upgradeable {
             }
         }
 
-        uint256 _committeeLength = config.committeeSize;
+        uint256 _committeeLength = config.protocol.committeeSize;
         if (_committeeLength >= _len) {_committeeLength = _len;}
 
         Validator[] memory _validatorList = new Validator[](_len);
@@ -540,12 +650,12 @@ contract Autonity is IERC20, Upgradeable {
         }
 
         // If there are more validators than seats in the committee
-        if (_validatorList.length > config.committeeSize) {
+        if (_validatorList.length > config.protocol.committeeSize) {
             // sort validators by stake in ascending order
             _sortByStake(_validatorList);
             // choose the top-N (with N=maxCommitteeSize)
             // Todo: (optimisation) just pop()
-            for (uint256 _j = 0; _j < config.committeeSize; _j++) {
+            for (uint256 _j = 0; _j < config.protocol.committeeSize; _j++) {
                 _committeeList[_j] = _validatorList[_j];
             }
         }
@@ -579,21 +689,21 @@ contract Autonity is IERC20, Upgradeable {
     * @notice Returns the epoch period.
     */
     function getEpochPeriod() external view returns (uint256) {
-        return config.epochPeriod;
+        return config.protocol.epochPeriod;
     }
 
     /**
     * @notice Returns the block period.
     */
     function getBlockPeriod() external view returns (uint256) {
-        return config.blockPeriod;
+        return config.protocol.blockPeriod;
     }
 
     /**
 * @notice Returns the un-bonding period.
     */
     function getUnbondingPeriod() external view returns (uint256) {
-        return config.unbondingPeriod;
+        return config.policy.unbondingPeriod;
     }
 
     /**
@@ -629,14 +739,14 @@ contract Autonity is IERC20, Upgradeable {
      * @notice Returns the current treasury account.
      */
     function getTreasuryAccount() external view returns (address) {
-        return config.treasuryAccount;
+        return config.policy.treasuryAccount;
     }
 
     /**
      * @notice Returns the current treasury fee.
      */
     function getTreasuryFee() external view returns (uint256) {
-        return config.treasuryFee;
+        return config.policy.treasuryFee;
     }
 
     /**
@@ -666,7 +776,7 @@ contract Autonity is IERC20, Upgradeable {
     * @return Returns the maximum size of the consensus committee.
     */
     function getMaxCommitteeSize() external view returns (uint256) {
-        return config.committeeSize;
+        return config.protocol.committeeSize;
     }
 
     /**
@@ -681,16 +791,22 @@ contract Autonity is IERC20, Upgradeable {
     * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
     */
     function getMinimumBaseFee() external view returns (uint256) {
-        return config.minBaseFee;
+        return config.policy.minBaseFee;
     }
 
     /**
      * @notice Returns the current operator account.
     */
     function getOperator() external view returns (address) {
-        return config.operatorAccount;
+        return config.protocol.operatorAccount;
     }
 
+    /**
+    * @notice Returns the current Oracle account.
+    */
+    function getOracle() external view returns (address) {
+        return address(config.contracts.oracleContract);
+    }
 
     /**
     * @notice getProposer returns the address of the proposer for the given height and
@@ -726,25 +842,6 @@ contract Autonity is IERC20, Upgradeable {
         revert("There is no validator left in the network");
     }
 
-    // lastId not included
-    function getBondingReq(uint256 _startID, uint256 _lastID) external view returns (Staking[] memory) {
-        // the total length of bonding sets.
-        Staking[] memory _results = new Staking[](_lastID - _startID);
-        for (uint256 i = 0; i < _lastID - _startID; i++) {
-            _results[i] = bondingMap[_startID + i];
-        }
-        return _results;
-    }
-
-    function getUnbondingReq(uint256 _startID, uint256 _lastID) external view returns (Staking[] memory) {
-        Staking[] memory _results = new Staking[](_lastID - _startID);
-        // the total length of bonding sets.
-        for (uint256 i = 0; i < _lastID - _startID; i++) {
-            _results[i] = unbondingMap[_startID + i];
-        }
-        return _results;
-    }
-
     /**
      * @notice Returns epoch associated to the block number.
      * @param _block the input block number.
@@ -766,7 +863,7 @@ contract Autonity is IERC20, Upgradeable {
     * This should be abstracted by a separate smart-contract.
     */
     modifier onlyOperator override {
-        require(config.operatorAccount == msg.sender, "caller is not the operator");
+        require(config.protocol.operatorAccount == msg.sender, "caller is not the operator");
         _;
     }
 
@@ -785,7 +882,7 @@ contract Autonity is IERC20, Upgradeable {
     * This should be abstracted by a separate smart-contract.
     */
     modifier onlyAccountability {
-        require(address(config.accountabilityContract) == msg.sender, "caller is not the slashing contract");
+        require(address(config.contracts.accountabilityContract) == msg.sender, "caller is not the slashing contract");
         _;
     }
 
@@ -807,12 +904,12 @@ contract Autonity is IERC20, Upgradeable {
         if (address(this).balance == 0) {
             return;
         }
-        uint256 _amount =  address(this).balance;
+        uint256 _amount = address(this).balance;
         // take treasury fee.
-        uint256 _treasuryReward = (config.treasuryFee * _amount) / 10 ** 18;
+        uint256 _treasuryReward = (config.policy.treasuryFee * _amount) / 10 ** 18;
         if (_treasuryReward > 0) {
             // Using "call" to let the treasury contract do any kind of computation on receive.
-            (bool sent, ) = config.treasuryAccount.call{value: _treasuryReward}("");
+            (bool sent,) = config.policy.treasuryAccount.call{value: _treasuryReward}("");
             if (sent == true) {
                 _amount -= _treasuryReward;
             }
@@ -825,20 +922,20 @@ contract Autonity is IERC20, Upgradeable {
             uint256 _reward = (committee[i].votingPower * _amount) / epochTotalBondedStake;
             if (_reward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
-                if(_val.state == ValidatorState.jailed){
-                    config.accountabilityContract.distributeRewards{value:_reward}(committee[i].addr);
+                if (_val.state == ValidatorState.jailed) {
+                    config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
                     continue;
                 }
                 // non-jailed validators have a strict amount of bonded newton.
                 // the distribution account for the PAS ratio post-slashing.
-                uint256 _selfReward = (_val.selfBondedStake * _reward) /_val.bondedStake;
+                uint256 _selfReward = (_val.selfBondedStake * _reward) / _val.bondedStake;
                 uint256 _delegationReward = _reward - _selfReward;
                 if (_selfReward > 0) {
                     // todo: handle failure scenario here although not critical.
-                    _val.treasury.call{value: _treasuryReward, gas:2300}("");
+                    _val.treasury.call{value: _selfReward, gas: 2300}("");
                 }
-                if(_delegationReward > 0){
-                    _val.liquidContract.redistribute{value : _delegationReward}();
+                if (_delegationReward > 0) {
+                    _val.liquidContract.redistribute{value: _delegationReward}();
                 }
                 emit Rewarded(_val.nodeAddress, _reward);
             }
@@ -870,7 +967,7 @@ contract Autonity is IERC20, Upgradeable {
     }
 
     function _verifyEnode(Validator memory _validator) internal view {
-    // _enode can't be empty and needs to be well-formed.
+        // _enode can't be empty and needs to be well-formed.
         uint _err;
         (_validator.nodeAddress, _err) = Precompiled.parseEnode(_validator.enode);
         require(_err == 0, "enode error");
@@ -910,17 +1007,16 @@ contract Autonity is IERC20, Upgradeable {
         bytes32 s;
         uint8 v;
         //start from 32th byte to skip the encoded length field from the bytes type variable
-        for (uint i=32; i < _multisig.length; i +=65) {
+        for (uint i = 32; i < _multisig.length; i += 65) {
             (r, s, v) = Helpers.extractRSV(_multisig, i);
-            signers[i/65] = ecrecover(hashedData, v, r, s);
+            signers[i / 65] = ecrecover(hashedData, v, r, s);
         }
         require(signers[0] == _validator.nodeAddress, "Invalid node key ownership proof provided");
         require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
 
         // deploy liquid stake contract
-       _deployLiquidContract(_validator);
+        _deployLiquidContract(_validator);
     }
-
 
     /**
     * @dev Internal function pausing the specified validator. Paused validators
@@ -934,7 +1030,7 @@ contract Autonity is IERC20, Upgradeable {
 
         val.state = ValidatorState.paused;
         //effectiveBlock may not be accurate if the epoch duration gets modified.
-        emit PausedValidator(val.treasury, _address,  lastEpochBlock + config.epochPeriod);
+        emit PausedValidator(val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
     }
 
 
@@ -944,21 +1040,24 @@ contract Autonity is IERC20, Upgradeable {
      *
      * This function assume that `_validator` is a valid validator address.
      */
-    function _bond(address _validator, uint256 _amount, address payable _recipient) internal virtual{
+    function _bond(address _validator, uint256 _amount, address payable _recipient) internal virtual {
         require(_amount > 0, "amount need to be strictly positive");
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
         accounts[_recipient] -= _amount;
-        Staking memory _bonding = Staking(_recipient, _validator, _amount, block.number);
+        BondingRequest memory _bonding = BondingRequest(_recipient, _validator, _amount, block.number);
         bondingMap[headBondingID] = _bonding;
         headBondingID++;
+
+        bool _selfBonded = validators[_validator].treasury == _recipient;
+        emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount);
     }
 
     function _applyBonding(uint256 id) internal {
-        Staking storage _bonding = bondingMap[id];
+        BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
 
-        if(_bonding.delegator != _validator.treasury){
+        if (_bonding.delegator != _validator.treasury) {
             /* The LNTN: NTN conversion rate is equal to the ratio of issued liquid tokens
              over the total amount of non self-delegated stake tokens. */
             uint256 _liquidAmount;
@@ -971,7 +1070,7 @@ contract Autonity is IERC20, Upgradeable {
             _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
         } else {
-            // Penalty Aborbing Stake : No LNTN isued if delegator is treasury
+            // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
             _validator.selfBondedStake += _bonding.amount;
         }
         _validator.bondedStake += _bonding.amount;
@@ -979,51 +1078,96 @@ contract Autonity is IERC20, Upgradeable {
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual {
         Validator storage _validator = validators[_validatorAddress];
-        if(_recipient != _validator.treasury){
+        bool selfDelegation = _recipient == _validator.treasury;
+        if(!selfDelegation) {
             // Burn LNTN if it was issued (non self-delegated stake case)
-            uint256 liqBalance = _validator.liquidContract.balanceOf(_recipient);
-            require(liqBalance >= _amount, "insufficient Liquid Newton balance");
-
-            uint256 _liqSupply = _validator.liquidContract.totalSupply();
-            require(!(_inCommittee(_validatorAddress) && _amount == _liqSupply),
-                "can't have committee member without LNTN");
-
-            _validator.liquidContract.burn(_recipient, _amount);
+            uint256 liqBalance = _validator.liquidContract.unlockedBalanceOf(_recipient);
+            require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
+            _validator.liquidContract.lock(_recipient, _amount);
         } else {
-            require(_validator.selfBondedStake >= _amount, "insufficient self bonded newton balance");
+            require(
+                _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
+                "insufficient self bonded newton balance"
+            );
+            _validator.selfUnbondingStakeLocked += _amount;
         }
-        Staking memory _unbonding = Staking(_recipient, _validatorAddress, _amount, block.number);
-        unbondingMap[headUnbondingID] = _unbonding;
+        unbondingMap[headUnbondingID] = UnbondingRequest(_recipient, _validatorAddress, _amount,
+                                                         0, block.number, false, selfDelegation);
         headUnbondingID++;
+
+        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
     }
 
-    function _applyUnbonding(uint256 id) internal virtual {
-        Staking storage _unbonding = unbondingMap[id];
+    function _releaseUnbondingStake(uint256 _id) internal virtual {
+        UnbondingRequest storage _unbonding = unbondingMap[_id];
         Validator storage _validator = validators[_unbonding.delegatee];
-        uint256 _newtonAmount;
-        if(_unbonding.delegator != _validator.treasury){
-            uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
-             /* validator.liquidSupply must not be equal to zero here */
-            _newtonAmount = (_unbonding.amount * _delegatedStake) / _validator.liquidSupply;
-            _validator.liquidSupply -= _unbonding.amount;
+        uint256 _returnedStake;
+        if(!_unbonding.selfDelegation){
+            _returnedStake =  (_unbonding.unbondingShare *  _validator.unbondingStake) / _validator.unbondingShares;
+            _validator.unbondingStake -= _returnedStake;
+            _validator.unbondingShares -= _unbonding.unbondingShare;
         } else {
-            // Penalty Absorbing Stake: No LTN issued
+            _returnedStake =  (_unbonding.unbondingShare *  _validator.selfUnbondingStake) / _validator.selfUnbondingShares;
+            _validator.selfUnbondingStake -= _returnedStake;
+            _validator.selfUnbondingShares -= _unbonding.unbondingShare;
+        }
+        accounts[_unbonding.delegator] += _returnedStake;
+    }
+
+    function _applyUnbonding(uint256 _id) internal virtual {
+        UnbondingRequest storage _unbonding = unbondingMap[_id];
+        Validator storage _validator = validators[_unbonding.delegatee];
+
+        uint256 _newtonAmount;
+        if (!_unbonding.selfDelegation){
+            // Step 1: Unlock and burn requested liquid newtons
+            uint256 _liquidAmount = _unbonding.amount;
+            _validator.liquidContract.unlock(_unbonding.delegator, _liquidAmount);
+            _validator.liquidContract.burn(_unbonding.delegator, _liquidAmount);
+
+            // Step 2: Calculate the amount of stake to reduce from the delegation pool.
+            // Note: validator.liquidSupply cannot be equal to zero here
+            uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
+            _newtonAmount = (_liquidAmount * _delegatedStake) / _validator.liquidSupply;
+           _validator.liquidSupply -= _liquidAmount;
+
+            // Step 3: Calculate the amount of shares the staker will get in the unbonding pool.
+            // Note : This accounting extra-complication is due to the possibility of slashing unbonding funds.
+            if(_validator.unbondingStake == 0) {
+                _unbonding.unbondingShare = _newtonAmount;
+            } else {
+                _unbonding.unbondingShare = (_newtonAmount * _validator.unbondingShares)/_validator.unbondingStake;
+            }
+            _validator.unbondingStake += _newtonAmount;
+            _validator.unbondingShares +=  _unbonding.unbondingShare;
+        } else {
+            // self-delegated stake path, no LNTN<>NTN conversion
             _newtonAmount = _unbonding.amount;
-            if(_validator.selfBondedStake < _newtonAmount) {
+            if (_newtonAmount > _validator.selfBondedStake) {
                 _newtonAmount = _validator.selfBondedStake;
             }
+            if (_validator.selfUnbondingStake == 0) {
+                 _unbonding.unbondingShare = _newtonAmount;
+            } else {
+                _unbonding.unbondingShare = (_newtonAmount * _validator.selfUnbondingShares)/_validator.selfUnbondingStake;
+            }
+            _validator.selfUnbondingStake += _newtonAmount;
+            _validator.selfUnbondingShares += _unbonding.unbondingShare;
+            // decrease _validator.selfBondedStake for self-delegation
             _validator.selfBondedStake -= _newtonAmount;
+            _validator.selfUnbondingStakeLocked -= _unbonding.amount;
         }
+
+        _unbonding.unlocked = true;
+        // Final step: Reduce amount of newton bonded
         _validator.bondedStake -= _newtonAmount;
-        accounts[_unbonding.delegator] += _newtonAmount;
     }
 
     function _applyNewCommissionRates() internal virtual {
-        while(commissionRateChangeQueueFirst < commissionRateChangeQueueLast) {
+        while (commissionRateChangeQueueFirst < commissionRateChangeQueueLast) {
             // check unbonding period
-
             CommissionRateChangeRequest storage _curRequest = commissionRateChangeQueue[commissionRateChangeQueueFirst];
-            if(_curRequest.startBlock + config.unbondingPeriod > block.number){
+            if (_curRequest.startBlock + config.policy.unbondingPeriod > block.number) {
                 break;
             }
 
@@ -1038,16 +1182,28 @@ contract Autonity is IERC20, Upgradeable {
     }
 
     /* Should be called at every epoch */
-    function _stakingTransitions() internal virtual {
-        for (uint256 i = tailBondingID; i < headBondingID; i++) {
-            _applyBonding(i);
-        }
-        tailBondingID = headBondingID;
+    function _stakingOperations() internal virtual {
+        // bonding operations are executed first
+        for (uint256 i = tailBondingID;
+                     i < headBondingID;
+                     _applyBonding(i++)){}
 
+        tailBondingID = headBondingID;
+        if(tailUnbondingID == headUnbondingID) {
+            // everything else already processed, return early
+            return;
+        }
+        // Process the fresh unbonding requests, unbond NTN and burn LNTN
+        for (uint256 i = lastUnlockedUnbonding;
+                     i < headUnbondingID;
+                      _applyUnbonding(i++)){}
+        lastUnlockedUnbonding = headUnbondingID;
+
+        // Finally we release the locked NTN tokens
         uint256 _processedId = tailUnbondingID;
         for (uint256 i = tailUnbondingID; i < headUnbondingID; i++) {
-            if (unbondingMap[i].startBlock + config.unbondingPeriod <= block.number) {
-                _applyUnbonding(i);
+            if (unbondingMap[i].requestBlock + config.policy.unbondingPeriod <= block.number) {
+                _releaseUnbondingStake(i);
                 _processedId += 1;
             } else {
                 break;
@@ -1094,7 +1250,6 @@ contract Autonity is IERC20, Upgradeable {
 
     function _removeFromArray(address _address, address[] storage _array) internal {
         require(_array.length > 0);
-
         for (uint256 i = 0; i < _array.length; i++) {
             if (_array[i] == _address) {
                 _array[i] = _array[_array.length - 1];
@@ -1104,13 +1259,13 @@ contract Autonity is IERC20, Upgradeable {
         }
     }
 
-    	function _inCommittee(address _validator) internal view returns (bool) {
-            for (uint256 i = 0; i < committee.length; i++) {
-                if (_validator == committee[i].addr){
-                    return true;
-                }
+    function _inCommittee(address _validator) internal view returns (bool) {
+        for (uint256 i = 0; i < committee.length; i++) {
+            if (_validator == committee[i].addr) {
+                return true;
             }
-            return false;
-    	}
+        }
+        return false;
+    }
 
 }

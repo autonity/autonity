@@ -192,7 +192,10 @@ func (s *InvalidProposal) SignAndBroadcast(ctx context.Context, msg *message.Mes
 		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
 		return
 	}
-	_ = msg.DecodePayload()
+	err := msg.DecodePayload()
+	if err != nil {
+		s.Logger().Info("error while decoding payload", "error", err)
+	}
 	nextPR := e2e.NextProposeRound(msg.R(), s.Core)
 	// a proposal with invalid header of missing metas.
 	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}

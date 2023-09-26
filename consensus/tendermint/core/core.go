@@ -9,6 +9,7 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -168,7 +169,7 @@ type Core struct {
 
 	futureRoundChange map[int64]map[common.Address]*big.Int
 
-	autonityContract *autonity.Contracts
+	protocolContracts *autonity.ProtocolContracts
 
 	// tendermint behaviour interfaces, can be used in customizing the behaviours
 	// during malicious testing
@@ -381,6 +382,9 @@ func (c *Core) MeasureHeightRoundMetrics(round int64) {
 
 // StartRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *Core) StartRound(ctx context.Context, round int64) {
+	if round > constants.MaxRound {
+		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
+	}
 
 	c.MeasureHeightRoundMetrics(round)
 	// Set initial FSM state

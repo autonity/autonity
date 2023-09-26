@@ -13,7 +13,7 @@
       "operator": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
       "validators": [
         {
-          "enode": "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+          "enode": "enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.11:30303",
           "treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
           "oracleAddress": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
           "bondedStake": 10000
@@ -22,6 +22,15 @@
     },
     "oracle": {
       "votePeriod": 30
+    },
+    "accountability": {
+      "innocenceProofSubmissionWindow": 30,
+      "baseSlashingRateLow": 500,
+      "baseSlashingRateMid": 1000,
+      "collusionFactor": 550,
+      "historyFactor": 750,
+      "jailFactor": 60,
+      "slashingRatePrecision": 10000
     }
   },
   "nonce": "0x0",

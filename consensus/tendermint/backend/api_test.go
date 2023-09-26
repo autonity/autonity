@@ -2,6 +2,7 @@ package backend
 
 import (
 	"github.com/autonity/autonity/params/generated"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rpc"
-	"github.com/golang/mock/gomock"
+
 	"github.com/stretchr/testify/assert"
 )
 
