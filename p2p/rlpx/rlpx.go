@@ -144,7 +144,7 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 	wireSize = len(data)
 
 	// If snappy is enabled, verify and decompress message.
-	if c.snappyReadBuffer != nil {
+	if c.snappyReadBuffer != nil && wireSize > minSizeToCompress {
 		var actualSize int
 		actualSize, err = snappy.DecodedLen(data)
 		if err != nil {
@@ -215,7 +215,7 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
 	if len(data) > maxUint24 {
 		return 0, errPlainMessageTooLarge
 	}
-	if c.snappyWriteBuffer != nil {
+	if c.snappyWriteBuffer != nil && len(data) > minSizeToCompress {
 		// Ensure the buffer has sufficient size.
 		// Package snappy will allocate its own buffer if the provided
 		// one is smaller than MaxEncodedLen.
@@ -355,6 +355,8 @@ const (
 	shaLen = 32                     // hash length (for nonce etc)
 
 	eciesOverhead = 65 /* pubkey */ + 16 /* IV */ + 32 /* MAC */
+
+	minSizeToCompress = 512 // for smaller packets the compression is ineffective
 )
 
 var (
