@@ -64,6 +64,28 @@ func TestReadWriteMsg(t *testing.T) {
 	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
 }
 
+func TestReadWriteLargeMsg(t *testing.T) {
+	peer1, peer2 := createPeers(t)
+	defer peer1.Close()
+	defer peer2.Close()
+
+	t.Log("enabling snappy")
+	peer1.SetSnappy(true)
+	peer2.SetSnappy(true)
+	testCode := uint64(23)
+	testData := make([]byte, minSizeToCompress)
+	for i := 0; i < len(testData); i++ {
+		testData[i] = byte(i) + 1 // auto rotate after 256
+	}
+	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
+	// size 511, snappy will not be used
+	testData = make([]byte, minSizeToCompress-1)
+	for i := 0; i < len(testData); i++ {
+		testData[i] = byte(i) + 1
+	}
+	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
+}
+
 func checkMsgReadWrite(t *testing.T, p1, p2 *Conn, msgCode uint64, msgData []byte) {
 	// Set up the reader.
 	ch := make(chan message, 1)
@@ -127,20 +149,21 @@ func TestFrameReadWrite(t *testing.T) {
 		EgressMAC:  hash,
 	})
 	h := conn.session
-
 	golden := unhex(`
-		00828ddae471818bb0bfa6b551d1cb42
+		00828d18a671018bb0bfa6b551d1cb42
 		01010101010101010101010101010101
 		ba628a4ba590cb43f7848f41c4382885
 		01010101010101010101010101010101
 	`)
+
 	msgCode := uint64(8)
 	msg := []uint{1, 2, 3, 4}
 	msgEnc, _ := rlp.EncodeToBytes(msg)
+	var snappyByte byte = 0x00
 
 	// Check writeFrame. The frame that's written should be equal to the test vector.
 	buf := new(bytes.Buffer)
-	if err := h.writeFrame(buf, msgCode, msgEnc); err != nil {
+	if err := h.writeFrame(buf, msgCode, snappyByte, msgEnc); err != nil {
 		t.Fatalf("WriteMsg error: %v", err)
 	}
 	if !bytes.Equal(buf.Bytes(), golden) {
@@ -148,9 +171,12 @@ func TestFrameReadWrite(t *testing.T) {
 	}
 
 	// Check readFrame on the test vector.
-	content, err := h.readFrame(bytes.NewReader(golden))
+	content, snappyByte, err := h.readFrame(bytes.NewReader(golden))
 	if err != nil {
 		t.Fatalf("ReadMsg error: %v", err)
+	}
+	if snappyByte != 0x00 {
+		t.Errorf("Snappy should not be set: %v", err)
 	}
 	wantContent := unhex("08C401020304")
 	if !bytes.Equal(content, wantContent) {

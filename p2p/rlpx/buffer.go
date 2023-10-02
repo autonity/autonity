@@ -120,7 +120,7 @@ func growslice(b []byte, wantLength int) []byte {
 	if len(b) == wantLength {
 		return b
 	}
-	if len(b) > wantLength || cap(b) >= wantLength {
+	if len(b) > wantLength {
 		return b[:wantLength]
 	}
 	return make([]byte, wantLength)
