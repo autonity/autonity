@@ -160,9 +160,17 @@ test-contracts-pre:
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
 
+APE_VERSION := 0.6.19
 test-contracts-asm:
 	@echo "check and install ape framework"
-	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
+	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
+	@echo "check ape framework version"
+	@test $$(ape --version) = "$(APE_VERSION)" || { \
+		echo -n "error: unsupported ape version $$(ape --version) "; \
+		echo "(need $(APE_VERSION))..."; \
+		echo "please uninstall eth-ape and then re-run the make target"; \
+		exit 1;\
+	}
 	@echo "check and install hardhat"
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
 	@echo "install ape framework plugins"
