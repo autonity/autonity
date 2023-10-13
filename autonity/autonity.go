@@ -75,7 +75,7 @@ type Cache struct {
 	subMinBaseFee event.Subscription
 	subscriptions *event.SubscriptionScope // will be useful when we have multiple subscriptions
 	quit          chan struct{}
-	wg            sync.WaitGroup
+	done          chan struct{}
 }
 
 func newCache(ac *AutonityContract, head *types.Header, state *state.StateDB) (*Cache, error) {
@@ -95,9 +95,9 @@ func newCache(ac *AutonityContract, head *types.Header, state *state.StateDB) (*
 		subMinBaseFee: subMinBaseFeeWrapped,
 		subscriptions: scope,
 		quit:          make(chan struct{}),
+		done:          make(chan struct{}),
 	}
 	cache.minBaseFee.Store(minBaseFee)
-	cache.wg.Add(1)
 	go cache.Listen()
 	return cache, nil
 }
@@ -167,7 +167,7 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 func (c *Cache) Listen() {
 	defer func() {
 		c.subscriptions.Close()
-		c.wg.Done()
+		close(c.done)
 	}()
 
 	for {
@@ -186,8 +186,8 @@ func (c *Cache) Listen() {
 }
 
 func (c *Cache) Stop() {
-	c.quit <- struct{}{}
-	c.wg.Wait()
+	close(c.quit)
+	<-c.done
 }
 
 func (c *Cache) MinimumBaseFee() *big.Int {
