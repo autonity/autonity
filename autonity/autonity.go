@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/params/generated"
@@ -69,13 +70,12 @@ func NewEVMContract(evmProvider EVMProvider, contractABI *abi.ABI, db ethdb.Data
 }
 
 type Cache struct {
-	minBaseFee    *big.Int
+	minBaseFee    atomic.Pointer[big.Int]
 	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
 	subMinBaseFee event.Subscription
 	subscriptions *event.SubscriptionScope // will be useful when we have multiple subscriptions
 	quit          chan struct{}
 	wg            sync.WaitGroup
-	sync.RWMutex
 }
 
 func newCache(ac *AutonityContract, head *types.Header, state *state.StateDB) (*Cache, error) {
@@ -91,12 +91,12 @@ func newCache(ac *AutonityContract, head *types.Header, state *state.StateDB) (*
 	scope := new(event.SubscriptionScope)
 	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
 	cache := &Cache{
-		minBaseFee:    minBaseFee,
 		minBaseFeeCh:  minBaseFeeCh,
 		subMinBaseFee: subMinBaseFeeWrapped,
 		subscriptions: scope,
 		quit:          make(chan struct{}),
 	}
+	cache.minBaseFee.Store(minBaseFee)
 	cache.wg.Add(1)
 	go cache.Listen()
 	return cache, nil
@@ -178,9 +178,7 @@ func (c *Cache) Listen() {
 			// we crash the client to avoid using a out-of-date value of minBaseFee in case something goes very wrong.
 			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case ev := <-c.minBaseFeeCh:
-			c.Lock()
-			c.minBaseFee = ev.GasPrice
-			c.Unlock()
+			c.minBaseFee.Store(ev.GasPrice)
 		case <-c.quit:
 			return
 		}
@@ -193,9 +191,7 @@ func (c *Cache) Stop() {
 }
 
 func (c *Cache) MinimumBaseFee() *big.Int {
-	defer c.RUnlock()
-	c.RLock()
-	return c.minBaseFee
+	return c.minBaseFee.Load()
 }
 
 func (c *AutonityContract) CommitteeEnodes(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
