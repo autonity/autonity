@@ -2,14 +2,14 @@ package types
 
 import (
 	"errors"
+	"github.com/autonity/autonity/crypto"
+	"golang.org/x/crypto/blake2b"
 	"strings"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 	lru "github.com/hashicorp/golang-lru"
-	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -49,34 +49,32 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	return newHeader
 }
 
-// sigHash returns the hash which is used as input for the BFT
+// SigHash returns the hash which is used as input for the BFT
 // signing. It is the hash of the entire header apart from the 65 byte signature
 // contained at the end of the extra data.
 //
 // Note, the method requires the extra data to be at least 65 bytes, otherwise it
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
-func SigHash(header *Header) (hash common.Hash) {
-	hasher := sha3.NewLegacyKeccak256()
-
-	// Clean seal is required for calculating proposer seal.
-	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
+func SigHash(header *Header) common.Hash {
+	inputData, err := rlp.EncodeToBytes(BFTFilteredHeader(header, false))
 	if err != nil {
-		log.Error("can't hash the header", "err", err, "header", header)
+		log.Error("can't encode header", "err", err, "header", header)
 		return common.Hash{}
 	}
-	hasher.Sum(hash[:0])
-	return hash
+	return blake2b.Sum256(inputData)
 }
 
-// Ecrecover extracts the Ethereum account address from a signed header.
-func Ecrecover(header *Header) (common.Address, error) {
-	hash := header.Hash()
+// ECRecover extracts the Ethereum account address from a signed header.
+func ECRecover(header *Header) (common.Address, error) {
+	hash := SigHash(header)
+	// note that we can use the hash alone for the key
+	// as the hash is over an object containing the proposer address
+	// e.g. every proposer will have a different header hash for the same block content.
 	if addr, ok := recentAddresses.Get(hash); ok {
 		return addr.(common.Address), nil
 	}
-
-	addr, err := GetSignatureAddress(SigHash(header).Bytes(), header.ProposerSeal)
+	addr, err := crypto.SigToAddr(hash[:], header.ProposerSeal)
 	if err != nil {
 		return addr, err
 	}
@@ -109,40 +107,17 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	if len(committedSeals) == 0 {
 		return ErrInvalidCommittedSeals
 	}
-
 	for _, seal := range committedSeals {
 		if len(seal) != BFTExtraSeal {
 			return ErrInvalidCommittedSeals
 		}
 	}
-
 	h.CommittedSeals = make([][]byte, len(committedSeals))
 	for i, val := range committedSeals {
 		h.CommittedSeals[i] = make([]byte, len(val))
 		copy(h.CommittedSeals[i], val)
 	}
-
 	return nil
-}
-
-func RLPHash(v any) (h common.Hash) {
-	hw := sha3.NewLegacyKeccak256()
-	rlp.Encode(hw, v)
-	hw.Sum(h[:0])
-	return h
-}
-
-// GetSignatureAddress gets the signer address from the signature
-// Youssef: This is too generic and merely a wrapper against ecrecover, that belongs to the crypto package.
-func GetSignatureAddress(data []byte, sig []byte) (common.Address, error) {
-	// 1. Keccak data
-	hashData := crypto.Keccak256(data)
-	// 2. Recover public key
-	pubkey, err := crypto.SigToPub(hashData, sig)
-	if err != nil {
-		return common.Address{}, err
-	}
-	return crypto.PubkeyToAddress(*pubkey), nil
 }
 
 func (c Committee) String() string {

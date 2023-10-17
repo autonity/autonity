@@ -2,24 +2,18 @@ package byzantine
 
 import (
 	"context"
+	"testing"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/rlp"
-
-	"testing"
-
+	"github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
 )
 
-func newPreVoteSpammer(c interfaces.Tendermint) interfaces.Prevoter {
+func newPreVoteSpammer(c interfaces.Core) interfaces.Prevoter {
 	return &preVoteSpammer{c.(*core.Core), c.Prevoter()}
 }
 
@@ -28,38 +22,21 @@ type preVoteSpammer struct {
 	interfaces.Prevoter
 }
 
-func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var prevote = message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
+func (c *preVoteSpammer) SendPrevote(_ context.Context, isNil bool) {
+	var prevote *message.Prevote
 	if isNil {
-		prevote.ProposedBlockHash = common.Hash{}
+		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		h := c.CurRoundMessages().ProposalHash()
+		if h == (common.Hash{}) {
 			c.Logger().Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	}
 
-	encodedVote, err := rlp.EncodeToBytes(&prevote)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", prevote)
-		return
-	}
-
-	msg := &message.Message{
-		Code:          consensus.MsgPrevote,
-		Payload:       encodedVote,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	}
 	for i := 0; i < 1000; i++ {
-		c.Broadcaster().SignAndBroadcast(msg)
+		c.BroadcastAll(prevote)
 	}
 	c.SetSentPrevote(true)
 }
@@ -70,8 +47,8 @@ func TestPrevoteSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: newPreVoteSpammer}
-	users[1].TendermintServices = &node.TendermintServices{Prevoter: newPreVoteSpammer}
+	users[0].TendermintServices = &interfaces.Services{Prevoter: newPreVoteSpammer}
+	users[1].TendermintServices = &interfaces.Services{Prevoter: newPreVoteSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -87,49 +64,24 @@ type precommitSpammer struct {
 	interfaces.Precommiter
 }
 
-func newPrecommitSpammer(c interfaces.Tendermint) interfaces.Precommiter {
+func newPrecommitSpammer(c interfaces.Core) interfaces.Precommiter {
 	return &precommitSpammer{c.(*core.Core), c.Precommiter()}
 }
 
-func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var precommit = message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
+func (c *precommitSpammer) SendPrecommit(_ context.Context, isNil bool) {
+	var precommit *message.Precommit
 	if isNil {
-		precommit.ProposedBlockHash = common.Hash{}
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		h := c.CurRoundMessages().ProposalHash()
+		if h == (common.Hash{}) {
 			c.Logger().Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), h, c.Backend().Sign)
 	}
-
-	encodedVote, err := rlp.EncodeToBytes(&precommit)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", precommit)
-		return
-	}
-	msg := &message.Message{
-		Code:          consensus.MsgPrecommit,
-		Payload:       encodedVote,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	}
-
-	// Create committed seal
-	seal := helpers.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
-	msg.CommittedSeal, err = c.Backend().Sign(seal)
-	if err != nil {
-		c.Logger().Error("core.sendPrecommit error while signing committed seal", "err", err)
-	}
-
 	for i := 0; i < 1000; i++ {
-		c.Broadcaster().SignAndBroadcast(msg)
+		c.BroadcastAll(precommit)
 	}
 	c.SetSentPrecommit(true)
 }
@@ -140,7 +92,7 @@ func TestPrecommitSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Precommiter: newPrecommitSpammer}
+	users[0].TendermintServices = &interfaces.Services{Precommiter: newPrecommitSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -156,24 +108,16 @@ type proposalSpammer struct {
 	interfaces.Proposer
 }
 
-func newProposalSpammer(c interfaces.Tendermint) interfaces.Proposer {
+func newProposalSpammer(c interfaces.Core) interfaces.Proposer {
 	return &proposalSpammer{c.(*core.Core), c.Proposer()}
 }
 
-func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
-	proposalBlock := message.NewProposal(c.Round(), c.Height(), c.ValidRound(), p, c.Backend().Sign)
-	proposal, _ := rlp.EncodeToBytes(proposalBlock)
-
+func (c *proposalSpammer) SendProposal(_ context.Context, p *types.Block) {
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
-
 	for i := 0; i < 1000; i++ {
-		c.Broadcaster().SignAndBroadcast(&message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			Address:       c.Address(),
-			CommittedSeal: []byte{},
-		})
+		c.BroadcastAll(proposal)
 	}
 }
 
@@ -183,7 +127,7 @@ func TestProposalSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Proposer: newProposalSpammer}
+	users[0].TendermintServices = &interfaces.Services{Proposer: newProposalSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)

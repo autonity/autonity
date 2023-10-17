@@ -756,7 +756,7 @@ func (w *worker) resultLoop() {
 			w.eth.Logger().Info("🔨 Proposed block validated with success", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 
-			// SignAndBroadcast the block and announce chain insertion event
+			// Broadcast the block and announce chain insertion event
 			w.mux.Post(core.NewMinedBlockEvent{Block: block})
 
 		case <-w.exitCh:

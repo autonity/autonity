@@ -63,7 +63,7 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 		return block, nil
 	}
 
-	lastMinedBlock, _ := m.Backend.HeadBlock()
+	lastMinedBlock := m.Backend.HeadBlock()
 	if lastMinedBlock.Number().Cmp(header.Number) != 0 {
 		return block, nil
 	}

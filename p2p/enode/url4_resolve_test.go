@@ -6,9 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/autonity/autonity/p2p/enr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/p2p/enr"
 )
 
 func newV4WithHostNoError(t *testing.T, pubkey *ecdsa.PublicKey, host string, tcp, udp int, resolveFunc func(host string) ([]net.IP, error)) *Node {
@@ -18,7 +19,6 @@ func newV4WithHostNoError(t *testing.T, pubkey *ecdsa.PublicKey, host string, tc
 }
 
 func TestParseNodeWithDomainResolution(t *testing.T) {
-
 	var parseNodeWithResolveTests = []struct {
 		rawurl     string
 		wantError  string
@@ -156,7 +156,7 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 		},
 	}
 
-	for _, test := range parseNodeWithResolveTests {
+	for i, test := range parseNodeWithResolveTests {
 		n, err := ParseV4(test.rawurl)
 
 		var gotErr string
@@ -186,12 +186,14 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 				zeroIP := net.IPv4(0, 0, 0, 0)
 				n.r.Set(enr.IP(zeroIP))
 				test.wantResult.r.Set(enr.IP(zeroIP))
+				n.r.Set(enr.IP(net.IPv6zero))
+				test.wantResult.r.Set(enr.IP(net.IPv6zero))
 
 				// Function references are not comparable, so we nullify them
 				// to allow comparing the remaining fields.
 				n.resolveFunc = nil
 				test.wantResult.resolveFunc = nil
-				assert.Equal(t, test.wantResult, n)
+				assert.Equal(t, test.wantResult, n, i)
 			}
 		}
 	}

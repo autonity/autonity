@@ -43,9 +43,8 @@ var ProtocolVersions = []uint{ETH66}
 
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-// var protocolLengths = map[uint]uint64{ETH66: 19}
-// as off chain accountability introduced a new protocol msg, we have to increase this number to 20.
-var protocolLengths = map[uint]uint64{ETH66: 20}
+// var protocolLengths = map[uint]uint64{ETH66: 17}
+var protocolLengths = map[uint]uint64{ETH66: 22}
 
 // MaxMessageSize is the maximum cap on the size of a protocol message.
 const MaxMessageSize = 10 * 1024 * 1024

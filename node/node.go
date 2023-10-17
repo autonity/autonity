@@ -27,7 +27,6 @@ import (
 	"sync"
 
 	"github.com/autonity/autonity/accounts"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
@@ -36,14 +35,6 @@ import (
 	"github.com/autonity/autonity/rpc"
 	"github.com/prometheus/tsdb/fileutil"
 )
-
-type TendermintServices struct {
-	Broadcaster func(c interfaces.Tendermint) interfaces.Broadcaster
-	Prevoter    func(c interfaces.Tendermint) interfaces.Prevoter
-	Proposer    func(c interfaces.Tendermint) interfaces.Proposer
-	Precommiter func(c interfaces.Tendermint) interfaces.Precommiter
-	Gossiper    func(b interfaces.Backend) interfaces.Gossiper
-}
 
 // Node is a container on which services can be registered.
 type Node struct {
