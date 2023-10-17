@@ -27,8 +27,8 @@ type NewCandidateBlockEvent struct {
 }
 
 // MessageEvent is posted for Istanbul engine communication
-type MessageEvent struct {
-	Payload []byte
+type MessageEvent[C any] struct {
+	Message C
 	ErrCh   chan<- error //error channel
 }
 

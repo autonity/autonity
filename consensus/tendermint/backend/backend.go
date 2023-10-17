@@ -140,12 +140,8 @@ func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, pay
 	msg := events.MessageEvent{
 		Payload: payload,
 	}
-	sb.postEvent(msg)
+	go sb.Post(msg)
 	return nil
-}
-
-func (sb *Backend) postEvent(event interface{}) {
-	go sb.Post(event)
 }
 
 func (sb *Backend) AskSync(header *types.Header) {

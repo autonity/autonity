@@ -3,20 +3,23 @@ package backend
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/p2p"
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"io"
 )
 
 const (
-	TendermintMsg     = 0x11
-	SyncMsg           = 0x12
-	AccountabilityMsg = 0x13
+	ProposeMsg        = 0x11
+	PrevoteMsg        = 0x12
+	PrecommitMsg      = 0x13
+	SyncMsg           = 0x14
+	AccountabilityMsg = 0x15
 )
 
 type UnhandledMsg struct {
@@ -53,7 +56,7 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code != TendermintMsg && msg.Code != SyncMsg && msg.Code != AccountabilityMsg {
+	if msg.Code < ProposeMsg || msg.Code > AccountabilityMsg {
 		return false, nil
 	}
 
@@ -61,49 +64,19 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	defer sb.coreMu.Unlock()
 
 	switch msg.Code {
-	case TendermintMsg:
-		if !sb.coreStarted {
-			buffer := new(bytes.Buffer)
-			if _, err := io.Copy(buffer, msg.Payload); err != nil {
-				return true, errDecodeFailed
-			}
-			savedMsg := msg
-			savedMsg.Payload = buffer
-			sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: savedMsg})
-			return true, nil //return nil to avoid shutting down connection during block sync.
-		}
-		var data []byte
-		// todo(youssef): this will be decoded again in core, why?
-		if err := msg.Decode(&data); err != nil {
-			return true, errDecodeFailed
-		}
-		hash := types.RLPHash(data)
-		// Mark peer's message
-		ms, ok := sb.recentMessages.Get(addr)
-		var m *lru.ARCCache
-		if ok {
-			m, _ = ms.(*lru.ARCCache)
-		} else {
-			m, _ = lru.NewARC(inmemoryMessages)
-			sb.recentMessages.Add(addr, m)
-		}
-		m.Add(hash, true)
-		// Mark self known message
-		if _, ok := sb.knownMessages.Get(hash); ok {
-			return true, nil
-		}
-		sb.knownMessages.Add(hash, true)
-		sb.postEvent(events.MessageEvent{
-			Payload: data,
-			ErrCh:   errCh,
-		})
+	case ProposeMsg:
+		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
+	case PrevoteMsg:
+		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
+	case PrecommitMsg:
+		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
 	case SyncMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Debug("Received sync message", "from", addr)
-		sb.postEvent(events.SyncEvent{Addr: addr})
+		go sb.Post(events.SyncEvent{Addr: addr})
 	case AccountabilityMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Accountability Msg received but core not running")
@@ -117,12 +90,58 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 		// post the off chain accountability msg to the event handler, let the event handler to handle DoS attack vectors.
 		sb.logger.Debug("Received Accountability Msg", "from", addr)
-		sb.postEvent(events.AccountabilityEvent{Sender: addr, Payload: data, ErrCh: errCh})
-
+		go sb.Post(events.AccountabilityEvent{Sender: addr, Payload: data, ErrCh: errCh})
 	default:
 		return false, nil
 	}
 
+	return true, nil
+}
+
+func handleConsensusMsg[M message.Consensus](sb *Backend, addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
+	if !sb.coreStarted {
+		buffer := new(bytes.Buffer)
+		if _, err := io.Copy(buffer, msg.Payload); err != nil {
+			return true, errDecodeFailed
+		}
+		savedMsg := msg
+		savedMsg.Payload = buffer
+		sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: savedMsg})
+		return true, nil // return nil to avoid shutting down connection during block sync.
+	}
+	var consensusMsg M
+	if err := msg.Decode(&consensusMsg); err != nil {
+		return true, err
+	}
+	// If reading was fine then cache the original payload to avoid
+	// encoding work during gossip
+	if _, err := msg.Payload.(*bytes.Reader).Seek(0, io.SeekStart); err != nil {
+		return true, err
+	}
+	payload := make([]byte, msg.Size)
+	if _, err := msg.Payload.Read(payload); err != nil {
+		return true, err
+	}
+	hash := sha256.Sum256(payload)
+	// Mark peer's message
+	ms, ok := sb.recentMessages.Get(addr)
+	var m *lru.ARCCache
+	if ok {
+		m, _ = ms.(*lru.ARCCache)
+	} else {
+		m, _ = lru.NewARC(inmemoryMessages)
+		sb.recentMessages.Add(addr, m)
+	}
+	m.Add(hash, true)
+	// Mark self known message
+	if _, ok := sb.knownMessages.Get(hash); ok {
+		return true, nil
+	}
+	sb.knownMessages.Add(hash, true)
+	go sb.Post(events.MessageEvent[M]{
+		Message: consensusMsg,
+		ErrCh:   errCh,
+	})
 	return true, nil
 }
 

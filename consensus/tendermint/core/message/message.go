@@ -34,6 +34,32 @@ type Message struct {
 	Bytes        []byte       // rlp encoded bytes with only the 1st 5 fields of this Message struct.
 }
 
+type Propose struct {
+	Block  *types.Block
+	Round  uint64
+	Height *big.Int
+
+	payload []byte
+}
+
+type Prevote struct {
+	Value  common.Hash
+	Round  uint64
+	Height *big.Int
+
+	payload []byte
+}
+type Precommit struct {
+	Value   common.Hash
+	Round   uint64
+	Height  *big.Int
+	payload []byte
+}
+
+type Consensus interface {
+	Propose | Prevote | Precommit
+}
+
 // ==============================================
 //
 // define the functions that needs to be provided for rlp Encoder/Decoder.
