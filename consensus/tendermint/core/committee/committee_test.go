@@ -9,12 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const maxSize = 100

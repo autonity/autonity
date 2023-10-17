@@ -188,6 +188,7 @@ contract Accountability is IAccountability {
     }
 
     function getValidatorAccusation(address _val) public view returns (Event memory){
+        require(validatorAccusation[_val] > 0 , "no accusation");
         return events[validatorAccusation[_val] - 1];
     }
 

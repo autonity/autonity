@@ -13,18 +13,18 @@ type MsgStore struct {
 	// the first height that msg are buffered from after node is start.
 	firstHeight uint64
 	// map[Height]map[Round]map[MsgType]map[common.address][]*Message
-	messages map[uint64]map[int64]map[uint8]map[common.Address][]*message.Message
+	messages map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg
 }
 
 func NewMsgStore() *MsgStore {
 	return &MsgStore{
 		RWMutex:     sync.RWMutex{},
 		firstHeight: uint64(0),
-		messages:    make(map[uint64]map[int64]map[uint8]map[common.Address][]*message.Message)}
+		messages:    make(map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg)}
 }
 
 // Save store msg into msg store
-func (ms *MsgStore) Save(m *message.Message) {
+func (ms *MsgStore) Save(m message.Msg) {
 	ms.Lock()
 	defer ms.Unlock()
 
@@ -34,30 +34,30 @@ func (ms *MsgStore) Save(m *message.Message) {
 	height := m.H()
 	roundMap, ok := ms.messages[height]
 	if !ok {
-		roundMap = make(map[int64]map[uint8]map[common.Address][]*message.Message)
+		roundMap = make(map[int64]map[uint8]map[common.Address][]message.Msg)
 		ms.messages[height] = roundMap
 	}
 
 	round := m.R()
 	msgTypeMap, ok := roundMap[round]
 	if !ok {
-		msgTypeMap = make(map[uint8]map[common.Address][]*message.Message)
+		msgTypeMap = make(map[uint8]map[common.Address][]message.Msg)
 		roundMap[round] = msgTypeMap
 	}
 
-	addressMap, ok := msgTypeMap[m.Code]
+	addressMap, ok := msgTypeMap[m.Code()]
 	if !ok {
-		addressMap = make(map[common.Address][]*message.Message)
-		msgTypeMap[m.Code] = addressMap
+		addressMap = make(map[common.Address][]message.Msg)
+		msgTypeMap[m.Code()] = addressMap
 	}
 
-	msgs, ok := addressMap[m.Address]
+	msgs, ok := addressMap[m.Sender()]
 	if !ok {
-		var msgList []*message.Message
-		addressMap[m.Address] = append(msgList, m)
+		var msgList []message.Msg
+		addressMap[m.Sender()] = append(msgList, m)
 		return
 	}
-	addressMap[m.Address] = append(msgs, m)
+	addressMap[m.Sender()] = append(msgs, m)
 }
 
 func (ms *MsgStore) FirstHeightBuffered() uint64 {
@@ -85,11 +85,11 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, step uint8, sender com
 }
 
 // Get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(height uint64, query func(*message.Message) bool) []*message.Message {
+func (ms *MsgStore) Get(height uint64, query func(message.Msg) bool) []message.Msg {
 	ms.RLock()
 	defer ms.RUnlock()
 
-	var result []*message.Message
+	var result []message.Msg
 	roundMap, ok := ms.messages[height]
 	if !ok {
 		return result
@@ -106,6 +106,31 @@ func (ms *MsgStore) Get(height uint64, query func(*message.Message) bool) []*mes
 			}
 		}
 	}
+	return result
+}
 
+func GetStore[T any, PT interface {
+	*T
+	message.Msg
+}](ms *MsgStore, height uint64, query func(*T) bool) []*T {
+	ms.RLock()
+	defer ms.RUnlock()
+	var result []*T
+	roundMap, ok := ms.messages[height]
+	if !ok {
+		return result
+	}
+	code := PT(new(T)).Code()
+	for _, msgTypeMap := range roundMap {
+		for _, msgs := range msgTypeMap[code] {
+			for _, msg := range msgs {
+				if m, ok := msg.(PT); ok {
+					if query((*T)(m)) {
+						result = append(result, (*T)(m))
+					}
+				}
+			}
+		}
+	}
 	return result
 }

@@ -191,10 +191,10 @@ type Config struct {
 
 	// AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
 	AllowUnprotectedTxs bool `toml:",omitempty"`
-	tendermintServices  *TendermintServices
+	tendermintServices  *interfaces.Services
 }
 
-func (c *Config) SetTendermintServices(handler *TendermintServices) {
+func (c *Config) SetTendermintServices(handler *interfaces.Services) {
 	// nothing to do if we do not have custom tendermint services
 	if handler == nil {
 		return
@@ -202,26 +202,26 @@ func (c *Config) SetTendermintServices(handler *TendermintServices) {
 	// if we have any missing custom services, fill the spot with a function that returns the default handler
 	// this simplifies the instantiation of the custom services in the tendermint backend and core
 	// while at the same time keeping the tests lean
-	c.tendermintServices = &TendermintServices{}
+	c.tendermintServices = &interfaces.Services{}
 	if handler.Broadcaster != nil {
 		c.tendermintServices.Broadcaster = handler.Broadcaster
 	} else {
-		c.tendermintServices.Broadcaster = func(c interfaces.Tendermint) interfaces.Broadcaster { return c.Broadcaster() }
+		c.tendermintServices.Broadcaster = func(c interfaces.Core) interfaces.Broadcaster { return c.Broadcaster() }
 	}
 	if handler.Proposer != nil {
 		c.tendermintServices.Proposer = handler.Proposer
 	} else {
-		c.tendermintServices.Proposer = func(c interfaces.Tendermint) interfaces.Proposer { return c.Proposer() }
+		c.tendermintServices.Proposer = func(c interfaces.Core) interfaces.Proposer { return c.Proposer() }
 	}
 	if handler.Prevoter != nil {
 		c.tendermintServices.Prevoter = handler.Prevoter
 	} else {
-		c.tendermintServices.Prevoter = func(c interfaces.Tendermint) interfaces.Prevoter { return c.Prevoter() }
+		c.tendermintServices.Prevoter = func(c interfaces.Core) interfaces.Prevoter { return c.Prevoter() }
 	}
 	if handler.Precommiter != nil {
 		c.tendermintServices.Precommiter = handler.Precommiter
 	} else {
-		c.tendermintServices.Precommiter = func(c interfaces.Tendermint) interfaces.Precommiter { return c.Precommiter() }
+		c.tendermintServices.Precommiter = func(c interfaces.Core) interfaces.Precommiter { return c.Precommiter() }
 	}
 	if handler.Gossiper != nil {
 		c.tendermintServices.Gossiper = handler.Gossiper
@@ -230,7 +230,7 @@ func (c *Config) SetTendermintServices(handler *TendermintServices) {
 	}
 }
 
-func (c *Config) TendermintServices() *TendermintServices {
+func (c *Config) TendermintServices() *interfaces.Services {
 	return c.tendermintServices
 }
 
