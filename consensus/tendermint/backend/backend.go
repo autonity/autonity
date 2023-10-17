@@ -1,8 +1,12 @@
 package backend
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"math/big"
 	"sync"
 	"time"
 
@@ -10,9 +14,8 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -42,6 +45,13 @@ var (
 	ErrStoppedEngine = errors.New("stopped engine")
 )
 
+type Core interface {
+	Start(ctx context.Context, contract *autonity.ProtocolContracts)
+	Stop()
+	CurrentHeightMessages() []message.Message
+	CoreState() tendermintCore.TendermintState
+}
+
 // New creates an Ethereum Backend for BFT core engine.
 func New(privateKey *ecdsa.PrivateKey,
 	vmConfig *vm.Config,
@@ -50,7 +60,6 @@ func New(privateKey *ecdsa.PrivateKey,
 	ms *tendermintCore.MsgStore,
 	log log.Logger) *Backend {
 
-	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
@@ -59,7 +68,6 @@ func New(privateKey *ecdsa.PrivateKey,
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         log,
-		recents:        recents,
 		coreStarted:    false,
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
@@ -94,13 +102,10 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
-	core              interfaces.Tendermint
+	core              Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup
 	coreMu            sync.RWMutex
-
-	// Snapshots for recent block to speed up reorgs
-	recents *lru.ARCCache
 
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
@@ -110,8 +115,7 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	//TODO: ARCChace is patented by IBM, so probably need to stop using it
-	//Update: patent has expired https://patents.google.com/patent/US7167953B2/en
+	//ARCCache is patented by IBM but it has expired https://patents.google.com/patent/US7167953B2/en
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
@@ -132,20 +136,14 @@ func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-// Broadcast implements tendermint.Backend.SignAndBroadcast
-func (sb *Backend) Broadcast(committee types.Committee, payload []byte) error {
+// Broadcast implements tendermint.Backend.Broadcast
+func (sb *Backend) Broadcast(committee types.Committee, message message.Message) {
 	// send to others
-	sb.Gossip(committee, payload)
+	sb.Gossip(ctx, committee, message)
 	// send to self
-	msg := events.MessageEvent{
-		Payload: payload,
-	}
-	sb.postEvent(msg)
-	return nil
-}
-
-func (sb *Backend) postEvent(event interface{}) {
-	go sb.Post(event)
+	go sb.Post(events.MessageEvent{
+		Message: message,
+	})
 }
 
 func (sb *Backend) AskSync(header *types.Header) {
@@ -227,7 +225,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// verify the header of proposed proposal
 	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
-	if err == nil || err == types.ErrEmptyCommittedSeals {
+	if err == nil || errors.Is(err, types.ErrEmptyCommittedSeals) {
 		var (
 			receipts types.Receipts
 
@@ -243,7 +241,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			// Verify the header's EIP-1559 attributes.
 			return 0, err
 		}
-		// We need to process all of the transaction to get the latest state to get the latest committee
+		// We need to process all the transaction to get the latest state to get the latest committee
 		state, stateErr := sb.blockchain.StateAt(parent.Root())
 		if stateErr != nil {
 			return 0, stateErr
@@ -309,46 +307,19 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		// At this stage committee field is consistent with the validator list returned by Soma-contract
 
 		return 0, nil
-	} else if err == consensus.ErrFutureTimestampBlock {
+	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
 	}
 	return 0, err
 }
 
 // Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data []byte) ([]byte, error) {
-	hashData := crypto.Keccak256(data)
-	return crypto.Sign(hashData, sb.privateKey)
+func (sb *Backend) Sign(data common.Hash) ([]byte, error) {
+	return crypto.Sign(data[:], sb.privateKey)
 }
 
-// CheckSignature implements tendermint.Backend.VerifySignature
-func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
-	signer, err := types.GetSignatureAddress(data, sig)
-	if err != nil {
-		sb.logger.Error("Failed to get signer address", "err", err)
-		return err
-	}
-	// Compare derived addresses
-	if signer != address {
-		return types.ErrInvalidSignature
-	}
-	return nil
-}
-
-func (sb *Backend) HeadBlock() (*types.Block, common.Address) {
-	block := sb.currentBlock()
-	var proposer common.Address
-	if block.Number().Cmp(common.Big0) > 0 {
-		var err error
-		proposer, err = sb.Author(block.Header())
-		if err != nil {
-			sb.logger.Error("Failed to get block proposer", "err", err)
-			return new(types.Block), common.Address{}
-		}
-	}
-
-	// Return header only block here since we don't need block body
-	return block, proposer
+func (sb *Backend) HeadBlock() *types.Block {
+	return sb.currentBlock()
 }
 
 func (sb *Backend) HasBadProposal(hash common.Hash) bool {
@@ -363,24 +334,22 @@ func (sb *Backend) GetContractABI() *abi.ABI {
 	return sb.blockchain.ProtocolContracts().ABI()
 }
 
-func (sb *Backend) CoreState() tctypes.TendermintState {
+func (sb *Backend) CoreState() tendermintCore.TendermintState {
 	return sb.core.CoreState()
 }
 
-// Whitelist for the current block
+// CommitteeEnodes retrieve the list of validators enodes for the current block
 func (sb *Backend) CommitteeEnodes() []string {
 	db, err := sb.blockchain.State()
 	if err != nil {
 		sb.logger.Error("Failed to get state", "err", err)
 		return nil
 	}
-
 	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil
 	}
-
 	return enodes.StrList
 }
 
@@ -389,8 +358,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	if sb.Broadcaster == nil {
 		return
 	}
-
-	sb.logger.Info("Syncing", "peer", address)
+	sb.logger.Debug("Syncing", "peer", address)
 	targets := map[common.Address]struct{}{address: {}}
 	ps := sb.Broadcaster.FindPeers(targets)
 	p, connected := ps[address]
@@ -400,7 +368,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	messages := sb.core.CurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(TendermintMsg, msg.GetBytes()) //nolint
+		go p.SendRaw(networkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
 
@@ -413,8 +381,6 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 	}
 }
 
-func (sb *Backend) RemoveMessageFromLocalCache(payload []byte) {
-	// Note: ARC is thread-safe
-	hash := types.RLPHash(payload)
-	sb.knownMessages.Remove(hash)
+func (sb *Backend) RemoveMessageFromLocalCache(message message.Message) {
+	sb.knownMessages.Remove(message.Hash())
 }

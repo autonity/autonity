@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -21,7 +22,7 @@ type Backend interface {
 	AskSync(header *types.Header)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(committee types.Committee, payload []byte) error
+	Broadcast(committee types.Committee, message message.Message)
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
@@ -31,22 +32,22 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(committee types.Committee, payload []byte)
+	Gossip(committee types.Committee, message message.Message)
 
 	KnownMsgHash() []common.Hash
 
 	HandleUnhandledMsgs(ctx context.Context)
 
 	// HeadBlock retrieves latest committed proposal and the address of proposer
-	HeadBlock() (*types.Block, common.Address)
+	HeadBlock() *types.Block
 
 	Post(ev any)
 
-	// Setter for proposed block hash
+	// SetProposedBlockHash is a setter for the proposed block hash
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
-	Sign([]byte) ([]byte, error)
+	Sign(hash common.Hash) ([]byte, error)
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
@@ -59,12 +60,12 @@ type Backend interface {
 	// Returns the main blockchain object.
 	BlockChain() *ethcore.BlockChain
 
-	//Used to set the blockchain on this
+	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
 
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
 	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
-	RemoveMessageFromLocalCache(payload []byte)
+	RemoveMessageFromLocalCache(message message.Message)
 
 	// Logger returns the object used for logging purposes.
 	Logger() log.Logger

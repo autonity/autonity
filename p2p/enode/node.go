@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/bits"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/autonity/autonity/p2p/enr"
@@ -169,9 +170,17 @@ func (n *Node) ResolveHost() error {
 	if len(ips) == 0 {
 		return fmt.Errorf("failed to resolve IP for host %q, no IPs returned", host)
 	}
-
+	// Use sorting to deterministicaly retrieve the final resolved ip.
+	sort.Slice(ips, func(i, j int) bool {
+		minLen := min(len(ips[i]), len(ips[j]))
+		for k := 0; k < minLen; k++ {
+			if ips[i][k] != ips[j][k] {
+				return ips[i][k] < ips[j][k]
+			}
+		}
+		return len(ips[i]) < len(ips[j])
+	})
 	ip := ips[0]
-
 	// Ensure the IP is 4 bytes long for IPv4 addresses.
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4

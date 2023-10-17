@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"time"
 
@@ -13,8 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
@@ -66,10 +67,9 @@ var (
 )
 
 // Author retrieves the Ethereum address of the account that minted the given
-// block, which may be different from the header's coinbase if a consensus
-// engine is based on signatures.
+// block.
 func (sb *Backend) Author(header *types.Header) (common.Address, error) {
-	return types.Ecrecover(header)
+	return header.Coinbase, nil
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules of a
@@ -202,20 +202,17 @@ func (sb *Backend) VerifyUncles(chain consensus.ChainReader, block *types.Block)
 // verifySigner checks that the signer is part of the committee.
 func (sb *Backend) verifySigner(header, parent *types.Header) error {
 	// resolve the authorization key and check against signers
-	signer, err := types.Ecrecover(header)
+	signer, err := types.ECRecover(header)
 	if err != nil {
 		return err
 	}
-
 	if header.Coinbase != signer {
 		return errInvalidCoinbase
 	}
-
 	// Signer should be in the validator set of previous block's extraData.
 	if parent.CommitteeMember(signer) != nil {
 		return nil
 	}
-
 	return errUnauthorized
 }
 
@@ -239,13 +236,13 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 
 	// Total Voting power for this block
 	power := new(big.Int)
-	// The data that was sined over for this block
-	headerSeal := helpers.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+	// The data that was signed over for this block
+	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
 
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {
 		// 2. Get the address from signature
-		addr, err := types.GetSignatureAddress(headerSeal, signedSeal)
+		addr, err := tendermint.SigToAddr(headerSeal, signedSeal)
 		if err != nil {
 			sb.logger.Error("not a valid address", "err", err)
 			return types.ErrInvalidSignature
@@ -356,10 +353,8 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	if !isStarted {
 		return ErrStoppedEngine
 	}
-
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
-
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		sb.logger.Error("Error ancestor")
@@ -389,7 +384,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	}
 	sb.setResultChan(results)
 	// post block into BFT engine
-	sb.postEvent(events.NewCandidateBlockEvent{
+	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
 	})
 	return nil
@@ -427,15 +422,17 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 	sb.proposedBlockHash = hash
 }
 
-// update timestamp and signature of the block based on its number of transactions
+// AddSeal update timestamp and signature of the block based on its number of transactions
 func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
-
-	err := crypto.SignHeader(header, sb.privateKey)
+	hashData := types.SigHash(header)
+	signature, err := crypto.Sign(hashData[:], sb.privateKey)
 	if err != nil {
 		return nil, err
 	}
-
+	if err := types.WriteSeal(header, signature); err != nil {
+		return nil, err
+	}
 	return block.WithSeal(header), nil
 }
 

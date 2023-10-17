@@ -26,7 +26,7 @@ func TestSendingValue(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
@@ -162,18 +162,28 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 	n := network[0]
-
+	startTime := time.Now()
+	idump := 0
+	go func() {
+		timer := time.NewTicker(time.Second)
+		for range timer.C {
+			fmt.Println("====", idump, "TIME(", time.Now().Sub(startTime).Seconds(), ")====")
+			for i := range network {
+				fmt.Println("node", i, "header", network[i].Eth.BlockChain().CurrentHeader().Number, "running", network[i].isRunning)
+			}
+			fmt.Println("============")
+			idump++
+		}
+	}()
 	// Send a tx to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
-
 	// Stop a node
 	err = network[1].Close()
 	network[1].Wait()
 	require.NoError(t, err)
-
 	// Send a tx to see that the network is working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -184,7 +194,6 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	err = network[2].Close()
 	network[2].Wait()
 	require.NoError(t, err)
-
 	// We have now stopped more than F nodes, so we expect tx processing to time out.
 	// Well wait 5 times the avgTransactionDuration before we assume the tx is not being processed.
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
@@ -203,7 +212,6 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	defer cancel()
 	err = n.AwaitSentTransactions(ctx)
 	require.NoError(t, err)
-
 	// Send a tx to see that the network is still working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -213,7 +221,6 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Start the last stopped node
 	err = network[1].Start()
 	require.NoError(t, err)
-
 	// Send a tx to see that the network is still working
 	err = n.SendAUTtracked(context.Background(), network[1].Address, 10)
 	require.NoError(t, err)

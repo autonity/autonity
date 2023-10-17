@@ -49,7 +49,7 @@ func init() {
 	special4.Add("198.18.0.0/15")      // Device Benchmark Testing
 	special4.Add("198.51.100.0/24")    // TEST-NET-2
 	special4.Add("203.0.113.0/24")     // TEST-NET-3
-	special4.Add("255.255.255.255/32") // Limited SignAndBroadcast
+	special4.Add("255.255.255.255/32") // Limited Broadcast
 
 	// http://www.iana.org/assignments/iana-ipv6-special-registry/
 	special6.Add("100::/64")

@@ -1,18 +1,13 @@
 package core
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/rlp"
 )
 
 type Precommiter struct {
@@ -20,68 +15,39 @@ type Precommiter struct {
 }
 
 func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.step)
-
-	var precommit = &message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
-	if isNil {
-		precommit.ProposedBlockHash = common.Hash{}
-	} else {
-		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
-			c.logger.Error("Core.sendPrecommit Proposal is empty! It should not be empty!")
+	value := common.Hash{}
+	if !isNil {
+		proposal := c.curRoundMessages.Proposal()
+		if proposal == nil {
+			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
+		value = proposal.Block().Hash()
 	}
-
-	encodedVote, err := rlp.EncodeToBytes(&precommit)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", precommit)
-		return
-	}
-
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
-
-	msg := &message.Message{
-		Code:          consensus.MsgPrecommit,
-		Payload:       encodedVote,
-		Address:       c.address,
-		CommittedSeal: []byte{},
-	}
-
-	// Create committed seal
-	seal := helpers.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
-	msg.CommittedSeal, err = c.backend.Sign(seal)
-	if err != nil {
-		c.logger.Error("Core.sendPrecommit error while signing committed seal", "err", err)
-	}
+	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
+	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 
 	c.sentPrecommit = true
-	c.Broadcaster().SignAndBroadcast(msg)
+	c.Br().Broadcast(ctx, precommit)
 }
 
-func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
-	preCommit := msg.ConsensusMsg.(*message.Vote)
-	precommitHash := preCommit.ProposedBlockHash
-	if err := c.CheckMessage(preCommit.Round, preCommit.Height.Uint64(), tctypes.Precommit); err != nil {
-		if err == constants.ErrOldRoundMessage {
-			roundMsgs := c.messages.GetOrCreate(preCommit.Round)
-			if err2 := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err2 != nil {
-				return err2
-			}
-			c.AcceptVote(roundMsgs, tctypes.Precommit, precommitHash, *msg)
-			oldRoundProposalHash := roundMsgs.GetProposalHash()
-			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
-				if !roundMsgs.IsProposalVerified() {
-					if _, err2 := c.backend.VerifyProposal(roundMsgs.Proposal().ProposalBlock); err2 != nil {
+func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
+	if err := c.checkMessageStep(precommit.R(), precommit.H(), Precommit); err != nil {
+		if errors.Is(err, constants.ErrOldRoundMessage) {
+			// We are receiving a precommit for an old round. We need to check if we have now a quorum
+			// in this old round.
+			roundMessages := c.messages.GetOrCreate(precommit.R())
+			roundMessages.AddPrecommit(precommit)
+			oldRoundProposal := roundMessages.Proposal()
+			if oldRoundProposal != nil && roundMessages.PrecommitsPower(oldRoundProposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+				c.logger.Info("Quorum on a old round proposal", "round", precommit.R())
+				if !roundMessages.IsProposalVerified() {
+					if _, err2 := c.backend.VerifyProposal(roundMessages.Proposal().Block()); err2 != nil {
+						// Impossible with the BFT assumptions of 1/3rd honest.
 						return err2
 					}
 				}
-				c.Commit(preCommit.Round, c.curRoundMessages)
+				c.Commit(precommit.R(), c.curRoundMessages)
 				return nil
 			}
 		}
@@ -89,16 +55,11 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message)
 		return err
 	}
 
-	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
-		return err
-	}
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.curRoundMessages.GetProposalHash()
-	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
-
-	c.AcceptVote(c.curRoundMessages, tctypes.Precommit, precommitHash, *msg)
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
+	curProposalHash := c.curRoundMessages.ProposalHash()
+	// We don't care about which step we are in to accept a precommit, since it has the highest importance
+	c.curRoundMessages.AddPrecommit(precommit)
+	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
 	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		if err := c.precommitTimeout.StopTimer(); err != nil {
 			return err
@@ -122,28 +83,9 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message)
 	return nil
 }
 
-func (c *Precommiter) VerifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
-	committedSeal := helpers.PrepareCommittedSeal(proposedBlockHash, round, height)
-
-	sealerAddress, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
-	if err != nil {
-		c.logger.Error("Failed to get signer address", "err", err)
-		return err
-	}
-
-	// ensure sender signed the committed seal
-	if !bytes.Equal(sealerAddress.Bytes(), addressMsg.Bytes()) {
-		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", sealerAddress.String())
-
-		return constants.ErrInvalidSenderOfCommittedSeal
-	}
-
-	return nil
-}
-
 func (c *Precommiter) HandleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.step)
-	lastBlock, _ := c.backend.HeadBlock()
+	lastBlock := c.backend.HeadBlock()
 	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 	if height.Cmp(c.Height()) == 0 {
 		c.logger.Debug("Discarding event as Core is at the same height", "height", c.Height())
@@ -153,20 +95,20 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 	}
 }
 
-func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Vote, from, to string) {
-	currentProposalHash := c.curRoundMessages.GetProposalHash()
+func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Precommit, from, to string) {
+	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
 		"currentHeight", c.Height(),
-		"msgHeight", precommit.Height,
+		"msgHeight", precommit.H(),
 		"currentRound", c.Round(),
-		"msgRound", precommit.Round,
+		"msgRound", precommit.R(),
 		"currentStep", c.step,
 		"isProposer", c.IsProposer(),
 		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
-		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
-		"hash", precommit.ProposedBlockHash,
+		"isNilMsg", precommit.Value() == common.Hash{},
+		"hash", precommit.Value(),
 		"type", "Precommit",
 		"totalVotes", c.curRoundMessages.PrecommitsTotalPower(),
 		"totalNilVotes", c.curRoundMessages.PrecommitsPower(common.Hash{}),

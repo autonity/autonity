@@ -2,28 +2,19 @@ package byzantine
 
 import (
 	"context"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/e2e_test"
+	"github.com/autonity/autonity/node"
+	fuzz "github.com/google/gofuzz"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"sync/atomic"
 	"testing"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/core/types"
-	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/rlp"
-	fuzz "github.com/google/gofuzz"
-	"github.com/stretchr/testify/require"
 )
-
-func newDuplicateProposalSender(c interfaces.Tendermint) interfaces.Proposer {
-	return &duplicateProposalSender{c.(*core.Core), c.Proposer()}
-}
 
 type duplicateProposalSender struct {
 	*core.Core
@@ -32,29 +23,15 @@ type duplicateProposalSender struct {
 
 // SendProposal overrides core.sendProposal and send multiple proposals
 func (c *duplicateProposalSender) SendProposal(ctx context.Context, p *types.Block) {
-
-	proposalBlock := message.NewProposal(c.Round(), c.Height(), c.ValidRound(), p, c.Backend().Sign)
-	proposalBlock2 := message.NewProposal(c.Round(), c.Height(), c.ValidRound()-1, p, c.Backend().Sign)
-	proposal, _ := rlp.EncodeToBytes(proposalBlock)
-	proposal2, _ := rlp.EncodeToBytes(proposalBlock2)
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
+	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()-1, p, c.Backend().Sign)
 
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
-
 	//send same proposal twice
-	c.Broadcaster().SignAndBroadcast(&message.Message{
-		Code:          consensus.MsgProposal,
-		Payload:       proposal,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	})
+	c.Br().Broadcast(ctx, proposal)
 	// send 2nd proposal with different validround
-	c.Broadcaster().SignAndBroadcast(&message.Message{
-		Code:          consensus.MsgProposal,
-		Payload:       proposal2,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	})
+	c.Br().Broadcast(ctx, proposal2)
 }
 
 // TestDuplicateProposal broadcasts two proposals with same round and same height but different validround
@@ -85,15 +62,9 @@ type malProposalSender struct {
 	*core.Core
 }
 
-// SendProposalFromNonProposer broadcasts a new proposal, only if it is a non-proposer
-func SendProposalFromNonProposer(c *core.Core, fm []byte) {
-	m, err := message.FromBytes(fm)
-	if err != nil {
-		c.Logger().Error("can not send proposal, invalid payload", "err", err)
-	}
-	round := m.R()
-	height := m.H()
-
+func (c *malProposalSender) Broadcast(ctx context.Context, msg message.Message) {
+	round := msg.R()
+	height := msg.H()
 	// if we are the proposer for this round, return
 	if c.CommitteeSet().GetProposer(round).Address == c.Backend().Address() {
 		return
@@ -101,29 +72,8 @@ func SendProposalFromNonProposer(c *core.Core, fm []byte) {
 	header := &types.Header{Number: new(big.Int).SetUint64(height)}
 	block := types.NewBlockWithHeader(header)
 	// create a new proposal message
-	msgP := e2e.NewProposeMsg(c.Backend().Address(), block, height, round, -1, c.Backend().Sign)
-	fm, err = c.SignMessage(msgP)
-	if err != nil {
-		return
-	}
-
-	if err := c.Backend().Broadcast(c.CommitteeSet().Committee(), fm); err != nil {
-		c.Logger().Error("consensus message broadcast failure, err:", err)
-	}
-}
-
-// DefaultSignAndBroadcast overrides the code.DefaultSignAndBroadcast
-func (c *malProposalSender) SignAndBroadcast(msg *message.Message) {
-	logger := c.Logger().New("step", c.Step())
-
-	fm, err := c.SignMessage(msg)
-	if err != nil {
-		return
-	}
-	SendProposalFromNonProposer(c.Core, fm)
-	if err := c.Backend().Broadcast(c.CommitteeSet().Committee(), fm); err != nil {
-		logger.Error("consensus message broadcast failure, err:", err)
-	}
+	propose := message.NewPropose(round, height, -1, block, c.Backend().Sign)
+	c.BroadcastAll(ctx, propose)
 }
 
 func newProposalApprover(c interfaces.Tendermint) interfaces.Proposer {
@@ -135,17 +85,11 @@ type proposalApprover struct {
 	interfaces.Proposer
 }
 
-func (c *proposalApprover) HandleProposal(ctx context.Context, msg *message.Message) error {
-	var proposal message.Proposal
-	err := msg.Decode(&proposal)
-	if err != nil {
-		return constants.ErrFailedDecodeProposal
-	}
+func (c *proposalApprover) HandleProposal(ctx context.Context, proposal *message.Propose) error {
 	// Set the proposal for the current round
-	c.CurRoundMessages().SetProposal(&proposal, msg, true)
-
-	c.Prevoter().SendPrevote(ctx, false)
-	c.SetStep(tctypes.Prevote)
+	c.CurRoundMessages().SetProposal(proposal, true)
+	c.GetPrevoter().SendPrevote(ctx, false)
+	c.SetStep(core.Prevote)
 	return nil
 }
 
@@ -202,34 +146,24 @@ type partialProposalSender struct {
 
 // SendProposal overrides core.sendProposal and send multiple proposals
 func (c *partialProposalSender) SendProposal(ctx context.Context, p *types.Block) {
-
 	fakeTransactions := make([]*types.Transaction, 0)
 	for i := 0; i < 5; i++ {
-
 		var fakeTransaction types.Transaction
 		f := fuzz.New()
 		f.Fuzz(&fakeTransaction)
 		var tx types.LegacyTx
 		f.Fuzz(&tx)
 		fakeTransaction.SetInner(&tx)
-
 		fakeTransactions = append(fakeTransactions, &fakeTransaction)
 	}
 	p.SetTransactions(fakeTransactions)
-	proposalBlock := message.NewProposal(c.Round(), c.Height(), c.ValidRound(), p, c.Backend().Sign)
-	proposal, _ := rlp.EncodeToBytes(proposalBlock)
-
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
-
 	//send same proposal twice
-	c.Broadcaster().SignAndBroadcast(&message.Message{
-		Code:          consensus.MsgProposal,
-		Payload:       proposal,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	})
+	c.Br().Broadcast(ctx, proposal)
 }
+
 func TestPartialProposal(t *testing.T) {
 	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
@@ -260,7 +194,6 @@ type invalidBlockProposer struct {
 
 // SendProposal overrides core.sendProposal and send multiple proposals
 func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block) {
-
 	fakeTransactions := make([]*types.Transaction, 0)
 	f := fuzz.New()
 	for i := 0; i < 5; i++ {
@@ -284,24 +217,13 @@ func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block)
 	var num big.Int
 	f.Fuzz(&num)
 	p.SetHeaderNumber(&num)
-	proposalBlock := message.NewProposal(c.Round(), c.Height(), c.ValidRound(), p, c.Backend().Sign)
-	proposal, _ := rlp.EncodeToBytes(proposalBlock)
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
-	var nilAddr common.Address
-	fuzz.New().Fuzz(&nilAddr)
-	ranBytes, _ := e2e.GenerateRandomBytes(10000000)
 
-	// junk Address
-	junkAddr := common.BytesToAddress(ranBytes)
 	//send same proposal twice
-	c.Broadcaster().SignAndBroadcast(&message.Message{
-		Code:          consensus.MsgProposal,
-		Payload:       proposal,
-		Address:       junkAddr,
-		CommittedSeal: []byte{},
-	})
+	c.BroadcastAll(ctx, proposal)
 }
 
 func TestInvalidBlockProposal(t *testing.T) {

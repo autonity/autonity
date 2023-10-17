@@ -6,5 +6,5 @@ import (
 
 type Broadcaster interface {
 	// Broadcast sends a message to all validators (include self)
-	SignAndBroadcast(msg *message.Message)
+	Broadcast(msg message.Message)
 }

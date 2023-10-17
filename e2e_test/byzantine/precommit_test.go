@@ -2,17 +2,14 @@ package byzantine
 
 import (
 	"context"
-	"testing"
-
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func newMalPrecommitService(c interfaces.Tendermint) interfaces.Precommiter {
@@ -25,40 +22,14 @@ type malPrecommitService struct {
 }
 
 func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var precommit = message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
+	var precommit *message.Precommit
 	if isNil {
-		precommit.ProposedBlockHash = common.Hash{}
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
-			c.Logger().Error("core.sendPrecommit Proposal is empty! It should not be empty!")
-			return
-		}
-		precommit.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.HexToHash("0xCAFE"), c.Backend().Sign)
 	}
-
-	encodedVote, err := rlp.EncodeToBytes(&precommit)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", precommit)
-		return
-	}
-
-	msg := &message.Message{
-		Code:          consensus.MsgPrecommit,
-		Payload:       encodedVote,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	}
-
-	// nil committed seal
-	msg.CommittedSeal = nil
 	c.SetSentPrecommit(true)
-	c.Broadcaster().SignAndBroadcast(msg)
+	c.Br().Broadcast(ctx, precommit)
 }
 
 func TestMaliciousPrecommitSender(t *testing.T) {

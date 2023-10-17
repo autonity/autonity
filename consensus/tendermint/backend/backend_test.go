@@ -5,26 +5,22 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint"
+	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/p2p/enode"
+	"go.uber.org/mock/gomock"
 	"math"
 	"math/big"
 	"os"
 	"reflect"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	ethereum "github.com/autonity/autonity"
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/consensus/misc"
-	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/event"
-	"github.com/autonity/autonity/p2p/enode"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	lru "github.com/hashicorp/golang-lru"
 
@@ -37,22 +33,45 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/rlp"
 )
+
+var (
+	testAddress = common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
+	testKey, _  = crypto.HexToECDSA("bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1")
+	testSigner  = func(data common.Hash) ([]byte, error) { return crypto.Sign(data[:], testKey) }
+)
+
+func newTestHeader(committeeSize int) (*types.Header, []*ecdsa.PrivateKey) {
+	validators := make(types.Committee, committeeSize)
+	keys := make([]*ecdsa.PrivateKey, committeeSize)
+	for i := 0; i < committeeSize; i++ {
+		privateKey, _ := crypto.GenerateKey()
+		committeeMember := types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
+		validators[i] = committeeMember
+		keys[i] = privateKey
+	}
+	return &types.Header{
+		Number:    new(big.Int).SetUint64(7),
+		Committee: validators,
+	}, keys
+}
 
 func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
-	header := newTestHeader(7) // N=7, F=2, Q=5
+	header, _ := newTestHeader(7) // N=7, F=2, Q=5
 	validators := header.Committee
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := ethereum.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(uint64(SyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer := tendermint.NewMockPeer(ctrl)
+		mockedPeer.EXPECT().Send(uint64(SyncNetworkMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -62,8 +81,6 @@ func TestAskSync(t *testing.T) {
 	for _, p := range addresses {
 		m[p] = struct{}{}
 	}
-	recentMessages, err := lru.NewARC(inmemoryMessages)
-	require.NoError(t, err)
 	knownMessages, err := lru.NewARC(inmemoryMessages)
 	require.NoError(t, err)
 
@@ -86,25 +103,23 @@ func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	header := newTestHeader(5)
+	header, _ := newTestHeader(5)
 	validators := header.Committee
-	payload, err := rlp.EncodeToBytes([]byte("data"))
-	require.NoError(t, err)
-	hash := types.RLPHash(payload)
+	msg := message.NewPrevote(1, 1, common.Hash{}, dummySigner)
 
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
 	for i, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := ethereum.NewMockPeer(ctrl)
+		mockedPeer := tendermint.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
-			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Times(0)
+			mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).Times(0)
 		} else {
-			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
+			mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == uint64(TendermintMsg) && reflect.DeepEqual(data, payload) {
+				if msgCode == PrevoteNetworkMsg && reflect.DeepEqual(data, msg.Payload()) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
@@ -127,7 +142,7 @@ func TestGossip(t *testing.T) {
 	address3Cache, err := lru.NewARC(inmemoryMessages)
 	require.NoError(t, err)
 
-	address3Cache.Add(hash, true)
+	address3Cache.Add(msg.Hash(), true)
 	recentMessages.Add(addresses[3], address3Cache)
 	b := &Backend{
 		knownMessages:  knownMessages,
@@ -138,8 +153,8 @@ func TestGossip(t *testing.T) {
 
 	b.Gossip(validators, payload)
 	<-time.NewTimer(2 * time.Second).C
-	if atomic.LoadUint64(&counter) != 4 {
-		t.Fatalf("gossip message transmission failure")
+	if c := atomic.LoadUint64(&counter); c != 4 {
+		t.Fatal("Gossip message transmission failure", "have", c, "want", 4)
 	}
 }
 
@@ -160,7 +175,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not create block %d, err=%s", i, errBlock)
 		}
 		header := block.Header()
-		seal, errS := backend.Sign(types.SigHash(header).Bytes())
+		seal, errS := backend.Sign(types.SigHash(header))
 		if errS != nil {
 			t.Fatalf("could not sign %d, err=%s", i, errS)
 		}
@@ -174,8 +189,8 @@ func TestVerifyProposal(t *testing.T) {
 		if _, err := backend.VerifyProposal(block); err != nil {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
-		// VerifyProposal dont need committed seals
-		committedSeal, errSC := backend.Sign(helpers.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+		// VerifyProposal don't need committed seals
+		committedSeal, errSC := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 		if errSC != nil {
 			t.Fatalf("could not sign commit %d, err=%s", i, errS)
 		}
@@ -238,36 +253,15 @@ func TestHasBadProposal(t *testing.T) {
 
 func TestSign(t *testing.T) {
 	_, b := newBlockChain(4)
-	data := []byte("Here is a string....")
+	data := common.HexToHash("0x12345")
 	sig, err := b.Sign(data)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
-	//Check signature recover
-	hashData := crypto.Keccak256(data)
-	pubkey, _ := crypto.Ecrecover(hashData, sig)
-	var signer common.Address
-	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+	//Check signature recovery
+	signer, _ := crypto.SigToAddr(data[:], sig)
 	if signer != b.address {
-		t.Errorf("address mismatch: have %v, want %s", signer.Hex(), getAddress().Hex())
-	}
-}
-
-func TestCheckSignature(t *testing.T) {
-	key, _ := generatePrivateKey()
-	data := []byte("Here is a string....")
-	hashData := crypto.Keccak256(data)
-	sig, _ := crypto.Sign(hashData, key)
-	_, b := newBlockChain(4)
-	a := getAddress()
-	err := b.CheckSignature(data, a, sig)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-	a = getInvalidAddress()
-	err = b.CheckSignature(data, a, sig)
-	if err != types.ErrInvalidSignature {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidSignature)
+		t.Errorf("address mismatch: have %v, want %s", signer.Hex(), testAddress)
 	}
 }
 
@@ -385,19 +379,17 @@ func TestSyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []*message.Message{
-			{
-				Address: peerAddr1,
-			},
+		messages := []message.Message{
+			message.NewPrevote(7, 8, common.HexToHash("0x1227"), dummySigner),
 		}
 
 		peersAddrMap := make(map[common.Address]struct{})
 		peersAddrMap[peerAddr1] = struct{}{}
 
-		payload := messages[0].GetBytes()
+		payload := messages[0].Payload()
 
-		peer1Mock := ethereum.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().Send(uint64(TendermintMsg), payload)
+		peer1Mock := tendermint.NewMockPeer(ctrl)
+		peer1Mock.EXPECT().SendRaw(PrevoteNetworkMsg, payload)
 
 		peers := make(map[common.Address]ethereum.Peer)
 		peers[peerAddr1] = peer1Mock
@@ -410,7 +402,7 @@ func TestSyncPeer(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
 
 		gossiper := interfaces.NewMockGossiper(ctrl)
@@ -431,7 +423,7 @@ func TestSyncPeer(t *testing.T) {
 }
 
 func TestBackendLastCommittedProposal(t *testing.T) {
-	t.Run("block number 0, block returned", func(t *testing.T) {
+	t.Run("return current block", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{})
 
 		b := &Backend{
@@ -441,27 +433,9 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 			logger: log.New("backend", "test", "id", 0),
 		}
 
-		bl, _ := b.HeadBlock()
+		bl := b.HeadBlock()
 		if !reflect.DeepEqual(bl, block) {
 			t.Fatalf("expected %v, got %v", block, bl)
-		}
-	})
-
-	t.Run("block number is greater than 0, empty block returned", func(t *testing.T) {
-		block := types.NewBlockWithHeader(&types.Header{
-			Number: big.NewInt(1),
-		})
-
-		b := &Backend{
-			currentBlock: func() *types.Block {
-				return block
-			},
-			logger: log.New("backend", "test", "id", 0),
-		}
-
-		bl, _ := b.HeadBlock()
-		if !reflect.DeepEqual(bl, &types.Block{}) {
-			t.Fatalf("expected empty block, got %v", bl)
 		}
 	})
 }
@@ -482,55 +456,6 @@ func TestBackendGetContractABI(t *testing.T) {
 	if contractABI != expectedABI {
 		t.Fatalf("unexpected returned ABI")
 	}
-}
-
-/**
- * SimpleBackend
- * Private key: bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1
- * Public key: 04a2bfb0f7da9e1b9c0c64e14f87e8fb82eb0144e97c25fe3a977a921041a50976984d18257d2495e7bfd3d4b280220217f429287d25ecdf2b0d7c0f7aae9aa624
- * Address: 0x70524d664ffe731100208a0154e556f9bb679ae6
- */
-func getAddress() common.Address {
-	return common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
-}
-
-func getInvalidAddress() common.Address {
-	return common.HexToAddress("0x9535b2e7faaba5288511d89341d94a38063a349b")
-}
-
-func generatePrivateKey() (*ecdsa.PrivateKey, error) {
-	key := "bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1"
-	return crypto.HexToECDSA(key)
-}
-
-func newTestHeader(n int) *types.Header {
-	// generate committee
-	addrs := make(types.Committee, n)
-	for i := 0; i < n; i++ {
-		privateKey, _ := crypto.GenerateKey()
-		addrs[i] = types.CommitteeMember{
-			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower: new(big.Int).SetUint64(1),
-		}
-	}
-	h := &types.Header{
-		Committee: addrs,
-	}
-	return h
-}
-
-type Keys []*ecdsa.PrivateKey
-
-func (slice Keys) Len() int {
-	return len(slice)
-}
-
-func (slice Keys) Less(i, j int) bool {
-	return strings.Compare(crypto.PubkeyToAddress(slice[i].PublicKey).String(), crypto.PubkeyToAddress(slice[j].PublicKey).String()) < 0
-}
-
-func (slice Keys) Swap(i, j int) {
-	slice[i], slice[j] = slice[j], slice[i]
 }
 
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
@@ -692,4 +617,8 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	}
 
 	return block, nil
+}
+
+func dummySigner(_ common.Hash) ([]byte, error) {
+	return nil, nil
 }

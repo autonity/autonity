@@ -3,26 +3,25 @@ package core
 import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"math/big"
 )
 
-func (c *Core) CoreState() tctypes.TendermintState {
+func (c *Core) CoreState() TendermintState {
 	// send state dump request.
-	var e = tctypes.CoreStateRequestEvent{
-		StateChan: make(chan tctypes.TendermintState),
+	var e = CoreStateRequestEvent{
+		StateChan: make(chan TendermintState),
 	}
 	go c.SendEvent(e)
 	return <-e.StateChan
 }
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
-func (c *Core) handleStateDump(e tctypes.CoreStateRequestEvent) {
-	state := tctypes.TendermintState{
+func (c *Core) handleStateDump(e CoreStateRequestEvent) {
+	state := TendermintState{
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,
-		CurHeightMessages: msgForDump(c.CurrentHeightMessages()),
+		CurHeightMessages: msgForDump(c.messages.All()),
 		BacklogMessages:   getBacklogMsgs(c),
 		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
 		// tendermint Core state:
@@ -61,8 +60,8 @@ func (c *Core) handleStateDump(e tctypes.CoreStateRequestEvent) {
 	close(e.StateChan)
 }
 
-func getBacklogUncheckedMsgs(c *Core) []*tctypes.MsgForDump {
-	result := make([]*tctypes.MsgForDump, 0)
+func getBacklogUncheckedMsgs(c *Core) []*MsgForDump {
+	result := make([]*MsgForDump, 0)
 	for _, ms := range c.backlogUntrusted {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -73,8 +72,8 @@ func getBacklogUncheckedMsgs(c *Core) []*tctypes.MsgForDump {
 // getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
-func getBacklogMsgs(c *Core) []*tctypes.MsgForDump {
-	result := make([]*tctypes.MsgForDump, 0)
+func getBacklogMsgs(c *Core) []*MsgForDump {
+	result := make([]*MsgForDump, 0)
 	for _, ms := range c.backlogs {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -82,13 +81,13 @@ func getBacklogMsgs(c *Core) []*tctypes.MsgForDump {
 	return result
 }
 
-func msgForDump(msgs []*message.Message) []*tctypes.MsgForDump {
-	result := make([]*tctypes.MsgForDump, 0, len(msgs))
-	for _, m := range msgs {
-		msg := new(tctypes.MsgForDump)
-		msg.Message = *m
-		msg.Power = m.GetPower()
-		msg.Hash = types.RLPHash(m.Bytes)
+func msgForDump(messages []message.Message) []*MsgForDump {
+	result := make([]*MsgForDump, 0, len(messages))
+	for _, m := range messages {
+		msg := new(MsgForDump)
+		msg.Message = m
+		msg.Power = m.Power()
+		msg.Hash = m.Hash()
 
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1
@@ -101,8 +100,8 @@ func msgForDump(msgs []*message.Message) []*tctypes.MsgForDump {
 }
 
 func getProposal(c *Core, round int64) *common.Hash {
-	if c.messages.GetOrCreate(round).ProposalDetails != nil && c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock != nil {
-		v := c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock.Hash()
+	if c.messages.GetOrCreate(round).Proposal() != nil && c.messages.GetOrCreate(round).Proposal().Block() != nil {
+		v := c.messages.GetOrCreate(round).Proposal().Block().Hash()
 		return &v
 	}
 	return nil
@@ -116,13 +115,13 @@ func getHash(b *types.Block) *common.Hash {
 	return nil
 }
 
-func getRoundState(c *Core) []tctypes.RoundState {
+func getRoundState(c *Core) []RoundState {
 	rounds := c.messages.GetRounds()
-	states := make([]tctypes.RoundState, 0, len(rounds))
+	states := make([]RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
 		proposal, prevoteState, preCommitState := getVoteState(c.messages, r)
-		state := tctypes.RoundState{
+		state := RoundState{
 			Round:          r,
 			Proposal:       proposal,
 			PrevoteState:   prevoteState,
@@ -133,28 +132,28 @@ func getRoundState(c *Core) []tctypes.RoundState {
 	return states
 }
 
-func blockHashes(messages map[common.Hash]map[common.Address]message.Message) []common.Hash {
+func blockHashes[T interface{ Value() common.Hash }](messages []message.Message) []common.Hash {
 	blockHashes := make([]common.Hash, 0, len(messages))
-	for key := range messages {
-		blockHashes = append(blockHashes, key)
+	for _, m := range messages {
+		blockHashes = append(blockHashes, m.(T).Value())
 	}
 	return blockHashes
 }
 
-func getVoteState(s *message.MessagesMap, round int64) (common.Hash, []tctypes.VoteState, []tctypes.VoteState) {
+func getVoteState(s *message.Map, round int64) (common.Hash, []VoteState, []VoteState) {
 	p := common.Hash{}
-
-	if s.GetOrCreate(round).Proposal() != nil && s.GetOrCreate(round).Proposal().ProposalBlock != nil {
-		p = s.GetOrCreate(round).Proposal().ProposalBlock.Hash()
+	messages := s.GetOrCreate(round)
+	if proposal := messages.Proposal(); proposal != nil {
+		p = proposal.Hash()
 	}
 
-	preVoteValues := blockHashes(s.GetOrCreate(round).Prevotes.Votes)
-	preCommitValues := blockHashes(s.GetOrCreate(round).Precommits.Votes)
-	prevoteState := make([]tctypes.VoteState, 0, len(preVoteValues))
-	precommitState := make([]tctypes.VoteState, 0, len(preCommitValues))
+	preVoteValues := blockHashes[*message.Prevote](messages.AllPrevotes())
+	preCommitValues := blockHashes[*message.Precommit](messages.AllPrecommits())
+	prevoteState := make([]VoteState, 0, len(preVoteValues))
+	precommitState := make([]VoteState, 0, len(preCommitValues))
 
 	for _, v := range preVoteValues {
-		var s = tctypes.VoteState{
+		var s = VoteState{
 			Value:            v,
 			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
 			VotePower:        s.GetOrCreate(round).PrevotesPower(v),
@@ -163,7 +162,7 @@ func getVoteState(s *message.MessagesMap, round int64) (common.Hash, []tctypes.V
 	}
 
 	for _, v := range preCommitValues {
-		var s = tctypes.VoteState{
+		var s = VoteState{
 			Value:            v,
 			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
 			VotePower:        s.GetOrCreate(round).PrecommitsPower(v),

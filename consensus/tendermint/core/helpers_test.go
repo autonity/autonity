@@ -1,28 +1,84 @@
 package core
 
 import (
+	"crypto/ecdsa"
+	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"math/big"
+	"sort"
 	"testing"
 
 	"github.com/autonity/autonity/common"
-	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/stretchr/testify/require"
 )
 
+func makeSigner(key *ecdsa.PrivateKey) message.Signer {
+	return func(hash common.Hash) (output []byte, err error) {
+		return crypto.Sign(hash[:], key)
+	}
+}
+
+type AddressKeyMap map[common.Address]*ecdsa.PrivateKey
+
+func GenerateCommittee(n int) (types.Committee, AddressKeyMap) {
+	validators := make(types.Committee, 0)
+	keymap := make(AddressKeyMap)
+	for i := 0; i < n; i++ {
+		privateKey, _ := crypto.GenerateKey()
+		committeeMember := types.CommitteeMember{
+			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower: new(big.Int).SetUint64(1),
+		}
+		validators = append(validators, committeeMember)
+		keymap[committeeMember.Address] = privateKey
+	}
+	sort.Sort(validators)
+	return validators, keymap
+}
+
+func NewTestCommitteeSet(n int) interfaces.Committee {
+	validators, _ := GenerateCommittee(n)
+	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators[0].Address)
+	return set
+}
+
+func NewTestCommitteeSetWithKeys(n int) (interfaces.Committee, AddressKeyMap) {
+	validators, keyMap := GenerateCommittee(n)
+	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators[0].Address)
+	return set, keyMap
+}
+
+/*
+func GeneratePrivateKey() (*ecdsa.PrivateKey, error) {
+	key := "bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1"
+	return crypto.HexToECDSA(key)
+}
+
+func GetAddress() common.Address {
+	return common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
+}*/
+
 func TestOverQuorumVotes(t *testing.T) {
 	t.Run("with duplicated votes, it returns none duplicated votes of just quorum ones", func(t *testing.T) {
 		seats := 10
-		committee, keys := helpers.GenerateCommittee(seats)
-		quorum := bft.Quorum(new(big.Int).SetInt64(int64(seats)))
+		committee, _ := GenerateCommittee(seats)
+		quorum := bft.Quorum(big.NewInt(int64(seats)))
 		height := uint64(1)
 		round := int64(0)
-		noneNilValue := common.Hash{0x1}
-		var preVotes []*message.Message
+		notNilValue := common.Hash{0x1}
+		var preVotes []message.Message
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVote := message.NewFakePrevote(message.Fake{
+				FakeSender: committee[i].Address,
+				FakeRound:  round,
+				FakeHeight: height,
+				FakeValue:  notNilValue,
+				FakePower:  common.Big1,
+			})
 			preVotes = append(preVotes, preVote)
 		}
 
@@ -35,14 +91,14 @@ func TestOverQuorumVotes(t *testing.T) {
 
 	t.Run("with less quorum votes, it returns no votes", func(t *testing.T) {
 		seats := 10
-		committee, keys := helpers.GenerateCommittee(seats)
+		committee, keys := GenerateCommittee(seats)
 		quorum := bft.Quorum(new(big.Int).SetInt64(int64(seats)))
 		height := uint64(1)
 		round := int64(0)
 		noneNilValue := common.Hash{0x1}
-		var preVotes []*message.Message
+		var preVotes []message.Message
 		for i := 0; i < int(quorum.Uint64()-1); i++ {
-			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVote := message.NewPrevote(round, height, noneNilValue, makeSigner(keys[committee[i].Address]))
 			preVotes = append(preVotes, preVote)
 		}
 

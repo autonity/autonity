@@ -156,7 +156,7 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 		},
 	}
 
-	for _, test := range parseNodeWithResolveTests {
+	for i, test := range parseNodeWithResolveTests {
 		n, err := ParseV4(test.rawurl)
 
 		var gotErr string
@@ -191,7 +191,7 @@ func TestParseNodeWithDomainResolution(t *testing.T) {
 				// to allow comparing the remaining fields.
 				n.resolveFunc = nil
 				test.wantResult.resolveFunc = nil
-				assert.Equal(t, test.wantResult, n)
+				assert.Equal(t, test.wantResult, n, i)
 			}
 		}
 	}

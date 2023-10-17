@@ -3,7 +3,12 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"golang.org/x/crypto/blake2b"
 )
+
+func Hash(data []byte) [32]byte {
+	return blake2b.Sum256(data)
+}
 
 func PrivECDSAToHex(k *ecdsa.PrivateKey) []byte {
 	return hexEncode(FromECDSA(k))

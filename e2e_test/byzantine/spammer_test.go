@@ -2,21 +2,15 @@ package byzantine
 
 import (
 	"context"
-
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	e2e "github.com/autonity/autonity/e2e_test"
+	"github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/rlp"
-
-	"testing"
-
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func newPreVoteSpammer(c interfaces.Tendermint) interfaces.Prevoter {
@@ -29,37 +23,20 @@ type preVoteSpammer struct {
 }
 
 func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var prevote = message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
+	var prevote *message.Prevote
 	if isNil {
-		prevote.ProposedBlockHash = common.Hash{}
+		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		h := c.CurRoundMessages().ProposalHash()
+		if h == (common.Hash{}) {
 			c.Logger().Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	}
 
-	encodedVote, err := rlp.EncodeToBytes(&prevote)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", prevote)
-		return
-	}
-
-	msg := &message.Message{
-		Code:          consensus.MsgPrevote,
-		Payload:       encodedVote,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	}
 	for i := 0; i < 1000; i++ {
-		c.Broadcaster().SignAndBroadcast(msg)
+		c.BroadcastAll(ctx, prevote)
 	}
 	c.SetSentPrevote(true)
 }
@@ -92,44 +69,19 @@ func newPrecommitSpammer(c interfaces.Tendermint) interfaces.Precommiter {
 }
 
 func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var precommit = message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
+	var precommit *message.Precommit
 	if isNil {
-		precommit.ProposedBlockHash = common.Hash{}
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		h := c.CurRoundMessages().ProposalHash()
+		if h == (common.Hash{}) {
 			c.Logger().Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), h, c.Backend().Sign)
 	}
-
-	encodedVote, err := rlp.EncodeToBytes(&precommit)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", precommit)
-		return
-	}
-	msg := &message.Message{
-		Code:          consensus.MsgPrecommit,
-		Payload:       encodedVote,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	}
-
-	// Create committed seal
-	seal := helpers.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
-	msg.CommittedSeal, err = c.Backend().Sign(seal)
-	if err != nil {
-		c.Logger().Error("core.sendPrecommit error while signing committed seal", "err", err)
-	}
-
 	for i := 0; i < 1000; i++ {
-		c.Broadcaster().SignAndBroadcast(msg)
+		c.Broadcaster().Broadcast(ctx, precommit)
 	}
 	c.SetSentPrecommit(true)
 }
@@ -161,19 +113,11 @@ func newProposalSpammer(c interfaces.Tendermint) interfaces.Proposer {
 }
 
 func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
-	proposalBlock := message.NewProposal(c.Round(), c.Height(), c.ValidRound(), p, c.Backend().Sign)
-	proposal, _ := rlp.EncodeToBytes(proposalBlock)
-
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
-
 	for i := 0; i < 1000; i++ {
-		c.Broadcaster().SignAndBroadcast(&message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			Address:       c.Address(),
-			CommittedSeal: []byte{},
-		})
+		c.BroadcastAll(ctx, proposal)
 	}
 }
 

@@ -6,25 +6,24 @@ import (
 	"sync"
 )
 
-type MessagesMap struct {
+type Map struct {
 	internal map[int64]*RoundMessages
-	mu       *sync.RWMutex
+	mu       sync.RWMutex
 }
 
-func NewMessagesMap() *MessagesMap {
-	return &MessagesMap{
+func NewMap() *Map {
+	return &Map{
 		internal: make(map[int64]*RoundMessages),
-		mu:       new(sync.RWMutex),
 	}
 }
 
-func (s *MessagesMap) Reset() {
+func (s *Map) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.internal = make(map[int64]*RoundMessages)
 }
 
-func (s *MessagesMap) GetOrCreate(round int64) *RoundMessages {
+func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state, ok := s.internal[round]
@@ -36,28 +35,27 @@ func (s *MessagesMap) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
-func (s *MessagesMap) Messages() []*Message {
+func (s *Map) All() []Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	msgs := make([][]*Message, len(s.internal))
+	messages := make([][]Message, len(s.internal))
 	var totalLen int
 	i := 0
 	for _, state := range s.internal {
-		msgs[i] = state.GetMessages()
-		totalLen += len(msgs[i])
+		messages[i] = state.AllMessages()
+		totalLen += len(messages[i])
 		i++
 	}
-
-	result := make([]*Message, 0, totalLen)
-	for _, ms := range msgs {
+	result := make([]Message, 0, totalLen)
+	for _, ms := range messages {
 		result = append(result, ms...)
 	}
 
 	return result
 }
 
-func (s *MessagesMap) GetRounds() []int64 {
+func (s *Map) GetRounds() []int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -71,11 +69,10 @@ func (s *MessagesMap) GetRounds() []int64 {
 
 // RoundMessages stores all message received for a specific round.
 type RoundMessages struct {
-	ProposalDetails  *Proposal
-	VerifiedProposal bool
-	ProposalMsg      *Message
-	Prevotes         MessageSet
-	Precommits       MessageSet
+	verifiedProposal bool
+	proposal         *Propose
+	prevotes         *Set[*Prevote]
+	precommits       *Set[*Precommit]
 	mu               sync.RWMutex
 }
 
@@ -83,88 +80,89 @@ type RoundMessages struct {
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
 func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
-		ProposalDetails:  new(Proposal),
-		Prevotes:         NewMessageSet(),
-		Precommits:       NewMessageSet(),
-		VerifiedProposal: false,
+		prevotes:         NewSet[*Prevote](),
+		precommits:       NewSet[*Precommit](),
+		verifiedProposal: false,
 	}
 }
 
-func (s *RoundMessages) SetProposal(proposal *Proposal, msg *Message, verified bool) {
+func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.ProposalMsg = msg
-	s.VerifiedProposal = verified
-	s.ProposalDetails = proposal
+	s.proposal = proposal
+	s.verifiedProposal = verified
 }
 
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
-	return s.Prevotes.VotePower(hash)
+	return s.prevotes.VotePower(hash)
 }
+
 func (s *RoundMessages) PrevotesTotalPower() *big.Int {
-	return s.Prevotes.TotalVotePower()
+	return s.prevotes.TotalVotePower()
 }
+
 func (s *RoundMessages) PrecommitsPower(hash common.Hash) *big.Int {
-	return s.Precommits.VotePower(hash)
+	return s.precommits.VotePower(hash)
 }
+
 func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
-	return s.Precommits.TotalVotePower()
+	return s.precommits.TotalVotePower()
 }
 
-func (s *RoundMessages) AddPrevote(hash common.Hash, msg Message) {
-	s.Prevotes.AddVote(hash, msg)
+func (s *RoundMessages) AddPrevote(prevote *Prevote) {
+	s.prevotes.AddVote(prevote)
 }
 
-func (s *RoundMessages) AddPrecommit(hash common.Hash, msg Message) {
-	s.Precommits.AddVote(hash, msg)
+func (s *RoundMessages) AllPrevotes() []Message {
+	return s.prevotes.Messages()
 }
 
-func (s *RoundMessages) CommitedSeals(hash common.Hash) []Message {
-	return s.Precommits.Values(hash)
+func (s *RoundMessages) AllPrecommits() []Message {
+	return s.precommits.Messages()
 }
 
-func (s *RoundMessages) Proposal() *Proposal {
+func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
+	s.precommits.AddVote(precommit)
+}
+
+func (s *RoundMessages) PrecommitsFor(hash common.Hash) []*Precommit {
+	return s.precommits.VotesFor(hash)
+}
+
+func (s *RoundMessages) Proposal() *Propose {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return s.proposal
+}
 
-	if s.ProposalDetails != nil {
-		return s.ProposalDetails
+func (s *RoundMessages) ProposalHash() common.Hash {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.proposal == nil {
+		return common.Hash{}
 	}
-
-	return nil
+	return s.proposal.block.Hash()
 }
 
 func (s *RoundMessages) IsProposalVerified() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
-	return s.VerifiedProposal
+	return s.verifiedProposal
 }
 
-func (s *RoundMessages) GetProposalHash() common.Hash {
+func (s *RoundMessages) AllMessages() []Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.ProposalDetails.ProposalBlock != nil {
-		return s.ProposalDetails.ProposalBlock.Hash()
+	prevotes := s.prevotes.Messages()
+	precommits := s.precommits.Messages()
+
+	result := make([]Message, 0, len(prevotes)+len(precommits)+1)
+	if s.proposal != nil {
+		result = append(result, Message(s.proposal))
 	}
 
-	return common.Hash{}
-}
-
-func (s *RoundMessages) GetMessages() []*Message {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	prevoteMsgs := s.Prevotes.GetMessages()
-	precommitMsgs := s.Precommits.GetMessages()
-
-	result := make([]*Message, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
-	if s.ProposalMsg != nil {
-		result = append(result, s.ProposalMsg)
-	}
-
-	result = append(result, prevoteMsgs...)
-	result = append(result, precommitMsgs...)
+	result = append(result, prevotes...)
+	result = append(result, precommits...)
 	return result
 }

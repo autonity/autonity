@@ -2,90 +2,47 @@ package core
 
 import (
 	"context"
-	"math/big"
-	"testing"
-
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/core/types"
+	"github.com/autonity/autonity/core/types"
 	"github.com/influxdata/influxdb/pkg/deep"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/rlp"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
-	committeeSet, keysMap := helpers.NewTestCommitteeSetWithKeys(4)
+	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
+	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
 
-	createPrevote := func(round int64, height int64) *message.Message {
-		vote := &message.Vote{
-			Round:             round,
-			Height:            big.NewInt(height),
-			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
-		}
-		encoded, err := rlp.EncodeToBytes(&vote)
-		if err != nil {
-			t.Fatalf("could not encode vote")
-		}
-		return &message.Message{
-			Code:         consensus.MsgPrevote,
-			Payload:      encoded,
-			ConsensusMsg: vote,
-			Address:      sender.Address,
-			Power:        common.Big1,
-		}
+	createPrevote := func(round int64, height int64) message.Message {
+		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey))
 	}
 
-	createPrecommit := func(round int64, height int64) *message.Message {
-		vote := &message.Vote{
-			Round:             round,
-			Height:            big.NewInt(height),
-			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
-		}
-		encoded, err := rlp.EncodeToBytes(&vote)
-		if err != nil {
-			t.Fatalf("could not encode vote")
-		}
-		data := helpers.PrepareCommittedSeal(common.BytesToHash([]byte{0x1}), vote.Round, vote.Height)
-		hashData := crypto.Keccak256(data)
-		commitSign, err := crypto.Sign(hashData, senderKey)
-		if err != nil {
-			t.Fatalf("error signing")
-		}
-		return &message.Message{
-			Code:          consensus.MsgPrecommit,
-			Payload:       encoded,
-			Address:       sender.Address,
-			CommittedSeal: commitSign,
-			ConsensusMsg:  vote,
-			Power:         common.Big1,
-		}
+	createPrecommit := func(round int64, height int64) message.Message {
+		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey))
 	}
 
 	cases := []struct {
 		round   int64
 		height  *big.Int
-		step    types.Step
-		message *message.Message
+		step    Step
+		message message.Message
 		outcome error
 		panic   bool
 	}{
 		{
 			1,
 			big.NewInt(2),
-			types.Propose,
+			Propose,
 			createPrevote(1, 2),
 			constants.ErrFutureStepMessage,
 			false,
@@ -93,7 +50,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			1,
 			big.NewInt(2),
-			types.Propose,
+			Propose,
 			createPrevote(2, 2),
 			constants.ErrFutureRoundMessage,
 			false,
@@ -101,7 +58,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			0,
 			big.NewInt(2),
-			types.Propose,
+			Propose,
 			createPrevote(0, 3),
 			constants.ErrFutureHeightMessage,
 			true,
@@ -109,7 +66,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			0,
 			big.NewInt(2),
-			types.Prevote,
+			Prevote,
 			createPrevote(0, 2),
 			nil,
 			false,
@@ -117,7 +74,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			0,
 			big.NewInt(2),
-			types.Precommit,
+			Precommit,
 			createPrecommit(0, 2),
 			nil,
 			false,
@@ -125,7 +82,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			0,
 			big.NewInt(5),
-			types.Precommit,
+			Precommit,
 			createPrecommit(0, 10),
 			constants.ErrFutureHeightMessage,
 			true,
@@ -133,7 +90,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		{
 			5,
 			big.NewInt(2),
-			types.Precommit,
+			Precommit,
 			createPrecommit(20, 2),
 			constants.ErrFutureRoundMessage,
 			false,
@@ -142,11 +99,11 @@ func TestHandleCheckedMessage(t *testing.T) {
 
 	for _, testCase := range cases {
 		logger := log.New("backend", "test", "id", 0)
-		messageMap := message.NewMessagesMap()
+		messageMap := message.NewMap()
 		engine := Core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]*message.Message),
+			backlogs:          make(map[common.Address][]message.Message),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
@@ -154,9 +111,9 @@ func TestHandleCheckedMessage(t *testing.T) {
 			messages:          messageMap,
 			curRoundMessages:  messageMap.GetOrCreate(0),
 			committee:         committeeSet,
-			proposeTimeout:    types.NewTimeout(types.Propose, logger),
-			prevoteTimeout:    types.NewTimeout(types.Prevote, logger),
-			precommitTimeout:  types.NewTimeout(types.Precommit, logger),
+			proposeTimeout:    NewTimeout(Propose, logger),
+			prevoteTimeout:    NewTimeout(Prevote, logger),
+			precommitTimeout:  NewTimeout(Precommit, logger),
 		}
 		engine.SetDefaultHandlers()
 
@@ -170,12 +127,12 @@ func TestHandleCheckedMessage(t *testing.T) {
 					t.Errorf("Unexpected panic")
 				}
 			}()
-
+			testCase.message.Validate(header.CommitteeMember)
 			err := engine.handleValidMsg(context.Background(), testCase.message)
 
-			if err != testCase.outcome {
+			if !errors.Is(err, testCase.outcome) {
 				t.Fatal("unexpected handlecheckedmsg returning ",
-					"err=", err, ", expecting=", testCase.outcome, " with msgCode=", testCase.message.Code)
+					"err=", err, ", expecting=", testCase.outcome, " with msgCode=", testCase.message.Code())
 			}
 
 			if err != nil {
@@ -197,27 +154,15 @@ func TestHandleMsg(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]*message.Message),
-			step:     types.Propose,
+			backlogs: make(map[common.Address][]message.Message),
+			step:     Propose,
 			round:    1,
 			height:   big.NewInt(2),
 		}
 		c.SetDefaultHandlers()
-		vote := &message.Vote{
-			Round:             2,
-			Height:            big.NewInt(1),
-			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
-		}
-		payload, err := rlp.EncodeToBytes(vote)
-		require.NoError(t, err)
-		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
-			Payload:      payload,
-			ConsensusMsg: vote,
-			Address:      common.Address{},
-		}
 
-		if err := c.handleMsg(context.Background(), msg); err != constants.ErrOldHeightMessage {
+		prevote := message.NewPrevote(2, 1, common.BytesToHash([]byte{0x1}), dummySigner)
+		if err := c.handleMsg(context.Background(), prevote); !errors.Is(err, constants.ErrOldHeightMessage) {
 			t.Fatal("errOldHeightMessage not returned")
 		}
 	})
@@ -230,31 +175,19 @@ func TestHandleMsg(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]*message.Message),
-			backlogUntrusted: map[uint64][]*message.Message{},
-			step:             types.Propose,
+			backlogs:         make(map[common.Address][]message.Message),
+			backlogUntrusted: map[uint64][]message.Message{},
+			step:             Propose,
 			round:            1,
 			height:           big.NewInt(2),
 		}
 		c.SetDefaultHandlers()
-		vote := &message.Vote{
-			Round:             2,
-			Height:            big.NewInt(3),
-			ProposedBlockHash: common.BytesToHash([]byte{0x1}),
-		}
-		payload, err := rlp.EncodeToBytes(vote)
-		require.NoError(t, err)
-		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
-			Payload:      payload,
-			ConsensusMsg: vote,
-			Address:      common.Address{},
-		}
 
-		if err := c.handleMsg(context.Background(), msg); err != constants.ErrFutureHeightMessage {
+		prevote := message.NewPrevote(2, 3, common.BytesToHash([]byte{0x1}), dummySigner)
+		if err := c.handleMsg(context.Background(), prevote); !errors.Is(err, constants.ErrFutureHeightMessage) {
 			t.Fatal("errFutureHeightMessage not returned")
 		}
-		if backlog, ok := c.backlogUntrusted[3]; !(ok && len(backlog) > 0 && deep.Equal(backlog[0], msg)) {
+		if backlog, ok := c.backlogUntrusted[3]; !(ok && len(backlog) > 0 && deep.Equal(backlog[0], prevote)) {
 			t.Fatal("future message not saved in the untrusted buffer")
 		}
 	})

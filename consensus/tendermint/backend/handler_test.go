@@ -1,12 +1,13 @@
 package backend
 
 import (
+	"bytes"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"testing"
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -16,41 +17,38 @@ import (
 
 func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
-
 	// generate one msg
-	data := []byte("data1")
-	hash := types.RLPHash(data)
-	msg := makeMsg(TendermintMsg, data)
-	addr := common.BytesToAddress([]byte("address"))
+	data := message.NewPrevote(1, 2, common.Hash{}, testSigner)
+	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	// 1. this message should not be in cache
 	// for peers
-	if _, ok := backend.recentMessages.Get(addr); ok {
+	if _, ok := backend.recentMessages.Get(testAddress); ok {
 		t.Fatalf("the cache of messages for this peer should be nil")
 	}
 
 	// for self
-	if _, ok := backend.knownMessages.Get(hash); ok {
+	if _, ok := backend.knownMessages.Get(data.Hash()); ok {
 		t.Fatalf("the cache of messages should be nil")
 	}
 
 	// 2. this message should be in cache after we handle it
 	errCh := make(chan error, 1)
-	_, err := backend.HandleMsg(addr, msg, errCh)
+	_, err := backend.HandleMsg(testAddress, msg, errCh)
 	if err != nil {
 		t.Fatalf("handle message failed: %v", err)
 	}
 	// for peers
-	if ms, ok := backend.recentMessages.Get(addr); ms == nil || !ok {
+	if ms, ok := backend.recentMessages.Get(testAddress); ms == nil || !ok {
 		t.Fatalf("the cache of messages for this peer cannot be nil")
 	} else if m, ok := ms.(*lru.ARCCache); !ok {
 		t.Fatalf("the cache of messages for this peer cannot be casted")
-	} else if _, ok := m.Get(hash); !ok {
+	} else if _, ok := m.Get(data.Hash()); !ok {
 		t.Fatalf("the cache of messages for this peer cannot be found")
 	}
 
 	// for self
-	if _, ok := backend.knownMessages.Get(hash); !ok {
+	if _, ok := backend.knownMessages.Get(data.Hash()); !ok {
 		t.Fatalf("the cache of messages cannot be found")
 	}
 }
@@ -64,7 +62,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(SyncMsg, []byte{})
+		msg := makeMsg(SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -86,7 +84,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(SyncMsg, []byte{})
+		msg := makeMsg(SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -108,7 +106,7 @@ func TestProtocol(t *testing.T) {
 	if name != "tendermint" {
 		t.Fatalf("expected 'tendermint', got %v", name)
 	}
-	if code != 2 {
+	if code != 5 {
 		t.Fatalf("expected 2, got %v", code)
 	}
 }

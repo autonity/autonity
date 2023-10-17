@@ -2,35 +2,32 @@ package byzantine
 
 import (
 	"context"
-	"testing"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	e2e "github.com/autonity/autonity/e2e_test"
+	"github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func newOffChainAccusationRulePVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
 	return &OffChainAccusationRulePVNBroadcaster{c.(*core.Core)}
 }
 
-type OffChainAccusationRulePVNBroadcaster struct {
+type PVNOffChainAccusation struct {
 	*core.Core
 }
 
 // PVN accusation is simulated by the removal of proposal and those corresponding quorum prevotes from msg store on a
 // client, such client will rise accusation PVN over those client who prevote for the removed proposal.
-func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(s.Core, msg)
-	_ = msg.DecodePayload()
+func (s *PVNOffChainAccusation) Broadcast(ctx context.Context, msg message.Message) {
+	s.BroadcastAll(ctx, msg)
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
 		return
@@ -43,21 +40,21 @@ func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(msg *message.Mes
 		panic("cannot simulate off chain accusation PVN")
 	}
 
-	proposals := backEnd.MsgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == proto.MsgProposal
+	proposals := backEnd.MsgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.ProposalCode
 	})
 
 	for _, p := range proposals {
-		preVotes := backEnd.MsgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == proto.MsgPrevote && m.R() == p.R() && m.Value() == p.Value()
+		preVotes := backEnd.MsgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.PrevoteCode && m.R() == p.R() && m.Value() == p.Value()
 		})
 		// remove proposal.
-		backEnd.MsgStore.RemoveMsg(p.H(), p.R(), p.Code, p.Address)
+		backEnd.MsgStore.RemoveMsg(p.H(), p.R(), p.Code(), p.Sender())
 		// remove over quorum corresponding prevotes.
 		counter := 0
 		for _, pv := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code, pv.Address)
+				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code(), pv.Sender())
 				counter++
 			} else {
 				break
@@ -67,20 +64,15 @@ func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(msg *message.Mes
 	s.Logger().Info("Off chain Accusation of PVN rule is simulated")
 }
 
-func newOffChainAccusationRuleC1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
-	return &OffChainAccusationRuleC1Broadcaster{c.(*core.Core)}
-}
-
-type OffChainAccusationRuleC1Broadcaster struct {
+type C1OffChainAccusation struct {
 	*core.Core
 }
 
 // C1 accusation is simulated by the removal of those corresponding quorum prevotes from msg store on a
 // client, thus, the client will rise accusation C1 over those client who precommit for the corresponding proposal that
 // there were no quorum prevotes of it.
-func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(s.Core, msg)
-	_ = msg.DecodePayload()
+func (s *C1OffChainAccusation) Broadcast(ctx context.Context, msg message.Message) {
+	s.BroadcastAll(ctx, msg)
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
 		return
@@ -93,20 +85,20 @@ func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(msg *message.Mess
 		panic("cannot simulate off chain accusation C1")
 	}
 
-	proposals := backEnd.MsgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == proto.MsgProposal
+	proposals := backEnd.MsgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.ProposalCode
 	})
 
 	for _, p := range proposals {
-		preVotes := backEnd.MsgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == proto.MsgPrevote && m.R() == p.R() && m.Value() == p.Value()
+		preVotes := backEnd.MsgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.PrevoteCode && m.R() == p.R() && m.Value() == p.Value()
 		})
 
 		// remove over quorum corresponding prevotes.
 		counter := 0
 		for _, pv := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code, pv.Address)
+				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code(), pv.Sender())
 				counter++
 			} else {
 				break
@@ -121,14 +113,13 @@ func newOffChainAccusationGarbageBroadcaster(c interfaces.Tendermint) interfaces
 }
 
 // send accusation with garbage accusation msg, the sender of the msg should get disconnected from receiver end.
-type OffChainAccusationGarbageBroadcaster struct {
+type GarbageOffChainAccusation struct {
 	*core.Core
 }
 
-func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(s.Core, msg)
+func (s *GarbageOffChainAccusation) Broadcast(ctx context.Context, msg message.Message) {
+	s.BroadcastAll(ctx, msg)
 	// construct garbage off chain accusation msg and sent it.
-	_ = msg.DecodePayload()
 	if msg.H() <= uint64(1) {
 		return
 	}
@@ -152,7 +143,7 @@ func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(msg *message.Mes
 		}
 		if len(peers) > 0 {
 			// send garbage accusation msg.
-			go peers[c.Address].Send(bk.AccountabilityMsg, payload) // nolint
+			go peers[c.Address].Send(bk.AccountabilityNetworkMsg, payload) // nolint
 			s.Logger().Info("Off chain Accusation garbage accusation is simulated")
 		}
 	}
@@ -167,10 +158,9 @@ type OffChainDuplicatedAccusationBroadcaster struct {
 	*core.Core
 }
 
-func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(s.Core, msg)
+func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(ctx context.Context, msg message.Message) {
+	s.BroadcastAll(ctx, msg)
 	// construct duplicated accusation msg and send them.
-	_ = msg.DecodePayload()
 	if msg.H() <= uint64(1) {
 		return
 	}
@@ -179,13 +169,13 @@ func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(msg *message.
 		panic("cannot simulate duplicated off chain accusation")
 	}
 
-	preVotes := backEnd.MsgStore.Get(msg.H()-1, func(m *message.Message) bool {
-		return m.Type() == proto.MsgPrevote && m.Address != msg.Address
+	preVotes := backEnd.MsgStore.Get(msg.H()-1, func(m message.Message) bool {
+		return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
 	})
 
 	for _, pv := range preVotes {
 		targets := make(map[common.Address]struct{})
-		targets[pv.Address] = struct{}{}
+		targets[pv.Sender()] = struct{}{}
 		peers := backEnd.Broadcaster.FindPeers(targets)
 		if len(peers) > 0 {
 			accusation := &accountability.Proof{
@@ -198,25 +188,20 @@ func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(msg *message.
 				panic("cannot encode accusation at e2e test for off chain accusation protocol")
 			}
 			// send duplicated msg.
-			go peers[pv.Address].Send(bk.AccountabilityMsg, rProof) // nolint
-			go peers[pv.Address].Send(bk.AccountabilityMsg, rProof) // nolint
+			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 			s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 		}
 	}
 }
 
-func newOffChainAccusationOverRatedBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
-	return &OffChainAccusationOverRatedBroadcaster{c.(*core.Core)}
-}
-
-type OffChainAccusationOverRatedBroadcaster struct {
+type OverRatedOffChainAccusation struct {
 	*core.Core
 }
 
-func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(s.Core, msg)
+func (s *OverRatedOffChainAccusation) Broadcast(ctx context.Context, msg message.Message) {
+	s.BroadcastAll(ctx, msg)
 	// construct accusations and send them with high rate.
-	_ = msg.DecodePayload()
 	if msg.H() <= uint64(10) {
 		return
 	}
@@ -227,12 +212,12 @@ func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(msg *message.M
 
 	// collect some out of updated consensus msg
 	for h := uint64(2); h <= msg.H(); h++ {
-		preVotes := backEnd.MsgStore.Get(h, func(m *message.Message) bool {
-			return m.Type() == proto.MsgPrevote && m.Address != msg.Address
+		preVotes := backEnd.MsgStore.Get(h, func(m message.Message) bool {
+			return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
 		})
 		for _, pv := range preVotes {
 			targets := make(map[common.Address]struct{})
-			targets[pv.Address] = struct{}{}
+			targets[pv.Sender()] = struct{}{}
 			peers := backEnd.Broadcaster.FindPeers(targets)
 			if len(peers) > 0 {
 				accusation := &accountability.Proof{
@@ -245,7 +230,7 @@ func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(msg *message.M
 					panic("cannot encode accusation at e2e test for off chain accusation protocol")
 				}
 				// send msg.
-				go peers[pv.Address].Send(bk.AccountabilityMsg, rProof) // nolint
+				go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 				s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 			}
 		}
@@ -254,14 +239,14 @@ func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(msg *message.M
 
 func OffChainAccusationTests(t *testing.T) {
 	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationRuleC1Broadcaster}
+		handler := &node.TendermintServices{Broadcaster: &C1OffChainAccusation{}}
 		tp := autonity.Accusation
 		rule := autonity.C1
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
 	t.Run("OffChainAccusationRulePVN", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationRulePVNBroadcaster}
+		handler := &node.TendermintServices{Broadcaster: &PVNOffChainAccusation{}}
 		tp := autonity.Accusation
 		rule := autonity.PVN
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
@@ -273,7 +258,7 @@ func OffChainAccusationTests(t *testing.T) {
 	// them from CI job.
 	t.Run("Test off chain accusation with garbage msg", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationGarbageBroadcaster}
+		handler := &node.TendermintServices{Broadcaster: &GarbageOffChainAccusation{}}
 		runDropPeerConnectionTest(t, handler, 10)
 	})
 

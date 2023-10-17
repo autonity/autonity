@@ -2,15 +2,15 @@
 // Source: consensus/tendermint/core/interfaces/tendermint.go
 
 // Package interfaces is a generated GoMock package.
-package interfaces
+package backend
 
 import (
 	context "context"
+	types "github.com/autonity/autonity/consensus/tendermint/core"
 	reflect "reflect"
 
 	autonity "github.com/autonity/autonity/autonity"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
-	types "github.com/autonity/autonity/consensus/tendermint/core/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -66,10 +66,10 @@ func (mr *MockTendermintMockRecorder) CoreState() *gomock.Call {
 }
 
 // CurrentHeightMessages mocks base method.
-func (m *MockTendermint) CurrentHeightMessages() []*message.Message {
+func (m *MockTendermint) CurrentHeightMessages() []message.Message {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CurrentHeightMessages")
-	ret0, _ := ret[0].([]*message.Message)
+	ret0, _ := ret[0].([]message.Message)
 	return ret0
 }
 

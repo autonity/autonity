@@ -5,12 +5,9 @@ import (
 	"errors"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"math/big"
@@ -31,7 +28,7 @@ func TestSendPropose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		proposerKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
@@ -40,7 +37,7 @@ func TestSendPropose(t *testing.T) {
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		msg, proposal := generateBlockProposal(t, 1, height, validRound, proposer, true, proposerKey)
+		proposal := generateBlockProposal(1, height, validRound, true, proposerKey)
 
 		assert.NoError(t, err)
 
@@ -56,9 +53,9 @@ func TestSendPropose(t *testing.T) {
 		}
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
-		backendMock.EXPECT().Sign(gomock.Any()).Times(2).DoAndReturn(signer(proposerKey))
-		backendMock.EXPECT().Broadcast(gomock.Any(), msg.Bytes)
+		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
+		backendMock.EXPECT().Sign(gomock.Any()).Times(2).DoAndReturn(makeSigner(proposerKey))
+		backendMock.EXPECT().Broadcast(gomock.Any(), proposal.Payload())
 
 		c := &Core{
 			address:          proposer,
@@ -73,7 +70,7 @@ func TestSendPropose(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		c.proposer.SendProposal(context.Background(), proposal.ProposalBlock)
+		c.proposer.SendProposal(context.Background(), proposal.Block())
 	})
 }
 
@@ -83,27 +80,10 @@ func TestHandleProposal(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
-
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
-
 		logger := log.New("backend", "test", "id", 0)
-
-		proposalBlock := message.NewProposal(1, big.NewInt(1), 1, block, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			ConsensusMsg:  proposalBlock,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
-
+		proposal := message.NewPropose(1, 1, 1, block, dummySigner)
 		c := &Core{
 			address:          addr,
 			messages:         messages,
@@ -112,10 +92,9 @@ func TestHandleProposal(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(1),
 		}
-
 		c.SetDefaultHandlers()
-		err = c.proposer.HandleProposal(context.Background(), msg)
-		if err != constants.ErrOldRoundMessage {
+		err := c.proposer.HandleProposal(context.Background(), proposal)
+		if !errors.Is(err, constants.ErrOldRoundMessage) {
 			t.Fatalf("Expected %v, got %v", constants.ErrOldRoundMessage, err)
 		}
 	})
@@ -124,7 +103,7 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
@@ -133,22 +112,9 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := message.NewProposal(2, big.NewInt(1), 1, block, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		proposal := message.NewPropose(2, 1, 1, block, dummySigner)
 
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			ConsensusMsg:  proposalBlock,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-		}
-
-		testCommittee, _ := helpers.GenerateCommittee(3)
+		testCommittee, _ := GenerateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
 
 		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
@@ -167,8 +133,8 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		c.SetDefaultHandlers()
-		err = c.proposer.HandleProposal(context.Background(), msg)
-		if err != constants.ErrNotFromProposer {
+		err = c.proposer.HandleProposal(context.Background(), proposal)
+		if !errors.Is(err, constants.ErrNotFromProposer) {
 			t.Fatalf("Expected %v, got %v", constants.ErrNotFromProposer, err)
 		}
 	})
@@ -176,93 +142,37 @@ func TestHandleProposal(t *testing.T) {
 	t.Run("unverified proposal given, error returned", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		addr := common.HexToAddress("0x0123456789")
-
+		committee, keys := NewTestCommitteeSetWithKeys(2)
+		member1 := committee.Committee()[0]
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
-
-		messageMap := message.NewMessagesMap()
+		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(2)
 
-		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := message.NewProposal(2, big.NewInt(1), 1, block, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-			Power:         common.Big1,
-		}
-
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
-
-		var decProposal message.Proposal
-		if decErr := msg.Decode(&decProposal); decErr != nil {
-			t.Fatalf("Expected <nil>, got %v", decErr)
-		}
-
-		var prevote = message.Vote{
-			Round:             2,
-			Height:            big.NewInt(1),
-			ProposedBlockHash: common.Hash{},
-		}
-
-		encodedVote, err := rlp.EncodeToBytes(&prevote)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		preVoteMsg := &message.Message{
-			Code:          consensus.MsgPrevote,
-			Payload:       encodedVote,
-			ConsensusMsg:  &prevote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Power:         common.Big1,
-		}
-
-		payloadNoSig, err := preVoteMsg.BytesNoSignature()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		payload := preVoteMsg.GetBytes()
+		proposal := message.NewPropose(2, 1, 1, block, makeSigner(keys[member1.Address]))
+		prevote := message.NewPrevote(2, 1, common.Hash{}, makeSigner(keys[member1.Address]))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, errors.New("bad block"))
-		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), prevote.Payload())
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
+		logger := log.New("backend", "test", "id", 0)
 		c := &Core{
-			address:          addr,
+			address:          member1.Address,
 			backend:          backendMock,
 			messages:         messageMap,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
-			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
-			committee:        valSet,
+			proposeTimeout:   NewTimeout(Propose, logger),
+			committee:        committee,
 			round:            2,
 			height:           big.NewInt(1),
 		}
 
 		c.SetDefaultHandlers()
-		err = c.proposer.HandleProposal(context.Background(), msg)
+		err := c.proposer.HandleProposal(context.Background(), proposal)
 		if err == nil {
 			t.Fatalf("Expected non nil error, got %v", err)
 		}
@@ -278,23 +188,11 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messageMap := message.NewMessagesMap()
+		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := message.NewProposal(2, big.NewInt(1), 1, block, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		assert.NoError(t, err)
-
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			ConsensusMsg:  proposalBlock,
-			Payload:       proposal,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-			Power:         common.Big1,
-		}
+		proposal := message.NewPropose(2, 1, 1, block, dummySigner)
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
@@ -306,7 +204,7 @@ func TestHandleProposal(t *testing.T) {
 		const eventPostingDelay = time.Second
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
 		event := backlogMessageEvent{
-			msg: msg,
+			msg: proposal,
 		}
 
 		backendMock.EXPECT().Post(event).Times(1)
@@ -316,14 +214,14 @@ func TestHandleProposal(t *testing.T) {
 			messages:         messageMap,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
-			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
+			proposeTimeout:   NewTimeout(Propose, logger),
 			committee:        valSet,
 			round:            2,
 			height:           big.NewInt(1),
 		}
 
 		c.SetDefaultHandlers()
-		err = c.proposer.HandleProposal(context.Background(), msg)
+		err = c.proposer.HandleProposal(context.Background(), proposal)
 		assert.Error(t, err)
 		// We wait here for at least the delay "eventPostingDelay" returned by VerifyProposal :
 		// We expect above that a backlog event containing the future proposal message will be posted
@@ -334,48 +232,20 @@ func TestHandleProposal(t *testing.T) {
 	t.Run("valid proposal given, no error returned", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		addr := common.HexToAddress("0x0123456789")
+		validators, keys := NewTestCommitteeSetWithKeys(1)
+		addr := validators.Committee()[0].Address
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := message.NewProposal(2, big.NewInt(1), 2, block, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			ConsensusMsg:  proposalBlock,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-			Power:         common.Big1,
-		}
-
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
-
-		var decProposal message.Proposal
-		if decErr := msg.Decode(&decProposal); decErr != nil {
-			t.Fatalf("Expected <nil>, got %v", decErr)
-		}
+		proposal := message.NewPropose(2, 1, 2, block, makeSigner(keys[addr]))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
+		backendMock.EXPECT().VerifyProposal(proposal.Block())
 
 		c := &Core{
 			address:          addr,
@@ -385,18 +255,18 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
-			committee:        valSet,
+			proposeTimeout:   NewTimeout(Propose, logger),
+			committee:        validators,
 		}
 
 		c.SetDefaultHandlers()
-		err = c.proposer.HandleProposal(context.Background(), msg)
+		err := c.proposer.HandleProposal(context.Background(), proposal)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		if !reflect.DeepEqual(curRoundMessages.ProposalMsg, msg) {
-			t.Fatalf("%v not equal to  %v", curRoundMessages.ProposalMsg, msg)
+		if !reflect.DeepEqual(curRoundMessages.Proposal(), proposal) {
+			t.Fatalf("%v not equal to  %v", curRoundMessages.Proposal(), proposal)
 		}
 	})
 
@@ -404,36 +274,36 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
+		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 		logger := log.New("backend", "test", "id", 0)
 		proposer, err := committeeSet.GetByIndex(3)
 		assert.NoError(t, err)
-
+		member := committeeSet.Committee()[0]
 		proposalBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		proposalMsg := message.NewProposal(2, big.NewInt(1), 2, proposalBlock, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalMsg)
+		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address]))
+
 		assert.NoError(t, err)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
 		c := &Core{
-			address:          common.HexToAddress("0x0123456789"),
+			address:          member.Address,
 			backend:          backendMock,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
-			precommitTimeout: tctypes.NewTimeout(tctypes.Precommit, logger),
+			proposeTimeout:   NewTimeout(Propose, logger),
+			precommitTimeout: NewTimeout(Precommit, logger),
 			committee:        committeeSet,
-			step:             tctypes.Precommit,
+			step:             Precommit,
 		}
 		c.SetDefaultHandlers()
 		defer c.proposeTimeout.StopTimer()   // nolint: errcheck
@@ -442,110 +312,40 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.GetByIndex(i)
-			precommitMsg, err := preparePrecommitMsg(proposalBlock.Hash(), 2, 1, keys, val)
-			assert.NoError(t, err)
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address]))
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			assert.NoError(t, err)
 		}
 
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			ConsensusMsg:  proposalMsg,
-			Address:       proposer.Address,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-			Power:         common.Big1,
-		}
-		var decProposal message.Proposal
-		err = msg.Decode(&decProposal)
-		assert.NoError(t, err)
-		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
+		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ [][]byte) {
 			assert.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
 		})
 
-		err = c.proposer.HandleProposal(context.Background(), msg)
+		err = c.proposer.HandleProposal(context.Background(), proposal)
 		assert.NoError(t, err)
 	})
 
 	t.Run("valid proposal given, valid round -1, pre-vote is sent", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		addr := common.HexToAddress("0x0123456789")
+		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
+		local := committeeSet.Committee()[0]
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
-
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := message.NewProposal(2, big.NewInt(1), -1, block, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			ConsensusMsg:  proposalBlock,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-			Power:         common.Big1,
-		}
-
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
-
-		var decProposal message.Proposal
-		if decErr := msg.Decode(&decProposal); decErr != nil {
-			t.Fatalf("Expected <nil>, got %v", decErr)
-		}
-
-		var prevote = message.Vote{
-			Round:             2,
-			Height:            big.NewInt(1),
-			ProposedBlockHash: block.Hash(),
-		}
-
-		encodedVote, err := rlp.EncodeToBytes(&prevote)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		preVoteMsg := &message.Message{
-			Code:          consensus.MsgPrevote,
-			Payload:       encodedVote,
-			ConsensusMsg:  &prevote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Power:         common.Big1,
-		}
-
-		payloadNoSig, err := preVoteMsg.BytesNoSignature()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		payload := preVoteMsg.GetBytes()
-
+		proposal := message.NewPropose(2, 1, -1, block, makeSigner(keys[local.Address]))
+		prevote := message.NewPrevote(2, 1, block.Hash(), makeSigner(keys[local.Address]))
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
-		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
+		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		backendMock.EXPECT().Broadcast(gomock.Any(), prevote)
 
 		c := &Core{
-			address:          addr,
+			address:          local.Address,
 			backend:          backendMock,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
@@ -554,98 +354,43 @@ func TestHandleProposal(t *testing.T) {
 			lockedValue:      types.NewBlockWithHeader(&types.Header{}),
 			lockedRound:      -1,
 			logger:           logger,
-			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
+			proposeTimeout:   NewTimeout(Propose, logger),
 			validRound:       -1,
-			committee:        valSet,
+			committee:        committeeSet,
 		}
 
 		c.SetDefaultHandlers()
-		err = c.proposer.HandleProposal(context.Background(), msg)
+		err := c.proposer.HandleProposal(context.Background(), proposal)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		if !reflect.DeepEqual(curRoundMessages.ProposalMsg, msg) {
-			t.Fatalf("%v not equal to  %v", curRoundMessages.ProposalMsg, msg)
+		if !reflect.DeepEqual(curRoundMessages.Proposal(), proposal) {
+			t.Fatalf("%v not equal to  %v", curRoundMessages.Proposal(), proposal)
 		}
 	})
 
 	t.Run("valid proposal given, vr < curR, pre-vote is sent", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		addr := common.HexToAddress("0x0123456789")
+		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
+		local := committeeSet.Committee()[0]
 		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessage := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposalBlock := message.NewProposal(2, big.NewInt(1), 1, block, dummySigner)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		proposal := message.NewPropose(1, 2, 1, block, makeSigner(keys[local.Address]))
+		prevote := message.NewPrevote(2, 1, proposal.Block().Hash(), makeSigner(keys[local.Address]))
 
-		msg := &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			ConsensusMsg:  proposalBlock,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Signature:     []byte{0x1},
-			Power:         common.Big1,
-		}
-
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
-
-		var decProposal message.Proposal
-		if decErr := msg.Decode(&decProposal); decErr != nil {
-			t.Fatalf("Expected <nil>, got %v", decErr)
-		}
-
-		var prevote = message.Vote{
-			Round:             2,
-			Height:            big.NewInt(1),
-			ProposedBlockHash: block.Hash(),
-		}
-
-		encodedVote, err := rlp.EncodeToBytes(&prevote)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		preVoteMsg := &message.Message{
-			Code:          consensus.MsgPrevote,
-			Payload:       encodedVote,
-			ConsensusMsg:  &prevote,
-			Address:       addr,
-			CommittedSeal: []byte{},
-			Power:         common.Big1,
-		}
-
-		payloadNoSig, err := preVoteMsg.BytesNoSignature()
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
-
-		payload := preVoteMsg.GetBytes()
-
-		messages.GetOrCreate(1).AddPrevote(block.Hash(), *preVoteMsg)
+		messages.GetOrCreate(1).AddPrevote(prevote)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
-		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
+		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		backendMock.EXPECT().Broadcast(gomock.Any(), prevote)
 
 		c := &Core{
-			address:          addr,
+			address:          local.Address,
 			backend:          backendMock,
 			curRoundMessages: curRoundMessage,
 			messages:         messages,
@@ -654,19 +399,19 @@ func TestHandleProposal(t *testing.T) {
 			height:           big.NewInt(1),
 			lockedValue:      nil,
 			logger:           logger,
-			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
+			proposeTimeout:   NewTimeout(Propose, logger),
 			validRound:       0,
-			committee:        valSet,
+			committee:        committeeSet,
 		}
 
 		c.SetDefaultHandlers()
-		err = c.proposer.HandleProposal(context.Background(), msg)
+		err := c.proposer.HandleProposal(context.Background(), proposal)
 		if err != nil {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		if !reflect.DeepEqual(curRoundMessage.ProposalMsg, msg) {
-			t.Fatalf("%v not equal to  %v", curRoundMessage.ProposalMsg, msg)
+		if !reflect.DeepEqual(curRoundMessage.Proposal(), proposal) {
+			t.Fatalf("%v not equal to  %v", curRoundMessage.Proposal(), proposal)
 		}
 	})
 }
@@ -700,13 +445,12 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 	t.Run("candidate block is the one missed, proposal is broadcast", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		proposerKey, err := crypto.GenerateKey()
-		require.NoError(t, err)
-		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
+		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
+		proposer, _ := committeeSet.GetByIndex(0)
+		proposerKey := keys[proposer.Address]
 		height := new(big.Int).SetUint64(1)
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		preBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(0),
 		})
@@ -715,30 +459,15 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		msg, proposal := generateBlockProposal(t, 1, height, validRound, proposer, false, proposerKey)
-		//msgPayload, err := msg.BytesNoSignature()
-		require.NoError(t, err)
-		msg.Signature = []byte{0x1}
-
-		testCommittee := types.Committee{
-			types.CommitteeMember{
-				Address:     proposer,
-				VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		proposal := generateBlockProposal(1, height, validRound, false, proposerKey)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(signer(proposerKey))
-		backendMock.EXPECT().Broadcast(gomock.Any(), msg.Bytes)
+		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
+		backendMock.EXPECT().Broadcast( gomock.Any(), proposal)
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),
-			address:                proposer,
+			address:                proposer.Address,
 			backend:                backendMock,
 			curRoundMessages:       curRoundMessages,
 			logger:                 logger,
@@ -746,16 +475,16 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 			round:                  1,
 			height:                 big.NewInt(1),
 			validRound:             validRound,
-			committee:              valSet,
+			committee:              committeeSet,
 		}
 		c.SetDefaultHandlers()
 		c.pendingCandidateBlocks[uint64(0)] = preBlock
-		c.proposer.HandleNewCandidateBlockMsg(context.Background(), proposal.ProposalBlock)
+		c.proposer.HandleNewCandidateBlockMsg(context.Background(), proposal.Block())
 		require.Equal(t, 1, len(c.pendingCandidateBlocks))
 		require.Equal(t, uint64(1), c.pendingCandidateBlocks[uint64(1)].Number().Uint64())
 	})
 }
 
-func dummySigner(_ []byte) ([]byte, error) {
+func dummySigner(_ common.Hash) ([]byte, error) {
 	return nil, nil
 }
