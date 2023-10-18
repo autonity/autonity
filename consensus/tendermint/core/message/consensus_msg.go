@@ -245,7 +245,7 @@ func (p *Proposal) EncodeRLP(w io.Writer) error {
 	if p.ProposalBlock == nil {
 		log.Crit("encoding proposal with empty block")
 	}
-	// RLP encoding doesn't support negative big.Int, so we have to pass one additionnal field to represents validRound = -1.
+	// RLP encoding doesn't support negative big.Int, so we have to pass one additional field to represents validRound = -1.
 	// Note that we could have as well indexed rounds starting by 1, but we want to stay close as possible to the spec.
 	isValidRoundNil := false
 	var validRound uint64

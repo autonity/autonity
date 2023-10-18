@@ -8,6 +8,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
+	"io"
 	"math/big"
 	"reflect"
 )
@@ -70,7 +71,7 @@ func (m *MessageVote) ToMessage() *Message {
 
 type MessageProposal struct {
 	MessageBase
-	Proposal
+	Proposal Proposal
 }
 
 func (m *MessageProposal) ToMessage() *Message {
@@ -113,9 +114,9 @@ func (m *MessageLightProposal) ToMessage() *Message {
 // define the functions that needs to be provided for rlp Encoder/Decoder.
 
 // EncodeRLP serializes m into the Ethereum RLP format.
-//func (m *Message) EncodeRLP(w io.Writer) error {
-//	return rlp.Encode(w, []any{m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal})
-//}
+func (m *Message) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []any{m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal})
+}
 
 // Hash Unified the Hash calculation of consensus msg. RLPHash(msg) hashes both public fields and private fields of
 // msg, while the rlp.EncodeToBytes(AccountabilityEvent) function, it calls interface EncodeRLP() that is implemented
@@ -132,21 +133,21 @@ func (m *Message) Hash() common.Hash {
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-//func (m *Message) DecodeRLP(s *rlp.Stream) error {
-//	var msg struct {
-//		Code          uint8
-//		Msg           []byte
-//		Address       common.Address
-//		Signature     []byte
-//		CommittedSeal []byte
-//	}
-//
-//	if err := s.Decode(&msg); err != nil {
-//		return err
-//	}
-//	m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal = msg.Code, msg.Msg, msg.Address, msg.Signature, msg.CommittedSeal
-//	return nil
-//}
+func (m *Message) DecodeRLP(s *rlp.Stream) error {
+	var msg struct {
+		Code          uint8
+		Msg           []byte
+		Address       common.Address
+		Signature     []byte
+		CommittedSeal []byte
+	}
+
+	if err := s.Decode(&msg); err != nil {
+		return err
+	}
+	m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal = msg.Code, msg.Msg, msg.Address, msg.Signature, msg.CommittedSeal
+	return nil
+}
 
 func FromBytes(b []byte) (*Message, error) {
 	msg := &Message{Bytes: b}

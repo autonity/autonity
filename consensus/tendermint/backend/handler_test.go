@@ -140,16 +140,16 @@ func TestNewChainHead(t *testing.T) {
 	})
 }
 
-func makeMsg(msgcode uint64, data []byte) p2p.Msg {
-	return makeMsgVote(msgcode, data, nil)
+//func makeMsg(msgcode uint64, data []byte) p2p.Msg {
+//	return makeMsgVote(msgcode, data, nil)
+//}
+
+func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
+	size, r, _ := rlp.EncodeToReader(data)
+	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
 }
 
 func makeMsgVote(msgcode uint64, payload []byte, vote *message.Vote) p2p.Msg {
-
-	//payload, err := rlp.EncodeToBytes(data)
-	//if err != nil {
-	//	panic(fmt.Sprintf("makeMsg encoding failed: %s", err))
-	//}
 
 	msg := &message.MessageVote{
 		MessageBase: message.MessageBase{
@@ -179,5 +179,38 @@ func makeMsgVote(msgcode uint64, payload []byte, vote *message.Vote) p2p.Msg {
 	//	panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
 	//}
 	//
-	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
+	return p2p.Msg{Code: TendermintMsgVote, Size: uint32(size), Payload: r}
+}
+
+func makeMsgProposal(payload []byte, proposal *message.Proposal) p2p.Msg {
+
+	msg := &message.MessageProposal{
+		MessageBase: message.MessageBase{
+			Code:          0,
+			Payload:       payload,
+			Address:       common.Address{},
+			Signature:     nil,
+			CommittedSeal: nil,
+			Power:         nil,
+			Bytes:         nil,
+		},
+		Proposal: *proposal,
+	}
+
+	encoded, err := rlp.EncodeToBytes(msg)
+	if err != nil {
+		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
+	}
+
+	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
+
+	r := bytes.NewReader(encoded)
+	size := len(encoded)
+
+	//size, r, err := rlp.EncodeToReader(msg)
+	//if err != nil {
+	//	panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
+	//}
+	//
+	return p2p.Msg{Code: TendermintMsgProposal, Size: uint32(size), Payload: r}
 }

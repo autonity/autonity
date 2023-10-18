@@ -1,7 +1,9 @@
 package message
 
 import (
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/stretchr/testify/require"
@@ -41,44 +43,83 @@ import (
 //	}
 //}
 
-//func TestMessageVote(t *testing.T) {
-//
-//	payload := []byte("kokoko")
-//
-//	vote := Vote{
-//		Round:             0,
-//		Height:            big.NewInt(0x37),
-//		ProposedBlockHash: common.Hash{},
-//	}
-//
-//	msg := &MessageVote{
-//		MessageBase: MessageBase{
-//			Code:          0x21,
-//			Payload:       payload,
-//			Address:       common.Address{},
-//			Signature:     nil,
-//			CommittedSeal: nil,
-//			Power:         big.NewInt(0x14),
-//			Bytes:         nil,
-//		},
-//		Vote: vote,
-//	}
-//
-//	encoded, err := rlp.EncodeToBytes(msg)
-//	if err != nil {
-//		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
-//	}
-//
-//	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
-//
-//	newMsg := &MessageVote{}
-//
-//	err = rlp.DecodeBytes(encoded, newMsg)
-//	require.NoError(t, err)
-//
-//	require.Equal(t, msg, newMsg)
-//
-//}
+func TestMessageVote(t *testing.T) {
+
+	payload := []byte("kokoko")
+
+	vote := Vote{
+		Round:             0,
+		Height:            big.NewInt(0x37),
+		ProposedBlockHash: common.Hash{},
+	}
+
+	msg := &MessageVote{
+		MessageBase: MessageBase{
+			Code:          0x21,
+			Payload:       payload,
+			Address:       common.Address{},
+			Signature:     nil,
+			CommittedSeal: nil,
+			Power:         big.NewInt(0x14),
+			Bytes:         nil,
+		},
+		Vote: vote,
+	}
+
+	encoded, err := rlp.EncodeToBytes(msg)
+	if err != nil {
+		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
+	}
+
+	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
+
+	newMsg := &MessageVote{}
+
+	err = rlp.DecodeBytes(encoded, newMsg)
+	require.NoError(t, err)
+
+	require.Equal(t, msg, newMsg)
+
+}
+
+func TestMessageProposal(t *testing.T) {
+
+	payload := []byte("kokoko")
+
+	proposal := Proposal{
+		Round:         0,
+		Height:        big.NewInt(0x37),
+		ProposalBlock: &types.Block{},
+	}
+
+	msg := &MessageProposal{
+		MessageBase: MessageBase{
+			Code:          0x21,
+			Payload:       payload,
+			Address:       common.Address{},
+			Signature:     nil,
+			CommittedSeal: nil,
+			Power:         big.NewInt(0x14),
+			Bytes:         nil,
+		},
+		Proposal: proposal,
+	}
+
+	encoded, err := rlp.EncodeToBytes(msg)
+	if err != nil {
+		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
+	}
+
+	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
+
+	newMsg := &MessageProposal{}
+
+	err = rlp.DecodeBytes(encoded, newMsg)
+	require.NoError(t, err)
+
+	require.Equal(t, msg, newMsg)
+
+}
 
 func TestMessageValidate(t *testing.T) {
 

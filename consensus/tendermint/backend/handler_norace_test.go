@@ -7,6 +7,7 @@ package backend
 import (
 	"context"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
@@ -30,7 +31,11 @@ func TestUnhandledMsgs(t *testing.T) {
 		//we generate a bunch of messages overflowing max capacity
 		for i := int64(0); i < 2*ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(TendermintMsgProposal, append(counter, []byte("data")...))
+			proposal := &message.Proposal{
+				Height:        big.NewInt(21),
+				ProposalBlock: &types.Block{},
+			}
+			msg := makeMsgProposal(append(counter, []byte("data")...), proposal)
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
@@ -49,12 +54,9 @@ func TestUnhandledMsgs(t *testing.T) {
 				t.Fatalf("wrong msg code")
 			}
 			var payload []byte
-			var decodedMsg = message.Message{
-				ConsensusMsg: &message.Proposal{},
-			}
-			if err := savedMsg.(UnhandledMsg).msg.Decode(&decodedMsg); err != nil {
-				t.Fatalf("couldnt decode payload")
-			}
+			var decodedMsg = message.MessageProposal{}
+			err := savedMsg.(UnhandledMsg).msg.Decode(&decodedMsg)
+			require.NoError(t, err)
 
 			payload = decodedMsg.Payload
 			expectedPayload := append(counter, []byte("data")...)
@@ -87,11 +89,11 @@ func TestUnhandledMsgs(t *testing.T) {
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
 
-			consensusMsg := &message.Vote{
+			voteMsg := &message.Vote{
 				Height: big.NewInt(2137 + i),
 			}
 
-			msg := makeMsgVote(TendermintMsgVote, append(counter, []byte("data")...), consensusMsg)
+			msg := makeMsgVote(TendermintMsgVote, append(counter, []byte("data")...), voteMsg)
 
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
