@@ -21,7 +21,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
 	var prevote = &message.Vote{
-		Round:  c.Round(),
+		Round:  uint64(c.Round()),
 		Height: c.Height(),
 	}
 
@@ -54,11 +54,11 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) error {
 	preVote := msg.ConsensusMsg.(*message.Vote)
-	if err := c.CheckMessage(preVote.Round, preVote.Height.Uint64(), types.Prevote); err != nil {
+	if err := c.CheckMessage(int64(preVote.Round), preVote.Height.Uint64(), types.Prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if err == constants.ErrOldRoundMessage {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
-			oldRoundMessages := c.messages.GetOrCreate(preVote.Round)
+			oldRoundMessages := c.messages.GetOrCreate(int64(preVote.Round))
 			c.AcceptVote(oldRoundMessages, types.Prevote, preVote.ProposedBlockHash, *msg)
 
 			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus.

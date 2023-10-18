@@ -176,6 +176,133 @@ func (c *Proposer) HandleProposal(ctx context.Context, msg *message.Message) err
 	return nil
 }
 
+//func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Proposal) error {
+//	//proposal := msg.ConsensusMsg.(*message.Proposal)
+//	// Ensure we have the same view with the Proposal message
+//	if err := c.CheckMessage(proposal.Round, proposal.Height.Uint64(), tctypes.Propose); err != nil {
+//		// If it's a future round proposal, the only upon condition
+//		// that can be triggered is L49, but this requires more than F future round messages
+//		// meaning that a future roundchange will happen before, as such, pushing the
+//		// message to the backlog is fine.
+//		if err == constants.ErrOldRoundMessage {
+//
+//			roundMsgs := c.messages.GetOrCreate(proposal.Round)
+//
+//			// if we already have a proposal then it must be different than the current one
+//			// it can't happen unless someone's byzantine.
+//			if roundMsgs.ProposalDetails != nil {
+//				return err // do not gossip, TODO: accountability
+//			}
+//
+//			if !c.IsFromProposer(proposal.Round, proposal.Address) {
+//				c.logger.Warn("Ignoring proposal from non-proposer")
+//				return constants.ErrNotFromProposer
+//			}
+//			// We do not verify the proposal in this case.
+//			roundMsgs.SetProposal(proposal, false)
+//
+//			if roundMsgs.PrecommitsPower(roundMsgs.GetProposalHash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+//				if _, err2 := c.backend.VerifyProposal(proposal.ProposalBlock); err2 != nil {
+//					return err2
+//				}
+//				c.logger.Debug("Committing old round proposal")
+//				c.Commit(proposal.Round, roundMsgs)
+//				return nil
+//			}
+//		}
+//		return err
+//	}
+//
+//	// Check if the message comes from curRoundMessages proposer
+//	if !c.IsFromProposer(c.Round(), proposal.Address) {
+//		c.logger.Warn("Ignore proposal messages from non-proposer")
+//		return constants.ErrNotFromProposer
+//	}
+//
+//	// received a current round proposal
+//	if metrics.Enabled {
+//		now := time.Now()
+//		tctypes.ProposalReceivedTimer.Update(now.Sub(c.newRound))
+//		tctypes.ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
+//	}
+//
+//	// Verify the proposal we received
+//	start := time.Now()
+//	duration, err := c.backend.VerifyProposal(proposal.ProposalBlock)
+//
+//	if metrics.Enabled {
+//		now := time.Now()
+//		tctypes.ProposalVerifiedTimer.Update(now.Sub(start))
+//		tctypes.ProposalVerifiedBg.Add(now.Sub(start).Nanoseconds())
+//	}
+//
+//	if err != nil {
+//		if timeoutErr := c.proposeTimeout.StopTimer(); timeoutErr != nil {
+//			return timeoutErr
+//		}
+//		// if it's a future block, we will handle it again after the duration
+//		// TODO: implement wiggle time / median time
+//		if err == consensus.ErrFutureTimestampBlock {
+//			c.StopFutureProposalTimer()
+//			c.futureProposalTimer = time.AfterFunc(duration, func() {
+//				c.SendEvent(backlogMessageEvent{
+//					msg: msg,
+//				})
+//			})
+//			return err
+//		}
+//		c.prevoter.SendPrevote(ctx, true)
+//		// do not to accept another proposal in current round
+//		c.SetStep(tctypes.Prevote)
+//
+//		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
+//
+//		return err
+//	}
+//
+//	// Set the proposal for the current round
+//	c.curRoundMessages.SetProposal(proposal, true)
+//
+//	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Address.String(), c.address.String())
+//
+//	//l49: Check if we have a quorum of precommits for this proposal
+//	curProposalHash := c.curRoundMessages.GetProposalHash()
+//	if c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+//		c.Commit(proposal.Round, c.curRoundMessages)
+//		return nil
+//	}
+//
+//	if c.step == tctypes.Propose {
+//		if err := c.proposeTimeout.StopTimer(); err != nil {
+//			return err
+//		}
+//
+//		vr := proposal.ValidRound
+//		h := proposal.ProposalBlock.Hash()
+//
+//		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
+//		if vr == -1 {
+//			// When lockedRound is set to any value other than -1 lockedValue is also
+//			// set to a non nil value. So we can be sure that we will only try to access
+//			// lockedValue when it is non nil.
+//			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
+//			c.SetStep(tctypes.Prevote)
+//			return nil
+//		}
+//
+//		rs := c.messages.GetOrCreate(vr)
+//
+//		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
+//		// vr >= 0 here
+//		if vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+//			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
+//			c.SetStep(tctypes.Prevote)
+//		}
+//	}
+//
+//	return nil
+//}
+
 func (c *Proposer) HandleNewCandidateBlockMsg(ctx context.Context, candidateBlock *types.Block) {
 	if candidateBlock == nil {
 		return

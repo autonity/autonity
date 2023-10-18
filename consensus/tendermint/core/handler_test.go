@@ -270,7 +270,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 
 	logger := log.New("testAddress", "0x0000")
 	eMux := event.NewTypeMuxSilent(nil, logger)
-	sub := eMux.Subscribe(events.MessageEvent{})
+	sub := eMux.Subscribe(events.NewMessageEvent{})
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 

@@ -98,6 +98,14 @@ func (s *RoundMessages) SetProposal(proposal *Proposal, msg *Message, verified b
 	s.ProposalDetails = proposal
 }
 
+//func (s *RoundMessages) SetProposal(proposal *Proposal, verified bool) {
+//	s.mu.Lock()
+//	defer s.mu.Unlock()
+//	//s.ProposalMsg = msg
+//	s.VerifiedProposal = verified
+//	s.ProposalDetails = proposal
+//}
+
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
 	return s.Prevotes.VotePower(hash)
 }
@@ -152,6 +160,7 @@ func (s *RoundMessages) GetProposalHash() common.Hash {
 	return common.Hash{}
 }
 
+// func (s *RoundMessages) GetMessages() (*Proposal, []*Message, []*Message) {
 func (s *RoundMessages) GetMessages() []*Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -167,4 +176,5 @@ func (s *RoundMessages) GetMessages() []*Message {
 	result = append(result, prevoteMsgs...)
 	result = append(result, precommitMsgs...)
 	return result
+	//return s.ProposalDetails, prevoteMsgs, precommitMsgs
 }

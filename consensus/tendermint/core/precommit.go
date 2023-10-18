@@ -23,7 +23,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
 	var precommit = &message.Vote{
-		Round:  c.Round(),
+		Round:  uint64(c.Round()),
 		Height: c.Height(),
 	}
 
@@ -66,10 +66,10 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
 	preCommit := msg.ConsensusMsg.(*message.Vote)
 	precommitHash := preCommit.ProposedBlockHash
-	if err := c.CheckMessage(preCommit.Round, preCommit.Height.Uint64(), tctypes.Precommit); err != nil {
+	if err := c.CheckMessage(int64(preCommit.Round), preCommit.Height.Uint64(), tctypes.Precommit); err != nil {
 		if err == constants.ErrOldRoundMessage {
-			roundMsgs := c.messages.GetOrCreate(preCommit.Round)
-			if err2 := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err2 != nil {
+			roundMsgs := c.messages.GetOrCreate(int64(preCommit.Round))
+			if err2 := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, int64(preCommit.Round), preCommit.Height); err2 != nil {
 				return err2
 			}
 			c.AcceptVote(roundMsgs, tctypes.Precommit, precommitHash, *msg)
@@ -81,7 +81,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message)
 						return err2
 					}
 				}
-				c.Commit(preCommit.Round, c.curRoundMessages)
+				c.Commit(int64(preCommit.Round), c.curRoundMessages)
 				return nil
 			}
 		}
@@ -90,7 +90,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message)
 	}
 
 	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
+	if err := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, int64(preCommit.Round), preCommit.Height); err != nil {
 		return err
 	}
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus

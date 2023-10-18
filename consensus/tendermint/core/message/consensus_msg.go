@@ -26,8 +26,79 @@ type ConsensusMsg interface {
 	V() common.Hash
 }
 
+type NewConsensusMsg struct {
+	Round  int64
+	Height *big.Int
+	Value  common.Hash
+
+	Code          uint8
+	Payload       []byte // rlp encoded tendermint msgs: proposal, prevote, precommit.
+	Address       common.Address
+	Signature     []byte
+	CommittedSeal []byte
+
+	Power *big.Int
+}
+
+//func (m *NewConsensusMsg) Validate(validateSig SigVerifier, previousHeader *types.Header) error {
+//	if previousHeader.Number.Uint64()+1 != m.Height.Uint64() {
+//		// don't know why the legacy code panic here, it introduces live-ness issue of the network.
+//		// youssef: that is really bad and should never happen, could be because of a race-condition
+//		// I'm reintroducing the panic to check if this scenario happens in the wild. We must never fail silently.
+//		panic("Autonity has encountered a problem which led to an inconsistent state, please report this issue.")
+//		//return fmt.Errorf("inconsistent message verification")
+//	}
+//	signature := m.Signature
+//	payload, err := m.BytesNoSignature()
+//	if err != nil {
+//		return err
+//	}
+//
+//	if lp, ok := m.ConsensusMsg.(*LightProposal); ok {
+//		// in the case of a light proposal, the signature that matters is the inner-one.
+//		payload = lp.BytesNoSignature()
+//		signature = lp.Signature
+//	}
+//
+//	recoveredAddress, err := validateSig(previousHeader, payload, signature)
+//	if err != nil {
+//		return err
+//	}
+//	// ensure message was signed by the sender
+//	if m.Address != recoveredAddress {
+//		return ErrBadSignature
+//	}
+//	validator := previousHeader.CommitteeMember(recoveredAddress)
+//	// validateSig check as well if the header is in the committee, so this seems unnecessary
+//	if validator == nil {
+//		return ErrUnauthorizedAddress
+//	}
+//
+//	// check if the lite proposal signature inside the proposal is correct or not.
+//	if proposal, ok := m.ConsensusMsg.(*Proposal); ok {
+//		if err := proposal.VerifyLightProposalSignature(m.Address); err != nil {
+//			return err
+//		}
+//	}
+//
+//	m.Power = validator.VotingPower
+//	return nil
+//}
+
+func (m *NewConsensusMsg) BytesNoSignature() ([]byte, error) {
+	// youssef: not sure if the returned error is necessary here as we are in control of the object.
+	return rlp.EncodeToBytes(&Message{
+		Code:          m.Code,
+		Payload:       m.Payload,
+		Address:       m.Address,
+		Signature:     []byte{},
+		CommittedSeal: m.CommittedSeal,
+	})
+}
+
 // LightProposal is only used by accountability that it converts a Proposal to a LightProposal for sustainable on-chain proof.
 type LightProposal struct {
+	//NewConsensusMsg
 	Round      int64
 	Height     *big.Int
 	ValidRound int64
@@ -125,6 +196,13 @@ type Proposal struct {
 	ProposalBlock  *types.Block
 	LightSignature []byte // the signature computes from the hash of tuple:(Round, Height, ValidRound, ProposalBlock.Hash())
 }
+
+//type NewProposal struct {
+//	NewConsensusMsg
+//	ValidRound     int64
+//	ProposalBlock  *types.Block
+//	LightSignature []byte // the signature computes from the hash of tuple:(Round, Height, ValidRound, ProposalBlock.Hash())
+//}
 
 func (p *Proposal) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
@@ -227,8 +305,8 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 // VerifyLightProposalSignature checks that the lite proposal signature inside the proposal is correct or not
 func (p *Proposal) VerifyLightProposalSignature(sender common.Address) error {
 	lightProposal := &LightProposal{
-		Round:      p.R(),
-		Height:     p.H(),
+		Round:      p.Round,
+		Height:     p.Height,
 		ValidRound: p.ValidRound,
 		Value:      p.V(),
 		Signature:  p.LightSignature,
@@ -237,7 +315,7 @@ func (p *Proposal) VerifyLightProposalSignature(sender common.Address) error {
 }
 
 type Vote struct {
-	Round             int64
+	Round             uint64
 	Height            *big.Int
 	ProposedBlockHash common.Hash
 }
@@ -247,7 +325,7 @@ func (sub *Vote) V() common.Hash {
 }
 
 func (sub *Vote) R() int64 {
-	return sub.Round
+	return int64(sub.Round)
 }
 
 func (sub *Vote) H() *big.Int {
@@ -255,29 +333,29 @@ func (sub *Vote) H() *big.Int {
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-func (sub *Vote) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []any{uint64(sub.Round), sub.Height, sub.ProposedBlockHash})
-}
-
-// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
-	var vote struct {
-		Round             uint64
-		Height            *big.Int
-		ProposedBlockHash common.Hash
-	}
-
-	if err := s.Decode(&vote); err != nil {
-		return err
-	}
-	sub.Round = int64(vote.Round)
-	if sub.Round > constants.MaxRound {
-		return constants.ErrInvalidMessage
-	}
-	sub.Height = vote.Height
-	sub.ProposedBlockHash = vote.ProposedBlockHash
-	return nil
-}
+//func (sub *Vote) EncodeRLP(w io.Writer) error {
+//	return rlp.Encode(w, []any{uint64(sub.Round), sub.Height, sub.ProposedBlockHash})
+//}
+//
+//// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
+//func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
+//	var vote struct {
+//		Round             uint64
+//		Height            *big.Int
+//		ProposedBlockHash common.Hash
+//	}
+//
+//	if err := s.Decode(&vote); err != nil {
+//		return err
+//	}
+//	sub.Round = int64(vote.Round)
+//	if sub.Round > constants.MaxRound {
+//		return constants.ErrInvalidMessage
+//	}
+//	sub.Height = vote.Height
+//	sub.ProposedBlockHash = vote.ProposedBlockHash
+//	return nil
+//}
 
 func (sub *Vote) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())

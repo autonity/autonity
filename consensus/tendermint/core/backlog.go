@@ -85,6 +85,38 @@ func (c *Core) storeFutureMessage(msg *message.Message) {
 
 }
 
+//// newStoreFutureMessage push to a special backlog future height consensus messages
+//// this is done in a way that prevents memory exhaustion in the case of a malicious peer.
+//func (c *Core) newStoreFutureMessage(msg *message.NewConsensusMsg) {
+//	// future height messages of a gap wider than one block should not occur frequently as block sync should happen
+//	// Todo : implement a double ended priority queue (DEPQ)
+//	msgHeight := msg.H()
+//	c.backlogUntrusted[msgHeight] = append(c.backlogUntrusted[msgHeight], msg)
+//	c.backlogUntrustedSize++
+//	// We discard the furthest ahead messages in priority.
+//	if c.backlogUntrustedSize == MaxSizeBacklogUnchecked+1 {
+//		maxHeight := msgHeight
+//		for k := range c.backlogUntrusted {
+//			if k > maxHeight && len(c.backlogUntrusted[k]) > 0 {
+//				maxHeight = k
+//			}
+//		}
+//
+//		// Forget in the local cache that we ever received this message.
+//		// It's needed for it to be able to be re-received and processed later, after a consensus sync, if needed.
+//		c.backend.RemoveMessageFromLocalCache(c.backlogUntrusted[maxHeight][len(c.backlogUntrusted[maxHeight])-1].GetBytes())
+//
+//		// Remove it from the backlog buffer.
+//		c.backlogUntrusted[maxHeight] = c.backlogUntrusted[maxHeight][:len(c.backlogUntrusted[maxHeight])-1]
+//		c.backlogUntrustedSize--
+//
+//		if len(c.backlogUntrusted[maxHeight]) == 0 {
+//			delete(c.backlogUntrusted, maxHeight)
+//		}
+//	}
+//
+//}
+
 func (c *Core) processBacklog() {
 	var capToLenRatio = 5
 

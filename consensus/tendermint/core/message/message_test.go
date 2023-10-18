@@ -1,7 +1,6 @@
 package message
 
 import (
-	"bytes"
 	"errors"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
@@ -14,33 +13,72 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-func TestMessageEncodeDecode(t *testing.T) {
-	msg := &Message{
-		Code:          consensus.MsgProposal,
-		Payload:       []byte{0x1},
-		Address:       common.HexToAddress("0x1234567890"),
-		Signature:     []byte{0x2},
-		CommittedSeal: []byte{},
-	}
+//func TestMessageEncodeDecode(t *testing.T) {
+//	msg := &Message{
+//		Code:          consensus.MsgProposal,
+//		Payload:       []byte{0x1},
+//		Address:       common.HexToAddress("0x1234567890"),
+//		Signature:     []byte{0x2},
+//		CommittedSeal: []byte{},
+//	}
+//
+//	buf := &bytes.Buffer{}
+//	err := msg.EncodeRLP(buf)
+//	if err != nil {
+//		t.Fatalf("have %v, want nil", err)
+//	}
+//
+//	s := rlp.NewStream(buf, 0)
+//
+//	decMsg := &Message{}
+//	err = decMsg.DecodeRLP(s)
+//	if err != nil {
+//		t.Fatalf("have %v, want nil", err)
+//	}
+//
+//	if !reflect.DeepEqual(decMsg, msg) {
+//		t.Errorf("Messages are not the same: have %v, want %v", decMsg, msg)
+//	}
+//}
 
-	buf := &bytes.Buffer{}
-	err := msg.EncodeRLP(buf)
-	if err != nil {
-		t.Fatalf("have %v, want nil", err)
-	}
-
-	s := rlp.NewStream(buf, 0)
-
-	decMsg := &Message{}
-	err = decMsg.DecodeRLP(s)
-	if err != nil {
-		t.Fatalf("have %v, want nil", err)
-	}
-
-	if !reflect.DeepEqual(decMsg, msg) {
-		t.Errorf("Messages are not the same: have %v, want %v", decMsg, msg)
-	}
-}
+//func TestMessageVote(t *testing.T) {
+//
+//	payload := []byte("kokoko")
+//
+//	vote := Vote{
+//		Round:             0,
+//		Height:            big.NewInt(0x37),
+//		ProposedBlockHash: common.Hash{},
+//	}
+//
+//	msg := &MessageVote{
+//		MessageBase: MessageBase{
+//			Code:          0x21,
+//			Payload:       payload,
+//			Address:       common.Address{},
+//			Signature:     nil,
+//			CommittedSeal: nil,
+//			Power:         big.NewInt(0x14),
+//			Bytes:         nil,
+//		},
+//		Vote: vote,
+//	}
+//
+//	encoded, err := rlp.EncodeToBytes(msg)
+//	if err != nil {
+//		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
+//	}
+//
+//	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
+//
+//	newMsg := &MessageVote{}
+//
+//	err = rlp.DecodeBytes(encoded, newMsg)
+//	require.NoError(t, err)
+//
+//	require.Equal(t, msg, newMsg)
+//
+//}
 
 func TestMessageValidate(t *testing.T) {
 

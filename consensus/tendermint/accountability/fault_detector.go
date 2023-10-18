@@ -285,23 +285,58 @@ tendermintMsgLoop:
 
 			// handle consensus msg or innocence proof msgs
 			switch e := ev.Data.(type) {
-			case events.MessageEvent:
+			//case events.MessageEvent:
+			//	// decode msg from payload to construct msg code, tendermint msg bytes, sender address, committed seal and signature.
+			//	msg := new(message.Message)
+			//	msg.Bytes = e.Payload
+			//	err := rlp.DecodeBytes(msg.Bytes, msg)
+			//	if err != nil {
+			//		continue tendermintMsgLoop
+			//	}
+			//
+			//	err = decodeMessage(msg)
+			//	if err != nil {
+			//		// make this fault accountable only for committee members, otherwise validators might pay fees to
+			//		// report lots of none sense proof which is a vector of attack as well.
+			//		if err == errAccountableGarbageMsg && curHeader.CommitteeMember(msg.Address) != nil {
+			//			fd.submitMisbehavior(msg, nil, errAccountableGarbageMsg, fd.misbehaviourProofsCh)
+			//		}
+			//		continue tendermintMsgLoop
+			//	}
+			//
+			//	if fd.tooOldHeightMsg(curHeight, msg.H()) {
+			//		fd.logger.Debug("Fault detector: discarding old message", "sender", msg.Sender())
+			//		continue tendermintMsgLoop
+			//	}
+			//
+			//	if err := fd.processMsg(msg); err != nil && err != errFutureMsg {
+			//		fd.logger.Warn("Detected faulty message", "return", err)
+			//		continue tendermintMsgLoop
+			//	}
+
+			case events.NewMessageEvent:
 				// decode msg from payload to construct msg code, tendermint msg bytes, sender address, committed seal and signature.
 				msg := new(message.Message)
-				msg.Bytes = e.Payload
-				err := rlp.DecodeBytes(msg.Bytes, msg)
-				if err != nil {
-					continue tendermintMsgLoop
-				}
 
-				err = decodeMessage(msg)
-				if err != nil {
-					// make this fault accountable only for committee members, otherwise validators might pay fees to
-					// report lots of none sense proof which is a vector of attack as well.
-					if err == errAccountableGarbageMsg && curHeader.CommitteeMember(msg.Address) != nil {
-						fd.submitMisbehavior(msg, nil, errAccountableGarbageMsg, fd.misbehaviourProofsCh)
+				if e.Message != nil {
+					//reuse
+					msg = e.Message
+				} else {
+					msg.Bytes = e.Payload
+					err := rlp.DecodeBytes(msg.Bytes, msg)
+					if err != nil {
+						continue tendermintMsgLoop
 					}
-					continue tendermintMsgLoop
+
+					err = decodeMessage(msg)
+					if err != nil {
+						// make this fault accountable only for committee members, otherwise validators might pay fees to
+						// report lots of none sense proof which is a vector of attack as well.
+						if err == errAccountableGarbageMsg && curHeader.CommitteeMember(msg.Address) != nil {
+							fd.submitMisbehavior(msg, nil, errAccountableGarbageMsg, fd.misbehaviourProofsCh)
+						}
+						continue tendermintMsgLoop
+					}
 				}
 
 				if fd.tooOldHeightMsg(curHeight, msg.H()) {
@@ -313,6 +348,7 @@ tendermintMsgLoop:
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
+
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {

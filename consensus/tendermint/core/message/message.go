@@ -8,7 +8,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"io"
 	"math/big"
 	"reflect"
 )
@@ -34,14 +33,89 @@ type Message struct {
 	Bytes        []byte       // rlp encoded bytes with only the 1st 5 fields of this Message struct.
 }
 
+type MessageBase struct {
+	Code          uint8
+	Payload       []byte // rlp encoded tendermint msgs: proposal, prevote, precommit.
+	Address       common.Address
+	Signature     []byte
+	CommittedSeal []byte // todo(youssef): this should be moved in the precommit object
+
+	// todo:(youssef) this might be rlp encoded too in the message structure even if nil
+	Power *big.Int
+	//ConsensusMsg ConsensusMsg // cached decoded Msg
+	Bytes []byte
+}
+
+type MessageVote struct {
+	MessageBase
+	Vote Vote
+}
+
+type MessageConvertible interface {
+	ToMessage() *Message
+}
+
+func (m *MessageVote) ToMessage() *Message {
+	return &Message{
+		Code:          m.Code,
+		Payload:       m.Payload,
+		Address:       m.Address,
+		Signature:     m.Signature,
+		CommittedSeal: m.CommittedSeal,
+		Power:         m.Power,
+		ConsensusMsg:  &m.Vote,
+		Bytes:         m.Bytes,
+	}
+}
+
+type MessageProposal struct {
+	MessageBase
+	Proposal
+}
+
+func (m *MessageProposal) ToMessage() *Message {
+	return &Message{
+		Code:          m.Code,
+		Payload:       m.Payload,
+		Address:       m.Address,
+		Signature:     m.Signature,
+		CommittedSeal: m.CommittedSeal,
+		Power:         m.Power,
+		ConsensusMsg:  &m.Proposal,
+		Bytes:         m.Bytes,
+	}
+}
+
+type MessageLightProposal struct {
+	MessageBase
+	LightProposal
+}
+
+func (m *MessageLightProposal) ToMessage() *Message {
+	return &Message{
+		Code:          m.Code,
+		Payload:       m.Payload,
+		Address:       m.Address,
+		Signature:     m.MessageBase.Signature,
+		CommittedSeal: m.CommittedSeal,
+		Power:         m.Power,
+		ConsensusMsg:  &m.LightProposal,
+		Bytes:         m.Bytes,
+	}
+}
+
+//type NewTMessage[T events.TendermindMessage] struct {
+//	Message T
+//}
+
 // ==============================================
 //
 // define the functions that needs to be provided for rlp Encoder/Decoder.
 
 // EncodeRLP serializes m into the Ethereum RLP format.
-func (m *Message) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []any{m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal})
-}
+//func (m *Message) EncodeRLP(w io.Writer) error {
+//	return rlp.Encode(w, []any{m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal})
+//}
 
 // Hash Unified the Hash calculation of consensus msg. RLPHash(msg) hashes both public fields and private fields of
 // msg, while the rlp.EncodeToBytes(AccountabilityEvent) function, it calls interface EncodeRLP() that is implemented
@@ -58,21 +132,21 @@ func (m *Message) Hash() common.Hash {
 }
 
 // DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (m *Message) DecodeRLP(s *rlp.Stream) error {
-	var msg struct {
-		Code          uint8
-		Msg           []byte
-		Address       common.Address
-		Signature     []byte
-		CommittedSeal []byte
-	}
-
-	if err := s.Decode(&msg); err != nil {
-		return err
-	}
-	m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal = msg.Code, msg.Msg, msg.Address, msg.Signature, msg.CommittedSeal
-	return nil
-}
+//func (m *Message) DecodeRLP(s *rlp.Stream) error {
+//	var msg struct {
+//		Code          uint8
+//		Msg           []byte
+//		Address       common.Address
+//		Signature     []byte
+//		CommittedSeal []byte
+//	}
+//
+//	if err := s.Decode(&msg); err != nil {
+//		return err
+//	}
+//	m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal = msg.Code, msg.Msg, msg.Address, msg.Signature, msg.CommittedSeal
+//	return nil
+//}
 
 func FromBytes(b []byte) (*Message, error) {
 	msg := &Message{Bytes: b}

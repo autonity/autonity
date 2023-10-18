@@ -1,6 +1,10 @@
 package backend
 
 import (
+	"bytes"
+	"encoding/hex"
+	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"testing"
 	"time"
@@ -136,7 +140,44 @@ func TestNewChainHead(t *testing.T) {
 	})
 }
 
-func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
-	size, r, _ := rlp.EncodeToReader(data)
+func makeMsg(msgcode uint64, data []byte) p2p.Msg {
+	return makeMsgVote(msgcode, data, nil)
+}
+
+func makeMsgVote(msgcode uint64, payload []byte, vote *message.Vote) p2p.Msg {
+
+	//payload, err := rlp.EncodeToBytes(data)
+	//if err != nil {
+	//	panic(fmt.Sprintf("makeMsg encoding failed: %s", err))
+	//}
+
+	msg := &message.MessageVote{
+		MessageBase: message.MessageBase{
+			Code:          0,
+			Payload:       payload,
+			Address:       common.Address{},
+			Signature:     nil,
+			CommittedSeal: nil,
+			Power:         nil,
+			Bytes:         nil,
+		},
+		Vote: *vote,
+	}
+
+	encoded, err := rlp.EncodeToBytes(msg)
+	if err != nil {
+		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
+	}
+
+	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
+
+	r := bytes.NewReader(encoded)
+	size := len(encoded)
+
+	//size, r, err := rlp.EncodeToReader(msg)
+	//if err != nil {
+	//	panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
+	//}
+	//
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
 }

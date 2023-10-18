@@ -137,7 +137,10 @@ func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, pay
 	// send to others
 	sb.Gossip(ctx, committee, payload)
 	// send to self
-	msg := events.MessageEvent{
+	//msg := events.MessageEvent{
+	//	Payload: payload,
+	//}
+	msg := events.NewMessageEvent{
 		Payload: payload,
 	}
 	sb.postEvent(msg)

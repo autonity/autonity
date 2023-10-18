@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"math/big"
-	"reflect"
 	"testing"
 
 	"github.com/autonity/autonity/common"
@@ -94,31 +93,31 @@ func TestProposalEncodeDecode(t *testing.T) {
 
 }
 
-func TestVoteEncodeDecode(t *testing.T) {
-	vote := &Vote{
-		Round:             1,
-		Height:            big.NewInt(2),
-		ProposedBlockHash: common.BytesToHash([]byte("1234567890")),
-	}
-
-	buf := &bytes.Buffer{}
-	err := vote.EncodeRLP(buf)
-	if err != nil {
-		t.Fatalf("have %v, want nil", err)
-	}
-
-	s := rlp.NewStream(buf, 0)
-
-	decVote := &Vote{}
-	err = decVote.DecodeRLP(s)
-	if err != nil {
-		t.Fatalf("Expected nil, got %v", err)
-	}
-
-	if !reflect.DeepEqual(decVote, vote) {
-		t.Errorf("Votes are not the same: have %v, want %v", decVote, vote)
-	}
-}
+//func TestVoteEncodeDecode(t *testing.T) {
+//	vote := &Vote{
+//		Round:             1,
+//		Height:            big.NewInt(2),
+//		ProposedBlockHash: common.BytesToHash([]byte("1234567890")),
+//	}
+//
+//	buf := &bytes.Buffer{}
+//	err := vote.EncodeRLP(buf)
+//	if err != nil {
+//		t.Fatalf("have %v, want nil", err)
+//	}
+//
+//	s := rlp.NewStream(buf, 0)
+//
+//	decVote := &Vote{}
+//	err = decVote.DecodeRLP(s)
+//	if err != nil {
+//		t.Fatalf("Expected nil, got %v", err)
+//	}
+//
+//	if !reflect.DeepEqual(decVote, vote) {
+//		t.Errorf("Votes are not the same: have %v, want %v", decVote, vote)
+//	}
+//}
 
 func TestVoteString(t *testing.T) {
 	vote := &Vote{

@@ -279,7 +279,8 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,
-		evMux.Subscribe(events.MessageEvent{}),
+		//evMux.Subscribe(events.MessageEvent{}),
+		evMux.Subscribe(events.NewMessageEvent{}),
 		msgStore, eth.txPool, eth.APIBackend, stack.Config().NodeKey(),
 		eth.blockchain.ProtocolContracts(),
 		eth.log)

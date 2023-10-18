@@ -55,7 +55,7 @@ func (c *Core) Stop() {
 }
 
 func (c *Core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, backlogMessageEvent{}, backlogUntrustedMessageEvent{}, types.CoreStateRequestEvent{})
+	s := c.backend.Subscribe(events.NewMessageEvent{}, backlogMessageEvent{}, backlogUntrustedMessageEvent{}, types.CoreStateRequestEvent{})
 	c.messageEventSub = s
 
 	s1 := c.backend.Subscribe(events.NewCandidateBlockEvent{})
@@ -123,15 +123,53 @@ eventLoop:
 			}
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
-			case events.MessageEvent:
-				msg, err := message.FromBytes(e.Payload) // todo(youssef): move that ahead
-				if err != nil {
-					c.logger.Error("Received consensus message with invalid payload", "err", err)
-					tryDisconnect(e.ErrCh, err)
-					continue
+
+			//case message.Proposal:
+			//	if err := c.newHandleMsg(ctx, &e); err != nil {
+			//		c.logger.Debug("MessageEvent payload failed", "err", err)
+			//		// filter errors which needs remote peer disconnection
+			//		if shouldDisconnectSender(err) {
+			//			tryDisconnect(e.ErrCh, err)
+			//		}
+			//		continue
+			//	}
+			//	c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.Payload)
+
+			//case events.MessageEvent:
+			//	msg, err := message.FromBytes(e.Payload) // todo(youssef): move that ahead
+			//	if err != nil {
+			//		c.logger.Error("Received consensus message with invalid payload", "err", err)
+			//		tryDisconnect(e.ErrCh, err)
+			//		continue
+			//	}
+			//	// At this stage, a message is parsed and all the internal fields must be accessible
+			//	if err := c.handleMsg(ctx, msg); err != nil {
+			//		c.logger.Debug("MessageEvent payload failed", "err", err)
+			//		// filter errors which needs remote peer disconnection
+			//		if shouldDisconnectSender(err) {
+			//			tryDisconnect(e.ErrCh, err)
+			//		}
+			//		continue
+			//	}
+			//	c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.Payload)
+
+			case events.NewMessageEvent:
+
+				c.logger.Info("e.Message", "message", e.Message)
+
+				// since interface method works on pure []byte payloads we need to handle
+				// the situation when only payload has been provided
+				if e.Message == nil {
+					msg, err := message.FromBytes(e.Payload)
+					if err != nil {
+						c.logger.Error("Received consensus message with invalid payload", "err", err)
+						tryDisconnect(e.ErrCh, err)
+						continue
+					}
+					e.Message = msg
 				}
-				// At this stage, a message is parsed and all the internal fields must be accessible
-				if err := c.handleMsg(ctx, msg); err != nil {
+
+				if err := c.handleMsg(ctx, e.Message); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
@@ -139,7 +177,9 @@ eventLoop:
 					}
 					continue
 				}
+
 				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.Payload)
+
 			case backlogMessageEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling consensus backlog event")
@@ -270,6 +310,31 @@ func (c *Core) handleMsg(ctx context.Context, msg *message.Message) error {
 	}
 	return c.handleValidMsg(ctx, msg)
 }
+
+//func (c *Core) handleLightProposal(ctx context.Context, message message.NewMessage[message.LightProposal]) error {
+//
+//	msg := message.Message
+//
+//	msgHeight := msg.Height
+//	if msgHeight.Cmp(c.Height()) > 0 {
+//		// Future height message. Skip processing and put it in the untrusted backlog buffer.
+//		c.newStoreFutureMessage(message)
+//		return constants.ErrFutureHeightMessage // No gossip
+//	}
+//	if msgHeight.Cmp(c.Height()) < 0 {
+//		// Old height messages. Do nothing.
+//		return constants.ErrOldHeightMessage // No gossip
+//	}
+//	if err := msg.Validate(crypto.CheckValidatorSignature, c.LastHeader()); err != nil {
+//		c.logger.Error("Failed to validate message", "err", err)
+//		return err
+//	}
+//	if c.backend.IsJailed(msg.Address) {
+//		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Address)
+//		return ErrValidatorJailed
+//	}
+//	return c.handleValidMsg(ctx, msg)
+//}
 
 func (c *Core) handleFutureRoundMsg(ctx context.Context, msg *message.Message, sender common.Address) {
 	// Decoding functions can't fail here

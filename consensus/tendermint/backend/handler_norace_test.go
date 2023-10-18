@@ -6,6 +6,8 @@ package backend
 
 import (
 	"context"
+	message "github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
@@ -28,7 +30,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		//we generate a bunch of messages overflowing max capacity
 		for i := int64(0); i < 2*ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(TendermintMsg, append(counter, []byte("data")...))
+			msg := makeMsg(TendermintMsgProposal, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
@@ -43,17 +45,26 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 			addr := savedMsg.(UnhandledMsg).addr
 			expectedAddr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if savedMsg.(UnhandledMsg).msg.Code != TendermintMsg {
+			if savedMsg.(UnhandledMsg).msg.Code != TendermintMsgProposal {
 				t.Fatalf("wrong msg code")
 			}
 			var payload []byte
-			if err := savedMsg.(UnhandledMsg).msg.Decode(&payload); err != nil {
+			var decodedMsg = message.Message{
+				ConsensusMsg: &message.Proposal{},
+			}
+			if err := savedMsg.(UnhandledMsg).msg.Decode(&decodedMsg); err != nil {
 				t.Fatalf("couldnt decode payload")
 			}
+
+			payload = decodedMsg.Payload
 			expectedPayload := append(counter, []byte("data")...)
-			if !reflect.DeepEqual(addr, expectedAddr) || !reflect.DeepEqual(payload, expectedPayload) {
-				t.Fatalf("message lost or not expected")
-			}
+
+			require.Equal(t, expectedAddr, addr)
+			require.Equal(t, expectedPayload, payload)
+
+			//if !reflect.DeepEqual(addr, expectedAddr) || !reflect.DeepEqual(payload, expectedPayload) {
+			//	t.Fatalf("message lost or not expected")
+			//}
 		}
 		//ring should be empty at this point
 		for i := int64(0); i < 2*ringCapacity; i++ {
@@ -75,13 +86,19 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(TendermintMsg, append(counter, []byte("data")...))
+
+			consensusMsg := &message.Vote{
+				Height: big.NewInt(2137 + i),
+			}
+
+			msg := makeMsgVote(TendermintMsgVote, append(counter, []byte("data")...), consensusMsg)
+
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
 		}
-		sub := backend.eventMux.Subscribe(events.MessageEvent{})
+		sub := backend.eventMux.Subscribe(events.NewMessageEvent{})
 		if err := backend.Start(context.Background()); err != nil {
 			t.Fatalf("could not restart core")
 		}
@@ -94,7 +111,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		for {
 			select {
 			case eve := <-sub.Chan():
-				payload := eve.Data.(events.MessageEvent).Payload
+				payload := eve.Data.(events.NewMessageEvent).Message.Payload
 				if !reflect.DeepEqual(payload[len(payload)-4:], []byte("data")) {
 					t.Fatalf("message not expected")
 				}
