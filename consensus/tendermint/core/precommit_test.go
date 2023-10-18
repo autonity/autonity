@@ -34,7 +34,7 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
@@ -65,14 +65,14 @@ func TestSendPrecommit(t *testing.T) {
 			signer(keys[me.Address]),
 		)
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		curRoundMessages.SetProposal(proposal, nil, false)
 
 		var preCommit = message.Vote{
 			Round:             1,
 			Height:            big.NewInt(2),
-			ProposedBlockHash: curRoundMessages.GetProposalHash(),
+			ProposedBlockHash: curRoundMessages.ProposalHash(),
 		}
 
 		encodedVote, err := rlp.EncodeToBytes(&preCommit)
@@ -131,7 +131,7 @@ func TestSendPrecommit(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{}),
 			signer(keys[me.Address]))
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		curRoundMessages.SetProposal(proposal, nil, true)
 
@@ -188,7 +188,7 @@ func TestHandlePrecommit(t *testing.T) {
 	t.Run("pre-commit with future height given, error returned", func(t *testing.T) {
 
 		addr := common.HexToAddress("0x0123456789")
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		var preCommit = message.Vote{
 			Round:  2,
@@ -229,12 +229,12 @@ func TestHandlePrecommit(t *testing.T) {
 	t.Run("pre-commit with invalid signature given, error returned", func(t *testing.T) {
 		committeeSet := helpers.NewTestCommitteeSet(4)
 		member, _ := committeeSet.GetByIndex(1)
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		var preCommit = message.Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
-			ProposedBlockHash: curRoundMessages.GetProposalHash(),
+			ProposedBlockHash: curRoundMessages.ProposalHash(),
 		}
 
 		encodedVote, err := rlp.EncodeToBytes(&preCommit)
@@ -280,7 +280,7 @@ func TestHandlePrecommit(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{}),
 			signer(keys[member.Address]))
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, nil, true)
 
@@ -331,7 +331,7 @@ func TestHandlePrecommit(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{}),
 			signer(keys[member.Address]))
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, nil, true)
 
@@ -375,7 +375,7 @@ func TestHandlePrecommit(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{}),
 			signer(keys[me.Address]))
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, nil, true)
 
@@ -517,7 +517,7 @@ func TestHandleCommit(t *testing.T) {
 		backend:          backendMock,
 		round:            2,
 		height:           big.NewInt(3),
-		messages:         message.NewMessagesMap(),
+		messages:         message.NewMap(),
 		logger:           logger,
 		proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 		prevoteTimeout:   tctypes.NewTimeout(tctypes.Prevote, logger),

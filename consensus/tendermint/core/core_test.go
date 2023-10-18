@@ -141,7 +141,7 @@ func TestCore_Setters(t *testing.T) {
 func TestCore_AcceptVote(t *testing.T) {
 
 	t.Run("AcceptPreVote", func(t *testing.T) {
-		messagesMap := message.NewMessagesMap()
+		messagesMap := message.NewMap()
 		roundMessage := messagesMap.GetOrCreate(0)
 		c := &Core{
 			messages:         messagesMap,
@@ -155,11 +155,11 @@ func TestCore_AcceptVote(t *testing.T) {
 
 		prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, key)
 		c.AcceptVote(c.CurRoundMessages(), types.Prevote, common.Hash{}, *prevoteMsg)
-		require.Equal(t, 1, len(c.CurRoundMessages().GetMessages()))
+		require.Equal(t, 1, len(c.CurRoundMessages().AllMessages()))
 	})
 
 	t.Run("AcceptPreCommit", func(t *testing.T) {
-		messagesMap := message.NewMessagesMap()
+		messagesMap := message.NewMap()
 		roundMessage := messagesMap.GetOrCreate(0)
 		c := &Core{
 			messages:         messagesMap,
@@ -173,7 +173,7 @@ func TestCore_AcceptVote(t *testing.T) {
 
 		prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, key)
 		c.AcceptVote(c.CurRoundMessages(), types.Precommit, common.Hash{}, *prevoteMsg)
-		require.Equal(t, 1, len(c.CurRoundMessages().GetMessages()))
+		require.Equal(t, 1, len(c.CurRoundMessages().AllMessages()))
 	})
 }
 

@@ -31,7 +31,7 @@ func TestSendPropose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		proposerKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
@@ -84,7 +84,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -124,7 +124,7 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
@@ -183,7 +183,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messageMap := message.NewMessagesMap()
+		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -278,7 +278,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messageMap := message.NewMessagesMap()
+		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -340,7 +340,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -413,7 +413,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
 		proposalMsg := message.NewProposal(2, big.NewInt(1), 2, proposalBlock, dummySigner)
@@ -478,7 +478,7 @@ func TestHandleProposal(t *testing.T) {
 			Number: big.NewInt(1),
 		})
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -576,7 +576,7 @@ func TestHandleProposal(t *testing.T) {
 
 		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessage := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
@@ -706,7 +706,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
 		height := new(big.Int).SetUint64(1)
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		preBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(0),
 		})

@@ -118,11 +118,11 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 
 	proposedBlockHash := common.Hash{}
 	if !isNil {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
 			c.Logger().Error("Core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		proposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		proposedBlockHash = c.CurRoundMessages().ProposalHash()
 	}
 	//Each iteration tries to fuzz a unique set of fields and skipping
 	// a few as provided by fieldsArray
@@ -172,7 +172,7 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 			}
 
 			c.SetSentPrecommit(true)
-			c.Br().SignAndBroadcast(ctx, msg)
+			c.Br().Broadcast(ctx, msg)
 		}
 	}
 }
@@ -208,13 +208,13 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 	prevoteFieldComb := e2e.GetAllFieldCombinations(&prevote)
 	var msg message.Message
 	msgFieldComb := e2e.GetAllFieldCombinations(&msg)
-	proposedBlockHash := c.CurRoundMessages().GetProposalHash()
+	proposedBlockHash := c.CurRoundMessages().ProposalHash()
 	if !isNil {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
 			c.Logger().Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		proposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		proposedBlockHash = c.CurRoundMessages().ProposalHash()
 	}
 
 	//Each iteration tries to fuzz a unique set of fields and skipping
@@ -252,7 +252,7 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 			}
 			f.Funcs(func(dMsg *message.ConsensusMsg, fc fuzz.Continue) {})
 			f.Fuzz(msg)
-			c.Br().SignAndBroadcast(ctx, msg)
+			c.Br().Broadcast(ctx, msg)
 		}
 	}
 	c.SetSentPrevote(true)
@@ -348,7 +348,7 @@ func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
 			c.SetSentProposal(true)
 			c.Backend().SetProposedBlockHash(p.Hash())
 
-			c.Br().SignAndBroadcast(ctx, &message.Message{
+			c.Br().Broadcast(ctx, &message.Message{
 				Code:          consensus.MsgProposal,
 				Payload:       proposal,
 				ConsensusMsg:  proposalBlock,

@@ -38,11 +38,11 @@ func (m *MockBroadcaster) EXPECT() *MockBroadcasterMockRecorder {
 // Broadcast mocks base method.
 func (m *MockBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SignAndBroadcast", ctx, msg)
+	m.ctrl.Call(m, "Broadcast", ctx, msg)
 }
 
 // Broadcast indicates an expected call of Broadcast.
 func (mr *MockBroadcasterMockRecorder) Broadcast(ctx, msg interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignAndBroadcast", reflect.TypeOf((*MockBroadcaster)(nil).SignAndBroadcast), ctx, msg)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBroadcaster)(nil).SignAndBroadcast), ctx, msg)
 }

@@ -1,17 +1,7 @@
 package message
 
 import (
-	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/log"
 	"github.com/pkg/errors"
-	"io"
-	"math/big"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/rlp"
 )
 
 var (
@@ -20,11 +10,12 @@ var (
 	errInvalidValidRound    = errors.New("proposal with invalid isValidround")
 )
 
+/*
 // LightProposal is only used by accountability that it converts a Proposal to a LightProposal for sustainable on-chain proof.
 type LightProposal struct {
 	Round      int64
 	Height     *big.Int
-	ValidRound int64
+	ValidRound int64       //Youssef: How does int64 gets serialized ? think negative values
 	Value      common.Hash // the hash of the proposalBlock.
 	Signature  []byte      // the signature computes from the tuple: (Round, Height, ValidRound, ProposalBlock.Hash())
 }
@@ -116,7 +107,7 @@ type Proposal struct {
 	Round          int64
 	Height         *big.Int
 	ValidRound     int64
-	ProposalBlock  *types.Block
+	ProposalBlock  *types.block
 	LightSignature []byte // the signature computes from the hash of tuple:(Round, Height, ValidRound, ProposalBlock.Hash())
 }
 
@@ -137,7 +128,7 @@ func (p *Proposal) H() *big.Int {
 	return p.Height
 }
 
-func NewProposal(r int64, h *big.Int, vr int64, p *types.Block, signer func([]byte) ([]byte, error)) *Proposal {
+func NewProposal(r int64, h *big.Int, vr int64, p *types.block, signer func([]byte) ([]byte, error)) *Proposal {
 	lightProposal := &LightProposal{
 		Round:      r,
 		Height:     h,
@@ -189,7 +180,7 @@ func (p *Proposal) DecodeRLP(s *rlp.Stream) error {
 		Height          *big.Int
 		ValidRound      uint64
 		IsValidRoundNil bool
-		ProposalBlock   *types.Block
+		ProposalBlock   *types.block
 		LightSignature  []byte
 	}
 	if err := s.Decode(&proposal); err != nil {
@@ -276,3 +267,4 @@ func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
 func (sub *Vote) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())
 }
+*/

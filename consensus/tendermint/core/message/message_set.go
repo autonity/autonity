@@ -42,7 +42,7 @@ func (s *Set[T]) AddVote(blockHash common.Hash, vote T) {
 	s.messages[sender] = vote
 }
 
-func (s *Set[T]) GetMessages() []Message {
+func (s *Set[T]) Messages() []Message {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	result := make([]Message, len(s.messages))
@@ -57,10 +57,10 @@ func (s *Set[T]) GetMessages() []Message {
 func (s *Set[T]) VotePower(h common.Hash) *big.Int {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	if msgMap, ok := s.Votes[h]; ok {
+	if votes, ok := s.Votes[h]; ok {
 		power := new(big.Int)
-		for _, msg := range msgMap {
-			power.Add(power, msg.GetPower())
+		for _, v := range votes {
+			power.Add(power, v.Power())
 		}
 		return power
 	}
@@ -72,7 +72,7 @@ func (s *Set[T]) TotalVotePower() *big.Int {
 	defer s.lock.RUnlock()
 	power := new(big.Int)
 	for _, msg := range s.messages {
-		power.Add(power, msg.GetPower())
+		power.Add(power, msg.Power())
 	}
 	return power
 }

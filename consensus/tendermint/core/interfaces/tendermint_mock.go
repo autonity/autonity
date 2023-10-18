@@ -6,11 +6,11 @@ package interfaces
 
 import (
 	context "context"
+	types "github.com/autonity/autonity/consensus/tendermint/core"
 	reflect "reflect"
 
 	autonity "github.com/autonity/autonity/autonity"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
-	types "github.com/autonity/autonity/consensus/tendermint/core/types"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -15,7 +15,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -132,7 +131,7 @@ func (sb *Backend) Address() common.Address {
 	return sb.address
 }
 
-// Broadcast implements tendermint.Backend.SignAndBroadcast
+// Broadcast implements tendermint.Backend.Broadcast
 func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
 	// send to others
 	sb.Gossip(ctx, committee, payload)
@@ -426,7 +425,7 @@ func (sb *Backend) GetContractABI() *abi.ABI {
 	return sb.blockchain.ProtocolContracts().ABI()
 }
 
-func (sb *Backend) CoreState() tctypes.TendermintState {
+func (sb *Backend) CoreState() tendermintCore.TendermintState {
 	return sb.core.CoreState()
 }
 

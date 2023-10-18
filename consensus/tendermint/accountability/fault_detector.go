@@ -336,7 +336,7 @@ tendermintMsgLoop:
 				fd.rateLimiter.resetPeerJustifiedAccusations()
 			}
 			/* THIS HAS BEEN DELETED TODO VERIFY
-			height := e.Block.NumberU64()
+			height := e.block.NumberU64()
 			if fd.tooOldHeightMsg(curHeight, height) {
 				fd.logger.Info("fault detector: discarding old height messages", "height", height)
 				fd.deleteFutureHeightMsg(height)
@@ -440,7 +440,7 @@ loop:
 		case err, ok := <-fd.ruleEngineBlockSub.Err():
 			if ok {
 				// youssef: how can that happen?
-				fd.logger.Crit("Block subscription error", err.Error())
+				fd.logger.Crit("block subscription error", err.Error())
 			}
 			break loop
 		}

@@ -6,25 +6,24 @@ import (
 	"sync"
 )
 
-type MessagesMap struct {
+type Map struct {
 	internal map[int64]*RoundMessages
-	mu       *sync.RWMutex
+	mu       sync.RWMutex
 }
 
-func NewMessagesMap() *MessagesMap {
-	return &MessagesMap{
+func NewMap() *Map {
+	return &Map{
 		internal: make(map[int64]*RoundMessages),
-		mu:       new(sync.RWMutex),
 	}
 }
 
-func (s *MessagesMap) Reset() {
+func (s *Map) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.internal = make(map[int64]*RoundMessages)
 }
 
-func (s *MessagesMap) GetOrCreate(round int64) *RoundMessages {
+func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state, ok := s.internal[round]
@@ -36,28 +35,28 @@ func (s *MessagesMap) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
-func (s *MessagesMap) Messages() []*Message {
+func (s *Map) Messages() []Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	msgs := make([][]*Message, len(s.internal))
+	messages := make([][]Message, len(s.internal))
 	var totalLen int
 	i := 0
 	for _, state := range s.internal {
-		msgs[i] = state.GetMessages()
-		totalLen += len(msgs[i])
+		messages[i] = state.AllMessages()
+		totalLen += len(messages[i])
 		i++
 	}
 
 	result := make([]*Message, 0, totalLen)
-	for _, ms := range msgs {
+	for _, ms := range messages {
 		result = append(result, ms...)
 	}
 
 	return result
 }
 
-func (s *MessagesMap) GetRounds() []int64 {
+func (s *Map) GetRounds() []int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -137,30 +136,30 @@ func (s *RoundMessages) IsProposalVerified() bool {
 	return s.VerifiedProposal
 }
 
-func (s *RoundMessages) GetProposalHash() common.Hash {
+func (s *RoundMessages) ProposalHash() common.Hash {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if s.proposal != nil {
-		return s.proposal.Block.Hash()
+		return s.proposal.block.Hash()
 	}
 
 	return common.Hash{}
 }
 
-func (s *RoundMessages) GetMessages() []Message {
+func (s *RoundMessages) AllMessages() []Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	prevoteMsgs := s.Prevotes.GetMessages()
-	precommitMsgs := s.Precommits.GetMessages()
+	prevotes := s.Prevotes.Messages()
+	precommits := s.Precommits.Messages()
 
-	result := make([]Message, 0, len(prevoteMsgs)+len(precommitMsgs)+1)
+	result := make([]Message, 0, len(prevotes)+len(precommits)+1)
 	if s.proposal != nil {
 		result = append(result, Message(*s.proposal))
 	}
 
-	result = append(result, prevoteMsgs...)
-	result = append(result, precommitMsgs...)
+	result = append(result, prevotes...)
+	result = append(result, precommits...)
 	return result
 }

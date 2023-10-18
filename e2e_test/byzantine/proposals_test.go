@@ -37,14 +37,14 @@ func (c *duplicateProposalSender) SendProposal(ctx context.Context, p *types.Blo
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	//send same proposal twice
-	c.Br().SignAndBroadcast(ctx, &message.Message{
+	c.Br().Broadcast(ctx, &message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	})
 	// send 2nd proposal with different validround
-	c.Br().SignAndBroadcast(ctx, &message.Message{
+	c.Br().Broadcast(ctx, &message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal2,
 		Address:       c.Address(),
@@ -206,7 +206,7 @@ func (c *partialProposalSender) SendProposal(ctx context.Context, p *types.Block
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	//send same proposal twice
-	c.Br().SignAndBroadcast(ctx, &message.Message{
+	c.Br().Broadcast(ctx, &message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal,
 		Address:       c.Address(),
@@ -275,7 +275,7 @@ func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block)
 	// junk Address
 	junkAddr := common.BytesToAddress(ranBytes)
 	//send same proposal twice
-	c.Br().SignAndBroadcast(ctx, &message.Message{
+	c.Br().Broadcast(ctx, &message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal,
 		Address:       junkAddr,

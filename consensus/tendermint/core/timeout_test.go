@@ -73,7 +73,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		committeeSet, _ := helpers.NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		messages := tcmessage.NewMessagesMap()
+		messages := tcmessage.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		mockBackend := interfaces.NewMockBackend(ctrl)
 		engine := Core{
@@ -134,7 +134,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		committeeSet, _ := helpers.NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		messages := tcmessage.NewMessagesMap()
+		messages := tcmessage.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		mockBackend := interfaces.NewMockBackend(ctrl)
 		mockBackend.EXPECT().Post(gomock.Any()).AnyTimes()
@@ -176,7 +176,7 @@ func TestOnTimeoutPrevote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockBackend := interfaces.NewMockBackend(ctrl)
-	messages := tcmessage.NewMessagesMap()
+	messages := tcmessage.NewMap()
 	curRoundMessages := messages.GetOrCreate(2)
 	engine := Core{
 		backend:          mockBackend,
@@ -207,7 +207,7 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockBackend := interfaces.NewMockBackend(ctrl)
-	messages := tcmessage.NewMessagesMap()
+	messages := tcmessage.NewMap()
 	curRoundMessages := messages.GetOrCreate(2)
 	engine := Core{
 		backend:          mockBackend,

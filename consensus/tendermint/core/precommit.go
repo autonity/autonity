@@ -30,11 +30,11 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
+		if h := c.curRoundMessages.ProposalHash(); h == (common.Hash{}) {
 			c.logger.Error("Core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
+		precommit.ProposedBlockHash = c.curRoundMessages.ProposalHash()
 	}
 
 	encodedVote, err := rlp.EncodeToBytes(&precommit)
@@ -60,7 +60,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	c.sentPrecommit = true
-	c.Br().SignAndBroadcast(ctx, msg)
+	c.Br().Broadcast(ctx, msg)
 }
 
 func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
@@ -73,7 +73,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message)
 				return err2
 			}
 			c.AcceptVote(roundMsgs, tctypes.Precommit, precommitHash, *msg)
-			oldRoundProposalHash := roundMsgs.GetProposalHash()
+			oldRoundProposalHash := roundMsgs.ProposalHash()
 			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
 				if !roundMsgs.IsProposalVerified() {
@@ -94,7 +94,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message)
 		return err
 	}
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.curRoundMessages.GetProposalHash()
+	curProposalHash := c.curRoundMessages.ProposalHash()
 	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
 
 	c.AcceptVote(c.curRoundMessages, tctypes.Precommit, precommitHash, *msg)
@@ -154,7 +154,7 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 }
 
 func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Vote, from, to string) {
-	currentProposalHash := c.curRoundMessages.GetProposalHash()
+	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,

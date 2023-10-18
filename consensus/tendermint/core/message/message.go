@@ -2,8 +2,12 @@ package message
 
 import (
 	"errors"
+	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rlp"
+	"io"
 	"math/big"
 )
 
@@ -39,26 +43,106 @@ type Message interface {
 	H() uint64
 	Code() uint8
 	Sender() common.Address
-	// V() common.Hash
+	Power() *big.Int
+	String() string
+	// Hash() common.Hash
+
 }
 
 type baseMessage struct {
-	Round     int64
-	Height    uint64
-	Signature []byte
+	// attributes are left private to avoid direct modification
+	round     int64
+	height    uint64
+	signature []byte
 
-	payload []byte
-	power   *big.Int
-	sender  common.Address
+	bytes  []byte
+	power  *big.Int
+	sender common.Address
+	hash   common.Hash
 }
 
 type Propose struct {
-	Block *types.Block
+	block      *types.Block
+	validRound int64
 	baseMessage
+}
+
+type LightProposal struct {
+	round      int64
+	height     *big.Int
+	validRound int64
+	value      common.Hash
+	signature  []byte // the signature computes from the tuple: (Round, Height, ValidRound, ProposalBlock.Hash())
+}
+
+// extPropose is the proposal object being exchanged at the networking level
+type extPropose struct {
+	round           uint64
+	height          uint64
+	validRound      uint64
+	isValidRoundNil bool
+	proposalBlock   *types.Block
+	signature       []byte
 }
 
 func (p Propose) Code() uint8 {
 	return ProposalCode
+}
+
+func (p Propose) ValidRound() int64 {
+	return p.validRound
+}
+
+func (p Propose) String() string {
+	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
+		p.round, p.H(), p.validRound, p.block.Hash().String())
+}
+
+func (p Propose) EncodeRLP(w io.Writer) error {
+	if p.block == nil {
+		log.Crit("encoding proposal with empty block")
+	}
+	// RLP encoding doesn't support negative big.Int, so we have to pass one additional field to represents validRound = -1.
+	// Note that we could have as well indexed rounds starting by 1, but we want to stay close as possible to the spec.
+	isValidRoundNil := false
+	var validRound uint64
+	if p.validRound == -1 {
+		validRound = 0
+		isValidRoundNil = true
+	} else {
+		validRound = uint64(p.validRound)
+	}
+	ext := extPropose{
+		round:           uint64(p.round),
+		height:          p.height,
+		validRound:      validRound,
+		isValidRoundNil: isValidRoundNil,
+		proposalBlock:   p.block,
+		signature:       p.signature,
+	}
+
+	return rlp.Encode(w, ext)
+}
+
+func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte) ([]byte, error)) *Propose {
+	isValidRoundNil := false
+	validRound := uint64(0)
+	if vr == -1 {
+		isValidRoundNil = true
+	} else {
+		validRound = uint64(vr)
+	}
+	rawProposal, _ := rlp.EncodeToBytes([]any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, p.Hash()})
+	signature, _ := signer(rawProposal)
+	return &Propose{
+		block:      p,
+		validRound: vr,
+		baseMessage: baseMessage{
+			round:     r,
+			height:    h,
+			signature: signature,
+		},
+	}
 }
 
 type Prevote struct {
@@ -79,15 +163,20 @@ func (p Precommit) Code() uint8 {
 	return ProposalCode
 }
 
-func (p baseMessage) Sender() common.Address {
-	return p.sender
+func (m baseMessage) Sender() common.Address {
+	return m.sender
 }
 
 func (m baseMessage) H() uint64 {
 	return m.Height
 }
+
 func (m baseMessage) R() int64 {
 	return m.Round
+}
+
+func (m baseMessage) Power() *big.Int {
+	return m.power
 }
 
 /*

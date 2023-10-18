@@ -12,7 +12,6 @@ import (
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/metrics"
-	"github.com/autonity/autonity/rlp"
 )
 
 type Proposer struct {
@@ -20,33 +19,22 @@ type Proposer struct {
 }
 
 func (c *Proposer) SendProposal(ctx context.Context, p *types.Block) {
-	logger := c.logger.New("step", c.step)
-
 	// If I'm the proposer and I have the same height with the proposal
 	if c.Height().Cmp(p.Number()) == 0 && c.IsProposer() && !c.sentProposal {
-		proposalBlock := message.NewProposal(c.Round(), c.Height(), c.validRound, p, c.backend.Sign)
-		proposal, err := rlp.EncodeToBytes(proposalBlock)
-		if err != nil {
-			logger.Error("Failed to encode", "Round", proposalBlock.Round, "Height", proposalBlock.Height, "ValidRound", c.validRound)
-			return
-		}
+		proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, p, c.backend.Sign)
 
 		c.sentProposal = true
 		c.backend.SetProposedBlockHash(p.Hash())
 
 		if metrics.Enabled {
 			now := time.Now()
-			tctypes.ProposalSentTimer.Update(now.Sub(c.newRound))
-			tctypes.ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
+			ProposalSentTimer.Update(now.Sub(c.newRound))
+			ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
 		}
-		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
 
-		c.Br().SignAndBroadcast(ctx, &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			Address:       c.address,
-			CommittedSeal: []byte{},
-		})
+		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
+
+		c.Br().Broadcast(ctx, proposal)
 	}
 }
 
@@ -74,7 +62,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			// We do not verify the proposal2 in this case.
 			roundMessages.SetProposal(proposal, false)
 
-			if roundMessages.PrecommitsPower(roundMessages.GetProposalHash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+			if roundMessages.PrecommitsPower(roundMessages.ProposalHash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 				if _, err2 := c.backend.VerifyProposal(proposal.ProposalBlock); err2 != nil {
 					return err2
 				}
@@ -95,8 +83,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	// received a current round proposal2
 	if metrics.Enabled {
 		now := time.Now()
-		tctypes.ProposalReceivedTimer.Update(now.Sub(c.newRound))
-		tctypes.ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
+		ProposalReceivedTimer.Update(now.Sub(c.newRound))
+		ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
 	}
 
 	// Verify the proposal2 we received
@@ -105,8 +93,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 
 	if metrics.Enabled {
 		now := time.Now()
-		tctypes.ProposalVerifiedTimer.Update(now.Sub(start))
-		tctypes.ProposalVerifiedBg.Add(now.Sub(start).Nanoseconds())
+		ProposalVerifiedTimer.Update(now.Sub(start))
+		ProposalVerifiedBg.Add(now.Sub(start).Nanoseconds())
 	}
 
 	if err != nil {
@@ -139,13 +127,13 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal2, proposal.Address.String(), c.address.String())
 
 	//l49: Check if we have a quorum of precommits for this proposal2
-	curProposalHash := c.curRoundMessages.GetProposalHash()
+	curProposalHash := c.curRoundMessages.ProposalHash()
 	if c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		c.Commit(proposal2.Round, c.curRoundMessages)
 		return nil
 	}
 
-	if c.step == tctypes.Propose {
+	if c.step == Propose {
 		if err := c.proposeTimeout.StopTimer(); err != nil {
 			return err
 		}
@@ -159,7 +147,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			// set to a non nil value. So we can be sure that we will only try to access
 			// lockedValue when it is non nil.
 			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || h == c.lockedValue.Hash()))
-			c.SetStep(tctypes.Prevote)
+			c.SetStep(Prevote)
 			return nil
 		}
 
@@ -169,7 +157,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// vr >= 0 here
 		if vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
-			c.SetStep(tctypes.Prevote)
+			c.SetStep(Prevote)
 		}
 	}
 
@@ -210,7 +198,7 @@ func (c *Proposer) StopFutureProposalTimer() {
 	}
 }
 
-func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Proposal, from, to string) {
+func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Propose, from, to string) {
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,

@@ -107,8 +107,8 @@ func TestGetCoreState(t *testing.T) {
 	setCoreState(c, height, rounds[1], tctypes.Propose, proposals[0].ProposalBlock, rounds[0], proposals[0].ProposalBlock, rounds[0], committeeSet,
 		prevBlock.Header())
 
-	var e = tctypes.CoreStateRequestEvent{
-		StateChan: make(chan tctypes.TendermintState),
+	var e = CoreStateRequestEvent{
+		StateChan: make(chan TendermintState),
 	}
 	go c.handleStateDump(e)
 	state := <-e.StateChan
@@ -156,7 +156,7 @@ func randomProposal(t *testing.T) (*message.Message, *message.Proposal) {
 	return generateBlockProposal(t, currentRound, currentHeight, currentRound-1, proposer, false, key)
 }
 
-func checkRoundState(t *testing.T, s tctypes.RoundState, wantRound int64, wantProposal *message.Proposal, wantVerfied bool) {
+func checkRoundState(t *testing.T, s RoundState, wantRound int64, wantProposal *message.Proposal, wantVerfied bool) {
 	require.Equal(t, wantProposal.ProposalBlock.Hash(), s.Proposal)
 	require.Len(t, s.PrevoteState, 1)
 	require.Len(t, s.PrecommitState, 1)

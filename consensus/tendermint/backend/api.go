@@ -21,7 +21,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
+	tctypes "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rpc"
 )

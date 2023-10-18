@@ -33,11 +33,11 @@ func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
 	if isNil {
 		prevote.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
 			c.Logger().Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		prevote.ProposedBlockHash = c.CurRoundMessages().ProposalHash()
 	}
 
 	encodedVote, err := rlp.EncodeToBytes(&prevote)
@@ -53,7 +53,7 @@ func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
 		CommittedSeal: []byte{},
 	}
 	for i := 0; i < 1000; i++ {
-		c.Br().SignAndBroadcast(ctx, msg)
+		c.Br().Broadcast(ctx, msg)
 	}
 	c.SetSentPrevote(true)
 }
@@ -92,11 +92,11 @@ func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
 			c.Logger().Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		precommit.ProposedBlockHash = c.CurRoundMessages().ProposalHash()
 	}
 
 	encodedVote, err := rlp.EncodeToBytes(&precommit)
@@ -119,7 +119,7 @@ func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	for i := 0; i < 1000; i++ {
-		c.Br().SignAndBroadcast(ctx, msg)
+		c.Br().Broadcast(ctx, msg)
 	}
 	c.SetSentPrecommit(true)
 }
@@ -154,7 +154,7 @@ func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	for i := 0; i < 1000; i++ {
-		c.Br().SignAndBroadcast(ctx, &message.Message{
+		c.Br().Broadcast(ctx, &message.Message{
 			Code:          consensus.MsgProposal,
 			Payload:       proposal,
 			Address:       c.Address(),

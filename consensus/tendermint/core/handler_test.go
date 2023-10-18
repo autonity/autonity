@@ -141,7 +141,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 
 	for _, testCase := range cases {
 		logger := log.New("backend", "test", "id", 0)
-		messageMap := message.NewMessagesMap()
+		messageMap := message.NewMap()
 		engine := Core{
 			logger:            logger,
 			address:           currentValidator.Address,

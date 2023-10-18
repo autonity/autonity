@@ -9,12 +9,12 @@ import (
 )
 
 func TestMessagesMap_newMessageMap(t *testing.T) {
-	messagesMap := NewMessagesMap()
+	messagesMap := NewMap()
 	assert.Equal(t, 0, len(messagesMap.internal))
 }
 
 func TestMessagesMap_reset(t *testing.T) {
-	messagesMap := NewMessagesMap()
+	messagesMap := NewMap()
 	messagesMap.GetOrCreate(0)
 	messagesMap.GetOrCreate(1)
 	messagesMap.Reset()
@@ -22,7 +22,7 @@ func TestMessagesMap_reset(t *testing.T) {
 }
 
 func TestMessagesMap_getOrCreate(t *testing.T) {
-	messagesMap := NewMessagesMap()
+	messagesMap := NewMap()
 	rm0 := messagesMap.GetOrCreate(0)
 	rm1 := messagesMap.GetOrCreate(1)
 
@@ -32,7 +32,7 @@ func TestMessagesMap_getOrCreate(t *testing.T) {
 }
 
 func TestMessagesMap_GetMessages(t *testing.T) {
-	messagesMap := NewMessagesMap()
+	messagesMap := NewMap()
 
 	rm0 := messagesMap.GetOrCreate(0)
 	rm1 := messagesMap.GetOrCreate(1)

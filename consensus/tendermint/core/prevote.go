@@ -4,14 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/autonity/autonity/consensus"
-
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/rlp"
-
-	"github.com/autonity/autonity/common"
 )
 
 type Prevoter struct {
@@ -19,38 +15,22 @@ type Prevoter struct {
 }
 
 func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.step)
-
-	var prevote = &message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
+	prevote := &message.Prevote{}
 
 	if isNil {
-		prevote.ProposedBlockHash = common.Hash{}
+		prevote.Value = common.Hash{}
 	} else {
-		if h := c.curRoundMessages.GetProposalHash(); h == (common.Hash{}) {
+		if h := c.curRoundMessages.ProposalHash(); h == (common.Hash{}) {
 			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote.ProposedBlockHash = c.curRoundMessages.GetProposalHash()
-	}
-
-	encodedVote, err := rlp.EncodeToBytes(&prevote)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", prevote)
-		return
+		prevote.Value = c.curRoundMessages.ProposalHash()
 	}
 
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.Br().SignAndBroadcast(ctx, &message.Message{
-		Code:          consensus.MsgPrevote,
-		Payload:       encodedVote,
-		Address:       c.address,
-		CommittedSeal: []byte{},
-	})
+	c.Br().Broadcast(ctx, prevote)
 }
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) error {
@@ -92,7 +72,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) erro
 
 	// Now we can add the preVote to our current round state
 	if c.step >= types.Prevote {
-		curProposalHash := c.curRoundMessages.GetProposalHash()
+		curProposalHash := c.curRoundMessages.ProposalHash()
 
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 		if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrevotesPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
@@ -103,7 +83,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) erro
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
 			if c.step == types.Prevote {
-				c.lockedValue = c.curRoundMessages.Proposal().Block
+				c.lockedValue = c.curRoundMessages.Proposal().block
 				c.lockedRound = c.Round()
 				c.precommiter.SendPrecommit(ctx, false)
 				c.SetStep(Precommit)
@@ -132,8 +112,8 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) erro
 	return nil
 }
 
-func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Vote, from, to string) {
-	currentProposalHash := c.curRoundMessages.GetProposalHash()
+func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevote, from, to string) {
+	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
@@ -144,8 +124,8 @@ func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Vote,
 		"currentStep", c.step,
 		"isProposer", c.IsProposer(),
 		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
-		"isNilMsg", prevote.ProposedBlockHash == common.Hash{},
-		"hash", prevote.ProposedBlockHash,
+		"isNilMsg", prevote.Value == common.Hash{},
+		"value", prevote.Value,
 		"type", "Prevote",
 		"totalVotes", c.curRoundMessages.PrevotesTotalPower(),
 		"totalNilVotes", c.curRoundMessages.PrevotesPower(common.Hash{}),

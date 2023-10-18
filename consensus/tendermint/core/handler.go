@@ -55,7 +55,7 @@ func (c *Core) Stop() {
 }
 
 func (c *Core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, backlogMessageEvent{}, backlogUntrustedMessageEvent{}, types.CoreStateRequestEvent{})
+	s := c.backend.Subscribe(events.MessageEvent{}, backlogMessageEvent{}, backlogUntrustedMessageEvent{}, CoreStateRequestEvent{})
 	c.messageEventSub = s
 
 	s1 := c.backend.Subscribe(events.NewCandidateBlockEvent{})
@@ -152,7 +152,7 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg.GetBytes())
-			case types.CoreStateRequestEvent:
+			case CoreStateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
 			}
@@ -260,7 +260,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Message) error {
 		return err
 	}
 	if c.backend.IsJailed(msg.Sender()) {
-		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Address)
+		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Sender())
 		return ErrValidatorJailed
 	}
 	return c.handleValidMsg(ctx, msg)
@@ -272,7 +272,7 @@ func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Message, se
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
 		c.futureRoundChange[msgRound] = make(map[common.Address]*big.Int)
 	}
-	c.futureRoundChange[msgRound][sender] = msg.Power
+	c.futureRoundChange[msgRound][sender] = msg.Power()
 
 	totalFutureRoundMessagesPower := new(big.Int)
 	for _, power := range c.futureRoundChange[msgRound] {
@@ -303,7 +303,6 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Message) error {
 			logger.Debug("Storing future step message in backlog")
 			c.storeBacklog(msg, msg.Sender())
 		}
-
 		return err
 	}
 

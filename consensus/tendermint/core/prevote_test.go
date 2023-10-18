@@ -23,7 +23,7 @@ func TestSendPrevote(t *testing.T) {
 	t.Run("proposal is empty and send prevote nil", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		committeeSet := helpers.NewTestCommitteeSet(4)
@@ -57,11 +57,11 @@ func TestSendPrevote(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(2)}),
 			signer(keys[member.Address]))
 
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curMessages := messages.GetOrCreate(2)
 		curMessages.SetProposal(proposal, nil, true)
 
-		expectedMsg := message.CreatePrevote(t, curMessages.GetProposalHash(), 1, big.NewInt(2), member)
+		expectedMsg := message.CreatePrevote(t, curMessages.ProposalHash(), 1, big.NewInt(2), member)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil)
@@ -91,7 +91,7 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
 		committeeSet := helpers.NewTestCommitteeSet(4)
 		member := committeeSet.Committee()[0]
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
 		expectedMsg := message.CreatePrevote(t, common.Hash{}, 2, big.NewInt(4), member)
@@ -115,7 +115,7 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with old height given, pre-vote not added", func(t *testing.T) {
 		committeeSet := helpers.NewTestCommitteeSet(4)
 		member := committeeSet.Committee()[0]
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
 		expectedMsg := message.CreatePrevote(t, common.Hash{}, 1, big.NewInt(1), member)
@@ -144,7 +144,7 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
 		member := committeeSet.Committee()[0]
 		curRoundMessages := messages.GetOrCreate(2)
@@ -158,7 +158,7 @@ func TestHandlePrevote(t *testing.T) {
 			signer(keys[member.Address]))
 
 		curRoundMessages.SetProposal(proposal, nil, true)
-		expectedMsg := message.CreatePrevote(t, curRoundMessages.GetProposalHash(), 1, big.NewInt(2), member)
+		expectedMsg := message.CreatePrevote(t, curRoundMessages.ProposalHash(), 1, big.NewInt(2), member)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		c := &Core{
@@ -180,7 +180,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesPower(curRoundMessages.GetProposalHash()); s.Cmp(common.Big1) != 0 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessages.ProposalHash()); s.Cmp(common.Big1) != 0 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 	})
@@ -198,18 +198,18 @@ func TestHandlePrevote(t *testing.T) {
 			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)}),
 			signer(keys[member.Address]))
 
-		messagesMap := message.NewMessagesMap()
+		messagesMap := message.NewMap()
 		curRoundMessage := messagesMap.GetOrCreate(2)
 		curRoundMessage.SetProposal(proposal, nil, true)
 
-		expectedMsg := message.CreatePrevote(t, curRoundMessage.GetProposalHash(), 2, big.NewInt(3), member)
+		expectedMsg := message.CreatePrevote(t, curRoundMessage.ProposalHash(), 2, big.NewInt(3), member)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).Return([]byte{0x1}, nil).AnyTimes()
 
 		var precommit = message.Vote{
 			Round:             2,
 			Height:            big.NewInt(3),
-			ProposedBlockHash: curRoundMessage.GetProposalHash(),
+			ProposedBlockHash: curRoundMessage.ProposalHash(),
 		}
 
 		encodedVote, err := rlp.EncodeToBytes(&precommit)
@@ -247,7 +247,7 @@ func TestHandlePrevote(t *testing.T) {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.GetProposalHash()); s.Cmp(common.Big1) != 0 {
+		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.ProposalHash()); s.Cmp(common.Big1) != 0 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
 		}
 
@@ -260,7 +260,7 @@ func TestHandlePrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		committeSet := helpers.NewTestCommitteeSet(1)
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		member := committeSet.Committee()[0]
 		curRoundMessage := messages.GetOrCreate(2)
 
@@ -321,7 +321,7 @@ func TestHandlePrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
-		messages := message.NewMessagesMap()
+		messages := message.NewMap()
 		member := committeeSet.Committee()[0]
 		curRoundMessages := messages.GetOrCreate(1)
 
@@ -341,7 +341,7 @@ func TestHandlePrevote(t *testing.T) {
 		var preVote = message.Vote{
 			Round:             1,
 			Height:            big.NewInt(2),
-			ProposedBlockHash: curRoundMessages.GetProposalHash(),
+			ProposedBlockHash: curRoundMessages.ProposalHash(),
 		}
 
 		encodedVote, err := rlp.EncodeToBytes(&preVote)

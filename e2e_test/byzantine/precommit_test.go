@@ -34,11 +34,11 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	if isNil {
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
-		if h := c.CurRoundMessages().GetProposalHash(); h == (common.Hash{}) {
+		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
 			c.Logger().Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.CurRoundMessages().GetProposalHash()
+		precommit.ProposedBlockHash = c.CurRoundMessages().ProposalHash()
 	}
 
 	encodedVote, err := rlp.EncodeToBytes(&precommit)
@@ -57,7 +57,7 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	// nil committed seal
 	msg.CommittedSeal = nil
 	c.SetSentPrecommit(true)
-	c.Br().SignAndBroadcast(ctx, msg)
+	c.Br().Broadcast(ctx, msg)
 }
 
 func TestMaliciousPrecommitSender(t *testing.T) {
