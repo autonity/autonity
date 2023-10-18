@@ -18,6 +18,7 @@ package events
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 )
 
@@ -27,8 +28,8 @@ type NewCandidateBlockEvent struct {
 }
 
 // MessageEvent is posted for Istanbul engine communication
-type MessageEvent[C any] struct {
-	Message C
+type MessageEvent struct {
+	Message message.Message
 	ErrCh   chan<- error //error channel
 }
 

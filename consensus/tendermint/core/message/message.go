@@ -2,15 +2,9 @@ package message
 
 import (
 	"errors"
-	"fmt"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/rlp"
-	"io"
 	"math/big"
-	"reflect"
 )
 
 var (
@@ -19,12 +13,18 @@ var (
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
 
+const (
+	ProposalCode uint8 = iota
+	PrevoteCode
+	PrecommitCode
+	// MsgLightProposal is only used by accountability that it converts full proposal to a lite one
+	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
+	MsgLightProposal
+)
+
 type SigVerifier func(*types.Header, []byte, []byte) (common.Address, error)
 
-type Message struct {
-	Code          uint8
-	Payload       []byte // rlp encoded tendermint msgs: proposal, prevote, precommit.
-	Address       common.Address
+/*type Message struct {
 	Signature     []byte
 	CommittedSeal []byte // todo(youssef): this should be moved in the precommit object
 
@@ -32,34 +32,65 @@ type Message struct {
 	Power        *big.Int
 	ConsensusMsg ConsensusMsg // cached decoded Msg
 	Bytes        []byte       // rlp encoded bytes with only the 1st 5 fields of this Message struct.
+}*/
+
+type Message interface {
+	R() int64
+	H() uint64
+	Code() uint8
+	Sender() common.Address
+	// V() common.Hash
+}
+
+type baseMessage struct {
+	Round     int64
+	Height    uint64
+	Signature []byte
+
+	payload []byte
+	power   *big.Int
+	sender  common.Address
 }
 
 type Propose struct {
-	Block  *types.Block
-	Round  uint64
-	Height *big.Int
+	Block *types.Block
+	baseMessage
+}
 
-	payload []byte
+func (p Propose) Code() uint8 {
+	return ProposalCode
 }
 
 type Prevote struct {
-	Value  common.Hash
-	Round  uint64
-	Height *big.Int
-
-	payload []byte
+	Value common.Hash
+	baseMessage
 }
+
+func (p Prevote) Code() uint8 {
+	return PrevoteCode
+}
+
 type Precommit struct {
-	Value   common.Hash
-	Round   uint64
-	Height  *big.Int
-	payload []byte
+	Value common.Hash
+	baseMessage
 }
 
-type Consensus interface {
-	Propose | Prevote | Precommit
+func (p Precommit) Code() uint8 {
+	return ProposalCode
 }
 
+func (p baseMessage) Sender() common.Address {
+	return p.sender
+}
+
+func (m baseMessage) H() uint64 {
+	return m.Height
+}
+func (m baseMessage) R() int64 {
+	return m.Round
+}
+
+/*
 // ==============================================
 //
 // define the functions that needs to be provided for rlp Encoder/Decoder.
@@ -253,29 +284,4 @@ func (m *Message) ToLightProposal() *Message {
 func (m *Message) String() string {
 	return fmt.Sprintf("{sender: %v, power: %v, code: %v, inner: %v}", m.Address.String(), m.Power, m.Code, m.ConsensusMsg)
 }
-
-func (m *Message) R() int64 {
-	if m.ConsensusMsg == nil {
-		log.Crit("message not decoded")
-	}
-	return m.ConsensusMsg.R()
-}
-
-func (m *Message) H() uint64 {
-	if m.ConsensusMsg == nil {
-		log.Crit("message not decoded")
-	}
-	return m.ConsensusMsg.H().Uint64()
-}
-
-func (m *Message) Sender() common.Address {
-	return m.Address
-}
-
-func (m *Message) Type() uint8 {
-	return m.Code
-}
-
-func (m *Message) Value() common.Hash {
-	return m.ConsensusMsg.V()
-}
+*/

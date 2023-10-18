@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -11,10 +12,10 @@ import (
 const MaxSizeBacklogUnchecked = 1000
 
 type backlogMessageEvent struct {
-	msg *message.Message
+	msg message.Message
 }
 type backlogUntrustedMessageEvent struct {
-	msg *message.Message
+	msg message.Message
 }
 
 // CheckMessage checks the message step
@@ -41,7 +42,7 @@ func (c *Core) CheckMessage(round int64, height uint64, step types.Step) error {
 	return nil
 }
 
-func (c *Core) storeBacklog(msg *message.Message, src common.Address) {
+func (c *Core) storeBacklog(msg message.Message, src common.Address) {
 	logger := c.logger.New("from", src, "step", c.step)
 
 	if src == c.address {
@@ -55,7 +56,7 @@ func (c *Core) storeBacklog(msg *message.Message, src common.Address) {
 
 // storeFutureMessage push to a special backlog future height consensus messages
 // this is done in a way that prevents memory exhaustion in the case of a malicious peer.
-func (c *Core) storeFutureMessage(msg *message.Message) {
+func (c *Core) storeFutureMessage(msg message.Message) {
 	// future height messages of a gap wider than one block should not occur frequently as block sync should happen
 	// Todo : implement a double ended priority queue (DEPQ)
 	msgHeight := msg.H()
@@ -104,8 +105,8 @@ func (c *Core) processBacklog() {
 
 				r := curMsg.R()
 				h := curMsg.H()
-				err := c.CheckMessage(r, h, types.Step(curMsg.Code))
-				if err == constants.ErrFutureHeightMessage || err == constants.ErrFutureRoundMessage || err == constants.ErrFutureStepMessage {
+				err := c.CheckMessage(r, h, types.Step(curMsg.Code()))
+				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) || errors.Is(err, constants.ErrFutureStepMessage) {
 					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue
 
@@ -122,7 +123,7 @@ func (c *Core) processBacklog() {
 			// We need to ensure that there is no memory leak by reallocating new memory if the original underlying
 			// array become very large and only a small part of it is being used by the slice.
 			if cap(backlog)/capToLenRatio > len(backlog) {
-				tmp := make([]*message.Message, len(backlog))
+				tmp := make([]message.Message, len(backlog))
 				copy(tmp, backlog)
 				backlog = tmp
 			}

@@ -124,14 +124,9 @@ eventLoop:
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg, err := message.FromBytes(e.Payload) // todo(youssef): move that ahead
-				if err != nil {
-					c.logger.Error("Received consensus message with invalid payload", "err", err)
-					tryDisconnect(e.ErrCh, err)
-					continue
-				}
+
 				// At this stage, a message is parsed and all the internal fields must be accessible
-				if err := c.handleMsg(ctx, msg); err != nil {
+				if err := c.handleMsg(ctx, e.Message); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
@@ -249,7 +244,7 @@ func (c *Core) SendEvent(ev any) {
 }
 
 // handleMsg assume msg has already been decoded
-func (c *Core) handleMsg(ctx context.Context, msg *message.Message) error {
+func (c *Core) handleMsg(ctx context.Context, msg message.Message) error {
 	msgHeight := new(big.Int).SetUint64(msg.H())
 	if msgHeight.Cmp(c.Height()) > 0 {
 		// Future height message. Skip processing and put it in the untrusted backlog buffer.
@@ -264,14 +259,14 @@ func (c *Core) handleMsg(ctx context.Context, msg *message.Message) error {
 		c.logger.Error("Failed to validate message", "err", err)
 		return err
 	}
-	if c.backend.IsJailed(msg.Address) {
+	if c.backend.IsJailed(msg.Sender()) {
 		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Address)
 		return ErrValidatorJailed
 	}
 	return c.handleValidMsg(ctx, msg)
 }
 
-func (c *Core) handleFutureRoundMsg(ctx context.Context, msg *message.Message, sender common.Address) {
+func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Message, sender common.Address) {
 	// Decoding functions can't fail here
 	msgRound := msg.R()
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
@@ -290,38 +285,38 @@ func (c *Core) handleFutureRoundMsg(ctx context.Context, msg *message.Message, s
 	}
 }
 
-func (c *Core) handleValidMsg(ctx context.Context, msg *message.Message) error {
-	logger := c.logger.New("address", c.address, "from", msg.Address)
+func (c *Core) handleValidMsg(ctx context.Context, msg message.Message) error {
+	logger := c.logger.New("address", c.address, "from", msg.Sender())
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
-		if err == constants.ErrFutureHeightMessage {
+		if errors.Is(err, constants.ErrFutureHeightMessage) {
 			//Future messages should never be processed and reach this point. Panic.
 			panic("Processed future message as a valid message")
-		} else if err == constants.ErrFutureRoundMessage {
+		} else if errors.Is(err, constants.ErrFutureRoundMessage) {
 			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, msg.Address)
+			c.storeBacklog(msg, msg.Sender())
 			// decoding must have been successful to return
-			c.handleFutureRoundMsg(ctx, msg, msg.Address)
-		} else if err == constants.ErrFutureStepMessage {
+			c.handleFutureRoundMsg(ctx, msg, msg.Sender())
+		} else if errors.Is(err, constants.ErrFutureStepMessage) {
 			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, msg.Address)
+			c.storeBacklog(msg, msg.Sender())
 		}
 
 		return err
 	}
 
-	switch msg.Code {
-	case consensus.MsgProposal:
+	switch m := msg.(type) {
+	case message.Propose:
 		logger.Debug("Handling Proposal")
-		return testBacklog(c.proposer.HandleProposal(ctx, msg))
-	case consensus.MsgPrevote:
+		return testBacklog(c.proposer.HandleProposal(ctx, &m))
+	case message.Prevote:
 		logger.Debug("Handling Prevote")
-		return testBacklog(c.prevoter.HandlePrevote(ctx, msg))
-	case consensus.MsgPrecommit:
+		return testBacklog(c.prevoter.HandlePrevote(ctx, &m))
+	case message.Precommit:
 		logger.Debug("Handling Precommit")
-		return testBacklog(c.precommiter.HandlePrecommit(ctx, msg))
+		return testBacklog(c.precommiter.HandlePrecommit(ctx, &m))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}

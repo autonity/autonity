@@ -19,7 +19,7 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-// New creates an Tendermint consensus Core
+// New creates a Tendermint consensus Core
 func New(backend interfaces.Backend) *Core {
 	addr := backend.Address()
 	messagesMap := message.NewMessagesMap()
@@ -29,8 +29,8 @@ func New(backend interfaces.Backend) *Core {
 		address:                addr,
 		logger:                 backend.Logger(),
 		backend:                backend,
-		backlogs:               make(map[common.Address][]*message.Message),
-		backlogUntrusted:       make(map[uint64][]*message.Message),
+		backlogs:               make(map[common.Address][]message.Message),
+		backlogUntrusted:       make(map[uint64][]message.Message),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -132,8 +132,8 @@ type Core struct {
 	futureProposalTimer    *time.Timer
 	stopped                chan struct{}
 
-	backlogs             map[common.Address][]*message.Message
-	backlogUntrusted     map[uint64][]*message.Message
+	backlogs             map[common.Address][]message.Message
+	backlogUntrusted     map[uint64][]message.Message
 	backlogUntrustedSize int
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
@@ -149,7 +149,7 @@ type Core struct {
 	lastHeader *types.Header
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	step                  tctypes.Step
+	step                  Step
 	stepChange            time.Time
 	curRoundMessages      *message.RoundMessages
 	messages              *message.MessagesMap
@@ -327,7 +327,7 @@ func (c *Core) SignMessage(msg *message.Message) ([]byte, error) {
 }
 
 func (c *Core) Commit(round int64, messages *message.RoundMessages) {
-	c.SetStep(tctypes.PrecommitDone)
+	c.SetStep(PrecommitDone)
 
 	// for metrics
 	start := time.Now()
@@ -460,15 +460,16 @@ func (c *Core) SetInitialState(r int64) {
 	}
 }
 
-func (c *Core) AcceptVote(roundMsgs *message.RoundMessages, step tctypes.Step, hash common.Hash, msg message.Message) {
-	switch step {
-	case tctypes.Prevote:
-		roundMsgs.AddPrevote(hash, msg)
-	case tctypes.Precommit:
-		roundMsgs.AddPrecommit(hash, msg)
+/*
+	func (c *Core) AcceptVote(roundMsgs *message.RoundMessages, step tctypes.Step, hash common.Hash, msg message.Message) {
+		switch step {
+		case tctypes.Prevote:
+			roundMsgs.AddPrevote(hash, msg)
+		case tctypes.Precommit:
+			roundMsgs.AddPrecommit(hash, msg)
+		}
 	}
-}
-
+*/
 func (c *Core) SetStep(step tctypes.Step) {
 	now := time.Now()
 	if metrics.Enabled {

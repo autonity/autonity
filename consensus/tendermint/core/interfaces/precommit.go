@@ -10,7 +10,7 @@ import (
 
 type Precommiter interface {
 	SendPrecommit(ctx context.Context, isNil bool)
-	HandlePrecommit(ctx context.Context, msg *message.Message) error
+	HandlePrecommit(ctx context.Context, msg *message.Precommit) error
 	VerifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error
 	HandleCommit(ctx context.Context)
 	LogPrecommitMessageEvent(message string, precommit *message.Vote, from, to string)

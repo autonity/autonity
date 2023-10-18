@@ -11,7 +11,7 @@ func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
 	msg := Message{Address: common.BytesToAddress([]byte("987654321")), Power: common.Big1}
 
-	ms := NewMessageSet()
+	ms := NewSet()
 	ms.AddVote(blockHash, msg)
 	ms.AddVote(blockHash, msg)
 
@@ -23,7 +23,7 @@ func TestMessageSetAddVote(t *testing.T) {
 func TestMessageSetVotesSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
 
-	ms := NewMessageSet()
+	ms := NewSet()
 	if got := ms.VotePower(blockHash); got.Cmp(common.Big0) != 0 {
 		t.Fatalf("Expected 0, got %v", got)
 	}
@@ -32,7 +32,7 @@ func TestMessageSetVotesSize(t *testing.T) {
 func TestMessageSetAddNilVote(t *testing.T) {
 	msg := Message{Address: common.BytesToAddress([]byte("987654321")), Power: common.Big1}
 
-	ms := NewMessageSet()
+	ms := NewSet()
 	ms.AddVote(common.Hash{}, msg)
 	ms.AddVote(common.Hash{}, msg)
 	if got := ms.VotePower(common.Hash{}); got.Cmp(common.Big1) != 0 {
@@ -93,7 +93,7 @@ func TestMessageSetTotalSize(t *testing.T) {
 
 	for _, test := range testCases {
 
-		ms := NewMessageSet()
+		ms := NewSet()
 		for _, msg := range test.voteList {
 			ms.AddVote(msg.hash, msg.msg)
 		}
@@ -106,7 +106,7 @@ func TestMessageSetTotalSize(t *testing.T) {
 func TestMessageSetValues(t *testing.T) {
 	t.Run("not known hash given, nil returned", func(t *testing.T) {
 		blockHash := common.BytesToHash([]byte("123456789"))
-		ms := NewMessageSet()
+		ms := NewSet()
 
 		if got := ms.Values(blockHash); got != nil {
 			t.Fatalf("Expected nils, got %v", got)
@@ -117,7 +117,7 @@ func TestMessageSetValues(t *testing.T) {
 		blockHash := common.BytesToHash([]byte("123456789"))
 		msg := Message{Address: common.BytesToAddress([]byte("987654321"))}
 
-		ms := NewMessageSet()
+		ms := NewSet()
 		ms.AddVote(blockHash, msg)
 
 		if got := len(ms.Values(blockHash)); got != 1 {

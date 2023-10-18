@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 
 	"github.com/autonity/autonity/consensus"
 
@@ -56,7 +57,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) erro
 	preVote := msg.ConsensusMsg.(*message.Vote)
 	if err := c.CheckMessage(preVote.Round, preVote.Height.Uint64(), types.Prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
-		if err == constants.ErrOldRoundMessage {
+		if errors.Is(err, constants.ErrOldRoundMessage) {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
 			oldRoundMessages := c.messages.GetOrCreate(preVote.Round)
 			c.AcceptVote(oldRoundMessages, types.Prevote, preVote.ProposedBlockHash, *msg)
@@ -102,10 +103,10 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) erro
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
 			if c.step == types.Prevote {
-				c.lockedValue = c.curRoundMessages.Proposal().ProposalBlock
+				c.lockedValue = c.curRoundMessages.Proposal().Block
 				c.lockedRound = c.Round()
 				c.precommiter.SendPrecommit(ctx, false)
-				c.SetStep(types.Precommit)
+				c.SetStep(Precommit)
 			}
 			c.validValue = c.curRoundMessages.Proposal().ProposalBlock
 			c.validRound = c.Round()

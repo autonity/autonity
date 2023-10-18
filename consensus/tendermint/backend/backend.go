@@ -481,3 +481,27 @@ func (sb *Backend) RemoveMessageFromLocalCache(payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Remove(hash)
 }
+
+/*
+func (sb *Backend) Protocol() p2p.Protocol {
+	return p2p.Protocol{
+		Name:    "automint",
+		Version: 1,
+		Length:  5,
+		Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
+			peer := NewPeer(p, rw, backend.TxPool())
+			defer peer.Close()
+
+			return backend.RunPeer(peer, func(peer *Peer) error {
+				return Handle(backend, peer)
+			})
+		},
+		NodeInfo: func() interface{} {
+			return nil
+		},
+		PeerInfo:       nil,
+		Attributes:     nil,
+		DialCandidates: nil,
+	}
+}
+*/

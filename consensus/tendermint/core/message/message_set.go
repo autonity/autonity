@@ -6,59 +6,58 @@ import (
 	"sync"
 )
 
-func NewMessageSet() MessageSet {
-	return MessageSet{
-		Votes:      map[common.Hash]map[common.Address]Message{},
-		messages:   make(map[common.Address]*Message),
-		messagesMu: new(sync.RWMutex),
+func NewSet[T Message]() *Set[T] {
+	return &Set[T]{
+		Votes:    make(map[common.Hash]map[common.Address]T),
+		messages: make(map[common.Address]T),
 	}
 }
 
-type MessageSet struct {
+type Set[T Message] struct {
 	// In some conditions we might receive prevotes or precommit before
 	// receiving a proposal, so we must save received message with differents proposed block hash.
-	Votes      map[common.Hash]map[common.Address]Message // map[proposedBlockHash]map[validatorAddress]vote
-	messages   map[common.Address]*Message
-	messagesMu *sync.RWMutex
+	Votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
+	messages map[common.Address]T
+	lock     sync.RWMutex
 }
 
-func (ms *MessageSet) AddVote(blockHash common.Hash, msg Message) {
-	ms.messagesMu.Lock()
-	defer ms.messagesMu.Unlock()
-
+func (s *Set[T]) AddVote(blockHash common.Hash, vote T) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	sender := vote.Sender()
 	// Check first if we already received a message from this pal.
-	if _, ok := ms.messages[msg.Address]; ok {
+	if _, ok := s.messages[sender]; ok {
 		// TODO : double signing fault ! Accountability
 		return
 	}
 
-	var addressesMap map[common.Address]Message
+	var addressesMap map[common.Address]T
 
-	if _, ok := ms.Votes[blockHash]; !ok {
-		ms.Votes[blockHash] = make(map[common.Address]Message)
+	if _, ok := s.Votes[blockHash]; !ok {
+		s.Votes[blockHash] = make(map[common.Address]T)
 	}
 
-	addressesMap = ms.Votes[blockHash]
-	addressesMap[msg.Address] = msg
-	ms.messages[msg.Address] = &msg
+	addressesMap = s.Votes[blockHash]
+	addressesMap[sender] = vote
+	s.messages[sender] = vote
 }
 
-func (ms *MessageSet) GetMessages() []*Message {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
-	result := make([]*Message, len(ms.messages))
+func (s *Set[T]) GetMessages() []Message {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	result := make([]Message, len(s.messages))
 	k := 0
-	for _, v := range ms.messages {
+	for _, v := range s.messages {
 		result[k] = v
 		k++
 	}
 	return result
 }
 
-func (ms *MessageSet) VotePower(h common.Hash) *big.Int {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
-	if msgMap, ok := ms.Votes[h]; ok {
+func (s *Set[T]) VotePower(h common.Hash) *big.Int {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if msgMap, ok := s.Votes[h]; ok {
 		power := new(big.Int)
 		for _, msg := range msgMap {
 			power.Add(power, msg.GetPower())
@@ -68,25 +67,25 @@ func (ms *MessageSet) VotePower(h common.Hash) *big.Int {
 	return new(big.Int)
 }
 
-func (ms *MessageSet) TotalVotePower() *big.Int {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
+func (s *Set[T]) TotalVotePower() *big.Int {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	power := new(big.Int)
-	for _, msg := range ms.messages {
+	for _, msg := range s.messages {
 		power.Add(power, msg.GetPower())
 	}
 	return power
 }
 
-func (ms *MessageSet) Values(blockHash common.Hash) []Message {
-	ms.messagesMu.RLock()
-	defer ms.messagesMu.RUnlock()
-	if _, ok := ms.Votes[blockHash]; !ok {
+func (s *Set[T]) Values(blockHash common.Hash) []Message {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if _, ok := s.Votes[blockHash]; !ok {
 		return nil
 	}
 
 	var messages = make([]Message, 0)
-	for _, v := range ms.Votes[blockHash] {
+	for _, v := range s.Votes[blockHash] {
 		messages = append(messages, v)
 	}
 	return messages

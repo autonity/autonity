@@ -20,12 +20,6 @@ var (
 	errInvalidValidRound    = errors.New("proposal with invalid isValidround")
 )
 
-type ConsensusMsg interface {
-	R() int64
-	H() *big.Int
-	V() common.Hash
-}
-
 // LightProposal is only used by accountability that it converts a Proposal to a LightProposal for sustainable on-chain proof.
 type LightProposal struct {
 	Round      int64

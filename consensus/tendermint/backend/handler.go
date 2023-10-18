@@ -98,7 +98,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	return true, nil
 }
 
-func handleConsensusMsg[M message.Consensus](sb *Backend, addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
+func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
 	if !sb.coreStarted {
 		buffer := new(bytes.Buffer)
 		if _, err := io.Copy(buffer, msg.Payload); err != nil {
@@ -138,7 +138,7 @@ func handleConsensusMsg[M message.Consensus](sb *Backend, addr common.Address, m
 		return true, nil
 	}
 	sb.knownMessages.Add(hash, true)
-	go sb.Post(events.MessageEvent[M]{
+	go sb.Post(events.MessageEvent{
 		Message: consensusMsg,
 		ErrCh:   errCh,
 	})
@@ -156,6 +156,6 @@ func (sb *Backend) NewChainHead() error {
 	if !sb.coreStarted {
 		return ErrStoppedEngine
 	}
-	sb.postEvent(events.CommitEvent{})
+	go sb.Post(events.CommitEvent{})
 	return nil
 }
