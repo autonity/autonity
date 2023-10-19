@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"math/big"
 	"sync"
 	"time"
@@ -132,14 +133,13 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, message message.Message) error {
 	// send to others
-	sb.Gossip(ctx, committee, payload)
+	sb.Gossip(ctx, committee, message)
 	// send to self
-	msg := events.MessageEvent{
-		Payload: payload,
-	}
-	go sb.Post(msg)
+	go sb.Post(events.MessageEvent{
+		Message: message,
+	})
 	return nil
 }
 
@@ -174,7 +174,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 					break
 				}
 				sb.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncMsg, []byte{}) //nolint
+				go p.Send(SyncNetworkMsg, []byte{}) //nolint
 
 				member := header.CommitteeMember(addr)
 				if member == nil {
@@ -188,9 +188,9 @@ func (sb *Backend) AskSync(header *types.Header) {
 	}
 }
 
-// Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
-	hash := types.RLPHash(payload)
+// Gossip is a naive Gossip implementation where the message is flooded over the network.
+func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, message message.Message) {
+	hash := message.Hash()
 	sb.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]struct{})
@@ -218,7 +218,7 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(TendermintMsg, payload) //nolint
+			go p.SendRaw(networkCodes[message.Code()], message.Payload()) //nolint
 		}
 	}
 }

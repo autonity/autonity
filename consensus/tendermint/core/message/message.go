@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 	"io"
@@ -23,7 +24,7 @@ const (
 	PrecommitCode
 	// MsgLightProposal is only used by accountability that it converts full proposal to a lite one
 	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
-	MsgLightProposal
+	LightProposalCode
 )
 
 type SigVerifier func(*types.Header, []byte, []byte) (common.Address, error)
@@ -45,8 +46,8 @@ type Message interface {
 	Sender() common.Address
 	Power() *big.Int
 	String() string
-	// Hash() common.Hash
-
+	Hash() common.Hash
+	Payload() []byte
 }
 
 type baseMessage struct {
@@ -55,16 +56,27 @@ type baseMessage struct {
 	height    uint64
 	signature []byte
 
-	bytes  []byte
-	power  *big.Int
-	sender common.Address
-	hash   common.Hash
+	payload []byte
+	power   *big.Int
+	sender  common.Address
+	hash    common.Hash
 }
 
 type Propose struct {
 	block      *types.Block
 	validRound int64
 	baseMessage
+}
+
+// extPropose is the actual proposal object being exchanged
+type extPropose struct {
+	code            uint8
+	round           uint64
+	height          uint64
+	validRound      uint64
+	isValidRoundNil bool
+	proposalBlock   *types.Block
+	signature       []byte
 }
 
 type LightProposal struct {
@@ -75,18 +87,12 @@ type LightProposal struct {
 	signature  []byte // the signature computes from the tuple: (Round, Height, ValidRound, ProposalBlock.Hash())
 }
 
-// extPropose is the proposal object being exchanged at the networking level
-type extPropose struct {
-	round           uint64
-	height          uint64
-	validRound      uint64
-	isValidRoundNil bool
-	proposalBlock   *types.Block
-	signature       []byte
-}
-
 func (p Propose) Code() uint8 {
 	return ProposalCode
+}
+
+func (p Propose) Hash() common.Hash {
+
 }
 
 func (p Propose) ValidRound() int64 {
@@ -99,29 +105,8 @@ func (p Propose) String() string {
 }
 
 func (p Propose) EncodeRLP(w io.Writer) error {
-	if p.block == nil {
-		log.Crit("encoding proposal with empty block")
-	}
-	// RLP encoding doesn't support negative big.Int, so we have to pass one additional field to represents validRound = -1.
-	// Note that we could have as well indexed rounds starting by 1, but we want to stay close as possible to the spec.
-	isValidRoundNil := false
-	var validRound uint64
-	if p.validRound == -1 {
-		validRound = 0
-		isValidRoundNil = true
-	} else {
-		validRound = uint64(p.validRound)
-	}
-	ext := extPropose{
-		round:           uint64(p.round),
-		height:          p.height,
-		validRound:      validRound,
-		isValidRoundNil: isValidRoundNil,
-		proposalBlock:   p.block,
-		signature:       p.signature,
-	}
-
-	return rlp.Encode(w, ext)
+	log.Crit("not supported")
+	return nil
 }
 
 func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte) ([]byte, error)) *Propose {
@@ -132,8 +117,20 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 	} else {
 		validRound = uint64(vr)
 	}
-	rawProposal, _ := rlp.EncodeToBytes([]any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, p.Hash()})
-	signature, _ := signer(rawProposal)
+	// Calculate signature first
+	signatureInput, _ := rlp.EncodeToBytes([]any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, p.Hash()})
+	signature, _ := signer(signatureInput)
+
+	payload, _ := rlp.EncodeToBytes(extPropose{
+		round:           uint64(r),
+		height:          h,
+		validRound:      validRound,
+		isValidRoundNil: isValidRoundNil,
+		proposalBlock:   p,
+		signature:       signature,
+	})
+
+	hash := crypto.Keccak256Hash(payload)
 	return &Propose{
 		block:      p,
 		validRound: vr,
@@ -141,6 +138,8 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 			round:     r,
 			height:    h,
 			signature: signature,
+			payload:   payload,
+			hash:      hash,
 		},
 	}
 }
@@ -168,15 +167,19 @@ func (m baseMessage) Sender() common.Address {
 }
 
 func (m baseMessage) H() uint64 {
-	return m.Height
+	return m.height
 }
 
 func (m baseMessage) R() int64 {
-	return m.Round
+	return m.round
 }
 
 func (m baseMessage) Power() *big.Int {
 	return m.power
+}
+
+func (m baseMessage) Payload() []byte {
+	return m.payload
 }
 
 /*

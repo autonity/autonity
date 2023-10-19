@@ -50,7 +50,7 @@ func TestAskSync(t *testing.T) {
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
 		mockedPeer := ethereum.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(uint64(SyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(uint64(SyncNetworkMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -141,7 +141,7 @@ func TestGossip(t *testing.T) {
 	b.Gossip(context.Background(), validators, payload)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 4 {
-		t.Fatalf("gossip message transmission failure")
+		t.Fatalf("Gossip message transmission failure")
 	}
 }
 

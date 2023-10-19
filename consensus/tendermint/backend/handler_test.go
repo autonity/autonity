@@ -64,7 +64,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(SyncMsg, []byte{})
+		msg := makeMsg(SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -86,7 +86,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(SyncMsg, []byte{})
+		msg := makeMsg(SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {

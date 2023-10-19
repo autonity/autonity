@@ -1116,7 +1116,7 @@ func (srv *Server) runPeer(p *Peer) {
 	// before returning, so this send should not select on srv.quit.
 	srv.delpeer <- peerDrop{p, err, remoteRequested}
 
-	// SignAndBroadcast peer drop to external subscribers. This needs to be
+	// Broadcast peer drop to external subscribers. This needs to be
 	// after the send to delpeer so subscribers have a consistent view of
 	// the peer set (i.e. Server.Peers() doesn't include the peer when the
 	// event is received.

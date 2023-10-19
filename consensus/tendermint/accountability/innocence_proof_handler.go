@@ -359,7 +359,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 	}
 
 	fd.logger.Info("send off chain accusation msg to remote peer", "addr", accusation.Message.Address)
-	go peers[accusation.Message.Address].Send(backend.AccountabilityMsg, rProof) //nolint
+	go peers[accusation.Message.Address].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
 }
 
 // sendOffChainInnocenceProof, send an innocence proof to receiver peer.
@@ -378,5 +378,5 @@ func (fd *FaultDetector) sendOffChainInnocenceProof(receiver common.Address, pay
 	}
 
 	fd.logger.Info("send off chain innocence proof msg to remote peer", "addr", receiver)
-	go peers[receiver].Send(backend.AccountabilityMsg, payload) //nolint
+	go peers[receiver].Send(backend.AccountabilityNetworkMsg, payload) //nolint
 }

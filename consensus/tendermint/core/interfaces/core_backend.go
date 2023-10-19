@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -21,7 +22,7 @@ type Backend interface {
 	AskSync(header *types.Header)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(ctx context.Context, committee types.Committee, payload []byte) error
+	Broadcast(ctx context.Context, committee types.Committee, message message.Message) error
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.

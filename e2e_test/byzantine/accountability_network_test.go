@@ -138,7 +138,7 @@ func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(ctx context.Cont
 		}
 		if len(peers) > 0 {
 			// send garbage accusation msg.
-			go peers[c.Address].Send(bk.AccountabilityMsg, payload) // nolint
+			go peers[c.Address].Send(bk.AccountabilityNetworkMsg, payload) // nolint
 			s.Logger().Info("Off chain Accusation garbage accusation is simulated")
 		}
 	}
@@ -180,8 +180,8 @@ func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(ctx context.C
 				panic("cannot encode accusation at e2e test for off chain accusation protocol")
 			}
 			// send duplicated msg.
-			go peers[pv.Address].Send(bk.AccountabilityMsg, rProof) // nolint
-			go peers[pv.Address].Send(bk.AccountabilityMsg, rProof) // nolint
+			go peers[pv.Address].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+			go peers[pv.Address].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 			s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 		}
 	}
@@ -223,7 +223,7 @@ func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(ctx context.Co
 					panic("cannot encode accusation at e2e test for off chain accusation protocol")
 				}
 				// send msg.
-				go peers[pv.Address].Send(bk.AccountabilityMsg, rProof) // nolint
+				go peers[pv.Address].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 				s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 			}
 		}

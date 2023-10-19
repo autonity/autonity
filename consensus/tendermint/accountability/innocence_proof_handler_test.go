@@ -142,7 +142,7 @@ func TestFaultDetector_sendOffChainInnocenceProof(t *testing.T) {
 	targets := make(map[common.Address]struct{})
 	targets[remotePeer] = struct{}{}
 	mockedPeer := ethereum.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(uint64(backend.AccountabilityMsg), payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(uint64(backend.AccountabilityNetworkMsg), payload).MaxTimes(1)
 	peers := make(map[common.Address]ethereum.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeers(targets).Return(peers)
@@ -184,7 +184,7 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	targets := make(map[common.Address]struct{})
 	targets[remotePeer] = struct{}{}
 	mockedPeer := ethereum.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(uint64(backend.AccountabilityMsg), payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(uint64(backend.AccountabilityNetworkMsg), payload).MaxTimes(1)
 	peers := make(map[common.Address]ethereum.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeers(targets).Return(peers)

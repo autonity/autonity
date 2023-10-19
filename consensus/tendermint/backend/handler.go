@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	ProposeMsg        = 0x11
-	PrevoteMsg        = 0x12
-	PrecommitMsg      = 0x13
-	SyncMsg           = 0x14
-	AccountabilityMsg = 0x15
+	ProposeNetworkMsg        uint64 = 0x11
+	PrevoteNetworkMsg        uint64 = 0x12
+	PrecommitNetworkMsg      uint64 = 0x13
+	SyncNetworkMsg           uint64 = 0x14
+	AccountabilityNetworkMsg uint64 = 0x15
 )
 
 type UnhandledMsg struct {
@@ -30,6 +30,11 @@ type UnhandledMsg struct {
 var (
 	// errDecodeFailed is returned when decode message fails
 	errDecodeFailed = errors.New("fail to decode tendermint message")
+	networkCodes    = map[uint8]uint64{
+		message.ProposalCode:  ProposeNetworkMsg,
+		message.PrevoteCode:   PrevoteNetworkMsg,
+		message.PrecommitCode: PrecommitNetworkMsg,
+	}
 )
 
 // Protocol implements consensus.Handler.Protocol
@@ -56,7 +61,7 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code < ProposeMsg || msg.Code > AccountabilityMsg {
+	if msg.Code < ProposeNetworkMsg || msg.Code > AccountabilityNetworkMsg {
 		return false, nil
 	}
 
@@ -64,20 +69,20 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	defer sb.coreMu.Unlock()
 
 	switch msg.Code {
-	case ProposeMsg:
+	case ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
-	case PrevoteMsg:
+	case PrevoteNetworkMsg:
 		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
-	case PrecommitMsg:
+	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
-	case SyncMsg:
-		if !sb.coreStarted {
+	case SyncNetworkMsg:
+		if !sb.coreStarted.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Debug("Received sync message", "from", addr)
 		go sb.Post(events.SyncEvent{Addr: addr})
-	case AccountabilityMsg:
+	case AccountabilityNetworkMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
@@ -114,7 +119,7 @@ func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg
 		return true, err
 	}
 	// If reading was fine then cache the original payload to avoid
-	// encoding work during gossip
+	// encoding work during Gossip
 	if _, err := msg.Payload.(*bytes.Reader).Seek(0, io.SeekStart); err != nil {
 		return true, err
 	}
