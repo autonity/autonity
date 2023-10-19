@@ -8,12 +8,10 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 )
 
@@ -160,13 +158,13 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			if timeoutE, ok := ev.Data.(types.TimeoutEvent); ok {
+			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				switch timeoutE.Step {
-				case consensus.MsgProposal:
+				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)
-				case consensus.MsgPrevote:
+				case Prevote:
 					c.handleTimeoutPrevote(ctx, timeoutE)
-				case consensus.MsgPrecommit:
+				case Precommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
@@ -255,7 +253,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Message) error {
 		// Old height messages. Do nothing.
 		return constants.ErrOldHeightMessage // No gossip
 	}
-	if err := msg.Validate(crypto.CheckValidatorSignature, c.LastHeader()); err != nil {
+	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		return err
 	}
@@ -307,13 +305,13 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Message) error {
 	}
 
 	switch m := msg.(type) {
-	case message.Propose:
+	case *message.Propose:
 		logger.Debug("Handling Proposal")
-		return testBacklog(c.proposer.HandleProposal(ctx, &m))
-	case message.Prevote:
+		return testBacklog(c.proposer.HandleProposal(ctx, m))
+	case *message.Prevote:
 		logger.Debug("Handling Prevote")
 		return testBacklog(c.prevoter.HandlePrevote(ctx, &m))
-	case message.Precommit:
+	case *message.Precommit:
 		logger.Debug("Handling Precommit")
 		return testBacklog(c.precommiter.HandlePrecommit(ctx, &m))
 	default:

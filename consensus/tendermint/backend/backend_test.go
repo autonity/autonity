@@ -455,7 +455,7 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 			logger: log.New("backend", "test", "id", 0),
 		}
 
-		bl, _ := b.HeadBlock()
+		bl := b.HeadBlock()
 		if !reflect.DeepEqual(bl, &types.Block{}) {
 			t.Fatalf("expected empty block, got %v", bl)
 		}

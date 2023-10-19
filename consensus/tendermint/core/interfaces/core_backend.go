@@ -32,7 +32,7 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, committee types.Committee, payload []byte)
+	Gossip(ctx context.Context, committee types.Committee, message message.Message)
 
 	KnownMsgHash() []common.Hash
 
@@ -43,7 +43,7 @@ type Backend interface {
 
 	Post(ev any)
 
-	// Setter for proposed block hash
+	// SetProposedBlockHash is a setter for the proposed block hash
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
@@ -60,7 +60,7 @@ type Backend interface {
 	// Returns the main blockchain object.
 	BlockChain() *ethcore.BlockChain
 
-	//Used to set the blockchain on this
+	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
 
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.

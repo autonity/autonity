@@ -49,7 +49,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	return newHeader
 }
 
-// sigHash returns the hash which is used as input for the BFT
+// SigHash returns the hash which is used as input for the BFT
 // signing. It is the hash of the entire header apart from the 65 byte signature
 // contained at the end of the extra data.
 //
@@ -58,7 +58,6 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 // or not), which could be abused to produce different hashes for the same header.
 func SigHash(header *Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
-
 	// Clean seal is required for calculating proposer seal.
 	err := rlp.Encode(hasher, BFTFilteredHeader(header, false))
 	if err != nil {
@@ -75,7 +74,6 @@ func Ecrecover(header *Header) (common.Address, error) {
 	if addr, ok := recentAddresses.Get(hash); ok {
 		return addr.(common.Address), nil
 	}
-
 	addr, err := GetSignatureAddress(SigHash(header).Bytes(), header.ProposerSeal)
 	if err != nil {
 		return addr, err

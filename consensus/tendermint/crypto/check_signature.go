@@ -14,16 +14,12 @@ var ErrUnauthorizedAddress = errors.New("unauthorized address")
 
 // SignHeader signs the given header with the given private key.
 func SignHeader(h *types.Header, priv *ecdsa.PrivateKey) error {
-	hashData := crypto.Keccak256(types.SigHash(h).Bytes())
-	signature, err := crypto.Sign(hashData, priv)
+	hashData := types.SigHash(h)
+	signature, err := crypto.Sign(hashData[:], priv)
 	if err != nil {
 		return err
 	}
-	err = types.WriteSeal(h, signature)
-	if err != nil {
-		return err
-	}
-	return nil
+	return types.WriteSeal(h, signature)
 }
 
 func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {

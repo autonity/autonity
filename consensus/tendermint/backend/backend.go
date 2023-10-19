@@ -96,7 +96,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
-	core              interfaces.Tendermint
+	core              interfaces.Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup
 	coreMu            sync.RWMutex
@@ -289,7 +289,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// verify the header of proposed proposal
 	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
-	if err == nil || err == types.ErrEmptyCommittedSeals {
+	if err == nil || errors.Is(err, types.ErrEmptyCommittedSeals) {
 		var (
 			receipts types.Receipts
 
@@ -397,20 +397,8 @@ func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byt
 	return nil
 }
 
-func (sb *Backend) HeadBlock() (*types.Block, common.Address) {
-	block := sb.currentBlock()
-	var proposer common.Address
-	if block.Number().Cmp(common.Big0) > 0 {
-		var err error
-		proposer, err = sb.Author(block.Header())
-		if err != nil {
-			sb.logger.Error("Failed to get block proposer", "err", err)
-			return new(types.Block), common.Address{}
-		}
-	}
-
-	// Return header only block here since we don't need block body
-	return block, proposer
+func (sb *Backend) HeadBlock() *types.Block {
+	return sb.currentBlock()
 }
 
 func (sb *Backend) HasBadProposal(hash common.Hash) bool {

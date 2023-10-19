@@ -23,7 +23,7 @@ type backlogUntrustedMessageEvent struct {
 // return errFutureHeightMessage if the message view is larger than curRoundMessages view
 // return errOldHeightMessage if the message view is smaller than curRoundMessages view
 // return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
-func (c *Core) CheckMessage(round int64, height uint64, step types.Step) error {
+func (c *Core) CheckMessage(round int64, height uint64, step Step) error {
 	h := new(big.Int).SetUint64(height)
 	switch {
 	case round < 0 || round > constants.MaxRound:
@@ -36,7 +36,7 @@ func (c *Core) CheckMessage(round int64, height uint64, step types.Step) error {
 		return constants.ErrFutureRoundMessage
 	case round < c.Round():
 		return constants.ErrOldRoundMessage
-	case c.step == types.Propose && step > types.Propose:
+	case c.step == Propose && step > Propose:
 		return constants.ErrFutureStepMessage
 	}
 	return nil
@@ -73,7 +73,7 @@ func (c *Core) storeFutureMessage(msg message.Message) {
 
 		// Forget in the local cache that we ever received this message.
 		// It's needed for it to be able to be re-received and processed later, after a consensus sync, if needed.
-		c.backend.RemoveMessageFromLocalCache(c.backlogUntrusted[maxHeight][len(c.backlogUntrusted[maxHeight])-1].GetBytes())
+		c.backend.RemoveMessageFromLocalCache(c.backlogUntrusted[maxHeight][len(c.backlogUntrusted[maxHeight])-1].Payload())
 
 		// Remove it from the backlog buffer.
 		c.backlogUntrusted[maxHeight] = c.backlogUntrusted[maxHeight][:len(c.backlogUntrusted[maxHeight])-1]

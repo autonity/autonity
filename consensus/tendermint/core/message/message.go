@@ -48,6 +48,7 @@ type Message interface {
 	String() string
 	Hash() common.Hash
 	Payload() []byte
+	Validate(func(address common.Address) *types.CommitteeMember) error
 }
 
 type baseMessage struct {
@@ -87,24 +88,25 @@ type LightProposal struct {
 	signature  []byte // the signature computes from the tuple: (Round, Height, ValidRound, ProposalBlock.Hash())
 }
 
-func (p Propose) Code() uint8 {
+func (p *Propose) Code() uint8 {
 	return ProposalCode
 }
 
-func (p Propose) Hash() common.Hash {
-
+func (p *Propose) Hash() common.Hash {
+	return p.hash
 }
 
-func (p Propose) ValidRound() int64 {
+func (p *Propose) ValidRound() int64 {
 	return p.validRound
 }
 
-func (p Propose) String() string {
+func (p *Propose) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
 		p.round, p.H(), p.validRound, p.block.Hash().String())
 }
 
-func (p Propose) EncodeRLP(w io.Writer) error {
+func (p *Propose) EncodeRLP(w io.Writer) error {
+	// should never be called, instead use directly p.payload
 	log.Crit("not supported")
 	return nil
 }
@@ -158,28 +160,46 @@ type Precommit struct {
 	baseMessage
 }
 
-func (p Precommit) Code() uint8 {
+func (p *Precommit) Code() uint8 {
 	return ProposalCode
 }
 
-func (m baseMessage) Sender() common.Address {
+func (m *baseMessage) Sender() common.Address {
+	if m.sender == (common.Address{}) {
+		panic("coding error (to remove) ")
+	}
 	return m.sender
 }
 
-func (m baseMessage) H() uint64 {
+func (m *baseMessage) H() uint64 {
 	return m.height
 }
 
-func (m baseMessage) R() int64 {
+func (m *baseMessage) R() int64 {
 	return m.round
 }
 
-func (m baseMessage) Power() *big.Int {
+func (m *baseMessage) Power() *big.Int {
 	return m.power
 }
 
-func (m baseMessage) Payload() []byte {
+func (m *baseMessage) Payload() []byte {
 	return m.payload
+}
+
+// Validate verify the signature and set appropriate sender / power fields
+func (m *baseMessage) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
+	pub, err := crypto.SigToPub(m.hash[:], m.signature)
+	if err != nil {
+		return err
+	}
+	m.sender = crypto.PubkeyToAddress(*pub)
+	validator := inCommittee(m.sender)
+	if validator == nil {
+		return ErrUnauthorizedAddress
+	}
+	m.power = validator.VotingPower
+	return nil
 }
 
 /*
