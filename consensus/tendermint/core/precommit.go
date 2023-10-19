@@ -23,7 +23,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
 	var precommit = &message.Vote{
-		Round:  uint64(c.Round()),
+		Round:  c.Round(),
 		Height: c.Height(),
 	}
 

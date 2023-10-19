@@ -19,6 +19,27 @@ var (
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
 
+type Propose struct {
+	Block *types.Block
+	ConsensusBase
+}
+type Prevote struct {
+	Block *types.Block
+	ConsensusBase
+}
+type Precommit struct {
+	Block *types.Block
+	ConsensusBase
+}
+
+type ConsensusBase struct {
+	Signature []byte
+	Round     int64
+	Height    *big.Int
+	address   common.Address
+	power     *big.Int
+}
+
 type SigVerifier func(*types.Header, []byte, []byte) (common.Address, error)
 
 type Message struct {

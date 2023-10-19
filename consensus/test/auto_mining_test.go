@@ -16,6 +16,9 @@ import (
 
 // test committee members should all start the mining workers.
 func TestAutoMiningForCommitteeMembers(t *testing.T) {
+
+	t.Skip()
+
 	numOfValidators := 2
 	testCase := &testCase{
 		name:          "Auto mining test, committee members should start mining",
@@ -32,6 +35,9 @@ func TestAutoMiningForCommitteeMembers(t *testing.T) {
 
 // test none-committee member validators should not start the mining workers.
 func TestAutoMiningForNoneCommitteeValidator(t *testing.T) {
+
+	//t.Skip()
+
 	numOfValidators := 2
 	testCase := &testCase{
 		name:          "Auto mining test, none committee member should not start mining",

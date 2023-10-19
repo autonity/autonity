@@ -33,7 +33,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			counter := big.NewInt(i).Bytes()
 			proposal := &message.Proposal{
 				Height:        big.NewInt(21),
-				ProposalBlock: &types.Block{},
+				ProposalBlock: types.NewBlockWithHeader(&types.Header{}),
 			}
 			msg := makeMsgProposal(append(counter, []byte("data")...), proposal)
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
@@ -93,7 +93,7 @@ func TestUnhandledMsgs(t *testing.T) {
 				Height: big.NewInt(2137 + i),
 			}
 
-			msg := makeMsgVote(TendermintMsgVote, append(counter, []byte("data")...), voteMsg)
+			msg := makeMsgVote(append(counter, []byte("data")...), voteMsg)
 
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {

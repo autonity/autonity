@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -192,6 +193,9 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 		// todo(maks): do we need re-encode this as RLP for this hash?
 		hash := types.RLPHash(payload)
+
+		fmt.Printf("handleMsg hash %x\n", hash)
+
 		// Mark peer's message
 		ms, ok := sb.recentMessages.Get(addr)
 		var m *lru.ARCCache

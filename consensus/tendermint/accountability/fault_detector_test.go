@@ -81,7 +81,7 @@ func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey
 func newVoteMsg(h uint64, r int64, code uint8, senderKey *ecdsa.PrivateKey, value common.Hash, committee types.Committee) *message.Message {
 	lastHeader := newBlockHeader(h-1, committee)
 	var vote = message.Vote{
-		Round:             uint64(r),
+		Round:             r,
 		Height:            new(big.Int).SetUint64(h),
 		ProposedBlockHash: value,
 	}

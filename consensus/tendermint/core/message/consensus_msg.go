@@ -315,7 +315,7 @@ func (p *Proposal) VerifyLightProposalSignature(sender common.Address) error {
 }
 
 type Vote struct {
-	Round             uint64
+	Round             int64
 	Height            *big.Int
 	ProposedBlockHash common.Hash
 }
@@ -333,29 +333,29 @@ func (sub *Vote) H() *big.Int {
 }
 
 // EncodeRLP serializes b into the Ethereum RLP format.
-//func (sub *Vote) EncodeRLP(w io.Writer) error {
-//	return rlp.Encode(w, []any{uint64(sub.Round), sub.Height, sub.ProposedBlockHash})
-//}
-//
-//// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-//func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
-//	var vote struct {
-//		Round             uint64
-//		Height            *big.Int
-//		ProposedBlockHash common.Hash
-//	}
-//
-//	if err := s.Decode(&vote); err != nil {
-//		return err
-//	}
-//	sub.Round = int64(vote.Round)
-//	if sub.Round > constants.MaxRound {
-//		return constants.ErrInvalidMessage
-//	}
-//	sub.Height = vote.Height
-//	sub.ProposedBlockHash = vote.ProposedBlockHash
-//	return nil
-//}
+func (sub *Vote) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []any{uint64(sub.Round), sub.Height, sub.ProposedBlockHash})
+}
+
+// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
+func (sub *Vote) DecodeRLP(s *rlp.Stream) error {
+	var vote struct {
+		Round             uint64
+		Height            *big.Int
+		ProposedBlockHash common.Hash
+	}
+
+	if err := s.Decode(&vote); err != nil {
+		return err
+	}
+	sub.Round = int64(vote.Round)
+	if sub.Round > constants.MaxRound {
+		return constants.ErrInvalidMessage
+	}
+	sub.Height = vote.Height
+	sub.ProposedBlockHash = vote.ProposedBlockHash
+	return nil
+}
 
 func (sub *Vote) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v ProposedBlockHash: %v}", sub.Round, sub.Height, sub.ProposedBlockHash.String())

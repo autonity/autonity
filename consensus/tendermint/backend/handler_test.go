@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/stretchr/testify/require"
+	"io"
 	"testing"
 	"time"
 
@@ -23,8 +25,18 @@ func TestTendermintMessage(t *testing.T) {
 
 	// generate one msg
 	data := []byte("data1")
-	hash := types.RLPHash(data)
-	msg := makeMsg(TendermintMsg, data)
+	//msg := makeMsg(TendermintMsg, data)
+	msg := makeMsgVote(data, &message.Vote{})
+
+	// payload is a reader so we need to recreate it
+	payloadBytes, err := io.ReadAll(msg.Payload)
+	require.NoError(t, err)
+	msg.Payload = bytes.NewReader(payloadBytes)
+
+	hash := types.RLPHash(payloadBytes)
+
+	fmt.Printf("expectedHash %x\n", hash)
+
 	addr := common.BytesToAddress([]byte("address"))
 
 	// 1. this message should not be in cache
@@ -40,7 +52,7 @@ func TestTendermintMessage(t *testing.T) {
 
 	// 2. this message should be in cache after we handle it
 	errCh := make(chan error, 1)
-	_, err := backend.HandleMsg(addr, msg, errCh)
+	_, err = backend.HandleMsg(addr, msg, errCh)
 	if err != nil {
 		t.Fatalf("handle message failed: %v", err)
 	}
@@ -149,7 +161,7 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
 }
 
-func makeMsgVote(msgcode uint64, payload []byte, vote *message.Vote) p2p.Msg {
+func makeMsgVote(payload []byte, vote *message.Vote) p2p.Msg {
 
 	msg := &message.MessageVote{
 		MessageBase: message.MessageBase{
@@ -169,7 +181,7 @@ func makeMsgVote(msgcode uint64, payload []byte, vote *message.Vote) p2p.Msg {
 		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
 	}
 
-	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
+	fmt.Printf("NEW MESSAGE PAYLOAD: %s\n", hex.EncodeToString(encoded))
 
 	r := bytes.NewReader(encoded)
 	size := len(encoded)
@@ -202,7 +214,7 @@ func makeMsgProposal(payload []byte, proposal *message.Proposal) p2p.Msg {
 		panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
 	}
 
-	fmt.Printf("NEW MESSAGE PAYLOAD: %s", hex.EncodeToString(encoded))
+	fmt.Printf("NEW MESSAGE PAYLOAD: %s\n", hex.EncodeToString(encoded))
 
 	r := bytes.NewReader(encoded)
 	size := len(encoded)

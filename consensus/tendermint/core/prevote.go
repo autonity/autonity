@@ -21,7 +21,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	logger := c.logger.New("step", c.step)
 
 	var prevote = &message.Vote{
-		Round:  uint64(c.Round()),
+		Round:  c.Round(),
 		Height: c.Height(),
 	}
 
