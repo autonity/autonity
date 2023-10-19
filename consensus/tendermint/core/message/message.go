@@ -92,6 +92,10 @@ func (p *Propose) Code() uint8 {
 	return ProposalCode
 }
 
+func (p *Propose) Block() *types.Block {
+	return p.block
+}
+
 func (p *Propose) Hash() common.Hash {
 	return p.hash
 }
