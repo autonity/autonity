@@ -110,12 +110,12 @@ func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
 	return s.Precommits.TotalVotePower()
 }
 
-func (s *RoundMessages) AddPrevote(hash common.Hash, msg Message) {
-	s.Prevotes.AddVote(hash, msg)
+func (s *RoundMessages) AddPrevote(prevote *Prevote) {
+	s.Prevotes.AddVote(prevote)
 }
 
-func (s *RoundMessages) AddPrecommit(hash common.Hash, msg Message) {
-	s.Precommits.AddVote(hash, msg)
+func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
+	s.Precommits.AddVote(precommit)
 }
 
 func (s *RoundMessages) CommitedSeals(hash common.Hash) []Message {
@@ -134,17 +134,6 @@ func (s *RoundMessages) IsProposalVerified() bool {
 	defer s.mu.RUnlock()
 
 	return s.VerifiedProposal
-}
-
-func (s *RoundMessages) ProposalHash() common.Hash {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.proposal != nil {
-		return s.proposal.block.Hash()
-	}
-
-	return common.Hash{}
 }
 
 func (s *RoundMessages) AllMessages() []Message {

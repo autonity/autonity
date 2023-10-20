@@ -6,39 +6,41 @@ import (
 	"sync"
 )
 
-func NewSet[T Message]() *Set[T] {
+type isVote interface {
+	Message
+	Value() common.Hash
+}
+
+func NewSet[T isVote]() *Set[T] {
 	return &Set[T]{
 		Votes:    make(map[common.Hash]map[common.Address]T),
 		messages: make(map[common.Address]T),
 	}
 }
 
-type Set[T Message] struct {
+type Set[T isVote] struct {
 	// In some conditions we might receive prevotes or precommit before
-	// receiving a proposal, so we must save received message with differents proposed block hash.
+	// receiving a proposal, so we must save received message with different proposed block hash.
 	Votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
 	messages map[common.Address]T
 	lock     sync.RWMutex
 }
 
-func (s *Set[T]) AddVote(blockHash common.Hash, vote T) {
+func (s *Set[T]) AddVote(vote T) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	sender := vote.Sender()
+	value := vote.Value()
 	// Check first if we already received a message from this pal.
 	if _, ok := s.messages[sender]; ok {
 		// TODO : double signing fault ! Accountability
 		return
 	}
 
-	var addressesMap map[common.Address]T
-
-	if _, ok := s.Votes[blockHash]; !ok {
-		s.Votes[blockHash] = make(map[common.Address]T)
+	if _, ok := s.Votes[value]; !ok {
+		s.Votes[value] = make(map[common.Address]T)
 	}
-
-	addressesMap = s.Votes[blockHash]
-	addressesMap[sender] = vote
+	s.Votes[value][sender] = vote
 	s.messages[sender] = vote
 }
 

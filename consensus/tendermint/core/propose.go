@@ -39,7 +39,7 @@ func (c *Proposer) SendProposal(ctx context.Context, p *types.Block) {
 
 func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose) error {
 	// Ensure we have the same view with the Proposal message
-	if err := c.CheckMessage(proposal.R(), proposal.H(), Propose); err != nil {
+	if err := c.checkMessage(proposal.R(), proposal.H(), Propose); err != nil {
 		// If it's a future round proposal2, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the

@@ -96,10 +96,6 @@ func (p *Propose) Block() *types.Block {
 	return p.block
 }
 
-func (p *Propose) Hash() common.Hash {
-	return p.hash
-}
-
 func (p *Propose) ValidRound() int64 {
 	return p.validRound
 }
@@ -150,17 +146,35 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 	}
 }
 
+// RLP DECODE CHECK IF PROPOSAL CAN BE NIL
+
+type extVote struct {
+	code      uint8
+	round     uint64
+	height    uint64
+	value     common.Hash
+	signature []byte
+}
+
 type Prevote struct {
-	Value common.Hash
+	value common.Hash
 	baseMessage
 }
 
-func (p Prevote) Code() uint8 {
+func (p *Prevote) Code() uint8 {
 	return PrevoteCode
 }
 
+func (p *Prevote) Value() common.Hash {
+	return p.value
+}
+
+func (p *Prevote) String() string {
+	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.value)
+}
+
 type Precommit struct {
-	Value common.Hash
+	value common.Hash
 	baseMessage
 }
 
@@ -168,41 +182,80 @@ func (p *Precommit) Code() uint8 {
 	return ProposalCode
 }
 
-func (m *baseMessage) Sender() common.Address {
-	if m.sender == (common.Address{}) {
+func (p *Precommit) Value() common.Hash {
+	return p.value
+}
+
+func (p *Precommit) String() string {
+	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.value)
+}
+
+func NewVote[E Prevote | Precommit](r int64, h uint64, value common.Hash, code uint8, signer func([]byte) ([]byte, error)) *E {
+	// the code argument here is unfortunately redundant but after many attempts the Go type inference
+	// system seems too weak to allow removing it.
+	signatureInput, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
+	signature, _ := signer(signatureInput)
+
+	payload, _ := rlp.EncodeToBytes(extVote{
+		code:      code,
+		round:     uint64(r),
+		height:    h,
+		value:     value,
+		signature: signature,
+	})
+	hash := crypto.Keccak256Hash(payload)
+	vote := E{
+		value: value,
+		baseMessage: baseMessage{
+			round:     r,
+			height:    h,
+			signature: signature,
+			payload:   payload,
+			hash:      hash,
+		},
+	}
+	return &vote
+}
+
+func (b *baseMessage) Sender() common.Address {
+	if b.sender == (common.Address{}) {
 		panic("coding error (to remove) ")
 	}
-	return m.sender
+	return b.sender
 }
 
-func (m *baseMessage) H() uint64 {
-	return m.height
+func (b *baseMessage) H() uint64 {
+	return b.height
 }
 
-func (m *baseMessage) R() int64 {
-	return m.round
+func (b *baseMessage) R() int64 {
+	return b.round
 }
 
-func (m *baseMessage) Power() *big.Int {
-	return m.power
+func (b *baseMessage) Power() *big.Int {
+	return b.power
 }
 
-func (m *baseMessage) Payload() []byte {
-	return m.payload
+func (b *baseMessage) Payload() []byte {
+	return b.payload
+}
+
+func (b *baseMessage) Hash() common.Hash {
+	return b.hash
 }
 
 // Validate verify the signature and set appropriate sender / power fields
-func (m *baseMessage) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
-	pub, err := crypto.SigToPub(m.hash[:], m.signature)
+func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
+	pub, err := crypto.SigToPub(b.hash[:], b.signature)
 	if err != nil {
 		return err
 	}
-	m.sender = crypto.PubkeyToAddress(*pub)
-	validator := inCommittee(m.sender)
+	b.sender = crypto.PubkeyToAddress(*pub)
+	validator := inCommittee(b.sender)
 	if validator == nil {
 		return ErrUnauthorizedAddress
 	}
-	m.power = validator.VotingPower
+	b.power = validator.VotingPower
 	return nil
 }
 

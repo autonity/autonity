@@ -66,7 +66,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
 	preCommit := msg.ConsensusMsg.(*message.Vote)
 	precommitHash := preCommit.ProposedBlockHash
-	if err := c.CheckMessage(preCommit.Round, preCommit.Height.Uint64(), tctypes.Precommit); err != nil {
+	if err := c.checkMessage(preCommit.Round, preCommit.Height.Uint64(), tctypes.Precommit); err != nil {
 		if err == constants.ErrOldRoundMessage {
 			roundMsgs := c.messages.GetOrCreate(preCommit.Round)
 			if err2 := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err2 != nil {
