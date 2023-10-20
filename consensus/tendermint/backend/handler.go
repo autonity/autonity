@@ -8,24 +8,14 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"io"
-)
-
-const (
-	TendermintMsg     = 0x11
-	SyncMsg           = 0x12
-	AccountabilityMsg = 0x13
-
-	//NewTendermingMsg           = 0x20
-	TendermintMsgProposal      = 0x21
-	TendermintMsgLightProposal = 0x22
-	TendermintMsgVote          = 0x23
 )
 
 type UnhandledMsg struct {
@@ -62,11 +52,11 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code != TendermintMsgLightProposal &&
-		msg.Code != TendermintMsgVote &&
-		msg.Code != TendermintMsgProposal &&
-		msg.Code != SyncMsg &&
-		msg.Code != AccountabilityMsg {
+	if msg.Code != constants.TendermintMsgLightProposal &&
+		msg.Code != constants.TendermintMsgVote &&
+		msg.Code != constants.TendermintMsgProposal &&
+		msg.Code != constants.SyncMsg &&
+		msg.Code != constants.AccountabilityMsg {
 		return false, nil
 	}
 
@@ -110,11 +100,11 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	//		Payload: data,
 	//		ErrCh:   errCh,
 	//	})
-	case TendermintMsgProposal:
+	case constants.TendermintMsgProposal:
 		fallthrough
-	case TendermintMsgVote:
+	case constants.TendermintMsgVote:
 		fallthrough
-	case TendermintMsgLightProposal:
+	case constants.TendermintMsgLightProposal:
 		if !sb.coreStarted {
 			buffer := new(bytes.Buffer)
 			if _, err := io.Copy(buffer, msg.Payload); err != nil {
@@ -139,7 +129,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 		//var err error
 		//
-		if msg.Code == TendermintMsgLightProposal {
+		if msg.Code == constants.TendermintMsgLightProposal {
 
 			messageToDecode := &message.MessageLightProposal{}
 			if err := rlp.DecodeBytes(payload, &messageToDecode); err != nil {
@@ -148,7 +138,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 			}
 			decodedMessage = messageToDecode.ToMessage()
 
-		} else if msg.Code == TendermintMsgProposal {
+		} else if msg.Code == constants.TendermintMsgProposal {
 
 			messageToDecode := &message.MessageProposal{}
 			if err := rlp.DecodeBytes(payload, &messageToDecode); err != nil {
@@ -165,7 +155,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 			//	return true, errDecodeFailed
 			//}
 			//data = &decoded
-		} else if msg.Code == TendermintMsgVote {
+		} else if msg.Code == constants.TendermintMsgVote {
 
 			messageToDecode := &message.MessageVote{}
 			if err := rlp.DecodeBytes(payload, &messageToDecode); err != nil {
@@ -217,14 +207,14 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 			ErrCh:   errCh,
 		})
 
-	case SyncMsg:
+	case constants.SyncMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Debug("Received sync message", "from", addr)
 		sb.postEvent(events.SyncEvent{Addr: addr})
-	case AccountabilityMsg:
+	case constants.AccountabilityMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped

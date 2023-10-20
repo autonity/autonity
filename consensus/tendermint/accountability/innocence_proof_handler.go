@@ -6,7 +6,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/eth/protocols/eth"
@@ -359,7 +359,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 	}
 
 	fd.logger.Info("send off chain accusation msg to remote peer", "addr", accusation.Message.Address)
-	go peers[accusation.Message.Address].Send(backend.AccountabilityMsg, rProof) //nolint
+	go peers[accusation.Message.Address].Send(constants.AccountabilityMsg, rProof) //nolint
 }
 
 // sendOffChainInnocenceProof, send an innocence proof to receiver peer.
@@ -378,5 +378,5 @@ func (fd *FaultDetector) sendOffChainInnocenceProof(receiver common.Address, pay
 	}
 
 	fd.logger.Info("send off chain innocence proof msg to remote peer", "addr", receiver)
-	go peers[receiver].Send(backend.AccountabilityMsg, payload) //nolint
+	go peers[receiver].Send(constants.AccountabilityMsg, payload) //nolint
 }

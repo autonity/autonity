@@ -8,7 +8,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -178,7 +177,7 @@ eventLoop:
 					continue
 				}
 
-				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.Payload)
+				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), message.TendermintMessageCode(e.Message), e.Payload)
 
 			case backlogMessageEvent:
 				// No need to check signature for internal messages
@@ -187,7 +186,7 @@ eventLoop:
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg.GetBytes())
+				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), message.TendermintMessageCode(e.msg), e.msg.GetBytes())
 
 			case backlogUntrustedMessageEvent:
 				c.logger.Debug("Started handling backlog unchecked event")
@@ -196,7 +195,7 @@ eventLoop:
 					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg.GetBytes())
+				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), message.TendermintMessageCode(e.msg), e.msg.GetBytes())
 			case types.CoreStateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -207,11 +206,11 @@ eventLoop:
 			}
 			if timeoutE, ok := ev.Data.(types.TimeoutEvent); ok {
 				switch timeoutE.Step {
-				case consensus.MsgProposal:
+				case message.MsgProposal:
 					c.handleTimeoutPropose(ctx, timeoutE)
-				case consensus.MsgPrevote:
+				case message.MsgPrevote:
 					c.handleTimeoutPrevote(ctx, timeoutE)
-				case consensus.MsgPrecommit:
+				case message.MsgPrecommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
@@ -378,13 +377,13 @@ func (c *Core) handleValidMsg(ctx context.Context, msg *message.Message) error {
 	}
 
 	switch msg.Code {
-	case consensus.MsgProposal:
+	case message.MsgProposal:
 		logger.Debug("Handling Proposal")
 		return testBacklog(c.proposer.HandleProposal(ctx, msg))
-	case consensus.MsgPrevote:
+	case message.MsgPrevote:
 		logger.Debug("Handling Prevote")
 		return testBacklog(c.prevoter.HandlePrevote(ctx, msg))
-	case consensus.MsgPrecommit:
+	case message.MsgPrecommit:
 		logger.Debug("Handling Precommit")
 		return testBacklog(c.precommiter.HandlePrecommit(ctx, msg))
 	default:

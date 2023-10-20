@@ -6,7 +6,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
@@ -142,7 +142,7 @@ func TestFaultDetector_sendOffChainInnocenceProof(t *testing.T) {
 	targets := make(map[common.Address]struct{})
 	targets[remotePeer] = struct{}{}
 	mockedPeer := ethereum.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(uint64(backend.AccountabilityMsg), payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(uint64(constants.AccountabilityMsg), payload).MaxTimes(1)
 	peers := make(map[common.Address]ethereum.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeers(targets).Return(peers)
@@ -184,7 +184,7 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	targets := make(map[common.Address]struct{})
 	targets[remotePeer] = struct{}{}
 	mockedPeer := ethereum.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(uint64(backend.AccountabilityMsg), payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(uint64(constants.AccountabilityMsg), payload).MaxTimes(1)
 	peers := make(map[common.Address]ethereum.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeers(targets).Return(peers)
@@ -287,7 +287,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences: nil,
 		}
 
-		preCommit := newVoteMsg(msgHeight, msgRound, consensus.MsgPrecommit, proposerKey, nilValue, committee)
+		preCommit := newVoteMsg(msgHeight, msgRound, message.MsgPrecommit, proposerKey, nilValue, committee)
 		var accusationC1 = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.C1,
@@ -331,7 +331,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences: nil,
 		}
 
-		preCommit := newVoteMsg(msgHeight, msgRound, consensus.MsgPrecommit, proposerKey, nilValue, committee)
+		preCommit := newVoteMsg(msgHeight, msgRound, message.MsgPrecommit, proposerKey, nilValue, committee)
 		var accusationC1 = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.C1,
@@ -396,7 +396,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		chainMock.EXPECT().CurrentHeader().Return(lastHeader).AnyTimes()
 
 		for _, c := range committee {
-			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
+			preVote := newVoteMsg(height, validRound, message.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			ms.Save(preVote)
 		}
 
@@ -439,7 +439,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		chainMock.EXPECT().CurrentHeader().Return(lastHeader).AnyTimes()
 
 		for _, c := range committee {
-			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
+			preVote := newVoteMsg(height, validRound, message.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			ms.Save(preVote)
 		}
 
@@ -510,7 +510,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 
 		// save corresponding prevotes in msg store.
 		for _, c := range committee {
-			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
+			preVote := newVoteMsg(height, validRound, message.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			mStore.Save(preVote)
 		}
 
@@ -587,7 +587,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 
 		// handle a valid innocence proof then.
 		for _, c := range committee {
-			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
+			preVote := newVoteMsg(height, validRound, message.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			proofPO.Evidences = append(proofPO.Evidences, preVote)
 		}
 

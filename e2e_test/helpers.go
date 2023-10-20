@@ -10,7 +10,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -30,7 +29,7 @@ func NewProposeMsg(address common.Address, block *types.Block, h uint64, r int64
 		return nil
 	}
 	return &message.Message{
-		Code:          consensus.MsgProposal,
+		Code:          message.MsgProposal,
 		Payload:       v,
 		Address:       address,
 		CommittedSeal: []byte{},
@@ -103,7 +102,7 @@ func NewVoteMsg(code uint8, h uint64, r int64, v common.Hash, c *core.Core) *mes
 		CommittedSeal: []byte{},
 		ConsensusMsg:  message.ConsensusMsg(vote),
 	}
-	if code == consensus.MsgPrecommit {
+	if code == message.MsgPrecommit {
 		seal := helpers.PrepareCommittedSeal(v, r, new(big.Int).SetUint64(h))
 		msg.CommittedSeal, _ = c.Backend().Sign(seal)
 	}
@@ -116,7 +115,7 @@ func DefaultSignAndBroadcast(ctx context.Context, c *core.Core, m *message.Messa
 	if err != nil {
 		return
 	}
-	_ = c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), payload)
+	_ = c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), message.TendermintMessageCode(m), payload)
 }
 
 func NextProposeRound(currentRound int64, c *core.Core) int64 {

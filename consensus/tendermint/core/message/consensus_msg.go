@@ -85,16 +85,16 @@ type NewConsensusMsg struct {
 //	return nil
 //}
 
-func (m *NewConsensusMsg) BytesNoSignature() ([]byte, error) {
-	// youssef: not sure if the returned error is necessary here as we are in control of the object.
-	return rlp.EncodeToBytes(&Message{
-		Code:          m.Code,
-		Payload:       m.Payload,
-		Address:       m.Address,
-		Signature:     []byte{},
-		CommittedSeal: m.CommittedSeal,
-	})
-}
+//func (m *NewConsensusMsg) BytesNoSignature() ([]byte, error) {
+//	// youssef: not sure if the returned error is necessary here as we are in control of the object.
+//	return rlp.EncodeToBytes(&Message{
+//		Code:          m.Code,
+//		Payload:       m.Payload,
+//		Address:       m.Address,
+//		Signature:     []byte{},
+//		CommittedSeal: m.CommittedSeal,
+//	})
+//}
 
 // LightProposal is only used by accountability that it converts a Proposal to a LightProposal for sustainable on-chain proof.
 type LightProposal struct {

@@ -3,8 +3,6 @@ package core
 import (
 	"context"
 
-	"github.com/autonity/autonity/consensus"
-
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -45,7 +43,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 
 	c.sentPrevote = true
 	c.Br().SignAndBroadcast(ctx, &message.Message{
-		Code:          consensus.MsgPrevote,
+		Code:          message.MsgPrevote,
 		Payload:       encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},

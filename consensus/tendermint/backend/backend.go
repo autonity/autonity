@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"math/big"
 	"sync"
 	"time"
@@ -133,9 +135,9 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.SignAndBroadcast
-func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
+func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, code uint64, payload []byte) error {
 	// send to others
-	sb.Gossip(ctx, committee, payload)
+	sb.Gossip(ctx, committee, code, payload)
 	// send to self
 	//msg := events.MessageEvent{
 	//	Payload: payload,
@@ -182,7 +184,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 					break
 				}
 				sb.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncMsg, []byte{}) //nolint
+				go p.Send(constants.SyncMsg, []byte{}) //nolint
 
 				member := header.CommitteeMember(addr)
 				if member == nil {
@@ -197,7 +199,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 }
 
 // Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
+func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, code uint64, payload []byte) {
 	hash := types.RLPHash(payload)
 	sb.knownMessages.Add(hash, true)
 
@@ -226,7 +228,9 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
 
-			go p.Send(TendermintMsg, payload) //nolint
+			// TODO maks msgCode
+			//go p.Send(TendermintMsg, payload) //nolint
+			go p.Send(code, payload) //nolint
 		}
 	}
 }
@@ -470,7 +474,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	messages := sb.core.CurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(TendermintMsg, msg.GetBytes()) //nolint
+		go p.Send(message.TendermintMessageCode(msg), msg.GetBytes()) //nolint
 	}
 }
 

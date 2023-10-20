@@ -2,7 +2,6 @@ package message
 
 import (
 	"errors"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -246,7 +245,7 @@ func TestMessageDecode(t *testing.T) {
 	}
 
 	msg := &Message{
-		Code:    consensus.MsgProposal,
+		Code:    MsgProposal,
 		Payload: payload,
 		Address: common.HexToAddress("0x1234567890"),
 	}
@@ -276,7 +275,7 @@ func FuzzFromPayload(f *testing.F) {
 	}
 
 	msg := &Message{
-		Code:          consensus.MsgPrevote,
+		Code:          MsgPrevote,
 		Payload:       encodedVote,
 		Address:       authorizedAddress,
 		CommittedSeal: []byte{},

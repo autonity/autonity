@@ -74,7 +74,7 @@ func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey
 	if err != nil {
 		return nil
 	}
-	msg := createMsg(encodeProposal, proto.MsgProposal, senderKey)
+	msg := createMsg(encodeProposal, message.MsgProposal, senderKey)
 	return decodeMsg(msg, lastHeader)
 }
 
@@ -211,12 +211,12 @@ func TestRunRuleEngine(t *testing.T) {
 		fd.msgStore.Save(initProposal)
 		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(checkPointHeight, 0, proto.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(checkPointHeight, 0, message.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// Node preCommit for init Proposal at init round 0 since there were quorum preVotes for it, and save it.
-		preCommit := newVoteMsg(checkPointHeight, 0, proto.MsgPrecommit, proposerKey, initProposal.Value(), committee)
+		preCommit := newVoteMsg(checkPointHeight, 0, message.MsgPrecommit, proposerKey, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit)
 
 		// While Node propose a new malicious Proposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
@@ -347,7 +347,7 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, validRound, proto.MsgPrevote, keys[committee[i].Address], proposal.Value(), committee)
+			preVote := newVoteMsg(height, validRound, message.MsgPrevote, keys[committee[i].Address], proposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
@@ -382,7 +382,7 @@ func TestRuleEngine(t *testing.T) {
 		fd.msgStore.Save(proposal)
 
 		// simulate less than quorum num of preVotes for a value at a validRound.
-		preVote := newVoteMsg(height, validRound, proto.MsgPrevote, proposerKey, proposal.Value(), committee)
+		preVote := newVoteMsg(height, validRound, message.MsgPrevote, proposerKey, proposal.Value(), committee)
 		fd.msgStore.Save(preVote)
 
 		var accusation = Proof{
@@ -414,11 +414,11 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
 		for i := 0; i < len(committee); i++ {
-			pv := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], proposal.Value(), committee)
+			pv := newVoteMsg(height, round, message.MsgPrevote, keys[committee[i].Address], proposal.Value(), committee)
 			fd.msgStore.Save(pv)
 		}
 
-		preVote := newVoteMsg(height, round, proto.MsgPrevote, proposerKey, proposal.Value(), committee)
+		preVote := newVoteMsg(height, round, message.MsgPrevote, proposerKey, proposal.Value(), committee)
 
 		var accusation = Proof{
 			Type:    autonity.Accusation,
@@ -440,7 +440,7 @@ func TestRuleEngine(t *testing.T) {
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
 		fd := FaultDetector{blockchain: chainMock, address: proposer, msgStore: core.NewMsgStore()}
 
-		preVote := newVoteMsg(height, round, proto.MsgPrevote, proposerKey, noneNilValue, committee)
+		preVote := newVoteMsg(height, round, message.MsgPrevote, proposerKey, noneNilValue, committee)
 		fd.msgStore.Save(preVote)
 
 		var accusation = Proof{
@@ -468,7 +468,7 @@ func TestRuleEngine(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
 		oldProposal := newProposalMessage(height, 1, 0, proposerKey, committee, nil)
-		preVote := newVoteMsg(height, 1, proto.MsgPrevote, proposerKey, oldProposal.Value(), committee)
+		preVote := newVoteMsg(height, 1, message.MsgPrevote, proposerKey, oldProposal.Value(), committee)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, oldProposal.ToLightProposal())
 
@@ -491,13 +491,13 @@ func TestRuleEngine(t *testing.T) {
 		p.Rule = autonity.PVO
 		validRound := int64(0)
 		oldProposal := newProposalMessage(height, 1, validRound, proposerKey, committee, nil)
-		preVote := newVoteMsg(height, 1, proto.MsgPrevote, proposerKey, oldProposal.Value(), committee)
+		preVote := newVoteMsg(height, 1, message.MsgPrevote, proposerKey, oldProposal.Value(), committee)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, oldProposal.ToLightProposal())
 
 		// prepare quorum preVotes at msg store.
 		for i := 0; i < len(committee); i++ {
-			pv := newVoteMsg(height, validRound, proto.MsgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
+			pv := newVoteMsg(height, validRound, message.MsgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
 			fd.msgStore.Save(pv)
 		}
 
@@ -523,11 +523,11 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVote := newVoteMsg(height, round, message.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
 			fd.msgStore.Save(preVote)
 		}
 
-		preCommit := newVoteMsg(height, round, proto.MsgPrecommit, proposerKey, noneNilValue, committee)
+		preCommit := newVoteMsg(height, round, message.MsgPrecommit, proposerKey, noneNilValue, committee)
 		fd.msgStore.Save(preCommit)
 
 		var accusation = Proof{
@@ -557,7 +557,7 @@ func TestRuleEngine(t *testing.T) {
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.NewMessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
-		preCommit := newVoteMsg(height, round, proto.MsgPrecommit, proposerKey, noneNilValue, committee)
+		preCommit := newVoteMsg(height, round, message.MsgPrecommit, proposerKey, noneNilValue, committee)
 		fd.msgStore.Save(preCommit)
 
 		var accusation = Proof{
@@ -608,12 +608,12 @@ func TestRuleEngine(t *testing.T) {
 		fd.msgStore.Save(initProposal)
 		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// Node preCommit for init Proposal at init round 0 since there were quorum preVotes for it, and save it.
-		preCommit := newVoteMsg(height, 0, proto.MsgPrecommit, proposerKey, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 0, message.MsgPrecommit, proposerKey, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit)
 
 		// While Node propose a new malicious Proposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
@@ -656,13 +656,13 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum preVotes at r: 0 for v1.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// simulate a preCommit at r: 0 for v1 for the node who is going to be addressed as
 		// malicious on rule PO for proposing an old value which was not locked at all.
-		preCommit := newVoteMsg(height, 0, proto.MsgPrecommit, proposerKey, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 0, message.MsgPrecommit, proposerKey, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit)
 
 		// simulate malicious proposal at r: 1, with v2 which was not locked at all.
@@ -712,12 +712,12 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum preVotes for init proposal
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// simulate a preCommit for init proposal of proposer1, now valid round == 0.
-		preCommit1 := newVoteMsg(height, 0, proto.MsgPrecommit, proposer1, initProposal.Value(), committee)
+		preCommit1 := newVoteMsg(height, 0, message.MsgPrecommit, proposer1, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit1)
 
 		// assume round changes happens, now proposer1 propose old value with vr: 0.
@@ -727,12 +727,12 @@ func TestRuleEngine(t *testing.T) {
 
 		// now quorum preVotes for proposal1, it makes valid round change to 3.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 3, proto.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 3, message.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// the malicious proposer did preCommit on this round, make its valid round == 3
-		preCommit := newVoteMsg(height, 3, proto.MsgPrecommit, maliciousProposer, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 3, message.MsgPrecommit, maliciousProposer, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit)
 
 		// malicious proposer propose at r: 5, with v and a vr: 0 which was not correct anymore.
@@ -801,7 +801,7 @@ func TestRuleEngine(t *testing.T) {
 		quorum := bft.Quorum(totalPower)
 
 		// simulate a preVote for v at round, let's make the corresponding proposal missing.
-		preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[1].Address], noneNilValue, committee)
+		preVote := newVoteMsg(height, round, message.MsgPrevote, keys[committee[1].Address], noneNilValue, committee)
 		fd.msgStore.Save(preVote)
 
 		// run rule engine.
@@ -844,17 +844,17 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum preVotes for init proposal
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// the malicious node did preCommit for v1 on round 0
-		preCommit := newVoteMsg(height, 0, proto.MsgPrecommit, maliciousNode, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 0, message.MsgPrecommit, maliciousNode, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit)
 
 		// the malicious node did preCommit for nil at round 1, and round 2 to fill the round gaps.
 		for i := 1; i < 3; i++ {
-			pc := newVoteMsg(height, int64(i), proto.MsgPrecommit, maliciousNode, nilValue, committee)
+			pc := newVoteMsg(height, int64(i), message.MsgPrecommit, maliciousNode, nilValue, committee)
 			fd.msgStore.Save(pc)
 		}
 
@@ -863,7 +863,7 @@ func TestRuleEngine(t *testing.T) {
 		fd.msgStore.Save(newProposal)
 
 		// now the malicious node preVote for a new value V2 at higher round 3.
-		preVote := newVoteMsg(height, 3, proto.MsgPrevote, maliciousNode, newProposal.Value(), committee)
+		preVote := newVoteMsg(height, 3, message.MsgPrevote, maliciousNode, newProposal.Value(), committee)
 		fd.msgStore.Save(preVote)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -908,16 +908,16 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum preVotes for init proposal
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], initProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// the malicious node did preCommit for v1 on round 0
-		preCommit := newVoteMsg(height, 0, proto.MsgPrecommit, maliciousNode, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 0, message.MsgPrecommit, maliciousNode, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit)
 
 		// the malicious node did preCommit for nil at round 1, let no preCommit at round 2 to form the gap.
-		preCommitR1 := newVoteMsg(height, int64(1), proto.MsgPrecommit, maliciousNode, nilValue, committee)
+		preCommitR1 := newVoteMsg(height, int64(1), message.MsgPrecommit, maliciousNode, nilValue, committee)
 		fd.msgStore.Save(preCommitR1)
 
 		// assume round changes, someone propose V2 at round 3, and malicious Node now it preVote for this V2.
@@ -925,7 +925,7 @@ func TestRuleEngine(t *testing.T) {
 		fd.msgStore.Save(newProposal)
 
 		// now the malicious node preVote for a new value V2 at higher round 3.
-		preVote := newVoteMsg(height, 3, proto.MsgPrevote, maliciousNode, newProposal.Value(), committee)
+		preVote := newVoteMsg(height, 3, message.MsgPrevote, maliciousNode, newProposal.Value(), committee)
 		fd.msgStore.Save(preVote)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -954,7 +954,7 @@ func TestRuleEngine(t *testing.T) {
 		fd.msgStore.Save(oldProposal)
 
 		// simulate a preVote at r: 3 for value v.
-		preVote := newVoteMsg(height, 3, proto.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
+		preVote := newVoteMsg(height, 3, message.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
 		fd.msgStore.Save(preVote)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -991,18 +991,18 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum prevotes for not v at vr.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
 			fd.msgStore.Save(preVote)
 		}
 		// simulate a preVote at r: 3 for value v, thus it is a misbehaviour.
-		preVote := newVoteMsg(height, 3, proto.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
+		preVote := newVoteMsg(height, 3, message.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
 		fd.msgStore.Save(preVote)
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
 		presentPVO := false
 		for _, p := range onChainProofs {
 			if p.Type == autonity.Misbehaviour && p.Rule == autonity.PVO {
 				presentPVO = true
-				assert.Equal(t, proto.MsgPrevote, p.Message.Type())
+				assert.Equal(t, message.MsgPrevote, p.Message.Type())
 				assert.Equal(t, preVote.Signature, p.Message.Signature)
 			}
 		}
@@ -1031,24 +1031,24 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum prevotes for v at vr.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// simulate a precommit at r: 0 with value v.
-		pcValidRound := newVoteMsg(height, 0, proto.MsgPrecommit, maliciousNode, oldProposal.Value(), committee)
+		pcValidRound := newVoteMsg(height, 0, message.MsgPrecommit, maliciousNode, oldProposal.Value(), committee)
 		fd.msgStore.Save(pcValidRound)
 
 		// simulate a precommit at r: 1 with value v.
-		preCommitForV := newVoteMsg(height, 1, proto.MsgPrecommit, maliciousNode, oldProposal.Value(), committee)
+		preCommitForV := newVoteMsg(height, 1, message.MsgPrecommit, maliciousNode, oldProposal.Value(), committee)
 		fd.msgStore.Save(preCommitForV)
 
 		// simulate a precommit at r: 2 with value not v.
-		preCommitForNotV := newVoteMsg(height, 2, proto.MsgPrecommit, maliciousNode, noneNilValue, committee)
+		preCommitForNotV := newVoteMsg(height, 2, message.MsgPrecommit, maliciousNode, noneNilValue, committee)
 		fd.msgStore.Save(preCommitForNotV)
 
 		// simulate a preVote at r: 3 for value v.
-		preVote := newVoteMsg(height, 3, proto.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
+		preVote := newVoteMsg(height, 3, message.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
 		fd.msgStore.Save(preVote)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -1056,7 +1056,7 @@ func TestRuleEngine(t *testing.T) {
 		for _, p := range onChainProofs {
 			if p.Type == autonity.Misbehaviour && p.Rule == autonity.PVO12 {
 				presentPVO1 = true
-				assert.Equal(t, proto.MsgPrevote, p.Message.Type())
+				assert.Equal(t, message.MsgPrevote, p.Message.Type())
 				assert.Equal(t, preVote.Signature, p.Message.Signature)
 			}
 		}
@@ -1086,24 +1086,24 @@ func TestRuleEngine(t *testing.T) {
 
 		// simulate quorum prevotes for v at vr.
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
+			preVote := newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], oldProposal.Value(), committee)
 			fd.msgStore.Save(preVote)
 		}
 
 		// simulate a precommit at r: 0 with value not v.
-		pcValidRound := newVoteMsg(height, 0, proto.MsgPrecommit, maliciousNode, noneNilValue, committee)
+		pcValidRound := newVoteMsg(height, 0, message.MsgPrecommit, maliciousNode, noneNilValue, committee)
 		fd.msgStore.Save(pcValidRound)
 
 		// simulate a precommit at r: 1 with value not v.
-		preCommitForV := newVoteMsg(height, 1, proto.MsgPrecommit, maliciousNode, noneNilValue, committee)
+		preCommitForV := newVoteMsg(height, 1, message.MsgPrecommit, maliciousNode, noneNilValue, committee)
 		fd.msgStore.Save(preCommitForV)
 
 		// simulate a precommit at r: 2 with value not v.
-		preCommitForNotV := newVoteMsg(height, 2, proto.MsgPrecommit, maliciousNode, noneNilValue, committee)
+		preCommitForNotV := newVoteMsg(height, 2, message.MsgPrecommit, maliciousNode, noneNilValue, committee)
 		fd.msgStore.Save(preCommitForNotV)
 
 		// simulate a preVote at r: 3 for value v.
-		preVote := newVoteMsg(height, 3, proto.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
+		preVote := newVoteMsg(height, 3, message.MsgPrevote, maliciousNode, oldProposal.Value(), committee)
 		fd.msgStore.Save(preVote)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -1111,7 +1111,7 @@ func TestRuleEngine(t *testing.T) {
 		for _, p := range onChainProofs {
 			if p.Type == autonity.Misbehaviour && p.Rule == autonity.PVO12 {
 				presentPVO1 = true
-				assert.Equal(t, proto.MsgPrevote, p.Message.Type())
+				assert.Equal(t, message.MsgPrevote, p.Message.Type())
 				assert.Equal(t, preVote.Signature, p.Message.Signature)
 			}
 		}
@@ -1137,7 +1137,7 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.NewMessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		quorum := bft.Quorum(totalPower)
 
-		preCommit := newVoteMsg(height, 0, proto.MsgPrecommit, proposerKey, noneNilValue, committee)
+		preCommit := newVoteMsg(height, 0, message.MsgPrecommit, proposerKey, noneNilValue, committee)
 		fd.msgStore.Save(preCommit)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -1175,7 +1175,7 @@ func TestRuleEngine(t *testing.T) {
 		fd.msgStore.Save(initProposal)
 
 		// malicious node preCommit to v even through there was no quorum preVotes for v.
-		preCommit := newVoteMsg(height, 0, proto.MsgPrecommit, maliciousNode, initProposal.Value(), committee)
+		preCommit := newVoteMsg(height, 0, message.MsgPrecommit, maliciousNode, initProposal.Value(), committee)
 		fd.msgStore.Save(preCommit)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)

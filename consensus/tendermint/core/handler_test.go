@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -39,7 +38,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			t.Fatalf("could not encode vote")
 		}
 		return &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      encoded,
 			ConsensusMsg: vote,
 			Address:      sender.Address,
@@ -64,7 +63,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			t.Fatalf("error signing")
 		}
 		return &message.Message{
-			Code:          consensus.MsgPrecommit,
+			Code:          message.MsgPrecommit,
 			Payload:       encoded,
 			Address:       sender.Address,
 			CommittedSeal: commitSign,
@@ -210,7 +209,7 @@ func TestHandleMsg(t *testing.T) {
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      payload,
 			ConsensusMsg: vote,
 			Address:      common.Address{},
@@ -244,7 +243,7 @@ func TestHandleMsg(t *testing.T) {
 		payload, err := rlp.EncodeToBytes(vote)
 		require.NoError(t, err)
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      payload,
 			ConsensusMsg: vote,
 			Address:      common.Address{},

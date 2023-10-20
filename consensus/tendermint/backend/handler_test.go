@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/stretchr/testify/require"
@@ -80,7 +81,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(SyncMsg, []byte{})
+		msg := makeMsg(constants.SyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -102,7 +103,7 @@ func TestSynchronisationMessage(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			eventMux:    eventMux,
 		}
-		msg := makeMsg(SyncMsg, []byte{})
+		msg := makeMsg(constants.SyncMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -191,7 +192,7 @@ func makeMsgVote(payload []byte, vote *message.Vote) p2p.Msg {
 	//	panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
 	//}
 	//
-	return p2p.Msg{Code: TendermintMsgVote, Size: uint32(size), Payload: r}
+	return p2p.Msg{Code: constants.TendermintMsgVote, Size: uint32(size), Payload: r}
 }
 
 func makeMsgProposal(payload []byte, proposal *message.Proposal) p2p.Msg {
@@ -224,5 +225,5 @@ func makeMsgProposal(payload []byte, proposal *message.Proposal) p2p.Msg {
 	//	panic(fmt.Sprintf("makeMsg EncodeToReader failed: %s", err))
 	//}
 	//
-	return p2p.Msg{Code: TendermintMsgProposal, Size: uint32(size), Payload: r}
+	return p2p.Msg{Code: constants.TendermintMsgProposal, Size: uint32(size), Payload: r}
 }

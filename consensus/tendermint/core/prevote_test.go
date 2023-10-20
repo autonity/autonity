@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -27,7 +26,7 @@ func TestSendPrevote(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(2)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		committeeSet := helpers.NewTestCommitteeSet(4)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 		backendMock.EXPECT().Sign(gomock.Any()).Times(1)
 		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
@@ -68,7 +67,7 @@ func TestSendPrevote(t *testing.T) {
 
 		payload := expectedMsg.GetBytes()
 
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any(), payload)
 
 		c := &Core{
 			backend:          backendMock,
@@ -218,7 +217,7 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgPrecommit,
+			Code:          message.MsgPrecommit,
 			Payload:       encodedVote,
 			Address:       member.Address,
 			CommittedSeal: []byte{0x1},
@@ -227,7 +226,7 @@ func TestHandlePrevote(t *testing.T) {
 		}
 		payload := msg.GetBytes()
 
-		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), gomock.Any(), payload)
 
 		c := &Core{
 			address:          member.Address,
@@ -282,7 +281,7 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgPrecommit,
+			Code:          message.MsgPrecommit,
 			Payload:       encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
@@ -292,7 +291,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		payload := msg.GetBytes()
 
-		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(context.Background(), gomock.Any(), gomock.Any(), payload)
 
 		logger := log.New("backend", "test", "id", 0)
 
@@ -350,7 +349,7 @@ func TestHandlePrevote(t *testing.T) {
 		}
 
 		expectedMsg := &message.Message{
-			Code:          consensus.MsgPrevote,
+			Code:          message.MsgPrevote,
 			Payload:       encodedVote,
 			Address:       addr,
 			ConsensusMsg:  &preVote,

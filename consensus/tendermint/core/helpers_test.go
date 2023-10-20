@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/common"
-	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -22,7 +21,7 @@ func TestOverQuorumVotes(t *testing.T) {
 		noneNilValue := common.Hash{0x1}
 		var preVotes []*message.Message
 		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVote := newVoteMsg(height, round, message.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
 			preVotes = append(preVotes, preVote)
 		}
 
@@ -42,7 +41,7 @@ func TestOverQuorumVotes(t *testing.T) {
 		noneNilValue := common.Hash{0x1}
 		var preVotes []*message.Message
 		for i := 0; i < int(quorum.Uint64()-1); i++ {
-			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVote := newVoteMsg(height, round, message.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
 			preVotes = append(preVotes, preVote)
 		}
 

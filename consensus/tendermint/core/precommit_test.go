@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"errors"
-	"github.com/autonity/autonity/consensus"
+	constants2 "github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
@@ -32,7 +32,7 @@ func TestSendPrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		messages := message.NewMessagesMap()
 		c := &Core{
@@ -81,7 +81,7 @@ func TestSendPrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &message.Message{
-			Code:          consensus.MsgPrecommit,
+			Code:          message.MsgPrecommit,
 			Payload:       encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
@@ -99,7 +99,7 @@ func TestSendPrecommit(t *testing.T) {
 
 		payload := expectedMsg.GetBytes()
 
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), constants2.TendermintMsgProposal, payload)
 
 		c := &Core{
 			backend:          backendMock,
@@ -147,7 +147,7 @@ func TestSendPrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &message.Message{
-			Code:          consensus.MsgPrecommit,
+			Code:          message.MsgPrecommit,
 			Payload:       encodedVote,
 			Address:       addr,
 			CommittedSeal: []byte{0x1},
@@ -165,7 +165,7 @@ func TestSendPrecommit(t *testing.T) {
 
 		payload := expectedMsg.GetBytes()
 
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), constants2.TendermintMsgProposal, payload)
 
 		c := &Core{
 			backend:          backendMock,
@@ -201,7 +201,7 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &message.Message{
-			Code:          consensus.MsgPrecommit,
+			Code:          message.MsgPrecommit,
 			Payload:       encodedVote,
 			ConsensusMsg:  &preCommit,
 			Address:       addr,
@@ -243,7 +243,7 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 
 		expectedMsg := &message.Message{
-			Code:          consensus.MsgPrecommit,
+			Code:          message.MsgPrecommit,
 			Payload:       encodedVote,
 			ConsensusMsg:  &preCommit,
 			Address:       member.Address,
@@ -556,7 +556,7 @@ func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, ke
 	}
 
 	expectedMsg := &message.Message{
-		Code:          consensus.MsgPrecommit,
+		Code:          message.MsgPrecommit,
 		Payload:       encodedVote,
 		ConsensusMsg:  &preCommit,
 		Address:       member.Address,

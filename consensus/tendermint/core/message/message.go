@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 	"io"
+	"math"
 	"math/big"
 	"reflect"
 )
@@ -18,6 +19,33 @@ var (
 	ErrBadSignature         = errors.New("bad signature")
 	ErrUnauthorizedAddress  = errors.New("unauthorized address")
 )
+
+type MsgCode uint8
+
+// Place consensus message codes in protocol to break dependency circle in between tendermint and fault detectors.
+const (
+	MsgProposal uint8 = iota
+	MsgPrevote
+	MsgPrecommit
+	// MsgLightProposal is only used by accountability that it converts full proposal to a lite one
+	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
+	MsgLightProposal
+)
+
+func TendermintMessageCode(m *Message) uint64 {
+	switch m.Code {
+	case MsgPrevote:
+		return constants.TendermintMsgVote
+
+	case MsgProposal:
+		return constants.TendermintMsgProposal
+
+	case MsgLightProposal:
+		return constants.TendermintMsgLightProposal
+	}
+
+	return math.MaxUint64
+}
 
 type Propose struct {
 	Block *types.Block
@@ -182,9 +210,9 @@ func FromBytes(b []byte) (*Message, error) {
 
 func (m *Message) DecodePayload() error {
 	switch m.Code {
-	case consensus.MsgProposal:
+	case MsgProposal:
 		return m.Decode(new(Proposal))
-	case consensus.MsgPrevote, consensus.MsgPrecommit:
+	case MsgPrevote, MsgPrecommit:
 		return m.Decode(new(Vote))
 	default:
 		return ErrMsgPayloadNotDecoded
@@ -311,7 +339,7 @@ func (m *Message) ToLightProposal() *Message {
 	}
 	encoded, _ := rlp.EncodeToBytes(lightProposal)
 	message := &Message{
-		Code:         consensus.MsgLightProposal,
+		Code:         MsgLightProposal,
 		Payload:      encoded,
 		ConsensusMsg: lightProposal,
 		Address:      m.Address,

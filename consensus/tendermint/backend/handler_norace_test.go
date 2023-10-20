@@ -6,6 +6,7 @@ package backend
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/stretchr/testify/require"
@@ -50,7 +51,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 			addr := savedMsg.(UnhandledMsg).addr
 			expectedAddr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if savedMsg.(UnhandledMsg).msg.Code != TendermintMsgProposal {
+			if savedMsg.(UnhandledMsg).msg.Code != constants.TendermintMsgProposal {
 				t.Fatalf("wrong msg code")
 			}
 			var payload []byte

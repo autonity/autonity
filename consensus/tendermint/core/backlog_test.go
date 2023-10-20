@@ -2,7 +2,6 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -174,7 +173,7 @@ func TestStoreBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      votePayload,
 			ConsensusMsg: vote,
 		}
@@ -213,7 +212,7 @@ func TestStoreBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgProposal,
+			Code:         message.MsgProposal,
 			Payload:      proposalPayload,
 			ConsensusMsg: proposal,
 		}
@@ -248,7 +247,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgProposal,
+			Code:         message.MsgProposal,
 			Payload:      proposalPayload,
 			ConsensusMsg: proposal,
 		}
@@ -312,7 +311,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      votePayload,
 			ConsensusMsg: vote,
 		}
@@ -386,7 +385,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      nilRoundVotePayload,
 			ConsensusMsg: nilRoundVote,
 		}
@@ -450,7 +449,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      nilRoundVotePayload,
 			ConsensusMsg: nilRoundVote,
 		}
@@ -491,12 +490,12 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      nilRoundVotePayload,
 			ConsensusMsg: nilRoundVote,
 		}
 		msg2 := &message.Message{
-			Code:         consensus.MsgPrecommit,
+			Code:         message.MsgPrecommit,
 			Payload:      nilRoundVotePayload,
 			ConsensusMsg: nilRoundVote,
 		}
@@ -545,12 +544,12 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      nilRoundVotePayload,
 			ConsensusMsg: nilRoundVote,
 		}
 		msg2 := &message.Message{
-			Code:         consensus.MsgPrecommit,
+			Code:         message.MsgPrecommit,
 			Payload:      nilRoundVotePayload,
 			ConsensusMsg: nilRoundVote,
 		}
@@ -600,7 +599,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:         consensus.MsgPrevote,
+			Code:         message.MsgPrevote,
 			Payload:      nilRoundVotePayload,
 			ConsensusMsg: nilRoundVote,
 		}
@@ -666,7 +665,7 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
 			msg := &message.Message{
-				Code:         consensus.MsgPrevote,
+				Code:         message.MsgPrevote,
 				Payload:      payload,
 				ConsensusMsg: nilRoundVote,
 			}
@@ -724,7 +723,7 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			payload, err := rlp.EncodeToBytes(nilRoundVote)
 			require.NoError(t, err)
 			msg := &message.Message{
-				Code:         consensus.MsgPrevote,
+				Code:         message.MsgPrevote,
 				Payload:      payload,
 				ConsensusMsg: nilRoundVote,
 			}

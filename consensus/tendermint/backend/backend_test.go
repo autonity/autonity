@@ -8,6 +8,7 @@ import (
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -50,7 +51,7 @@ func TestAskSync(t *testing.T) {
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
 		mockedPeer := ethereum.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(uint64(SyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(uint64(constants.SyncMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -102,7 +103,7 @@ func TestGossip(t *testing.T) {
 		} else {
 			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == uint64(TendermintMsg) && reflect.DeepEqual(data, payload) {
+				if msgCode == uint64(constants.TendermintMsg) && reflect.DeepEqual(data, payload) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
@@ -138,7 +139,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(context.Background(), validators, payload)
+	b.Gossip(context.Background(), validators, constants.TendermintMsgProposal, payload)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 4 {
 		t.Fatalf("gossip message transmission failure")
@@ -396,7 +397,7 @@ func TestSyncPeer(t *testing.T) {
 		payload := messages[0].GetBytes()
 
 		peer1Mock := ethereum.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().Send(uint64(TendermintMsg), payload)
+		peer1Mock.EXPECT().Send(uint64(constants.TendermintMsg), payload)
 
 		peers := make(map[common.Address]ethereum.Peer)
 		peers[peerAddr1] = peer1Mock

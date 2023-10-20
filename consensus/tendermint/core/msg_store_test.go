@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -112,37 +111,37 @@ func TestMsgStore(t *testing.T) {
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := NewMsgStore()
 		proposals := ms.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgProposal
+			return m.Type() == message.MsgProposal
 		})
 		assert.Equal(t, 0, len(proposals))
 	})
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := newVoteMsg(height, round, consensus.MsgPrevote, proposerKey, NilValue, committee)
+		preVoteNil := newVoteMsg(height, round, message.MsgPrevote, proposerKey, NilValue, committee)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := newVoteMsg(height, round, consensus.MsgPrevote, proposerKey, noneNilValue, committee)
+		preVoteNoneNil := newVoteMsg(height, round, message.MsgPrevote, proposerKey, noneNilValue, committee)
 		ms.Save(preVoteNoneNil)
 		// check equivocated msg is also stored at msg store.
 		votes := ms.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
+			return m.Type() == message.MsgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice
 		})
 		assert.Equal(t, 2, len(votes))
 	})
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVote := newVoteMsg(height, round, consensus.MsgPrevote, proposerKey, NilValue, committee)
+		preVote := newVoteMsg(height, round, message.MsgPrevote, proposerKey, NilValue, committee)
 		ms.Save(preVote)
 
 		votes := ms.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
+			return m.Type() == message.MsgPrevote && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
 				m.Value() == NilValue
 		})
 
 		assert.Equal(t, 1, len(votes))
-		assert.Equal(t, consensus.MsgPrevote, votes[0].Type())
+		assert.Equal(t, message.MsgPrevote, votes[0].Type())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, addrAlice, votes[0].Sender())
@@ -151,19 +150,19 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := newVoteMsg(height, round, consensus.MsgPrevote, proposerKey, NilValue, committee)
+		preVoteNil := newVoteMsg(height, round, message.MsgPrevote, proposerKey, NilValue, committee)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := newVoteMsg(height, round, consensus.MsgPrevote, keyBob, noneNilValue, committee)
+		preVoteNoneNil := newVoteMsg(height, round, message.MsgPrevote, keyBob, noneNilValue, committee)
 		ms.Save(preVoteNoneNil)
 
 		votes := ms.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrevote && m.H() == height && m.R() == round
+			return m.Type() == message.MsgPrevote && m.H() == height && m.R() == round
 		})
 
 		assert.Equal(t, 2, len(votes))
-		assert.Equal(t, consensus.MsgPrevote, votes[0].Type())
-		assert.Equal(t, consensus.MsgPrevote, votes[1].Type())
+		assert.Equal(t, message.MsgPrevote, votes[0].Type())
+		assert.Equal(t, message.MsgPrevote, votes[1].Type())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, height, votes[1].H())
@@ -172,10 +171,10 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := newVoteMsg(height, round, consensus.MsgPrevote, proposerKey, NilValue, committee)
+		preVoteNil := newVoteMsg(height, round, message.MsgPrevote, proposerKey, NilValue, committee)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := newVoteMsg(height, round, consensus.MsgPrevote, keyBob, noneNilValue, committee)
+		preVoteNoneNil := newVoteMsg(height, round, message.MsgPrevote, keyBob, noneNilValue, committee)
 		ms.Save(preVoteNoneNil)
 
 		ms.DeleteOlds(height)

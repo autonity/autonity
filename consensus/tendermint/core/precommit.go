@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -46,7 +45,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
 	msg := &message.Message{
-		Code:          consensus.MsgPrecommit,
+		Code:          message.MsgPrecommit,
 		Payload:       encodedVote,
 		Address:       c.address,
 		CommittedSeal: []byte{},

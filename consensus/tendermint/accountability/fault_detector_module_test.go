@@ -3,7 +3,6 @@ package accountability
 import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -19,11 +18,11 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 	pi := keys[committee[0].Address]
 
 	newProposal0 := newProposalMessage(height, 3, -1, pi, committee, nil)
-	nonNilPrecommit0 := newVoteMsg(height, 1, proto.MsgPrecommit, pi, common.BytesToHash([]byte("test")), committee)
-	nilPrecommit0 := newVoteMsg(height, 1, proto.MsgPrecommit, pi, common.Hash{}, committee)
+	nonNilPrecommit0 := newVoteMsg(height, 1, message.MsgPrecommit, pi, common.BytesToHash([]byte("test")), committee)
+	nilPrecommit0 := newVoteMsg(height, 1, message.MsgPrecommit, pi, common.Hash{}, committee)
 
 	newProposal1 := newProposalMessage(height, 5, -1, pi, committee, nil)
-	nilPrecommit1 := newVoteMsg(height, 3, proto.MsgPrecommit, pi, common.Hash{}, committee)
+	nilPrecommit1 := newVoteMsg(height, 3, message.MsgPrecommit, pi, common.Hash{}, committee)
 
 	newProposal0E := newProposalMessage(height, 3, 1, pi, committee, nil)
 
@@ -133,26 +132,26 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	oldProposal0E := newProposalMessage(height, 3, 2, pi, committee, block1)
 	oldProposal0E2 := newProposalMessage(height, 3, 0, pi, committee, block1)
 
-	nonNilPrecommit0V := newVoteMsg(height, 0, proto.MsgPrecommit, pi, block.Hash(), committee)
-	nonNilPrecommit0VPrime := newVoteMsg(height, 0, proto.MsgPrecommit, pi, block1.Hash(), committee)
-	nonNilPrecommit2VPrime := newVoteMsg(height, 2, proto.MsgPrecommit, pi, block1.Hash(), committee)
-	nonNilPrecommit1 := newVoteMsg(height, 1, proto.MsgPrecommit, pi, block.Hash(), committee)
+	nonNilPrecommit0V := newVoteMsg(height, 0, message.MsgPrecommit, pi, block.Hash(), committee)
+	nonNilPrecommit0VPrime := newVoteMsg(height, 0, message.MsgPrecommit, pi, block1.Hash(), committee)
+	nonNilPrecommit2VPrime := newVoteMsg(height, 2, message.MsgPrecommit, pi, block1.Hash(), committee)
+	nonNilPrecommit1 := newVoteMsg(height, 1, message.MsgPrecommit, pi, block.Hash(), committee)
 
-	nilPrecommit0 := newVoteMsg(height, 0, proto.MsgPrecommit, pi, nilValue, committee)
+	nilPrecommit0 := newVoteMsg(height, 0, message.MsgPrecommit, pi, nilValue, committee)
 
 	var quorumPrevotes0VPrime []*message.Message
 	for i := int64(0); i < quorum.Int64(); i++ {
-		quorumPrevotes0VPrime = append(quorumPrevotes0VPrime, newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee))
+		quorumPrevotes0VPrime = append(quorumPrevotes0VPrime, newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee))
 	}
 
 	var quorumPrevotes0V []*message.Message
 	for i := int64(0); i < quorum.Int64(); i++ {
-		quorumPrevotes0V = append(quorumPrevotes0V, newVoteMsg(height, 0, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+		quorumPrevotes0V = append(quorumPrevotes0V, newVoteMsg(height, 0, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 	}
 
 	var precommiteNilAfterVR []*message.Message
 	for i := 1; i < 3; i++ {
-		precommiteNilAfterVR = append(precommiteNilAfterVR, newVoteMsg(height, int64(i), proto.MsgPrecommit, pi, nilValue, committee))
+		precommiteNilAfterVR = append(precommiteNilAfterVR, newVoteMsg(height, int64(i), message.MsgPrecommit, pi, nilValue, committee))
 	}
 
 	t.Run("misbehaviour when pi precommited for a different value in valid round than in the old proposal", func(t *testing.T) {
@@ -395,24 +394,24 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 	newProposalForB := newProposalMessage(height, 5, -1, keys[committee[1].Address], committee, block)
 
-	prevoteForB := newVoteMsg(height, 5, proto.MsgPrevote, pi, block.Hash(), committee)
-	prevoteForB1 := newVoteMsg(height, 5, proto.MsgPrevote, pi, block1.Hash(), committee)
+	prevoteForB := newVoteMsg(height, 5, message.MsgPrevote, pi, block.Hash(), committee)
+	prevoteForB1 := newVoteMsg(height, 5, message.MsgPrevote, pi, block1.Hash(), committee)
 
-	precommitForB := newVoteMsg(height, 3, proto.MsgPrecommit, pi, block.Hash(), committee)
-	precommitForB1 := newVoteMsg(height, 4, proto.MsgPrecommit, pi, block1.Hash(), committee)
-	precommitForB1In0 := newVoteMsg(height, 0, proto.MsgPrecommit, pi, block1.Hash(), committee)
-	precommitForB1In1 := newVoteMsg(height, 1, proto.MsgPrecommit, pi, block1.Hash(), committee)
-	precommitForBIn0 := newVoteMsg(height, 0, proto.MsgPrecommit, pi, block.Hash(), committee)
-	precommitForBIn4 := newVoteMsg(height, 4, proto.MsgPrecommit, pi, block.Hash(), committee)
+	precommitForB := newVoteMsg(height, 3, message.MsgPrecommit, pi, block.Hash(), committee)
+	precommitForB1 := newVoteMsg(height, 4, message.MsgPrecommit, pi, block1.Hash(), committee)
+	precommitForB1In0 := newVoteMsg(height, 0, message.MsgPrecommit, pi, block1.Hash(), committee)
+	precommitForB1In1 := newVoteMsg(height, 1, message.MsgPrecommit, pi, block1.Hash(), committee)
+	precommitForBIn0 := newVoteMsg(height, 0, message.MsgPrecommit, pi, block.Hash(), committee)
+	precommitForBIn4 := newVoteMsg(height, 4, message.MsgPrecommit, pi, block.Hash(), committee)
 
 	oldProposalB10 := newProposalMessage(height, 10, 5, keys[committee[1].Address], committee, block)
 	newProposalB1In5 := newProposalMessage(height, 5, -1, keys[committee[1].Address], committee, block1)
 	newProposalBIn5 := newProposalMessage(height, 5, -1, keys[committee[1].Address], committee, block)
 
-	prevoteForOldB10 := newVoteMsg(height, 10, proto.MsgPrevote, pi, block.Hash(), committee)
+	prevoteForOldB10 := newVoteMsg(height, 10, message.MsgPrevote, pi, block.Hash(), committee)
 
-	precommitForB1In8 := newVoteMsg(height, 8, proto.MsgPrecommit, pi, block1.Hash(), committee)
-	precommitForBIn7 := newVoteMsg(height, 7, proto.MsgPrecommit, pi, block.Hash(), committee)
+	precommitForB1In8 := newVoteMsg(height, 8, message.MsgPrecommit, pi, block1.Hash(), committee)
+	precommitForBIn7 := newVoteMsg(height, 7, message.MsgPrecommit, pi, block.Hash(), committee)
 
 	t.Run("accusation when there are no corresponding proposals", func(t *testing.T) {
 		fd := testFD()
@@ -474,7 +473,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		var precommitNilsAfter0 []*message.Message
 		for i := 1; i < 5; i++ {
-			precommitNil := newVoteMsg(height, int64(i), proto.MsgPrecommit, pi, nilValue, committee)
+			precommitNil := newVoteMsg(height, int64(i), message.MsgPrecommit, pi, nilValue, committee)
 			precommitNilsAfter0 = append(precommitNilsAfter0, precommitNil)
 			fd.msgStore.Save(precommitNil)
 		}
@@ -507,7 +506,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		var precommitNilsAfter1 []*message.Message
 		for i := 2; i < 5; i++ {
-			precommitNil := newVoteMsg(height, int64(i), proto.MsgPrecommit, pi, nilValue, committee)
+			precommitNil := newVoteMsg(height, int64(i), message.MsgPrecommit, pi, nilValue, committee)
 			precommitNilsAfter1 = append(precommitNilsAfter1, precommitNil)
 			fd.msgStore.Save(precommitNil)
 		}
@@ -556,7 +555,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(prevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
-		fd.msgStore.Save(newVoteMsg(height, 3, proto.MsgPrecommit, pi, nilValue, committee))
+		fd.msgStore.Save(newVoteMsg(height, 3, message.MsgPrecommit, pi, nilValue, committee))
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum)
 		require.Equal(t, 0, len(proofs))
@@ -568,7 +567,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
 		for i := 1; i < 5; i++ {
-			precommitNil := newVoteMsg(height, int64(i), proto.MsgPrecommit, pi, nilValue, committee)
+			precommitNil := newVoteMsg(height, int64(i), message.MsgPrecommit, pi, nilValue, committee)
 			fd.msgStore.Save(precommitNil)
 		}
 
@@ -606,7 +605,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		// quorum of prevotes for B1 in vr = 6
 		var vr5Prevotes []*message.Message
 		for i := uint64(0); i < quorum.Uint64(); i++ {
-			vr6Prevote := newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee)
+			vr6Prevote := newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee)
 			vr5Prevotes = append(vr5Prevotes, vr6Prevote)
 			fd.msgStore.Save(vr6Prevote)
 		}
@@ -637,10 +636,10 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 		for i := newProposalBIn5.R(); i < precommitForBIn7.R(); i++ {
-			fd.msgStore.Save(newVoteMsg(height, i, proto.MsgPrecommit, pi, nilValue, committee))
+			fd.msgStore.Save(newVoteMsg(height, i, message.MsgPrecommit, pi, nilValue, committee))
 		}
 		var precommitsFromPiAfterLatestPrecommitForB []*message.Message
 		fd.msgStore.Save(precommitForBIn7)
@@ -648,7 +647,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForBIn7)
 		fd.msgStore.Save(precommitForB1In8)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForB1In8)
-		p := newVoteMsg(height, precommitForB1In8.R()+1, proto.MsgPrecommit, pi, nilValue, committee)
+		p := newVoteMsg(height, precommitForB1In8.R()+1, message.MsgPrecommit, pi, nilValue, committee)
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, p)
 
@@ -677,11 +676,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 		fd.msgStore.Save(precommitForBIn7)
 		for i := precommitForBIn7.R() + 1; i < oldProposalB10.R(); i++ {
-			fd.msgStore.Save(newVoteMsg(height, i, proto.MsgPrecommit, pi, nilValue, committee))
+			fd.msgStore.Save(newVoteMsg(height, i, message.MsgPrecommit, pi, nilValue, committee))
 		}
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum)
@@ -696,7 +695,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 		fd.msgStore.Save(precommitForBIn7)
 		fd.msgStore.Save(precommitForB1In8)
@@ -712,18 +711,18 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 
 		var precommitsFromPiAfterVR []*message.Message
 		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
-			p := newVoteMsg(height, i, proto.MsgPrecommit, pi, nilValue, committee)
+			p := newVoteMsg(height, i, message.MsgPrecommit, pi, nilValue, committee)
 			fd.msgStore.Save(p)
 			precommitsFromPiAfterVR = append(precommitsFromPiAfterVR, p)
 		}
 		fd.msgStore.Save(precommitForB1In8)
 		precommitsFromPiAfterVR = append(precommitsFromPiAfterVR, precommitForB1In8)
-		p := newVoteMsg(height, precommitForB1In8.R()+1, proto.MsgPrecommit, pi, nilValue, committee)
+		p := newVoteMsg(height, precommitForB1In8.R()+1, message.MsgPrecommit, pi, nilValue, committee)
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterVR = append(precommitsFromPiAfterVR, p)
 
@@ -752,11 +751,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 
 		for i := newProposalBIn5.R() + 1; i < oldProposalB10.R(); i++ {
-			fd.msgStore.Save(newVoteMsg(height, i, proto.MsgPrecommit, pi, nilValue, committee))
+			fd.msgStore.Save(newVoteMsg(height, i, message.MsgPrecommit, pi, nilValue, committee))
 		}
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum)
@@ -769,12 +768,12 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 
 		fd.msgStore.Save(precommitForB1In8)
 
-		p := newVoteMsg(height, precommitForB1In8.R()+1, proto.MsgPrecommit, pi, nilValue, committee)
+		p := newVoteMsg(height, precommitForB1In8.R()+1, message.MsgPrecommit, pi, nilValue, committee)
 		fd.msgStore.Save(p)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum)
@@ -788,11 +787,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 5, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 5, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 
 		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
-			fd.msgStore.Save(newVoteMsg(height, i, proto.MsgPrecommit, pi, nilValue, committee))
+			fd.msgStore.Save(newVoteMsg(height, i, message.MsgPrecommit, pi, nilValue, committee))
 		}
 		fd.msgStore.Save(precommitForB1In8)
 
@@ -811,7 +810,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 6, proto.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 6, message.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee))
 		}
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum)
@@ -841,9 +840,9 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 	newProposalForB := newProposalMessage(height, 2, -1, keys[committee[1].Address], committee, block)
 
-	precommitForB := newVoteMsg(height, 2, proto.MsgPrecommit, pi, block.Hash(), committee)
-	precommitForB1 := newVoteMsg(height, 2, proto.MsgPrecommit, pi, block1.Hash(), committee)
-	precommitForB1In3 := newVoteMsg(height, 3, proto.MsgPrecommit, pi, block1.Hash(), committee)
+	precommitForB := newVoteMsg(height, 2, message.MsgPrecommit, pi, block.Hash(), committee)
+	precommitForB1 := newVoteMsg(height, 2, message.MsgPrecommit, pi, block1.Hash(), committee)
+	precommitForB1In3 := newVoteMsg(height, 3, message.MsgPrecommit, pi, block1.Hash(), committee)
 
 	t.Run("accusation when prevotes is less than quorum", func(t *testing.T) {
 		fd := testFD()
@@ -851,7 +850,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(precommitForB)
 
 		for i := int64(0); i < quorum.Int64()-1; i++ {
-			fd.msgStore.Save(newVoteMsg(height, 2, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 2, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 
 		expectedAccusation := &Proof{
@@ -872,7 +871,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 		var prevotesForB1 []*message.Message
 		for i := int64(0); i < quorum.Int64(); i++ {
-			p := newVoteMsg(height, 2, proto.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee)
+			p := newVoteMsg(height, 2, message.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee)
 			fd.msgStore.Save(p)
 			prevotesForB1 = append(prevotesForB1, p)
 		}
@@ -904,7 +903,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 		var prevotesForB1 []*message.Message
 		for i := int64(0); i < quorum.Int64(); i++ {
-			p := newVoteMsg(height, 2, proto.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee)
+			p := newVoteMsg(height, 2, message.MsgPrevote, keys[committee[i].Address], block1.Hash(), committee)
 			fd.msgStore.Save(p)
 			prevotesForB1 = append(prevotesForB1, p)
 		}
@@ -949,7 +948,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(precommitForB)
 
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 2, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 2, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 
 		proofs := fd.precommitsAccountabilityCheck(height, quorum)
@@ -962,7 +961,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(precommitForB)
 
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newVoteMsg(height, 2, proto.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
+			fd.msgStore.Save(newVoteMsg(height, 2, message.MsgPrevote, keys[committee[i].Address], block.Hash(), committee))
 		}
 
 		proofs := fd.precommitsAccountabilityCheck(height, quorum)

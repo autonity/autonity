@@ -2,27 +2,27 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 )
 
 // ///////////// On Timeout Functions ///////////////
 func (c *Core) measureMetricsOnTimeOut(step uint8, r int64) {
 	switch step {
-	case consensus.MsgProposal:
+	case message.MsgProposal:
 		duration := c.timeoutPropose(r)
 		types.ProposeTimer.Update(duration)
 		types.ProposeBg.Add(duration.Nanoseconds())
 		return
-	case consensus.MsgPrevote:
+	case message.MsgPrevote:
 		duration := c.timeoutPrevote(r)
 		types.PrevoteTimer.Update(duration)
 		types.PrevoteBg.Add(duration.Nanoseconds())
 		return
-	case consensus.MsgPrecommit:
+	case message.MsgPrecommit:
 		duration := c.timeoutPrecommit(r)
 		types.PrecommitTimer.Update(duration)
 		types.PrecommitBg.Add(duration.Nanoseconds())
@@ -34,7 +34,7 @@ func (c *Core) onTimeoutPropose(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             consensus.MsgProposal,
+		Step:             message.MsgProposal,
 	}
 	// It's unsafe to call logTimeoutEvent here !
 	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
@@ -46,7 +46,7 @@ func (c *Core) onTimeoutPrevote(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             consensus.MsgPrevote,
+		Step:             message.MsgPrevote,
 	}
 	c.logger.Debug("TimeoutEvent(Prevote): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.Step, r)
@@ -57,7 +57,7 @@ func (c *Core) onTimeoutPrecommit(r int64, h *big.Int) {
 	msg := types.TimeoutEvent{
 		RoundWhenCalled:  r,
 		HeightWhenCalled: h,
-		Step:             consensus.MsgPrecommit,
+		Step:             message.MsgPrecommit,
 	}
 	c.logger.Debug("TimeoutEvent(Precommit): Sent", "round", r, "height", h)
 	c.measureMetricsOnTimeOut(msg.Step, r)

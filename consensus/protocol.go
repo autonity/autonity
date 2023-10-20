@@ -23,16 +23,16 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
-// Place consensus message codes in protocol to break dependency circle in between tendermint and fault detectors.
-// Todo(youssef): consider putting them in the message package.
-const (
-	MsgProposal uint8 = iota
-	MsgPrevote
-	MsgPrecommit
-	// MsgLightProposal is only used by accountability that it converts full proposal to a lite one
-	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
-	MsgLightProposal
-)
+//// Place consensus message codes in protocol to break dependency circle in between tendermint and fault detectors.
+//// Todo(youssef): consider putting them in the message package.
+//const (
+//	MsgProposal uint8 = iota
+//	MsgPrevote
+//	MsgPrecommit
+//	// MsgLightProposal is only used by accountability that it converts full proposal to a lite one
+//	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
+//	MsgLightProposal
+//)
 
 // setting for Autonity accountability protocol, they are a part of consensus.
 const (

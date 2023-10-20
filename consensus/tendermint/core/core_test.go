@@ -3,7 +3,6 @@ package core
 import (
 	"crypto/ecdsa"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -60,7 +59,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.measureMetricsOnTimeOut(consensus.MsgProposal, 2)
+		c.measureMetricsOnTimeOut(message.MsgProposal, 2)
 		if m := metrics.Get("tendermint/timer/propose"); m == nil {
 			t.Fatalf("test case failed.")
 		}
@@ -76,7 +75,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.measureMetricsOnTimeOut(consensus.MsgPrevote, 2)
+		c.measureMetricsOnTimeOut(message.MsgPrevote, 2)
 		if m := metrics.Get("tendermint/timer/prevote"); m == nil {
 			t.Fatalf("test case failed.")
 		}
@@ -92,7 +91,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.measureMetricsOnTimeOut(consensus.MsgPrecommit, 2)
+		c.measureMetricsOnTimeOut(message.MsgPrecommit, 2)
 		if m := metrics.Get("tendermint/timer/precommit"); m == nil {
 			t.Fatalf("test case failed.")
 		}
@@ -153,7 +152,7 @@ func TestCore_AcceptVote(t *testing.T) {
 		require.NoError(t, err)
 		clientAddr := crypto.PubkeyToAddress(key.PublicKey)
 
-		prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, key)
+		prevoteMsg, _, _ := prepareVote(t, message.MsgPrevote, currentRound, currentHeight, common.Hash{}, clientAddr, key)
 		c.AcceptVote(c.CurRoundMessages(), types.Prevote, common.Hash{}, *prevoteMsg)
 		require.Equal(t, 1, len(c.CurRoundMessages().GetMessages()))
 	})
@@ -171,7 +170,7 @@ func TestCore_AcceptVote(t *testing.T) {
 		require.NoError(t, err)
 		clientAddr := crypto.PubkeyToAddress(key.PublicKey)
 
-		prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, key)
+		prevoteMsg, _, _ := prepareVote(t, message.MsgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, key)
 		c.AcceptVote(c.CurRoundMessages(), types.Precommit, common.Hash{}, *prevoteMsg)
 		require.Equal(t, 1, len(c.CurRoundMessages().GetMessages()))
 	})

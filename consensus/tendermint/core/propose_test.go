@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	constants2 "github.com/autonity/autonity/consensus/tendermint/backend/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
@@ -58,7 +59,7 @@ func TestSendPropose(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).Times(2).DoAndReturn(signer(proposerKey))
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), msg.Bytes)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), constants2.TendermintMsgProposal, msg.Bytes)
 
 		c := &Core{
 			address:          proposer,
@@ -96,7 +97,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			Payload:       proposal,
 			ConsensusMsg:  proposalBlock,
 			Address:       addr,
@@ -140,7 +141,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			Payload:       proposal,
 			ConsensusMsg:  proposalBlock,
 			Address:       addr,
@@ -194,7 +195,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			Payload:       proposal,
 			Address:       addr,
 			CommittedSeal: []byte{},
@@ -228,7 +229,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		preVoteMsg := &message.Message{
-			Code:          consensus.MsgPrevote,
+			Code:          message.MsgPrevote,
 			Payload:       encodedVote,
 			ConsensusMsg:  &prevote,
 			Address:       addr,
@@ -246,7 +247,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, errors.New("bad block"))
 		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), constants2.TendermintMsgVote, payload)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		c := &Core{
@@ -287,7 +288,7 @@ func TestHandleProposal(t *testing.T) {
 		assert.NoError(t, err)
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			ConsensusMsg:  proposalBlock,
 			Payload:       proposal,
 			Address:       addr,
@@ -351,7 +352,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			Payload:       proposal,
 			ConsensusMsg:  proposalBlock,
 			Address:       addr,
@@ -449,7 +450,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			Payload:       proposal,
 			ConsensusMsg:  proposalMsg,
 			Address:       proposer.Address,
@@ -489,7 +490,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			Payload:       proposal,
 			ConsensusMsg:  proposalBlock,
 			Address:       addr,
@@ -524,7 +525,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		preVoteMsg := &message.Message{
-			Code:          consensus.MsgPrevote,
+			Code:          message.MsgPrevote,
 			Payload:       encodedVote,
 			ConsensusMsg:  &prevote,
 			Address:       addr,
@@ -542,7 +543,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
 		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), constants2.TendermintMsgVote, payload)
 
 		c := &Core{
 			address:          addr,
@@ -587,7 +588,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		msg := &message.Message{
-			Code:          consensus.MsgProposal,
+			Code:          message.MsgProposal,
 			Payload:       proposal,
 			ConsensusMsg:  proposalBlock,
 			Address:       addr,
@@ -622,7 +623,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		preVoteMsg := &message.Message{
-			Code:          consensus.MsgPrevote,
+			Code:          message.MsgPrevote,
 			Payload:       encodedVote,
 			ConsensusMsg:  &prevote,
 			Address:       addr,
@@ -642,7 +643,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
 		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), constants2.TendermintMsgVote, payload)
 
 		c := &Core{
 			address:          addr,
@@ -734,7 +735,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(signer(proposerKey))
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), msg.Bytes)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), constants2.TendermintMsgProposal, msg.Bytes)
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),

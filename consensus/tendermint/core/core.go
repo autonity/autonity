@@ -594,7 +594,7 @@ func (s *Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message
 	}
 	// SignAndBroadcast payload
 	logger.Debug("Broadcasting", "message", msg.String())
-	if err := s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
+	if err := s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), message.TendermintMessageCode(msg), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"github.com/autonity/autonity/consensus"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -173,8 +172,8 @@ func prepareRoundMsgs(t *testing.T, c *Core, r int64, h *big.Int, sender common.
 	privKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	proposalMsg, proposal := generateBlockProposal(t, r, h, 0, crypto.PubkeyToAddress(privKey.PublicKey), false, privKey)
-	prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
-	precommitMsg, _, _ := prepareVote(t, consensus.MsgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+	prevoteMsg, _, _ := prepareVote(t, message.MsgPrevote, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
+	precommitMsg, _, _ := prepareVote(t, message.MsgPrecommit, r, h, proposal.ProposalBlock.Hash(), sender, privKey)
 	c.messages.GetOrCreate(r).SetProposal(proposal, proposalMsg, true)
 	c.messages.GetOrCreate(r).AddPrevote(proposal.ProposalBlock.Hash(), *prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(proposal.ProposalBlock.Hash(), *precommitMsg)
