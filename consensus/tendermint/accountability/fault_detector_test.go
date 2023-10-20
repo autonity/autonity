@@ -1148,7 +1148,7 @@ func TestRuleEngine(t *testing.T) {
 	})
 
 	t.Run("RunRule address accusation of rule C1, no present of quorum preVotes of V to justify the preCommit of V", func(t *testing.T) {
-		// ------------Precommits------------
+		// ------------precommits------------
 		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 

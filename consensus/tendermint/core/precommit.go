@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -34,25 +35,23 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	c.Br().Broadcast(ctx, precommit)
 }
 
-func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
-	preCommit := msg.ConsensusMsg.(*message.Vote)
-	precommitHash := preCommit.ProposedBlockHash
-	if err := c.checkMessage(preCommit.Round, preCommit.Height.Uint64(), tctypes.Precommit); err != nil {
-		if err == constants.ErrOldRoundMessage {
-			roundMsgs := c.messages.GetOrCreate(preCommit.Round)
-			if err2 := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err2 != nil {
-				return err2
-			}
-			c.AcceptVote(roundMsgs, tctypes.Precommit, precommitHash, *msg)
-			oldRoundProposalHash := roundMsgs.ProposalHash()
-			if oldRoundProposalHash != (common.Hash{}) && roundMsgs.PrecommitsPower(oldRoundProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-				c.logger.Info("Quorum on a old round proposal", "round", preCommit.Round)
-				if !roundMsgs.IsProposalVerified() {
-					if _, err2 := c.backend.VerifyProposal(roundMsgs.Proposal().ProposalBlock); err2 != nil {
+func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
+	if err := c.checkMessageStep(precommit.R(), precommit.H(), Precommit); err != nil {
+		if errors.Is(err, constants.ErrOldRoundMessage) {
+			// We are receiving a precommit for an old round. We need to check if we have now a quorum
+			// in this old round.
+			roundMessages := c.messages.GetOrCreate(precommit.R())
+			roundMessages.AddPrecommit(precommit)
+			oldRoundProposal := roundMessages.Proposal()
+			if oldRoundProposal != nil && roundMessages.PrecommitsPower(oldRoundProposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+				c.logger.Info("Quorum on a old round proposal", "round", precommit.R())
+				if !roundMessages.IsProposalVerified() {
+					if _, err2 := c.backend.VerifyProposal(roundMessages.Proposal().Block()); err2 != nil {
+						// Impossible with the BFT assumptions of 1/3rd honest.
 						return err2
 					}
 				}
-				c.Commit(preCommit.Round, c.curRoundMessages)
+				c.Commit(precommit.Round, c.curRoundMessages)
 				return nil
 			}
 		}
@@ -60,16 +59,12 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message)
 		return err
 	}
 
-	// Don't want to decode twice, hence sending preCommit with message
-	if err := c.VerifyCommittedSeal(msg.Address, append([]byte(nil), msg.CommittedSeal...), preCommit.ProposedBlockHash, preCommit.Round, preCommit.Height); err != nil {
-		return err
-	}
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	curProposalHash := c.curRoundMessages.ProposalHash()
-	// We don't care about which step we are in to accept a preCommit, since it has the highest importance
+	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
 	c.AcceptVote(c.curRoundMessages, tctypes.Precommit, precommitHash, *msg)
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", preCommit, msg.Address.String(), c.address.String())
+	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String(), c.address.String())
 	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		if err := c.precommitTimeout.StopTimer(); err != nil {
 			return err

@@ -70,10 +70,10 @@ func (s *Map) GetRounds() []int64 {
 
 // RoundMessages stores all message received for a specific round.
 type RoundMessages struct {
-	VerifiedProposal bool
+	verifiedProposal bool
 	proposal         *Propose
-	Prevotes         *Set[*Prevote]
-	Precommits       *Set[*Precommit]
+	prevotes         *Set[*Prevote]
+	precommits       *Set[*Precommit]
 	mu               sync.RWMutex
 }
 
@@ -81,9 +81,9 @@ type RoundMessages struct {
 // we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
 func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
-		Prevotes:         NewSet[*Prevote](),
-		Precommits:       NewSet[*Precommit](),
-		VerifiedProposal: false,
+		prevotes:         NewSet[*Prevote](),
+		precommits:       NewSet[*Precommit](),
+		verifiedProposal: false,
 	}
 }
 
@@ -91,35 +91,35 @@ func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.proposal = proposal
-	s.VerifiedProposal = verified
+	s.verifiedProposal = verified
 }
 
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
-	return s.Prevotes.VotePower(hash)
+	return s.prevotes.VotePower(hash)
 }
 
 func (s *RoundMessages) PrevotesTotalPower() *big.Int {
-	return s.Prevotes.TotalVotePower()
+	return s.prevotes.TotalVotePower()
 }
 
 func (s *RoundMessages) PrecommitsPower(hash common.Hash) *big.Int {
-	return s.Precommits.VotePower(hash)
+	return s.precommits.VotePower(hash)
 }
 
 func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
-	return s.Precommits.TotalVotePower()
+	return s.precommits.TotalVotePower()
 }
 
 func (s *RoundMessages) AddPrevote(prevote *Prevote) {
-	s.Prevotes.AddVote(prevote)
+	s.prevotes.AddVote(prevote)
 }
 
 func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
-	s.Precommits.AddVote(precommit)
+	s.precommits.AddVote(precommit)
 }
 
 func (s *RoundMessages) CommitedSeals(hash common.Hash) []Message {
-	return s.Precommits.Values(hash)
+	return s.precommits.Values(hash)
 }
 
 func (s *RoundMessages) Proposal() *Propose {
@@ -133,15 +133,15 @@ func (s *RoundMessages) IsProposalVerified() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.VerifiedProposal
+	return s.verifiedProposal
 }
 
 func (s *RoundMessages) AllMessages() []Message {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	prevotes := s.Prevotes.Messages()
-	precommits := s.Precommits.Messages()
+	prevotes := s.prevotes.Messages()
+	precommits := s.precommits.Messages()
 
 	result := make([]Message, 0, len(prevotes)+len(precommits)+1)
 	if s.proposal != nil {

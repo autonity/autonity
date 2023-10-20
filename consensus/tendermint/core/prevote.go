@@ -23,14 +23,14 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 		}
 		value = proposal.Hash()
 	}
-	prevote := message.NewVote[message.Prevote](c.Round(), c.Height().Uint64(), value, message.PrevoteCode, c.backend.Sign)
+	prevote := message.NewVote[message.Prevote](c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 	c.sentPrevote = true
 	c.Br().Broadcast(ctx, prevote)
 }
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {
-	if err := c.checkMessage(prevote.R(), prevote.H(), Prevote); err != nil {
+	if err := c.checkMessageStep(prevote.R(), prevote.H(), Prevote); err != nil {
 		// Store old round prevote messages for future rounds since it is required for validRound
 		if errors.Is(err, constants.ErrOldRoundMessage) {
 			// We only process old rounds while future rounds messages are pushed on to the backlog
@@ -90,10 +90,8 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 				return err
 			}
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
-
 			c.precommiter.SendPrecommit(ctx, true)
 			c.SetStep(Precommit)
-
 			// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.step == Prevote && !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
 			timeoutDuration := c.timeoutPrevote(c.Round())

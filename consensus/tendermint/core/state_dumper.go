@@ -142,13 +142,13 @@ func blockHashes(messages map[common.Hash]map[common.Address]message.Message) []
 
 func getVoteState(s *message.Map, round int64) (common.Hash, []VoteState, []VoteState) {
 	p := common.Hash{}
-
-	if s.GetOrCreate(round).Proposal() != nil && s.GetOrCreate(round).Proposal().ProposalBlock != nil {
-		p = s.GetOrCreate(round).Proposal().ProposalBlock.Hash()
+	messages := s.GetOrCreate(round)
+	if proposal := messages.Proposal(); proposal != nil {
+		p = proposal.Hash()
 	}
 
-	preVoteValues := blockHashes(s.GetOrCreate(round).Prevotes.Votes)
-	preCommitValues := blockHashes(s.GetOrCreate(round).Precommits.Votes)
+	preVoteValues := blockHashes(messages.prevotes.Votes)
+	preCommitValues := blockHashes(messages.precommits.Votes)
 	prevoteState := make([]VoteState, 0, len(preVoteValues))
 	precommitState := make([]VoteState, 0, len(preCommitValues))
 

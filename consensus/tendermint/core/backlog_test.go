@@ -27,7 +27,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(1, 2, tctypes.Propose)
+		err := c.checkMessageStep(1, 2, tctypes.Propose)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
@@ -39,7 +39,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(2, 4, tctypes.Propose)
+		err := c.checkMessageStep(2, 4, tctypes.Propose)
 		if err != constants.ErrFutureHeightMessage {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureHeightMessage)
 		}
@@ -51,7 +51,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(2, 1, tctypes.Propose)
+		err := c.checkMessageStep(2, 1, tctypes.Propose)
 		if err != constants.ErrOldHeightMessage {
 			t.Fatalf("have %v, want %v", err, constants.ErrOldHeightMessage)
 		}
@@ -63,7 +63,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(3),
 		}
 
-		err := c.checkMessage(2, 3, tctypes.Propose)
+		err := c.checkMessageStep(2, 3, tctypes.Propose)
 		if err != constants.ErrFutureRoundMessage {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureRoundMessage)
 		}
@@ -75,7 +75,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessage(1, 2, tctypes.Propose)
+		err := c.checkMessageStep(1, 2, tctypes.Propose)
 		if err != constants.ErrOldRoundMessage {
 			t.Fatalf("have %v, want %v", err, constants.ErrOldRoundMessage)
 		}
@@ -88,7 +88,7 @@ func TestCheckMessage(t *testing.T) {
 			step:   tctypes.Propose,
 		}
 
-		err := c.checkMessage(2, 2, tctypes.Prevote)
+		err := c.checkMessageStep(2, 2, tctypes.Prevote)
 		if err != constants.ErrFutureStepMessage {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
 		}
@@ -101,7 +101,7 @@ func TestCheckMessage(t *testing.T) {
 			step:   tctypes.Propose,
 		}
 
-		err := c.checkMessage(2, 2, tctypes.Precommit)
+		err := c.checkMessageStep(2, 2, tctypes.Precommit)
 		if err != constants.ErrFutureStepMessage {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
 		}
@@ -114,7 +114,7 @@ func TestCheckMessage(t *testing.T) {
 			step:   tctypes.Prevote,
 		}
 
-		err := c.checkMessage(2, 2, tctypes.Precommit)
+		err := c.checkMessageStep(2, 2, tctypes.Precommit)
 		if err != nil {
 			t.Fatalf("have %v, want %v", err, nil)
 		}
@@ -127,7 +127,7 @@ func TestCheckMessage(t *testing.T) {
 			step:   tctypes.Precommit,
 		}
 
-		err := c.checkMessage(2, 2, tctypes.Prevote)
+		err := c.checkMessageStep(2, 2, tctypes.Prevote)
 		if err != nil {
 			t.Fatalf("have %v, want %v", err, nil)
 		}

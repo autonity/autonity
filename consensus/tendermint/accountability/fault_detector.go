@@ -889,7 +889,7 @@ oldProposalLoop:
 }
 
 func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.Int) (proofs []*Proof) {
-	// ------------New and Old Prevotes------------
+	// ------------New and Old prevotes------------
 
 	prevotes := fd.msgStore.Get(height, func(m *message.Message) bool {
 		return m.Type() == consensus.MsgPrevote && m.Value() != nilValue
@@ -1203,7 +1203,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 }
 
 func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *big.Int) (proofs []*Proof) {
-	// ------------Precommits------------
+	// ------------precommits------------
 	// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 

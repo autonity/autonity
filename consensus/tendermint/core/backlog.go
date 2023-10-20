@@ -18,12 +18,12 @@ type backlogUntrustedMessageEvent struct {
 	msg message.Message
 }
 
-// checkMessage checks the message step
+// checkMessageStep checks the message step
 // return errInvalidMessage if the message is invalid
 // return errFutureHeightMessage if the message view is larger than curRoundMessages view
 // return errOldHeightMessage if the message view is smaller than curRoundMessages view
 // return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
-func (c *Core) checkMessage(round int64, height uint64, step Step) error {
+func (c *Core) checkMessageStep(round int64, height uint64, step Step) error {
 	h := new(big.Int).SetUint64(height)
 	switch {
 	case round < 0 || round > constants.MaxRound:
@@ -105,7 +105,7 @@ func (c *Core) processBacklog() {
 
 				r := curMsg.R()
 				h := curMsg.H()
-				err := c.checkMessage(r, h, types.Step(curMsg.Code()))
+				err := c.checkMessageStep(r, h, types.Step(curMsg.Code()))
 				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) || errors.Is(err, constants.ErrFutureStepMessage) {
 					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue
