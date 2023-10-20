@@ -125,7 +125,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Sender().String(), c.address.String())
 
-	//l49: Check if we have a quorum of precommits for this proposal2
+	//l49: Check if we have a quorum of precommits for this proposal
 	curProposalHash := c.curRoundMessages.ProposalHash()
 	if c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		c.Commit(proposal.R(), c.curRoundMessages)

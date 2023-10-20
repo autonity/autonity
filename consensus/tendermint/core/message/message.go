@@ -190,12 +190,16 @@ func (p *Precommit) String() string {
 	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.value)
 }
 
-func NewVote[E Prevote | Precommit](r int64, h uint64, value common.Hash, code uint8, signer func([]byte) ([]byte, error)) *E {
-	// the code argument here is unfortunately redundant but after many attempts the Go type inference
-	// system seems too weak to allow removing it.
+func NewVote[
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Message
+	}](r int64, h uint64, value common.Hash, signer func([]byte) ([]byte, error)) *E {
+
+	code := PE(new(E)).Code()
 	signatureInput, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
 	signature, _ := signer(signatureInput)
-
 	payload, _ := rlp.EncodeToBytes(extVote{
 		code:      code,
 		round:     uint64(r),

@@ -6,13 +6,11 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/rlp"
 )
 
 type Precommiter struct {
@@ -20,47 +18,20 @@ type Precommiter struct {
 }
 
 func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.logger.New("step", c.step)
-
-	var precommit = &message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
-	if isNil {
-		precommit.ProposedBlockHash = common.Hash{}
-	} else {
-		if h := c.curRoundMessages.ProposalHash(); h == (common.Hash{}) {
-			c.logger.Error("Core.sendPrecommit Proposal is empty! It should not be empty!")
+	value := common.Hash{}
+	if !isNil {
+		proposal := c.curRoundMessages.Proposal()
+		if proposal == nil {
+			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.curRoundMessages.ProposalHash()
+		value = proposal.Hash()
 	}
-
-	encodedVote, err := rlp.EncodeToBytes(&precommit)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", precommit)
-		return
-	}
-
+	precommit := message.NewVote[message.Precommit](c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
 
-	msg := &message.Message{
-		Code:          consensus.MsgPrecommit,
-		Payload:       encodedVote,
-		Address:       c.address,
-		CommittedSeal: []byte{},
-	}
-
-	// Create committed seal
-	seal := helpers.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
-	msg.CommittedSeal, err = c.backend.Sign(seal)
-	if err != nil {
-		c.logger.Error("Core.sendPrecommit error while signing committed seal", "err", err)
-	}
-
 	c.sentPrecommit = true
-	c.Br().Broadcast(ctx, msg)
+	c.Br().Broadcast(ctx, precommit)
 }
 
 func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
