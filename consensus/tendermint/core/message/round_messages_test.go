@@ -40,7 +40,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 	rm2 := messagesMap.GetOrCreate(4)
 
 	assert.Equal(t, 3, len(messagesMap.internal))
-	assert.Equal(t, 0, len(messagesMap.Messages()))
+	assert.Equal(t, 0, len(messagesMap.All()))
 
 	prevoteHash := common.HexToHash("prevoteHash")
 	precommitHash := common.HexToHash("precommitHash")
@@ -78,7 +78,7 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 	rm2.AddPrevote(prevoteHash, *prevoteMsg)
 	rm2.AddPrecommit(precommitHash, *precommitMsg)
 
-	allMessages := messagesMap.Messages()
+	allMessages := messagesMap.All()
 	assert.Equal(t, 9, len(allMessages))
 
 	for _, m := range allMessages {

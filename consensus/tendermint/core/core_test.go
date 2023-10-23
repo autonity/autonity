@@ -26,7 +26,7 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.MeasureHeightRoundMetrics(0)
+		c.measureHeightRoundMetrics(0)
 		if m := metrics.Get("tendermint/height/change"); m == nil {
 			t.Fatalf("test case failed.")
 		}
@@ -42,7 +42,7 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 			round:            0,
 			height:           big.NewInt(1),
 		}
-		c.MeasureHeightRoundMetrics(1)
+		c.measureHeightRoundMetrics(1)
 		if m := metrics.Get("tendermint/round/change"); m == nil {
 			t.Fatalf("test case failed.")
 		}

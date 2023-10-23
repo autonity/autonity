@@ -5,7 +5,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"math/big"
 )
 
@@ -105,7 +104,7 @@ func (c *Core) processBacklog() {
 
 				r := curMsg.R()
 				h := curMsg.H()
-				err := c.checkMessageStep(r, h, types.Step(curMsg.Code()))
+				err := c.checkMessageStep(r, h, Step(curMsg.Code()))
 				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) || errors.Is(err, constants.ErrFutureStepMessage) {
 					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue

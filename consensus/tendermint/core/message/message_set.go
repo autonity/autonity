@@ -13,7 +13,7 @@ type isVote interface {
 
 func NewSet[T isVote]() *Set[T] {
 	return &Set[T]{
-		Votes:    make(map[common.Hash]map[common.Address]T),
+		votes:    make(map[common.Hash]map[common.Address]T),
 		messages: make(map[common.Address]T),
 	}
 }
@@ -21,7 +21,7 @@ func NewSet[T isVote]() *Set[T] {
 type Set[T isVote] struct {
 	// In some conditions we might receive prevotes or precommit before
 	// receiving a proposal, so we must save received message with different proposed block hash.
-	Votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
+	votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
 	messages map[common.Address]T
 	lock     sync.RWMutex
 }
@@ -37,10 +37,10 @@ func (s *Set[T]) AddVote(vote T) {
 		return
 	}
 
-	if _, ok := s.Votes[value]; !ok {
-		s.Votes[value] = make(map[common.Address]T)
+	if _, ok := s.votes[value]; !ok {
+		s.votes[value] = make(map[common.Address]T)
 	}
-	s.Votes[value][sender] = vote
+	s.votes[value][sender] = vote
 	s.messages[sender] = vote
 }
 
@@ -59,7 +59,7 @@ func (s *Set[T]) Messages() []Message {
 func (s *Set[T]) VotePower(h common.Hash) *big.Int {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	if votes, ok := s.Votes[h]; ok {
+	if votes, ok := s.votes[h]; ok {
 		power := new(big.Int)
 		for _, v := range votes {
 			power.Add(power, v.Power())
@@ -79,15 +79,14 @@ func (s *Set[T]) TotalVotePower() *big.Int {
 	return power
 }
 
-func (s *Set[T]) Values(blockHash common.Hash) []Message {
+func (s *Set[T]) VotesFor(blockHash common.Hash) []T {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	if _, ok := s.Votes[blockHash]; !ok {
+	if _, ok := s.votes[blockHash]; !ok {
 		return nil
 	}
-
-	var messages = make([]Message, 0)
-	for _, v := range s.Votes[blockHash] {
+	messages := make([]T, 0)
+	for _, v := range s.votes[blockHash] {
 		messages = append(messages, v)
 	}
 	return messages

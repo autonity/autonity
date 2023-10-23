@@ -8,5 +8,5 @@ import (
 type Prevoter interface {
 	SendPrevote(ctx context.Context, isNil bool)
 	HandlePrevote(ctx context.Context, msg *message.Prevote) error
-	LogPrevoteMessageEvent(message string, prevote *message.Vote, from, to string)
+	LogPrevoteMessageEvent(message string, prevote *message.Prevote, from, to string)
 }

@@ -70,11 +70,11 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 	switch msg.Code {
 	case ProposeNetworkMsg:
-		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
+		return handleConsensusMsg[*message.Propose](sb, addr, msg, errCh)
 	case PrevoteNetworkMsg:
-		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
+		return handleConsensusMsg[*message.Prevote](sb, addr, msg, errCh)
 	case PrecommitNetworkMsg:
-		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
+		return handleConsensusMsg[*message.Precommit](sb, addr, msg, errCh)
 	case SyncNetworkMsg:
 		if !sb.coreStarted.Load() {
 			sb.logger.Debug("Sync message received but core not running")
@@ -115,7 +115,7 @@ func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
 	var consensusMsg M
-	if err := msg.Decode(&consensusMsg); err != nil {
+	if err := msg.Decode(consensusMsg); err != nil {
 		return true, err
 	}
 	// If reading was fine then cache the original payload to avoid

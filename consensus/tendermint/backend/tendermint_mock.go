@@ -2,7 +2,7 @@
 // Source: consensus/tendermint/core/interfaces/tendermint.go
 
 // Package interfaces is a generated GoMock package.
-package interfaces
+package backend
 
 import (
 	context "context"

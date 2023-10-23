@@ -3,7 +3,6 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
@@ -416,7 +415,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -434,7 +433,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -456,7 +455,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -506,7 +505,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
@@ -535,7 +534,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 
 		ctx := context.Background()
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		chain, _ := newBlockChain(1)
 		b := &Backend{
@@ -558,7 +557,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
 
 		b := &Backend{
@@ -608,7 +607,7 @@ func TestMultipleRestart(t *testing.T) {
 
 	times := 5
 	ctx := context.Background()
-	tendermintC := interfaces.NewMockTendermint(ctrl)
+	tendermintC := NewMockTendermint(ctrl)
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 	chain, _ := newBlockChain(1)

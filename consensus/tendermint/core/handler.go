@@ -11,7 +11,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 )
 
@@ -59,7 +58,7 @@ func (c *Core) subscribeEvents() {
 	s1 := c.backend.Subscribe(events.NewCandidateBlockEvent{})
 	c.candidateBlockEventSub = s1
 
-	s2 := c.backend.Subscribe(types.TimeoutEvent{})
+	s2 := c.backend.Subscribe(TimeoutEvent{})
 	c.timeoutEventSub = s2
 
 	s3 := c.backend.Subscribe(events.CommitEvent{})
@@ -132,7 +131,7 @@ eventLoop:
 					}
 					continue
 				}
-				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.Payload)
+				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.Message)
 			case backlogMessageEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling consensus backlog event")
@@ -140,7 +139,7 @@ eventLoop:
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg.GetBytes())
+				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg)
 
 			case backlogUntrustedMessageEvent:
 				c.logger.Debug("Started handling backlog unchecked event")
@@ -149,7 +148,7 @@ eventLoop:
 					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg.GetBytes())
+				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg)
 			case CoreStateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -310,10 +309,10 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Message) error {
 		return testBacklog(c.proposer.HandleProposal(ctx, m))
 	case *message.Prevote:
 		logger.Debug("Handling Prevote")
-		return testBacklog(c.prevoter.HandlePrevote(ctx, &m))
+		return testBacklog(c.prevoter.HandlePrevote(ctx, m))
 	case *message.Precommit:
 		logger.Debug("Handling Precommit")
-		return testBacklog(c.precommiter.HandlePrecommit(ctx, &m))
+		return testBacklog(c.precommiter.HandlePrecommit(ctx, m))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}

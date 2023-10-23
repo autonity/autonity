@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"math/big"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -42,6 +42,13 @@ var (
 	// ErrStoppedEngine is returned if the engine is stopped
 	ErrStoppedEngine = errors.New("stopped engine")
 )
+
+type Core interface {
+	Start(ctx context.Context, contract *autonity.ProtocolContracts)
+	Stop()
+	CurrentHeightMessages() []message.Message
+	CoreState() tendermintCore.TendermintState
+}
 
 // New creates an Ethereum Backend for BFT core engine.
 func New(privateKey *ecdsa.PrivateKey,
@@ -96,7 +103,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
-	core              interfaces.Core
+	core              Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup
 	coreMu            sync.RWMutex
@@ -440,7 +447,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 		return
 	}
 
-	sb.logger.Info("Syncing", "peer", address)
+	sb.logger.Debug("Syncing", "peer", address)
 	targets := map[common.Address]struct{}{address: {}}
 	ps := sb.Broadcaster.FindPeers(targets)
 	p, connected := ps[address]
@@ -450,7 +457,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	messages := sb.core.CurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(TendermintMsg, msg.GetBytes()) //nolint
+		go p.Send(msg.Code(), msg.Payload()) //nolint
 	}
 }
 

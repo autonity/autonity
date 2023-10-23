@@ -10,7 +10,6 @@ import (
 	"github.com/autonity/autonity/consensus/misc"
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
@@ -409,7 +408,7 @@ func TestSyncPeer(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		tendermintC := interfaces.NewMockTendermint(ctrl)
+		tendermintC := NewMockTendermint(ctrl)
 		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
 
 		b := &Backend{

@@ -107,19 +107,16 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	if len(committedSeals) == 0 {
 		return ErrInvalidCommittedSeals
 	}
-
 	for _, seal := range committedSeals {
 		if len(seal) != BFTExtraSeal {
 			return ErrInvalidCommittedSeals
 		}
 	}
-
 	h.CommittedSeals = make([][]byte, len(committedSeals))
 	for i, val := range committedSeals {
 		h.CommittedSeals[i] = make([]byte, len(val))
 		copy(h.CommittedSeals[i], val)
 	}
-
 	return nil
 }
 

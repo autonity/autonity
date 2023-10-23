@@ -10,7 +10,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
 )
 
@@ -51,7 +50,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 						return err2
 					}
 				}
-				c.Commit(precommit.Round, c.curRoundMessages)
+				c.Commit(precommit.R(), c.curRoundMessages)
 				return nil
 			}
 		}
@@ -62,9 +61,8 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	curProposalHash := c.curRoundMessages.ProposalHash()
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
-
-	c.AcceptVote(c.curRoundMessages, tctypes.Precommit, precommitHash, *msg)
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, msg.Address.String(), c.address.String())
+	c.curRoundMessages.AddPrecommit(precommit)
+	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
 	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		if err := c.precommitTimeout.StopTimer(); err != nil {
 			return err
@@ -119,20 +117,20 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 	}
 }
 
-func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Vote, from, to string) {
+func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Precommit, from, to string) {
 	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
 		"currentHeight", c.Height(),
-		"msgHeight", precommit.Height,
+		"msgHeight", precommit.H(),
 		"currentRound", c.Round(),
-		"msgRound", precommit.Round,
+		"msgRound", precommit.R(),
 		"currentStep", c.step,
 		"isProposer", c.IsProposer(),
 		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
-		"isNilMsg", precommit.ProposedBlockHash == common.Hash{},
-		"hash", precommit.ProposedBlockHash,
+		"isNilMsg", precommit.Value() == common.Hash{},
+		"hash", precommit.Value(),
 		"type", "Precommit",
 		"totalVotes", c.curRoundMessages.PrecommitsTotalPower(),
 		"totalNilVotes", c.curRoundMessages.PrecommitsPower(common.Hash{}),

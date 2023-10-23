@@ -13,5 +13,5 @@ type Precommiter interface {
 	HandlePrecommit(ctx context.Context, msg *message.Precommit) error
 	VerifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error
 	HandleCommit(ctx context.Context)
-	LogPrecommitMessageEvent(message string, precommit *message.Vote, from, to string)
+	LogPrecommitMessageEvent(message string, precommit *message.Precommit, from, to string)
 }

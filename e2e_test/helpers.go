@@ -111,12 +111,8 @@ func NewVoteMsg(code uint8, h uint64, r int64, v common.Hash, c *core.Core) *mes
 }
 
 // DefaultSignAndBroadcast just do the msg gossiping without any simulation.
-func DefaultSignAndBroadcast(ctx context.Context, c *core.Core, m *message.Message) {
-	payload, err := c.SignMessage(m)
-	if err != nil {
-		return
-	}
-	_ = c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), payload)
+func DefaultBroadcast(ctx context.Context, c *core.Core, m message.Message) {
+	c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), m)
 }
 
 func NextProposeRound(currentRound int64, c *core.Core) int64 {

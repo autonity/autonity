@@ -108,7 +108,7 @@ func TestMessageSetValues(t *testing.T) {
 		blockHash := common.BytesToHash([]byte("123456789"))
 		ms := NewSet()
 
-		if got := ms.Values(blockHash); got != nil {
+		if got := ms.VotesFor(blockHash); got != nil {
 			t.Fatalf("Expected nils, got %v", got)
 		}
 	})
@@ -120,7 +120,7 @@ func TestMessageSetValues(t *testing.T) {
 		ms := NewSet()
 		ms.AddVote(blockHash, msg)
 
-		if got := len(ms.Values(blockHash)); got != 1 {
+		if got := len(ms.VotesFor(blockHash)); got != 1 {
 			t.Fatalf("Expected 1 message, got %v", got)
 		}
 	})

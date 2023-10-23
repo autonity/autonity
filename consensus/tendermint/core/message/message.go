@@ -48,6 +48,7 @@ type Message interface {
 	String() string
 	Hash() common.Hash
 	Payload() []byte
+	Signature() []byte
 	Validate(func(address common.Address) *types.CommitteeMember) error
 }
 
@@ -238,6 +239,10 @@ func (b *baseMessage) R() int64 {
 
 func (b *baseMessage) Power() *big.Int {
 	return b.power
+}
+
+func (b *baseMessage) Signature() []byte {
+	return b.signature
 }
 
 func (b *baseMessage) Payload() []byte {

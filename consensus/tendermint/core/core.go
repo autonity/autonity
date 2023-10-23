@@ -310,53 +310,25 @@ func (c *Core) SetBr(br interfaces.Broadcaster) {
 	c.broadcaster = br
 }
 
-func (c *Core) CurrentHeightMessages() []message.Message {
-	return c.messages.Messages()
-}
-
-func (c *Core) SignMessage(msg *message.Message) ([]byte, error) {
-	data, err := msg.BytesNoSignature()
-	if err != nil {
-		return nil, err
-	}
-	if msg.Signature, err = c.backend.Sign(data); err != nil {
-		return nil, err
-	}
-	return msg.GetBytes(), nil
-}
-
 func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 	c.SetStep(PrecommitDone)
-
 	// for metrics
 	start := time.Now()
-
 	proposal := messages.Proposal()
 	if proposal == nil {
 		// Should never happen really.
-		c.logger.Error("Core commit called with empty proposal ")
+		c.logger.Error("Core commit called with empty proposal")
 		return
 	}
-
-	if proposal.ProposalBlock == nil {
-		// Again should never happen.
-		c.logger.Error("commit a NIL block",
-			"block", proposal.ProposalBlock,
-			"height", c.Height(),
-			"round", round)
-		return
-	}
-
-	c.logger.Debug("commit a block", "hash", proposal.ProposalBlock.Header().Hash())
+	proposalHash := proposal.Block().Header().Hash()
+	c.logger.Debug("Committing a block", "hash", proposalHash)
 
 	committedSeals := make([][]byte, 0)
-	for _, v := range messages.CommitedSeals(proposal.ProposalBlock.Hash()) {
-		seal := make([]byte, types.BFTExtraSeal)
-		copy(seal[:], v.CommittedSeal[:])
-		committedSeals = append(committedSeals, seal)
+	for _, v := range messages.PrecommitsFor(proposalHash) {
+		committedSeals = append(committedSeals, v.Signature())
 	}
 
-	if err := c.backend.Commit(proposal.ProposalBlock, round, committedSeals); err != nil {
+	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
@@ -369,7 +341,7 @@ func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 }
 
 // Metric collecton of round change and height change.
-func (c *Core) MeasureHeightRoundMetrics(round int64) {
+func (c *Core) measureHeightRoundMetrics(round int64) {
 	if round == 0 {
 		// in case of height change, round changed too, so count it also.
 		RoundChangeMeter.Mark(1)
@@ -385,9 +357,9 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
 	}
 
-	c.MeasureHeightRoundMetrics(round)
+	c.measureHeightRoundMetrics(round)
 	// Set initial FSM state
-	c.SetInitialState(round)
+	c.setInitialState(round)
 	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
 	c.SetStep(Propose)
 	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
@@ -417,7 +389,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	}
 }
 
-func (c *Core) SetInitialState(r int64) {
+func (c *Core) setInitialState(r int64) {
 	// Start of new height where round is 0
 	if r == 0 {
 		lastBlockMined, _ := c.backend.HeadBlock()

@@ -21,7 +21,7 @@ func (c *Core) handleStateDump(e CoreStateRequestEvent) {
 	state := TendermintState{
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,
-		CurHeightMessages: msgForDump(c.CurrentHeightMessages()),
+		CurHeightMessages: msgForDump(c.messages.All()),
 		BacklogMessages:   getBacklogMsgs(c),
 		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
 		// tendermint Core state:
@@ -87,7 +87,7 @@ func msgForDump(messages []message.Message) []*MsgForDump {
 		msg := new(MsgForDump)
 		msg.Message = m
 		msg.Power = m.Power()
-		msg.Hash = types.RLPHash(m.Bytes) // ]
+		msg.Hash = m.Hash()
 
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1
@@ -100,8 +100,8 @@ func msgForDump(messages []message.Message) []*MsgForDump {
 }
 
 func getProposal(c *Core, round int64) *common.Hash {
-	if c.messages.GetOrCreate(round).ProposalDetails != nil && c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock != nil {
-		v := c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock.Hash()
+	if c.messages.GetOrCreate(round).Proposal() != nil && c.messages.GetOrCreate(round).Proposal().Block() != nil {
+		v := c.messages.GetOrCreate(round).Proposal().Block().Hash()
 		return &v
 	}
 	return nil
@@ -132,10 +132,10 @@ func getRoundState(c *Core) []RoundState {
 	return states
 }
 
-func blockHashes(messages map[common.Hash]map[common.Address]message.Message) []common.Hash {
+func blockHashes[T interface{ Value() common.Hash }](messages []message.Message) []common.Hash {
 	blockHashes := make([]common.Hash, 0, len(messages))
-	for key := range messages {
-		blockHashes = append(blockHashes, key)
+	for _, m := range messages {
+		blockHashes = append(blockHashes, m.(T).Value())
 	}
 	return blockHashes
 }
@@ -147,8 +147,8 @@ func getVoteState(s *message.Map, round int64) (common.Hash, []VoteState, []Vote
 		p = proposal.Hash()
 	}
 
-	preVoteValues := blockHashes(messages.prevotes.Votes)
-	preCommitValues := blockHashes(messages.precommits.Votes)
+	preVoteValues := blockHashes[*message.Prevote](messages.AllPrevotes())
+	preCommitValues := blockHashes[*message.Precommit](messages.AllPrecommits())
 	prevoteState := make([]VoteState, 0, len(preVoteValues))
 	precommitState := make([]VoteState, 0, len(preCommitValues))
 
