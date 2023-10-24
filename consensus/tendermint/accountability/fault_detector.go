@@ -72,8 +72,8 @@ var (
 type Proof struct {
 	Type      autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
 	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.
-	Message   *message.Message                 // the consensus message which is accountable.
-	Evidences []*message.Message               // the proofs of the accountability event.
+	Message   message.Message                  // the consensus message which is accountable.
+	Evidences []message.Message                // the proofs of the accountability event.
 }
 
 // FaultDetector it subscribe chain event to trigger rule engine to apply patterns over

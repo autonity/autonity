@@ -72,7 +72,7 @@ func (c *Core) storeFutureMessage(msg message.Message) {
 
 		// Forget in the local cache that we ever received this message.
 		// It's needed for it to be able to be re-received and processed later, after a consensus sync, if needed.
-		c.backend.RemoveMessageFromLocalCache(c.backlogUntrusted[maxHeight][len(c.backlogUntrusted[maxHeight])-1].Payload())
+		c.backend.RemoveMessageFromLocalCache(c.backlogUntrusted[maxHeight][len(c.backlogUntrusted[maxHeight])-1])
 
 		// Remove it from the backlog buffer.
 		c.backlogUntrusted[maxHeight] = c.backlogUntrusted[maxHeight][:len(c.backlogUntrusted[maxHeight])-1]

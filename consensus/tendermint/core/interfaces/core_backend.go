@@ -39,7 +39,7 @@ type Backend interface {
 	HandleUnhandledMsgs(ctx context.Context)
 
 	// HeadBlock retrieves latest committed proposal and the address of proposer
-	HeadBlock() (*types.Block, common.Address)
+	HeadBlock() *types.Block
 
 	Post(ev any)
 
@@ -65,7 +65,7 @@ type Backend interface {
 
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
 	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
-	RemoveMessageFromLocalCache(payload []byte)
+	RemoveMessageFromLocalCache(message message.Message)
 
 	// Logger returns the object used for logging purposes.
 	Logger() log.Logger

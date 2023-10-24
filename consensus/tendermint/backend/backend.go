@@ -457,7 +457,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	messages := sb.core.CurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.Send(msg.Code(), msg.Payload()) //nolint
+		go p.SendRaw(networkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
 
@@ -470,10 +470,8 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 	}
 }
 
-func (sb *Backend) RemoveMessageFromLocalCache(payload []byte) {
-	// Note: ARC is thread-safe
-	hash := types.RLPHash(payload)
-	sb.knownMessages.Remove(hash)
+func (sb *Backend) RemoveMessageFromLocalCache(message message.Message) {
+	sb.knownMessages.Remove(message.Hash())
 }
 
 /*

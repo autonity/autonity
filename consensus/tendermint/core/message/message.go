@@ -29,16 +29,6 @@ const (
 
 type SigVerifier func(*types.Header, []byte, []byte) (common.Address, error)
 
-/*type Message struct {
-	Signature     []byte
-	CommittedSeal []byte // todo(youssef): this should be moved in the precommit object
-
-	// todo:(youssef) this might be rlp encoded too in the message structure even if nil
-	Power        *big.Int
-	ConsensusMsg ConsensusMsg // cached decoded Msg
-	Bytes        []byte       // rlp encoded bytes with only the 1st 5 fields of this Message struct.
-}*/
-
 type Message interface {
 	R() int64
 	H() uint64

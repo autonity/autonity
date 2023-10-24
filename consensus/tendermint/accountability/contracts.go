@@ -96,19 +96,19 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 	// an improvement of this function would be to return an error instead of a bool
 	switch p.Rule {
 	case autonity.PO:
-		if p.Message.Code != consensus.MsgLightProposal || p.Message.ConsensusMsg.(*message.LightProposal).ValidRound == -1 {
+		if p.Message.Code() != message.LightProposalCode || p.Message.(*message.LightProposal).ValidRound == -1 {
 			return false
 		}
 	case autonity.PVN:
-		if p.Message.Code != consensus.MsgPrevote {
+		if p.Message.Code() != message.PrevoteCode {
 			return false
 		}
 	case autonity.PVO:
-		if p.Message.Code != consensus.MsgPrevote {
+		if p.Message.Code() != message.PrevoteCode {
 			return false
 		}
 	case autonity.C1:
-		if p.Message.Code != consensus.MsgPrecommit {
+		if p.Message.Code() != message.PrecommitCode {
 			return false
 		}
 	default:
@@ -121,7 +121,7 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 	if lastHeader == nil {
 		return false
 	}
-	if err := p.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if err := p.Message.Validate(lastHeader.CommitteeMember); err != nil {
 		return false
 	}
 
@@ -132,7 +132,7 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 		}
 		oldProposal := p.Evidences[0]
 		// Todo(Youssef): bug possible with Light proposal sig validation // signature may come from accuser not reported
-		if err := oldProposal.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		if err := oldProposal.Validate(lastHeader.CommitteeMember); err != nil {
 			return false
 		}
 		if oldProposal.Code != consensus.MsgLightProposal ||
@@ -808,7 +808,7 @@ func checkEquivocation(m *message.Message, proof []*message.Message) error {
 	return nil
 }
 
-func validReturn(m *message.Message, rule autonity.Rule) []byte {
+func validReturn(m message.Message, rule autonity.Rule) []byte {
 	offender := common.LeftPadBytes(m.Sender().Bytes(), 32)
 	ruleID := common.LeftPadBytes([]byte{byte(rule)}, 32)
 	block := make([]byte, 32)

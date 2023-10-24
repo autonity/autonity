@@ -123,13 +123,13 @@ type Core struct {
 	backend interfaces.Backend
 	cancel  context.CancelFunc
 
-	messageEventSub        *event.TypeMuxSubscription
-	candidateBlockEventSub *event.TypeMuxSubscription
-	committedSub           *event.TypeMuxSubscription
-	timeoutEventSub        *event.TypeMuxSubscription
-	syncEventSub           *event.TypeMuxSubscription
-	futureProposalTimer    *time.Timer
-	stopped                chan struct{}
+	messageSub          *event.TypeMuxSubscription
+	candidateBlockSub   *event.TypeMuxSubscription
+	committedSub        *event.TypeMuxSubscription
+	timeoutEventSub     *event.TypeMuxSubscription
+	syncEventSub        *event.TypeMuxSubscription
+	futureProposalTimer *time.Timer
+	stopped             chan struct{}
 
 	backlogs             map[common.Address][]message.Message
 	backlogUntrusted     map[uint64][]message.Message
@@ -392,7 +392,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 func (c *Core) setInitialState(r int64) {
 	// Start of new height where round is 0
 	if r == 0 {
-		lastBlockMined, _ := c.backend.HeadBlock()
+		lastBlockMined := c.backend.HeadBlock()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
@@ -538,6 +538,10 @@ func (c *Core) LastHeader() *types.Header {
 	return c.lastHeader
 }
 
+func (c *Core) CurrentHeightMessages() []message.Message {
+	return c.messages.All()
+}
+
 func (c *Core) Backend() interfaces.Backend {
 	return c.backend
 }
@@ -548,6 +552,7 @@ func (c *Core) Logger() log.Logger {
 func (c *Core) IsFromProposer(round int64, address common.Address) bool {
 	return c.CommitteeSet().GetProposer(round).Address == address
 }
+
 func (c *Core) IsProposer() bool {
 	return c.CommitteeSet().GetProposer(c.Round()).Address == c.address
 }

@@ -7,8 +7,6 @@ import (
 	"math/big"
 	"sync"
 	"time"
-
-	"github.com/autonity/autonity/consensus"
 )
 
 const (
@@ -112,19 +110,19 @@ func (t *Timeout) Reset(s Step) {
 }
 
 // ///////////// On Timeout Functions ///////////////
-func (c *Core) measureMetricsOnTimeOut(step uint8, r int64) {
+func (c *Core) measureMetricsOnTimeOut(step Step, r int64) {
 	switch step {
-	case consensus.MsgProposal:
+	case Propose:
 		duration := c.timeoutPropose(r)
 		ProposeTimer.Update(duration)
 		ProposeBg.Add(duration.Nanoseconds())
 		return
-	case consensus.MsgPrevote:
+	case Prevote:
 		duration := c.timeoutPrevote(r)
 		PrevoteTimer.Update(duration)
 		PrevoteBg.Add(duration.Nanoseconds())
 		return
-	case consensus.MsgPrecommit:
+	case Precommit:
 		duration := c.timeoutPrecommit(r)
 		PrecommitTimer.Update(duration)
 		PrecommitBg.Add(duration.Nanoseconds())

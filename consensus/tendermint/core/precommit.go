@@ -107,7 +107,7 @@ func (c *Precommiter) VerifyCommittedSeal(addressMsg common.Address, committedSe
 
 func (c *Precommiter) HandleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.step)
-	lastBlock, _ := c.backend.HeadBlock()
+	lastBlock := c.backend.HeadBlock()
 	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 	if height.Cmp(c.Height()) == 0 {
 		c.logger.Debug("Discarding event as Core is at the same height", "height", c.Height())

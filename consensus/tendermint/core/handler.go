@@ -52,26 +52,21 @@ func (c *Core) Stop() {
 }
 
 func (c *Core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, backlogMessageEvent{}, backlogUntrustedMessageEvent{}, CoreStateRequestEvent{})
-	c.messageEventSub = s
-
-	s1 := c.backend.Subscribe(events.NewCandidateBlockEvent{})
-	c.candidateBlockEventSub = s1
-
-	s2 := c.backend.Subscribe(TimeoutEvent{})
-	c.timeoutEventSub = s2
-
-	s3 := c.backend.Subscribe(events.CommitEvent{})
-	c.committedSub = s3
-
-	s4 := c.backend.Subscribe(events.SyncEvent{})
-	c.syncEventSub = s4
+	c.messageSub = c.backend.Subscribe(
+		events.MessageEvent{},
+		backlogMessageEvent{},
+		backlogUntrustedMessageEvent{},
+		CoreStateRequestEvent{})
+	c.candidateBlockSub = c.backend.Subscribe(events.NewCandidateBlockEvent{})
+	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
+	c.committedSub = c.backend.Subscribe(events.CommitEvent{})
+	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
-// Unsubscribe all messageEventSub
+// Unsubscribe all messageSub
 func (c *Core) unsubscribeEvents() {
-	c.messageEventSub.Unsubscribe()
-	c.candidateBlockEventSub.Unsubscribe()
+	c.messageSub.Unsubscribe()
+	c.candidateBlockSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
 	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
@@ -114,7 +109,7 @@ func (c *Core) mainEventLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case ev, ok := <-c.messageEventSub.Chan():
+		case ev, ok := <-c.messageSub.Chan():
 			if !ok {
 				break eventLoop
 			}
@@ -175,7 +170,7 @@ eventLoop:
 			case events.CommitEvent:
 				c.precommiter.HandleCommit(ctx)
 			}
-		case ev, ok := <-c.candidateBlockEventSub.Chan():
+		case ev, ok := <-c.candidateBlockSub.Chan():
 			if !ok {
 				break eventLoop
 			}
