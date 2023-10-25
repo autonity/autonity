@@ -22,7 +22,8 @@ const (
 	ProposalCode uint8 = iota
 	PrevoteCode
 	PrecommitCode
-	// MsgLightProposal is only used by accountability that it converts full proposal to a lite one
+
+	// LightProposalCode is only used by accountability that it converts full proposal to a lite one
 	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
 	LightProposalCode
 )
@@ -37,6 +38,7 @@ type Message interface {
 	Power() *big.Int
 	String() string
 	Hash() common.Hash
+	Value() common.Hash
 	Payload() []byte
 	Signature() []byte
 	Validate(func(address common.Address) *types.CommitteeMember) error
@@ -71,14 +73,6 @@ type extPropose struct {
 	signature       []byte
 }
 
-type LightProposal struct {
-	round      int64
-	height     *big.Int
-	validRound int64
-	value      common.Hash
-	signature  []byte // the signature computes from the tuple: (Round, Height, ValidRound, ProposalBlock.Hash())
-}
-
 func (p *Propose) Code() uint8 {
 	return ProposalCode
 }
@@ -89,6 +83,9 @@ func (p *Propose) Block() *types.Block {
 
 func (p *Propose) ValidRound() int64 {
 	return p.validRound
+}
+func (p *Propose) Value() common.Hash {
+	return p.block.Hash()
 }
 
 func (p *Propose) String() string {
@@ -137,7 +134,29 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 	}
 }
 
-// RLP DECODE CHECK IF PROPOSAL CAN BE NIL
+// !!!!!!!!!!TODO: RLP DECODE CHECK IF PROPOSAL CAN BE NIL!!!!!!!!!!
+
+type LightProposal struct {
+	blockHash  common.Hash
+	validRound int64
+	baseMessage
+}
+
+func (p *LightProposal) Code() uint8 {
+	return LightProposalCode
+}
+
+func (p *LightProposal) ValidRound() int64 {
+	return p.validRound
+}
+
+func (p *LightProposal) Value() common.Hash {
+	return p.blockHash
+}
+
+func (p *LightProposal) String() string {
+	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.blockHash)
+}
 
 type extVote struct {
 	code      uint8
@@ -245,6 +264,7 @@ func (b *baseMessage) Hash() common.Hash {
 
 // Validate verify the signature and set appropriate sender / power fields
 func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
+	// this is wrong for propose as the hash is different.
 	pub, err := crypto.SigToPub(b.hash[:], b.signature)
 	if err != nil {
 		return err

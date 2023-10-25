@@ -110,7 +110,7 @@ type FaultDetector struct {
 	msgHandlerBlockSub event.Subscription
 
 	misbehaviourProofsCh chan *autonity.AccountabilityEvent
-	futureHeightMsgs     map[uint64][]*message.Message   // map[blockHeight][]*tendermintMessages
+	futureHeightMsgs     map[uint64][]message.Message    // map[blockHeight][]*tendermintMessages
 	futureHeightMsgsSize uint64                          // a counter to count the total cached future height msg.
 	pendingEvents        []*autonity.AccountabilityEvent // accountability event buffer.
 
@@ -154,7 +154,7 @@ func NewFaultDetector(
 		msgHandlerBlockCh:     make(chan core.ChainEvent, 300),
 		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
 		misbehaviourProofsCh:  make(chan *autonity.AccountabilityEvent, 100),
-		futureHeightMsgs:      make(map[uint64][]*message.Message),
+		futureHeightMsgs:      make(map[uint64][]message.Message),
 		futureHeightMsgsSize:  0,
 		logger:                logger, // Todo(youssef): remove context
 	}
@@ -187,7 +187,7 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	fd.broadcaster = broadcaster
 }
 
-func (fd *FaultDetector) saveFutureHeightMsg(m *message.Message) {
+func (fd *FaultDetector) saveFutureHeightMsg(m message.Message) {
 	fd.futureHeightMsgs[m.H()] = append(fd.futureHeightMsgs[m.H()], m)
 	fd.futureHeightMsgsSize++
 
@@ -216,10 +216,10 @@ func (fd *FaultDetector) deleteFutureHeightMsg(height uint64) {
 
 // decodeMessage decode the RLP-encoded inner messages and verify if they are well signed too.
 // Ideally this should be splitted up into two separate functions.
-func decodeMessage(m *message.Message) error {
+func decodeMessage(m message.Message) error {
 	// Light proposals are not signed by the reported validator but by the reporter
 	// and we don't really care about the reporter signature
-	if m.Code == consensus.MsgLightProposal {
+	if m.Code() == message.LightProposalCode {
 		var lightProposal message.LightProposal
 		if err := m.Decode(&lightProposal); err != nil {
 			return err
@@ -241,12 +241,12 @@ func decodeMessage(m *message.Message) error {
 		return errWrongSignatureMsg
 	}
 	switch m.Code {
-	case consensus.MsgProposal:
+	case message.ProposalCode:
 		var proposal message.Proposal
 		if err := m.Decode(&proposal); err != nil {
 			return errAccountableGarbageMsg
 		}
-	case consensus.MsgPrevote, consensus.MsgPrecommit:
+	case message.PrevoteCode, message.PrecommitCode:
 		var vote message.Vote
 		if err := m.Decode(&vote); err != nil {
 			return errAccountableGarbageMsg
@@ -257,7 +257,7 @@ func decodeMessage(m *message.Message) error {
 	return nil
 }
 
-func preCheckMessage(m *message.Message, chain ChainContext) error {
+func preCheckMessage(m message.Message, chain ChainContext) error {
 	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
 	if lastHeader == nil {
 		return errFutureMsg
@@ -298,7 +298,7 @@ tendermintMsgLoop:
 				if err != nil {
 					// make this fault accountable only for committee members, otherwise validators might pay fees to
 					// report lots of none sense proof which is a vector of attack as well.
-					if err == errAccountableGarbageMsg && curHeader.CommitteeMember(msg.Address) != nil {
+					if errors.Is(err, errAccountableGarbageMsg) && curHeader.CommitteeMember(msg.Sender) != nil {
 						fd.submitMisbehavior(msg, nil, errAccountableGarbageMsg, fd.misbehaviourProofsCh)
 					}
 					continue tendermintMsgLoop
@@ -533,8 +533,8 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
 
-	prevotesForV := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
+	prevotesForV := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrevoteCode && m.Value() == preCommit.Value() && m.R() == preCommit.R()
 	})
 
 	overQuorumVotes := engineCore.OverQuorumVotes(prevotesForV, quorum)
@@ -564,8 +564,8 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
 
-	prevotes := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrevote && m.R() == validRound && m.Value() == liteProposal.Value()
+	prevotes := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() == liteProposal.Value()
 	})
 
 	overQuorumPreVotes := engineCore.OverQuorumVotes(prevotes, quorum)
@@ -591,11 +591,11 @@ func (fd *FaultDetector) innocenceProofPVN(c *Proof) (*autonity.AccountabilityEv
 	height := prevote.H()
 
 	// the only proof of innocence of PVN accusation is that there exist a corresponding proposal
-	proposals := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgProposal &&
+	proposals := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.ProposalCode &&
 			m.R() == prevote.R() &&
 			m.Value() == prevote.Value() &&
-			m.ConsensusMsg.(*message.Proposal).ValidRound == -1
+			m.(*message.Propose).ValidRound() == -1
 	})
 
 	if len(proposals) != 0 {
@@ -603,7 +603,7 @@ func (fd *FaultDetector) innocenceProofPVN(c *Proof) (*autonity.AccountabilityEv
 			Type:      autonity.Innocence,
 			Rule:      c.Rule,
 			Message:   prevote,
-			Evidences: []*message.Message{proposals[0].ToLightProposal()},
+			Evidences: []message.Message{proposals[0].ToLightProposal()},
 		})
 		return p, nil
 	}
@@ -622,8 +622,8 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
 
-	preVotes := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrevote && m.Value() == oldProposal.Value() && m.R() == validRound
+	preVotes := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrevoteCode && m.Value() == oldProposal.Value() && m.R() == validRound
 	})
 
 	overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
@@ -642,24 +642,20 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 }
 
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg in msg store.
-func (fd *FaultDetector) processMsg(m *message.Message) error {
+func (fd *FaultDetector) processMsg(m message.Message) error {
 	// check if msg is from valid committee member
 	if err := preCheckMessage(m, fd.blockchain); err != nil {
-		if err == errFutureMsg {
+		if errors.Is(err, errFutureMsg) {
 			fd.saveFutureHeightMsg(m)
-			return err
 		}
 		return err
 	}
-
 	switch m.Code {
-	case consensus.MsgProposal:
+	case message.ProposalCode:
 		if err := fd.accountForAutoIncriminatingProposal(m); err != nil {
 			return err
 		}
-	case consensus.MsgPrevote:
-		fallthrough
-	case consensus.MsgPrecommit:
+	case message.PrevoteCode, message.PrecommitCode:
 		if err := fd.accountForAutoIncriminatingVote(m); err != nil {
 			return err
 		}
@@ -741,16 +737,16 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 	// raise a misbehaviour. To raise a misbehaviour for PN1 we need to have received all the precommits from pi for all
 	// r' < r. If any of the precommits is for a non-nil value then we have proof of misbehaviour.
 
-	proposalsNew := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgProposal && m.ConsensusMsg.(*message.Proposal).ValidRound == -1
+	proposalsNew := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.ProposalCode && m.(*message.Propose).ValidRound() == -1
 	})
 
 	for _, p := range proposalsNew {
 		proposal := p
 
 		// Skip if proposal is equivocated
-		proposalsForR := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Sender() == proposal.Sender() && m.Type() == consensus.MsgProposal && m.R() == proposal.R()
+		proposalsForR := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Sender() == proposal.Sender() && m.Code() == message.ProposalCode && m.R() == proposal.R()
 
 		})
 		// Due to the for loop there must be at least one proposal
@@ -759,8 +755,8 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 		}
 
 		//check all precommits for previous rounds from this sender are nil
-		precommits := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Sender() == proposal.Sender() && m.Type() == consensus.MsgPrecommit && m.R() < proposal.R() && m.Value() != nilValue
+		precommits := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Sender() == proposal.Sender() && m.Code() == message.PrecommitCode && m.R() < proposal.R() && m.Value() != nilValue
 		})
 		if len(precommits) != 0 {
 			proof := &Proof{
@@ -781,8 +777,8 @@ func (fd *FaultDetector) oldProposalsAccountabilityCheck(height uint64, quorum *
 	// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
 	// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
 
-	proposalsOld := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgProposal && m.ConsensusMsg.(*message.Proposal).ValidRound > -1
+	proposalsOld := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.ProposalCode && m.(*message.Proposal).ValidRound > -1
 	})
 
 oldProposalLoop:
@@ -792,8 +788,8 @@ oldProposalLoop:
 		// precommit for v or nil.
 
 		// Skip if proposal is equivocated
-		proposalsForR := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Sender() == proposal.Sender() && m.Type() == consensus.MsgProposal && m.R() == proposal.R()
+		proposalsForR := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Sender() == proposal.Sender() && m.Code() == message.ProposalCode && m.R() == proposal.R()
 
 		})
 		// Due to the for loop there must be at least one proposal
@@ -806,8 +802,8 @@ oldProposalLoop:
 		// Is there a precommit for a value other than nil or the proposed value by the current proposer in the valid
 		// round? If there is, the proposer has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
-		precommitsFromPiInVR := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrecommit && m.R() == validRound && m.Sender() == proposal.Sender() &&
+		precommitsFromPiInVR := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.PrecommitCode && m.R() == validRound && m.Sender() == proposal.Sender() &&
 				m.Value() != nilValue && m.Value() != proposal.Value()
 		})
 		if len(precommitsFromPiInVR) > 0 {
@@ -825,8 +821,8 @@ oldProposalLoop:
 		// Is there a precommit for anything other than nil from the proposer between the valid round and the round of
 		// the proposal? If there is then that implies the proposer saw 2f+1 prevotes in that round and hence it should
 		// have set that round as the valid round.
-		precommitsFromPiAfterVR := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrecommit && m.R() > validRound && m.R() < proposal.R() &&
+		precommitsFromPiAfterVR := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < proposal.R() &&
 				m.Sender() == proposal.Sender() && m.Value() != nilValue
 		})
 		if len(precommitsFromPiAfterVR) > 0 {
@@ -842,11 +838,11 @@ oldProposalLoop:
 		}
 
 		// Do we see a quorum for a value other than the proposed value? If so, we have proof of misbehaviour.
-		allPrevotesForValidRound := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrevote && m.R() == validRound && m.Value() != proposal.Value()
+		allPrevotesForValidRound := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() != proposal.Value()
 		})
 
-		prevotesMap := make(map[common.Hash][]*message.Message)
+		prevotesMap := make(map[common.Hash][]message.Message)
 		for _, p := range allPrevotesForValidRound {
 			prevotesMap[p.Value()] = append(prevotesMap[p.Value()], p)
 		}
@@ -870,9 +866,9 @@ oldProposalLoop:
 
 		// Do we see a quorum of prevotes in the valid round, if not we can raise an accusation, since we cannot be sure
 		// that these prevotes don't exist
-		prevotes := fd.msgStore.Get(height, func(m *message.Message) bool {
+		prevotes := fd.msgStore.Get(height, func(m message.Message) bool {
 			// since equivocation msgs are stored, we have to query those preVotes which has same value as the proposal.
-			return m.Type() == consensus.MsgPrevote && m.R() == validRound && m.Value() == proposal.Value()
+			return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() == proposal.Value()
 		})
 
 		if engineCore.OverQuorumVotes(prevotes, quorum) == nil {
@@ -891,8 +887,8 @@ oldProposalLoop:
 func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.Int) (proofs []*Proof) {
 	// ------------New and Old prevotes------------
 
-	prevotes := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrevote && m.Value() != nilValue
+	prevotes := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrevoteCode && m.Value() != nilValue
 	})
 
 prevotesLoop:
@@ -900,8 +896,8 @@ prevotesLoop:
 		prevote := p
 
 		// Skip if prevote is equivocated
-		prevotesForR := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Sender() == prevote.Sender() && m.Type() == consensus.MsgPrevote && m.R() == prevote.R()
+		prevotesForR := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Sender() == prevote.Sender() && m.Code() == message.PrevoteCode && m.R() == prevote.R()
 
 		})
 		// Due to the for loop there must be at least one preVote.
@@ -910,16 +906,16 @@ prevotesLoop:
 		}
 
 		// We need to check whether we have proposals from the prevote's round
-		correspondingProposals := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgProposal && m.R() == prevote.R() && m.Value() == prevote.Value()
+		correspondingProposals := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.ProposalCode && m.R() == prevote.R() && m.Value() == prevote.Value()
 		})
 
 		if len(correspondingProposals) == 0 {
 
 			// if there are over quorum prevotes for this corresponding proposal's value, then it indicates current
 			// peer just did not receive it. So we can skip the rising of such accusation.
-			preVts := fd.msgStore.Get(height, func(m *message.Message) bool {
-				return m.Type() == consensus.MsgPrevote && m.R() == prevote.R() && m.Value() == prevote.Value()
+			preVts := fd.msgStore.Get(height, func(m message.Message) bool {
+				return m.Code() == message.PrevoteCode && m.R() == prevote.R() && m.Value() == prevote.Value()
 			})
 
 			if engineCore.OverQuorumVotes(preVts, quorum) == nil {
@@ -948,7 +944,7 @@ prevotesLoop:
 		for _, cp := range correspondingProposals {
 			cp := cp // todo(youssef): I don't think this is necessary as nothing is async, double check
 			var proof *Proof
-			if cp.ConsensusMsg.(*message.Proposal).ValidRound == -1 {
+			if cp.(*message.Propose).ValidRound() == -1 {
 				proof = fd.newPrevotesAccountabilityCheck(height, prevote, cp)
 			} else {
 				proof = fd.oldPrevotesAccountabilityCheck(height, quorum, cp, prevote)
@@ -983,7 +979,7 @@ prevotesLoop:
 	return proofs
 }
 
-func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *message.Message, correspondingProposal *message.Message) (proof *Proof) {
+func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote message.Message, correspondingProposal message.Message) (proof *Proof) {
 	// New Proposal, apply PVN rules
 
 	// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
@@ -1005,8 +1001,8 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *
 	// as r' and we need to have all the precommit messages from r' to r for pi to be able to check for misbehaviour. If
 	// the latest precommit is not for V, and we have all the precommits from r' to r which are nil, then we have proof
 	// of misbehaviour.
-	precommitsFromPi := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrecommit && prevote.Sender() == m.Sender() && m.R() < prevote.R()
+	precommitsFromPi := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrecommitCode && prevote.Sender() == m.Sender() && m.R() < prevote.R()
 	})
 
 	// Check for missing messages. If there are gaps those missing message could be the one that proves pi acted
@@ -1022,8 +1018,8 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *
 		for i := len(precommitsFromPi) - 1; i >= 0 && (r-rPrime) <= 1; i-- {
 			if precommitsFromPi[i].Value() != nilValue {
 				pc := precommitsFromPi[i]
-				precommitsAtRPrime := fd.msgStore.Get(height, func(m *message.Message) bool {
-					return m.Type() == consensus.MsgPrecommit && pc.Sender() == m.Sender() && m.R() == pc.R()
+				precommitsAtRPrime := fd.msgStore.Get(height, func(m message.Message) bool {
+					return m.Code() == message.PrecommitCode && pc.Sender() == m.Sender() && m.R() == pc.R()
 				})
 
 				// Check for equivocation, it is possible there are multiple precommit from pi for the same round.
@@ -1056,9 +1052,9 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote *
 	return nil
 }
 
-func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *big.Int, correspondingProposal *message.Message, prevote *message.Message) (proof *Proof) {
+func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *big.Int, correspondingProposal message.Message, prevote message.Message) (proof *Proof) {
 	currentR := correspondingProposal.R()
-	validRound := correspondingProposal.ConsensusMsg.(*message.Proposal).ValidRound
+	validRound := correspondingProposal.(*message.Propose).ValidRound()
 
 	// If one prevotes for an invalid old proposal, then it should be a misbehaviour.
 	if validRound >= currentR {
@@ -1078,11 +1074,11 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 	// need to make sure whether the proposal is correct or not (which we would in the proposal checking rules, however,
 	// a bad proposal will still exist in our message store, and it shouldn't have an impact on the checking of prevotes).
 
-	allPrevotesForValidRound := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrevote && m.R() == validRound && m.Value() != correspondingProposal.Value()
+	allPrevotesForValidRound := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() != correspondingProposal.Value()
 	})
 
-	prevotesMap := make(map[common.Hash][]*message.Message)
+	prevotesMap := make(map[common.Hash][]message.Message)
 	for _, p := range allPrevotesForValidRound {
 		prevotesMap[p.Value()] = append(prevotesMap[p.Value()], p)
 	}
@@ -1104,8 +1100,8 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		}
 	}
 
-	prevotesForVFromValidRound := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrevote && m.R() == validRound && m.Value() == correspondingProposal.Value()
+	prevotesForVFromValidRound := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() == correspondingProposal.Value()
 	})
 
 	overQuorumPrevotesForVFromValidRound := engineCore.OverQuorumVotes(prevotesForVFromValidRound, quorum)
@@ -1136,8 +1132,8 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		// PVO1 and PVO2 can be merged together. We just need to fetch all precommits between (validRound, currentR)
 		// check that we have no gaps and raise a misbehaviour if the last one is not for V.
 
-		precommitsFromPi := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrecommit && m.R() > validRound && m.R() < currentR && m.Sender() == prevote.Sender()
+		precommitsFromPi := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < currentR && m.Sender() == prevote.Sender()
 		})
 
 		if len(precommitsFromPi) > 0 {
@@ -1195,7 +1191,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 			Type:      autonity.Accusation,
 			Rule:      autonity.PVO,
 			Message:   prevote,
-			Evidences: []*message.Message{correspondingProposal.ToLightProposal()},
+			Evidences: []message.Message{correspondingProposal.ToLightProposal()},
 		}
 	}
 
@@ -1207,8 +1203,8 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 	// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
-	precommits := fd.msgStore.Get(height, func(m *message.Message) bool {
-		return m.Type() == consensus.MsgPrecommit && m.Value() != nilValue
+	precommits := fd.msgStore.Get(height, func(m message.Message) bool {
+		return m.Code() == message.PrecommitCode && m.Value() != nilValue
 	})
 
 precommitLoop:
@@ -1216,8 +1212,8 @@ precommitLoop:
 		precommit := preC
 
 		// Skip if preCommit is equivocated
-		precommitsForR := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Sender() == precommit.Sender() && m.Type() == consensus.MsgPrecommit && m.R() == precommit.R()
+		precommitsForR := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Sender() == precommit.Sender() && m.Code() == message.PrecommitCode && m.R() == precommit.R()
 
 		})
 		// Due to the for loop there must be at least one preCommit.
@@ -1226,11 +1222,11 @@ precommitLoop:
 		}
 
 		// Do we see a quorum for a value other than the proposed value? If so, we have proof of misbehaviour.
-		allPrevotesForR := fd.msgStore.Get(height, func(m *message.Message) bool {
-			return m.Type() == consensus.MsgPrevote && m.R() == precommit.R() && m.Value() != precommit.Value()
+		allPrevotesForR := fd.msgStore.Get(height, func(m message.Message) bool {
+			return m.Code() == message.PrevoteCode && m.R() == precommit.R() && m.Value() != precommit.Value()
 		})
 
-		prevotesMap := make(map[common.Hash][]*message.Message)
+		prevotesMap := make(map[common.Hash][]message.Message)
 		for _, p := range allPrevotesForR {
 			prevotesMap[p.Value()] = append(prevotesMap[p.Value()], p)
 		}
@@ -1256,9 +1252,9 @@ precommitLoop:
 		// that these prevotes don't exist, this block also covers the Accusation of C since if over quorum prevotes for
 		// V indicates that the corresponding proposal of V do exist, thus we don't need to rise accusation for the missing
 		// proposal since over 2/3 member should all ready received it
-		prevotes := fd.msgStore.Get(height, func(m *message.Message) bool {
+		prevotes := fd.msgStore.Get(height, func(m message.Message) bool {
 			// since equivocation msgs are stored, we have to query those preVotes which has same value as the proposal.
-			return m.Type() == consensus.MsgPrevote && m.R() == precommit.R() && m.Value() == precommit.Value()
+			return m.Code() == message.PrevoteCode && m.R() == precommit.R() && m.Value() == precommit.Value()
 		})
 
 		if engineCore.OverQuorumVotes(prevotes, quorum) == nil {
@@ -1277,7 +1273,7 @@ precommitLoop:
 
 // submitMisbehavior takes proof of misbehavior, and error id to construct the on-chain accountability event, and
 // send the event of misbehavior to event channel that is listened by ethereum object to sign the reporting TX.
-func (fd *FaultDetector) submitMisbehavior(m *message.Message, evidence []*message.Message, err error, submitCh chan<- *autonity.AccountabilityEvent) {
+func (fd *FaultDetector) submitMisbehavior(m message.Message, evidence []message.Message, err error, submitCh chan<- *autonity.AccountabilityEvent) {
 	rule, e := errorToRule(err)
 	if e != nil {
 		fd.logger.Warn("error to rule", "fault detector", e)
@@ -1293,11 +1289,11 @@ func (fd *FaultDetector) submitMisbehavior(m *message.Message, evidence []*messa
 	submitCh <- proof
 }
 
-func (fd *FaultDetector) accountForAutoIncriminatingProposal(m *message.Message) error {
+func (fd *FaultDetector) accountForAutoIncriminatingProposal(m message.Message) error {
 
 	// skip process duplicated msg.
-	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg *message.Message) bool {
-		return msg.R() == m.R() && msg.Type() == consensus.MsgProposal && msg.Sender() == m.Sender() && msg.Value() == m.Value()
+	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Message) bool {
+		return msg.R() == m.R() && msg.Code() == message.ProposalCode && msg.Sender() == m.Sender() && msg.Value() == m.Value()
 	})
 	if len(duplicatedMsg) > 0 {
 		return errDuplicatedMsg
@@ -1310,18 +1306,18 @@ func (fd *FaultDetector) accountForAutoIncriminatingProposal(m *message.Message)
 	}
 
 	// account for wrong valid round.
-	if m.ConsensusMsg.(*message.Proposal).ValidRound >= m.R() {
+	if m.(*message.Proposal).ValidRound >= m.R() {
 		fd.submitMisbehavior(m.ToLightProposal(), nil, errWrongValidRound, fd.misbehaviourProofsCh)
 		return errWrongValidRound
 	}
 
 	// account for equivocation
-	equivocated := fd.msgStore.Get(m.H(), func(msg *message.Message) bool {
-		return msg.R() == m.R() && msg.Type() == consensus.MsgProposal && msg.Sender() == m.Sender() && msg.Value() != m.Value()
+	equivocated := fd.msgStore.Get(m.H(), func(msg message.Message) bool {
+		return msg.R() == m.R() && msg.Code() == message.ProposalCode && msg.Sender() == m.Sender() && msg.Value() != m.Value()
 	})
 
 	if len(equivocated) > 0 {
-		var equivocatedMsgs = []*message.Message{equivocated[0].ToLightProposal()}
+		var equivocatedMsgs = []message.Message{equivocated[0].ToLightProposal()}
 		fd.submitMisbehavior(m.ToLightProposal(), equivocatedMsgs, errEquivocation, fd.misbehaviourProofsCh)
 		// we allow the equivocated msg to be stored in msg store.
 		fd.msgStore.Save(m)
@@ -1331,15 +1327,15 @@ func (fd *FaultDetector) accountForAutoIncriminatingProposal(m *message.Message)
 	return nil
 }
 
-func (fd *FaultDetector) accountForAutoIncriminatingVote(m *message.Message) error {
+func (fd *FaultDetector) accountForAutoIncriminatingVote(m message.Message) error {
 	if m.R() > constants.MaxRound {
 		fd.submitMisbehavior(m, nil, errInvalidRound, fd.misbehaviourProofsCh)
 		return errInvalidRound
 	}
 
 	// skip process duplicated for votes.
-	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg *message.Message) bool {
-		return msg.R() == m.R() && msg.Type() == m.Type() && msg.Sender() == m.Sender() && msg.Value() == m.Value()
+	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Message) bool {
+		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() == m.Value()
 	})
 
 	if len(duplicatedMsg) > 0 {
@@ -1347,8 +1343,8 @@ func (fd *FaultDetector) accountForAutoIncriminatingVote(m *message.Message) err
 	}
 
 	// account for equivocation for votes.
-	equivocatedMsgs := fd.msgStore.Get(m.H(), func(msg *message.Message) bool {
-		return msg.R() == m.R() && msg.Type() == m.Type() && msg.Sender() == m.Sender() && msg.Value() != m.Value()
+	equivocatedMsgs := fd.msgStore.Get(m.H(), func(msg message.Message) bool {
+		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() != m.Value()
 	})
 
 	if len(equivocatedMsgs) > 0 {
@@ -1399,7 +1395,7 @@ func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) 
 	return proposer, nil
 }
 
-func isProposerValid(chain ChainContext, m *message.Message) bool {
+func isProposerValid(chain ChainContext, m message.Message) bool {
 	proposer, err := getProposer(chain, m.H(), m.R())
 	if err != nil {
 		log.Error("get proposer err", "err", err)
