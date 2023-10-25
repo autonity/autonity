@@ -97,7 +97,7 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 	// an improvement of this function would be to return an error instead of a bool
 	switch p.Rule {
 	case autonity.PO:
-		if p.Message.Code() != message.LightProposalCode || p.Message.(*message.LightProposal).ValidRound == -1 {
+		if p.Message.Code() != message.LightProposalCode || p.Message.(*message.LightProposal).ValidRound() == -1 {
 			return false
 		}
 	case autonity.PVN:
@@ -139,7 +139,7 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 		if oldProposal.Code() != message.LightProposalCode ||
 			oldProposal.R() != p.Message.R() ||
 			oldProposal.Value() != p.Message.Value() ||
-			oldProposal.(*message.LightProposal).ValidRound == -1 {
+			oldProposal.(*message.LightProposal).ValidRound() == -1 {
 			return false
 		}
 	}
@@ -177,6 +177,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 
 	evHeight := p.Message.H()
 	if evHeight == 0 {
+		// this is an edge case  would normally be
 		return failureResult, nil
 	}
 
@@ -238,8 +239,8 @@ func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
 	case autonity.InvalidRound:
 		return p.Message.R() > constants.MaxRound
 	case autonity.WrongValidRound:
-		if lightProposal, ok := p.Message.ConsensusMsg.(*message.LightProposal); ok {
-			return lightProposal.ValidRound >= lightProposal.Round
+		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
+			return lightProposal.ValidRound() >= lightProposal.R()
 		}
 		return false
 	case autonity.InvalidProposer:

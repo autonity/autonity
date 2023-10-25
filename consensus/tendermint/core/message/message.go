@@ -158,6 +158,22 @@ func (p *LightProposal) String() string {
 	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.blockHash)
 }
 
+func NewLightProposal(proposal *Propose) *LightProposal {
+	return &LightProposal{
+		blockHash:  proposal.hash,
+		validRound: proposal.validRound,
+		baseMessage: baseMessage{
+			round:     proposal.round,
+			height:    proposal.height,
+			signature: proposal.signature,
+			payload:   nil,
+			power:     nil,
+			sender:    common.Address{},
+			hash:      common.Hash{},
+		},
+	}
+}
+
 type extVote struct {
 	code      uint8
 	round     uint64

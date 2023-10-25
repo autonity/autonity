@@ -118,8 +118,7 @@ func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg
 	if err := msg.Decode(consensusMsg); err != nil {
 		return true, err
 	}
-	// If reading was fine then cache the original payload to avoid
-	// encoding work during Gossip
+
 	if _, err := msg.Payload.(*bytes.Reader).Seek(0, io.SeekStart); err != nil {
 		return true, err
 	}
@@ -127,6 +126,7 @@ func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg
 	if _, err := msg.Payload.Read(payload); err != nil {
 		return true, err
 	}
+
 	hash := sha256.Sum256(payload)
 	// Mark peer's message
 	ms, ok := sb.recentMessages.Get(addr)
@@ -142,6 +142,9 @@ func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg
 	if _, ok := sb.knownMessages.Get(hash); ok {
 		return true, nil
 	}
+	// If reading was fine then cache the original payload to avoid
+	// re-encoding work during Gossip
+	consensusMsg.SetPayload(payload)
 	sb.knownMessages.Add(hash, true)
 	go sb.Post(events.MessageEvent{
 		Message: consensusMsg,
