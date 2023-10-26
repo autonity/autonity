@@ -20,7 +20,6 @@ const (
 
 	InvalidRound    // message contains invalid round
 	WrongValidRound // proposal contains a wrong valid round number.
-	GarbageMessage  // message was signed by sender, but it cannot be decoded.
 )
 
 type AccountabilityEventType uint8
@@ -57,8 +56,6 @@ func (r Rule) String() string {
 		return "Equivocation"
 	case InvalidRound:
 		return "Invalid Round"
-	case GarbageMessage:
-		return "Garbage Message"
 	case WrongValidRound:
 		return "Wrong Valid Round"
 	default:

@@ -106,6 +106,31 @@ func (ms *MsgStore) Get(height uint64, query func(message.Message) bool) []messa
 			}
 		}
 	}
+	return result
+}
 
+func GetStore[T any, PT interface {
+	*T
+	message.Message
+}](ms *MsgStore, height uint64, query func(*T) bool) []*T {
+	ms.RLock()
+	defer ms.RUnlock()
+	var result []*T
+	roundMap, ok := ms.messages[height]
+	if !ok {
+		return result
+	}
+	code := PT(new(T)).Code()
+	for _, msgTypeMap := range roundMap {
+		for _, msgs := range msgTypeMap[code] {
+			for _, msg := range msgs {
+				if m, ok := msg.(PT); ok {
+					if query(m) {
+						result = append(result, m)
+					}
+				}
+			}
+		}
+	}
 	return result
 }

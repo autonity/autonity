@@ -31,6 +31,7 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 	if len(b) == 0 {
 		return rlp.ErrExpectedString
 	}
+	// Note that a nil element is not accepted.
 	var p message.Message
 	switch b[0] {
 	case message.PrevoteCode:

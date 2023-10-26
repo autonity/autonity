@@ -210,12 +210,7 @@ func preCheckMessage(m message.Message, chain ChainContext) error {
 	if lastHeader == nil {
 		return errFutureMsg
 	}
-	v := lastHeader.CommitteeMember(m.Sender())
-	if v == nil {
-		return errNotCommitteeMsg
-	}
 	return m.Validate(lastHeader.CommitteeMember)
-
 }
 
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
@@ -236,7 +231,6 @@ tendermintMsgLoop:
 					fd.logger.Debug("Fault detector: discarding old message", "sender", e.Message.Sender())
 					continue tendermintMsgLoop
 				}
-
 				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
@@ -244,7 +238,7 @@ tendermintMsgLoop:
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {
-					fd.logger.Info("going to drop peer", "peer", e.Sender)
+					fd.logger.Info("Accountability: Dropping peer", "peer", e.Sender)
 					// the errors return from handler could freeze the peer connection for 30 seconds by according to dev p2p protocol.
 					select {
 					case e.ErrCh <- err:
@@ -276,7 +270,7 @@ tendermintMsgLoop:
 				if h <= curHeight {
 					for _, m := range messages {
 						if err := fd.processMsg(m); err != nil {
-							fd.logger.Error("fault detector: error while processing consensus msg", "err", err)
+							fd.logger.Error("Fault detector: error while processing consensus msg", "err", err)
 						}
 					}
 					// once messages are processed, delete it from buffer.
@@ -288,6 +282,7 @@ tendermintMsgLoop:
 			fd.rateLimiter.resetRateLimiter()
 		case err, ok := <-fd.msgHandlerBlockSub.Err():
 			if ok {
+				// why crit? what can happen here?
 				fd.logger.Crit("block subscription error", "err", err)
 			}
 			break tendermintMsgLoop
@@ -1212,14 +1207,21 @@ func (fd *FaultDetector) submitMisbehavior(m message.Message, evidence []message
 }
 
 func (fd *FaultDetector) accountForAutoIncriminatingProposal(proposal *message.Propose) error {
-
 	// skip processing duplicated msg.
+	// todo(youssef): I think something is wrong here -- need to understand how duplicated messages can end up here
+	// the consensus backend handler wouldn't allow it
 	duplicatedMsg := fd.msgStore.Get(proposal.H(), func(msg message.Message) bool {
-		return msg.R() == proposal.R() && msg.Code() == message.ProposalCode && msg.Sender() == proposal.Sender() && msg.Value() == proposal.Value()
+		return msg.R() == proposal.R() &&
+			msg.Code() == message.ProposalCode &&
+			msg.Sender() == proposal.Sender() &&
+			msg.Value() == proposal.Value() // -- youssef : ValidValue is missing here is that on purpose
 	})
-
+	/*	this should be the replacement
+		engineCore.GetStore(fd.msgStore, proposal.H(), func(p *message.Propose) bool {
+			return p.R() == proposal.R() && p.Sender() == proposal.Sender() && p.Value() == proposal.Value()
+		})
+	*/
 	if len(duplicatedMsg) > 0 {
-		// todo(youssef): Why > 0? isn't the message not already saved ? and why even this duplicate check ?
 		return errDuplicatedMsg
 	}
 
@@ -1258,21 +1260,17 @@ func (fd *FaultDetector) accountForAutoIncriminatingVote(m message.Message) erro
 		fd.submitMisbehavior(m, nil, errInvalidRound, fd.misbehaviourProofsCh)
 		return errInvalidRound
 	}
-
 	// skip process duplicated for votes.
 	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Message) bool {
 		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() == m.Value()
 	})
-
 	if len(duplicatedMsg) > 0 {
 		return errDuplicatedMsg
 	}
-
 	// account for equivocation for votes.
 	equivocatedMessages := fd.msgStore.Get(m.H(), func(msg message.Message) bool {
 		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() != m.Value()
 	})
-
 	if len(equivocatedMessages) > 0 {
 		fd.submitMisbehavior(m, equivocatedMessages[:1], errEquivocation, fd.misbehaviourProofsCh)
 		// we allow store equivocated msg in msg store.
@@ -1319,7 +1317,7 @@ func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) 
 	return proposer, nil
 }
 
-func isProposerValid(chain ChainContext, m *message.Propose) bool {
+func isProposerValid(chain ChainContext, m message.Message) bool {
 	proposer, err := getProposer(chain, m.H(), m.R())
 	if err != nil {
 		log.Error("get proposer err", "err", err)
