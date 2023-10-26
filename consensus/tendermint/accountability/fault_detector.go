@@ -67,14 +67,6 @@ var (
 	nilValue = common.Hash{}
 )
 
-// Proof is what to prove that one is misbehaving, one should be slashed when a valid Proof is rise.
-type Proof struct {
-	Type      autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
-	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.
-	Message   message.Message                  // the consensus message which is accountable.
-	Evidences []message.Message                // the proofs of the accountability event.
-}
-
 // FaultDetector it subscribe chain event to trigger rule engine to apply patterns over
 // msg store, it sends Proof of challenge if it detects any potential misbehavior, either it
 // read state db on each new height to get the latest challenges from autonity contract's view,
@@ -417,22 +409,15 @@ func (fd *FaultDetector) Stop() {
 
 // convert the raw proofs into on-chain Proof which contains raw bytes of messages.
 func (fd *FaultDetector) eventFromProof(p *Proof) *autonity.AccountabilityEvent {
-
-	// Temp fix
-	height := uint64(0)
-	if p.Message.ConsensusMsg != nil {
-		height = p.Message.H()
-	}
-
 	var ev = &autonity.AccountabilityEvent{
 		EventType:      uint8(p.Type),
 		Rule:           uint8(p.Rule),
 		Reporter:       fd.address,
 		Offender:       p.Message.Sender(),
-		Block:          new(big.Int).SetUint64(height), // assigned contract-side
-		ReportingBlock: common.Big0,                    // assigned contract-side
-		Epoch:          common.Big0,                    // assigned contract-side
-		MessageHash:    common.Big0,                    // assigned contract-side
+		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side
+		ReportingBlock: common.Big0,                           // assigned contract-side
+		Epoch:          common.Big0,                           // assigned contract-side
+		MessageHash:    common.Big0,                           // assigned contract-side
 	}
 	// error is ignored here as there is no reason why encoding should fail
 	rProof, _ := rlp.EncodeToBytes(p)
@@ -1308,8 +1293,6 @@ func errorToRule(err error) (autonity.Rule, error) {
 		rule = autonity.Equivocation
 	case errors.Is(err, errProposer):
 		rule = autonity.InvalidProposer
-	case errors.Is(err, errAccountableGarbageMsg):
-		rule = autonity.GarbageMessage
 	default:
 		return rule, fmt.Errorf("errors of not provable")
 	}

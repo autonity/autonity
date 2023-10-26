@@ -6,9 +6,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"io"
 	"math/big"
 )
 
@@ -91,12 +89,6 @@ func (p *Propose) Value() common.Hash {
 func (p *Propose) String() string {
 	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
 		p.round, p.H(), p.validRound, p.block.Hash().String())
-}
-
-func (p *Propose) EncodeRLP(w io.Writer) error {
-	// should never be called, instead use directly p.payload
-	log.Crit("not supported")
-	return nil
 }
 
 func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte) ([]byte, error)) *Propose {
