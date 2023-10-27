@@ -1,13 +1,17 @@
 package message
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
+	"golang.org/x/crypto/blake2b"
+	"io"
 	"math/big"
 )
 
@@ -39,6 +43,7 @@ type Message interface {
 	Hash() common.Hash
 	Value() common.Hash
 	Payload() []byte
+	setPayload([]byte)
 	Signature() []byte
 	Validate(func(address common.Address) *types.CommitteeMember) error
 }
@@ -168,7 +173,6 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 }
 
 type extVote struct {
-	code      uint8
 	round     uint64
 	height    uint64
 	value     common.Hash
@@ -216,10 +220,10 @@ func NewVote[
 		Message
 	}](r int64, h uint64, value common.Hash, signer func([]byte) ([]byte, error)) *E {
 	code := PE(new(E)).Code()
+	// Pay attention that we're adding the message code to the signature input data.
 	signatureInput, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
 	signature, _ := signer(signatureInput)
 	payload, _ := rlp.EncodeToBytes(extVote{
-		code:      code,
 		round:     uint64(r),
 		height:    h,
 		value:     value,
@@ -239,6 +243,58 @@ func NewVote[
 	return &vote
 }
 
+func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
+	encoded := extVote{}
+	if err := s.Decode(encoded); err != nil {
+		return err
+	}
+	p.value = encoded.value
+	p.height = encoded.height
+	if p.height == 0 {
+		return constants.ErrInvalidMessage
+	}
+	p.signature = encoded.signature
+	p.round = int64(encoded.round)
+	if p.round < 0 {
+		return constants.ErrInvalidMessage
+	}
+	return nil
+}
+
+func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
+	encoded := extVote{}
+	if err := s.Decode(encoded); err != nil {
+		return err
+	}
+	p.value = encoded.value
+	p.height = encoded.height
+	if p.height == 0 {
+		return constants.ErrInvalidMessage
+	}
+	p.signature = encoded.signature
+	p.round = int64(encoded.round)
+	if p.round < 0 {
+		return constants.ErrInvalidMessage
+	}
+	return nil
+}
+
+func FromWire[M Message](p2pMsg p2p.Msg) (M, error) {
+	var message M
+	if err := p2pMsg.Decode(message); err != nil {
+		return message, err
+	}
+	if _, err := p2pMsg.Payload.(*bytes.Reader).Seek(0, io.SeekStart); err != nil {
+		return message, err
+	}
+	payload := make([]byte, p2pMsg.Size)
+	if _, err := p2pMsg.Payload.Read(payload); err != nil {
+		return message, err
+	}
+	message.setPayload(payload)
+	return message, nil
+}
+
 func (b *baseMessage) Sender() common.Address {
 	if b.sender == (common.Address{}) {
 		panic("coding error (to remove) ")
@@ -248,6 +304,11 @@ func (b *baseMessage) Sender() common.Address {
 
 func (b *baseMessage) H() uint64 {
 	return b.height
+}
+
+func (b *baseMessage) setPayload(payload []byte) {
+	b.payload = payload
+	b.hash = blake2b.Sum256(payload)
 }
 
 func (b *baseMessage) R() int64 {
@@ -284,15 +345,6 @@ func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.C
 	}
 	b.power = validator.VotingPower
 	return nil
-}
-
-func FromWire[M Message](p2pMsg p2p.Msg) (M, error) {
-	var message M
-	if err := p2pMsg.Decode(message); err != nil {
-		return message, err
-	}
-
-	return message, nil
 }
 
 /*

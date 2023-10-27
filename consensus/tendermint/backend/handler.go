@@ -10,7 +10,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/p2p"
 	lru "github.com/hashicorp/golang-lru"
-	"golang.org/x/crypto/blake2b"
 	"io"
 )
 
@@ -103,51 +102,38 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	return true, nil
 }
 
-func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
+func handleConsensusMsg[M message.Message](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
 	if !sb.coreStarted {
 		buffer := new(bytes.Buffer)
-		if _, err := io.Copy(buffer, msg.Payload); err != nil {
+		if _, err := io.Copy(buffer, p2pMsg.Payload); err != nil {
 			return true, errDecodeFailed
 		}
-		savedMsg := msg
+		savedMsg := p2pMsg
 		savedMsg.Payload = buffer
-		sb.pendingMessages.Enqueue(UnhandledMsg{addr: addr, msg: savedMsg})
+		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: savedMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
-	var consensusMsg M
-	if err := msg.Decode(consensusMsg); err != nil {
+	msg, err := message.FromWire[M](p2pMsg)
+	if err != nil {
 		return true, err
 	}
-
-	if _, err := msg.Payload.(*bytes.Reader).Seek(0, io.SeekStart); err != nil {
-		return true, err
-	}
-	payload := make([]byte, msg.Size)
-	if _, err := msg.Payload.Read(payload); err != nil {
-		return true, err
-	}
-
-	hash := blake2b.Sum256(payload)
-	// Mark peer's message
-	ms, ok := sb.recentMessages.Get(addr)
+	// Mark peer's message as known.
+	ms, ok := sb.recentMessages.Get(sender)
 	var m *lru.ARCCache
 	if ok {
 		m, _ = ms.(*lru.ARCCache)
 	} else {
 		m, _ = lru.NewARC(inmemoryMessages)
-		sb.recentMessages.Add(addr, m)
+		sb.recentMessages.Add(sender, m)
 	}
-	m.Add(hash, true)
-	// Mark self known message
-	if _, ok := sb.knownMessages.Get(hash); ok {
+	m.Add(msg.Hash(), true)
+	// Mark the message known for ourselves
+	if _, ok := sb.knownMessages.Get(msg.Hash()); ok {
 		return true, nil
 	}
-	// If reading was fine then cache the original payload to avoid
-	// re-encoding work during Gossip
-
-	sb.knownMessages.Add(hash, true)
+	sb.knownMessages.Add(msg.Hash(), true)
 	go sb.Post(events.MessageEvent{
-		Message: consensusMsg,
+		Message: msg,
 		ErrCh:   errCh,
 	})
 	return true, nil
