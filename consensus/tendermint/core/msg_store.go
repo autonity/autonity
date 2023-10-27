@@ -125,8 +125,8 @@ func GetStore[T any, PT interface {
 		for _, msgs := range msgTypeMap[code] {
 			for _, msg := range msgs {
 				if m, ok := msg.(PT); ok {
-					if query(m) {
-						result = append(result, m)
+					if query((*T)(m)) {
+						result = append(result, (*T)(m))
 					}
 				}
 			}

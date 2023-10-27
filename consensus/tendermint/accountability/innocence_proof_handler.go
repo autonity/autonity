@@ -7,10 +7,9 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
-	"github.com/autonity/autonity/consensus/tendermint/crypto"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/rlp"
+	"golang.org/x/crypto/blake2b"
 )
 
 var (
@@ -158,12 +157,12 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	// drop peer if the accusation exceed the rate limit during the last 1 seconds.
 	err := fd.rateLimiter.validAccusationRate(sender)
 	if err != nil {
-		fd.logger.Error("drop peer connection", "err", err)
+		fd.logger.Error("accountability abuse detected!", "err", err)
 		return err
 	}
 
 	// drop peer if it sent duplicated accusation event.
-	msgHash := types.RLPHash(payload)
+	msgHash := blake2b.Sum256(payload)
 	err = fd.rateLimiter.checkPeerDuplicatedAccusation(sender, msgHash)
 	if err != nil {
 		fd.logger.Error("duplicated accusation from peer", "err", err)
@@ -215,7 +214,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash) error {
 	// if the suspected msg's sender is not current peer, then it would be a DoS attack, drop the peer with an error returned.
-	if accusation.Message.Address != fd.address {
+	if accusation.Message.Sender() != fd.address {
 		return errInvalidAccusation
 	}
 
@@ -248,32 +247,28 @@ func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender com
 	if proof.Message.Sender() != sender {
 		return errInvalidInnocenceProof
 	}
-
 	// check if evidence msgs are from committee members of that height.
 	h := proof.Message.H()
-
 	lastHeader := fd.blockchain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
 		return errNoParentHeader
 	}
-
 	// validate message.
-	if err := proof.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if err := proof.Message.Validate(lastHeader.CommitteeMember); err != nil {
 		return errInvalidInnocenceProof
 	}
-
 	for _, m := range proof.Evidences {
-		// the height of msg of the evidences is checked at Validate function.
-		if err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		if m.H() != h {
+			return errInvalidInnocenceProof
+		}
+		if err := m.Validate(lastHeader.CommitteeMember); err != nil {
 			return errInvalidInnocenceProof
 		}
 	}
-
 	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
 	if !validInnocenceProof(proof, fd.blockchain) {
 		return errInvalidInnocenceProof
 	}
-
 	// the proof is valid, withdraw the off chain challenge.
 	fd.removeOffChainAccusation(proof)
 	return nil

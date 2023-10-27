@@ -10,7 +10,6 @@ import (
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
@@ -132,7 +131,9 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 			return false
 		}
 		oldProposal := p.Evidences[0]
-		// Todo(Youssef): bug possible with Light proposal sig validation // signature may come from accuser not reported
+		if oldProposal.H() != h {
+			return false
+		}
 		if err := oldProposal.Validate(lastHeader.CommitteeMember); err != nil {
 			return false
 		}
@@ -143,7 +144,10 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 			return false
 		}
 	}
-
+	// do not allow useless evidences
+	if len(p.Evidences) > 0 {
+		return false
+	}
 	return true
 }
 
@@ -199,7 +203,9 @@ func (c *MisbehaviourVerifier) validateProof(p *Proof) []byte {
 	}
 
 	for _, msg := range p.Evidences {
-		// the height of msg of the evidences is checked at Validate function.
+		if msg.H() != h {
+			return failureResult
+		}
 		if err := msg.Validate(lastHeader.CommitteeMember); err != nil {
 			return failureResult
 		}
@@ -317,11 +323,9 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 				return false
 			}
 		}
-
 		if hasEquivocatedVotes(p.Evidences) {
 			return false
 		}
-
 		// check if preVotes for not V reaches to quorum.
 		lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
 		if lastHeader == nil {
@@ -579,33 +583,29 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64) ([]byte, error
 func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
 	// check if evidence msgs are from committee members of that height.
 	h := in.Message.H()
-
 	lastHeader := c.chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
 		return failureResult
 	}
-
 	// validate message.
-	if err := in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if err := in.Message.Validate(lastHeader.CommitteeMember); err != nil {
 		return failureResult
 	}
-
 	// to prevent the abuse of the proof message.
 	if len(in.Evidences) > maxEvidenceMessages(lastHeader) {
 		return failureResult
 	}
-
 	for _, m := range in.Evidences {
-		// the height of msg of the evidences is checked at Validate function.
-		if err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		if m.H() != h {
+			return failureResult
+		}
+		if err := m.Validate(lastHeader.CommitteeMember); err != nil {
 			return failureResult
 		}
 	}
-
 	if !validInnocenceProof(in, c.chain) {
 		return failureResult
 	}
-
 	return validReturn(in.Message, in.Rule)
 }
 
@@ -636,7 +636,7 @@ func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 	for _, m := range p.Evidences {
 		if !(m.Code() == message.PrevoteCode &&
 			m.Value() == proposal.Value() &&
-			m.R() == proposal.(*message.LightProposal).ValidRound) {
+			m.R() == proposal.(*message.LightProposal).ValidRound()) {
 			return false
 		}
 	}
@@ -733,12 +733,10 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 			return false
 		}
 	}
-
 	// check no redundant vote msg in evidence in case of hacking.
 	if hasEquivocatedVotes(p.Evidences) {
 		return false
 	}
-
 	height := preCommit.H()
 	lastHeader := chain.GetHeaderByNumber(height - 1)
 	if lastHeader == nil {

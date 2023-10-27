@@ -1239,6 +1239,7 @@ func (fd *FaultDetector) accountForAutoIncriminatingProposal(proposal *message.P
 
 	// account for equivocation
 	equivocated := fd.msgStore.Get(proposal.H(), func(msg message.Message) bool {
+		// todo(youssef) : again validValue missing here
 		return msg.R() == proposal.R() && msg.Code() == message.ProposalCode && msg.Sender() == proposal.Sender() && msg.Value() != proposal.Value()
 	})
 

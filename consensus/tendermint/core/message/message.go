@@ -6,6 +6,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 	"math/big"
 )
@@ -126,8 +127,8 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 	}
 }
 
-// !!!!!!!!!!TODO: RLP DECODE CHECK IF PROPOSAL CAN BE NIL!!!!!!!!!!
-
+// - !!!!!!!!!!TODO: RLP DECODE CHECK IF PROPOSAL CAN BE NIL!!!!!!!!!!
+// - DO NOT ACCEPT HEIGHT = 0
 type LightProposal struct {
 	blockHash  common.Hash
 	validRound int64
@@ -214,7 +215,6 @@ func NewVote[
 		*E
 		Message
 	}](r int64, h uint64, value common.Hash, signer func([]byte) ([]byte, error)) *E {
-
 	code := PE(new(E)).Code()
 	signatureInput, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
 	signature, _ := signer(signatureInput)
@@ -284,6 +284,15 @@ func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.C
 	}
 	b.power = validator.VotingPower
 	return nil
+}
+
+func FromWire[M Message](p2pMsg p2p.Msg) (M, error) {
+	var message M
+	if err := p2pMsg.Decode(message); err != nil {
+		return message, err
+	}
+
+	return message, nil
 }
 
 /*

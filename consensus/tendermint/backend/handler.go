@@ -3,7 +3,6 @@ package backend
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -11,6 +10,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/p2p"
 	lru "github.com/hashicorp/golang-lru"
+	"golang.org/x/crypto/blake2b"
 	"io"
 )
 
@@ -127,7 +127,7 @@ func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg
 		return true, err
 	}
 
-	hash := sha256.Sum256(payload)
+	hash := blake2b.Sum256(payload)
 	// Mark peer's message
 	ms, ok := sb.recentMessages.Get(addr)
 	var m *lru.ARCCache
@@ -144,7 +144,7 @@ func handleConsensusMsg[M message.Message](sb *Backend, addr common.Address, msg
 	}
 	// If reading was fine then cache the original payload to avoid
 	// re-encoding work during Gossip
-	consensusMsg.SetPayload(payload)
+
 	sb.knownMessages.Add(hash, true)
 	go sb.Post(events.MessageEvent{
 		Message: consensusMsg,
