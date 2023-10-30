@@ -69,11 +69,11 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 	switch msg.Code {
 	case ProposeNetworkMsg:
-		return handleConsensusMsg[*message.Propose](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
 	case PrevoteNetworkMsg:
-		return handleConsensusMsg[*message.Prevote](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
 	case PrecommitNetworkMsg:
-		return handleConsensusMsg[*message.Precommit](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
 	case SyncNetworkMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Sync message received but core not running")
@@ -102,7 +102,10 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	return true, nil
 }
 
-func handleConsensusMsg[M message.Message](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
+func handleConsensusMsg[T any, PT interface {
+	*T
+	message.Message
+}](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
 	if !sb.coreStarted {
 		buffer := new(bytes.Buffer)
 		if _, err := io.Copy(buffer, p2pMsg.Payload); err != nil {
@@ -113,7 +116,7 @@ func handleConsensusMsg[M message.Message](sb *Backend, sender common.Address, p
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: savedMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
-	msg, err := message.FromWire[M](p2pMsg)
+	msg, err := message.FromWire[T, PT](p2pMsg)
 	if err != nil {
 		return true, err
 	}

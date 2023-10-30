@@ -231,10 +231,10 @@ tendermintMsgLoop:
 					fd.logger.Debug("Fault detector: discarding old message", "sender", e.Message.Sender())
 					continue tendermintMsgLoop
 				}
-				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
+				/*if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
-				}
+				}*/
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {

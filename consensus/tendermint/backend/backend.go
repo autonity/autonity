@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"golang.org/x/crypto/blake2b"
 	"math/big"
 	"sync"
 	"time"
@@ -372,7 +373,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		// At this stage committee field is consistent with the validator list returned by Soma-contract
 
 		return 0, nil
-	} else if err == consensus.ErrFutureTimestampBlock {
+	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
 	}
 	return 0, err
@@ -380,22 +381,8 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 // Sign implements tendermint.Backend.Sign
 func (sb *Backend) Sign(data []byte) ([]byte, error) {
-	hashData := crypto.Keccak256(data)
-	return crypto.Sign(hashData, sb.privateKey)
-}
-
-// CheckSignature implements tendermint.Backend.VerifySignature
-func (sb *Backend) CheckSignature(data []byte, address common.Address, sig []byte) error {
-	signer, err := types.GetSignatureAddress(data, sig)
-	if err != nil {
-		sb.logger.Error("Failed to get signer address", "err", err)
-		return err
-	}
-	// Compare derived addresses
-	if signer != address {
-		return types.ErrInvalidSignature
-	}
-	return nil
+	hashData := blake2b.Sum256(data)
+	return crypto.Sign(hashData[:], sb.privateKey)
 }
 
 func (sb *Backend) HeadBlock() *types.Block {

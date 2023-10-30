@@ -28,7 +28,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 		value = proposal.Hash()
 	}
 	precommit := message.NewVote[message.Precommit](c.Round(), c.Height().Uint64(), value, c.backend.Sign)
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Sent", precommit, c.address.String(), "broadcast")
+	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 
 	c.sentPrecommit = true
 	c.Br().Broadcast(ctx, precommit)

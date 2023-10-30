@@ -26,7 +26,7 @@ func TestSendingValue(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)

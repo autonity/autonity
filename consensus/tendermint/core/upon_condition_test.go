@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	tcrypto "github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -22,7 +23,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
-	tcrypto "github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/stretchr/testify/assert"

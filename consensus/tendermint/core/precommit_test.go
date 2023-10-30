@@ -451,7 +451,7 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 		}
 
 		err = c.precommiter.VerifyCommittedSeal(addrMsg, sig, common.Hash{}, 3, big.NewInt(28))
-		if err != constants.ErrInvalidSenderOfCommittedSeal {
+		if !errors.Is(err, constants.ErrInvalidSenderOfCommittedSeal) {
 			t.Fatalf("Expected %v, got %v", constants.ErrInvalidSenderOfCommittedSeal, err)
 		}
 	})
@@ -495,7 +495,7 @@ func TestHandleCommit(t *testing.T) {
 
 	h := &types.Header{Number: big.NewInt(3)}
 
-	// Sign the header so that types.Ecrecover works
+	// Sign the header so that types.ECRecover works
 	seal, err := crypto.Sign(crypto.Keccak256(types.SigHash(h).Bytes()), firstKey)
 	require.NoError(t, err)
 

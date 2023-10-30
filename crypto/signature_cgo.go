@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"fmt"
+	"github.com/autonity/autonity/common"
 
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto/secp256k1"
@@ -42,6 +43,15 @@ func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 
 	x, y := elliptic.Unmarshal(S256(), s)
 	return &ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
+}
+
+// SigToAddr returns the address associated to the public key that created the signature.
+func SigToAddr(hash, sig []byte) (common.Address, error) {
+	pub, err := SigToPub(hash, sig)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return PubkeyToAddress(*pub), nil
 }
 
 // Sign calculates an ECDSA signature.

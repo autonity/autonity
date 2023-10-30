@@ -17,22 +17,18 @@ type Proposer struct {
 	*Core
 }
 
-func (c *Proposer) SendProposal(ctx context.Context, p *types.Block) {
+func (c *Proposer) SendProposal(ctx context.Context, block *types.Block) {
 	// If I'm the proposer and I have the same height with the proposal
-	if c.Height().Cmp(p.Number()) == 0 && c.IsProposer() && !c.sentProposal {
-		proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, p, c.backend.Sign)
-
+	if c.Height().Cmp(block.Number()) == 0 && c.IsProposer() && !c.sentProposal {
+		proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
 		c.sentProposal = true
-		c.backend.SetProposedBlockHash(p.Hash())
-
+		c.backend.SetProposedBlockHash(block.Hash())
 		if metrics.Enabled {
 			now := time.Now()
 			ProposalSentTimer.Update(now.Sub(c.newRound))
 			ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
 		}
-
 		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
-
 		c.Br().Broadcast(ctx, proposal)
 	}
 }

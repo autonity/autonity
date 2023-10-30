@@ -1,4 +1,4 @@
-package crypto
+package backend
 
 import (
 	"crypto/ecdsa"
@@ -11,6 +11,25 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 )
+
+var ErrUnauthorizedAddress = errors.New("unauthorized address")
+
+func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+	// 1. Get signature address
+	signer, err := types.GetSignatureAddress(data, sig)
+	if err != nil {
+		log.Error("Failed to get signer address", "err", err)
+		return common.Address{}, err
+	}
+
+	// 2. Check validator
+	val := previousHeader.CommitteeMember(signer)
+	if val == nil {
+		return common.Address{}, ErrUnauthorizedAddress
+	}
+
+	return val.Address, nil
+}
 
 func TestCheckValidatorSignature(t *testing.T) {
 	header, keys := newTestHeader(5)

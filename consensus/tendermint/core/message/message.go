@@ -54,10 +54,11 @@ type baseMessage struct {
 	height    uint64
 	signature []byte
 
-	payload []byte
-	power   *big.Int
-	sender  common.Address
-	hash    common.Hash
+	payload        []byte
+	signatureInput []any
+	power          *big.Int
+	sender         common.Address
+	hash           common.Hash
 }
 
 type Propose struct {
@@ -66,15 +67,16 @@ type Propose struct {
 	baseMessage
 }
 
-// extPropose is the actual proposal object being exchanged
+// extPropose is the actual proposal object being exchanged on the network
+// before RLP serialization.
 type extPropose struct {
-	code            uint8
-	round           uint64
-	height          uint64
-	validRound      uint64
-	isValidRoundNil bool
-	proposalBlock   *types.Block
-	signature       []byte
+	Code            uint8
+	Round           uint64
+	Height          uint64
+	ValidRound      uint64
+	IsValidRoundNil bool
+	ProposalBlock   *types.Block
+	Signature       []byte
 }
 
 func (p *Propose) Code() uint8 {
@@ -97,7 +99,7 @@ func (p *Propose) String() string {
 		p.round, p.H(), p.validRound, p.block.Hash().String())
 }
 
-func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte) ([]byte, error)) *Propose {
+func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func([]byte) ([]byte, error)) *Propose {
 	isValidRoundNil := false
 	validRound := uint64(0)
 	if vr == -1 {
@@ -106,28 +108,28 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 		validRound = uint64(vr)
 	}
 	// Calculate signature first
-	signatureInput, _ := rlp.EncodeToBytes([]any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, p.Hash()})
-	signature, _ := signer(signatureInput)
+	signatureInput := []any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, block.Hash()}
+	signatureInputEncoded, _ := rlp.EncodeToBytes(signatureInput)
+	signature, _ := signer(signatureInputEncoded)
 
-	payload, _ := rlp.EncodeToBytes(extPropose{
-		round:           uint64(r),
-		height:          h,
-		validRound:      validRound,
-		isValidRoundNil: isValidRoundNil,
-		proposalBlock:   p,
-		signature:       signature,
+	payload, _ := rlp.EncodeToBytes(&extPropose{
+		Code:            ProposalCode,
+		Round:           uint64(r),
+		Height:          h,
+		ValidRound:      validRound,
+		IsValidRoundNil: isValidRoundNil,
+		ProposalBlock:   block,
+		Signature:       signature,
 	})
-
-	hash := blake2b.Sum256(payload)
 	return &Propose{
-		block:      p,
+		block:      block,
 		validRound: vr,
 		baseMessage: baseMessage{
-			round:     r,
-			height:    h,
-			signature: signature,
-			payload:   payload,
-			hash:      hash,
+			round:          r,
+			height:         h,
+			signatureInput: signatureInput,
+			signature:      signature,
+			payload:        payload,
 		},
 	}
 }
@@ -136,30 +138,31 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(ext); err != nil {
 		return err
 	}
-	if ext.code != ProposalCode {
+	if ext.Code != ProposalCode {
 		return constants.ErrInvalidMessage
 	}
-	if ext.proposalBlock == nil {
+	if ext.ProposalBlock == nil {
 		return constants.ErrInvalidMessage
 	}
-	if ext.round > constants.MaxRound || ext.validRound > constants.MaxRound {
+	if ext.Round > constants.MaxRound || ext.ValidRound > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	if ext.height == 0 {
+	if ext.Height == 0 {
 		return constants.ErrInvalidMessage
 	}
-	if ext.isValidRoundNil {
-		if ext.validRound != 0 {
+	if ext.IsValidRoundNil {
+		if ext.ValidRound != 0 {
 			return constants.ErrInvalidMessage
 		}
 		p.validRound = -1
 	} else {
-		p.validRound = int64(ext.validRound)
+		p.validRound = int64(ext.ValidRound)
 	}
-	p.round = int64(ext.round)
-	p.height = ext.height
-	p.block = ext.proposalBlock
-	p.signature = ext.signature
+	p.round = int64(ext.Round)
+	p.height = ext.Height
+	p.block = ext.ProposalBlock
+	p.signature = ext.Signature
+	p.signatureInput = []any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()}
 	return nil
 }
 
@@ -182,7 +185,7 @@ func (p *LightProposal) Value() common.Hash {
 }
 
 func (p *LightProposal) String() string {
-	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.blockHash)
+	return fmt.Sprintf("{sender: %v, power: %v, Code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.blockHash)
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
@@ -208,11 +211,11 @@ type extVote struct {
 	// to compute the hash value.
 	// todo: remove the need to hash those values or at least try doing something
 	// more efficient.
-	code      uint8
-	round     uint64
-	height    uint64
-	value     common.Hash
-	signature []byte
+	Code      uint8
+	Round     uint64
+	Height    uint64
+	Value     common.Hash
+	Signature []byte
 }
 
 type Prevote struct {
@@ -229,7 +232,7 @@ func (p *Prevote) Value() common.Hash {
 }
 
 func (p *Prevote) String() string {
-	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.value)
+	return fmt.Sprintf("{sender: %v, power: %v, Code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.value)
 }
 
 type Precommit struct {
@@ -246,7 +249,7 @@ func (p *Precommit) Value() common.Hash {
 }
 
 func (p *Precommit) String() string {
-	return fmt.Sprintf("{sender: %v, power: %v, code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.value)
+	return fmt.Sprintf("{sender: %v, power: %v, Code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.value)
 }
 
 func NewVote[
@@ -256,84 +259,86 @@ func NewVote[
 		Message
 	}](r int64, h uint64, value common.Hash, signer func([]byte) ([]byte, error)) *E {
 	code := PE(new(E)).Code()
-	// Pay attention that we're adding the message code to the signature input data.
-	signatureInput, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
-	signature, _ := signer(signatureInput)
+	// Pay attention that we're adding the message Code to the signature input data.
+	signatureInput := []any{code, uint64(r), h, value}
+	signatureEncodedInput, _ := rlp.EncodeToBytes(signatureInput)
+	signature, _ := signer(signatureEncodedInput)
 	payload, _ := rlp.EncodeToBytes(extVote{
-		code:      code,
-		round:     uint64(r),
-		height:    h,
-		value:     value,
-		signature: signature,
+		Code:      code,
+		Round:     uint64(r),
+		Height:    h,
+		Value:     value,
+		Signature: signature,
 	})
-	// this hash value is actually only being used for our message stores
-	// maybe we can use the signature instead?
-	// that would probably mean we have to verify the signatures first instead..
-	// I think there are probably ways to avoid this hash.
-	hash := blake2b.Sum256(payload)
 	vote := E{
 		value: value,
 		baseMessage: baseMessage{
-			round:     r,
-			height:    h,
-			signature: signature,
-			payload:   payload,
-			hash:      hash,
+			round:          r,
+			height:         h,
+			signature:      signature,
+			payload:        payload,
+			signatureInput: signatureInput,
 		},
 	}
+	fmt.Println("CREATION INPUT", signatureInput)
 	return &vote
 }
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	encoded := extVote{}
-	if err := s.Decode(encoded); err != nil {
+	if err := s.Decode(&encoded); err != nil {
 		return err
 	}
-	if encoded.code != PrevoteCode {
+	if encoded.Code != PrevoteCode {
 		return constants.ErrFailedDecodePrevote
 	}
-	p.value = encoded.value
-	p.height = encoded.height
+	p.value = encoded.Value
+	p.height = encoded.Height
 	if p.height == 0 {
 		return constants.ErrInvalidMessage
 	}
-	p.signature = encoded.signature
-	if encoded.round > constants.MaxRound {
+	p.signature = encoded.Signature
+	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	p.round = int64(encoded.round)
+	p.round = int64(encoded.Round)
 	if p.round < 0 {
 		return constants.ErrInvalidMessage
 	}
+	p.signatureInput = []any{PrevoteCode, encoded.Round, encoded.Height, encoded.Value}
 	return nil
 }
 
 func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	encoded := extVote{}
-	if err := s.Decode(encoded); err != nil {
+	if err := s.Decode(&encoded); err != nil {
 		return err
 	}
-	if encoded.code != PrecommitCode {
+	if encoded.Code != PrecommitCode {
 		return constants.ErrFailedDecodePrevote
 	}
-	p.value = encoded.value
-	p.height = encoded.height
+	p.value = encoded.Value
+	p.height = encoded.Height
 	if p.height == 0 {
 		return constants.ErrInvalidMessage
 	}
-	p.signature = encoded.signature
-	if encoded.round > constants.MaxRound {
+	p.signature = encoded.Signature
+	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	p.round = int64(encoded.round)
+	p.round = int64(encoded.Round)
 	if p.round < 0 {
 		return constants.ErrInvalidMessage
 	}
+	p.signatureInput = []any{PrecommitCode, encoded.Round, encoded.Height, encoded.Value}
 	return nil
 }
 
-func FromWire[M Message](p2pMsg p2p.Msg) (M, error) {
-	var message M
+func FromWire[T any, PT interface {
+	*T
+	Message
+}](p2pMsg p2p.Msg) (PT, error) {
+	message := PT(new(T))
 	if err := p2pMsg.Decode(message); err != nil {
 		return message, err
 	}
@@ -386,8 +391,13 @@ func (b *baseMessage) Hash() common.Hash {
 
 // Validate verify the signature and set appropriate sender / power fields
 func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
-	// this is wrong for propose as the hash is different.
-	pub, err := crypto.SigToPub(b.hash[:], b.signature)
+	// We are not saving the rlp encoded signature input data as we want
+	// to avoid this extra-serialization step if the message has already been received
+	// The call to Validate() only happen after the cache check in the backend handler.
+	sigData, _ := rlp.EncodeToBytes(b.signatureInput)
+	fmt.Println("VALIDATE INPUT", b.signatureInput)
+	hash := blake2b.Sum256(sigData)
+	pub, err := crypto.SigToPub(hash[:], b.signature)
 	if err != nil {
 		return err
 	}
@@ -464,7 +474,7 @@ func (m *Message) DecodePayload() error {
 
 func (m *Message) Validate(validateSig SigVerifier, previousHeader *types.Header) error {
 	if previousHeader.Number.Uint64()+1 != m.H() {
-		// don't know why the legacy code panic here, it introduces live-ness issue of the network.
+		// don't know why the legacy Code panic here, it introduces live-ness issue of the network.
 		// youssef: that is really bad and should never happen, could be because of a race-condition
 		// I'm reintroducing the panic to check if this scenario happens in the wild. We must never fail silently.
 		panic("Autonity has encountered a problem which led to an inconsistent state, please report this issue.")
@@ -592,6 +602,6 @@ func (m *Message) ToLightProposal() *Message {
 }
 
 func (m *Message) String() string {
-	return fmt.Sprintf("{sender: %v, power: %v, code: %v, inner: %v}", m.Address.String(), m.Power, m.Code, m.ConsensusMsg)
+	return fmt.Sprintf("{sender: %v, power: %v, Code: %v, inner: %v}", m.Address.String(), m.Power, m.Code, m.ConsensusMsg)
 }
 */

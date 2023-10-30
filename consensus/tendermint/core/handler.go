@@ -249,6 +249,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Message) error {
 	}
 	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
+		c.logger.Error(msg.String())
 		return err
 	}
 	if c.backend.IsJailed(msg.Sender()) {
