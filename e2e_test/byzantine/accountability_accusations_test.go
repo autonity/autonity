@@ -16,7 +16,7 @@ type AccusationRulePOBroadcaster struct {
 }
 
 // simulate an old proposal which refer to less quorum preVotes to trigger the accusation of rule PO
-func (s *AccusationRulePOBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePOBroadcaster) Broadcast(ctx context.Context, msg message.Message) {
 	if msg.Code != consensus.MsgProposal {
 		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
 		return
@@ -30,7 +30,7 @@ func (s *AccusationRulePOBroadcaster) SignAndBroadcast(ctx context.Context, msg 
 	if err != nil {
 		s.Logger().Warn("Cannot simulate accusation for rule PO", err)
 	}
-	invalidProposal := e2e.NewProposeMsg(s.Address(), p.ProposalBlock, msg.H(), nPR, vR, s.Backend().Sign)
+	invalidProposal := message.NewPropose(s.Address(), p.ProposalBlock, msg.H(), nPR, vR, s.Backend().Sign)
 	mP, err := s.SignMessage(invalidProposal)
 	if err != nil {
 		s.Logger().Warn("Cannot simulate accusation for rule PO", err)
@@ -45,7 +45,7 @@ type AccusationRulePVNBroadcaster struct {
 }
 
 // simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
-func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePVNBroadcaster) Broadcast(ctx context.Context, msg message.Message) {
 	if msg.Code != consensus.MsgProposal || s.IsProposer() == false {
 		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
 		return
@@ -66,7 +66,7 @@ type AccusationRulePVOBroadcaster struct {
 }
 
 // simulate an accusation context that an old proposal have less quorum preVotes for the value at the valid round.
-func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePVOBroadcaster) Broadcast(ctx context.Context, msg message.Message) {
 	if msg.Code != consensus.MsgProposal {
 		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
 		return

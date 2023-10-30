@@ -58,7 +58,6 @@ func New(privateKey *ecdsa.PrivateKey,
 	ms *tendermintCore.MsgStore,
 	log log.Logger) *Backend {
 
-	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
@@ -67,7 +66,6 @@ func New(privateKey *ecdsa.PrivateKey,
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         log,
-		recents:        recents,
 		coreStarted:    false,
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
@@ -108,17 +106,13 @@ type Backend struct {
 	wg                sync.WaitGroup
 	coreMu            sync.RWMutex
 
-	// Snapshots for recent block to speed up reorgs
-	recents *lru.ARCCache
-
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
 
 	// event subscription for ChainHeadEvent event
 	Broadcaster consensus.Broadcaster
 
-	//TODO: ARCChace is patented by IBM, so probably need to stop using it
-	//Update: patent has expired https://patents.google.com/patent/US7167953B2/en
+	//ARCCache is patented by IBM but it has expired https://patents.google.com/patent/US7167953B2/en
 	recentMessages *lru.ARCCache // the cache of peer's messages
 	knownMessages  *lru.ARCCache // the cache of self messages
 
@@ -210,6 +204,7 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, messag
 	if sb.Broadcaster != nil && len(targets) > 0 {
 		ps := sb.Broadcaster.FindPeers(targets)
 		for addr, p := range ps {
+			// todo: find a better strategy to manage these caches, they keep increasing ..
 			ms, ok := sb.recentMessages.Get(addr)
 			var m *lru.ARCCache
 			if ok {
@@ -224,7 +219,6 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, messag
 
 			m.Add(hash, true)
 			sb.recentMessages.Add(addr, m)
-
 			go p.SendRaw(networkCodes[message.Code()], message.Payload()) //nolint
 		}
 	}
@@ -431,13 +425,11 @@ func (sb *Backend) CommitteeEnodes() []string {
 		sb.logger.Error("Failed to get state", "err", err)
 		return nil
 	}
-
 	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil
 	}
-
 	return enodes.StrList
 }
 
@@ -446,7 +438,6 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	if sb.Broadcaster == nil {
 		return
 	}
-
 	sb.logger.Debug("Syncing", "peer", address)
 	targets := map[common.Address]struct{}{address: {}}
 	ps := sb.Broadcaster.FindPeers(targets)

@@ -118,7 +118,7 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 		signature:       signature,
 	})
 
-	hash := crypto.Keccak256Hash(payload)
+	hash := blake2b.Sum256(payload)
 	return &Propose{
 		block:      p,
 		validRound: vr,
@@ -131,9 +131,38 @@ func NewPropose(r int64, h uint64, vr int64, p *types.Block, signer func([]byte)
 		},
 	}
 }
+func (p *Propose) DecodeRLP(s *rlp.Stream) error {
+	ext := &extPropose{}
+	if err := s.Decode(ext); err != nil {
+		return err
+	}
+	if ext.code != ProposalCode {
+		return constants.ErrInvalidMessage
+	}
+	if ext.proposalBlock == nil {
+		return constants.ErrInvalidMessage
+	}
+	if ext.round > constants.MaxRound || ext.validRound > constants.MaxRound {
+		return constants.ErrInvalidMessage
+	}
+	if ext.height == 0 {
+		return constants.ErrInvalidMessage
+	}
+	if ext.isValidRoundNil {
+		if ext.validRound != 0 {
+			return constants.ErrInvalidMessage
+		}
+		p.validRound = -1
+	} else {
+		p.validRound = int64(ext.validRound)
+	}
+	p.round = int64(ext.round)
+	p.height = ext.height
+	p.block = ext.proposalBlock
+	p.signature = ext.signature
+	return nil
+}
 
-// - !!!!!!!!!!TODO: RLP DECODE CHECK IF PROPOSAL CAN BE NIL!!!!!!!!!!
-// - DO NOT ACCEPT HEIGHT = 0
 type LightProposal struct {
 	blockHash  common.Hash
 	validRound int64
@@ -172,7 +201,14 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 	}
 }
 
+// extVote is object being transmitted over the network to carry votes.
 type extVote struct {
+	// code is redundant with the p2p.msg code however it is required
+	// because we don't want to re-serialize the message again in order
+	// to compute the hash value.
+	// todo: remove the need to hash those values or at least try doing something
+	// more efficient.
+	code      uint8
 	round     uint64
 	height    uint64
 	value     common.Hash
@@ -224,12 +260,17 @@ func NewVote[
 	signatureInput, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
 	signature, _ := signer(signatureInput)
 	payload, _ := rlp.EncodeToBytes(extVote{
+		code:      code,
 		round:     uint64(r),
 		height:    h,
 		value:     value,
 		signature: signature,
 	})
-	hash := crypto.Keccak256Hash(payload)
+	// this hash value is actually only being used for our message stores
+	// maybe we can use the signature instead?
+	// that would probably mean we have to verify the signatures first instead..
+	// I think there are probably ways to avoid this hash.
+	hash := blake2b.Sum256(payload)
 	vote := E{
 		value: value,
 		baseMessage: baseMessage{
@@ -248,12 +289,18 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(encoded); err != nil {
 		return err
 	}
+	if encoded.code != PrevoteCode {
+		return constants.ErrFailedDecodePrevote
+	}
 	p.value = encoded.value
 	p.height = encoded.height
 	if p.height == 0 {
 		return constants.ErrInvalidMessage
 	}
 	p.signature = encoded.signature
+	if encoded.round > constants.MaxRound {
+		return constants.ErrInvalidMessage
+	}
 	p.round = int64(encoded.round)
 	if p.round < 0 {
 		return constants.ErrInvalidMessage
@@ -266,12 +313,18 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(encoded); err != nil {
 		return err
 	}
+	if encoded.code != PrecommitCode {
+		return constants.ErrFailedDecodePrevote
+	}
 	p.value = encoded.value
 	p.height = encoded.height
 	if p.height == 0 {
 		return constants.ErrInvalidMessage
 	}
 	p.signature = encoded.signature
+	if encoded.round > constants.MaxRound {
+		return constants.ErrInvalidMessage
+	}
 	p.round = int64(encoded.round)
 	if p.round < 0 {
 		return constants.ErrInvalidMessage

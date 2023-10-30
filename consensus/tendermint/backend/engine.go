@@ -356,10 +356,8 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	if !isStarted {
 		return ErrStoppedEngine
 	}
-
 	// update the block header and signature and propose the block to core engine
 	header := block.Header()
-
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		sb.logger.Error("Error ancestor")
