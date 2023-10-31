@@ -1,16 +1,13 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 )
 
 type Precommiter struct {
@@ -25,7 +22,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
 		}
-		value = proposal.Hash()
+		value = proposal.Block().Hash()
 	}
 	precommit := message.NewVote[message.Precommit](c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
@@ -81,25 +78,6 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
-	}
-
-	return nil
-}
-
-func (c *Precommiter) VerifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
-	committedSeal := helpers.PrepareCommittedSeal(proposedBlockHash, round, height)
-
-	sealerAddress, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
-	if err != nil {
-		c.logger.Error("Failed to get signer address", "err", err)
-		return err
-	}
-
-	// ensure sender signed the committed seal
-	if !bytes.Equal(sealerAddress.Bytes(), addressMsg.Bytes()) {
-		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", sealerAddress.String())
-
-		return constants.ErrInvalidSenderOfCommittedSeal
 	}
 
 	return nil

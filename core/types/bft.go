@@ -68,6 +68,9 @@ func SigHash(header *Header) common.Hash {
 // ECRecover extracts the Ethereum account address from a signed header.
 func ECRecover(header *Header) (common.Address, error) {
 	hash := SigHash(header)
+	// note that we can use the hash alone for the key
+	// as the hash is over an object containing the proposer address
+	// e.g. every proposer will have a different header hash for the same block content.
 	if addr, ok := recentAddresses.Get(hash); ok {
 		return addr.(common.Address), nil
 	}

@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -165,7 +165,7 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 			f.Funcs(func(dMsg *message.ConsensusMsg, fc fuzz.Continue) {})
 			f.Fuzz(msg)
 			// Create committed seal
-			seal := helpers.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
+			seal := tendermint.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
 			msg.CommittedSeal, err = c.Backend().Sign(seal)
 			if err != nil {
 				c.Logger().Error("Core.sendPrecommit error while signing committed seal", "err", err)

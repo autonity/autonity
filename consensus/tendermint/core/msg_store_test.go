@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -100,7 +100,7 @@ func TestMsgStore(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
 
-	committee, keys := helpers.GenerateCommittee(5)
+	committee, keys := tendermint.GenerateCommittee(5)
 	proposer := committee[0].Address
 	proposerKey := keys[proposer]
 

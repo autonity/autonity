@@ -82,7 +82,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 
 	// Verify the proposal2 we received
 	start := time.Now()
-	duration, err := c.backend.VerifyProposal(proposal.Block())
+	duration, err := c.backend.VerifyProposal(proposal.Block()) // youssef: can we skip the verification for our own proposal?
 
 	if metrics.Enabled {
 		now := time.Now()
@@ -136,6 +136,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			// set to a non nil value. So we can be sure that we will only try to access
 			// lockedValue when it is non nil.
 			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || hash == c.lockedValue.Hash()))
+			c.logger.Warn("sending prevote vr -1", "isnil", !(c.lockedRound == -1 || hash == c.lockedValue.Hash()))
 			c.SetStep(Prevote)
 			return nil
 		}
@@ -144,6 +145,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// vr >= 0 here
 		if vr < c.Round() && rs.PrevotesPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
+			c.logger.Warn("sending prevote vr >=0", "isnil", !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
 			c.SetStep(Prevote)
 		}
 	}

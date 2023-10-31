@@ -171,7 +171,7 @@ func (sb *Backend) AskSync(header *types.Header) {
 			}
 			count := new(big.Int)
 			for addr, p := range ps {
-				//ask to a quorum nodes to sync, 1 must then be honest and updated
+				// ask a quorum nodes to sync, 1 must then be honest and updated
 				if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
 					break
 				}
@@ -307,7 +307,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			// Verify the header's EIP-1559 attributes.
 			return 0, err
 		}
-		// We need to process all of the transaction to get the latest state to get the latest committee
+		// We need to process all the transaction to get the latest state to get the latest committee
 		state, stateErr := sb.blockchain.StateAt(parent.Root())
 		if stateErr != nil {
 			return 0, stateErr
@@ -405,7 +405,7 @@ func (sb *Backend) CoreState() tendermintCore.TendermintState {
 	return sb.core.CoreState()
 }
 
-// Whitelist for the current block
+// CommitteeEnodes retrieve the list of validators enodes for the current block
 func (sb *Backend) CommitteeEnodes() []string {
 	db, err := sb.blockchain.State()
 	if err != nil {
@@ -451,27 +451,3 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 func (sb *Backend) RemoveMessageFromLocalCache(message message.Message) {
 	sb.knownMessages.Remove(message.Hash())
 }
-
-/*
-func (sb *Backend) Protocol() p2p.Protocol {
-	return p2p.Protocol{
-		Name:    "automint",
-		Version: 1,
-		Length:  5,
-		Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-			peer := NewPeer(p, rw, backend.TxPool())
-			defer peer.Close()
-
-			return backend.RunPeer(peer, func(peer *Peer) error {
-				return Handle(backend, peer)
-			})
-		},
-		NodeInfo: func() interface{} {
-			return nil
-		},
-		PeerInfo:       nil,
-		Attributes:     nil,
-		DialCandidates: nil,
-	}
-}
-*/

@@ -3,8 +3,8 @@ package core
 import (
 	"context"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -23,7 +23,7 @@ import (
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
-	committeeSet, keysMap := helpers.NewTestCommitteeSetWithKeys(4)
+	committeeSet, keysMap := tendermint.NewTestCommitteeSetWithKeys(4)
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
@@ -57,7 +57,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not encode vote")
 		}
-		data := helpers.PrepareCommittedSeal(common.BytesToHash([]byte{0x1}), vote.Round, vote.Height)
+		data := tendermint.PrepareCommittedSeal(common.BytesToHash([]byte{0x1}), vote.Round, vote.Height)
 		hashData := crypto.Keccak256(data)
 		commitSign, err := crypto.Sign(hashData, senderKey)
 		if err != nil {

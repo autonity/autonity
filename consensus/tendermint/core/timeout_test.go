@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -70,7 +70,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 	t.Run("on Timeout received, send precommit nil and switch step", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, _ := helpers.NewTestCommitteeSetWithKeys(4)
+		committeeSet, _ := tendermint.NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 		messages := tcmessage.NewMap()
@@ -131,7 +131,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 	t.Run("on Timeout precommit received, start new round", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, _ := helpers.NewTestCommitteeSetWithKeys(4)
+		committeeSet, _ := tendermint.NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 		messages := tcmessage.NewMap()

@@ -3,9 +3,9 @@ package core
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -148,7 +148,7 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		testCommittee, _ := helpers.GenerateCommittee(3)
+		testCommittee, _ := tendermint.GenerateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
 
 		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
@@ -404,7 +404,7 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(4)
 		logger := log.New("backend", "test", "id", 0)
 		proposer, err := committeeSet.GetByIndex(3)
 		assert.NoError(t, err)

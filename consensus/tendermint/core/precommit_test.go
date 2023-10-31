@@ -1,12 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -25,6 +26,25 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 )
+
+func (c *Precommiter) VerifyCommittedSeal(addressMsg common.Address, committedSealMsg []byte, proposedBlockHash common.Hash, round int64, height *big.Int) error {
+	committedSeal := tendermint.PrepareCommittedSeal(proposedBlockHash, round, height)
+
+	sealerAddress, err := types.GetSignatureAddress(committedSeal, committedSealMsg)
+	if err != nil {
+		c.logger.Error("Failed to get signer address", "err", err)
+		return err
+	}
+
+	// ensure sender signed the committed seal
+	if !bytes.Equal(sealerAddress.Bytes(), addressMsg.Bytes()) {
+		c.logger.Error("verify precommit seal error", "got", addressMsg.String(), "expected", sealerAddress.String())
+
+		return constants.ErrInvalidSenderOfCommittedSeal
+	}
+
+	return nil
+}
 
 func TestSendPrecommit(t *testing.T) {
 	t.Run("proposal is empty", func(t *testing.T) {
@@ -51,7 +71,7 @@ func TestSendPrecommit(t *testing.T) {
 	t.Run("valid proposal given, non nil pre-commit", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(7)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(7)
 		me, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 		val, _ := committeeSet.GetByIndex(2)
@@ -118,7 +138,7 @@ func TestSendPrecommit(t *testing.T) {
 	t.Run("valid proposal given, nil pre-commit", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(7)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(7)
 		me, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 		val, _ := committeeSet.GetByIndex(2)
@@ -227,7 +247,7 @@ func TestHandlePrecommit(t *testing.T) {
 	})
 
 	t.Run("pre-commit with invalid signature given, error returned", func(t *testing.T) {
-		committeeSet := helpers.NewTestCommitteeSet(4)
+		committeeSet := tendermint.NewTestCommitteeSet(4)
 		member, _ := committeeSet.GetByIndex(1)
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
@@ -269,7 +289,7 @@ func TestHandlePrecommit(t *testing.T) {
 	t.Run("pre-commit given with no errors, commit called", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(1)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(1)
 		member, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 
@@ -322,7 +342,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 	t.Run("pre-commit given with no errors, commit cancelled", func(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(1)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(1)
 		member, _ := committeeSet.GetByIndex(0)
 		proposal := message.NewProposal(
 			1,
@@ -366,7 +386,7 @@ func TestHandlePrecommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		backendMock := interfaces.NewMockBackend(ctrl)
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(7)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(7)
 		me, _ := committeeSet.GetByIndex(0)
 		proposal := message.NewProposal(
 			2,
@@ -438,12 +458,12 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 		c.SetDefaultHandlers()
 
 		addrMsg := common.HexToAddress("0x0123456789")
-		key, err := helpers.GeneratePrivateKey()
+		key, err := tendermint.GeneratePrivateKey()
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := helpers.PrepareCommittedSeal(common.Hash{}, 3, big.NewInt(28))
+		data := tendermint.PrepareCommittedSeal(common.Hash{}, 3, big.NewInt(28))
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
@@ -462,13 +482,13 @@ func TestVerifyPrecommitCommittedSeal(t *testing.T) {
 		}
 		c.SetDefaultHandlers()
 
-		addrMsg := helpers.GetAddress()
-		key, err := helpers.GeneratePrivateKey()
+		addrMsg := tendermint.GetAddress()
+		key, err := tendermint.GeneratePrivateKey()
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
-		data := helpers.PrepareCommittedSeal(addrMsg.Hash(), 1, big.NewInt(13))
+		data := tendermint.PrepareCommittedSeal(addrMsg.Hash(), 1, big.NewInt(13))
 		hashData := crypto.Keccak256(data)
 		sig, err := crypto.Sign(hashData, key)
 		if err != nil {
@@ -489,7 +509,7 @@ func TestHandleCommit(t *testing.T) {
 	logger := log.New("backend", "test", "id", 0)
 
 	addr := common.HexToAddress("0x0123456789")
-	testCommittee, keys := helpers.GenerateCommittee(3)
+	testCommittee, keys := tendermint.GenerateCommittee(3)
 
 	firstKey := keys[testCommittee[0].Address]
 
@@ -536,7 +556,7 @@ func TestHandleCommit(t *testing.T) {
 	}
 }
 
-func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys helpers.AddressKeyMap, member types.CommitteeMember) (*message.Message, error) {
+func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys tendermint.AddressKeyMap, member types.CommitteeMember) (*message.Message, error) {
 	var preCommit = message.Vote{
 		Round:             round,
 		Height:            big.NewInt(height),
@@ -548,7 +568,7 @@ func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, ke
 		return nil, err
 	}
 
-	data := helpers.PrepareCommittedSeal(proposalHash, preCommit.Round, preCommit.Height)
+	data := tendermint.PrepareCommittedSeal(proposalHash, preCommit.Round, preCommit.Height)
 	hashData := crypto.Keccak256(data)
 	sig, err := crypto.Sign(hashData, keys[member.Address])
 	if err != nil {

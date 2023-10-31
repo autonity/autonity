@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"time"
@@ -14,7 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
@@ -235,13 +236,13 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 
 	// Total Voting power for this block
 	power := new(big.Int)
-	// The data that was sined over for this block
-	headerSeal := helpers.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+	// The data that was signed over for this block
+	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
 
 	// 1. Get committed seals from current header
 	for _, signedSeal := range header.CommittedSeals {
 		// 2. Get the address from signature
-		addr, err := crypto.SigToAddr(headerSeal, signedSeal)
+		addr, err := tendermint.SigToAddr(headerSeal, signedSeal)
 		if err != nil {
 			sb.logger.Error("not a valid address", "err", err)
 			return types.ErrInvalidSignature
@@ -421,7 +422,7 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 	sb.proposedBlockHash = hash
 }
 
-// update timestamp and signature of the block based on its number of transactions
+// AddSeal update timestamp and signature of the block based on its number of transactions
 func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
 	hashData := types.SigHash(header)
@@ -429,7 +430,7 @@ func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := types.WriteSeal(h, signature); err != nil {
+	if err := types.WriteSeal(header, signature); err != nil {
 		return nil, err
 	}
 	return block.WithSeal(header), nil

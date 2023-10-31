@@ -118,6 +118,7 @@ func handleConsensusMsg[T any, PT interface {
 	}
 	msg, err := message.FromWire[T, PT](p2pMsg)
 	if err != nil {
+		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
 	// Mark peer's message as known.

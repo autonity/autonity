@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
@@ -10,7 +11,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -26,7 +26,7 @@ func TestSendPrevote(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		backendMock := interfaces.NewMockBackend(ctrl)
-		committeeSet := helpers.NewTestCommitteeSet(4)
+		committeeSet := tendermint.NewTestCommitteeSet(4)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 		backendMock.EXPECT().Sign(gomock.Any()).Times(1)
 		c := &Core{
@@ -46,7 +46,7 @@ func TestSendPrevote(t *testing.T) {
 	t.Run("valid proposal given, non nil prevote", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
+		committeSet, keys := tendermint.NewTestCommitteeSetWithKeys(4)
 		member := committeSet.Committee()[0]
 		logger := log.New("backend", "test", "id", 0)
 
@@ -89,7 +89,7 @@ func TestSendPrevote(t *testing.T) {
 
 func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
-		committeeSet := helpers.NewTestCommitteeSet(4)
+		committeeSet := tendermint.NewTestCommitteeSet(4)
 		member := committeeSet.Committee()[0]
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
@@ -113,7 +113,7 @@ func TestHandlePrevote(t *testing.T) {
 	})
 
 	t.Run("pre-vote with old height given, pre-vote not added", func(t *testing.T) {
-		committeeSet := helpers.NewTestCommitteeSet(4)
+		committeeSet := tendermint.NewTestCommitteeSet(4)
 		member := committeeSet.Committee()[0]
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
@@ -145,7 +145,7 @@ func TestHandlePrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		messages := message.NewMap()
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(4)
 		member := committeeSet.Committee()[0]
 		curRoundMessages := messages.GetOrCreate(2)
 		logger := log.New("backend", "test", "id", 0)
@@ -188,7 +188,7 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given at pre-vote step, non-nil pre-commit sent", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(1)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(1)
 		logger := log.New("backend", "test", "id", 0)
 		member := committeeSet.Committee()[0]
 		proposal := message.NewProposal(
@@ -259,7 +259,7 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given at pre-vote step, nil pre-commit sent", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeSet := helpers.NewTestCommitteeSet(1)
+		committeSet := tendermint.NewTestCommitteeSet(1)
 		messages := message.NewMap()
 		member := committeSet.Committee()[0]
 		curRoundMessage := messages.GetOrCreate(2)
@@ -320,7 +320,7 @@ func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote given at pre-vote step, pre-vote Timeout triggered", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
+		committeeSet, keys := tendermint.NewTestCommitteeSetWithKeys(4)
 		messages := message.NewMap()
 		member := committeeSet.Committee()[0]
 		curRoundMessages := messages.GetOrCreate(1)

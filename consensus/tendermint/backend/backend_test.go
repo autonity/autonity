@@ -8,8 +8,8 @@ import (
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint"
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
@@ -176,7 +176,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
 		// VerifyProposal dont need committed seals
-		committedSeal, errSC := backend.Sign(helpers.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+		committedSeal, errSC := backend.Sign(tendermint.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 		if errSC != nil {
 			t.Fatalf("could not sign commit %d, err=%s", i, errS)
 		}

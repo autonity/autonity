@@ -3,8 +3,8 @@ package core
 import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -256,7 +256,7 @@ func TestProcessBacklog(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet := helpers.NewTestCommitteeSet(1)
+		committeeSet := tendermint.NewTestCommitteeSet(1)
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogMessageEvent{
@@ -320,7 +320,7 @@ func TestProcessBacklog(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet := helpers.NewTestCommitteeSet(1)
+		committeeSet := tendermint.NewTestCommitteeSet(1)
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogMessageEvent{
@@ -394,7 +394,7 @@ func TestProcessBacklog(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		committeeSet := helpers.NewTestCommitteeSet(1)
+		committeeSet := tendermint.NewTestCommitteeSet(1)
 		val, _ := committeeSet.GetByIndex(0)
 
 		expected := backlogMessageEvent{
@@ -461,7 +461,7 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
-		committeeSet := helpers.NewTestCommitteeSet(2)
+		committeeSet := tendermint.NewTestCommitteeSet(2)
 		val, _ := committeeSet.GetByIndex(0)
 
 		c := &Core{
@@ -506,7 +506,7 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
-		committeeSet := helpers.NewTestCommitteeSet(2)
+		committeeSet := tendermint.NewTestCommitteeSet(2)
 		val, _ := committeeSet.GetByIndex(0)
 
 		c := &Core{
@@ -559,7 +559,7 @@ func TestProcessBacklog(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		committeeSet := helpers.NewTestCommitteeSet(2)
+		committeeSet := tendermint.NewTestCommitteeSet(2)
 
 		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
@@ -611,7 +611,7 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
-		committeeSet := helpers.NewTestCommitteeSet(2)
+		committeeSet := tendermint.NewTestCommitteeSet(2)
 		val, err := committeeSet.GetByIndex(0)
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)

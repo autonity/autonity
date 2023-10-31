@@ -21,7 +21,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
 		}
-		value = proposal.Hash()
+		value = proposal.Block().Hash()
 	}
 	prevote := message.NewVote[message.Prevote](c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")

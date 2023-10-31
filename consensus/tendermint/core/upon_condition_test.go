@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint"
 	tcrypto "github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
@@ -13,7 +14,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -873,7 +873,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 		timeoutE := tctypes.TimeoutEvent{RoundWhenCalled: currentRound, HeightWhenCalled: currentHeight, Step: consensus.MsgPrevote}
 		precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, consensus.MsgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
-		committedSeal := helpers.PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
+		committedSeal := tendermint.PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -933,7 +933,7 @@ func TestQuorumPrevote(t *testing.T) {
 		c.curRoundMessages.AddPrevote(proposal.ProposalBlock.Hash(), message.Message{Address: members[2].Address, Code: consensus.MsgPrevote, Power: new(big.Int).Sub(c.CommitteeSet().Quorum(), common.Big1)})
 
 		if currentStep == tctypes.Prevote {
-			committedSeal := helpers.PrepareCommittedSeal(proposal.ProposalBlock.Hash(), currentRound, currentHeight)
+			committedSeal := tendermint.PrepareCommittedSeal(proposal.ProposalBlock.Hash(), currentRound, currentHeight)
 
 			backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 			backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
@@ -986,7 +986,7 @@ func TestQuorumPrevote(t *testing.T) {
 
 		// receive first prevote to increase the total to quorum
 		if currentStep == tctypes.Prevote {
-			committedSeal := helpers.PrepareCommittedSeal(proposal.ProposalBlock.Hash(), currentRound, currentHeight)
+			committedSeal := tendermint.PrepareCommittedSeal(proposal.ProposalBlock.Hash(), currentRound, currentHeight)
 
 			backendMock.EXPECT().Sign(committedSeal).Return(precommitMsg.CommittedSeal, nil)
 			backendMock.EXPECT().Sign(precommitMsgRLPNoSig).Return(precommitMsg.Signature, nil)
@@ -1038,7 +1038,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	sender := 1
 	prevoteMsg, _, _ := prepareVote(t, consensus.MsgPrevote, currentRound, currentHeight, common.Hash{}, members[sender].Address, privateKeys[members[sender].Address])
 	precommitMsg, precommitMsgRLPNoSig, precommitMsgRLPWithSig := prepareVote(t, consensus.MsgPrecommit, currentRound, currentHeight, common.Hash{}, clientAddr, privateKeys[clientAddr])
-	committedSeal := helpers.PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
+	committedSeal := tendermint.PrepareCommittedSeal(common.Hash{}, currentRound, currentHeight)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1474,7 +1474,7 @@ func voteForBadProposal(t *testing.T, step uint8, round int64, height *big.Int, 
 	assert.NoError(t, err)
 	voteMsg := &message.Message{Code: step, Payload: voteRLP, Address: voter, Power: common.Big1}
 	if step == consensus.MsgPrecommit {
-		voteMsg.CommittedSeal, err = sign(helpers.PrepareCommittedSeal(common.Hash{}, round, height), key)
+		voteMsg.CommittedSeal, err = sign(tendermint.PrepareCommittedSeal(common.Hash{}, round, height), key)
 		assert.NoError(t, err)
 	}
 	voteMsgRLPNoSig, err := voteMsg.BytesNoSignature()
@@ -1495,7 +1495,7 @@ func prepareVote(t *testing.T, step uint8, round int64, height *big.Int, blockHa
 	assert.NoError(t, err)
 	voteMsg := &message.Message{Code: step, Payload: voteRLP, ConsensusMsg: vote, Address: clientAddr, Power: common.Big1}
 	if step == consensus.MsgPrecommit {
-		voteMsg.CommittedSeal, err = sign(helpers.PrepareCommittedSeal(blockHash, round, height), privateKey)
+		voteMsg.CommittedSeal, err = sign(tendermint.PrepareCommittedSeal(blockHash, round, height), privateKey)
 		assert.NoError(t, err)
 	}
 	voteMsgRLPNoSig, err := voteMsg.BytesNoSignature()
@@ -1536,8 +1536,8 @@ func generateBlockProposal(t *testing.T, r int64, h *big.Int, vr int64, src comm
 }
 
 // Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
-func prepareCommittee(t *testing.T, cSize int) (interfaces.Committee, helpers.AddressKeyMap) {
-	committeeMembers, privateKeys := helpers.GenerateCommittee(cSize)
+func prepareCommittee(t *testing.T, cSize int) (interfaces.Committee, tendermint.AddressKeyMap) {
+	committeeMembers, privateKeys := tendermint.GenerateCommittee(cSize)
 	committeeSet, err := tdmcommittee.NewRoundRobinSet(committeeMembers, committeeMembers[len(committeeMembers)-1].Address)
 	assert.NoError(t, err)
 	return committeeSet, privateKeys

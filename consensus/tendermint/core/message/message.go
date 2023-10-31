@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 	"golang.org/x/crypto/blake2b"
@@ -130,6 +130,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func([]b
 			signatureInput: signatureInput,
 			signature:      signature,
 			payload:        payload,
+			hash:           blake2b.Sum256(payload),
 		},
 	}
 }
@@ -241,7 +242,7 @@ type Precommit struct {
 }
 
 func (p *Precommit) Code() uint8 {
-	return ProposalCode
+	return PrecommitCode
 }
 
 func (p *Precommit) Value() common.Hash {
@@ -277,10 +278,10 @@ func NewVote[
 			height:         h,
 			signature:      signature,
 			payload:        payload,
+			hash:           blake2b.Sum256(payload),
 			signatureInput: signatureInput,
 		},
 	}
-	fmt.Println("CREATION INPUT", signatureInput)
 	return &vote
 }
 
@@ -395,19 +396,25 @@ func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.C
 	// to avoid this extra-serialization step if the message has already been received
 	// The call to Validate() only happen after the cache check in the backend handler.
 	sigData, _ := rlp.EncodeToBytes(b.signatureInput)
-	fmt.Println("VALIDATE INPUT", b.signatureInput)
 	hash := blake2b.Sum256(sigData)
-	pub, err := crypto.SigToPub(hash[:], b.signature)
+	addr, err := tendermint.SigToAddr(hash, b.signature)
 	if err != nil {
 		return err
 	}
-	b.sender = crypto.PubkeyToAddress(*pub)
-	validator := inCommittee(b.sender)
+	validator := inCommittee(addr)
 	if validator == nil {
 		return ErrUnauthorizedAddress
 	}
+	b.sender = addr
 	b.power = validator.VotingPower
 	return nil
+}
+
+// PrepareCommittedSeal returns the input data to compute the committed seal for a given block hash.
+func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common.Hash {
+	// this is matching the signature input that we get from the committed messages.
+	buf, _ := rlp.EncodeToBytes([]any{PrecommitCode, uint64(round), height.Uint64(), hash})
+	return blake2b.Sum256(buf)
 }
 
 /*
