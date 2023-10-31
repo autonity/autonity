@@ -34,7 +34,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/rlp"
 )
 
 func TestAskSync(t *testing.T) {
@@ -48,7 +47,7 @@ func TestAskSync(t *testing.T) {
 	counter := uint64(0)
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := ethereum.NewMockPeer(ctrl)
+		mockedPeer := tendermint.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(uint64(SyncNetworkMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
@@ -84,24 +83,21 @@ func TestGossip(t *testing.T) {
 
 	header := newTestHeader(5)
 	validators := header.Committee
-	payload, err := rlp.EncodeToBytes([]byte("data"))
-	hash := types.RLPHash(payload)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	msg := message.NewVote[message.Prevote](1, 1, common.Hash{}, nil)
+
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
 	for i, val := range validators {
 		addresses = append(addresses, val.Address)
-		mockedPeer := ethereum.NewMockPeer(ctrl)
+		mockedPeer := tendermint.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
 			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Times(0)
 		} else {
 			mockedPeer.EXPECT().Send(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == uint64(TendermintMsg) && reflect.DeepEqual(data, payload) {
+				if msgCode == uint64(message.PrevoteCode) && reflect.DeepEqual(data, msg.Payload()) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
@@ -129,7 +125,7 @@ func TestGossip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected <nil>, got %v", err)
 	}
-	address3Cache.Add(hash, true)
+	address3Cache.Add(msg.Hash(), true)
 	recentMessages.Add(addresses[3], address3Cache)
 	b := &Backend{
 		knownMessages:  knownMessages,
@@ -137,7 +133,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(context.Background(), validators, payload)
+	b.Gossip(context.Background(), validators, msg)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 4 {
 		t.Fatalf("Gossip message transmission failure")
@@ -161,7 +157,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not create block %d, err=%s", i, errBlock)
 		}
 		header := block.Header()
-		seal, errS := backend.Sign(types.SigHash(header).Bytes())
+		seal, errS := backend.Sign(types.SigHash(header))
 		if errS != nil {
 			t.Fatalf("could not sign %d, err=%s", i, errS)
 		}
@@ -175,8 +171,8 @@ func TestVerifyProposal(t *testing.T) {
 		if _, err := backend.VerifyProposal(block); err != nil {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
-		// VerifyProposal dont need committed seals
-		committedSeal, errSC := backend.Sign(tendermint.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+		// VerifyProposal don't need committed seals
+		committedSeal, errSC := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 		if errSC != nil {
 			t.Fatalf("could not sign commit %d, err=%s", i, errS)
 		}
@@ -239,36 +235,15 @@ func TestHasBadProposal(t *testing.T) {
 
 func TestSign(t *testing.T) {
 	_, b := newBlockChain(4)
-	data := []byte("Here is a string....")
+	data := common.HexToHash("0x12345")
 	sig, err := b.Sign(data)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}
-	//Check signature recover
-	hashData := crypto.Keccak256(data)
-	pubkey, _ := crypto.Ecrecover(hashData, sig)
-	var signer common.Address
-	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+	//Check signature recovery
+	signer, _ := crypto.SigToAddr(data[:], sig)
 	if signer != b.address {
 		t.Errorf("address mismatch: have %v, want %s", signer.Hex(), getAddress().Hex())
-	}
-}
-
-func TestCheckSignature(t *testing.T) {
-	key, _ := generatePrivateKey()
-	data := []byte("Here is a string....")
-	hashData := crypto.Keccak256(data)
-	sig, _ := crypto.Sign(hashData, key)
-	_, b := newBlockChain(4)
-	a := getAddress()
-	err := b.CheckSignature(data, a, sig)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-	a = getInvalidAddress()
-	err = b.CheckSignature(data, a, sig)
-	if err != types.ErrInvalidSignature {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidSignature)
 	}
 }
 
@@ -383,18 +358,14 @@ func TestSyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []*message.Message{
-			{
-				Address: peerAddr1,
-			},
-		}
+		messages := []message.Message{message.NewVote[message.Prevote]()}
 
 		peersAddrMap := make(map[common.Address]struct{})
 		peersAddrMap[peerAddr1] = struct{}{}
 
 		payload := messages[0].GetBytes()
 
-		peer1Mock := ethereum.NewMockPeer(ctrl)
+		peer1Mock := tendermint.NewMockPeer(ctrl)
 		peer1Mock.EXPECT().Send(uint64(TendermintMsg), payload)
 
 		peers := make(map[common.Address]ethereum.Peer)

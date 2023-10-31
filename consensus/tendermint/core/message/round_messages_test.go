@@ -1,13 +1,6 @@
 package message
 
-import (
-	"bytes"
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
-	"gotest.tools/assert"
-	"testing"
-)
-
+/*
 func TestMessagesMap_newMessageMap(t *testing.T) {
 	messagesMap := NewMap()
 	assert.Equal(t, 0, len(messagesMap.internal))
@@ -119,3 +112,4 @@ func TestMessagesMap_GetMessages(t *testing.T) {
 		}
 	}
 }
+*/

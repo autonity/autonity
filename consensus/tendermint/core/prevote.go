@@ -104,10 +104,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 }
 
 func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevote, from, to string) {
-	currentProposalHash := common.Hash{}
-	if p := c.curRoundMessages.Proposal(); p != nil {
-		currentProposalHash = p.Block().Hash()
-	}
+	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,

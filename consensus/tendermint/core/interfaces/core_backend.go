@@ -22,7 +22,7 @@ type Backend interface {
 	AskSync(header *types.Header)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(ctx context.Context, committee types.Committee, message message.Message) error
+	Broadcast(ctx context.Context, committee types.Committee, message message.Message)
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
@@ -47,7 +47,7 @@ type Backend interface {
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
-	Sign([]byte) ([]byte, error)
+	Sign(hash common.Hash) ([]byte, error)
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 

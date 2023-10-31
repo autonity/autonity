@@ -12,28 +12,22 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
-var ErrUnauthorizedAddress = errors.New("unauthorized address")
-
 func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
 	// 1. Get signature address
-	signer, err := types.GetSignatureAddress(data, sig)
+	signer, err := crypto.SigToAddr(data, sig)
 	if err != nil {
-		log.Error("Failed to get signer address", "err", err)
 		return common.Address{}, err
 	}
-
 	// 2. Check validator
 	val := previousHeader.CommitteeMember(signer)
 	if val == nil {
 		return common.Address{}, ErrUnauthorizedAddress
 	}
-
 	return val.Address, nil
 }
 
 func TestCheckValidatorSignature(t *testing.T) {
 	header, keys := newTestHeader(5)
-
 	// 1. Positive test: sign with validator's key should succeed
 	data := []byte("dummy data")
 	hashData := crypto.Keccak256(data)

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"golang.org/x/crypto/blake2b"
 	"math/big"
 	"sync"
 	"time"
@@ -135,58 +134,55 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, message message.Message) error {
+func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, message message.Message) {
 	// send to others
 	sb.Gossip(ctx, committee, message)
 	// send to self
 	go sb.Post(events.MessageEvent{
 		Message: message,
 	})
-	return nil
 }
 
 func (sb *Backend) AskSync(header *types.Header) {
-	sb.logger.Info("Consensus liveness lost, broadcasting sync request..")
-
+	sb.logger.Info("Consensus liveliness lost, broadcasting sync request..")
 	targets := make(map[common.Address]struct{})
 	for _, val := range header.Committee {
 		if val.Address != sb.Address() {
 			targets[val.Address] = struct{}{}
 		}
 	}
-
-	if sb.Broadcaster != nil && len(targets) > 0 {
-		for {
-			ps := sb.Broadcaster.FindPeers(targets)
-			// If we didn't find any peers try again in 10ms or exit if we have
-			// been stopped.
-			if len(ps) == 0 {
-				t := time.NewTimer(10 * time.Millisecond)
-				select {
-				case <-t.C:
-					continue
-				case <-sb.stopped:
-					return
-				}
+	if sb.Broadcaster == nil || len(targets) == 0 {
+		return
+	}
+	for {
+		ps := sb.Broadcaster.FindPeers(targets)
+		// If we didn't find any peers try again in 10ms or exit if we have
+		// been stopped.
+		if len(ps) == 0 {
+			t := time.NewTimer(10 * time.Millisecond)
+			select {
+			case <-t.C:
+				continue
+			case <-sb.stopped:
+				return
 			}
-			count := new(big.Int)
-			for addr, p := range ps {
-				// ask a quorum nodes to sync, 1 must then be honest and updated
-				if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
-					break
-				}
-				sb.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncNetworkMsg, []byte{}) //nolint
-
-				member := header.CommitteeMember(addr)
-				if member == nil {
-					sb.logger.Error("could not retrieve member from address")
-					continue
-				}
-				count.Add(count, member.VotingPower)
-			}
-			break
 		}
+		count := new(big.Int)
+		for addr, p := range ps {
+			// ask a quorum nodes to sync, 1 must then be honest and updated
+			if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
+				break
+			}
+			sb.logger.Debug("Asking sync to", "addr", addr)
+			go p.Send(SyncNetworkMsg, []byte{}) //nolint
+			member := header.CommitteeMember(addr)
+			if member == nil {
+				sb.logger.Error("could not retrieve member from address")
+				continue
+			}
+			count.Add(count, member.VotingPower)
+		}
+		break
 	}
 }
 
@@ -380,9 +376,8 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 }
 
 // Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data []byte) ([]byte, error) {
-	hashData := blake2b.Sum256(data)
-	return crypto.Sign(hashData[:], sb.privateKey)
+func (sb *Backend) Sign(data common.Hash) ([]byte, error) {
+	return crypto.Sign(data[:], sb.privateKey)
 }
 
 func (sb *Backend) HeadBlock() *types.Block {

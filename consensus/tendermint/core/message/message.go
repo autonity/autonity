@@ -25,7 +25,6 @@ const (
 	ProposalCode uint8 = iota
 	PrevoteCode
 	PrecommitCode
-
 	// LightProposalCode is only used by accountability that it converts full proposal to a lite one
 	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
 	LightProposalCode
@@ -99,7 +98,7 @@ func (p *Propose) String() string {
 		p.round, p.H(), p.validRound, p.block.Hash().String())
 }
 
-func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func([]byte) ([]byte, error)) *Propose {
+func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func(hash common.Hash) ([]byte, error)) *Propose {
 	isValidRoundNil := false
 	validRound := uint64(0)
 	if vr == -1 {
@@ -110,7 +109,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func([]b
 	// Calculate signature first
 	signatureInput := []any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, block.Hash()}
 	signatureInputEncoded, _ := rlp.EncodeToBytes(signatureInput)
-	signature, _ := signer(signatureInputEncoded)
+	signature, _ := signer(blake2b.Sum256(signatureInputEncoded))
 
 	payload, _ := rlp.EncodeToBytes(&extPropose{
 		Code:            ProposalCode,
@@ -121,6 +120,8 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func([]b
 		ProposalBlock:   block,
 		Signature:       signature,
 	})
+	// we don't need to assign here the voting power neither the sender as they are going to be retrieved
+	// after a Validate() call during processing.
 	return &Propose{
 		block:      block,
 		validRound: vr,
@@ -258,12 +259,12 @@ func NewVote[
 	PE interface {
 		*E
 		Message
-	}](r int64, h uint64, value common.Hash, signer func([]byte) ([]byte, error)) *E {
+	}](r int64, h uint64, value common.Hash, signer func(hash common.Hash) ([]byte, error)) *E {
 	code := PE(new(E)).Code()
 	// Pay attention that we're adding the message Code to the signature input data.
 	signatureInput := []any{code, uint64(r), h, value}
 	signatureEncodedInput, _ := rlp.EncodeToBytes(signatureInput)
-	signature, _ := signer(signatureEncodedInput)
+	signature, _ := signer(blake2b.Sum256(signatureEncodedInput))
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,
 		Round:     uint64(r),
@@ -399,7 +400,7 @@ func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.C
 	hash := blake2b.Sum256(sigData)
 	addr, err := tendermint.SigToAddr(hash, b.signature)
 	if err != nil {
-		return err
+		return fmt.Errorf("SigToAddr error: %w", err)
 	}
 	validator := inCommittee(addr)
 	if validator == nil {

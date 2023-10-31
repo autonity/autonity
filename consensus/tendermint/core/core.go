@@ -20,12 +20,11 @@ import (
 
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend) *Core {
-	addr := backend.Address()
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
 		blockPeriod:            1, // todo: retrieve it from contract
-		address:                addr,
+		address:                backend.Address(),
 		logger:                 backend.Logger(),
 		backend:                backend,
 		backlogs:               make(map[common.Address][]message.Message),
@@ -557,16 +556,16 @@ func (c *Core) IsProposer() bool {
 	return c.CommitteeSet().GetProposer(c.Round()).Address == c.address
 }
 
+func (c *Core) BroadcastAll(ctx context.Context, msg message.Message) {
+	c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), msg)
+}
+
 type Broadcaster struct {
 	*Core
 }
 
 func (s *Broadcaster) Broadcast(ctx context.Context, msg message.Message) {
 	logger := s.Logger().New("step", s.Step())
-	// Broadcast payload
 	logger.Debug("Broadcasting", "message", msg.String())
-	if err := s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), msg); err != nil {
-		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
-		return
-	}
+	s.BroadcastAll(ctx, msg)
 }
