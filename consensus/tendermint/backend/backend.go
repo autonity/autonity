@@ -107,7 +107,7 @@ type Backend struct {
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
 
-	// event subscription for ChainHeadEvent event
+	// interface to enqueue blocks to fetcher and find peers
 	Broadcaster consensus.Broadcaster
 
 	//TODO: ARCChace is patented by IBM, so probably need to stop using it
