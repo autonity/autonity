@@ -84,12 +84,10 @@ type precommitSpammer struct {
 func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 	logger := c.Logger().New("step", c.Step())
 
-	var precommit = message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
+	var precommit message.Precommit
 
 	if isNil {
+		precommit = message.NewVote[message.Precommit]()
 		precommit.ProposedBlockHash = common.Hash{}
 	} else {
 		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
@@ -147,19 +145,11 @@ type proposalSpammer struct {
 }
 
 func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
-	proposalBlock := message.NewProposal(c.Round(), c.Height(), c.ValidRound(), p, c.Backend().Sign)
-	proposal, _ := rlp.EncodeToBytes(proposalBlock)
-
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
-
 	for i := 0; i < 1000; i++ {
-		c.Br().Broadcast(ctx, &message.Message{
-			Code:          consensus.MsgProposal,
-			Payload:       proposal,
-			Address:       c.Address(),
-			CommittedSeal: []byte{},
-		})
+		c.BroadcastAll(ctx, proposal)
 	}
 }
 

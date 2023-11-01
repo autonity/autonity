@@ -26,7 +26,7 @@ func (s *AccusationPO) Broadcast(ctx context.Context, msg message.Message) {
 	vR := nPR - 1
 	invalidProposal := message.NewPropose(nPR, msg.H(), vR, proposal.Block(), s.Backend().Sign)
 
-	s.Logger().Info("Accusation of PO rule is simulated")
+	s.Logger().Info("PO Accusation rule simulation")
 	s.BroadcastAll(ctx, proposal)
 	s.BroadcastAll(ctx, invalidProposal)
 }
@@ -44,7 +44,7 @@ func (s *AccusationPVN) Broadcast(ctx context.Context, msg message.Message) {
 	}
 	preVote := message.NewVote[message.Prevote](msg.R()+1, msg.H(), e2e.NonNilValue, s.Backend().Sign)
 
-	s.Logger().Info("Accusation of PVN rule is simulated.")
+	s.Logger().Info("PVN Accusation rule simulation")
 	s.BroadcastAll(ctx, proposal)
 	s.BroadcastAll(ctx, preVote)
 }
@@ -75,7 +75,7 @@ func (s *AccusationPVO) Broadcast(ctx context.Context, msg message.Message) {
 	// simulate a preVote at round nPR, for value v, this preVote for new value break PVO1.
 	prevote := message.NewVote[message.Prevote](nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign)
 
-	s.Logger().Info("Accusation of PVO rule is simulated.")
+	s.Logger().Info("PVO accusation rule simulation")
 	s.BroadcastAll(ctx, proposal)
 	s.BroadcastAll(ctx, newProposal)
 	s.BroadcastAll(ctx, prevote)
@@ -95,7 +95,7 @@ func (s *AccusationC1) Broadcast(ctx context.Context, msg message.Message) {
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	if s.IsProposer() { // youssef: probably not needed
 		preCommit := message.NewVote[message.Precommit](nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign)
-		s.Logger().Info("Accusation of C1 rule is simulated.")
+		s.Logger().Info("C1 accusation rule simulation ,.")
 		s.BroadcastAll(ctx, preCommit)
 	}
 	s.BroadcastAll(ctx, proposal)

@@ -90,8 +90,6 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 			found = true
 		}
 	}
-
 	// Go through every block receipt and look for log emitted by the autonity contract
-
 	return found
 }
