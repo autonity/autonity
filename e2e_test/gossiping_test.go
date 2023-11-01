@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	"testing"
 
 	"github.com/autonity/autonity/common"
@@ -21,7 +20,7 @@ type customGossiper struct {
 	interfaces.Gossiper
 }
 
-func (cg *customGossiper) Gossip(_ context.Context, _ types.Committee, _ []byte) {
+func (cg *customGossiper) Gossip(_ types.Committee, _ []byte) {
 }
 
 func TestCustomGossiper(t *testing.T) {

@@ -31,7 +31,7 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, committee types.Committee, payload []byte)
+	Gossip(committee types.Committee, payload []byte)
 
 	KnownMsgHash() []common.Hash
 

@@ -141,7 +141,7 @@ func (sb *Backend) Address() common.Address {
 // Broadcast implements tendermint.Backend.SignAndBroadcast
 func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
 	// send to others
-	sb.Gossip(ctx, committee, payload)
+	sb.Gossip(committee, payload)
 	// send to self
 	msg := events.MessageEvent{
 		Payload: payload,
@@ -219,8 +219,8 @@ func (sb *Backend) SetCustomGossiper(svc interfaces.Gossiper) {
 }
 
 // Gossip implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
-	sb.gossiper.Gossip(ctx, committee, payload)
+func (sb *Backend) Gossip(committee types.Committee, payload []byte) {
+	sb.gossiper.Gossip(committee, payload)
 }
 
 // KnownMsgHash dumps the known messages in case of gossiping.

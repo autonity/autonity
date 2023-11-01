@@ -1,8 +1,6 @@
 package backend
 
 import (
-	"context"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
@@ -28,7 +26,7 @@ func (g *Gossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	g.broadcaster = broadcaster
 }
 
-func (g *Gossiper) Gossip(_ context.Context, committee types.Committee, payload []byte) {
+func (g *Gossiper) Gossip(committee types.Committee, payload []byte) {
 	hash := types.RLPHash(payload)
 	g.knownMessages.Add(hash, true)
 
