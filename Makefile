@@ -231,7 +231,7 @@ mock-gen:
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/tendermint.go -package=interfaces -destination=consensus/tendermint/core/interfaces/tendermint_mock.go
 	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
-
+	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 
 lint-dead:
 	@./.github/tools/golangci-lint run \

@@ -68,8 +68,11 @@ func TestAskSync(t *testing.T) {
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
+	gossiper := interfaces.NewMockGossiper(ctrl)
+	gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 	b := &Backend{
 		knownMessages: knownMessages,
+		gossiper:      gossiper,
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
@@ -139,7 +142,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(context.Background(), validators, payload)
+	b.Gossip(validators, payload)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 4 {
 		t.Fatalf("gossip message transmission failure")
