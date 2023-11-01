@@ -223,59 +223,6 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 	sb.gossiper.Gossip(ctx, committee, payload)
 }
 
-type Gossiper struct {
-	recentMessages *lru.ARCCache  // the cache of peer's messages
-	knownMessages  *lru.ARCCache  // the cache of self messages
-	address        common.Address // address of the local peer
-	broadcaster    consensus.Broadcaster
-}
-
-func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address) *Gossiper {
-	return &Gossiper{
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		address:        address,
-	}
-}
-
-func (g *Gossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
-	g.broadcaster = broadcaster
-}
-
-func (g *Gossiper) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
-	hash := types.RLPHash(payload)
-	g.knownMessages.Add(hash, true)
-
-	targets := make(map[common.Address]struct{})
-	for _, val := range committee {
-		if val.Address != g.address {
-			targets[val.Address] = struct{}{}
-		}
-	}
-
-	if g.broadcaster != nil && len(targets) > 0 {
-		ps := g.broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			ms, ok := g.recentMessages.Get(addr)
-			var m *lru.ARCCache
-			if ok {
-				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
-					// This peer had this event, skip it
-					continue
-				}
-			} else {
-				m, _ = lru.NewARC(inmemoryMessages)
-			}
-
-			m.Add(hash, true)
-			g.recentMessages.Add(addr, m)
-
-			go p.Send(TendermintMsg, payload) //nolint
-		}
-	}
-}
-
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
 	m := make([]common.Hash, 0, sb.knownMessages.Len())

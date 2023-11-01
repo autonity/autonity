@@ -21,7 +21,7 @@ type customGossiper struct {
 	interfaces.Gossiper
 }
 
-func (cg *customGossiper) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
+func (cg *customGossiper) Gossip(_ context.Context, _ types.Committee, _ []byte) {
 }
 
 func TestCustomGossiper(t *testing.T) {
