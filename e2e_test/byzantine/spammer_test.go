@@ -3,16 +3,12 @@ package byzantine
 import (
 	"context"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/rlp"
-
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -23,37 +19,20 @@ type preVoteSpammer struct {
 }
 
 func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var prevote = message.Vote{
-		Round:  c.Round(),
-		Height: c.Height(),
-	}
-
+	var prevote *message.Prevote
 	if isNil {
-		prevote.ProposedBlockHash = common.Hash{}
+		prevote = message.NewVote[message.Prevote](c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	} else {
-		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
+		h := c.CurRoundMessages().ProposalHash()
+		if h == (common.Hash{}) {
 			c.Logger().Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote.ProposedBlockHash = c.CurRoundMessages().ProposalHash()
+		prevote = message.NewVote[message.Prevote](c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	}
 
-	encodedVote, err := rlp.EncodeToBytes(&prevote)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", prevote)
-		return
-	}
-
-	msg := &message.Message{
-		Code:          consensus.MsgPrevote,
-		Payload:       encodedVote,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	}
 	for i := 0; i < 1000; i++ {
-		c.Br().Broadcast(ctx, msg)
+		c.BroadcastAll(ctx, prevote)
 	}
 	c.SetSentPrevote(true)
 }
@@ -82,42 +61,19 @@ type precommitSpammer struct {
 }
 
 func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var precommit message.Precommit
-
+	var precommit *message.Precommit
 	if isNil {
-		precommit = message.NewVote[message.Precommit]()
-		precommit.ProposedBlockHash = common.Hash{}
+		precommit = message.NewVote[message.Precommit](c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
 	} else {
-		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
+		h := c.CurRoundMessages().ProposalHash()
+		if h == (common.Hash{}) {
 			c.Logger().Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit.ProposedBlockHash = c.CurRoundMessages().ProposalHash()
+		precommit = message.NewVote[message.Precommit](c.Round(), c.Height().Uint64(), h, c.Backend().Sign)
 	}
-
-	encodedVote, err := rlp.EncodeToBytes(&precommit)
-	if err != nil {
-		logger.Error("Failed to encode", "subject", precommit)
-		return
-	}
-	msg := &message.Message{
-		Code:          consensus.MsgPrecommit,
-		Payload:       encodedVote,
-		Address:       c.Address(),
-		CommittedSeal: []byte{},
-	}
-
-	// Create committed seal
-	seal := tendermint.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
-	msg.CommittedSeal, err = c.Backend().Sign(seal)
-	if err != nil {
-		c.Logger().Error("core.sendPrecommit error while signing committed seal", "err", err)
-	}
-
 	for i := 0; i < 1000; i++ {
-		c.Br().Broadcast(ctx, msg)
+		c.Br().Broadcast(ctx, precommit)
 	}
 	c.SetSentPrecommit(true)
 }

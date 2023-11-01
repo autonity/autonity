@@ -6,6 +6,7 @@ package interfaces
 
 import (
 	context "context"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	reflect "reflect"
 	time "time"
 
@@ -97,17 +98,15 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // Broadcast mocks base method.
-func (m *MockBackend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
+func (m *MockBackend) Broadcast(ctx context.Context, committee types.Committee, message message.Message) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcast", ctx, committee, payload)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "Broadcast", ctx, committee, message)
 }
 
 // Broadcast indicates an expected call of Broadcast.
-func (mr *MockBackendMockRecorder) Broadcast(ctx, committee, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Broadcast(ctx, committee, message interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, committee, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, committee, message)
 }
 
 // Commit mocks base method.

@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"github.com/autonity/autonity/consensus/tendermint"
-	tcrypto "github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -35,7 +34,10 @@ const timeoutDuration, sleepDuration = 1 * time.Microsecond, 1 * time.Millisecon
 func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c interfaces.Committee, keys map[common.Address]*ecdsa.PrivateKey, signerIndex int) {
 	h := b.Header()
 	h.Committee = c.Committee()
-	err := tcrypto.SignHeader(h, keys[c.Committee()[signerIndex].Address])
+	hashData := types.SigHash(h)
+	signature, err := crypto.Sign(hashData[:], keys[c.Committee()[signerIndex].Address])
+	require.NoError(t, err)
+	err = types.WriteSeal(h, signature)
 	require.NoError(t, err)
 	*b = *b.WithSeal(h)
 }
