@@ -139,15 +139,15 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockBackend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
+func (m *MockBackend) Gossip(committee types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", ctx, committee, payload)
+	m.ctrl.Call(m, "Gossip", committee, payload)
 }
 
 // Gossip indicates an expected call of Gossip.
-func (mr *MockBackendMockRecorder) Gossip(ctx, committee, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Gossip(committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, committee, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, payload)
 }
 
 // HandleUnhandledMsgs mocks base method.
