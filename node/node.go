@@ -19,13 +19,14 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/core/rawdb"
@@ -42,6 +43,7 @@ type TendermintServices struct {
 	Prevoter     interfaces.Prevoter
 	Proposer     interfaces.Proposer
 	Precommitter interfaces.Precommiter
+	Gossiper     interfaces.Gossiper
 }
 
 // Node is a container on which services can be registered.

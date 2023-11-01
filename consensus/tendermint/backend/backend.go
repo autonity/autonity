@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math/big"
+	"reflect"
 	"sync"
 	"time"
 
@@ -78,6 +79,7 @@ func New(privateKey *ecdsa.PrivateKey,
 		core.SetPrevoter(services.Prevoter)
 		core.SetPrecommitter(services.Precommitter)
 		core.SetProposer(services.Proposer)
+		backend.SetCustomGossiper(services.Gossiper)
 	}
 	backend.core = core
 	return backend
@@ -195,6 +197,25 @@ func (sb *Backend) AskSync(header *types.Header) {
 			break
 		}
 	}
+}
+
+// used by tests only
+func (sb *Backend) SetCustomGossiper(svc interfaces.Gossiper) {
+	if svc == nil {
+		return
+	}
+	fields := reflect.ValueOf(svc).Elem()
+	// Set up message caches
+	fields.Field(0).Set(reflect.ValueOf(sb.recentMessages))
+	fields.Field(1).Set(reflect.ValueOf(sb.knownMessages))
+	fields.Field(2).Set(reflect.ValueOf(sb.address))
+	// field 3 is the broadcaster, which will be set by SetBroadcaster
+
+	// Set up default gossiper, so that we do not have to define all methods in tests
+	if fields.NumField() > 4 {
+		fields.Field(4).Set(reflect.ValueOf(sb.gossiper))
+	}
+	sb.gossiper = svc
 }
 
 // Gossip implements tendermint.Backend.Gossip
