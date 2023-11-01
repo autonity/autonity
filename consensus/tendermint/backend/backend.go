@@ -71,6 +71,8 @@ func New(privateKey *ecdsa.PrivateKey,
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 	core := tendermintCore.New(backend)
+	// set default gossiper
+	backend.gossiper = NewGossiper(recentMessages, knownMessages, backend.address)
 	if services != nil {
 		core.SetBroadcaster(services.Broadcaster)
 		core.SetPrevoter(services.Prevoter)
@@ -109,6 +111,8 @@ type Backend struct {
 
 	// interface to enqueue blocks to fetcher and find peers
 	Broadcaster consensus.Broadcaster
+	// interface to gossip consensus messages
+	gossiper interfaces.Gossiper
 
 	//TODO: ARCChace is patented by IBM, so probably need to stop using it
 	//Update: patent has expired https://patents.google.com/patent/US7167953B2/en
@@ -193,22 +197,45 @@ func (sb *Backend) AskSync(header *types.Header) {
 	}
 }
 
-// Broadcast implements tendermint.Backend.Gossip
+// Gossip implements tendermint.Backend.Gossip
 func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
+	sb.gossiper.Gossip(ctx, committee, payload)
+}
+
+type Gossiper struct {
+	recentMessages *lru.ARCCache  // the cache of peer's messages
+	knownMessages  *lru.ARCCache  // the cache of self messages
+	address        common.Address // address of the local peer
+	broadcaster    consensus.Broadcaster
+}
+
+func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address) *Gossiper {
+	return &Gossiper{
+		recentMessages: recentMessages,
+		knownMessages:  knownMessages,
+		address:        address,
+	}
+}
+
+func (g *Gossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
+	g.broadcaster = broadcaster
+}
+
+func (g *Gossiper) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
 	hash := types.RLPHash(payload)
-	sb.knownMessages.Add(hash, true)
+	g.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range committee {
-		if val.Address != sb.Address() {
+		if val.Address != g.address {
 			targets[val.Address] = struct{}{}
 		}
 	}
 
-	if sb.Broadcaster != nil && len(targets) > 0 {
-		ps := sb.Broadcaster.FindPeers(targets)
+	if g.broadcaster != nil && len(targets) > 0 {
+		ps := g.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
-			ms, ok := sb.recentMessages.Get(addr)
+			ms, ok := g.recentMessages.Get(addr)
 			var m *lru.ARCCache
 			if ok {
 				m, _ = ms.(*lru.ARCCache)
@@ -221,7 +248,7 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payloa
 			}
 
 			m.Add(hash, true)
-			sb.recentMessages.Add(addr, m)
+			g.recentMessages.Add(addr, m)
 
 			go p.Send(TendermintMsg, payload) //nolint
 		}
