@@ -9,7 +9,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -61,7 +60,7 @@ func (s *PN) Broadcast(ctx context.Context, msg message.Message) {
 	msgEvidence := message.NewVote[message.Precommit](nPR-1, msg.H(), e2e.NonNilValue, s.Backend().Sign)
 	printMessage(msgEvidence)
 	// simulate a proposal that propose a new value with -1 as the valid round.
-	//msgPN := e2e.NewProposeMsg(proposal.ProposalBlock, decodedMsg.H(), nPR, -1, s.Core)
+	//msgPN := message.NewPropose(proposal.ProposalBlock, decodedMsg.H(), nPR, -1, s.Core)
 	msgPN := message.NewPropose(nPR, msg.H(), -1, proposal.Block(), s.Backend().Sign)
 	printMessage(msgPN)
 	s.BroadcastAll(ctx, msg)
@@ -76,24 +75,22 @@ type PO struct {
 }
 
 // simulate a context of msgs that node proposes a value for which was not the one it locked on.
-func (s *PO) SignAndBroadcast(ctx context.Context, msg message.Message) {
+func (s *PO) Broadcast(ctx context.Context, msg message.Message) {
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
 		s.BroadcastAll(ctx, msg)
 		return
 	}
 	// start to simulate malicious context to break rule PO.
-
 	nPR := e2e.NextProposeRound(proposal.R(), s.Core)
 	vR := nPR - 1
 	s.Logger().Info("Simulating PO fault", "h", s.Core.Height(), "r", s.Core.Round(), "npr", nPR)
 	// simulate a preCommit proposal that locked a value at vR.
-	msgEvidence := e2e.NewVoteMsg(consensus.MsgPrecommit, proposal.H(), vR, e2e.NonNilValue, s.Core)
+	msgEvidence := message.NewVote[message.Precommit](vR, proposal.H(), e2e.NonNilValue, s.Backend().Sign)
 	printMessage(msgEvidence)
 	// simulate a proposal that node propose for an old value which it is not the one it locked.
-	msgPO := e2e.NewProposeMsg(s.Address(), proposal.ConsensusMsg.(*message.Proposal).ProposalBlock, proposal.H(), nPR, vR, s.Core.Backend().Sign)
+	msgPO := message.NewPropose(nPR, proposal.H(), vR, proposal.Block(), s.Core.Backend().Sign)
 	printMessage(msgPO)
-
 	s.BroadcastAll(ctx, proposal)
 	s.BroadcastAll(ctx, msgEvidence)
 	s.BroadcastAll(ctx, msgPO)
@@ -115,30 +112,27 @@ func (s *PVN) Broadcast(ctx context.Context, msg message.Message) {
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
 		return
 	}
-
 	nPR := e2e.NextProposeRound(proposal.R(), s.Core)
 	// Create a block with a new value, the hash should be different
-	newHeader := proposal.ConsensusMsg.(*message.Proposal).ProposalBlock.Header()
+	newHeader := proposal.Block().Header()
 	newHeader.Time = 1337
 	newBlock := types.NewBlockWithHeader(newHeader)
-
-	newProposal := e2e.NewProposeMsg(s.Address(), newBlock, proposal.H(), nPR, -1, s.Core.Backend().Sign)
+	newProposal := message.NewPropose(nPR, proposal.H(), -1, newBlock, s.Core.Backend().Sign)
 	fmt.Println("BYZ PROPOSAL HASH", "old", proposal.Value(), "new", newProposal.Value())
 	s.BroadcastAll(ctx, newProposal)
 	// simulate a preCommit at round r, for value v1.
-	precommit := e2e.NewVoteMsg(consensus.MsgPrecommit, proposal.H(), proposal.R(), proposal.ConsensusMsg.V(), s.Core)
+	precommit := message.NewVote[message.Precommit](proposal.R(), proposal.H(), proposal.Block().Hash(), s.Backend().Sign)
 	// simulate nil precommits until nPr to get contiguous precommits
 	for i := proposal.R() + 1; i < nPR; i++ {
-		nilPrecommit := e2e.NewVoteMsg(consensus.MsgPrecommit, proposal.H(), i, core.NilValue, s.Core)
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, nilPrecommit)
+		nilPrecommit := message.NewVote[message.Precommit](i, proposal.H(), core.NilValue, s.Backend().Sign)
+		s.BroadcastAll(ctx, nilPrecommit)
 	}
 	// simulate a preVote at round nPR, for value v2, this preVote for new value break PVN.
-	evidence := e2e.NewVoteMsg(consensus.MsgPrevote, proposal.H(), nPR, newProposal.Value(), s.Core)
-
+	evidence := message.NewVote[message.Precommit](nPR, proposal.H(), newProposal.Value(), s.Backend().Sign)
 	s.BroadcastAll(ctx, precommit)
 	s.BroadcastAll(ctx, evidence)
 	s.done = true
-	// TODO:(youssef) We need to test the accusation flow when we have an evidence for it too !
+
 }
 
 // PVO rule requires coordination from multiple agents otherwise only the proposal for "PO" will be submitted on-chain.
@@ -150,21 +144,17 @@ type PVO1 struct {
 // simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
 func (s *PVO1) Broadcast(ctx context.Context, msg message.Message) {
 	s.BroadcastAll(ctx, msg)
-
-	if s.done || s.Height().Uint64() < 10 || msg.Code != consensus.MsgProposal {
+	proposal, isProposal := msg.(*message.Propose)
+	if s.done || s.Height().Uint64() < 10 || !isProposal {
 		return
 	}
-
-	_ = msg.DecodePayload()
-
 	// we pickup a round far ahead so we don't generate equivocations
 	round := e2e.NextProposeRound(20, s.Core)
 	// set a valid round.
-
 	validRound := round - 5
 
-	proposal := e2e.NewProposeMsg(s.Address(), msg.ConsensusMsg.(*message.Proposal).ProposalBlock, msg.H(), round, validRound, s.Backend().Sign)
-	s.BroadcastAll(ctx, proposal)
+	newProposal := message.NewPropose(round, msg.H(), validRound, proposal.Block(), s.Backend().Sign)
+	s.BroadcastAll(ctx, newProposal)
 
 	for r := validRound; r < round; r++ {
 		// send precommit for nil and one not for vr
@@ -172,12 +162,11 @@ func (s *PVO1) Broadcast(ctx context.Context, msg message.Message) {
 		if r == round-1 {
 			val = e2e.NonNilValue
 		}
-		precommit := e2e.NewVoteMsg(consensus.MsgPrecommit, proposal.H(), r, val, s.Core)
+		precommit := message.NewVote[message.Precommit](r, newProposal.H(), val, s.Backend().Sign)
 		s.BroadcastAll(ctx, precommit)
 	}
-	evidence := e2e.NewVoteMsg(consensus.MsgPrevote, proposal.H(), round, proposal.Value(), s.Core)
+	evidence := message.NewVote[message.Precommit](round, newProposal.H(), newProposal.Value(), s.Backend().Sign)
 	s.BroadcastAll(ctx, evidence)
-
 	s.done = true
 }
 
@@ -186,26 +175,20 @@ type InvalidProposal struct {
 }
 
 func (s *InvalidProposal) Broadcast(ctx context.Context, msg message.Message) {
-	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+	proposal, isProposal := msg.(*message.Propose)
+	if !isProposal {
+		s.BroadcastAll(ctx, msg)
 		return
-	}
-	err := msg.DecodePayload()
-	if err != nil {
-		s.Logger().Info("error while decoding payload", "error", err)
 	}
 	nextPR := e2e.NextProposeRound(msg.R(), s.Core)
 	// a proposal with invalid header of missing metas.
 	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
 	block := types.NewBlockWithHeader(header)
-	msgP := e2e.NewProposeMsg(s.Address(), block, msg.H(), nextPR, msg.ConsensusMsg.(*message.Proposal).ValidRound, s.Backend().Sign)
-	mP, err := s.SignMessage(msgP)
-	if err != nil {
-		s.Logger().Warn("Cannot simulate Misbehaviour of invalid proposal rule", err)
-	}
+	newProposal := message.NewPropose(nextPR, msg.H(), proposal.ValidRound(), block, s.Backend().Sign)
+
 	s.Logger().Info("Misbehaviour of invalid proposal rule is simulated.")
 	s.BroadcastAll(ctx, msg)
-	s.BroadcastAll(ctx, mP)
+	s.BroadcastAll(ctx, newProposal)
 }
 
 type InvalidProposer struct {
@@ -213,7 +196,6 @@ type InvalidProposer struct {
 }
 
 func (s *InvalidProposer) Broadcast(ctx context.Context, msg message.Message) {
-	_ = msg.DecodePayload()
 	// if current node is the proposer of current round, skip and return.
 	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
 		s.BroadcastAll(ctx, msg)
@@ -222,14 +204,11 @@ func (s *InvalidProposer) Broadcast(ctx context.Context, msg message.Message) {
 	// current node is not the proposer of current round, propose a proposal.
 	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
 	block := types.NewBlockWithHeader(header)
-	msgP := e2e.NewProposeMsg(s.Address(), block, msg.H(), msg.R(), -1, s.Backend().Sign)
-	mP, err := s.SignMessage(msgP)
-	if err != nil {
-		s.Logger().Crit("Cannot simulate Misbehaviour of invalid proposer rule", err)
-	}
-	s.Logger().Info("Misbehaviour of invalid proposer rule is simulated.")
+	msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign)
+
+	s.Logger().Info("Invalid proposer simulation")
 	s.BroadcastAll(ctx, msg)
-	s.BroadcastAll(ctx, mP)
+	s.BroadcastAll(ctx, msgP)
 }
 
 type Equivocation struct {
@@ -237,17 +216,15 @@ type Equivocation struct {
 }
 
 func (s *Equivocation) Broadcast(ctx context.Context, msg message.Message) {
-	_ = msg.DecodePayload()
 	s.BroadcastAll(ctx, msg)
+	if _, isPrevote := msg.(*message.Prevote); !isPrevote {
+		return
+	}
 	// let proposer of the round send equivocated preVote.
-	if msg.Code == consensus.MsgPrevote && s.IsProposer() {
-		msgEq := e2e.NewVoteMsg(consensus.MsgPrevote, msg.H(), msg.R(), e2e.NonNilValue, s.Core)
-		mE, err := s.SignMessage(msgEq)
-		if err != nil {
-			s.Logger().Warn("Cannot simulate Misbehaviour of equivocation rule", err)
-		}
-		s.Logger().Info("Misbehaviour of equivocation rule is simulated.")
-		s.BroadcastAll(ctx, mE)
+	if s.IsProposer() {
+		msgEq := message.NewVote[message.Prevote](msg.R(), msg.H(), e2e.NonNilValue, s.Backend().Sign)
+		s.Logger().Info("Equivocation simulation")
+		s.BroadcastAll(ctx, msgEq)
 	}
 }
 
