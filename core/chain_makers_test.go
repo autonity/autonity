@@ -18,9 +18,10 @@ package core
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/log"
-	"math/big"
 
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core/rawdb"
@@ -82,7 +83,7 @@ func ExampleGenerateChain() {
 	})
 
 	// Import the chain. This runs all block validation rules.
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, nil, log.Root())
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(nil), log.Root())
 	defer blockchain.Stop()
 
 	if i, err := blockchain.InsertChain(chain); err != nil {

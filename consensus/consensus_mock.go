@@ -261,18 +261,17 @@ func (mr *MockChainReaderMockRecorder) GetTd(hash, number interface{}) *gomock.C
 }
 
 // MinBaseFee mocks base method.
-func (m *MockChainReader) MinBaseFee(header *types.Header) (*big.Int, error) {
+func (m *MockChainReader) MinBaseFee() *big.Int {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MinBaseFee", header)
+	ret := m.ctrl.Call(m, "MinBaseFee")
 	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // MinBaseFee indicates an expected call of MinBaseFee.
-func (mr *MockChainReaderMockRecorder) MinBaseFee(header interface{}) *gomock.Call {
+func (mr *MockChainReaderMockRecorder) MinBaseFee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainReader)(nil).MinBaseFee), header)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainReader)(nil).MinBaseFee))
 }
 
 // MockEngine is a mock of Engine interface.

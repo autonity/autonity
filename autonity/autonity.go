@@ -3,10 +3,13 @@ package autonity
 import (
 	"bytes"
 	"errors"
-	"github.com/autonity/autonity/params/generated"
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
+
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -66,19 +69,54 @@ func NewEVMContract(evmProvider EVMProvider, contractABI *abi.ABI, db ethdb.Data
 	}
 }
 
+type Cache struct {
+	minBaseFee    atomic.Pointer[big.Int]
+	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
+	subMinBaseFee event.Subscription
+	subscriptions *event.SubscriptionScope // will be useful when we have multiple subscriptions
+	quit          chan struct{}
+	done          chan struct{}
+}
+
+func newCache(ac *AutonityContract, head *types.Header, state *state.StateDB) (*Cache, error) {
+	minBaseFee, err := ac.MinimumBaseFee(head, state)
+	if err != nil {
+		return nil, err
+	}
+	minBaseFeeCh := make(chan *AutonityMinimumBaseFeeUpdated)
+	subMinBaseFee, err := ac.WatchMinimumBaseFeeUpdated(nil, minBaseFeeCh)
+	if err != nil {
+		return nil, err
+	}
+	scope := new(event.SubscriptionScope)
+	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
+	cache := &Cache{
+		minBaseFeeCh:  minBaseFeeCh,
+		subMinBaseFee: subMinBaseFeeWrapped,
+		subscriptions: scope,
+		quit:          make(chan struct{}),
+		done:          make(chan struct{}),
+	}
+	cache.minBaseFee.Store(minBaseFee)
+	go cache.Listen()
+	return cache, nil
+}
+
 //revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
 type AutonityContract struct {
 	EVMContract
+	*AutonityFilterer // allows to watch for Autonity Contract events
 
 	proposers map[uint64]map[int64]common.Address
 }
 
 type ProtocolContracts struct {
-	AutonityContract
+	*AutonityContract
+	*Cache
 	*Accountability
 }
 
-func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend) (*ProtocolContracts, error) {
+func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend, head *types.Header, state *state.StateDB) (*ProtocolContracts, error) {
 	if config.AutonityContractConfig == nil {
 		return nil, ErrNoAutonityConfig
 	}
@@ -91,30 +129,78 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 		}
 		ABI = &jsonABI
 	}
+
+	// create autonity EVM contract
+	autonityFilterer, err := NewAutonityFilterer(AutonityContractAddress, contractBackend.(bind.ContractFilterer))
+	if err != nil {
+		return nil, err
+	}
+	autonityContract := &AutonityContract{
+		EVMContract: EVMContract{
+			evmProvider: provider,
+			contractABI: ABI,
+			db:          db,
+			chainConfig: config,
+		},
+		AutonityFilterer: autonityFilterer,
+		proposers:        make(map[uint64]map[int64]common.Address),
+	}
+
+	// initialize protocol contract cache
+	cache, err := newCache(autonityContract, head, state)
+	if err != nil {
+		return nil, err
+	}
+
+	// bind to accountability contract
 	accountabilityContract, _ := NewAccountability(AccountabilityContractAddress, contractBackend)
 
 	contract := ProtocolContracts{
-		AutonityContract: AutonityContract{
-			EVMContract: EVMContract{
-				evmProvider: provider,
-				contractABI: ABI,
-				db:          db,
-				chainConfig: config,
-			},
-			proposers: make(map[uint64]map[int64]common.Address),
-		},
-		Accountability: accountabilityContract,
+		AutonityContract: autonityContract,
+		Cache:            cache,
+		Accountability:   accountabilityContract,
 	}
+
 	return &contract, nil
+}
+
+func (c *Cache) Listen() {
+	defer func() {
+		c.subscriptions.Close()
+		close(c.done)
+	}()
+
+	for {
+		select {
+		case <-c.subMinBaseFee.Err():
+			// This should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
+			// In that case network errors can occur. Since everything is local here, no error should ever occur.
+			// we crash the client to avoid using a out-of-date value of minBaseFee in case something goes very wrong.
+			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
+		case ev := <-c.minBaseFeeCh:
+			c.minBaseFee.Store(ev.GasPrice)
+		case <-c.quit:
+			return
+		}
+	}
+}
+
+func (c *Cache) Stop() {
+	close(c.quit)
+	<-c.done
+}
+
+func (c *Cache) MinimumBaseFee() *big.Int {
+	return new(big.Int).Set(c.minBaseFee.Load())
 }
 
 func (c *AutonityContract) CommitteeEnodes(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
 	return c.callGetCommitteeEnodes(db, block.Header())
 }
 
-func (c *AutonityContract) MinimumBaseFee(block *types.Header, db *state.StateDB) (uint64, error) {
+func (c *AutonityContract) MinimumBaseFee(block *types.Header, db *state.StateDB) (*big.Int, error) {
 	if block.Number.Uint64() <= 1 {
-		return c.chainConfig.AutonityContractConfig.MinBaseFee, nil
+		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.MinBaseFee), nil
 	}
 	return c.callGetMinimumBaseFee(db, block)
 }

@@ -2,6 +2,9 @@ package autonity
 
 import (
 	"fmt"
+	"math/big"
+	"reflect"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/state"
@@ -10,8 +13,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
-	"math/big"
-	"reflect"
 )
 
 type raw []byte
@@ -373,13 +374,13 @@ func (c *AutonityContract) callGetCommitteeEnodes(state *state.StateDB, header *
 	return types.NewNodes(returnedEnodes), nil
 }
 
-func (c *AutonityContract) callGetMinimumBaseFee(state *state.StateDB, header *types.Header) (uint64, error) {
+func (c *AutonityContract) callGetMinimumBaseFee(state *state.StateDB, header *types.Header) (*big.Int, error) {
 	minBaseFee := new(big.Int)
 	err := c.AutonityContractCall(state, header, "getMinimumBaseFee", &minBaseFee)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return minBaseFee.Uint64(), nil
+	return minBaseFee, nil
 }
 
 func (c *AutonityContract) callFinalize(state *state.StateDB, header *types.Header) (bool, types.Committee, error) {

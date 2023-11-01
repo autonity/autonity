@@ -373,6 +373,6 @@ func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Hea
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
 func (cr *fakeChainReader) Engine() consensus.Engine                                { return nil }
 func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int          { return nil }
-func (cr *fakeChainReader) MinBaseFee(_ *types.Header) (*big.Int, error) {
-	return big.NewInt(0), nil
+func (cr *fakeChainReader) MinBaseFee() *big.Int {
+	return big.NewInt(0)
 }

@@ -277,13 +277,6 @@ func NewBlockChain(db ethdb.Database,
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
 	bc.processor = NewStateProcessor(chainConfig, bc, engine)
 	var err error
-	var contractBackend bind.ContractBackend
-	if contractBackendCreator != nil {
-		contractBackend = contractBackendCreator(bc, db)
-	}
-	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend); err != nil {
-		return nil, err
-	}
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped)
 	if err != nil {
 		return nil, err
@@ -408,6 +401,16 @@ func NewBlockChain(db ethdb.Database,
 			recover = true
 		}
 		bc.snaps, _ = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, head.Root(), !bc.cacheConfig.SnapshotWait, true, recover)
+	}
+
+	// here our blockchain and current state should be fully initialized
+	currentState, err := bc.State()
+	if err != nil {
+		return nil, err
+	}
+	contractBackend := contractBackendCreator(bc, db)
+	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend, bc.CurrentHeader(), currentState); err != nil {
+		return nil, err
 	}
 
 	// Start future block processor.
@@ -797,6 +800,7 @@ func (bc *BlockChain) Stop() {
 		return
 	}
 
+	bc.protocolContracts.Stop()
 	// Unsubscribe all subscriptions registered from blockchain.
 	bc.scope.Close()
 
@@ -2329,17 +2333,8 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	return 0, err
 }
 
-func (bc *BlockChain) MinBaseFee(header *types.Header) (*big.Int, error) {
-	statedb, err := state.New(header.Root, bc.stateCache, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	minBaseFee, err := bc.protocolContracts.MinimumBaseFee(header, statedb)
-	if err != nil {
-		return nil, err
-	}
-	return new(big.Int).SetUint64(minBaseFee), nil
+func (bc *BlockChain) MinBaseFee() *big.Int {
+	return bc.protocolContracts.Cache.MinimumBaseFee()
 }
 
 // HasBadBlock returns whether the block with the hash is a bad block

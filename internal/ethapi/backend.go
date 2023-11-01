@@ -19,11 +19,12 @@ package ethapi
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus"
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity"
+	"github.com/autonity/autonity/consensus"
+
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
@@ -94,7 +95,7 @@ type Backend interface {
 	ChainConfig() *params.ChainConfig
 	Engine() consensus.Engine
 
-	MinBaseFee(header *types.Header) (*big.Int, error)
+	MinBaseFee() *big.Int
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

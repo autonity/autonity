@@ -125,8 +125,8 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 	return number
 }
 
-func (hc *HeaderChain) MinBaseFee(_ *types.Header) (*big.Int, error) {
-	return big.NewInt(0), nil
+func (hc *HeaderChain) MinBaseFee() *big.Int {
+	return big.NewInt(0)
 }
 
 type headerWriteResult struct {

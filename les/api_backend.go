@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity"
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -60,8 +60,8 @@ func (b *LesApiBackend) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
-func (b *LesApiBackend) MinBaseFee(_ *types.Header) (*big.Int, error) {
-	return big.NewInt(0), nil
+func (b *LesApiBackend) MinBaseFee() *big.Int {
+	return big.NewInt(0)
 }
 
 func (b *LesApiBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
