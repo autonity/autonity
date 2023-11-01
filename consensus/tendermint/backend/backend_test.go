@@ -139,6 +139,7 @@ func TestGossip(t *testing.T) {
 	b := &Backend{
 		knownMessages:  knownMessages,
 		recentMessages: recentMessages,
+		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}),
 	}
 	b.SetBroadcaster(broadcaster)
 
