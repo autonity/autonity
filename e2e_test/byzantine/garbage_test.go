@@ -3,15 +3,12 @@ package byzantine
 import (
 	"context"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/rlp"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 	"regexp"
@@ -22,7 +19,7 @@ type randomBytesBroadcaster struct {
 	*core.Core
 }
 
-func (s *randomBytesBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *randomBytesBroadcaster) Broadcast(ctx context.Context, _ message.Message) {
 	logger := s.Logger().New("step", s.Step())
 	logger.Info("Broadcasting random bytes")
 
@@ -32,10 +29,10 @@ func (s *randomBytesBroadcaster) SignAndBroadcast(ctx context.Context, msg *mess
 			logger.Error("Failed to generate random bytes ", "err", err)
 			return
 		}
-		if err = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
-			logger.Error("Failed to broadcast message", "msg", msg, "err", err)
-			return
-		}
+		var hash common.Hash
+		copy(hash[:], payload)
+		msg := message.NewFake(1, payload, hash)
+		s.BroadcastAll(ctx, msg)
 	}
 }
 
@@ -62,27 +59,16 @@ type garbageMessageBroadcaster struct {
 	*core.Core
 }
 
-func (s *garbageMessageBroadcaster) SignAndBroadcast(ctx context.Context, _ *message.Message) {
+func (s *garbageMessageBroadcaster) Broadcast(ctx context.Context, _ message.Message) {
 	logger := s.Logger().New("step", s.Step())
-
-	var fMsg message.Message
+	var fMsg message.Prevote
 	f := fuzz.New().NilChance(0.5).Funcs(
-		func(cm *message.ConsensusMsg, c fuzz.Continue) {
+		func(cm message.Message, c fuzz.Continue) {
 			c.Fuzz(cm)
 		})
 	f.Fuzz(&fMsg)
-
 	logger.Info("Broadcasting random bytes")
-
-	payload, err := s.SignMessage(&fMsg)
-	if err != nil {
-		logger.Error("Failed to finalize message", "msg", fMsg, "err", err)
-		return
-	}
-	if err = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
-		logger.Error("Failed to broadcast message", "msg", fMsg, "err", err)
-		return
-	}
+	s.BroadcastAll(ctx, &fMsg)
 }
 
 // TestGarbageMessageBroadcaster broadcasts a garbage Messages in the network,
@@ -110,12 +96,8 @@ type garbagePrecommitSender struct {
 }
 
 func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-	var precommit message.Vote
-	precommitFieldComb := e2e.GetAllFieldCombinations(&precommit)
-	var msg message.Message
-	msgFieldComb := e2e.GetAllFieldCombinations(&msg)
-
+	var precommit *message.Precommit
+	precommitFieldComb := e2e.GetAllFieldCombinations(precommit)
 	proposedBlockHash := common.Hash{}
 	if !isNil {
 		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
@@ -133,47 +115,11 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 		for _, fieldName := range fieldsArray {
 			f.SkipFieldsWithPattern(regexp.MustCompile(fieldName))
 		}
-
-		precommit = message.Vote{
-			Round:  c.Round(),
-			Height: c.Height(),
-		}
-
-		precommit.ProposedBlockHash = proposedBlockHash
+		precommit = message.NewVote[message.Precommit](c.Round(), c.Height().Uint64(), proposedBlockHash, c.Backend().Sign)
 		// fuzzing existing precommit message, skip the fields in field array
 		f.Fuzz(&precommit)
-		encodedVote, err := rlp.EncodeToBytes(&precommit)
-		if err != nil {
-			logger.Error("Failed to encode", "subject", precommit)
-			return
-		}
-		msg := &message.Message{
-			Code:          consensus.MsgPrecommit,
-			Payload:       encodedVote,
-			Address:       c.Address(),
-			CommittedSeal: []byte{},
-		}
-		//Each iteration tries to fuzz a unique set of fields and skipping
-		// a few as provided by fieldsArray
-		for _, fArray := range msgFieldComb {
-			// a valid proposal block
-			f := fuzz.New().NilChance(0.5)
-			f.AllowUnexportedFields(true)
-			for _, fName := range fArray {
-				f.SkipFieldsWithPattern(regexp.MustCompile(fName))
-			}
-			f.Funcs(func(dMsg *message.ConsensusMsg, fc fuzz.Continue) {})
-			f.Fuzz(msg)
-			// Create committed seal
-			seal := tendermint.PrepareCommittedSeal(precommit.ProposedBlockHash, c.Round(), c.Height())
-			msg.CommittedSeal, err = c.Backend().Sign(seal)
-			if err != nil {
-				c.Logger().Error("Core.sendPrecommit error while signing committed seal", "err", err)
-			}
-
-			c.SetSentPrecommit(true)
-			c.Br().Broadcast(ctx, msg)
-		}
+		c.SetSentPrecommit(true)
+		c.Br().Broadcast(ctx, precommit)
 	}
 }
 
@@ -202,12 +148,8 @@ type garbagePrevoter struct {
 }
 
 func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
-	logger := c.Logger().New("step", c.Step())
-
-	var prevote message.Vote
+	var prevote message.Prevote
 	prevoteFieldComb := e2e.GetAllFieldCombinations(&prevote)
-	var msg message.Message
-	msgFieldComb := e2e.GetAllFieldCombinations(&msg)
 	proposedBlockHash := c.CurRoundMessages().ProposalHash()
 	if !isNil {
 		if h := c.CurRoundMessages().ProposalHash(); h == (common.Hash{}) {
@@ -226,34 +168,9 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 		for _, fieldName := range fieldsArray {
 			f.SkipFieldsWithPattern(regexp.MustCompile(fieldName))
 		}
-		prevote = message.Vote{
-			Round:  c.Round(),
-			Height: c.Height(),
-		}
-		prevote.ProposedBlockHash = proposedBlockHash
-		encodedVote, err := rlp.EncodeToBytes(&prevote)
-		if err != nil {
-			logger.Error("Failed to encode", "subject", prevote)
-			return
-		}
-
-		msg := &message.Message{
-			Code:          consensus.MsgPrevote,
-			Payload:       encodedVote,
-			Address:       c.Address(),
-			CommittedSeal: []byte{},
-		}
-		for _, fArray := range msgFieldComb {
-			// a valid proposal block
-			f := fuzz.New().NilChance(0.5)
-			f.AllowUnexportedFields(true)
-			for _, fName := range fArray {
-				f.SkipFieldsWithPattern(regexp.MustCompile(fName))
-			}
-			f.Funcs(func(dMsg *message.ConsensusMsg, fc fuzz.Continue) {})
-			f.Fuzz(msg)
-			c.Br().Broadcast(ctx, msg)
-		}
+		prevote := message.NewVote[message.Prevote](c.Round(), c.Height().Uint64(), proposedBlockHash, c.Backend().Sign)
+		f.Fuzz(prevote)
+		c.BroadcastAll(ctx, prevote)
 	}
 	c.SetSentPrevote(true)
 }
@@ -313,13 +230,13 @@ func generateFieldMap(v interface{}) map[string]reflect.Value {
 */
 
 func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
-	var proposalMsg message.Proposal
-	allComb := e2e.GetAllFieldCombinations(&proposalMsg)
+	var proposalMsg *message.Propose
+	allComb := e2e.GetAllFieldCombinations(proposalMsg)
 	//Each iteration tries to fuzz a unique set of fields and skipping
 	// a few as provided by fieldsArray
 	for _, fieldsArray := range allComb {
 		// a valid proposal block
-		proposalBlock := message.NewProposal(c.Round(), c.Height(), c.ValidRound(), p, c.Backend().Sign)
+		proposalMsg = message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 		f := fuzz.New().NilChance(0)
 		f.AllowUnexportedFields(true)
 		for _, fieldName := range fieldsArray {
@@ -340,21 +257,10 @@ func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
 			},
 		)
 		for i := 0; i < 100; i++ {
-			f.Fuzz(proposalBlock)
-			if proposalBlock == nil {
-				continue
-			}
-			proposal, _ := rlp.EncodeToBytes(proposalBlock)
+			f.Fuzz(proposalMsg)
 			c.SetSentProposal(true)
 			c.Backend().SetProposedBlockHash(p.Hash())
-
-			c.Br().Broadcast(ctx, &message.Message{
-				Code:          consensus.MsgProposal,
-				Payload:       proposal,
-				ConsensusMsg:  proposalBlock,
-				Address:       c.Address(),
-				CommittedSeal: []byte{},
-			})
+			c.BroadcastAll(ctx, proposalMsg)
 		}
 	}
 }

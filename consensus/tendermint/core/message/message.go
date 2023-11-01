@@ -418,198 +418,23 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 	return blake2b.Sum256(buf)
 }
 
-/*
-// ==============================================
-//
-// define the functions that needs to be provided for rlp Encoder/Decoder.
-
-// EncodeRLP serializes m into the Ethereum RLP format.
-func (m *Message) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, []any{m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal})
+// Fake is a dummy object used for internal testing.
+type Fake struct {
+	code    uint8
+	payload []byte
+	hash    common.Hash
 }
 
-// Hash Unified the Hash calculation of consensus msg. RLPHash(msg) hashes both public fields and private fields of
-// msg, while the rlp.EncodeToBytes(AccountabilityEvent) function, it calls interface EncodeRLP() that is implemented
-// by Message struct for only public fields. To keep away the in-consistent of hashing between AFD and precompiled
-// contract, we unified the consensus msg hashing in this Hash() function.
-func (m *Message) Hash() common.Hash {
-	return types.RLPHash(&Message{
-		Code:      m.Code,
-		Payload:   m.Payload,
-		Address:   m.Address,
-		Signature: m.Signature,
-		// BLSSignature:  m.BLSSignature, leave it at D4 merge.
-	})
-}
-
-// DecodeRLP implements rlp.Decoder, and load the consensus fields from a RLP stream.
-func (m *Message) DecodeRLP(s *rlp.Stream) error {
-	var msg struct {
-		Code          uint8
-		Msg           []byte
-		Address       common.Address
-		Signature     []byte
-		CommittedSeal []byte
-	}
-
-	if err := s.Decode(&msg); err != nil {
-		return err
-	}
-	m.Code, m.Payload, m.Address, m.Signature, m.CommittedSeal = msg.Code, msg.Msg, msg.Address, msg.Signature, msg.CommittedSeal
-	return nil
-}
-
-func FromBytes(b []byte) (*Message, error) {
-	msg := &Message{Bytes: b}
-	// Decode message
-	if err := rlp.DecodeBytes(b, msg); err != nil {
-		return nil, err
-	}
-	// Decode the payload, this will cache the decoded msg payload.
-	return msg, msg.DecodePayload()
-}
-
-func (m *Message) DecodePayload() error {
-	switch m.Code {
-	case consensus.MsgProposal:
-		return m.Decode(new(Proposal))
-	case consensus.MsgPrevote, consensus.MsgPrecommit:
-		return m.Decode(new(Vote))
-	default:
-		return ErrMsgPayloadNotDecoded
-	}
-}
-
-func (m *Message) Validate(validateSig SigVerifier, previousHeader *types.Header) error {
-	if previousHeader.Number.Uint64()+1 != m.H() {
-		// don't know why the legacy Code panic here, it introduces live-ness issue of the network.
-		// youssef: that is really bad and should never happen, could be because of a race-condition
-		// I'm reintroducing the panic to check if this scenario happens in the wild. We must never fail silently.
-		panic("Autonity has encountered a problem which led to an inconsistent state, please report this issue.")
-		//return fmt.Errorf("inconsistent message verification")
-	}
-	signature := m.Signature
-	payload, err := m.BytesNoSignature()
-	if err != nil {
-		return err
-	}
-	if lp, ok := m.ConsensusMsg.(*LightProposal); ok {
-		// in the case of a light proposal, the signature that matters is the inner-one.
-		payload = lp.BytesNoSignature()
-		signature = lp.Signature
-	}
-
-	recoveredAddress, err := validateSig(previousHeader, payload, signature)
-	if err != nil {
-		return err
-	}
-	// ensure message was signed by the sender
-	if m.Address != recoveredAddress {
-		return ErrBadSignature
-	}
-	validator := previousHeader.CommitteeMember(recoveredAddress)
-	// validateSig check as well if the header is in the committee, so this seems unnecessary
-	if validator == nil {
-		return ErrUnauthorizedAddress
-	}
-
-	// check if the lite proposal signature inside the proposal is correct or not.
-	if proposal, ok := m.ConsensusMsg.(*Proposal); ok {
-		if err := proposal.VerifyLightProposalSignature(m.Address); err != nil {
-			return err
-		}
-	}
-
-	m.Power = validator.VotingPower
-	return nil
-}
-
-func (m *Message) GetBytes() []byte {
-	if m.Bytes == nil {
-		data, err := rlp.EncodeToBytes(&Message{Code: m.Code, Payload: m.Payload, Address: m.Address, Signature: m.Signature, CommittedSeal: m.CommittedSeal})
-		if err != nil {
-			// We panic if there is an error, reasons:
-			// Either we received the message and we managed to decode it, hence it must be possible to encode it.
-			// If we can't encode the payload for our own generated messages, that's a programming error.
-			panic("could not decode message payload")
-		}
-		m.Bytes = data
-	}
-	return m.Bytes
-}
-
-func (m *Message) GetPower() *big.Int {
-	return m.Power
-}
-
-func (m *Message) BytesNoSignature() ([]byte, error) {
-	// youssef: not sure if the returned error is necessary here as we are in control of the object.
-	return rlp.EncodeToBytes(&Message{
-		Code:          m.Code,
-		Payload:       m.Payload,
-		Address:       m.Address,
-		Signature:     []byte{},
-		CommittedSeal: m.CommittedSeal,
-	})
-}
-
-// Todo(youssef): this function is called from too many places
-func (m *Message) Decode(val any) error {
-	//Decode is responsible to rlp-decode m.Payload. It is meant to only perform the actual decoding once,
-	//saving a cached value in m.decodedMsg.
-
-	rval := reflect.ValueOf(val)
-	if rval.Kind() != reflect.Ptr {
-		return errors.New("decode arg must be a pointer")
-	}
-
-	// check if we already have a cached value decoded
-	if m.ConsensusMsg != nil {
-		if !rval.Type().AssignableTo(reflect.TypeOf(m.ConsensusMsg)) {
-			return errors.New("type mismatch with decoded value")
-		}
-		rval.Elem().Set(reflect.ValueOf(m.ConsensusMsg).Elem())
-		return nil
-	}
-
-	err := rlp.DecodeBytes(m.Payload, val)
-	if err != nil {
-		return err
-	}
-
-	// copy the result via Set (shallow)
-	nval := reflect.New(rval.Elem().Type()) // we need first to allocate memory
-	nval.Elem().Set(rval.Elem())
-	m.ConsensusMsg = nval.Interface().(ConsensusMsg)
-	return nil
-}
-
-// ToLightProposal convert a decoded proposal into a lite proposal for accountability proof, only used by AFD.
-func (m *Message) ToLightProposal() *Message {
-	var proposal *Proposal
-	var ok bool
-	if proposal, ok = m.ConsensusMsg.(*Proposal); !ok {
-		log.Crit("error creating a light proposal")
-	}
-	lightProposal := &LightProposal{
-		Round:      m.R(),
-		Height:     new(big.Int).SetUint64(m.H()),
-		ValidRound: proposal.ValidRound,
-		Value:      m.Value(),
-		Signature:  proposal.LightSignature,
-	}
-	encoded, _ := rlp.EncodeToBytes(lightProposal)
-	message := &Message{
-		Code:         consensus.MsgLightProposal,
-		Payload:      encoded,
-		ConsensusMsg: lightProposal,
-		Address:      m.Address,
-		// We don't really care about the outer message signature
-	}
-	return message
-}
-
-func (m *Message) String() string {
-	return fmt.Sprintf("{sender: %v, power: %v, Code: %v, inner: %v}", m.Address.String(), m.Power, m.Code, m.ConsensusMsg)
-}
-*/
+func NewFake(code uint8, payload []byte, hash common.Hash) Fake               { return Fake{code, payload, hash} }
+func (f Fake) R() int64                                                       { return 0 }
+func (f Fake) H() uint64                                                      { return 1 }
+func (f Fake) Code() uint8                                                    { return f.code }
+func (f Fake) Sender() common.Address                                         { return common.HexToAddress("0x123") }
+func (f Fake) Power() *big.Int                                                { return big.NewInt(1) }
+func (f Fake) String() string                                                 { return "{fake}" }
+func (f Fake) Hash() common.Hash                                              { return f.hash }
+func (f Fake) Value() common.Hash                                             { return common.Hash{} }
+func (f Fake) Payload() []byte                                                { return f.payload }
+func (f Fake) setPayload(i []byte)                                            {}
+func (f Fake) Signature() []byte                                              { return nil }
+func (f Fake) Validate(_ func(_ common.Address) *types.CommitteeMember) error { return nil }
