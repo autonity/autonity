@@ -365,8 +365,11 @@ func TestCommit(t *testing.T) {
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		broadcaster.EXPECT().Enqueue(fetcherID, gomock.Any())
 
+		gossiper := interfaces.NewMockGossiper(ctrl)
+		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 		b := &Backend{
 			Broadcaster: broadcaster,
+			gossiper:    gossiper,
 			logger:      log.New("backend", "test", "id", 0),
 		}
 		b.SetBroadcaster(broadcaster)
@@ -417,8 +420,11 @@ func TestSyncPeer(t *testing.T) {
 		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
 
+		gossiper := interfaces.NewMockGossiper(ctrl)
+		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 		b := &Backend{
 			logger:         log.New("backend", "test", "id", 0),
+			gossiper:       gossiper,
 			recentMessages: recentMessages,
 			core:           tendermintC,
 		}

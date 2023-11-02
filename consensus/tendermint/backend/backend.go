@@ -78,7 +78,9 @@ func New(privateKey *ecdsa.PrivateKey,
 		core.SetPrevoter(services.Prevoter)
 		core.SetPrecommitter(services.Precommitter)
 		core.SetProposer(services.Proposer)
-		backend.gossiper = services.NewCustomGossiper(recentMessages, knownMessages, backend.address)
+		if services.NewCustomGossiper != nil {
+			backend.gossiper = services.NewCustomGossiper(recentMessages, knownMessages, backend.address)
+		}
 	}
 	backend.core = core
 	return backend
