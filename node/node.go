@@ -26,7 +26,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/core/rawdb"
@@ -39,11 +41,11 @@ import (
 )
 
 type TendermintServices struct {
-	Broadcaster  interfaces.Broadcaster
-	Prevoter     interfaces.Prevoter
-	Proposer     interfaces.Proposer
-	Precommitter interfaces.Precommiter
-	Gossiper     interfaces.Gossiper
+	Broadcaster       interfaces.Broadcaster
+	Prevoter          interfaces.Prevoter
+	Proposer          interfaces.Proposer
+	Precommitter      interfaces.Precommiter
+	NewCustomGossiper func(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address) interfaces.Gossiper
 }
 
 // Node is a container on which services can be registered.
