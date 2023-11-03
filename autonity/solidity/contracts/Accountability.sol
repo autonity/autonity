@@ -385,8 +385,13 @@ contract Accountability is IAccountability {
 
         _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
-        _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
-        _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
+
+        if (_val.bondedStake == 0 || _val.unbondingStake == 0) {
+            _val.state = ValidatorState.killed; // killed due to 100% slashing; killed validator is banned permanently
+        } else {
+            _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
+            _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
+        }
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
 

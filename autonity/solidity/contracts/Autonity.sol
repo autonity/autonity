@@ -16,7 +16,7 @@ import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
-enum ValidatorState {active, paused, jailed}
+enum ValidatorState {active, paused, jailed, killed}
 uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, Upgradeable {
@@ -349,6 +349,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         require(_val.treasury == msg.sender, "require caller to be validator treasury account");
         require(_val.state != ValidatorState.active, "validator already active");
         require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
+        require(_val.state != ValidatorState.killed, "validator killed permanently");
         _val.state = ValidatorState.active;
         emit ActivatedValidator(_val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
     }
@@ -922,7 +923,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             uint256 _reward = (committee[i].votingPower * _amount) / epochTotalBondedStake;
             if (_reward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
-                if (_val.state == ValidatorState.jailed) {
+                // committee members in killed state are permanently banned
+                if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.killed) {
                     config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
                     continue;
                 }
@@ -1056,6 +1058,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function _applyBonding(uint256 id) internal {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
+
+        // killed validator is banned permanently, no new bonding can be applied for a killed validator
+        if (_validator.state == ValidatorState.killed) {
+            return;
+        }
 
         if (_bonding.delegator != _validator.treasury) {
             /* The LNTN: NTN conversion rate is equal to the ratio of issued liquid tokens
