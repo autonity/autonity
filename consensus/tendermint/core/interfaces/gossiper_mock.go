@@ -7,8 +7,10 @@ package interfaces
 import (
 	reflect "reflect"
 
+	common "github.com/autonity/autonity/common"
 	consensus "github.com/autonity/autonity/consensus"
 	types "github.com/autonity/autonity/core/types"
+	lru "github.com/hashicorp/golang-lru"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -35,6 +37,34 @@ func (m *MockGossiper) EXPECT() *MockGossiperMockRecorder {
 	return m.recorder
 }
 
+// Address mocks base method.
+func (m *MockGossiper) Address() common.Address {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Address")
+	ret0, _ := ret[0].(common.Address)
+	return ret0
+}
+
+// Address indicates an expected call of Address.
+func (mr *MockGossiperMockRecorder) Address() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockGossiper)(nil).Address))
+}
+
+// Broadcaster mocks base method.
+func (m *MockGossiper) Broadcaster() consensus.Broadcaster {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Broadcaster")
+	ret0, _ := ret[0].(consensus.Broadcaster)
+	return ret0
+}
+
+// Broadcaster indicates an expected call of Broadcaster.
+func (mr *MockGossiperMockRecorder) Broadcaster() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcaster", reflect.TypeOf((*MockGossiper)(nil).Broadcaster))
+}
+
 // Gossip mocks base method.
 func (m *MockGossiper) Gossip(committee types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
@@ -45,6 +75,34 @@ func (m *MockGossiper) Gossip(committee types.Committee, payload []byte) {
 func (mr *MockGossiperMockRecorder) Gossip(committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, payload)
+}
+
+// KnownMessages mocks base method.
+func (m *MockGossiper) KnownMessages() *lru.ARCCache {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KnownMessages")
+	ret0, _ := ret[0].(*lru.ARCCache)
+	return ret0
+}
+
+// KnownMessages indicates an expected call of KnownMessages.
+func (mr *MockGossiperMockRecorder) KnownMessages() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KnownMessages", reflect.TypeOf((*MockGossiper)(nil).KnownMessages))
+}
+
+// RecentMessages mocks base method.
+func (m *MockGossiper) RecentMessages() *lru.ARCCache {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecentMessages")
+	ret0, _ := ret[0].(*lru.ARCCache)
+	return ret0
+}
+
+// RecentMessages indicates an expected call of RecentMessages.
+func (mr *MockGossiperMockRecorder) RecentMessages() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecentMessages", reflect.TypeOf((*MockGossiper)(nil).RecentMessages))
 }
 
 // SetBroadcaster mocks base method.
