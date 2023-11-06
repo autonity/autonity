@@ -42,4 +42,9 @@ interface IAccountability {
     * @dev Event emitted after a successful slashing.
     */
     event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock);
+
+    /**
+    * @dev Event emitted after is banned permanently after 100% slash
+    */
+    event ValidatorKilled(address validator, uint256 amount);
 }

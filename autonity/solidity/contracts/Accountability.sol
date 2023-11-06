@@ -395,7 +395,11 @@ contract Accountability is IAccountability {
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
 
-        emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
+        if (_val.state == ValidatorState.jailed) {
+            emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
+        } else {
+            emit ValidatorKilled(_val.nodeAddress, _slashingAmount);
+        }
     }
 
 
