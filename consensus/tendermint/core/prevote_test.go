@@ -2,10 +2,11 @@ package core
 
 import (
 	"context"
-	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
+
+	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -363,7 +364,7 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock.EXPECT().Address().AnyTimes().Return(addr)
 		backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 
-		c := New(backendMock)
+		c := New(backendMock, nil)
 		c.curRoundMessages = curRoundMessages
 		c.height = big.NewInt(2)
 		c.round = 1
