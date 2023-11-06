@@ -110,9 +110,11 @@ func (s *PO) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
 	s.done = true
 }
 
+/* currently not used, see later commented tests
 func newPVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
 	return &PVN{c.(*core.Core), false}
 }
+*/
 
 type PVN struct {
 	*core.Core
@@ -155,9 +157,11 @@ func (s *PVN) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
 	// TODO:(youssef) We need to test the accusation flow when we have an evidence for it too !
 }
 
+/* currently not used, see later commented tests
 func newPVO1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
 	return &PVO1{c.(*core.Core), false}
 }
+*/
 
 // PVO rule requires coordination from multiple agents otherwise only the proposal for "PO" will be submitted on-chain.
 type PVO1 struct {

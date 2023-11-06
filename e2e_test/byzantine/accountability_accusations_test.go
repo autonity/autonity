@@ -71,9 +71,11 @@ func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg
 	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), m)
 }
 
+/* not currently supported
 func newAccusationRulePVOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
 	return &AccusationRulePVOBroadcaster{c.(*core.Core)}
 }
+*/
 
 type AccusationRulePVOBroadcaster struct {
 	*core.Core
