@@ -70,18 +70,12 @@ func New(privateKey *ecdsa.PrivateKey,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend)
-	// set default gossiper
-	backend.gossiper = NewGossiper(recentMessages, knownMessages, backend.address)
+	core := tendermintCore.New(backend, services)
+	gossiper := NewGossiper(backend.recentMessages, backend.knownMessages, backend.address)
 	if services != nil {
-		core.SetBroadcaster(services.Broadcaster)
-		core.SetPrevoter(services.Prevoter)
-		core.SetPrecommitter(services.Precommitter)
-		core.SetProposer(services.Proposer)
-		if services.NewCustomGossiper != nil {
-			backend.gossiper = services.NewCustomGossiper(recentMessages, knownMessages, backend.address)
-		}
+		gossiper = services.Gossiper(gossiper)
 	}
+	backend.gossiper = gossiper
 	backend.core = core
 	return backend
 }

@@ -2,6 +2,9 @@ package byzantine
 
 import (
 	"context"
+	"regexp"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -9,14 +12,16 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
-	"regexp"
-	"testing"
 )
+
+func newRandomBytesBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &randomBytesBroadcaster{c.(*core.Core)}
+}
 
 type randomBytesBroadcaster struct {
 	*core.Core
@@ -47,7 +52,7 @@ func TestRandomBytesBroadcaster(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Broadcaster: &randomBytesBroadcaster{}}
+	users[0].TendermintServices = &node.TendermintServices{Broadcaster: newRandomBytesBroadcaster}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -56,6 +61,10 @@ func TestRandomBytesBroadcaster(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 180)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbageMessageBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &garbageMessageBroadcaster{c.(*core.Core)}
 }
 
 type garbageMessageBroadcaster struct {
@@ -93,7 +102,7 @@ func TestGarbageMessageBroadcaster(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Broadcaster: &garbageMessageBroadcaster{}}
+	users[0].TendermintServices = &node.TendermintServices{Broadcaster: newGarbageMessageBroadcaster}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -102,6 +111,10 @@ func TestGarbageMessageBroadcaster(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 180)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbagePrecommitSender(c interfaces.Tendermint) interfaces.Precommiter {
+	return &garbagePrecommitSender{c.(*core.Core), c.Precommiter()}
 }
 
 type garbagePrecommitSender struct {
@@ -185,7 +198,7 @@ func TestGarbagePrecommitter(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Precommitter: &garbagePrecommitSender{}}
+	users[0].TendermintServices = &node.TendermintServices{Precommiter: newGarbagePrecommitSender}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -194,6 +207,10 @@ func TestGarbagePrecommitter(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbagePrevoter(c interfaces.Tendermint) interfaces.Prevoter {
+	return &garbagePrevoter{c.(*core.Core), c.Prevoter()}
 }
 
 type garbagePrevoter struct {
@@ -266,7 +283,7 @@ func TestGarbagePrevoter(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: &garbagePrevoter{}}
+	users[0].TendermintServices = &node.TendermintServices{Prevoter: newGarbagePrevoter}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -275,6 +292,10 @@ func TestGarbagePrevoter(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbageProposer(c interfaces.Tendermint) interfaces.Proposer {
+	return &garbageProposer{c.(*core.Core), c.Proposer()}
 }
 
 type garbageProposer struct {
@@ -367,7 +388,7 @@ func TestGarbageProposer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Proposer: &garbageProposer{}}
+	users[0].TendermintServices = &node.TendermintServices{Proposer: newGarbageProposer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)

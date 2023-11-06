@@ -17,10 +17,11 @@ import (
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/node"
 )
 
 // New creates an Tendermint consensus Core
-func New(backend interfaces.Backend) *Core {
+func New(backend interfaces.Backend, services *node.TendermintServices) *Core {
 	addr := backend.Address()
 	messagesMap := message.NewMessagesMap()
 	roundMessage := messagesMap.GetOrCreate(0)
@@ -47,6 +48,12 @@ func New(backend interfaces.Backend) *Core {
 		stepChange:             time.Now(),
 	}
 	c.SetDefaultHandlers()
+	if services != nil {
+		c.broadcaster = services.Broadcaster(c)
+		c.prevoter = services.Prevoter(c)
+		c.precommiter = services.Precommiter(c)
+		c.proposer = services.Proposer(c)
+	}
 	return c
 }
 
@@ -183,15 +190,15 @@ type Core struct {
 	newRound  time.Time
 }
 
-func (c *Core) GetPrevoter() interfaces.Prevoter {
+func (c *Core) Prevoter() interfaces.Prevoter {
 	return c.prevoter
 }
 
-func (c *Core) GetPrecommiter() interfaces.Precommiter {
+func (c *Core) Precommiter() interfaces.Precommiter {
 	return c.precommiter
 }
 
-func (c *Core) GetProposer() interfaces.Proposer {
+func (c *Core) Proposer() interfaces.Proposer {
 	return c.proposer
 }
 

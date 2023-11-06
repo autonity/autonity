@@ -2,20 +2,26 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"testing"
 )
 
-type OversizedEvent struct {
+type OversizedEventBroadcaster struct {
 	*core.Core
 	faultSimulated bool
 }
 
-func (s *OversizedEvent) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func NewOversizedEventBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OversizedEventBroadcaster{c.(*core.Core), false}
+}
+
+func (s *OversizedEventBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
 	if s.faultSimulated {
 		return
@@ -45,7 +51,7 @@ func TestAccountableOversizeGarbageMsgTests(t *testing.T) {
 	t.Run("TestTBFTMisbehaviourRuleAccountableOversizeGarbageProposal", func(t *testing.T) {
 		tp := autonity.Misbehaviour
 		rule := autonity.GarbageMessage
-		handler := &node.TendermintServices{Broadcaster: &OversizedEvent{}}
+		handler := &node.TendermintServices{Broadcaster: NewOversizedEventBroadcaster}
 		runTest(t, handler, tp, rule, 120)
 	})
 }

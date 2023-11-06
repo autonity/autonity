@@ -2,14 +2,20 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"testing"
 )
+
+func newAccusationRulePOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRulePOBroadcaster{c.(*core.Core)}
+}
 
 type AccusationRulePOBroadcaster struct {
 	*core.Core
@@ -40,6 +46,10 @@ func (s *AccusationRulePOBroadcaster) SignAndBroadcast(ctx context.Context, msg 
 	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
 }
 
+func newAccusationRulePVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRulePVNBroadcaster{c.(*core.Core)}
+}
+
 type AccusationRulePVNBroadcaster struct {
 	*core.Core
 }
@@ -59,6 +69,10 @@ func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg
 	s.Logger().Info("Accusation of PVN rule is simulated.")
 	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
 	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), m)
+}
+
+func newAccusationRulePVOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRulePVOBroadcaster{c.(*core.Core)}
 }
 
 type AccusationRulePVOBroadcaster struct {
@@ -104,6 +118,10 @@ func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(ctx context.Context, msg
 	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mPVO1)
 }
 
+func newAccusationRuleC1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRuleC1Broadcaster{c.(*core.Core)}
+}
+
 type AccusationRuleC1Broadcaster struct {
 	*core.Core
 }
@@ -137,26 +155,26 @@ func (s *AccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Context, msg 
 
 func TestAccusationFlow(t *testing.T) {
 	t.Run("AccusationRulePO", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRulePOBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRulePOBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PO
 		runTest(t, handler, tp, rule, 100)
 	})
 	t.Run("AccusationRulePVN", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRulePVNBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRulePVNBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PVN
 		runTest(t, handler, tp, rule, 100)
 	})
 	/* // Not supported, require more complicated setup
 	t.Run("AccusationRulePVO", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRulePVOBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRulePVOBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PVO
 		runTest(t, handler, tp, rule, 60)
 	})*/
 	t.Run("AccusationRuleC1", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRuleC1Broadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRuleC1Broadcaster}
 		tp := autonity.Accusation
 		rule := autonity.C1
 		runTest(t, handler, tp, rule, 60)

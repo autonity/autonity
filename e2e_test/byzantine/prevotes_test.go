@@ -2,16 +2,21 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
+
+func newMalPrevoter(c interfaces.Tendermint) interfaces.Prevoter {
+	return &malPrevoter{c.(*core.Core), c.Prevoter()}
+}
 
 type malPrevoter struct {
 	*core.Core
@@ -36,7 +41,7 @@ func (c *malPrevoter) HandlePrevote(ctx context.Context, msg *message.Message) e
 	}
 	c.Logger().Debug("Stopped Scheduled Prevote Timeout")
 
-	c.GetPrecommiter().SendPrecommit(ctx, true)
+	c.Precommiter().SendPrecommit(ctx, true)
 	c.SetStep(types.Precommit)
 
 	return nil
@@ -47,7 +52,7 @@ func TestMaliciousPrevoter(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: &malPrevoter{}}
+	users[0].TendermintServices = &node.TendermintServices{Prevoter: newMalPrevoter}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)

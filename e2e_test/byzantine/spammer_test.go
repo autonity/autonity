@@ -2,6 +2,7 @@ package byzantine
 
 import (
 	"context"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -9,13 +10,18 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
 
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
+
+func newPreVoteSpammer(c interfaces.Tendermint) interfaces.Prevoter {
+	return &preVoteSpammer{c.(*core.Core), c.Prevoter()}
+}
 
 type preVoteSpammer struct {
 	*core.Core
@@ -64,8 +70,8 @@ func TestPrevoteSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: &preVoteSpammer{}}
-	users[1].TendermintServices = &node.TendermintServices{Prevoter: &preVoteSpammer{}}
+	users[0].TendermintServices = &node.TendermintServices{Prevoter: newPreVoteSpammer}
+	users[1].TendermintServices = &node.TendermintServices{Prevoter: newPreVoteSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -79,6 +85,10 @@ func TestPrevoteSpammer(t *testing.T) {
 type precommitSpammer struct {
 	*core.Core
 	interfaces.Precommiter
+}
+
+func newPrecommitSpammer(c interfaces.Tendermint) interfaces.Precommiter {
+	return &precommitSpammer{c.(*core.Core), c.Precommiter()}
 }
 
 func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
@@ -130,7 +140,7 @@ func TestPrecommitSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Precommitter: &precommitSpammer{}}
+	users[0].TendermintServices = &node.TendermintServices{Precommiter: newPrecommitSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -144,6 +154,10 @@ func TestPrecommitSpammer(t *testing.T) {
 type proposalSpammer struct {
 	*core.Core
 	interfaces.Proposer
+}
+
+func newProposalSpammer(c interfaces.Tendermint) interfaces.Proposer {
+	return &proposalSpammer{c.(*core.Core), c.Proposer()}
 }
 
 func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
@@ -169,7 +183,7 @@ func TestProposalSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Proposer: &proposalSpammer{}}
+	users[0].TendermintServices = &node.TendermintServices{Proposer: newProposalSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)

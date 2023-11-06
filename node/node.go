@@ -26,11 +26,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	lru "github.com/hashicorp/golang-lru"
-
 	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
@@ -41,11 +38,11 @@ import (
 )
 
 type TendermintServices struct {
-	Broadcaster       interfaces.Broadcaster
-	Prevoter          interfaces.Prevoter
-	Proposer          interfaces.Proposer
-	Precommitter      interfaces.Precommiter
-	NewCustomGossiper func(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address) interfaces.Gossiper
+	Broadcaster func(c interfaces.Tendermint) interfaces.Broadcaster
+	Prevoter    func(c interfaces.Tendermint) interfaces.Prevoter
+	Proposer    func(c interfaces.Tendermint) interfaces.Proposer
+	Precommiter func(c interfaces.Tendermint) interfaces.Precommiter
+	Gossiper    func(def interfaces.Gossiper) interfaces.Gossiper
 }
 
 // Node is a container on which services can be registered.
@@ -77,7 +74,39 @@ type Node struct {
 
 // todo(youssef): put that in the node config
 func (n *Node) SetTendermintServices(handler *TendermintServices) {
-	n.tendermintServices = handler
+	// nothing to do if we do not have custom tendermint services
+	if handler == nil {
+		return
+	}
+	// if we have any missing custom services, fill the spot with a function that returns the default handler
+	// this simplifies the instantiation of the custom services in the tendermint backend and core
+	// while at the same time keeping the tests lean
+	n.tendermintServices = &TendermintServices{}
+	if handler.Broadcaster != nil {
+		n.tendermintServices.Broadcaster = handler.Broadcaster
+	} else {
+		n.tendermintServices.Broadcaster = func(c interfaces.Tendermint) interfaces.Broadcaster { return c.Br() }
+	}
+	if handler.Proposer != nil {
+		n.tendermintServices.Proposer = handler.Proposer
+	} else {
+		n.tendermintServices.Proposer = func(c interfaces.Tendermint) interfaces.Proposer { return c.Proposer() }
+	}
+	if handler.Prevoter != nil {
+		n.tendermintServices.Prevoter = handler.Prevoter
+	} else {
+		n.tendermintServices.Prevoter = func(c interfaces.Tendermint) interfaces.Prevoter { return c.Prevoter() }
+	}
+	if handler.Precommiter != nil {
+		n.tendermintServices.Precommiter = handler.Precommiter
+	} else {
+		n.tendermintServices.Precommiter = func(c interfaces.Tendermint) interfaces.Precommiter { return c.Precommiter() }
+	}
+	if handler.Gossiper != nil {
+		n.tendermintServices.Gossiper = handler.Gossiper
+	} else {
+		n.tendermintServices.Gossiper = func(def interfaces.Gossiper) interfaces.Gossiper { return def }
+	}
 }
 
 func (n *Node) TendermintServices() *TendermintServices {

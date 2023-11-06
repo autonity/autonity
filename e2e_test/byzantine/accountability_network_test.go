@@ -2,19 +2,25 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
+
+func newOffChainAccusationRulePVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationRulePVNBroadcaster{c.(*core.Core)}
+}
 
 type OffChainAccusationRulePVNBroadcaster struct {
 	*core.Core
@@ -59,6 +65,10 @@ func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Cont
 		}
 	}
 	s.Logger().Info("Off chain Accusation of PVN rule is simulated")
+}
+
+func newOffChainAccusationRuleC1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationRuleC1Broadcaster{c.(*core.Core)}
 }
 
 type OffChainAccusationRuleC1Broadcaster struct {
@@ -106,6 +116,10 @@ func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Conte
 	s.Logger().Info("Off chain Accusation of C1 rule is simulated")
 }
 
+func newOffChainAccusationGarbageBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationGarbageBroadcaster{c.(*core.Core)}
+}
+
 // send accusation with garbage accusation msg, the sender of the msg should get disconnected from receiver end.
 type OffChainAccusationGarbageBroadcaster struct {
 	*core.Core
@@ -142,6 +156,10 @@ func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(ctx context.Cont
 			s.Logger().Info("Off chain Accusation garbage accusation is simulated")
 		}
 	}
+}
+
+func newOffChainDuplicatedAccusationBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainDuplicatedAccusationBroadcaster{c.(*core.Core)}
 }
 
 // send duplicated accusation msg from challenger, this would get the challenger removed from the peer connection.
@@ -185,6 +203,10 @@ func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(ctx context.C
 			s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 		}
 	}
+}
+
+func newOffChainAccusationOverRatedBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationOverRatedBroadcaster{c.(*core.Core)}
 }
 
 type OffChainAccusationOverRatedBroadcaster struct {
@@ -232,14 +254,14 @@ func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(ctx context.Co
 
 func OffChainAccusationTests(t *testing.T) {
 	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationRuleC1Broadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationRuleC1Broadcaster}
 		tp := autonity.Accusation
 		rule := autonity.C1
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
 	t.Run("OffChainAccusationRulePVN", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationRulePVNBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationRulePVNBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PVN
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
@@ -251,19 +273,19 @@ func OffChainAccusationTests(t *testing.T) {
 	// them from CI job.
 	t.Run("Test off chain accusation with garbage msg", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationGarbageBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationGarbageBroadcaster}
 		runDropPeerConnectionTest(t, handler, 10)
 	})
 
 	t.Run("Test duplicated accusation msg from same peer", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &node.TendermintServices{Broadcaster: &OffChainDuplicatedAccusationBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainDuplicatedAccusationBroadcaster}
 		runDropPeerConnectionTest(t, handler, 15)
 	})
 
 	t.Run("Test over rated off chain accusation", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationOverRatedBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationOverRatedBroadcaster}
 		runDropPeerConnectionTest(t, handler, 20)
 	})
 }

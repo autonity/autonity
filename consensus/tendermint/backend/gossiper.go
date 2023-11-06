@@ -3,6 +3,7 @@ package backend
 import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core/types"
 	lru "github.com/hashicorp/golang-lru"
 )
@@ -14,7 +15,7 @@ type Gossiper struct {
 	broadcaster    consensus.Broadcaster
 }
 
-func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address) *Gossiper {
+func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address) interfaces.Gossiper {
 	return &Gossiper{
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
@@ -24,6 +25,22 @@ func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, addr
 
 func (g *Gossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	g.broadcaster = broadcaster
+}
+
+func (g *Gossiper) Broadcaster() consensus.Broadcaster {
+	return g.broadcaster
+}
+
+func (g *Gossiper) RecentMessages() *lru.ARCCache {
+	return g.recentMessages
+}
+
+func (g *Gossiper) KnownMessages() *lru.ARCCache {
+	return g.knownMessages
+}
+
+func (g *Gossiper) Address() common.Address {
+	return g.address
 }
 
 func (g *Gossiper) Gossip(committee types.Committee, payload []byte) {

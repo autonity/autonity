@@ -14,7 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/stretchr/testify/require"
 )
@@ -41,6 +41,10 @@ func runTest(t *testing.T, services *node.TendermintServices, eventType autonity
 	faultyAddress := network[faultyNode].Address
 	detected := e2e.AccountabilityEventDetected(t, faultyAddress, eventType, rule, network)
 	require.Equal(t, true, detected)
+}
+
+func newPNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PN{c.(*core.Core), false}
 }
 
 type PN struct {
@@ -73,6 +77,10 @@ func (s *PN) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 	s.done = true
 }
 
+func newPOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PO{c.(*core.Core), false}
+}
+
 type PO struct {
 	*core.Core
 	done bool
@@ -100,6 +108,10 @@ func (s *PO) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
 	e2e.DefaultSignAndBroadcast(ctx, s.Core, msgEvidence)
 	e2e.DefaultSignAndBroadcast(ctx, s.Core, msgPO)
 	s.done = true
+}
+
+func newPVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PVN{c.(*core.Core), false}
 }
 
 type PVN struct {
@@ -143,6 +155,10 @@ func (s *PVN) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
 	// TODO:(youssef) We need to test the accusation flow when we have an evidence for it too !
 }
 
+func newPVO1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PVO1{c.(*core.Core), false}
+}
+
 // PVO rule requires coordination from multiple agents otherwise only the proposal for "PO" will be submitted on-chain.
 type PVO1 struct {
 	*core.Core
@@ -183,6 +199,10 @@ func (s *PVO1) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 	s.done = true
 }
 
+func newInvalidProposalBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &InvalidProposal{c.(*core.Core)}
+}
+
 type InvalidProposal struct {
 	*core.Core
 }
@@ -214,6 +234,10 @@ type InvalidProposer struct {
 	*core.Core
 }
 
+func newInvalidProposer(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &InvalidProposer{c.(*core.Core)}
+}
+
 func (s *InvalidProposer) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 	_ = msg.DecodePayload()
 	// if current node is the proposer of current round, skip and return.
@@ -232,6 +256,10 @@ func (s *InvalidProposer) SignAndBroadcast(ctx context.Context, msg *message.Mes
 	s.Logger().Info("Misbehaviour of invalid proposer rule is simulated.")
 	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
 	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
+}
+
+func newEquivocationBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &Equivocation{c.(*core.Core)}
 }
 
 type Equivocation struct {
@@ -257,16 +285,16 @@ func TestFaultProofs(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name         string
-		broadcasters interfaces.Broadcaster
+		broadcasters func(c interfaces.Tendermint) interfaces.Broadcaster
 		rule         autonity.Rule
 	}{
-		{"PN", &PN{}, autonity.PN}, // Pass with 120
-		{"PO", &PO{}, autonity.PO}, // Pass with 120
-		// {"PVN", &PVN{}, autonity.PVN}, //Not supported, need multiple byzantine validators
-		// {"PVO1", &PVO1{}, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
-		// {"InvalidProposal", &InvalidProposal{}, autonity.InvalidProposal}, Invalid proposals are not currently supported
-		{"InvalidProposer", &InvalidProposer{}, autonity.InvalidProposer}, // Pass with 120
-		{"Equivocation", &Equivocation{}, autonity.Equivocation},          // Pass with 120
+		{"PN", newPNBroadcaster, autonity.PN}, // Pass with 120
+		{"PO", newPOBroadcaster, autonity.PO}, // Pass with 120
+		// {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
+		// {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
+		// {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
+		{"InvalidProposer", newInvalidProposer, autonity.InvalidProposer},   // Pass with 120
+		{"Equivocation", newEquivocationBroadcaster, autonity.Equivocation}, // Pass with 120
 	}
 
 	for _, test := range testCases {

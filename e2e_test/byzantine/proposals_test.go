@@ -2,6 +2,10 @@ package byzantine
 
 import (
 	"context"
+	"math/big"
+	"sync/atomic"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -10,15 +14,16 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"sync/atomic"
-	"testing"
 )
+
+func newDuplicateProposalSender(c interfaces.Tendermint) interfaces.Proposer {
+	return &duplicateProposalSender{c.(*core.Core), c.Proposer()}
+}
 
 type duplicateProposalSender struct {
 	*core.Core
@@ -58,7 +63,7 @@ func TestDuplicateProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Proposer: &duplicateProposalSender{}}
+	users[0].TendermintServices = &node.TendermintServices{Proposer: newDuplicateProposalSender}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -70,6 +75,10 @@ func TestDuplicateProposal(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newMalProposalSender(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &malProposalSender{c.(*core.Core)}
 }
 
 type malProposalSender struct {
@@ -117,6 +126,10 @@ func (c *malProposalSender) SignAndBroadcast(ctx context.Context, msg *message.M
 	}
 }
 
+func newProposalApprover(c interfaces.Tendermint) interfaces.Proposer {
+	return &proposalApprover{c.(*core.Core), c.Proposer()}
+}
+
 type proposalApprover struct {
 	*core.Core
 	interfaces.Proposer
@@ -131,7 +144,7 @@ func (c *proposalApprover) HandleProposal(ctx context.Context, msg *message.Mess
 	// Set the proposal for the current round
 	c.CurRoundMessages().SetProposal(&proposal, msg, true)
 
-	c.GetPrevoter().SendPrevote(ctx, false)
+	c.Prevoter().SendPrevote(ctx, false)
 	c.SetStep(tctypes.Prevote)
 	return nil
 }
@@ -142,9 +155,9 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Broadcaster: &malProposalSender{}}
-	users[1].TendermintServices = &node.TendermintServices{Broadcaster: &malProposalSender{}, Proposer: &proposalApprover{}}
-	users[2].TendermintServices = &node.TendermintServices{Broadcaster: &malProposalSender{}}
+	users[0].TendermintServices = &node.TendermintServices{Broadcaster: newMalProposalSender}
+	users[1].TendermintServices = &node.TendermintServices{Broadcaster: newMalProposalSender, Proposer: newProposalApprover}
+	users[2].TendermintServices = &node.TendermintServices{Broadcaster: newMalProposalSender}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -163,8 +176,8 @@ func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Proposer: &duplicateProposalSender{}}
-	users[1].TendermintServices = &node.TendermintServices{Proposer: &proposalApprover{}}
+	users[0].TendermintServices = &node.TendermintServices{Proposer: newDuplicateProposalSender}
+	users[1].TendermintServices = &node.TendermintServices{Proposer: newProposalApprover}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -176,6 +189,10 @@ func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newPartialProposalSender(c interfaces.Tendermint) interfaces.Proposer {
+	return &partialProposalSender{c.(*core.Core), c.Proposer()}
 }
 
 type partialProposalSender struct {
@@ -218,7 +235,7 @@ func TestPartialProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Proposer: &partialProposalSender{}}
+	users[0].TendermintServices = &node.TendermintServices{Proposer: newPartialProposalSender}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -230,6 +247,10 @@ func TestPartialProposal(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newInvalidBlockProposer(c interfaces.Tendermint) interfaces.Proposer {
+	return &invalidBlockProposer{c.(*core.Core), c.Proposer()}
 }
 
 type invalidBlockProposer struct {
@@ -289,7 +310,7 @@ func TestInvalidBlockProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Proposer: &invalidBlockProposer{}}
+	users[0].TendermintServices = &node.TendermintServices{Proposer: newInvalidBlockProposer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
