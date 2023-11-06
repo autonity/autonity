@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"math/big"
-	"reflect"
 	"sync"
 	"time"
 
@@ -62,65 +61,6 @@ func (c *Core) SetDefaultHandlers() {
 	c.prevoter = &Prevoter{c}
 	c.precommiter = &Precommiter{c}
 	c.proposer = &Proposer{c}
-}
-
-func (c *Core) SetBroadcaster(svc interfaces.Broadcaster) {
-	if svc == nil {
-		return
-	}
-	// this would set the current Core object state in the
-	// broadcast service object
-	field0 := reflect.ValueOf(svc).Elem().Field(0)
-	field0.Set(reflect.ValueOf(c))
-	c.broadcaster = svc
-}
-func (c *Core) SetPrevoter(svc interfaces.Prevoter) {
-	if svc == nil {
-		return
-	}
-	fields := reflect.ValueOf(svc).Elem()
-	// Set up default Core
-	field0 := fields.Field(0)
-	field0.Set(reflect.ValueOf(c))
-	// Set up default prevote service
-	if fields.NumField() > 1 {
-		field1 := fields.Field(1)
-		field1.Set(reflect.ValueOf(c.prevoter))
-	}
-	c.prevoter = svc
-}
-
-func (c *Core) SetPrecommitter(svc interfaces.Precommiter) {
-	if svc == nil {
-		return
-	}
-	fields := reflect.ValueOf(svc).Elem()
-	// Set up default Core
-	field0 := fields.Field(0)
-	field0.Set(reflect.ValueOf(c))
-	// Set up default precommit service
-	if fields.NumField() > 1 {
-		field1 := fields.Field(1)
-		field1.Set(reflect.ValueOf(c.precommiter))
-	}
-
-	c.precommiter = svc
-}
-
-func (c *Core) SetProposer(svc interfaces.Proposer) {
-	if svc == nil {
-		return
-	}
-	fields := reflect.ValueOf(svc).Elem()
-	// Set up default Core
-	field0 := fields.Field(0)
-	field0.Set(reflect.ValueOf(c))
-	// Set up default propose service
-	if fields.NumField() > 1 {
-		field1 := fields.Field(1)
-		field1.Set(reflect.ValueOf(c.proposer))
-	}
-	c.proposer = svc
 }
 
 type Core struct {
