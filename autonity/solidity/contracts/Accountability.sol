@@ -375,18 +375,35 @@ contract Accountability is IAccountability {
         // Remaining stake to be slashed is split equally between the delegated
         // stake pool and the non-self unbonding stake pool.
         // As a reminder, the delegated stake pool is bondedStake - selfBondedStake.
-        if (_remaining > 0 && (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake) > 0)) {
-            uint256 _unbondingSlash = (_remaining * _val.unbondingStake) /
-                                        (_val.unbondingStake + (_val.bondedStake - _val.selfBondedStake));
+        
+        // there is no fairness issue in case of only self bonding (delegated stake = unbonding stake = 0)
+        bool killed = false;
+        // if _remaining > 0 then bondedStake = delegated stake, because all selfBondedStake is slashed
+        if (_remaining > 0 && (_val.unbondingStake + _val.bondedStake > 0)) {
+            uint256 _unbondingSlash = 0;
+            uint256 _delegatedSlash = 0;
+            if (_val.unbondingStake <= _val.bondedStake) {
+                _unbondingSlash = (_remaining * _val.unbondingStake) /
+                                        (_val.unbondingStake + _val.bondedStake);
+                _delegatedSlash = _remaining - _unbondingSlash;
+            } else {
+                _delegatedSlash = (_remaining * _val.bondedStake) /
+                                        (_val.unbondingStake + _val.bondedStake);
+                _unbondingSlash = _remaining - _delegatedSlash;
+            }
             _val.unbondingStake -= _unbondingSlash;
-            _remaining -= _unbondingSlash;
-            _val.bondedStake -= _remaining;
+            _val.bondedStake -= _delegatedSlash;
+
+            if ((_unbondingSlash > 0 && _val.unbondingStake == 0) || (_delegatedSlash > 0 && _val.bondedStake == 0)) {
+                // fairness issue is raised if one of the above condition is true
+                killed = true;
+            }
         }
 
         _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
 
-        if (_val.bondedStake == 0 || _val.unbondingStake == 0) {
+        if (killed) {
             _val.state = ValidatorState.killed; // killed due to 100% slashing; killed validator is banned permanently
         } else {
             _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
