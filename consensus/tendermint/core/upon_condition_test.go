@@ -977,7 +977,7 @@ func TestQuorumPrevote(t *testing.T) {
 		backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 
 		c := New(backendMock, nil)
-		c.setHeight(currentHeight, nil)
+		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.SetStep(currentStep)
 		c.setCommitteeSet(committeeSet)
