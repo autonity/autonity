@@ -194,10 +194,13 @@ func (n *Node) Start() error {
 	nodeConfigCopy.Logger = log.New()
 	nodeConfigCopy.Logger.SetHandler(logger)
 
+	// set custom tendermint services
+	nodeConfigCopy.SetTendermintServices(n.CustHandler)
+
 	if n.Node, err = node.New(nodeConfigCopy); err != nil {
 		return err
 	}
-	n.Node.SetTendermintServices(n.CustHandler)
+
 	// This registers the ethereum service on the n.Node, so that calling
 	// n.Node.Stop will also close the eth service. Again we provide a copy of
 	// the EthConfig so that we can use our copy for black box testing.

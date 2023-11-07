@@ -68,49 +68,6 @@ type Node struct {
 	inprocHandler *rpc.Server // In-process RPC request handler to process the API requests
 
 	databases map[*closeTrackingDB]struct{} // All open databases
-
-	tendermintServices *TendermintServices
-}
-
-// todo(youssef): put that in the node config
-func (n *Node) SetTendermintServices(handler *TendermintServices) {
-	// nothing to do if we do not have custom tendermint services
-	if handler == nil {
-		return
-	}
-	// if we have any missing custom services, fill the spot with a function that returns the default handler
-	// this simplifies the instantiation of the custom services in the tendermint backend and core
-	// while at the same time keeping the tests lean
-	n.tendermintServices = &TendermintServices{}
-	if handler.Broadcaster != nil {
-		n.tendermintServices.Broadcaster = handler.Broadcaster
-	} else {
-		n.tendermintServices.Broadcaster = func(c interfaces.Tendermint) interfaces.Broadcaster { return c.Br() }
-	}
-	if handler.Proposer != nil {
-		n.tendermintServices.Proposer = handler.Proposer
-	} else {
-		n.tendermintServices.Proposer = func(c interfaces.Tendermint) interfaces.Proposer { return c.Proposer() }
-	}
-	if handler.Prevoter != nil {
-		n.tendermintServices.Prevoter = handler.Prevoter
-	} else {
-		n.tendermintServices.Prevoter = func(c interfaces.Tendermint) interfaces.Prevoter { return c.Prevoter() }
-	}
-	if handler.Precommiter != nil {
-		n.tendermintServices.Precommiter = handler.Precommiter
-	} else {
-		n.tendermintServices.Precommiter = func(c interfaces.Tendermint) interfaces.Precommiter { return c.Precommiter() }
-	}
-	if handler.Gossiper != nil {
-		n.tendermintServices.Gossiper = handler.Gossiper
-	} else {
-		n.tendermintServices.Gossiper = func(b interfaces.Backend) interfaces.Gossiper { return b.Gossiper() }
-	}
-}
-
-func (n *Node) TendermintServices() *TendermintServices {
-	return n.tendermintServices
 }
 
 const (
