@@ -150,6 +150,20 @@ func (mr *MockBackendMockRecorder) Gossip(committee, payload interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, payload)
 }
 
+// Gossiper mocks base method.
+func (m *MockBackend) Gossiper() Gossiper {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Gossiper")
+	ret0, _ := ret[0].(Gossiper)
+	return ret0
+}
+
+// Gossiper indicates an expected call of Gossiper.
+func (mr *MockBackendMockRecorder) Gossiper() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossiper", reflect.TypeOf((*MockBackend)(nil).Gossiper))
+}
+
 // HandleUnhandledMsgs mocks base method.
 func (m *MockBackend) HandleUnhandledMsgs(ctx context.Context) {
 	m.ctrl.T.Helper()

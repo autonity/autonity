@@ -71,11 +71,11 @@ func New(privateKey *ecdsa.PrivateKey,
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 	core := tendermintCore.New(backend, services)
-	gossiper := NewGossiper(backend.recentMessages, backend.knownMessages, backend.address)
+
+	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address)
 	if services != nil {
-		gossiper = services.Gossiper(gossiper)
+		backend.gossiper = services.Gossiper(backend)
 	}
-	backend.gossiper = gossiper
 	backend.core = core
 	return backend
 }
@@ -210,6 +210,10 @@ func (sb *Backend) KnownMsgHash() []common.Hash {
 
 func (sb *Backend) Logger() log.Logger {
 	return sb.logger
+}
+
+func (sb *Backend) Gossiper() interfaces.Gossiper {
+	return sb.gossiper
 }
 
 // Commit implements tendermint.Backend.Commit

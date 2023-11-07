@@ -42,7 +42,7 @@ type TendermintServices struct {
 	Prevoter    func(c interfaces.Tendermint) interfaces.Prevoter
 	Proposer    func(c interfaces.Tendermint) interfaces.Proposer
 	Precommiter func(c interfaces.Tendermint) interfaces.Precommiter
-	Gossiper    func(def interfaces.Gossiper) interfaces.Gossiper
+	Gossiper    func(b interfaces.Backend) interfaces.Gossiper
 }
 
 // Node is a container on which services can be registered.
@@ -105,7 +105,7 @@ func (n *Node) SetTendermintServices(handler *TendermintServices) {
 	if handler.Gossiper != nil {
 		n.tendermintServices.Gossiper = handler.Gossiper
 	} else {
-		n.tendermintServices.Gossiper = func(def interfaces.Gossiper) interfaces.Gossiper { return def }
+		n.tendermintServices.Gossiper = func(b interfaces.Backend) interfaces.Gossiper { return b.Gossiper() }
 	}
 }
 

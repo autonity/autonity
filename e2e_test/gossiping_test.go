@@ -10,9 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newCustomGossiper(def interfaces.Gossiper) interfaces.Gossiper {
-	g := &customGossiper{def}
-	return g
+func newCustomGossiper(b interfaces.Backend) interfaces.Gossiper {
+	return &customGossiper{b.Gossiper()}
 }
 
 type customGossiper struct {
