@@ -42,9 +42,9 @@ func (cg *customGossiper) Gossip(committee types.Committee, payload []byte) {
 	// determine random subset of committee members to gossip to
 	// if by chance we include our own index, we will end up gossiping to
 	// ceil(sqrt(N)) - 1
-	fullset := rand.Perm(len(committee))
+	fullset := rand.Perm(len(committee)) //nolint
 	num := uint(math.Ceil(math.Sqrt(float64(len(committee)))))
-	subset := fullset[:num]
+	subset := fullset[:num] //nolint
 
 	targets := make(map[common.Address]struct{})
 	i := 0
