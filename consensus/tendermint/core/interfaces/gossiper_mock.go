@@ -51,6 +51,18 @@ func (mr *MockGossiperMockRecorder) Address() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockGossiper)(nil).Address))
 }
 
+// AskSync mocks base method.
+func (m *MockGossiper) AskSync(header *types.Header) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AskSync", header)
+}
+
+// AskSync indicates an expected call of AskSync.
+func (mr *MockGossiperMockRecorder) AskSync(header interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockGossiper)(nil).AskSync), header)
+}
+
 // Broadcaster mocks base method.
 func (m *MockGossiper) Broadcaster() consensus.Broadcaster {
 	m.ctrl.T.Helper()

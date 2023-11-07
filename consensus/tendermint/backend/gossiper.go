@@ -1,9 +1,14 @@
 package backend
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -12,13 +17,17 @@ type Gossiper struct {
 	knownMessages  *lru.ARCCache  // the cache of self messages
 	address        common.Address // address of the local peer
 	broadcaster    consensus.Broadcaster
+	logger         log.Logger
+	stopped        chan struct{}
 }
 
-func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address) *Gossiper {
+func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
 	return &Gossiper{
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		address:        address,
+		logger:         logger,
+		stopped:        stopped,
 	}
 }
 
@@ -72,6 +81,51 @@ func (g *Gossiper) Gossip(committee types.Committee, payload []byte) {
 			g.recentMessages.Add(addr, m)
 
 			go p.Send(TendermintMsg, payload) //nolint
+		}
+	}
+}
+
+func (g *Gossiper) AskSync(header *types.Header) {
+	g.logger.Info("Consensus liveness lost, broadcasting sync request..")
+
+	targets := make(map[common.Address]struct{})
+	for _, val := range header.Committee {
+		if val.Address != g.address {
+			targets[val.Address] = struct{}{}
+		}
+	}
+
+	if g.broadcaster != nil && len(targets) > 0 {
+		for {
+			ps := g.broadcaster.FindPeers(targets)
+			// If we didn't find any peers try again in 10ms or exit if we have
+			// been stopped.
+			if len(ps) == 0 {
+				t := time.NewTimer(10 * time.Millisecond)
+				select {
+				case <-t.C:
+					continue
+				case <-g.stopped:
+					return
+				}
+			}
+			count := new(big.Int)
+			for addr, p := range ps {
+				//ask to a quorum nodes to sync, 1 must then be honest and updated
+				if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
+					break
+				}
+				g.logger.Debug("Asking sync to", "addr", addr)
+				go p.Send(SyncMsg, []byte{}) //nolint
+
+				member := header.CommitteeMember(addr)
+				if member == nil {
+					g.logger.Error("could not retrieve member from address")
+					continue
+				}
+				count.Add(count, member.VotingPower)
+			}
+			break
 		}
 	}
 }

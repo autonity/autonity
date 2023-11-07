@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"math/big"
 	"sync"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -72,7 +70,7 @@ func New(privateKey *ecdsa.PrivateKey,
 	backend.pendingMessages.SetCapacity(ringCapacity)
 	core := tendermintCore.New(backend, services)
 
-	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address)
+	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
@@ -150,48 +148,7 @@ func (sb *Backend) postEvent(event interface{}) {
 }
 
 func (sb *Backend) AskSync(header *types.Header) {
-	sb.logger.Info("Consensus liveness lost, broadcasting sync request..")
-
-	targets := make(map[common.Address]struct{})
-	for _, val := range header.Committee {
-		if val.Address != sb.Address() {
-			targets[val.Address] = struct{}{}
-		}
-	}
-
-	if sb.Broadcaster != nil && len(targets) > 0 {
-		for {
-			ps := sb.Broadcaster.FindPeers(targets)
-			// If we didn't find any peers try again in 10ms or exit if we have
-			// been stopped.
-			if len(ps) == 0 {
-				t := time.NewTimer(10 * time.Millisecond)
-				select {
-				case <-t.C:
-					continue
-				case <-sb.stopped:
-					return
-				}
-			}
-			count := new(big.Int)
-			for addr, p := range ps {
-				//ask to a quorum nodes to sync, 1 must then be honest and updated
-				if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
-					break
-				}
-				sb.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncMsg, []byte{}) //nolint
-
-				member := header.CommitteeMember(addr)
-				if member == nil {
-					sb.logger.Error("could not retrieve member from address")
-					continue
-				}
-				count.Add(count, member.VotingPower)
-			}
-			break
-		}
-	}
+	sb.gossiper.AskSync(header)
 }
 
 // Gossip implements tendermint.Backend.Gossip

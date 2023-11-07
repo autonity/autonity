@@ -139,7 +139,7 @@ func TestGossip(t *testing.T) {
 	b := &Backend{
 		knownMessages:  knownMessages,
 		recentMessages: recentMessages,
-		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}),
+		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New("gossipTest"), make(chan struct{})),
 	}
 	b.SetBroadcaster(broadcaster)
 
