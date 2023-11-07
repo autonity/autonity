@@ -61,6 +61,10 @@ func TestAskSync(t *testing.T) {
 	for _, p := range addresses {
 		m[p] = struct{}{}
 	}
+	recentMessages, err := lru.NewARC(inmemoryMessages)
+	if err != nil {
+		t.Fatalf("Expected <nil>, got %v", err)
+	}
 	knownMessages, err := lru.NewARC(inmemoryMessages)
 	if err != nil {
 		t.Fatalf("Expected <nil>, got %v", err)
@@ -68,11 +72,9 @@ func TestAskSync(t *testing.T) {
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
-	gossiper := interfaces.NewMockGossiper(ctrl)
-	gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 	b := &Backend{
 		knownMessages: knownMessages,
-		gossiper:      gossiper,
+		gossiper:      NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
@@ -139,7 +141,7 @@ func TestGossip(t *testing.T) {
 	b := &Backend{
 		knownMessages:  knownMessages,
 		recentMessages: recentMessages,
-		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New("gossipTest"), make(chan struct{})),
+		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
 	}
 	b.SetBroadcaster(broadcaster)
 
