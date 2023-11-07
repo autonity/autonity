@@ -35,7 +35,7 @@ func runTest(t *testing.T, services *node.TendermintServices, eventType autonity
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(period, 500) // nolint
+	network.WaitToMineNBlocks(period, 500, false) // nolint
 
 	// check if the misbehaviour is presented for faulty node #0
 	faultyAddress := network[faultyNode].Address

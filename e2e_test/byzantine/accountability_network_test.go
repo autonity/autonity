@@ -305,7 +305,7 @@ func runDropPeerConnectionTest(t *testing.T, handler *node.TendermintServices, t
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 20) // nolint
+	network.WaitToMineNBlocks(testPeriod, 20, false) // nolint
 
 	// the challenger should get no peer connection left.
 	n := network[1]
@@ -332,7 +332,7 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *node.TendermintSe
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 500) // nolint
+	network.WaitToMineNBlocks(testPeriod, 500, false) // nolint
 
 	// accusation of PVN shouldn't be submitted on chain by challenger.
 	challengerAddress := network[challenger].Address

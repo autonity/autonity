@@ -78,7 +78,7 @@ func TestPrevoteSpammer(t *testing.T) {
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -147,7 +147,7 @@ func TestPrecommitSpammer(t *testing.T) {
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -193,6 +193,6 @@ func TestProposalSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }

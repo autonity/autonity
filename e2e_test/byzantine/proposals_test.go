@@ -73,7 +73,7 @@ func TestDuplicateProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -167,7 +167,7 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -187,7 +187,7 @@ func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -245,7 +245,7 @@ func TestPartialProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -319,7 +319,7 @@ func TestInvalidBlockProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(5, 60)
+	err = network.WaitToMineNBlocks(5, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	network.Shutdown()
 	//}

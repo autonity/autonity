@@ -59,7 +59,7 @@ func TestRandomBytesBroadcaster(t *testing.T) {
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 180)
+	err = network.WaitToMineNBlocks(10, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -109,7 +109,7 @@ func TestGarbageMessageBroadcaster(t *testing.T) {
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 180)
+	err = network.WaitToMineNBlocks(10, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -205,7 +205,7 @@ func TestGarbagePrecommitter(t *testing.T) {
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -290,7 +290,7 @@ func TestGarbagePrevoter(t *testing.T) {
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -395,6 +395,6 @@ func TestGarbageProposer(t *testing.T) {
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
