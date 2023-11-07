@@ -83,7 +83,7 @@ func (cg *customGossiper) Gossip(committee types.Committee, payload []byte) {
 	}
 }
 
-func (cg *customGossiper) AskSync(header *types.Header) {
+func (cg *customGossiper) AskSync(_ *types.Header) {
 	// I disable the ask sync recovery mechanism, so that I can see if the gossip only is enough to keep the network live
 	log.Info("liveness lost, supposed to ask sync (but will not)")
 }

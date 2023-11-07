@@ -467,7 +467,7 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate boo
 				// verify block rate against parent if we moved forward
 				// it is not bulletproof but good enough
 				// (we could have moved 2 blocks from last iteration, with first block not respecting the rate and second yes)
-				if currHeight > lastHeights[i] {
+				if verifyRate && currHeight > lastHeights[i] {
 					currTime := currHeader.Time
 					parentTime := n.Eth.BlockChain().GetHeaderByHash(currHeader.ParentHash).Time
 					if currTime-parentTime != 1 {
