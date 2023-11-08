@@ -769,7 +769,7 @@ contract('Protocol', function (accounts) {
 
     it('does not trigger fairness issue (unbondingStake > 0 and delegatedStake > 0)', async function () {
       // fairness issue is triggered when delegatedStake or unbondingStake becomes 0 from positive due to slashing
-      // it can happen due to slashing rate = 100% or (totalStake - 1)/totalStake
+      // it can happen due to slashing rate = 100%
       // it can also happen if both unbondingStake and delegatedStake > 0 and slashing amount >= (totalStake - 1)
       // it should not happen for slashing amount < (totalStake - 1)
       let config = JSON.parse(JSON.stringify(accountabilityConfig));
