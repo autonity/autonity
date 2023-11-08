@@ -23,6 +23,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -62,13 +63,9 @@ func TestAskSync(t *testing.T) {
 		m[p] = struct{}{}
 	}
 	recentMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
 	knownMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
@@ -92,10 +89,9 @@ func TestGossip(t *testing.T) {
 	header := newTestHeader(5)
 	validators := header.Committee
 	payload, err := rlp.EncodeToBytes([]byte("data"))
+	require.NoError(t, err)
 	hash := types.RLPHash(payload)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
@@ -125,17 +121,12 @@ func TestGossip(t *testing.T) {
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
 
 	knownMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
 	recentMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
 	address3Cache, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
+
 	address3Cache.Add(hash, true)
 	recentMessages.Add(addresses[3], address3Cache)
 	b := &Backend{
