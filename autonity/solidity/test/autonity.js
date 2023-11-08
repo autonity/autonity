@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const buffer = require('node:buffer');
+const { buffer } = require('node:buffer');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
 const liquidContract = artifacts.require("Liquid")
