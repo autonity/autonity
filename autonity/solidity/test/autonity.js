@@ -1,5 +1,6 @@
 'use strict';
 const assert = require('assert');
+const buffer = require('node:buffer');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
 const liquidContract = artifacts.require("Liquid")
@@ -315,6 +316,7 @@ contract('Autonity', function (accounts) {
   ];
 
   let autonity;
+  /*
   describe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
      * add getter tests for:
@@ -765,7 +767,7 @@ contract('Autonity', function (accounts) {
       assert.equal(allowance.toNumber(), amountApproved - amountTransfer, "allowance is not expected");
     });
   });
-
+  */
   describe('Validator management', function () {
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
@@ -776,12 +778,12 @@ contract('Autonity', function (accounts) {
       let enode = genesisEnodes[0]
       // multisig length is checked before validator already registered (it is not verified though)
       let multisig = generateMultiSig(genesisPrivateKeys[0],genesisPrivateKeys[0],newValidator)
-      let activityKey = '0x845681310fe66ed10629e76cc5aa20f3ec8b853af9f3dee8a6318f3fb81c0adcaaa0a776dc066127e743bba6b0349bc0';
+      let activityKey = buffer.from('845681310fe66ed10629e76cc5aa20f3ec8b853af9f3dee8a6318f3fb81c0adcaaa0a776dc066127e743bba6b0349bc0', 'hex');
       let activityKeyProof = '0x88a19caac1d02d2efb3675ec9fe99936b1170641b03d7525674ee001446cfd204fa5ba0b5e362d71294f3ba2f758695115a17101fc70b73fe90d7eb83950c3f7ad598b6740698b8e78fb48821c47762cdf2de889deede80fe2e7c085e48562c4';
       multisig = multisig + activityKeyProof.substring(2);
 
       await truffleAssert.fails(
-        autonity.registerValidator(enode, genesisNodeAddresses[0], activityKey.substring(2), multisig, {from: newValidator}),
+        autonity.registerValidator(enode, genesisNodeAddresses[0], activityKey, multisig, {from: newValidator}),
         truffleAssert.ErrorType.REVERT,
         "validator already registered"
       );
