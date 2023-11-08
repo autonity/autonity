@@ -264,6 +264,8 @@ contract('Autonity', function (accounts) {
     "selfUnbondingShares" : 0,
     "unbondingStake" : 0,
     "unbondingShares" : 0,
+    "omissionFaultCount": 0,
+    "activityKey": "0x00",
   }
   
   // accounts[2] is skipped because it is used as a genesis validator when running against autonity
@@ -774,9 +776,12 @@ contract('Autonity', function (accounts) {
       let enode = genesisEnodes[0]
       // multisig length is checked before validator already registered (it is not verified though)
       let multisig = generateMultiSig(genesisPrivateKeys[0],genesisPrivateKeys[0],newValidator)
-      
+      let activityKey = '0x845681310fe66ed10629e76cc5aa20f3ec8b853af9f3dee8a6318f3fb81c0adcaaa0a776dc066127e743bba6b0349bc0';
+      let activityKeyProof = '0x88a19caac1d02d2efb3675ec9fe99936b1170641b03d7525674ee001446cfd204fa5ba0b5e362d71294f3ba2f758695115a17101fc70b73fe90d7eb83950c3f7ad598b6740698b8e78fb48821c47762cdf2de889deede80fe2e7c085e48562c4';
+      multisig = multisig + activityKeyProof.substring(2);
+
       await truffleAssert.fails(
-        autonity.registerValidator(enode, genesisNodeAddresses[0], multisig, {from: newValidator}),
+        autonity.registerValidator(enode, genesisNodeAddresses[0], activityKey.substring(2), multisig, {from: newValidator}),
         truffleAssert.ErrorType.REVERT,
         "validator already registered"
       );
@@ -789,10 +794,14 @@ contract('Autonity', function (accounts) {
       let newValidator = accounts[8];
       let enode = "enode://invalidEnodeAddress@172.25.0.11:30303";
       let privateKey = genesisPrivateKeys[0] // irrelevant
+      let activityKey = '0xb4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5';
+      let activityKeyProof = '0xa141b3c759ad5eec4def611fc4cb028f1edb0f363f9f415c692998b0b6e677acdfb7e2ac23e3e848027b5e19e56b550c15a87ccc81e6f8ebd34fa54850ec0fe192567bf4aefcddb06f6c00bee4768010013b162a91d4f7ed397568affe497532';
+
       let multisig = generateMultiSig(privateKey,privateKey,newValidator)
+      multisig = multisig + activityKeyProof.substring(2)
       
       await truffleAssert.fails(
-        autonity.registerValidator(enode, newValidator, multisig, {from: newValidator}),
+        autonity.registerValidator(enode, newValidator, activityKey.substring(2), multisig, {from: newValidator}),
         truffleAssert.ErrorType.REVERT,
         "enode error"
       );
@@ -808,9 +817,12 @@ contract('Autonity', function (accounts) {
       // generate oracle signature with nodekey instead of treasury key
       let multisig = generateMultiSig(privateKey,privateKey,newValidator)
       let oracleAddr = newValidator // treasury address
-      
+      let activityKey = '0xb4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5';
+      let activityKeyProof = '0xa141b3c759ad5eec4def611fc4cb028f1edb0f363f9f415c692998b0b6e677acdfb7e2ac23e3e848027b5e19e56b550c15a87ccc81e6f8ebd34fa54850ec0fe192567bf4aefcddb06f6c00bee4768010013b162a91d4f7ed397568affe497532';
+      multisig = multisig + activityKeyProof.substring(2)
+
       await truffleAssert.fails(
-        autonity.registerValidator(enode, oracleAddr, multisig, {from: newValidator}),
+        autonity.registerValidator(enode, oracleAddr, activityKey.substring(2), multisig, {from: newValidator}),
         truffleAssert.ErrorType.REVERT,
         "Invalid oracle key ownership proof provided"
       );
@@ -823,11 +835,14 @@ contract('Autonity', function (accounts) {
       let issuerAccount = accounts[8];
       let newValAddr = freeAddresses[0]
       let enode = freeEnodes[0]
-      let privateKey = freePrivateKeys[0]
-      let multisig = generateMultiSig(privateKey,privateKey,issuerAccount)
+
+      // generate the activityKey and multisigs from console:
+      //./autonity genOwnershipProof --nodekeyhex e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b --oraclekeyhex e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b 0xe12b43B69E57eD6ACdd8721Eb092BF7c8D41Df41
+      let activityKey = "0xb4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5"
+      let multisig = "0xd4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec"
       let oracleAddr = newValAddr
 
-      await autonity.registerValidator(enode, oracleAddr, multisig, {from: issuerAccount});
+      await autonity.registerValidator(enode, oracleAddr, activityKey.substring(2), multisig.substring(2), {from: issuerAccount});
       let vals = await autonity.getValidators();
       assert.equal(vals.length, validators.length + 1, "validator pool is not expected");
 
@@ -849,8 +864,8 @@ contract('Autonity', function (accounts) {
       let validator = freeAddresses[0];
       let issuerAccount = accounts[8];
       let enode = freeEnodes[0]
-      let privateKey = freePrivateKeys[0]
-      let multisig = generateMultiSig(privateKey,privateKey,issuerAccount)
+      let activityKey = "0xb4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5"
+      let multisigs = "0xd4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec"
       let oracleAddr = validator
 
       // disabling a non registered validator should fail
@@ -860,7 +875,7 @@ contract('Autonity', function (accounts) {
         "validator must be registered"
       );
 
-      await autonity.registerValidator(enode, oracleAddr, multisig, {from: issuerAccount});
+      await autonity.registerValidator(enode, oracleAddr, activityKey.substring(2), multisigs.substring(2), {from: issuerAccount});
 
       // try disabling it with msg.sender not the treasury account, it should fails 
       await truffleAssert.fails(
@@ -886,17 +901,17 @@ contract('Autonity', function (accounts) {
 
       let validator = freeAddresses[0]
       let enode = freeEnodes[0]
-      let privateKey = freePrivateKeys[0];
-      // activating a non-existing validator should fail 
+      // activating a non-existing validator should fail
       await truffleAssert.fails(
         autonity.activateValidator(validator, {from: issuerAccount}),
         truffleAssert.ErrorType.REVERT,
         "validator must be registered"
       );
 
-      let multisig = generateMultiSig(privateKey,privateKey,issuerAccount)
+      let activityKey = "0xb4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5"
+      let multisigs = "0xd4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec"
       let oracleAddr = validator
-      await autonity.registerValidator(enode, oracleAddr, multisig, {from: issuerAccount});
+      await autonity.registerValidator(enode, oracleAddr, activityKey.substring(2), multisigs.substring(2), {from: issuerAccount});
       
       // activating from non-treasury account should fail 
       await truffleAssert.fails(
@@ -1348,6 +1363,10 @@ contract('Autonity', function (accounts) {
   });
 
   describe('Test committee members rotation through bonding/unbonding', function () {
+    let activityKey1 = "0xa39f5fd136836a203bfd13d8acc631199c478d9aaa67b147989bdc75676c9e084c0e3396011ff370ca4635723c335a03"
+    let multisig1 = "0xb958d8998c700728340e78f5371eda293602de4e0dccde8184ddb65c87c5b21b7bf4374c8df5b32cf8b611746e21403ecc1ab4182baba1a67962d4d84b95350101b958d8998c700728340e78f5371eda293602de4e0dccde8184ddb65c87c5b21b7bf4374c8df5b32cf8b611746e21403ecc1ab4182baba1a67962d4d84b953501018e33e67e311ff80635094f1eaddca209064013850fa521dda481bd6f96702f491de7ae38537278fc807da025041fdc08023188392f68c232ce2cf0d9d03a106e572a11696356d6bdbf70ff4058040d735eebb5527b7e2c2137aed3d5532ae684"
+    let activityKey2 = "0x9271d72f26539bbb1beb011b63fa63c56a7c225e9e20933cc8a501204fdf8b302922e11e9d45015d6547dd4e117b9c5e"
+    let multisig2 = "0x0x2bcd02051836b04282d158c70e00236ec868019563b9caa7a6e1fc35fbc648ea5526dbdca54b0f3b5448325462b202a792582ff37ce04cf1f0c166e271dfc339012bcd02051836b04282d158c70e00236ec868019563b9caa7a6e1fc35fbc648ea5526dbdca54b0f3b5448325462b202a792582ff37ce04cf1f0c166e271dfc33901817c5c5ce485cf0a26c46d4931f3a40dfe9da29f5da11710cffb1f26d8db692a9034eb59a797a8b3111d11f182ce03ad0e02820dfcdb4f3c7740b083509840003f347f0f476a6d51d5208a5e23781822c84c540089e86450c15342d062232d9e"
       let vals = [
         { ...baseValidator,
           "treasury": accounts[0],
@@ -1371,19 +1390,17 @@ contract('Autonity', function (accounts) {
       
       it('test bond stake token to new added validators, new validators should be elected as committee member', async function() {
           // register 2 new validators.
-          let commissionRate = 10;
           let validator1 = accounts[1]; // treasury
           let oracle1 = genesisNodeAddresses[1] // oracle address = node address
           let enodeVal1 = genesisEnodes[1]
-          let multisig1 = generateMultiSig(genesisPrivateKeys[1],genesisPrivateKeys[1],validator1)
 
           let validator2 = accounts[3];
           let oracle2 = genesisNodeAddresses[2] 
           let enodeVal2 = genesisEnodes[2]
           let multisig2 = generateMultiSig(genesisPrivateKeys[2],genesisPrivateKeys[2],validator2)
 
-          await token.registerValidator(enodeVal1, oracle1, multisig1, {from: validator1});
-          await token.registerValidator(enodeVal2, oracle2, multisig2, {from: validator2});
+          await token.registerValidator(enodeVal1, oracle1, activityKey1.substring(2), multisig1.substring(2), {from: validator1});
+          await token.registerValidator(enodeVal2, oracle2, activityKey2.substring(2), multisig2.substring(2), {from: validator2});
 
           // system operator mint Newton for user.
           let user = accounts[7];
@@ -1411,19 +1428,16 @@ contract('Autonity', function (accounts) {
       });
       it('test un-bond stake from validator, zero bonded validator should not be elected as committee member', async function() {
           // register 2 new validators.
-          let commissionRate = 10;
           let validator1 = accounts[1]; // treasury
           let oracle1 = genesisNodeAddresses[1] // oracle address = node address
           let enodeVal1 = genesisEnodes[1]
-          let multisig1 = generateMultiSig(genesisPrivateKeys[1],genesisPrivateKeys[1],validator1)
 
           let validator2 = accounts[3];
           let oracle2 = genesisNodeAddresses[2] 
           let enodeVal2 = genesisEnodes[2]
-          let multisig2 = generateMultiSig(genesisPrivateKeys[2],genesisPrivateKeys[2],validator2)
 
-          await token.registerValidator(enodeVal1, oracle1, multisig1, {from: validator1});
-          await token.registerValidator(enodeVal2, oracle2, multisig2, {from: validator2});
+          await token.registerValidator(enodeVal1, oracle1, activityKey1.substring(2), multisig1.substring(2), {from: validator1});
+          await token.registerValidator(enodeVal2, oracle2, activityKey2.substring(2), multisig2.substring(2), {from: validator2});
 
           // system operator mint Newton for user.
           let user = accounts[7];

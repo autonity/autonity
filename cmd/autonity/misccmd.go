@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/bls"
 	ethproto "github.com/autonity/autonity/eth/protocols/eth"
 	"os"
 	"runtime"
@@ -110,7 +111,8 @@ func makecache(ctx *cli.Context) error {
 }
 
 // makedag gene
-//		tes an ethash mining DAG into the provided folder.
+//
+//	tes an ethash mining DAG into the provided folder.
 func makedag(ctx *cli.Context) error {
 	args := ctx.Args()
 	if len(args) != 2 {
@@ -216,9 +218,22 @@ func genOwnershipProof(ctx *cli.Context) error {
 	if err != nil {
 		utils.Fatalf("Failed to sign: %v", err)
 	}
-	multisig := append(nodeSignature[:], oracleSignature[:]...)
-	hexStr := hexutil.Encode(multisig)
-	fmt.Println("Signature hex:", hexStr)
+
+	// activity key proof generation
+	activityKey, err := bls.SecretKeyFromECDSAKey(nodePrivateKey)
+	if err != nil {
+		utils.Fatalf("Failed to generate bls secret from source ecdsa key: %v", err)
+	}
+
+	activityKeyProof, err := bls.GenerateOwnershipProof(activityKey, data)
+	if err != nil {
+		utils.Fatalf("Failed to sign bls key owner proof: %v", err)
+	}
+
+	fmt.Println("Activity key hex:", activityKey.PublicKey().Hex())
+	signatures := append(append(nodeSignature[:], oracleSignature[:]...), activityKeyProof[:]...)
+	hexStr := hexutil.Encode(signatures)
+	fmt.Println("Signatures hex:", hexStr)
 	return nil
 }
 
@@ -239,5 +254,11 @@ func genNodeKey(ctx *cli.Context) error {
 	if writeAddr {
 		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
 	}
+	// print the node's activity key to on-board validator from genesis config by the system operator.
+	blsKey, err := bls.SecretKeyFromECDSAKey(nodeKey)
+	if err != nil {
+		utils.Fatalf("could not generate activity key from node key: %v", err)
+	}
+	fmt.Println("Node activity public key:", blsKey.PublicKey().Hex())
 	return nil
 }

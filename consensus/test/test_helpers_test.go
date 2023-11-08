@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
 	"math"
 	"math/big"
 	"os"
@@ -57,12 +58,17 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 		//stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 		if strings.HasPrefix(name, ValidatorPrefix) {
 			address := crypto.PubkeyToAddress(nodes[name].privateKey.PublicKey)
+			blsPK, err := bls.SecretKeyFromECDSAKey(nodes[name].privateKey)
+			require.NoError(t, err)
+
 			validators = append(validators, &params.Validator{
-				NodeAddress:    &address,
-				Enode:          nodes[name].url,
-				Treasury:       address,
-				BondedStake:    stake,
-				CommissionRate: new(big.Int).SetUint64(0),
+				NodeAddress:        &address,
+				Enode:              nodes[name].url,
+				Treasury:           address,
+				BondedStake:        stake,
+				ActivityKey:        blsPK.PublicKey().Marshal(),
+				OmissionFaultCount: new(big.Int).SetUint64(0),
+				CommissionRate:     new(big.Int).SetUint64(0),
 			})
 		}
 	}

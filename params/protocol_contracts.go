@@ -1,8 +1,10 @@
 package params
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -131,7 +133,115 @@ type Validator struct {
 	TotalSlashed             *big.Int
 	JailReleaseBlock         *big.Int
 	ProvableFaultCount       *big.Int
+	ActivityKey              []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
+	OmissionFaultCount       *big.Int
 	State                    *uint8
+}
+
+// UnmarshalJSON and MarshalJSON are customized marshal and unmarshal methods to parse validators with activity key in
+// hex string from genesis file, the raw type []byte is replaced by hexutil.Bytes.
+func (v *Validator) UnmarshalJSON(input []byte) error {
+	type validator struct {
+		Treasury                 common.Address  `json:"treasury"`
+		NodeAddress              *common.Address `json:"nodeAddress"`
+		OracleAddress            common.Address  `json:"oracleAddress"`
+		Enode                    string          `json:"enode"`
+		CommissionRate           *big.Int        `json:"commissionRate"`
+		BondedStake              *big.Int        `json:"bondedStake"`
+		UnbondingStake           *big.Int        `json:"unbondingStake"`
+		UnbondingShares          *big.Int        `json:"unbondingShares"`
+		SelfBondedStake          *big.Int        `json:"selfBondedStake"`
+		SelfUnbondingStake       *big.Int        `json:"selfUnbondingStake"`
+		SelfUnbondingShares      *big.Int        `json:"selfUnbondingShares"`
+		SelfUnbondingStakeLocked *big.Int        `json:"selfUnbondingStakeLocked"`
+		LiquidContract           *common.Address `json:"liquidContract"`
+		LiquidSupply             *big.Int        `json:"liquidSupply"`
+		RegistrationBlock        *big.Int        `json:"registrationBlock"`
+		TotalSlashed             *big.Int        `json:"totalSlashed"`
+		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
+		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
+		ActivityKey              hexutil.Bytes   `json:"activityKey"`
+		OmissionFaultCount       *big.Int        `json:"omissionFaultCount"`
+		State                    *uint8          `json:"state"`
+	}
+
+	var dec validator
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	v.Treasury = dec.Treasury
+	v.NodeAddress = dec.NodeAddress
+	v.OracleAddress = dec.OracleAddress
+	v.Enode = dec.Enode
+	v.CommissionRate = dec.CommissionRate
+	v.BondedStake = dec.BondedStake
+	v.UnbondingStake = dec.UnbondingStake
+	v.UnbondingShares = dec.UnbondingShares
+	v.SelfBondedStake = dec.SelfBondedStake
+	v.SelfUnbondingStake = dec.SelfUnbondingStake
+	v.SelfUnbondingShares = dec.SelfUnbondingShares
+	v.SelfUnbondingStakeLocked = dec.SelfUnbondingStakeLocked
+	v.LiquidContract = dec.LiquidContract
+	v.LiquidSupply = dec.LiquidSupply
+	v.RegistrationBlock = dec.RegistrationBlock
+	v.TotalSlashed = dec.TotalSlashed
+	v.JailReleaseBlock = dec.JailReleaseBlock
+	v.ProvableFaultCount = dec.ProvableFaultCount
+	v.ActivityKey = dec.ActivityKey
+	v.OmissionFaultCount = dec.OmissionFaultCount
+	v.State = dec.State
+
+	return nil
+}
+
+func (v *Validator) MarshalJSON() ([]byte, error) {
+	type validator struct {
+		Treasury                 common.Address  `json:"treasury"`
+		NodeAddress              *common.Address `json:"nodeAddress"`
+		OracleAddress            common.Address  `json:"oracleAddress"`
+		Enode                    string          `json:"enode"`
+		CommissionRate           *big.Int        `json:"commissionRate"`
+		BondedStake              *big.Int        `json:"bondedStake"`
+		UnbondingStake           *big.Int        `json:"unbondingStake"`
+		UnbondingShares          *big.Int        `json:"unbondingShares"`
+		SelfBondedStake          *big.Int        `json:"selfBondedStake"`
+		SelfUnbondingStake       *big.Int        `json:"selfUnbondingStake"`
+		SelfUnbondingShares      *big.Int        `json:"selfUnbondingShares"`
+		SelfUnbondingStakeLocked *big.Int        `json:"selfUnbondingStakeLocked"`
+		LiquidContract           *common.Address `json:"liquidContract"`
+		LiquidSupply             *big.Int        `json:"liquidSupply"`
+		RegistrationBlock        *big.Int        `json:"registrationBlock"`
+		TotalSlashed             *big.Int        `json:"totalSlashed"`
+		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
+		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
+		ActivityKey              hexutil.Bytes   `json:"activityKey"`
+		OmissionFaultCount       *big.Int        `json:"omissionFaultCount"`
+		State                    *uint8          `json:"state"`
+	}
+
+	var enc validator
+	enc.Treasury = v.Treasury
+	enc.NodeAddress = v.NodeAddress
+	enc.OracleAddress = v.OracleAddress
+	enc.Enode = v.Enode
+	enc.CommissionRate = v.CommissionRate
+	enc.BondedStake = v.BondedStake
+	enc.UnbondingStake = v.UnbondingStake
+	enc.UnbondingShares = v.UnbondingShares
+	enc.SelfBondedStake = v.SelfBondedStake
+	enc.SelfUnbondingStake = v.SelfUnbondingStake
+	enc.SelfUnbondingShares = v.SelfUnbondingShares
+	enc.SelfUnbondingStakeLocked = v.SelfUnbondingStakeLocked
+	enc.LiquidContract = v.LiquidContract
+	enc.LiquidSupply = v.LiquidSupply
+	enc.RegistrationBlock = v.RegistrationBlock
+	enc.TotalSlashed = v.TotalSlashed
+	enc.JailReleaseBlock = v.JailReleaseBlock
+	enc.ProvableFaultCount = v.ProvableFaultCount
+	enc.ActivityKey = v.ActivityKey
+	enc.OmissionFaultCount = v.OmissionFaultCount
+	enc.State = v.State
+	return json.Marshal(&enc)
 }
 
 // AddressFromEnode gets the account address from the user enode.
@@ -147,6 +257,12 @@ func (v *Validator) Validate() error {
 	if len(v.Enode) == 0 {
 		return errors.New("enode must be specified")
 	}
+
+	_, err := bls.PublicKeyFromBytes(v.ActivityKey)
+	if err != nil {
+		return errors.New("cannot decode bls public key")
+	}
+
 	if v.BondedStake == nil || v.BondedStake.Cmp(new(big.Int)) == 0 {
 		return errors.New("bonded stake must be specified")
 	}
@@ -200,6 +316,9 @@ func (v *Validator) Validate() error {
 	}
 	if v.ProvableFaultCount == nil {
 		v.ProvableFaultCount = new(big.Int)
+	}
+	if v.OmissionFaultCount == nil {
+		v.OmissionFaultCount = new(big.Int)
 	}
 	if v.CommissionRate != nil && v.CommissionRate.Cmp(big.NewInt(0)) != 0 {
 		return fmt.Errorf("commission rate for enode %q not allowed", a.String())

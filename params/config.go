@@ -19,6 +19,7 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
 	"math/big"
 	"net"
 
@@ -62,6 +63,7 @@ var (
 	bigPrecisionFactor   = big.NewInt(1_000_000_000_000_000_000)
 	bigBondedStake       = big.NewInt(0).Mul(bigBondedStakeNewton, bigPrecisionFactor)
 
+	// PiccaddillyChainConfig todo: ask Raj to generate activity key for validators in the PiccaddillyChainConfig
 	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
 	PiccaddillyChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_100_001),
@@ -137,6 +139,7 @@ var (
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
+	// BakerlooChainConfig todo: ask Raj to generate activity key for validators in the BakerlooChainConfig
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
 	BakerlooChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_010_001),
@@ -412,6 +415,8 @@ var (
 	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
 	ValidatorEnode             = enode.NewV4(&ValidatorKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	activityKey, _             = bls.SecretKeyFromECDSAKey(ValidatorKey)
+	ValidatorActivityKey       = activityKey.PublicKey().Marshal()
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
 		EpochPeriod:      5,
@@ -423,11 +428,13 @@ var (
 		TreasuryFee:      0,
 		Validators: []*Validator{
 			{
-				Treasury:       common.Address{},
-				NodeAddress:    &ValidatorAddress,
-				Enode:          ValidatorEnode.URLv4(),
-				CommissionRate: new(big.Int).SetUint64(0),
-				BondedStake:    new(big.Int).SetUint64(1000),
+				Treasury:           common.Address{},
+				NodeAddress:        &ValidatorAddress,
+				Enode:              ValidatorEnode.URLv4(),
+				CommissionRate:     new(big.Int).SetUint64(0),
+				BondedStake:        new(big.Int).SetUint64(1000),
+				ActivityKey:        ValidatorActivityKey,
+				OmissionFaultCount: common.Big0,
 			},
 		},
 	}

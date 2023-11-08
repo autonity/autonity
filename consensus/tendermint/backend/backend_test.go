@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
 	"go.uber.org/mock/gomock"
@@ -600,6 +601,10 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 	for i := range keys {
 		addr := crypto.PubkeyToAddress(keys[i].PublicKey)
 		node := enode.NewV4(&keys[i].PublicKey, nil, 0, 0)
+		blsKey, err := bls.SecretKeyFromECDSAKey(keys[i])
+		if err != nil {
+			panic(err)
+		}
 		genesis.Config.AutonityContractConfig.Validators = append(
 
 			genesis.Config.AutonityContractConfig.Validators,
@@ -608,6 +613,7 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 				Treasury:    addr,
 				Enode:       node.URLv4(),
 				BondedStake: new(big.Int).SetUint64(100),
+				ActivityKey: blsKey.PublicKey().Marshal(),
 			})
 	}
 }

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
 	"math/big"
 	"net"
 	"sort"
@@ -435,6 +436,7 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 		member := types.CommitteeMember{
 			Address:     *v.NodeAddress,
 			VotingPower: v.BondedStake,
+			ActivityKey: v.ActivityKey,
 		}
 		committee = append(committee, member)
 	}
@@ -588,6 +590,11 @@ func DefaultGoerliGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	activityKey, err := bls.SecretKeyFromECDSAKey(faucet.PrivateKey)
+	if err != nil {
+		log.Error("Error preparing genesis block for dev mode, err:", err)
+		return nil
+	}
 	testAutonityContractConfig := params.AutonityContractGenesis{
 		MaxCommitteeSize: 1,
 		BlockPeriod:      1,
@@ -603,6 +610,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 				Treasury:    faucet.Address,
 				Enode:       validatorEnode.String(),
 				BondedStake: new(big.Int).SetUint64(1000),
+				ActivityKey: activityKey.PublicKey().Marshal(),
 			},
 		},
 	}

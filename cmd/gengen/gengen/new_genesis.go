@@ -3,6 +3,7 @@ package gengen
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/node"
 	"math/big"
 	"net"
@@ -180,12 +181,18 @@ func generateValidatorState(validators []*Validator) (
 	genesisValidators = make([]*params.Validator, len(validators))
 	genesisAlloc = make(core.GenesisAlloc, len(validators))
 	for i, u := range validators {
+		var blsPK []byte
 		var pk *ecdsa.PublicKey
 		switch k := u.Key.(type) {
 		case *ecdsa.PublicKey:
 			pk = k
 		case *ecdsa.PrivateKey:
 			pk = &k.PublicKey
+			blsSK, err := bls.SecretKeyFromECDSAKey(k)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("cannot generate bls pub key from ecdsa secret key")
+			}
+			blsPK = blsSK.PublicKey().Marshal()
 		default:
 			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
 		}
@@ -202,6 +209,7 @@ func generateValidatorState(validators []*Validator) (
 			Treasury:        treasuryAddress, // rewards goes here
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
+			ActivityKey:     blsPK,
 		}
 		err := gu.Validate()
 		if err != nil {

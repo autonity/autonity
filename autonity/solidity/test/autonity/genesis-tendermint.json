@@ -15,6 +15,7 @@
         {
           "enode": "enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.11:30303",
           "treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
+          "activityKey": "0x845681310fe66ed10629e76cc5aa20f3ec8b853af9f3dee8a6318f3fb81c0adcaaa0a776dc066127e743bba6b0349bc0",
           "oracleAddress": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
           "bondedStake": 10000
         }

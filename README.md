@@ -98,6 +98,16 @@ make build-docker-image
 
 This generates the Autonity Go Client Docker image and manifest.
 
+#### To build a portable binary for legacy hardware
+Enable a flag to build a portable version of the BLST C lib on legacy hardware otherwise the client would crash with an
+"illegal instruction" exception. Building with this flag will replace the HW instruction of sha256 with a software sha256
+in the lib. However, modern hardware running Autonity client does not need this flag. In case of legacy hardware, please
+rebuild the target with CGO_CFLAGS environment variable set to -O -D__BLST_PORTABLE__. Don't forget -O!
+```
+CGO_CFLAGS='-O -D__BLST_PORTABLE__'
+export CGO_CFLAGS
+```
+
 ## Run a node
 
 Quick-start connecting to an Autonity testnet by using a testnet flag in the command line to set the genesis config for that network when starting the client. For example, to connect to the Piccadilly Testnet:

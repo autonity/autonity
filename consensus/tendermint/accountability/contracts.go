@@ -13,6 +13,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -21,11 +22,13 @@ import (
 // a part of consensus.
 
 var (
-	checkAccusationAddress   = common.BytesToAddress([]byte{252})
-	checkInnocenceAddress    = common.BytesToAddress([]byte{253})
-	checkMisbehaviourAddress = common.BytesToAddress([]byte{254})
+	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{251})
+	checkAccusationAddress           = common.BytesToAddress([]byte{252})
+	checkInnocenceAddress            = common.BytesToAddress([]byte{253})
+	checkMisbehaviourAddress         = common.BytesToAddress([]byte{254})
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult = common.LeftPadBytes([]byte{1}, 32)
+	failure32Byte = make([]byte, 32)
 	failureResult = make([]byte, 128)
 
 	errNilMessage = errors.New("nil message")
@@ -37,10 +40,12 @@ const KB = 1024
 func LoadPrecompiles(chain ChainContext) {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
+	ov := ActivityKeyOwnershipVerifier{}
 	pv := InnocenceVerifier{chain: chain}
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
 	setPrecompiles := func(set map[common.Address]vm.PrecompiledContract) {
+		set[checkActivityKeyOwnershipAddress] = &ov
 		set[checkInnocenceAddress] = &pv
 		set[checkMisbehaviourAddress] = &cv
 		set[checkAccusationAddress] = &av
@@ -50,6 +55,37 @@ func LoadPrecompiles(chain ChainContext) {
 	setPrecompiles(vm.PrecompiledContractsIstanbul)
 	setPrecompiles(vm.PrecompiledContractsBerlin)
 	setPrecompiles(vm.PrecompiledContractsBLS)
+}
+
+type ActivityKeyOwnershipVerifier struct{}
+
+func (b *ActivityKeyOwnershipVerifier) RequiredGas(_ []byte) uint64 {
+	return params.AutonityActivityKeyCheckGas
+}
+
+func (b *ActivityKeyOwnershipVerifier) Run(input []byte, _ uint64) ([]byte, error) {
+	if len(input) != 196 {
+		return failure32Byte, fmt.Errorf("invalid proof - empty")
+	}
+
+	keyBytes := input[32:80]
+	sigBytes := input[80:176]
+	treasuryBytes := input[176:]
+
+	key, err := bls.PublicKeyFromBytes(keyBytes)
+	if err != nil {
+		return failure32Byte, err
+	}
+	sig, err := bls.SignatureFromBytes(sigBytes)
+	if err != nil {
+		return failure32Byte, err
+	}
+
+	err = bls.ValidateOwnerProof(key, sig, treasuryBytes)
+	if err != nil {
+		return failure32Byte, err
+	}
+	return successResult, nil
 }
 
 // AccusationVerifier implemented as a native contract to validate if an accusation is valid

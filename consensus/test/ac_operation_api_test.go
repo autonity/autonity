@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
 	"math/big"
 	"reflect"
 	"testing"
@@ -53,6 +54,13 @@ func TestACPublicWritters(t *testing.T) {
 	require.NoError(t, err)
 	newValidatorAddr := crypto.PubkeyToAddress(newValidator.PublicKey)
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
+	msg := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
+
+	activityKey, err := bls.SecretKeyFromECDSAKey(newValidator)
+	require.NoError(t, err)
+
+	activityKeyProof, err := bls.GenerateOwnershipProof(activityKey, msg)
+	require.NoError(t, err)
 
 	oracleAccount, err := makeAccount()
 	require.NoError(t, err)
@@ -64,6 +72,17 @@ func TestACPublicWritters(t *testing.T) {
 			name:          "Test register new validator",
 			numValidators: numOfValidators,
 			numBlocks:     10,
+			genesisHook: func(g *core.Genesis) *core.Genesis {
+				g.Config.AutonityContractConfig.Operator = operatorAddr
+				// pre-mine Auton for system operator and new validator.
+				g.Alloc[operatorAddr] = core.GenesisAccount{
+					Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
+				}
+				g.Alloc[newValidatorAddr] = core.GenesisAccount{
+					Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
+				}
+				return g
+			},
 			// register validator right after block #5 is committed from client V0.
 			afterHooks: map[string]hook{
 				"V0": registerValidatorHook(map[uint64]struct{}{
@@ -72,6 +91,8 @@ func TestACPublicWritters(t *testing.T) {
 					enodeUrl,
 					newValidator,
 					oracleAccount,
+					activityKey.PublicKey().Marshal(),
+					activityKeyProof,
 				),
 			},
 			finalAssert: func(t *testing.T, validators map[string]*testNode) {
@@ -374,7 +395,7 @@ func mintStakeHook(upgradeBlocks map[uint64]struct{}, operator *ecdsa.PrivateKey
 	}
 }
 
-func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey, oracleKey *ecdsa.PrivateKey) hook {
+func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey, oracleKey *ecdsa.PrivateKey, activityKey, activityKeyProof []byte) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		blockNum := block.Number().Uint64()
 		if _, ok := upgradeBlocks[blockNum]; !ok {
@@ -383,7 +404,7 @@ func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, node
 		interaction := interact(validator.rpcPort)
 		defer interaction.close()
 		//this decode is needed to format the hex address in consistent case
-		hexTreasury, err := hexutil.Decode(validator.address.Hex())
+		hexTreasury, err := hexutil.Decode(crypto.PubkeyToAddress(nodekey.PublicKey).Hex())
 		if err != nil {
 			return err
 		}
@@ -398,10 +419,10 @@ func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, node
 			return err
 		}
 		//using same account for oracle and node, same proof can be reused here
-		mulitsig := append(nodeProof[:], oracleProof[:]...)
-		fmt.Println("proof ", hexutil.Encode(mulitsig))
+		signatures := append(append(nodeProof[:], oracleProof[:]...), activityKeyProof[:]...)
+		fmt.Println("proof ", hexutil.Encode(signatures))
 		oracleAddr := crypto.PubkeyToAddress(oracleKey.PublicKey)
-		if _, err := interaction.tx(validator.privateKey).registerValidator(enode, oracleAddr, mulitsig); err != nil {
+		if _, err := interaction.tx(nodekey).registerValidator(enode, oracleAddr, activityKey, signatures); err != nil {
 			return err
 		}
 		return nil
@@ -449,11 +470,7 @@ func acStateGettersHook(upgradeBlocks map[uint64]struct{}, operator common.Addre
 			return err
 		}
 
-		if err := checkNewContract(interaction, blockNum, []uint8{}, ""); err != nil {
-			return err
-		}
-
-		return nil
+		return checkNewContract(interaction, blockNum, []uint8{}, "")
 	}
 }
 
