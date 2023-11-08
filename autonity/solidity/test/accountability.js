@@ -486,6 +486,34 @@ contract('Accountability', function (accounts) {
 
       assert.equal(parseInt(offenderSlashed.bondedStake),parseInt(offender.bondedStake) - slashingAmount)
     }); 
+
+    it('does not kill validator for 100% slash on self bond', async function () {
+      const validator = validators[0].nodeAddress;
+      const reporter = validators[0].treasury;
+      let valInfo = await autonity.getValidator(validator);
+      let totalStake = parseInt(valInfo.bondedStake) + parseInt(valInfo.unbondingStake) + parseInt(valInfo.selfUnbondingStake);
+      const event = {
+        "chunks": 1,
+        "chunkId": 1,
+        "eventType": 0,
+        "rule": 0, // PN rule --> severity mid
+        "reporter": reporter,
+        "offender": validator,
+        "rawProof": [], // not checked by the _slash function
+        "block": 1,
+        "epoch": 0,
+        "reportingBlock": 2,
+        "messageHash": 0, // not checked by the _slash function
+      }
+      let epochOffenceCount = accountabilityConfig.slashingRatePrecision;
+      let tx = await accountability.slash(event, epochOffenceCount);
+      truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
+        return ev.amount.toNumber() > 0 && ev.amount.toNumber() == totalStake;
+      });
+      valInfo = await autonity.getValidator(validator);
+      assert.equal(valInfo.state, utils.ValidatorState.jailed, "validator not jailed");
+    });
+
     it.skip('edge case: concurrent accusation and misbehavior submission (misb severity < accusation severity)',async function() {
       //TODO(tariq) implement this test case. currently not implementable since we use only severity mid in autonity contract.
     }); 

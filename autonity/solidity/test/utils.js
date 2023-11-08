@@ -8,6 +8,14 @@ const Stabilization = artifacts.require("Stabilization")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
 
+// Validator Status in Autonity Contract
+const ValidatorState = {
+  active : 0,
+  paused : 1,
+  jailed : 2,
+  killed : 3
+}
+
 
 // end epoch so the LastEpochBlock is closer
 // then set epoch period 
@@ -280,3 +288,4 @@ module.exports.ruleToRate = ruleToRate;
 module.exports.signTransaction = signTransaction;
 module.exports.signAndSendTransaction = signAndSendTransaction;
 module.exports.bytesToHex = bytesToHex;
+module.exports.ValidatorState = ValidatorState;

@@ -8,11 +8,6 @@ const toBN = web3.utils.toBN;
 
 // testing protocol contracts interactions.
 
-const ValidatorState = {
-  active : 0,
-  paused : 1,
-  jailed : 2
-}
 
 
 async function modifiedSlashingFeeAccountability(autonity, accountabilityConfig, operator, deployer) {
@@ -42,6 +37,34 @@ async function slash(config, accountability, epochOffenceCount, offender, report
   let tx = await accountability.slash(event, epochOffenceCount);
   let txEvent;
   truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
+    txEvent = ev;
+    return ev.amount.toNumber() > 0;
+  });
+  let slashingRate = utils.ruleToRate(config, event.rule) / config.slashingRatePrecision;
+  return {txEvent, slashingRate};
+}
+
+async function killValidatorWithSlash(config, accountability, offender, reporter) {
+  const event = {
+    "chunks": 1, 
+    "chunkId": 1,
+    "eventType": 0,
+    "rule": 0, // PN rule --> severity mid
+    "reporter": reporter,
+    "offender": offender,
+    "rawProof": [], 
+    "block": 1,
+    "epoch": 0,
+    "reportingBlock": 2,
+    "messageHash": 0, 
+  }
+
+  // high offence count for 100% slash
+  let epochOffenceCount = config.slashingRatePrecision;
+  let tx = await accountability.slash(event, epochOffenceCount);
+  let txEvent;
+  // validator needs to have non-self-bonding to be killed
+  truffleAssert.eventEmitted(tx, 'ValidatorKilled', (ev) => {
     txEvent = ev;
     return ev.amount.toNumber() > 0;
   });
@@ -471,73 +494,29 @@ contract('Protocol', function (accounts) {
 
     });
 
-    it.skip('unbondingShares:unbondingStake 100% slash edge case', async function () {
-      // see https://github.com/autonity/autonity/issues/819
+    it('unbondingShares:unbondingStake 100% slash edge case', async function () {
       // unbonding period needs to be increased for this test to work
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
-      const delegatorA = accounts[8];
-      const delegatorB = accounts[9];
+      const delegator = accounts[9];
       const tokenMint = 100;
-      
-      let delegatorBalance_A = (await autonity.balanceOf(delegatorA)).toNumber();
-      let delegatorBalance_B = (await autonity.balanceOf(delegatorB)).toNumber();
-      await autonity.mint(delegatorA, tokenMint, {from: operator});
-      await autonity.mint(delegatorB, tokenMint, {from: operator});
-
-      // bond from delegatorA
-      await autonity.bond(validator, tokenMint, {from: delegatorA});
+      await autonity.mint(delegator, tokenMint, {from: operator});
+      await autonity.bond(validator, tokenMint, {from: delegator});
       // let bonding apply
       await utils.endEpoch(autonity, operator, deployer);
 
-      await autonity.unbond(validator, tokenMint, {from: delegatorA});
-      let requestIDA = (await autonity.getHeadUnbondingID()).toNumber() - 1;
-      await utils.endEpoch(autonity, operator, deployer);
-      let unbondingRequestA = await autonity.getUnbondingRequest(requestIDA);
-      assert.equal(unbondingRequestA.unbondingShare, tokenMint, "unexpected unbondingShare");
-
-      // so that 100% slashing occurs
-      // this is only to treasury and delegatorA
-      let epochOffenceCount = accountabilityConfig.slashingRatePrecision;
-      let valInfo = await autonity.getValidator(validator);
-      let totalSlash = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
-      let {txEvent, slashingRate} = await slash(accountabilityConfig, accountability, epochOffenceCount, validator, treasury);
-      let releaseBlock = txEvent.releaseBlock.toNumber();
-      assert.equal(txEvent.amount.toNumber(), totalSlash, "100% slash did not happen");
-      valInfo = await autonity.getValidator(validator);
-      let totalStake = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
-      assert.equal(totalStake, 0, "stake remaining after 100% slash");
-
-      while (await web3.eth.getBlockNumber() < releaseBlock) {
-        utils.mineEmptyBlock();
-      }
-      await autonity.activateValidator(validator, {from: treasury});
-      // let delegatorB bond
-      // no slashing will occur from now, so delegatoB should get full NTN returned when unbonded
-      await autonity.bond(validator, tokenMint, {from: delegatorB});
-
-      // let bonding apply
-      await utils.endEpoch(autonity, operator, deployer);
-      const valLiquidContract = await liquidContract.at(valInfo.liquidContract);
-      assert.equal((await valLiquidContract.balanceOf(delegatorB)).toNumber(), tokenMint);
-
-      // delegatorB should get full NTN while delegatorA should get 0 NTN
-      await autonity.unbond(validator, tokenMint, {from: delegatorB});
-      let requestIDB = (await autonity.getHeadUnbondingID()).toNumber() - 1;
+      let balance = (await autonity.balanceOf(delegator)).toNumber();
+      await autonity.unbond(validator, tokenMint, {from: delegator});
+      let requestID = (await autonity.getHeadUnbondingID()).toNumber() - 1;
       // let unbonding apply
       await utils.endEpoch(autonity, operator, deployer);
-      let unbondingRequestB = await autonity.getUnbondingRequest(requestIDB);
-      assert.equal(unbondingRequestB.unbondingShare, tokenMint, "unexpected unbondingShare");
-      // unbonding request of delegatorB
-      releaseBlock = (await autonity.getUnbondingPeriod()).toNumber() + Number(unbondingRequestB.requestBlock);
-      while (await web3.eth.getBlockNumber() < releaseBlock) {
-        utils.mineEmptyBlock();
-      }
-      // unbonding is released
-      valInfo = await autonity.getValidator(validator);
+      let unbondingRequest = await autonity.getUnbondingRequest(requestID);
+      assert.equal(unbondingRequest.unbondingShare, tokenMint, "unexpected unbondingShare");
+
+      await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
+      await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
       await utils.endEpoch(autonity, operator, deployer);
-      assert.equal((await autonity.balanceOf(delegatorB)).toNumber(), delegatorBalance_B + tokenMint, "unexpected balance");
-      assert.equal((await autonity.balanceOf(delegatorA)).toNumber(), delegatorBalance_A, "unexpected balance");
+      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "balance increased after 100% slash");
     });
 
     it('LNTN:NTN conversion ratio', async function () {
@@ -577,61 +556,25 @@ contract('Protocol', function (accounts) {
       await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * roundingFactor, tokenUnbond, operator, deployer);
     });
 
-    it.skip('LNTN:NTN 100% slash edge case', async function () {
-      // see https://github.com/autonity/autonity/issues/819
+    it('LNTN:NTN 100% slash edge case', async function () {
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
-      const delegatorA = accounts[8];
-      const delegatorB = accounts[9];
+      const delegator = accounts[8];
       const tokenMint = 100;
-      
-      let delegatorBalance_A = (await autonity.balanceOf(delegatorA)).toNumber();
-      let delegatorBalance_B = (await autonity.balanceOf(delegatorB)).toNumber();
-      await autonity.mint(delegatorA, tokenMint, {from: operator});
-      await autonity.mint(delegatorB, tokenMint, {from: operator});
-
-      // bond from delegatorA
-      await autonity.bond(validator, tokenMint, {from: delegatorA});
+      await autonity.mint(delegator, tokenMint, {from: operator});
+      await autonity.bond(validator, tokenMint, {from: delegator});
       // let bonding apply
       await utils.endEpoch(autonity, operator, deployer);
 
-      // so that 100% slashing occurs
-      // this is only to treasury and delegatorA
-      let epochOffenceCount = accountabilityConfig.slashingRatePrecision;
-      let valInfo = await autonity.getValidator(validator);
-      let totalSlash = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
-      let {txEvent, slashingRate} = await slash(accountabilityConfig, accountability, epochOffenceCount, validator, treasury);
-      let releaseBlock = txEvent.releaseBlock.toNumber();
-      assert.equal(txEvent.amount.toNumber(), totalSlash, "100% slash did not happen");
-      valInfo = await autonity.getValidator(validator);
-      let totalStake = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
-      assert.equal(totalStake, 0, "stake remaining after 100% slash");
-
-      while (await web3.eth.getBlockNumber() < releaseBlock) {
-        utils.mineEmptyBlock();
-      }
-      await autonity.activateValidator(validator, {from: treasury});
-      // let delegatorB bond
-      // no slashing will occur from now, so delegatoB should get full NTN returned when unbonded
-      await autonity.bond(validator, tokenMint, {from: delegatorB});
-
-      // let bonding apply
+      await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
+      let balance = (await autonity.balanceOf(delegator)).toNumber();
+      await autonity.unbond(validator, tokenMint, {from: delegator});
+      let requestID = (await autonity.getHeadUnbondingID()).toNumber() - 1;
+      await utils.mineTillUnbondingRelease(autonity, operator, deployer);
       await utils.endEpoch(autonity, operator, deployer);
-      const valLiquidContract = await liquidContract.at(valInfo.liquidContract);
-      assert.equal((await valLiquidContract.balanceOf(delegatorB)).toNumber(), tokenMint);
-
-      // depending on the soln of the problem, the following portion of code might change
-      // delegatorB should get full NTN while delegatorA should get 0 NTN
-      await autonity.unbond(validator, tokenMint, {from: delegatorA});
-      let requestIDA = (await autonity.getHeadUnbondingID()).toNumber() - 1;
-      await autonity.unbond(validator, tokenMint, {from: delegatorB});
-      let requestIDB = (await autonity.getHeadUnbondingID()).toNumber() - 1;
-      // let unbonding apply
-      await utils.endEpoch(autonity, operator, deployer);
-      let unbondingRequestA = await autonity.getUnbondingRequest(requestIDA);
-      assert.equal(unbondingRequestA.unbondingShare, 0, "unexpected unbondingShare");
-      let unbondingRequestB = await autonity.getUnbondingRequest(requestIDB);
-      assert.equal(unbondingRequestB.unbondingShare, tokenMint, "unexpected unbondingShare");
+      let unbondingRequest = await autonity.getUnbondingRequest(requestID);
+      assert.equal(unbondingRequest.unbondingShare, 0, "unexpected unbondingShare");
+      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "balance increased after 100% slash");
 
     });
 
@@ -674,6 +617,48 @@ contract('Protocol', function (accounts) {
       );
     });
 
+    it('killed validator rewards go to proof reporter', async function () {
+      const validator = validators[0].nodeAddress;
+      const treasury = validators[0].treasury;
+      const reporter = validators[1].nodeAddress;
+      const reporterTreasury = validators[1].treasury;
+
+      // non-self bond
+      const delegator = accounts[9];
+      const tokenMint = 100;
+      await autonity.mint(delegator, tokenMint, {from: operator});
+      await autonity.bond(validator, tokenMint, {from: delegator});
+      await utils.endEpoch(autonity, operator, deployer);
+
+      let committee = await autonity.getCommittee();
+      let totalBondedStake = 0;
+      let validatorReward;
+      let reporterReward;
+      for (let i = 0; i < committee.length; i++) {
+        totalBondedStake += Number(committee[i].votingPower);
+        if (committee[i].addr == validator) {
+          validatorReward = Number(committee[i].votingPower);
+        } else if (committee[i].addr == reporter) {
+          reporterReward = Number(committee[i].votingPower);
+        }
+      }
+
+      let reward = totalBondedStake;
+      // send funds to contract account, to get them distributed later on.
+      await web3.eth.sendTransaction({from: anyAccount, to: autonity.address, value: reward});
+
+      await killValidatorWithSlash(accountabilityConfig, accountability, validator, reporter)
+      let treasuryBalance = await web3.eth.getBalance(treasury);
+      let reporterTreasuryBalance = Number(await web3.eth.getBalance(reporterTreasury));
+      await utils.endEpoch(autonity, operator, deployer);
+      assert.equal(await web3.eth.getBalance(treasury), treasuryBalance, "killed validator got reward");
+      assert.equal(
+        await web3.eth.getBalance(reporterTreasury),
+        validatorReward + reporterReward + reporterTreasuryBalance,
+        "reporter did not get reward from killed validator"
+      );
+    });
+
     it('jailed validator cannot be activated', async function () {
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
@@ -683,7 +668,7 @@ contract('Protocol', function (accounts) {
       let releaseBlock = txEvent.releaseBlock.toNumber();
 
       let validatorInfo = await autonity.getValidator(validator);
-      assert.equal(validatorInfo.state, ValidatorState.jailed, "validator not jailed");
+      assert.equal(validatorInfo.state, utils.ValidatorState.jailed, "validator not jailed");
       await truffleAssert.fails(
         autonity.activateValidator(validator, {from: treasury}),
         truffleAssert.ErrorType.REVERT,
@@ -699,5 +684,144 @@ contract('Protocol', function (accounts) {
       });
 
     });
+
+    it('killed validator cannot be activated', async function () {
+      const validator = validators[0].nodeAddress;
+      const treasury = validators[0].treasury;
+
+      // non-self bond
+      let newAccount = accounts[8];
+      let tokenMint = 200;
+      await autonity.mint(newAccount, tokenMint, {from: operator});
+      await autonity.bond(validator, tokenMint, {from: newAccount});
+      await utils.endEpoch(autonity, operator, deployer);
+
+      await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
+
+      let validatorInfo = await autonity.getValidator(validator);
+      assert.equal(validatorInfo.state, utils.ValidatorState.killed, "validator not killed");
+      await truffleAssert.fails(
+        autonity.activateValidator(validator, {from: treasury}),
+        truffleAssert.ErrorType.REVERT,
+        "validator killed permanently"
+      );
+
+      let releaseBlock = validatorInfo.jailReleaseBlock;
+      while (await web3.eth.getBlockNumber() < releaseBlock) {
+        utils.mineEmptyBlock();
+      }
+      await truffleAssert.fails(
+        autonity.activateValidator(validator, {from: treasury}),
+        truffleAssert.ErrorType.REVERT,
+        "validator killed permanently"
+      );
+
+    });
+
+    it('cannot bond to a killed validator', async function () {
+      let validator = validators[0].nodeAddress;
+      const treasury = validators[0].treasury;
+
+      // non-self bond
+      let delegator = accounts[9];
+      let tokenMint = 100;
+      await autonity.mint(delegator, 3*tokenMint, {from: operator});
+      // 1st bond
+      // without non-self bonding, validator cannot be killed
+      await autonity.bond(validator, tokenMint, {from: delegator});
+      await utils.endEpoch(autonity, operator, deployer);
+
+      let balance = (await autonity.balanceOf(delegator)).toNumber();
+      // 2nd bond
+      await autonity.bond(validator, tokenMint, {from: delegator});
+      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance - tokenMint, "balance did not decrease after bonding request");
+      await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
+
+      await truffleAssert.fails(
+        autonity.bond(validator, tokenMint, {from: delegator}),
+        truffleAssert.ErrorType.REVERT,
+        "validator need to be active"
+      );
+      // 2nd bonding should not be applied
+      await utils.endEpoch(autonity, operator, deployer);
+      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unexpected balance");
+    });
+
+    it('zero amount of bonded and unbonding stake after 100% slash', async function () {
+      const validator = validators[0].nodeAddress;
+      const treasury = validators[0].treasury;
+      const delegator = accounts[8];
+      const tokenMint = 100;
+      await autonity.mint(delegator, tokenMint, {from: operator});
+      await autonity.bond(validator, tokenMint, {from: delegator});
+      // let bonding apply
+      await utils.endEpoch(autonity, operator, deployer);
+
+      await autonity.unbond(validator, tokenMint/2, {from: delegator});
+      let valInfo = await autonity.getValidator(validator);
+      let totalSlash = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
+      let {txEvent, slashingRate} = await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
+      assert.equal(txEvent.amount.toNumber(), totalSlash, "100% slash did not happen");
+      valInfo = await autonity.getValidator(validator);
+      let totalStake = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
+      assert.equal(totalStake, 0, "stake remaining after 100% slash");
+    });
+
+    it('does not trigger fairness issue', async function () {
+      // fairness issue is triggered when delegatedStake or unbondingStake becomes 0 from positive due to slashing
+      // it can happen due to slashing rate = 100% or (totalStake - 1)/totalStake
+      // it should not happen due to slashing rate less than above mentioned, no matter how high
+      let config = JSON.parse(JSON.stringify(accountabilityConfig));
+      config.collusionFactor = parseInt(config.slashingRatePrecision) - parseInt(config.baseSlashingRateMid) - 2;
+      accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+
+      const validatorAddresses = [ validators[0].nodeAddress, validators[1].nodeAddress];
+      const tokenUnbondFactor = [1/10, 8/10];
+      const delegator = accounts[8];
+
+      for (let iter = 0; iter < 2; iter++) {
+        let validator = validatorAddresses[iter];
+        let valInfo = await autonity.getValidator(validator);
+        let selfBondedStake = parseInt(valInfo.bondedStake);
+        // non-self bond to check fairness issue
+        const tokenMint = parseInt(config.slashingRatePrecision) - selfBondedStake;
+        console.log(tokenMint);
+        await autonity.mint(delegator, tokenMint, {from: operator});
+        await autonity.bond(validator, tokenMint, {from: delegator});
+        // let bonding apply
+        await utils.endEpoch(autonity, operator, deployer);
+        let totalStake = selfBondedStake + tokenMint;
+        let tokenUnBond = Math.ceil(tokenMint*tokenUnbondFactor[iter]);
+        console.log(tokenUnBond);
+        await autonity.unbond(validator, tokenUnBond, {from: delegator});
+        await utils.endEpoch(autonity, operator, deployer);
+        const event = {
+          "chunks": 1,
+          "chunkId": 1,
+          "eventType": 0,
+          "rule": 0, // PN rule --> severity mid
+          "reporter": validator,
+          "offender": validator,
+          "rawProof": [], // not checked by the _slash function
+          "block": 1,
+          "epoch": 0,
+          "reportingBlock": 2,
+          "messageHash": 0, // not checked by the _slash function
+        }
+        let epochOffenceCount = 1;
+        let tx = await accountability.slash(event, epochOffenceCount);
+        // checking if highest possible slashing can be done without triggering fairness issue
+        truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
+          return ev.amount.toNumber() > 0 && ev.amount.toNumber() == totalStake - 2;
+        });
+        valInfo = await autonity.getValidator(validator);
+        assert.equal(valInfo.state, utils.ValidatorState.jailed, "validator not jailed");
+        assert(parseInt(valInfo.bondedStake) > 0 && parseInt(valInfo.unbondingStake) > 0, "fairness issue triggered");
+      }
+
+    });
+
+
   });
 });
