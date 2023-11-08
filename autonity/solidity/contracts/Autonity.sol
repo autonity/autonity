@@ -1061,6 +1061,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         // killed validator is banned permanently, no new bonding can be applied for a killed validator
         if (_validator.state == ValidatorState.killed) {
+            accounts[_bonding.delegator] += _bonding.amount;
             return;
         }
 
@@ -1107,6 +1108,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     function _releaseUnbondingStake(uint256 _id) internal virtual {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
+        if (_unbonding.unbondingShare == 0) {
+            return;
+        }
         Validator storage _validator = validators[_unbonding.delegatee];
         uint256 _returnedStake;
         if(!_unbonding.selfDelegation){
