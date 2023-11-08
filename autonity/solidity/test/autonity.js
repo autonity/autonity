@@ -316,7 +316,6 @@ contract('Autonity', function (accounts) {
   ];
 
   let autonity;
-  /*
   describe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
      * add getter tests for:
@@ -767,7 +766,7 @@ contract('Autonity', function (accounts) {
       assert.equal(allowance.toNumber(), amountApproved - amountTransfer, "allowance is not expected");
     });
   });
-  */
+
   describe('Validator management', function () {
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
