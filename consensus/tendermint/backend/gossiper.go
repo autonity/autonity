@@ -101,7 +101,7 @@ func (g *Gossiper) AskSync(header *types.Header) {
 			// If we didn't find any peers try again in 10ms or exit if we have
 			// been stopped.
 			if len(ps) == 0 {
-				t := time.NewTimer(10 * time.Millisecond)
+				t := time.NewTimer(retryPeriod * time.Millisecond)
 				select {
 				case <-t.C:
 					continue

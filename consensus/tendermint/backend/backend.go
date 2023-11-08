@@ -31,6 +31,8 @@ const (
 	fetcherID = "tendermint"
 	// ring buffer to be able to handle at maximum 10 rounds, 20 committee and 3 messages types
 	ringCapacity = 10 * 20 * 3
+	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
+	retryPeriod = 10
 )
 
 var (
