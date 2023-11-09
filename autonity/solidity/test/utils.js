@@ -117,6 +117,7 @@ async function setCode(addr, code) {
 // mock verify enode precompiled contract
 async function mockEnodePrecompile() {
       const instance = await mockEnodeVerifier.new();
+      console.log("enode verifier mocker address: ", instance.address)
       const code = await web3.eth.getCode(instance.address);
       const verifyEnodeAddr = "0x00000000000000000000000000000000000000ff";
       await setCode(verifyEnodeAddr, code).then(
@@ -131,6 +132,7 @@ async function mockEnodePrecompile() {
 // mock verify activity proof precompiled contract
 async function mockActivityKeyProverPrecompile() {
   const instance = await mockActivityKeyProofVerifier.new();
+  console.log("activity key proof verifier mocker address: ", instance.address)
   const code = await web3.eth.getCode(instance.address);
   const verifierAddr = "0x00000000000000000000000000000000000000fb";
   await setCode(verifierAddr, code).then(

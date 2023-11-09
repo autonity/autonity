@@ -155,7 +155,7 @@ function checkUnbondingShare(unbondingRequest, delegatee, delegator, tokenUnbond
 
 contract('Autonity', function (accounts) {
     before(async function () {
-      console.log("\tAttempting to mock enode verifier precompile. Will (rightfully) fail if running against Autonity network")
+      console.log("\tAttempting to mock verifier precompile. Will (rightfully) fail if running against Autonity network")
       await utils.mockEnodePrecompile()
       await utils.mockActivityKeyProverPrecompile()
     });

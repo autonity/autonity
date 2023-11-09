@@ -5,9 +5,8 @@ contract MockActivityKeyProofVerifier {
 
     constructor(){}
 
-    fallback(bytes calldata input) external payable returns (bytes memory ret) {
-        ret = new bytes(32);
-        ret[0] = bytes1(uint8(1));
-        return ret;
+    fallback(bytes calldata input) external payable returns (bytes memory) {
+        uint256 ret = 1;
+        return abi.encodePacked(ret);
     }
 }
