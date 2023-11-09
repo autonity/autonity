@@ -7,7 +7,6 @@ const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
-const mockActivityKeyProofVerifier = artifacts.require("MockActivityKeyProofVerifier")
 
 
 // end epoch so the LastEpochBlock is closer
@@ -127,21 +126,6 @@ async function mockEnodePrecompile() {
         (error) => {
             console.log(error); 
     });
-}
-
-// mock verify activity proof precompiled contract
-async function mockActivityKeyProverPrecompile() {
-  const instance = await mockActivityKeyProofVerifier.new();
-  console.log("activity key proof verifier mocker address: ", instance.address)
-  const code = await web3.eth.getCode(instance.address);
-  const verifierAddr = "0x00000000000000000000000000000000000000fb";
-  await setCode(verifierAddr, code).then(
-      (result) => {
-        console.log(result);
-      },
-      (error) => {
-        console.log(error);
-      });
 }
 
 // mine an empty block.
@@ -286,7 +270,6 @@ module.exports.deployAutonityTestContract = deployAutonityTestContract;
 module.exports.mineEmptyBlock = mineEmptyBlock;
 module.exports.setCode = setCode;
 module.exports.mockEnodePrecompile = mockEnodePrecompile;
-module.exports.mockActivityKeyProverPrecompile = mockActivityKeyProverPrecompile;
 module.exports.timeout = timeout;
 module.exports.waitForNewBlock = waitForNewBlock;
 module.exports.endEpoch = endEpoch;
