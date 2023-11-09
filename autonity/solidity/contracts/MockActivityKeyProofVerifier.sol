@@ -6,10 +6,7 @@ contract MockActivityKeyProofVerifier {
     constructor(){}
 
     fallback(bytes calldata input) external payable returns (bytes memory ret) {
-        ret = new bytes(32); // 0 --> err, 1 --> success
-        if (input.length != 196) {
-            return ret;
-        }
+        ret = new bytes(32);
         ret[0] = bytes1(uint8(1));
         return ret;
     }

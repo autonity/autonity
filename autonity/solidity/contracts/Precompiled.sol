@@ -5,8 +5,8 @@ import "./lib/BytesLib.sol";
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
-    address constant public INNOCENCE_CONTRACT = address(0xfd);
     address constant public ACCUSATION_CONTRACT = address(0xfc);
+    address constant public INNOCENCE_CONTRACT = address(0xfd);
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
 
     function parseEnode(string memory _enode) internal view returns (address, uint) {

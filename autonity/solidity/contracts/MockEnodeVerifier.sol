@@ -62,8 +62,8 @@ contract MockEnodeVerifier {
     	if(enode.length < 136) {
     		err[0] = bytes1(uint8(1));
     		assembly { mstore(add(ret, 64), mload(add(err,32))) }
-   		return ret;
-   	}
+   		    return ret;
+   	    }
     
         // fetch public key encoded in hex from call data
         bytes memory publicKeyHex = new bytes(128);
@@ -72,9 +72,9 @@ contract MockEnodeVerifier {
         // convert it to raw bytes
         bytes memory publicKey = _fromHex(string(publicKeyHex));
         if (publicKey.length == 0){
-   		err[0] = bytes1(uint8(1));
+   		    err[0] = bytes1(uint8(1));
     		assembly { mstore(add(ret, 64), mload(add(err,32))) }
-   		return ret;
+   		    return ret;
         }
 
         // convert it to address

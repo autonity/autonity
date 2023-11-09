@@ -108,8 +108,8 @@ async function setCode(addr, code) {
       method: "evm_setAccountCode",
       params: [addr, code]
     }, (err, res) => {
-      if (res?.result) { resolve("\tSuccessfully mocked enode verifier precompile."); }
-      else { reject("\tError while mocking enode verifier precompile."); }
+      if (res?.result) { resolve("\tSuccessfully mocked verifier precompile."); }
+      else { reject("\tError while mocking verifier precompile."); }
     });
   });
 }

@@ -22,10 +22,10 @@ import (
 // a part of consensus.
 
 var (
-	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{251})
-	checkAccusationAddress           = common.BytesToAddress([]byte{252})
-	checkInnocenceAddress            = common.BytesToAddress([]byte{253})
-	checkMisbehaviourAddress         = common.BytesToAddress([]byte{254})
+	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{251}) //0xfb
+	checkAccusationAddress           = common.BytesToAddress([]byte{252}) //0xfc
+	checkInnocenceAddress            = common.BytesToAddress([]byte{253}) //0xfd
+	checkMisbehaviourAddress         = common.BytesToAddress([]byte{254}) //0xfe
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult = common.LeftPadBytes([]byte{1}, 32)
 	failure32Byte = make([]byte, 32)
