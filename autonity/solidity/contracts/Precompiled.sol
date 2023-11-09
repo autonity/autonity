@@ -50,14 +50,14 @@ library Precompiled {
         _msgHash = _returnData[4];
     }
 
-    // @dev check the bls pub key ownership in a precompiled contract.
-    // @param _blsKey is a "0x" prefix hex string of the validator's public key.
+    // @dev check the activity key proof in a precompiled contract.
+    // @param _activityKey is a "0x" prefix hex string of the validator's public key.
     // @param _proof is a "0x" prefix hex string of the proof generated together with the bls public key.
     // @param _treasury is a "0x" prefix hex string of the validator's treasury account.
     // @return 0 for a failure, 1 for a successful check.
-    function checkBlsKeyOwnership(bytes memory _blsKey, bytes memory _proof, address _treasury) internal view returns (uint256) {
+    function checkActivityKeyProof(bytes memory _activityKey, bytes memory _proof, address _treasury) internal view returns (uint256) {
         uint256[1] memory retVal;
-        bytes memory input = BytesLib.concat(BytesLib.concat(_blsKey, _proof), abi.encodePacked(_treasury));
+        bytes memory input = BytesLib.concat(BytesLib.concat(_activityKey, _proof), abi.encodePacked(_treasury));
         address blsKeyOwnershipContractAddress = address(0xfb);
         // type bytes in solidity consumes the first 32 bytes to save the length of the byte array, thus the memory copy
         // in the static call should take the extra 32 bytes to have all the rlp encoded bytes copied, otherwise the

@@ -198,6 +198,8 @@ contract('Accountability', function (accounts) {
     "selfUnbondingShares" : 0,
     "unbondingStake" : 0,
     "unbondingShares" : 0,
+    "omissionFaultCount": 0,
+    "activityKey": "0x00",
   }
   
   // accounts[2] is skipped because it is used as a genesis validator when running against autonity

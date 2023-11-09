@@ -3,6 +3,7 @@ package bls
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"testing"
 
@@ -14,6 +15,24 @@ import (
 
 	"github.com/autonity/autonity/crypto/bls/common"
 )
+
+func TestVerifyOwnershipProof(t *testing.T) {
+	privKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	address := crypto.PubkeyToAddress(privKey.PublicKey)
+
+	activityKey, err := SecretKeyFromECDSAKey(privKey)
+	require.NoError(t, err)
+
+	proof, err := GenerateOwnershipProof(activityKey, address.Bytes())
+	require.NoError(t, err)
+
+	sig, err := SignatureFromBytes(proof)
+	require.NoError(t, err)
+
+	err = ValidateOwnerProof(activityKey.PublicKey(), sig, address.Bytes())
+	require.NoError(t, err)
+}
 
 func TestDisallowZeroSecretKeys(t *testing.T) {
 	t.Run("blst", func(t *testing.T) {

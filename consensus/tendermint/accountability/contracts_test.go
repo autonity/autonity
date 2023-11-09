@@ -6,6 +6,8 @@ import (
 	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/assert"
@@ -1148,4 +1150,35 @@ func TestCheckEquivocation(t *testing.T) {
 		proofs = append(proofs, vote1)
 		require.Nil(t, checkEquivocation(vote1, proofs))
 	})
+}
+
+func TestActivityKeyVerifier(t *testing.T) {
+	key1, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	key2, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	treasuryAddress := crypto.PubkeyToAddress(key1.PublicKey)
+	activityKey, err := bls.SecretKeyFromECDSAKey(key1)
+	require.NoError(t, err)
+
+	proof, err := bls.GenerateOwnershipProof(activityKey, treasuryAddress.Bytes())
+	require.NoError(t, err)
+
+	av := &ActivityKeyOwnershipVerifier{}
+	input := make([]byte, 196)
+	copy(input[32:80], activityKey.PublicKey().Marshal())
+	copy(input[80:176], proof)
+	copy(input[176:196], treasuryAddress.Bytes())
+
+	ret, err := av.Run(input, 0)
+	require.NoError(t, err)
+	require.Equal(t, successResult, ret)
+
+	wrongKey, err := bls.SecretKeyFromECDSAKey(key2)
+	require.NoError(t, err)
+	copy(input[32:80], wrongKey.PublicKey().Marshal())
+	ret, err = av.Run(input, 0)
+	require.NotNil(t, err)
+	require.Equal(t, failure32Byte, ret)
 }
