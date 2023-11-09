@@ -375,9 +375,6 @@ contract Accountability is IAccountability {
         // Remaining stake to be slashed is split equally between the delegated
         // stake pool and the non-self unbonding stake pool.
         // As a reminder, the delegated stake pool is bondedStake - selfBondedStake.
-        
-        // there is no fairness issue in case of only self bonding (delegated stake = unbonding stake = 0)
-        bool killed = false;
         // if _remaining > 0 then bondedStake = delegated stake, because all selfBondedStake is slashed
         if (_remaining > 0 && (_val.unbondingStake + _val.bondedStake > 0)) {
             uint256 _unbondingSlash = 0;
@@ -394,17 +391,14 @@ contract Accountability is IAccountability {
             _val.unbondingStake -= _unbondingSlash;
             _val.bondedStake -= _delegatedSlash;
 
-            if ((_unbondingSlash > 0 && _val.unbondingStake == 0) || (_delegatedSlash > 0 && _val.bondedStake == 0)) {
-                // fairness issue is raised if one of the above condition is true
-                killed = true;
-            }
         }
 
         _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
 
-        if (killed) {
-            _val.state = ValidatorState.killed; // killed due to 100% slashing; killed validator is banned permanently
+        if (_slashingAmount > 0 && _slashingAmount >= _availableFunds - 1) {
+            // validator is killed if 100% slashed or _slashingAmount = _availableFunds-1
+            _val.state = ValidatorState.killed;
         } else {
             _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
             _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
