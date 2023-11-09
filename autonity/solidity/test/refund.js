@@ -5,6 +5,7 @@ const assert = require('assert')
 const utils = require('./utils.js');
 const toBN = web3.utils.toBN;
 const BN = require('bn.js');
+const { Buffer } = require('node:buffer');
 
 // this vote refund tests cannot be run on ganache, since it does not have the refund mechanism
 
@@ -24,11 +25,14 @@ contract("Oracle", accounts => {
       let oracleAddr = accounts[8]
       let nodeAddr = "0xDE03B7806f885Ae79d2aa56568b77caDB0de073E"
       let enode = "enode://a7ecd2c1b8c0c7d7ab9cc12e620605a762865d381eb1bc5417dcf07599571f84ce5725f404f66d3e254d590ae04e4e8f18fe9e23cd29087d095a0c37d0443252@3.209.45.79:30303"
-      let nodeKey = "e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b"
-      let treasuryProof = web3.eth.accounts.sign(treasury, nodeKey);
-      let oracleProof = await web3.eth.sign(treasury, oracleAddr);
-      let multisig = treasuryProof.signature + oracleProof.substring(2)
-      await autonity.registerValidator(enode, oracleAddr, multisig, {from: treasury});
+
+      //let nodeKey = "e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b"
+      //let oracleKey = "58951d75562e20501fdcbc8fa6d36b6a10e87aa429ea0e0d302cc0718973f9f2"
+      //let treasuryAddr = "0xe12b43b69e57ed6acdd8721eb092bf7c8d41df41"
+      let activityKey = Buffer.from("b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5", "hex")
+      let multisig = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701c7ad08def133f8fb2778971ad4c225692e3c283b429d0927379904de1ebe31520f4f9f75fc2e7725d9ee09abd915ed2c9d9b6c2bba530c1131f1fcd56ff3eb590191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec","hex")
+
+      await autonity.registerValidator(enode, oracleAddr, activityKey, multisig, {from: treasury});
 
       // bond to it
       await autonity.bond(nodeAddr, 10, {from: accounts[8]});
