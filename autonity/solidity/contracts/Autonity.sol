@@ -1059,7 +1059,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
 
-        // jailbound validator is banned permanently, no new bonding can be applied for a killed validator
+        // jailbound validator is banned permanently, no new bonding can be applied for a jailbound validator
         if (_validator.state == ValidatorState.jailbound) {
             accounts[_bonding.delegator] += _bonding.amount;
             return;

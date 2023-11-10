@@ -486,7 +486,6 @@ contract('Accountability', function (accounts) {
 
       assert.equal(parseInt(offenderSlashed.bondedStake),parseInt(offender.bondedStake) - slashingAmount)
     }); 
-
     it.skip('edge case: concurrent accusation and misbehavior submission (misb severity < accusation severity)',async function() {
       //TODO(tariq) implement this test case. currently not implementable since we use only severity mid in autonity contract.
     }); 

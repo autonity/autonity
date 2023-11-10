@@ -63,7 +63,7 @@ async function killValidatorWithSlash(config, accountability, offender, reporter
   let epochOffenceCount = config.slashingRatePrecision;
   let tx = await accountability.slash(event, epochOffenceCount);
   let txEvent;
-  // validator needs to have non-self-bonding to be killed
+  // validator needs to have non-self-bonding to be jailbound
   truffleAssert.eventEmitted(tx, 'ValidatorJailbound', (ev) => {
     txEvent = ev;
     return ev.amount.toNumber() > 0;
@@ -617,7 +617,7 @@ contract('Protocol', function (accounts) {
       );
     });
 
-    it('killed validator rewards go to proof reporter', async function () {
+    it('jailbound validator rewards go to proof reporter', async function () {
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
       const reporter = validators[1].nodeAddress;
@@ -651,11 +651,11 @@ contract('Protocol', function (accounts) {
       let treasuryBalance = await web3.eth.getBalance(treasury);
       let reporterTreasuryBalance = Number(await web3.eth.getBalance(reporterTreasury));
       await utils.endEpoch(autonity, operator, deployer);
-      assert.equal(await web3.eth.getBalance(treasury), treasuryBalance, "killed validator got reward");
+      assert.equal(await web3.eth.getBalance(treasury), treasuryBalance, "jailbound validator got reward");
       assert.equal(
         await web3.eth.getBalance(reporterTreasury),
         validatorReward + reporterReward + reporterTreasuryBalance,
-        "reporter did not get reward from killed validator"
+        "reporter did not get reward from jailbound validator"
       );
     });
 
@@ -685,7 +685,7 @@ contract('Protocol', function (accounts) {
 
     });
 
-    it('killed validator cannot be activated', async function () {
+    it('jailbound validator cannot be activated', async function () {
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
 
@@ -703,7 +703,7 @@ contract('Protocol', function (accounts) {
       await truffleAssert.fails(
         autonity.activateValidator(validator, {from: treasury}),
         truffleAssert.ErrorType.REVERT,
-        "validator jailbound permanently"
+        "validator jailed permanently"
       );
 
       let releaseBlock = validatorInfo.jailReleaseBlock;
@@ -713,12 +713,12 @@ contract('Protocol', function (accounts) {
       await truffleAssert.fails(
         autonity.activateValidator(validator, {from: treasury}),
         truffleAssert.ErrorType.REVERT,
-        "validator killed permanently"
+        "validator jailed permanently"
       );
 
     });
 
-    it('cannot bond to a killed validator', async function () {
+    it('cannot bond to a jailbound validator', async function () {
       let validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
 
@@ -727,7 +727,6 @@ contract('Protocol', function (accounts) {
       let tokenMint = 100;
       await autonity.mint(delegator, 3*tokenMint, {from: operator});
       // 1st bond
-      // without non-self bonding, validator cannot be killed
       await autonity.bond(validator, tokenMint, {from: delegator});
       await utils.endEpoch(autonity, operator, deployer);
 
