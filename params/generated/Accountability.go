@@ -173,7 +173,7 @@ var AccountabilityAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "name" : "ValidatorKilled",
+      "name" : "ValidatorJailbound",
       "type" : "event"
    },
    {
