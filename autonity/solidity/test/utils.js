@@ -13,7 +13,7 @@ const ValidatorState = {
   active : 0,
   paused : 1,
   jailed : 2,
-  killed : 3
+  jailbound : 3
 }
 
 

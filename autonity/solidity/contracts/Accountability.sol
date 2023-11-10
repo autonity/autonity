@@ -325,7 +325,7 @@ contract Accountability is IAccountability {
 
     /**
     * @notice Take funds away from faulty node account.
-    * @dev Emit a {SlashingEvent} event for the fined account.
+    * @dev Emit a {SlashingEvent} event for the fined account or {ValidatorJailbound} event for being banned permanently
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
@@ -379,6 +379,12 @@ contract Accountability is IAccountability {
         if (_remaining > 0 && (_val.unbondingStake + _val.bondedStake > 0)) {
             uint256 _unbondingSlash = 0;
             uint256 _delegatedSlash = 0;
+            // as we cannot store fraction here, we are taking floor for the smaller one between unbondingStake and bondedStake
+            // and ceil for the larger one. In case both variable unbondingStake and bondedStake are positive, this modification
+            // will ensure that no variable reaches 0 too fast where the other one is too big. In this case the bigger one
+            // will reach 0 first, and the smaller one will be 0 or 1.
+            // That means the fairness issue: https://github.com/autonity/autonity/issues/819 will only be triggered if 100% stake
+            // is slashed or (slashingAmount = totalStake - 1)
             if (_val.unbondingStake <= _val.bondedStake) {
                 _unbondingSlash = (_remaining * _val.unbondingStake) /
                                         (_val.unbondingStake + _val.bondedStake);
@@ -397,8 +403,8 @@ contract Accountability is IAccountability {
         _val.provableFaultCount += 1;
 
         if (_slashingAmount > 0 && _slashingAmount >= _availableFunds - 1) {
-            // validator is killed if 100% slashed or _slashingAmount = _availableFunds-1
-            _val.state = ValidatorState.killed;
+            // validator is banned permanently if 100% slashed or _slashingAmount = _availableFunds-1
+            _val.state = ValidatorState.jailbound;
         } else {
             _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
             _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
@@ -409,7 +415,7 @@ contract Accountability is IAccountability {
         if (_val.state == ValidatorState.jailed) {
             emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
         } else {
-            emit ValidatorKilled(_val.nodeAddress, _slashingAmount);
+            emit ValidatorJailbound(_val.nodeAddress, _slashingAmount);
         }
     }
 

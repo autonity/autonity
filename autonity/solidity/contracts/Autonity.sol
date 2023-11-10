@@ -16,7 +16,7 @@ import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
-enum ValidatorState {active, paused, jailed, killed}
+enum ValidatorState {active, paused, jailed, jailbound}
 uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, Upgradeable {
@@ -349,7 +349,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         require(_val.treasury == msg.sender, "require caller to be validator treasury account");
         require(_val.state != ValidatorState.active, "validator already active");
         require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
-        require(_val.state != ValidatorState.killed, "validator killed permanently");
+        require(_val.state != ValidatorState.jailbound, "validator jailed permanently");
         _val.state = ValidatorState.active;
         emit ActivatedValidator(_val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
     }
@@ -923,8 +923,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             uint256 _reward = (committee[i].votingPower * _amount) / epochTotalBondedStake;
             if (_reward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
-                // committee members in killed state are permanently banned
-                if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.killed) {
+                // committee members in jailbound state are permanently banned
+                if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
                     config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
                     continue;
                 }
@@ -1059,8 +1059,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
 
-        // killed validator is banned permanently, no new bonding can be applied for a killed validator
-        if (_validator.state == ValidatorState.killed) {
+        // jailbound validator is banned permanently, no new bonding can be applied for a killed validator
+        if (_validator.state == ValidatorState.jailbound) {
             accounts[_bonding.delegator] += _bonding.amount;
             return;
         }

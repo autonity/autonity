@@ -64,7 +64,7 @@ async function killValidatorWithSlash(config, accountability, offender, reporter
   let tx = await accountability.slash(event, epochOffenceCount);
   let txEvent;
   // validator needs to have non-self-bonding to be killed
-  truffleAssert.eventEmitted(tx, 'ValidatorKilled', (ev) => {
+  truffleAssert.eventEmitted(tx, 'ValidatorJailbound', (ev) => {
     txEvent = ev;
     return ev.amount.toNumber() > 0;
   });
@@ -699,11 +699,11 @@ contract('Protocol', function (accounts) {
       await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
 
       let validatorInfo = await autonity.getValidator(validator);
-      assert.equal(validatorInfo.state, utils.ValidatorState.killed, "validator not killed");
+      assert.equal(validatorInfo.state, utils.ValidatorState.jailbound, "validator not jailbound");
       await truffleAssert.fails(
         autonity.activateValidator(validator, {from: treasury}),
         truffleAssert.ErrorType.REVERT,
-        "validator killed permanently"
+        "validator jailbound permanently"
       );
 
       let releaseBlock = validatorInfo.jailReleaseBlock;
@@ -799,7 +799,7 @@ contract('Protocol', function (accounts) {
         // checking if highest possible slashing can be done without triggering fairness issue
         assert.equal(txEvent.amount.toNumber(), totalStake - 2);
         valInfo = await autonity.getValidator(validator);
-        assert.equal(valInfo.state, utils.ValidatorState.jailed, "validator not jailed");
+        assert.equal(valInfo.state, utils.ValidatorState.jailed, "validator not jailbound");
         assert(parseInt(valInfo.bondedStake) > 0 && parseInt(valInfo.unbondingStake) > 0, "fairness issue triggered");
       }
 
@@ -825,7 +825,7 @@ contract('Protocol', function (accounts) {
         const validator = validatorAddresses[iter];
         await killValidatorWithSlash(accountabilityConfig, accountability, validator, delegator)
         let valInfo = await autonity.getValidator(validator);
-        assert.equal(valInfo.state, utils.ValidatorState.killed, "validator not killed");
+        assert.equal(valInfo.state, utils.ValidatorState.jailbound, "validator not jailbound");
         assert.equal(
           parseInt(valInfo.bondedStake) + parseInt(valInfo.unbondingStake) + parseInt(valInfo.selfUnbondingStake)
           , 0, "100% slash did not happen"
@@ -876,11 +876,11 @@ contract('Protocol', function (accounts) {
         }
         let epochOffenceCount = 1;
         let tx = await accountability.slash(event, epochOffenceCount);
-        truffleAssert.eventEmitted(tx, 'ValidatorKilled', (ev) => {
+        truffleAssert.eventEmitted(tx, 'ValidatorJailbound', (ev) => {
           return ev.amount.toNumber() > 0 && ev.amount.toNumber() == totalStake - 1;
         });
         let valInfo = await autonity.getValidator(validator);
-        assert.equal(valInfo.state, utils.ValidatorState.killed, "validator not killed");
+        assert.equal(valInfo.state, utils.ValidatorState.jailbound, "validator not jailbound");
         totalStake = parseInt(valInfo.bondedStake) + parseInt(valInfo.unbondingStake) + parseInt(valInfo.selfUnbondingStake);
         assert.equal(totalStake, 1);
       }
