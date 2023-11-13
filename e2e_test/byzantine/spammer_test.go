@@ -59,7 +59,7 @@ func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
 		CommittedSeal: []byte{},
 	}
 	for i := 0; i < 1000; i++ {
-		c.Br().SignAndBroadcast(ctx, msg)
+		c.Broadcaster().SignAndBroadcast(ctx, msg)
 	}
 	c.SetSentPrevote(true)
 }
@@ -129,7 +129,7 @@ func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	for i := 0; i < 1000; i++ {
-		c.Br().SignAndBroadcast(ctx, msg)
+		c.Broadcaster().SignAndBroadcast(ctx, msg)
 	}
 	c.SetSentPrecommit(true)
 }
@@ -168,7 +168,7 @@ func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	for i := 0; i < 1000; i++ {
-		c.Br().SignAndBroadcast(ctx, &message.Message{
+		c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
 			Code:          consensus.MsgProposal,
 			Payload:       proposal,
 			Address:       c.Address(),

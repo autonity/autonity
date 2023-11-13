@@ -206,7 +206,7 @@ func (c *Config) SetTendermintServices(handler *TendermintServices) {
 	if handler.Broadcaster != nil {
 		c.tendermintServices.Broadcaster = handler.Broadcaster
 	} else {
-		c.tendermintServices.Broadcaster = func(c interfaces.Tendermint) interfaces.Broadcaster { return c.Br() }
+		c.tendermintServices.Broadcaster = func(c interfaces.Tendermint) interfaces.Broadcaster { return c.Broadcaster() }
 	}
 	if handler.Proposer != nil {
 		c.tendermintServices.Proposer = handler.Proposer

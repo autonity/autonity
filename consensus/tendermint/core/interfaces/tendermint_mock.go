@@ -37,18 +37,18 @@ func (m *MockTendermint) EXPECT() *MockTendermintMockRecorder {
 	return m.recorder
 }
 
-// Br mocks base method.
-func (m *MockTendermint) Br() Broadcaster {
+// Broadcaster mocks base method.
+func (m *MockTendermint) Broadcaster() Broadcaster {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Br")
+	ret := m.ctrl.Call(m, "Broadcaster")
 	ret0, _ := ret[0].(Broadcaster)
 	return ret0
 }
 
-// Br indicates an expected call of Br.
-func (mr *MockTendermintMockRecorder) Br() *gomock.Call {
+// Broadcaster indicates an expected call of Broadcaster.
+func (mr *MockTendermintMockRecorder) Broadcaster() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Br", reflect.TypeOf((*MockTendermint)(nil).Br))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcaster", reflect.TypeOf((*MockTendermint)(nil).Broadcaster))
 }
 
 // CoreState mocks base method.

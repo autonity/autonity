@@ -58,7 +58,7 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	// nil committed seal
 	msg.CommittedSeal = nil
 	c.SetSentPrecommit(true)
-	c.Br().SignAndBroadcast(ctx, msg)
+	c.Broadcaster().SignAndBroadcast(ctx, msg)
 }
 
 func TestMaliciousPrecommitSender(t *testing.T) {

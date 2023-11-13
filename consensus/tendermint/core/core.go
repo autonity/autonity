@@ -250,7 +250,7 @@ func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Addre
 	c.futureRoundChange = futureRoundChange
 }
 
-func (c *Core) Br() interfaces.Broadcaster {
+func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
 

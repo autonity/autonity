@@ -185,7 +185,7 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 			}
 
 			c.SetSentPrecommit(true)
-			c.Br().SignAndBroadcast(ctx, msg)
+			c.Broadcaster().SignAndBroadcast(ctx, msg)
 		}
 	}
 }
@@ -269,7 +269,7 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 			}
 			f.Funcs(func(dMsg *message.ConsensusMsg, fc fuzz.Continue) {})
 			f.Fuzz(msg)
-			c.Br().SignAndBroadcast(ctx, msg)
+			c.Broadcaster().SignAndBroadcast(ctx, msg)
 		}
 	}
 	c.SetSentPrevote(true)
@@ -369,7 +369,7 @@ func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
 			c.SetSentProposal(true)
 			c.Backend().SetProposedBlockHash(p.Hash())
 
-			c.Br().SignAndBroadcast(ctx, &message.Message{
+			c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
 				Code:          consensus.MsgProposal,
 				Payload:       proposal,
 				ConsensusMsg:  proposalBlock,
