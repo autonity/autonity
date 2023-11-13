@@ -22,11 +22,7 @@ env:
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
   GO_VERSION: "1.20" # 1.15 seems to cause tests to fail
-  # Enable a flag to build a portable version of the BLST C lib on legacy hardware without HW hash feature on GitHub CI
-  # runners. This replaces the HW instruction of sha256 with a software sha256. However, modern hardware running
-  # Autonity client does not need this flag. When building the binary or Docker image for the client, do not enable this
-  # flag.
-  CGO_CFLAGS: -O -D__BLST_PORTABLE__ # the CGO flags to compile a portable BlST C lib in CI jobs for legacy hardware.
+
 jobs:
 
   # prepare-cache fills the gocache with the source code for all modules and

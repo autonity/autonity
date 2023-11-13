@@ -81,7 +81,7 @@ func (b *ActivityKeyOwnershipVerifier) Run(input []byte, _ uint64) ([]byte, erro
 		return failure32Byte, err
 	}
 
-	err = bls.ValidateOwnerProof(key, sig, treasuryBytes)
+	err = bls.ValidateValidatorKeyProof(key, sig, treasuryBytes)
 	if err != nil {
 		return failure32Byte, err
 	}

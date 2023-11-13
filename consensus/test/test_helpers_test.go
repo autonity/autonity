@@ -62,13 +62,12 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 			require.NoError(t, err)
 
 			validators = append(validators, &params.Validator{
-				NodeAddress:        &address,
-				Enode:              nodes[name].url,
-				Treasury:           address,
-				BondedStake:        stake,
-				ActivityKey:        blsPK.PublicKey().Marshal(),
-				OmissionFaultCount: new(big.Int).SetUint64(0),
-				CommissionRate:     new(big.Int).SetUint64(0),
+				NodeAddress:    &address,
+				Enode:          nodes[name].url,
+				Treasury:       address,
+				BondedStake:    stake,
+				ValidatorKey:   blsPK.PublicKey().Marshal(),
+				CommissionRate: new(big.Int).SetUint64(0),
 			})
 		}
 	}

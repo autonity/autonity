@@ -609,11 +609,11 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 
 			genesis.Config.AutonityContractConfig.Validators,
 			&params.Validator{
-				NodeAddress: &addr,
-				Treasury:    addr,
-				Enode:       node.URLv4(),
-				BondedStake: new(big.Int).SetUint64(100),
-				ActivityKey: blsKey.PublicKey().Marshal(),
+				NodeAddress:  &addr,
+				Treasury:     addr,
+				Enode:        node.URLv4(),
+				BondedStake:  new(big.Int).SetUint64(100),
+				ValidatorKey: blsKey.PublicKey().Marshal(),
 			})
 	}
 }

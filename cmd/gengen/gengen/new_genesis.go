@@ -209,7 +209,7 @@ func generateValidatorState(validators []*Validator) (
 			Treasury:        treasuryAddress, // rewards goes here
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
-			ActivityKey:     blsPK,
+			ValidatorKey:    blsPK,
 		}
 		err := gu.Validate()
 		if err != nil {

@@ -133,8 +133,7 @@ type Validator struct {
 	TotalSlashed             *big.Int
 	JailReleaseBlock         *big.Int
 	ProvableFaultCount       *big.Int
-	ActivityKey              []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
-	OmissionFaultCount       *big.Int
+	ValidatorKey             []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
 	State                    *uint8
 }
 
@@ -160,8 +159,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
 		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
-		ActivityKey              hexutil.Bytes   `json:"activityKey"`
-		OmissionFaultCount       *big.Int        `json:"omissionFaultCount"`
+		ValidatorKey             hexutil.Bytes   `json:"validatorKey"`
 		State                    *uint8          `json:"state"`
 	}
 
@@ -187,8 +185,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 	v.TotalSlashed = dec.TotalSlashed
 	v.JailReleaseBlock = dec.JailReleaseBlock
 	v.ProvableFaultCount = dec.ProvableFaultCount
-	v.ActivityKey = dec.ActivityKey
-	v.OmissionFaultCount = dec.OmissionFaultCount
+	v.ValidatorKey = dec.ValidatorKey
 	v.State = dec.State
 
 	return nil
@@ -214,8 +211,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
 		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
-		ActivityKey              hexutil.Bytes   `json:"activityKey"`
-		OmissionFaultCount       *big.Int        `json:"omissionFaultCount"`
+		ValidatorKey             hexutil.Bytes   `json:"validatorKey"`
 		State                    *uint8          `json:"state"`
 	}
 
@@ -238,8 +234,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 	enc.TotalSlashed = v.TotalSlashed
 	enc.JailReleaseBlock = v.JailReleaseBlock
 	enc.ProvableFaultCount = v.ProvableFaultCount
-	enc.ActivityKey = v.ActivityKey
-	enc.OmissionFaultCount = v.OmissionFaultCount
+	enc.ValidatorKey = v.ValidatorKey
 	enc.State = v.State
 	return json.Marshal(&enc)
 }
@@ -258,7 +253,7 @@ func (v *Validator) Validate() error {
 		return errors.New("enode must be specified")
 	}
 
-	_, err := bls.PublicKeyFromBytes(v.ActivityKey)
+	_, err := bls.PublicKeyFromBytes(v.ValidatorKey)
 	if err != nil {
 		return errors.New("cannot decode bls public key")
 	}
@@ -316,9 +311,6 @@ func (v *Validator) Validate() error {
 	}
 	if v.ProvableFaultCount == nil {
 		v.ProvableFaultCount = new(big.Int)
-	}
-	if v.OmissionFaultCount == nil {
-		v.OmissionFaultCount = new(big.Int)
 	}
 	if v.CommissionRate != nil && v.CommissionRate.Cmp(big.NewInt(0)) != 0 {
 		return fmt.Errorf("commission rate for enode %q not allowed", a.String())

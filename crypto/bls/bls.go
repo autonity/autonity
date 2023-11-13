@@ -13,7 +13,7 @@ import (
 
 const MsgPrefix = "Auton"
 
-func ValidateOwnerProof(pubKey common.BLSPublicKey, sig common.BLSSignature, msg []byte) error {
+func ValidateValidatorKeyProof(pubKey common.BLSPublicKey, sig common.BLSSignature, msg []byte) error {
 	m := append([]byte(MsgPrefix), msg...)
 	hash := crypto.Keccak256Hash(m)
 	if !sig.Verify(pubKey, hash.Bytes()) {
@@ -23,13 +23,13 @@ func ValidateOwnerProof(pubKey common.BLSPublicKey, sig common.BLSSignature, msg
 	return nil
 }
 
-func GenerateOwnershipProof(priKey SecretKey, msg []byte) ([]byte, error) {
+func GenerateValidatorKeyProof(priKey SecretKey, msg []byte) ([]byte, error) {
 	// generate bls key ownership proof
 	m := append([]byte(MsgPrefix), msg...)
 	hash := crypto.Keccak256Hash(m)
 	proof := priKey.Sign(hash.Bytes())
 
-	err := ValidateOwnerProof(priKey.PublicKey(), proof, msg)
+	err := ValidateValidatorKeyProof(priKey.PublicKey(), proof, msg)
 	if err != nil {
 		return nil, err
 	}

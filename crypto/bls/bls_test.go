@@ -21,16 +21,16 @@ func TestVerifyOwnershipProof(t *testing.T) {
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
 
-	activityKey, err := SecretKeyFromECDSAKey(privKey)
+	validatorKey, err := SecretKeyFromECDSAKey(privKey)
 	require.NoError(t, err)
 
-	proof, err := GenerateOwnershipProof(activityKey, address.Bytes())
+	proof, err := GenerateValidatorKeyProof(validatorKey, address.Bytes())
 	require.NoError(t, err)
 
 	sig, err := SignatureFromBytes(proof)
 	require.NoError(t, err)
 
-	err = ValidateOwnerProof(activityKey.PublicKey(), sig, address.Bytes())
+	err = ValidateValidatorKeyProof(validatorKey.PublicKey(), sig, address.Bytes())
 	require.NoError(t, err)
 }
 

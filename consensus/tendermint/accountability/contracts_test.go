@@ -1152,22 +1152,22 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 }
 
-func TestActivityKeyVerifier(t *testing.T) {
+func TestValidatorKeyVerifier(t *testing.T) {
 	key1, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	key2, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
 	treasuryAddress := crypto.PubkeyToAddress(key1.PublicKey)
-	activityKey, err := bls.SecretKeyFromECDSAKey(key1)
+	validatorKey, err := bls.SecretKeyFromECDSAKey(key1)
 	require.NoError(t, err)
 
-	proof, err := bls.GenerateOwnershipProof(activityKey, treasuryAddress.Bytes())
+	proof, err := bls.GenerateValidatorKeyProof(validatorKey, treasuryAddress.Bytes())
 	require.NoError(t, err)
 
 	av := &ActivityKeyOwnershipVerifier{}
 	input := make([]byte, 196)
-	copy(input[32:80], activityKey.PublicKey().Marshal())
+	copy(input[32:80], validatorKey.PublicKey().Marshal())
 	copy(input[80:176], proof)
 	copy(input[176:196], treasuryAddress.Bytes())
 

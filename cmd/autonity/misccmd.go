@@ -219,19 +219,19 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf("Failed to sign: %v", err)
 	}
 
-	// activity key proof generation
-	activityKey, err := bls.SecretKeyFromECDSAKey(nodePrivateKey)
+	// validator key shares the same secret with the node's key.
+	validatorKey, err := bls.SecretKeyFromECDSAKey(nodePrivateKey)
 	if err != nil {
 		utils.Fatalf("Failed to generate bls secret from source ecdsa key: %v", err)
 	}
 
-	activityKeyProof, err := bls.GenerateOwnershipProof(activityKey, data)
+	validatorKeyProof, err := bls.GenerateValidatorKeyProof(validatorKey, data)
 	if err != nil {
 		utils.Fatalf("Failed to sign bls key owner proof: %v", err)
 	}
 
-	fmt.Println("Activity key hex:", activityKey.PublicKey().Hex())
-	signatures := append(append(nodeSignature[:], oracleSignature[:]...), activityKeyProof[:]...)
+	fmt.Println("Validator key hex:", validatorKey.PublicKey().Hex())
+	signatures := append(append(nodeSignature[:], oracleSignature[:]...), validatorKeyProof[:]...)
 	hexStr := hexutil.Encode(signatures)
 	fmt.Println("Signatures hex:", hexStr)
 	return nil
@@ -254,11 +254,11 @@ func genNodeKey(ctx *cli.Context) error {
 	if writeAddr {
 		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
 	}
-	// print the node's activity key to on-board validator from genesis config by the system operator.
-	blsKey, err := bls.SecretKeyFromECDSAKey(nodeKey)
+	// print the node's validator key to on-board validator from genesis config by the system operator.
+	validatorKey, err := bls.SecretKeyFromECDSAKey(nodeKey)
 	if err != nil {
 		utils.Fatalf("could not generate activity key from node key: %v", err)
 	}
-	fmt.Println("Node activity public key:", blsKey.PublicKey().Hex())
+	fmt.Println("Node's validator key:", validatorKey.PublicKey().Hex())
 	return nil
 }

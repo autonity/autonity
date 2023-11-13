@@ -221,27 +221,6 @@ contract('Autonity', function (accounts) {
     "0x09428E8674496e2D1E965402F33A9520c5fCBbE2",
   ]
 
-  const genesisPrivateKeys = [
-   "a4b489752489e0f47e410b8e8cbb1ac1b56770d202ffd45b346ca8355c602c91", 
-   "aa4b77b1305f8f265e81599587c623d8950624f3e1bd9c121ef2461a7a1e7527",
-   "4ec99383dc50aa3f3117fcbfba7b69188ba60d3418185fb353c9a69d066e55d9",
-   "0c8698f456533170fe07c6dcb753d47bef8bedd46443efa57a859c989887b56b",
-  ]
-  
-  // enodes with no validator registered at genesis
-  const freeEnodes = [
-    "enode://a7ecd2c1b8c0c7d7ab9cc12e620605a762865d381eb1bc5417dcf07599571f84ce5725f404f66d3e254d590ae04e4e8f18fe9e23cd29087d095a0c37d0443252@3.209.45.79:30303",
-  ];
-
-  // TODO(lorenzo) derive them from enodes or privatekeys
-  const freeAddresses = [
-    "0xDE03B7806f885Ae79d2aa56568b77caDB0de073E",
-  ]
-
-  const freePrivateKeys = [
-    "e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b",
-  ]
-
   const baseValidator = {
     "selfBondedStake": 0,
     "selfUnbondingStakeLocked": 0,
@@ -256,8 +235,7 @@ contract('Autonity', function (accounts) {
     "selfUnbondingShares" : 0,
     "unbondingStake" : 0,
     "unbondingShares" : 0,
-    "omissionFaultCount": 0,
-    "activityKey": "0x00",
+    "validatorKey": "0x00",
   }
   
   // accounts[2] is skipped because it is used as a genesis validator when running against autonity

@@ -43,15 +43,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 totalSlashed;
         uint256 jailReleaseBlock;
         uint256 provableFaultCount;
-        bytes activityKey;
-        uint256 omissionFaultCount;
+        bytes validatorKey;
         ValidatorState state;
     }
 
     struct CommitteeMember {
         address addr;
         uint256 votingPower;
-        bytes activityKey;
+        bytes validatorKey;
     }
 
     /**************************************************/
@@ -278,18 +277,18 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * A new token "Liquid Stake" is deployed at this phase.
     * @param _enode enode identifying the validator node.
     * @param _oracleAddress identifying the oracle server node that the validator is managing.
-    * @param _activityKey identifying the bls public key in bytes that the validator node is using.
+    * @param _validatorKey identifying the bls public key in bytes that the validator node is using.
     * @param _signatures is a combination of two ecdsa signatures, and a bls signature as the ownership proof of the
-    * activity key appended sequentially. The 1st two ecdsa signatures are in below order:
+    * validator key appended sequentially. The 1st two ecdsa signatures are in below order:
         1. a message containing treasury account and signed by validator account private key .
         2. a message containing treasury account and signed by Oracle account private key .
     * @dev Emit a {RegisteredValidator} event.
     */
-    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _activityKey, bytes memory _signatures) public {
+    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _validatorKey, bytes memory _signatures) public {
         require(_signatures.length == 226, "Invalid proof length");
-        require(_activityKey.length == 48, "Invalid activity key length");
+        require(_validatorKey.length == 48, "Invalid validator key length");
         bytes memory signatures = BytesLib.slice(_signatures, 0, 130);
-        bytes memory activityKeyProof = BytesLib.slice(_signatures, 130, 96);
+        bytes memory validatorKeyProof = BytesLib.slice(_signatures, 130, 96);
         Validator memory _val = Validator(
             payable(msg.sender),     // treasury
             address(0),              // address
@@ -309,12 +308,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             0,                       // total slashed
             0,                       // jail release block
             0,                       // provable faults count
-            _activityKey,            // activity in bytes
-            0,                       // omission faults count
+            _validatorKey,            // validator key in bytes
             ValidatorState.active    // state
         );
 
-        _registerValidator(_val, signatures, _activityKey, activityKeyProof);
+        _registerValidator(_val, signatures, _validatorKey, validatorKeyProof);
         emit RegisteredValidator(msg.sender, _val.nodeAddress, _oracleAddress, _enode, address(_val.liquidContract));
     }
 
@@ -685,7 +683,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             CommitteeMember memory _member = CommitteeMember(
                 _committeeList[_k].nodeAddress,
                 _committeeList[_k].bondedStake,
-                _committeeList[_k].activityKey);
+                _committeeList[_k].validatorKey);
 
             committee.push(_member);
             committeeNodes.push(_committeeList[_k].enode);
@@ -1011,7 +1009,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         _deployLiquidContract(_validator);
     }
 
-    function _registerValidator(Validator memory _validator, bytes memory _signatures, bytes memory _activityKey, bytes memory _activityKeyProof) internal {
+    function _registerValidator(Validator memory _validator, bytes memory _signatures, bytes memory _validatorKey, bytes memory _validatorKeyProof) internal {
         // verify Enode
         _verifyEnode(_validator);
 
@@ -1029,7 +1027,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         require(signers[0] == _validator.nodeAddress, "Invalid node key ownership proof provided");
         require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
-        require(Precompiled.checkActivityKeyProof(_activityKey, _activityKeyProof, _validator.treasury) == 1, "Invalid activity key proof for registration");
+        require(Precompiled.checkValidatorKeyProof(_validatorKey, _validatorKeyProof, _validator.treasury) == 1, "Invalid validator key proof for registration");
 
         // deploy liquid stake contract
         _deployLiquidContract(_validator);

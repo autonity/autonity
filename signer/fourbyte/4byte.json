@@ -120,5 +120,6 @@
   "b3ecbadd": "setSupplyControlContract(address)",
   "f5371f4b": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,uint8))",
   "dac323e6": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint256,uint8))",
-  "84467fdb": "registerValidator(string,address,bytes,bytes)"
+  "84467fdb": "registerValidator(string,address,bytes,bytes)",
+  "35be16e0": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8))"
 }

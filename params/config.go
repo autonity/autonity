@@ -63,7 +63,7 @@ var (
 	bigPrecisionFactor   = big.NewInt(1_000_000_000_000_000_000)
 	bigBondedStake       = big.NewInt(0).Mul(bigBondedStakeNewton, bigPrecisionFactor)
 
-	// PiccaddillyChainConfig todo: ask Raj to generate activity key for validators in the PiccaddillyChainConfig
+	// PiccaddillyChainConfig todo: ask Raj to generate validator key for validators in the PiccaddillyChainConfig
 	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
 	PiccaddillyChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_100_001),
@@ -139,7 +139,7 @@ var (
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
-	// BakerlooChainConfig todo: ask Raj to generate activity key for validators in the BakerlooChainConfig
+	// BakerlooChainConfig todo: ask Raj to generate validator key for validators in the BakerlooChainConfig
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
 	BakerlooChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_010_001),
@@ -412,11 +412,11 @@ var (
 	// adding flags to the config to also have to set these fields.
 	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}}
 
-	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
-	ValidatorEnode             = enode.NewV4(&ValidatorKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	activityKey, _             = bls.SecretKeyFromECDSAKey(ValidatorKey)
-	ValidatorActivityKey       = activityKey.PublicKey().Marshal()
+	ValidatorNodeKey, _        = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
+	ValidatorEnode             = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	validatorKey, _            = bls.SecretKeyFromECDSAKey(ValidatorNodeKey)
+	ValidatorKey               = validatorKey.PublicKey().Marshal()
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
 		EpochPeriod:      5,
@@ -428,13 +428,12 @@ var (
 		TreasuryFee:      0,
 		Validators: []*Validator{
 			{
-				Treasury:           common.Address{},
-				NodeAddress:        &ValidatorAddress,
-				Enode:              ValidatorEnode.URLv4(),
-				CommissionRate:     new(big.Int).SetUint64(0),
-				BondedStake:        new(big.Int).SetUint64(1000),
-				ActivityKey:        ValidatorActivityKey,
-				OmissionFaultCount: common.Big0,
+				Treasury:       common.Address{},
+				NodeAddress:    &ValidatorAddress,
+				Enode:          ValidatorEnode.URLv4(),
+				CommissionRate: new(big.Int).SetUint64(0),
+				BondedStake:    new(big.Int).SetUint64(1000),
+				ValidatorKey:   ValidatorKey,
 			},
 		},
 	}
