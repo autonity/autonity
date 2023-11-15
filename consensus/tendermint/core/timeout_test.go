@@ -98,7 +98,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		}
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
-		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
+		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1).Do(
 			func(ctx context.Context, c types.Committee, payload []byte) {
 				message := new(tcmessage.Message)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
