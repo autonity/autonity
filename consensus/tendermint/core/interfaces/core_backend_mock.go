@@ -97,17 +97,17 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // Broadcast mocks base method.
-func (m *MockBackend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
+func (m *MockBackend) Broadcast(committee types.Committee, payload []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcast", ctx, committee, payload)
+	ret := m.ctrl.Call(m, "Broadcast", committee, payload)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Broadcast indicates an expected call of Broadcast.
-func (mr *MockBackendMockRecorder) Broadcast(ctx, committee, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Broadcast(committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, committee, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), committee, payload)
 }
 
 // Commit mocks base method.
