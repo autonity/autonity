@@ -1165,7 +1165,7 @@ func TestValidatorKeyVerifier(t *testing.T) {
 	proof, err := bls.GenerateValidatorKeyProof(validatorKey, treasuryAddress.Bytes())
 	require.NoError(t, err)
 
-	av := &ActivityKeyOwnershipVerifier{}
+	av := &ValidatorKeyProofVerifier{}
 	input := make([]byte, 196)
 	copy(input[32:80], validatorKey.PublicKey().Marshal())
 	copy(input[80:176], proof)

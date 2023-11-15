@@ -40,7 +40,7 @@ const KB = 1024
 func LoadPrecompiles(chain ChainContext) {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
-	ov := ActivityKeyOwnershipVerifier{}
+	ov := ValidatorKeyProofVerifier{}
 	pv := InnocenceVerifier{chain: chain}
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
@@ -57,13 +57,13 @@ func LoadPrecompiles(chain ChainContext) {
 	setPrecompiles(vm.PrecompiledContractsBLS)
 }
 
-type ActivityKeyOwnershipVerifier struct{}
+type ValidatorKeyProofVerifier struct{}
 
-func (b *ActivityKeyOwnershipVerifier) RequiredGas(_ []byte) uint64 {
+func (b *ValidatorKeyProofVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityActivityKeyCheckGas
 }
 
-func (b *ActivityKeyOwnershipVerifier) Run(input []byte, _ uint64) ([]byte, error) {
+func (b *ValidatorKeyProofVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 	if len(input) != 196 {
 		return failure32Byte, fmt.Errorf("invalid proof - empty")
 	}
