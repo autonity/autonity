@@ -42,14 +42,14 @@ func (c *duplicateProposalSender) SendProposal(ctx context.Context, p *types.Blo
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	//send same proposal twice
-	c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
+	c.Broadcaster().SignAndBroadcast(&message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal,
 		Address:       c.Address(),
 		CommittedSeal: []byte{},
 	})
 	// send 2nd proposal with different validround
-	c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
+	c.Broadcaster().SignAndBroadcast(&message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal2,
 		Address:       c.Address(),
@@ -107,13 +107,13 @@ func SendProposalFromNonProposer(ctx context.Context, c *core.Core, fm []byte) {
 		return
 	}
 
-	if err := c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), fm); err != nil {
+	if err := c.Backend().Broadcast(c.CommitteeSet().Committee(), fm); err != nil {
 		c.Logger().Error("consensus message broadcast failure, err:", err)
 	}
 }
 
 // DefaultSignAndBroadcast overrides the code.DefaultSignAndBroadcast
-func (c *malProposalSender) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (c *malProposalSender) SignAndBroadcast(msg *message.Message) {
 	logger := c.Logger().New("step", c.Step())
 
 	fm, err := c.SignMessage(msg)
@@ -121,7 +121,7 @@ func (c *malProposalSender) SignAndBroadcast(ctx context.Context, msg *message.M
 		return
 	}
 	SendProposalFromNonProposer(ctx, c.Core, fm)
-	if err := c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), fm); err != nil {
+	if err := c.Backend().Broadcast(c.CommitteeSet().Committee(), fm); err != nil {
 		logger.Error("consensus message broadcast failure, err:", err)
 	}
 }
@@ -223,7 +223,7 @@ func (c *partialProposalSender) SendProposal(ctx context.Context, p *types.Block
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	//send same proposal twice
-	c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
+	c.Broadcaster().SignAndBroadcast(&message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal,
 		Address:       c.Address(),
@@ -296,7 +296,7 @@ func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block)
 	// junk Address
 	junkAddr := common.BytesToAddress(ranBytes)
 	//send same proposal twice
-	c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
+	c.Broadcaster().SignAndBroadcast(&message.Message{
 		Code:          consensus.MsgProposal,
 		Payload:       proposal,
 		Address:       junkAddr,

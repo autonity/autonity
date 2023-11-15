@@ -27,7 +27,7 @@ type randomBytesBroadcaster struct {
 	*core.Core
 }
 
-func (s *randomBytesBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *randomBytesBroadcaster) SignAndBroadcast(msg *message.Message) {
 	logger := s.Logger().New("step", s.Step())
 	logger.Info("Broadcasting random bytes")
 
@@ -37,7 +37,7 @@ func (s *randomBytesBroadcaster) SignAndBroadcast(ctx context.Context, msg *mess
 			logger.Error("Failed to generate random bytes ", "err", err)
 			return
 		}
-		if err = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
+		if err = s.Backend().Broadcast(s.CommitteeSet().Committee(), payload); err != nil {
 			logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 			return
 		}
@@ -71,7 +71,7 @@ type garbageMessageBroadcaster struct {
 	*core.Core
 }
 
-func (s *garbageMessageBroadcaster) SignAndBroadcast(ctx context.Context, _ *message.Message) {
+func (s *garbageMessageBroadcaster) SignAndBroadcast(_ *message.Message) {
 	logger := s.Logger().New("step", s.Step())
 
 	var fMsg message.Message
@@ -88,7 +88,7 @@ func (s *garbageMessageBroadcaster) SignAndBroadcast(ctx context.Context, _ *mes
 		logger.Error("Failed to finalize message", "msg", fMsg, "err", err)
 		return
 	}
-	if err = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
+	if err = s.Backend().Broadcast(s.CommitteeSet().Committee(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", fMsg, "err", err)
 		return
 	}
@@ -185,7 +185,7 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 			}
 
 			c.SetSentPrecommit(true)
-			c.Broadcaster().SignAndBroadcast(ctx, msg)
+			c.Broadcaster().SignAndBroadcast(msg)
 		}
 	}
 }
@@ -269,7 +269,7 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 			}
 			f.Funcs(func(dMsg *message.ConsensusMsg, fc fuzz.Continue) {})
 			f.Fuzz(msg)
-			c.Broadcaster().SignAndBroadcast(ctx, msg)
+			c.Broadcaster().SignAndBroadcast(msg)
 		}
 	}
 	c.SetSentPrevote(true)
@@ -369,7 +369,7 @@ func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
 			c.SetSentProposal(true)
 			c.Backend().SetProposedBlockHash(p.Hash())
 
-			c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
+			c.Broadcaster().SignAndBroadcast(&message.Message{
 				Code:          consensus.MsgProposal,
 				Payload:       proposal,
 				ConsensusMsg:  proposalBlock,

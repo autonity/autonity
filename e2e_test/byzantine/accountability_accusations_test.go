@@ -22,9 +22,9 @@ type AccusationRulePOBroadcaster struct {
 }
 
 // simulate an old proposal which refer to less quorum preVotes to trigger the accusation of rule PO
-func (s *AccusationRulePOBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePOBroadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -41,9 +41,9 @@ func (s *AccusationRulePOBroadcaster) SignAndBroadcast(ctx context.Context, msg 
 	if err != nil {
 		s.Logger().Warn("Cannot simulate accusation for rule PO", err)
 	}
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	s.Logger().Info("Accusation of PO rule is simulated")
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mP)
 }
 
 func newAccusationRulePVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
@@ -55,9 +55,9 @@ type AccusationRulePVNBroadcaster struct {
 }
 
 // simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
-func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal || s.IsProposer() == false {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -67,8 +67,8 @@ func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg
 		s.Logger().Warn("Cannot simulate accusation for rule PVN", err)
 	}
 	s.Logger().Info("Accusation of PVN rule is simulated.")
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), m)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), m)
 }
 
 /* not currently supported
@@ -82,9 +82,9 @@ type AccusationRulePVOBroadcaster struct {
 }
 
 // simulate an accusation context that an old proposal have less quorum preVotes for the value at the valid round.
-func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -115,9 +115,9 @@ func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(ctx context.Context, msg
 		s.Logger().Warn("Cannot simulate accusation for rule PVO", err)
 	}
 	s.Logger().Info("Accusation of PVO rule is simulated.")
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mPVO1)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mP)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mPVO1)
 }
 
 func newAccusationRuleC1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
@@ -129,9 +129,9 @@ type AccusationRuleC1Broadcaster struct {
 }
 
 // simulate an accusation context that node preCommit for a value that have less quorum of preVote for the value.
-func (s *AccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRuleC1Broadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -150,9 +150,9 @@ func (s *AccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Context, msg 
 			s.Logger().Warn("Cannot simulate accusation for rule C1", err)
 		}
 		s.Logger().Info("Accusation of C1 rule is simulated.")
-		_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), m)
+		_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), m)
 	}
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 }
 
 func TestAccusationFlow(t *testing.T) {

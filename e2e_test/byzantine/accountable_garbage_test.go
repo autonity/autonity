@@ -43,12 +43,12 @@ func simulateAccountableGarbageMsg(ctx context.Context, c *core.Core, msg *messa
 		return
 	}
 	logger.Info("Misbehaviour of GarbageMessage rule is simulated by garbage maliciousMsg msg.")
-	et.DefaultSignAndBroadcast(ctx, c, msg)
-	_ = c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), maliciousBytes)
+	et.DefaultSignAndBroadcast(c, msg)
+	_ = c.Backend().Broadcast(c.CommitteeSet().Committee(), maliciousBytes)
 
 }
 
-func (s *accountableGarbageProposalBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *accountableGarbageProposalBroadcaster) SignAndBroadcast(msg *message.Message) {
 	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgProposal)
 }
 
@@ -60,7 +60,7 @@ type accountableGarbagePrevoteBroadcaster struct {
 	*core.Core
 }
 
-func (s *accountableGarbagePrevoteBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *accountableGarbagePrevoteBroadcaster) SignAndBroadcast(msg *message.Message) {
 	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrevote)
 }
 
@@ -72,7 +72,7 @@ type accountableGarbagePrecommitBroadcaster struct {
 	*core.Core
 }
 
-func (s *accountableGarbagePrecommitBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *accountableGarbagePrecommitBroadcaster) SignAndBroadcast(msg *message.Message) {
 	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrecommit)
 }
 
@@ -84,7 +84,7 @@ type invalidMsgCodeBroadcaster struct {
 	*core.Core
 }
 
-func (s *invalidMsgCodeBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *invalidMsgCodeBroadcaster) SignAndBroadcast(msg *message.Message) {
 	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrecommit+100)
 }
 

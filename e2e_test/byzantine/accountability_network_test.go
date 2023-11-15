@@ -28,8 +28,8 @@ type OffChainAccusationRulePVNBroadcaster struct {
 
 // PVN accusation is simulated by the removal of proposal and those corresponding quorum prevotes from msg store on a
 // client, such client will rise accusation PVN over those client who prevote for the removed proposal.
-func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	_ = msg.DecodePayload()
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
@@ -78,8 +78,8 @@ type OffChainAccusationRuleC1Broadcaster struct {
 // C1 accusation is simulated by the removal of those corresponding quorum prevotes from msg store on a
 // client, thus, the client will rise accusation C1 over those client who precommit for the corresponding proposal that
 // there were no quorum prevotes of it.
-func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	_ = msg.DecodePayload()
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
@@ -125,8 +125,8 @@ type OffChainAccusationGarbageBroadcaster struct {
 	*core.Core
 }
 
-func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	// construct garbage off chain accusation msg and sent it.
 	_ = msg.DecodePayload()
 	if msg.H() <= uint64(1) {
@@ -167,8 +167,8 @@ type OffChainDuplicatedAccusationBroadcaster struct {
 	*core.Core
 }
 
-func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	// construct duplicated accusation msg and send them.
 	_ = msg.DecodePayload()
 	if msg.H() <= uint64(1) {
@@ -213,8 +213,8 @@ type OffChainAccusationOverRatedBroadcaster struct {
 	*core.Core
 }
 
-func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	// construct accusations and send them with high rate.
 	_ = msg.DecodePayload()
 	if msg.H() <= uint64(10) {

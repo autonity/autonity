@@ -21,8 +21,8 @@ func NewOversizedEventBroadcaster(c interfaces.Tendermint) interfaces.Broadcaste
 	return &OversizedEventBroadcaster{c.(*core.Core), false}
 }
 
-func (s *OversizedEventBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OversizedEventBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	if s.faultSimulated {
 		return
 	}
@@ -43,7 +43,7 @@ func (s *OversizedEventBroadcaster) SignAndBroadcast(ctx context.Context, msg *m
 	}
 
 	logger.Info("Misbehaviour of AccountableGarbageMessage rule is simulated by oversize garbage msg.")
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, maliciousMsg)
+	e2e.DefaultSignAndBroadcast(s.Core, maliciousMsg)
 	s.faultSimulated = true
 }
 
