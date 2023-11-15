@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"context"
 	"testing"
 
 	"github.com/autonity/autonity/autonity"

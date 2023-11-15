@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"context"
 	"testing"
 
 	"github.com/autonity/autonity/autonity"
@@ -21,7 +20,7 @@ type accountableGarbageProposalBroadcaster struct {
 	*core.Core
 }
 
-func simulateAccountableGarbageMsg(ctx context.Context, c *core.Core, msg *message.Message, code uint8) {
+func simulateAccountableGarbageMsg(c *core.Core, msg *message.Message, code uint8) {
 	logger := c.Logger().New("step", c.Step())
 	logger.Info("Broadcasting accountable garbage msg bytes")
 
@@ -49,7 +48,7 @@ func simulateAccountableGarbageMsg(ctx context.Context, c *core.Core, msg *messa
 }
 
 func (s *accountableGarbageProposalBroadcaster) SignAndBroadcast(msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgProposal)
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgProposal)
 }
 
 func newAccountableGarbagePrevoteBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
@@ -61,7 +60,7 @@ type accountableGarbagePrevoteBroadcaster struct {
 }
 
 func (s *accountableGarbagePrevoteBroadcaster) SignAndBroadcast(msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrevote)
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgPrevote)
 }
 
 func newAccountableGarbagePrecommitBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
@@ -73,7 +72,7 @@ type accountableGarbagePrecommitBroadcaster struct {
 }
 
 func (s *accountableGarbagePrecommitBroadcaster) SignAndBroadcast(msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrecommit)
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgPrecommit)
 }
 
 func newInvalidMsgCodeBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
@@ -85,7 +84,7 @@ type invalidMsgCodeBroadcaster struct {
 }
 
 func (s *invalidMsgCodeBroadcaster) SignAndBroadcast(msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrecommit+100)
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgPrecommit+100)
 }
 
 func AccountableGarbageMsgTests(t *testing.T) {

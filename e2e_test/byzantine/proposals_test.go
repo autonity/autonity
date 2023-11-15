@@ -86,7 +86,7 @@ type malProposalSender struct {
 }
 
 // SendProposalFromNonProposer broadcasts a new proposal, only if it is a non-proposer
-func SendProposalFromNonProposer(ctx context.Context, c *core.Core, fm []byte) {
+func SendProposalFromNonProposer(c *core.Core, fm []byte) {
 	m, err := message.FromBytes(fm)
 	if err != nil {
 		c.Logger().Error("can not send proposal, invalid payload", "err", err)
@@ -120,7 +120,7 @@ func (c *malProposalSender) SignAndBroadcast(msg *message.Message) {
 	if err != nil {
 		return
 	}
-	SendProposalFromNonProposer(ctx, c.Core, fm)
+	SendProposalFromNonProposer(c.Core, fm)
 	if err := c.Backend().Broadcast(c.CommitteeSet().Committee(), fm); err != nil {
 		logger.Error("consensus message broadcast failure, err:", err)
 	}

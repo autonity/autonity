@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
