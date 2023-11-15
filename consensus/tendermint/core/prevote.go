@@ -44,7 +44,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 
 	c.sentPrevote = true
-	c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
+	c.Broadcaster().SignAndBroadcast(&message.Message{
 		Code:          consensus.MsgPrevote,
 		Payload:       encodedVote,
 		Address:       c.address,

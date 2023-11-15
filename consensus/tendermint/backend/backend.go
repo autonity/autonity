@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"errors"
 	"sync"
@@ -134,7 +133,7 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.SignAndBroadcast
-func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
+func (sb *Backend) Broadcast(committee types.Committee, payload []byte) error {
 	// send to others
 	sb.Gossip(committee, payload)
 	// send to self

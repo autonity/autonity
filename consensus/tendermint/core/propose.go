@@ -40,7 +40,7 @@ func (c *Proposer) SendProposal(ctx context.Context, p *types.Block) {
 		}
 		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposalBlock, c.address.String(), "broadcast")
 
-		c.Broadcaster().SignAndBroadcast(ctx, &message.Message{
+		c.Broadcaster().SignAndBroadcast(&message.Message{
 			Code:          consensus.MsgProposal,
 			Payload:       proposal,
 			Address:       c.address,
