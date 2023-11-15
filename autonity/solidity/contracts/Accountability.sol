@@ -325,7 +325,7 @@ contract Accountability is IAccountability {
 
     /**
     * @notice Take funds away from faulty node account.
-    * @dev Emit a {SlashingEvent} event for the fined account or {ValidatorJailbound} event for being banned permanently
+    * @dev Emit a {SlashingEvent} event for the fined account or {ValidatorJailbound} event for being jailed permanently
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
@@ -403,7 +403,7 @@ contract Accountability is IAccountability {
         _val.provableFaultCount += 1;
 
         if (_slashingAmount > 0 && _slashingAmount >= _availableFunds - 1) {
-            // validator is banned permanently if 100% slashed or _slashingAmount = _availableFunds-1
+            // validator is jailed permanently if 100% slashed or _slashingAmount = _availableFunds-1
             _val.state = ValidatorState.jailbound;
         } else {
             _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;

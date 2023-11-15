@@ -923,7 +923,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             uint256 _reward = (committee[i].votingPower * _amount) / epochTotalBondedStake;
             if (_reward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
-                // committee members in jailbound state are permanently banned
+                // committee members in jailbound state are permanently jailed
                 if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
                     config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
                     continue;
@@ -1059,7 +1059,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
 
-        // jailbound validator is banned permanently, no new bonding can be applied for a jailbound validator
+        // jailbound validator is jailed permanently, no new bonding can be applied for a jailbound validator
         if (_validator.state == ValidatorState.jailbound) {
             accounts[_bonding.delegator] += _bonding.amount;
             return;

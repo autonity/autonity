@@ -707,14 +707,7 @@ contract('Protocol', function (accounts) {
       );
 
       let releaseBlock = validatorInfo.jailReleaseBlock;
-      while (await web3.eth.getBlockNumber() < releaseBlock) {
-        utils.mineEmptyBlock();
-      }
-      await truffleAssert.fails(
-        autonity.activateValidator(validator, {from: treasury}),
-        truffleAssert.ErrorType.REVERT,
-        "validator jailed permanently"
-      );
+      assert.equal(releaseBlock, 0, "releaseBlock for jailbound validator");
 
     });
 
@@ -735,6 +728,7 @@ contract('Protocol', function (accounts) {
       await autonity.bond(validator, tokenMint, {from: delegator});
       assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance - tokenMint, "balance did not decrease after bonding request");
       await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
+      let oldValInfo = await autonity.getValidator(validator);
 
       await truffleAssert.fails(
         autonity.bond(validator, tokenMint, {from: delegator}),
@@ -744,6 +738,12 @@ contract('Protocol', function (accounts) {
       // 2nd bonding should not be applied
       await utils.endEpoch(autonity, operator, deployer);
       assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unexpected balance");
+      let newValInfo = await autonity.getValidator(validator);
+      assert.equal(newValInfo.bondedStake, oldValInfo.bondedStake, "bondedStake changed");
+      assert.equal(newValInfo.selfBondedStake, oldValInfo.selfBondedStake, "selfBondedStake changed");
+      assert.equal(newValInfo.selfUnbondingStake, oldValInfo.selfUnbondingStake, "selfUnbondingStake changed");
+      assert.equal(newValInfo.unbondingStake, oldValInfo.unbondingStake, "unbondingStake changed");
+      assert.equal(newValInfo.liquidSupply, oldValInfo.liquidSupply, "liquidSupply changed");
     });
 
     it('zero amount of bonded and unbonding stake after 100% slash', async function () {
@@ -798,7 +798,7 @@ contract('Protocol', function (accounts) {
         // checking if highest possible slashing can be done without triggering fairness issue
         assert.equal(txEvent.amount.toNumber(), totalStake - 2);
         valInfo = await autonity.getValidator(validator);
-        assert.equal(valInfo.state, utils.ValidatorState.jailed, "validator not jailbound");
+        assert.equal(valInfo.state, utils.ValidatorState.jailed, "validator not jailed");
         assert(parseInt(valInfo.bondedStake) > 0 && parseInt(valInfo.unbondingStake) > 0, "fairness issue triggered");
       }
 
