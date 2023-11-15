@@ -97,17 +97,17 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // Broadcast mocks base method.
-func (m *MockBackend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
+func (m *MockBackend) Broadcast(committee types.Committee, payload []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcast", ctx, committee, payload)
+	ret := m.ctrl.Call(m, "Broadcast", committee, payload)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Broadcast indicates an expected call of Broadcast.
-func (mr *MockBackendMockRecorder) Broadcast(ctx, committee, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Broadcast(committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), ctx, committee, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), committee, payload)
 }
 
 // Commit mocks base method.
@@ -139,15 +139,29 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockBackend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
+func (m *MockBackend) Gossip(committee types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", ctx, committee, payload)
+	m.ctrl.Call(m, "Gossip", committee, payload)
 }
 
 // Gossip indicates an expected call of Gossip.
-func (mr *MockBackendMockRecorder) Gossip(ctx, committee, payload interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Gossip(committee, payload interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), ctx, committee, payload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, payload)
+}
+
+// Gossiper mocks base method.
+func (m *MockBackend) Gossiper() Gossiper {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Gossiper")
+	ret0, _ := ret[0].(Gossiper)
+	return ret0
+}
+
+// Gossiper indicates an expected call of Gossiper.
+func (mr *MockBackendMockRecorder) Gossiper() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossiper", reflect.TypeOf((*MockBackend)(nil).Gossiper))
 }
 
 // HandleUnhandledMsgs mocks base method.

@@ -1,24 +1,29 @@
 package byzantine
 
 import (
-	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"testing"
 )
+
+func newAccusationRulePOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRulePOBroadcaster{c.(*core.Core)}
+}
 
 type AccusationRulePOBroadcaster struct {
 	*core.Core
 }
 
 // simulate an old proposal which refer to less quorum preVotes to trigger the accusation of rule PO
-func (s *AccusationRulePOBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePOBroadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -35,9 +40,13 @@ func (s *AccusationRulePOBroadcaster) SignAndBroadcast(ctx context.Context, msg 
 	if err != nil {
 		s.Logger().Warn("Cannot simulate accusation for rule PO", err)
 	}
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	s.Logger().Info("Accusation of PO rule is simulated")
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mP)
+}
+
+func newAccusationRulePVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRulePVNBroadcaster{c.(*core.Core)}
 }
 
 type AccusationRulePVNBroadcaster struct {
@@ -45,9 +54,9 @@ type AccusationRulePVNBroadcaster struct {
 }
 
 // simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
-func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal || s.IsProposer() == false {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -57,18 +66,24 @@ func (s *AccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg
 		s.Logger().Warn("Cannot simulate accusation for rule PVN", err)
 	}
 	s.Logger().Info("Accusation of PVN rule is simulated.")
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), m)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), m)
 }
+
+/* not currently supported
+func newAccusationRulePVOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRulePVOBroadcaster{c.(*core.Core)}
+}
+*/
 
 type AccusationRulePVOBroadcaster struct {
 	*core.Core
 }
 
 // simulate an accusation context that an old proposal have less quorum preVotes for the value at the valid round.
-func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -99,9 +114,13 @@ func (s *AccusationRulePVOBroadcaster) SignAndBroadcast(ctx context.Context, msg
 		s.Logger().Warn("Cannot simulate accusation for rule PVO", err)
 	}
 	s.Logger().Info("Accusation of PVO rule is simulated.")
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mPVO1)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mP)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mPVO1)
+}
+
+func newAccusationRuleC1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &AccusationRuleC1Broadcaster{c.(*core.Core)}
 }
 
 type AccusationRuleC1Broadcaster struct {
@@ -109,9 +128,9 @@ type AccusationRuleC1Broadcaster struct {
 }
 
 // simulate an accusation context that node preCommit for a value that have less quorum of preVote for the value.
-func (s *AccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *AccusationRuleC1Broadcaster) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -130,33 +149,33 @@ func (s *AccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Context, msg 
 			s.Logger().Warn("Cannot simulate accusation for rule C1", err)
 		}
 		s.Logger().Info("Accusation of C1 rule is simulated.")
-		_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), m)
+		_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), m)
 	}
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 }
 
 func TestAccusationFlow(t *testing.T) {
 	t.Run("AccusationRulePO", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRulePOBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRulePOBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PO
 		runTest(t, handler, tp, rule, 100)
 	})
 	t.Run("AccusationRulePVN", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRulePVNBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRulePVNBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PVN
 		runTest(t, handler, tp, rule, 100)
 	})
 	/* // Not supported, require more complicated setup
 	t.Run("AccusationRulePVO", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRulePVOBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRulePVOBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PVO
 		runTest(t, handler, tp, rule, 60)
 	})*/
 	t.Run("AccusationRuleC1", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &AccusationRuleC1Broadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccusationRuleC1Broadcaster}
 		tp := autonity.Accusation
 		rule := autonity.C1
 		runTest(t, handler, tp, rule, 60)

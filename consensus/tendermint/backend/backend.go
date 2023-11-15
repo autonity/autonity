@@ -1,10 +1,8 @@
 package backend
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"errors"
-	"math/big"
 	"sync"
 	"time"
 
@@ -12,7 +10,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -33,6 +30,8 @@ const (
 	fetcherID = "tendermint"
 	// ring buffer to be able to handle at maximum 10 rounds, 20 committee and 3 messages types
 	ringCapacity = 10 * 20 * 3
+	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
+	retryPeriod = 10
 )
 
 var (
@@ -70,12 +69,11 @@ func New(privateKey *ecdsa.PrivateKey,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend)
+	core := tendermintCore.New(backend, services)
+
+	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
-		core.SetBroadcaster(services.Broadcaster)
-		core.SetPrevoter(services.Prevoter)
-		core.SetPrecommitter(services.Precommitter)
-		core.SetProposer(services.Proposer)
+		backend.gossiper = services.Gossiper(backend)
 	}
 	backend.core = core
 	return backend
@@ -107,8 +105,10 @@ type Backend struct {
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
 
-	// event subscription for ChainHeadEvent event
+	// interface to enqueue blocks to fetcher and find peers
 	Broadcaster consensus.Broadcaster
+	// interface to gossip consensus messages
+	gossiper interfaces.Gossiper
 
 	//TODO: ARCChace is patented by IBM, so probably need to stop using it
 	//Update: patent has expired https://patents.google.com/patent/US7167953B2/en
@@ -133,9 +133,9 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.SignAndBroadcast
-func (sb *Backend) Broadcast(ctx context.Context, committee types.Committee, payload []byte) error {
+func (sb *Backend) Broadcast(committee types.Committee, payload []byte) error {
 	// send to others
-	sb.Gossip(ctx, committee, payload)
+	sb.Gossip(committee, payload)
 	// send to self
 	msg := events.MessageEvent{
 		Payload: payload,
@@ -149,83 +149,12 @@ func (sb *Backend) postEvent(event interface{}) {
 }
 
 func (sb *Backend) AskSync(header *types.Header) {
-	sb.logger.Info("Consensus liveness lost, broadcasting sync request..")
-
-	targets := make(map[common.Address]struct{})
-	for _, val := range header.Committee {
-		if val.Address != sb.Address() {
-			targets[val.Address] = struct{}{}
-		}
-	}
-
-	if sb.Broadcaster != nil && len(targets) > 0 {
-		for {
-			ps := sb.Broadcaster.FindPeers(targets)
-			// If we didn't find any peers try again in 10ms or exit if we have
-			// been stopped.
-			if len(ps) == 0 {
-				t := time.NewTimer(10 * time.Millisecond)
-				select {
-				case <-t.C:
-					continue
-				case <-sb.stopped:
-					return
-				}
-			}
-			count := new(big.Int)
-			for addr, p := range ps {
-				//ask to a quorum nodes to sync, 1 must then be honest and updated
-				if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
-					break
-				}
-				sb.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncMsg, []byte{}) //nolint
-
-				member := header.CommitteeMember(addr)
-				if member == nil {
-					sb.logger.Error("could not retrieve member from address")
-					continue
-				}
-				count.Add(count, member.VotingPower)
-			}
-			break
-		}
-	}
+	sb.gossiper.AskSync(header)
 }
 
-// Broadcast implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, payload []byte) {
-	hash := types.RLPHash(payload)
-	sb.knownMessages.Add(hash, true)
-
-	targets := make(map[common.Address]struct{})
-	for _, val := range committee {
-		if val.Address != sb.Address() {
-			targets[val.Address] = struct{}{}
-		}
-	}
-
-	if sb.Broadcaster != nil && len(targets) > 0 {
-		ps := sb.Broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			ms, ok := sb.recentMessages.Get(addr)
-			var m *lru.ARCCache
-			if ok {
-				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
-					// This peer had this event, skip it
-					continue
-				}
-			} else {
-				m, _ = lru.NewARC(inmemoryMessages)
-			}
-
-			m.Add(hash, true)
-			sb.recentMessages.Add(addr, m)
-
-			go p.Send(TendermintMsg, payload) //nolint
-		}
-	}
+// Gossip implements tendermint.Backend.Gossip
+func (sb *Backend) Gossip(committee types.Committee, payload []byte) {
+	sb.gossiper.Gossip(committee, payload)
 }
 
 // KnownMsgHash dumps the known messages in case of gossiping.
@@ -239,6 +168,10 @@ func (sb *Backend) KnownMsgHash() []common.Hash {
 
 func (sb *Backend) Logger() log.Logger {
 	return sb.logger
+}
+
+func (sb *Backend) Gossiper() interfaces.Gossiper {
+	return sb.gossiper
 }
 
 // Commit implements tendermint.Backend.Commit

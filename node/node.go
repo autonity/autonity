@@ -19,7 +19,6 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +27,7 @@ import (
 	"sync"
 
 	"github.com/autonity/autonity/accounts"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
@@ -38,10 +38,11 @@ import (
 )
 
 type TendermintServices struct {
-	Broadcaster  interfaces.Broadcaster
-	Prevoter     interfaces.Prevoter
-	Proposer     interfaces.Proposer
-	Precommitter interfaces.Precommiter
+	Broadcaster func(c interfaces.Tendermint) interfaces.Broadcaster
+	Prevoter    func(c interfaces.Tendermint) interfaces.Prevoter
+	Proposer    func(c interfaces.Tendermint) interfaces.Proposer
+	Precommiter func(c interfaces.Tendermint) interfaces.Precommiter
+	Gossiper    func(b interfaces.Backend) interfaces.Gossiper
 }
 
 // Node is a container on which services can be registered.
@@ -67,17 +68,6 @@ type Node struct {
 	inprocHandler *rpc.Server // In-process RPC request handler to process the API requests
 
 	databases map[*closeTrackingDB]struct{} // All open databases
-
-	tendermintServices *TendermintServices
-}
-
-// todo(youssef): put that in the node config
-func (n *Node) SetTendermintServices(handler *TendermintServices) {
-	n.tendermintServices = handler
-}
-
-func (n *Node) TendermintServices() *TendermintServices {
-	return n.tendermintServices
 }
 
 const (

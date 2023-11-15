@@ -2,19 +2,25 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
+
+func newOffChainAccusationRulePVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationRulePVNBroadcaster{c.(*core.Core)}
+}
 
 type OffChainAccusationRulePVNBroadcaster struct {
 	*core.Core
@@ -22,8 +28,8 @@ type OffChainAccusationRulePVNBroadcaster struct {
 
 // PVN accusation is simulated by the removal of proposal and those corresponding quorum prevotes from msg store on a
 // client, such client will rise accusation PVN over those client who prevote for the removed proposal.
-func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	_ = msg.DecodePayload()
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
@@ -61,6 +67,10 @@ func (s *OffChainAccusationRulePVNBroadcaster) SignAndBroadcast(ctx context.Cont
 	s.Logger().Info("Off chain Accusation of PVN rule is simulated")
 }
 
+func newOffChainAccusationRuleC1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationRuleC1Broadcaster{c.(*core.Core)}
+}
+
 type OffChainAccusationRuleC1Broadcaster struct {
 	*core.Core
 }
@@ -68,8 +78,8 @@ type OffChainAccusationRuleC1Broadcaster struct {
 // C1 accusation is simulated by the removal of those corresponding quorum prevotes from msg store on a
 // client, thus, the client will rise accusation C1 over those client who precommit for the corresponding proposal that
 // there were no quorum prevotes of it.
-func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	_ = msg.DecodePayload()
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
@@ -106,13 +116,17 @@ func (s *OffChainAccusationRuleC1Broadcaster) SignAndBroadcast(ctx context.Conte
 	s.Logger().Info("Off chain Accusation of C1 rule is simulated")
 }
 
+func newOffChainAccusationGarbageBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationGarbageBroadcaster{c.(*core.Core)}
+}
+
 // send accusation with garbage accusation msg, the sender of the msg should get disconnected from receiver end.
 type OffChainAccusationGarbageBroadcaster struct {
 	*core.Core
 }
 
-func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	// construct garbage off chain accusation msg and sent it.
 	_ = msg.DecodePayload()
 	if msg.H() <= uint64(1) {
@@ -144,13 +158,17 @@ func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(ctx context.Cont
 	}
 }
 
+func newOffChainDuplicatedAccusationBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainDuplicatedAccusationBroadcaster{c.(*core.Core)}
+}
+
 // send duplicated accusation msg from challenger, this would get the challenger removed from the peer connection.
 type OffChainDuplicatedAccusationBroadcaster struct {
 	*core.Core
 }
 
-func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	// construct duplicated accusation msg and send them.
 	_ = msg.DecodePayload()
 	if msg.H() <= uint64(1) {
@@ -187,12 +205,16 @@ func (s *OffChainDuplicatedAccusationBroadcaster) SignAndBroadcast(ctx context.C
 	}
 }
 
+func newOffChainAccusationOverRatedBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &OffChainAccusationOverRatedBroadcaster{c.(*core.Core)}
+}
+
 type OffChainAccusationOverRatedBroadcaster struct {
 	*core.Core
 }
 
-func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	// construct accusations and send them with high rate.
 	_ = msg.DecodePayload()
 	if msg.H() <= uint64(10) {
@@ -232,14 +254,14 @@ func (s *OffChainAccusationOverRatedBroadcaster) SignAndBroadcast(ctx context.Co
 
 func OffChainAccusationTests(t *testing.T) {
 	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationRuleC1Broadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationRuleC1Broadcaster}
 		tp := autonity.Accusation
 		rule := autonity.C1
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
 	t.Run("OffChainAccusationRulePVN", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationRulePVNBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationRulePVNBroadcaster}
 		tp := autonity.Accusation
 		rule := autonity.PVN
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
@@ -251,19 +273,19 @@ func OffChainAccusationTests(t *testing.T) {
 	// them from CI job.
 	t.Run("Test off chain accusation with garbage msg", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationGarbageBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationGarbageBroadcaster}
 		runDropPeerConnectionTest(t, handler, 10)
 	})
 
 	t.Run("Test duplicated accusation msg from same peer", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &node.TendermintServices{Broadcaster: &OffChainDuplicatedAccusationBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainDuplicatedAccusationBroadcaster}
 		runDropPeerConnectionTest(t, handler, 15)
 	})
 
 	t.Run("Test over rated off chain accusation", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &node.TendermintServices{Broadcaster: &OffChainAccusationOverRatedBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newOffChainAccusationOverRatedBroadcaster}
 		runDropPeerConnectionTest(t, handler, 20)
 	})
 }
@@ -283,7 +305,7 @@ func runDropPeerConnectionTest(t *testing.T, handler *node.TendermintServices, t
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 20) // nolint
+	network.WaitToMineNBlocks(testPeriod, 20, false) // nolint
 
 	// the challenger should get no peer connection left.
 	n := network[1]
@@ -310,7 +332,7 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *node.TendermintSe
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 500) // nolint
+	network.WaitToMineNBlocks(testPeriod, 500, false) // nolint
 
 	// accusation of PVN shouldn't be submitted on chain by challenger.
 	challengerAddress := network[challenger].Address

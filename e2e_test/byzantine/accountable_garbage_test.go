@@ -1,21 +1,26 @@
 package byzantine
 
 import (
-	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	et "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
-	"testing"
 )
+
+func newAccountableGarbageProposalBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &accountableGarbageProposalBroadcaster{c.(*core.Core)}
+}
 
 type accountableGarbageProposalBroadcaster struct {
 	*core.Core
 }
 
-func simulateAccountableGarbageMsg(ctx context.Context, c *core.Core, msg *message.Message, code uint8) {
+func simulateAccountableGarbageMsg(c *core.Core, msg *message.Message, code uint8) {
 	logger := c.Logger().New("step", c.Step())
 	logger.Info("Broadcasting accountable garbage msg bytes")
 
@@ -37,63 +42,75 @@ func simulateAccountableGarbageMsg(ctx context.Context, c *core.Core, msg *messa
 		return
 	}
 	logger.Info("Misbehaviour of GarbageMessage rule is simulated by garbage maliciousMsg msg.")
-	et.DefaultSignAndBroadcast(ctx, c, msg)
-	_ = c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), maliciousBytes)
+	et.DefaultSignAndBroadcast(c, msg)
+	_ = c.Backend().Broadcast(c.CommitteeSet().Committee(), maliciousBytes)
 
 }
 
-func (s *accountableGarbageProposalBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgProposal)
+func (s *accountableGarbageProposalBroadcaster) SignAndBroadcast(msg *message.Message) {
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgProposal)
+}
+
+func newAccountableGarbagePrevoteBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &accountableGarbagePrevoteBroadcaster{c.(*core.Core)}
 }
 
 type accountableGarbagePrevoteBroadcaster struct {
 	*core.Core
 }
 
-func (s *accountableGarbagePrevoteBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrevote)
+func (s *accountableGarbagePrevoteBroadcaster) SignAndBroadcast(msg *message.Message) {
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgPrevote)
+}
+
+func newAccountableGarbagePrecommitBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &accountableGarbagePrecommitBroadcaster{c.(*core.Core)}
 }
 
 type accountableGarbagePrecommitBroadcaster struct {
 	*core.Core
 }
 
-func (s *accountableGarbagePrecommitBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrecommit)
+func (s *accountableGarbagePrecommitBroadcaster) SignAndBroadcast(msg *message.Message) {
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgPrecommit)
+}
+
+func newInvalidMsgCodeBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &invalidMsgCodeBroadcaster{c.(*core.Core)}
 }
 
 type invalidMsgCodeBroadcaster struct {
 	*core.Core
 }
 
-func (s *invalidMsgCodeBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	simulateAccountableGarbageMsg(ctx, s.Core, msg, consensus.MsgPrecommit+100)
+func (s *invalidMsgCodeBroadcaster) SignAndBroadcast(msg *message.Message) {
+	simulateAccountableGarbageMsg(s.Core, msg, consensus.MsgPrecommit+100)
 }
 
 func AccountableGarbageMsgTests(t *testing.T) {
 	t.Run("MisbehaviourRuleAccountableGarbageProposal", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &accountableGarbageProposalBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccountableGarbageProposalBroadcaster}
 		tp := autonity.Misbehaviour
 		rule := autonity.GarbageMessage
 		runTest(t, handler, tp, rule, 45)
 	})
 
 	t.Run("MisbehaviourRuleAccountableGarbagePrevote", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &accountableGarbagePrevoteBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccountableGarbagePrevoteBroadcaster}
 		tp := autonity.Misbehaviour
 		rule := autonity.GarbageMessage
 		runTest(t, handler, tp, rule, 45)
 	})
 
 	t.Run("MisbehaviourRuleAccountableGarbagePrecommit", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &accountableGarbagePrecommitBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newAccountableGarbagePrecommitBroadcaster}
 		tp := autonity.Misbehaviour
 		rule := autonity.GarbageMessage
 		runTest(t, handler, tp, rule, 45)
 	})
 
 	t.Run("MisbehaviourRuleAccountableGarbagePrecommit with invalid consensus msg code", func(t *testing.T) {
-		handler := &node.TendermintServices{Broadcaster: &invalidMsgCodeBroadcaster{}}
+		handler := &node.TendermintServices{Broadcaster: newInvalidMsgCodeBroadcaster}
 		tp := autonity.Misbehaviour
 		rule := autonity.GarbageMessage
 		runTest(t, handler, tp, rule, 45)

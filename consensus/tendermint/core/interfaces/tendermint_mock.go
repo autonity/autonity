@@ -37,6 +37,20 @@ func (m *MockTendermint) EXPECT() *MockTendermintMockRecorder {
 	return m.recorder
 }
 
+// Broadcaster mocks base method.
+func (m *MockTendermint) Broadcaster() Broadcaster {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Broadcaster")
+	ret0, _ := ret[0].(Broadcaster)
+	return ret0
+}
+
+// Broadcaster indicates an expected call of Broadcaster.
+func (mr *MockTendermintMockRecorder) Broadcaster() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcaster", reflect.TypeOf((*MockTendermint)(nil).Broadcaster))
+}
+
 // CoreState mocks base method.
 func (m *MockTendermint) CoreState() types.TendermintState {
 	m.ctrl.T.Helper()
@@ -63,6 +77,48 @@ func (m *MockTendermint) CurrentHeightMessages() []*message.Message {
 func (mr *MockTendermintMockRecorder) CurrentHeightMessages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeightMessages", reflect.TypeOf((*MockTendermint)(nil).CurrentHeightMessages))
+}
+
+// Precommiter mocks base method.
+func (m *MockTendermint) Precommiter() Precommiter {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Precommiter")
+	ret0, _ := ret[0].(Precommiter)
+	return ret0
+}
+
+// Precommiter indicates an expected call of Precommiter.
+func (mr *MockTendermintMockRecorder) Precommiter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Precommiter", reflect.TypeOf((*MockTendermint)(nil).Precommiter))
+}
+
+// Prevoter mocks base method.
+func (m *MockTendermint) Prevoter() Prevoter {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Prevoter")
+	ret0, _ := ret[0].(Prevoter)
+	return ret0
+}
+
+// Prevoter indicates an expected call of Prevoter.
+func (mr *MockTendermintMockRecorder) Prevoter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prevoter", reflect.TypeOf((*MockTendermint)(nil).Prevoter))
+}
+
+// Proposer mocks base method.
+func (m *MockTendermint) Proposer() Proposer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Proposer")
+	ret0, _ := ret[0].(Proposer)
+	return ret0
+}
+
+// Proposer indicates an expected call of Proposer.
+func (mr *MockTendermintMockRecorder) Proposer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proposer", reflect.TypeOf((*MockTendermint)(nil).Proposer))
 }
 
 // Start mocks base method.

@@ -12,4 +12,8 @@ type Tendermint interface {
 	Stop()
 	CurrentHeightMessages() []*message.Message
 	CoreState() types.TendermintState
+	Broadcaster() Broadcaster
+	Proposer() Proposer
+	Prevoter() Prevoter
+	Precommiter() Precommiter
 }
