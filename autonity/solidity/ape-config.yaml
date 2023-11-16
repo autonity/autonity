@@ -3,7 +3,7 @@
 contracts_folder: contracts
 
 plugins:
-  - name: hardhat
+  - name: hardhat==0.6.13
   - name: solidity==0.6.9
 
 # Ignore `bindings.sol` to speed up compilation. This is because compiling it
