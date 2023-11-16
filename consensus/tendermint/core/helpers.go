@@ -9,7 +9,7 @@ import (
 // OverQuorumVotes compute voting power out from a set of prevotes or precommits of a certain round and height, the caller
 // should make sure that the votes belong to a certain round and height, it returns a set of votes that the corresponding
 // voting power is over quorum, otherwise it returns nil.
-func OverQuorumVotes(msgs []message.Message, quorum *big.Int) (overQuorumVotes []message.Message) {
+func OverQuorumVotes(msgs []message.Msg, quorum *big.Int) (overQuorumVotes []message.Msg) {
 	votingPower := new(big.Int)
 	counted := make(map[common.Address]struct{})
 	for _, v := range msgs {

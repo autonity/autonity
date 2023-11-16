@@ -91,7 +91,7 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	// submit a equivocation proofs.
 	proposal := newProposalMessage(height, round, -1, keys[proposer], committee, nil)
 	proposal2 := newProposalMessage(height, round, -1, keys[proposer], committee, nil)
-	var proofs []message.Message
+	var proofs []message.Msg
 	proofs = append(proofs, proposal2)
 
 	fd := &FaultDetector{
@@ -191,7 +191,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 
 	proposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
 	equivocatedProposal := newProposalMessage(height, round, -1, proposerKey, committee, nil)
-	var evidence []message.Message
+	var evidence []message.Msg
 	evidence = append(evidence, equivocatedProposal)
 
 	p := Proof{

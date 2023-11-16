@@ -1,17 +1,19 @@
 package core
 
 import (
+	"github.com/autonity/autonity/common"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/log"
-	"go.uber.org/mock/gomock"
-
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+	"math/big"
+	"math/rand"
+	"testing"
 )
 
 func TestGetLockedValueAndValidValue(t *testing.T) {
@@ -103,7 +105,7 @@ func TestGetCoreState(t *testing.T) {
 		prevBlock.Header())
 
 	var e = CoreStateRequestEvent{
-		StateChan: make(chan TendermintState),
+		StateChan: make(chan interfaces.CoreState),
 	}
 	go c.handleStateDump(e)
 	state := <-e.StateChan
@@ -147,7 +149,7 @@ func randomProposal(t *testing.T) *message.Propose {
 	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, key)
 }
 
-func checkRoundState(t *testing.T, s RoundState, wantRound int64, wantProposal *message.Propose, wantVerfied bool) {
+func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wantProposal *message.Propose, wantVerfied bool) {
 	require.Equal(t, wantProposal.Block().Hash(), s.Proposal)
 	require.Len(t, s.PrevoteState, 1)
 	require.Len(t, s.PrecommitState, 1)

@@ -104,7 +104,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 func handleConsensusMsg[T any, PT interface {
 	*T
-	message.Message
+	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
 	if !sb.coreStarted {
 		buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))

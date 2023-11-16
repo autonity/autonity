@@ -1,16 +1,11 @@
-package core
+package interfaces
 
 import (
-	"math/big"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
+	"math/big"
 )
-
-type CoreStateRequestEvent struct {
-	StateChan chan TendermintState
-}
 
 // VoteState save the prevote or precommit voting status for a specific value.
 type VoteState struct {
@@ -29,7 +24,7 @@ type RoundState struct {
 
 // MsgWithHash save the msg and extra field to be marshal to JSON.
 type MsgForDump struct {
-	message.Message
+	message.Msg
 	Hash   common.Hash
 	Power  *big.Int
 	Height *big.Int
@@ -37,7 +32,7 @@ type MsgForDump struct {
 }
 
 // TendermintState save an instant status for the tendermint consensus engine.
-type TendermintState struct {
+type CoreState struct {
 	// validator address
 	Client common.Address
 

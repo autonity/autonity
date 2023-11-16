@@ -15,14 +15,14 @@ var (
 )
 
 type typedMessage struct {
-	message.Message
+	message.Msg
 }
 
 func (t *typedMessage) EncodeRLP(w io.Writer) error {
-	if t.Message.Code() == message.ProposalCode {
+	if t.Msg.Code() == message.ProposalCode {
 		return errFullProposal
 	}
-	return rlp.Encode(w, []any{t.Code(), t.Message})
+	return rlp.Encode(w, []any{t.Code(), t.Msg})
 }
 
 func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
@@ -37,7 +37,7 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 		return errTypeMissing
 	}
 	// Note that a nil element is not accepted.
-	var p message.Message
+	var p message.Msg
 	switch b[0] {
 	case message.PrevoteCode:
 		p = &message.Prevote{}
@@ -51,7 +51,7 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 	if err := stream.Decode(p); err != nil {
 		return err
 	}
-	t.Message = p
+	t.Msg = p
 	return stream.ListEnd()
 }
 
@@ -59,8 +59,8 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 type Proof struct {
 	Type      autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
 	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.
-	Message   message.Message                  // the consensus message which is accountable.
-	Evidences []message.Message                // the proofs of the accountability event.
+	Message   message.Msg                      // the consensus message which is accountable.
+	Evidences []message.Msg                    // the proofs of the accountability event.
 }
 
 type encodedProof struct {
@@ -89,10 +89,10 @@ func (p *Proof) DecodeRLP(stream *rlp.Stream) error {
 	}
 	p.Type = encoded.Type
 	p.Rule = encoded.Rule
-	p.Message = encoded.Message.Message
-	p.Evidences = make([]message.Message, len(encoded.Evidences))
+	p.Message = encoded.Message.Msg
+	p.Evidences = make([]message.Msg, len(encoded.Evidences))
 	for i := range encoded.Evidences {
-		p.Evidences[i] = encoded.Evidences[i].Message
+		p.Evidences[i] = encoded.Evidences[i].Msg
 	}
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type isVote interface {
-	Message
+	Msg
 	Value() common.Hash
 }
 
@@ -44,10 +44,10 @@ func (s *Set[T]) AddVote(vote T) {
 	s.messages[sender] = vote
 }
 
-func (s *Set[T]) Messages() []Message {
+func (s *Set[T]) Messages() []Msg {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	result := make([]Message, len(s.messages))
+	result := make([]Msg, len(s.messages))
 	k := 0
 	for _, v := range s.messages {
 		result[k] = v

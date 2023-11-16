@@ -34,7 +34,7 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 		expectedProof := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PN,
-			Evidences: []message.Message{nonNilPrecommit0},
+			Evidences: []message.Msg{nonNilPrecommit0},
 			Message:   message.NewLightProposal(newProposal0),
 		}
 
@@ -83,14 +83,14 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 		expectedProof0 := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PN,
-			Evidences: []message.Message{nonNilPrecommit0},
+			Evidences: []message.Msg{nonNilPrecommit0},
 			Message:   newProposal0,
 		}
 
 		expectedProof1 := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PN,
-			Evidences: []message.Message{nonNilPrecommit0},
+			Evidences: []message.Msg{nonNilPrecommit0},
 			Message:   newProposal1,
 		}
 
@@ -139,17 +139,17 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 
 	nilPrecommit0 := message.NewPrecommit(0, height, nilValue, makeSigner(pi))
 
-	var quorumPrevotes0VPrime []message.Message
+	var quorumPrevotes0VPrime []message.Msg
 	for i := int64(0); i < quorum.Int64(); i++ {
 		quorumPrevotes0VPrime = append(quorumPrevotes0VPrime, message.NewPrevote(0, height, block1.Hash(), makeSigner(keys[committee[i].Address])))
 	}
 
-	var quorumPrevotes0V []message.Message
+	var quorumPrevotes0V []message.Msg
 	for i := int64(0); i < quorum.Int64(); i++ {
 		quorumPrevotes0V = append(quorumPrevotes0V, message.NewPrevote(0, height, block.Hash(), makeSigner(keys[committee[i].Address])))
 	}
 
-	var precommiteNilAfterVR []message.Message
+	var precommiteNilAfterVR []message.Msg
 	for i := 1; i < 3; i++ {
 		precommiteNilAfterVR = append(precommiteNilAfterVR, message.NewPrecommit(int64(i), height, nilValue, makeSigner(pi)))
 	}
@@ -162,7 +162,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		expectedProof := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PO,
-			Evidences: []message.Message{nonNilPrecommit0VPrime},
+			Evidences: []message.Msg{nonNilPrecommit0VPrime},
 			Message:   message.NewLightProposal(oldProposal0),
 		}
 
@@ -180,7 +180,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		expectedProof := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PO,
-			Evidences: []message.Message{nonNilPrecommit2VPrime},
+			Evidences: []message.Msg{nonNilPrecommit2VPrime},
 			Message:   message.NewLightProposal(oldProposal0),
 		}
 
@@ -198,7 +198,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		expectedProof := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PO,
-			Evidences: []message.Message{nonNilPrecommit1},
+			Evidences: []message.Msg{nonNilPrecommit1},
 			Message:   message.NewLightProposal(oldProposal0),
 		}
 
@@ -363,7 +363,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		expectedMisbehaviour := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PO,
-			Evidences: []message.Message{nonNilPrecommit0VPrime},
+			Evidences: []message.Msg{nonNilPrecommit0VPrime},
 			Message:   message.NewLightProposal(oldProposal0),
 		}
 
@@ -437,7 +437,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		expectedMisbehaviour := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PVN,
-			Evidences: []message.Message{message.NewLightProposal(newProposalForB), precommitForB1},
+			Evidences: []message.Msg{message.NewLightProposal(newProposalForB), precommitForB1},
 			Message:   prevoteForB,
 		}
 
@@ -456,7 +456,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		expectedMisbehaviour := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PVN,
-			Evidences: []message.Message{message.NewLightProposal(newProposalForB), precommitForB1},
+			Evidences: []message.Msg{message.NewLightProposal(newProposalForB), precommitForB1},
 			Message:   prevoteForB,
 		}
 
@@ -471,7 +471,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForB)
 		fd.msgStore.Save(precommitForB1In0)
 
-		var precommitNilsAfter0 []message.Message
+		var precommitNilsAfter0 []message.Msg
 		for i := 1; i < 5; i++ {
 			precommitNil := message.NewPrecommit(int64(i), height, nilValue, makeSigner(pi))
 			precommitNilsAfter0 = append(precommitNilsAfter0, precommitNil)
@@ -481,7 +481,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		expectedMisbehaviour := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PVN,
-			Evidences: []message.Message{precommitForB1In0},
+			Evidences: []message.Msg{precommitForB1In0},
 			Message:   prevoteForB,
 		}
 		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitNilsAfter0...)
@@ -504,7 +504,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(precommitForBIn0)
 		fd.msgStore.Save(precommitForB1In1)
 
-		var precommitNilsAfter1 []message.Message
+		var precommitNilsAfter1 []message.Msg
 		for i := 2; i < 5; i++ {
 			precommitNil := message.NewPrecommit(int64(i), height, nilValue, makeSigner(pi))
 			precommitNilsAfter1 = append(precommitNilsAfter1, precommitNil)
@@ -514,7 +514,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		expectedMisbehaviour := &Proof{
 			Type:      autonity.Misbehaviour,
 			Rule:      autonity.PVN,
-			Evidences: []message.Message{precommitForB1In1},
+			Evidences: []message.Msg{precommitForB1In1},
 			Message:   prevoteForB,
 		}
 		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitNilsAfter1...)
@@ -585,7 +585,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			Type:      autonity.Accusation,
 			Rule:      autonity.PVO,
 			Message:   prevoteForOldB10,
-			Evidences: []message.Message{message.NewLightProposal(oldProposalB10)},
+			Evidences: []message.Msg{message.NewLightProposal(oldProposalB10)},
 		}
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum)
@@ -603,7 +603,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalB1In5)
 		fd.msgStore.Save(prevoteForOldB10)
 		// quorum of prevotes for B1 in vr = 6
-		var vr5Prevotes []message.Message
+		var vr5Prevotes []message.Msg
 		for i := uint64(0); i < quorum.Uint64(); i++ {
 			vr6Prevote := message.NewPrevote(5, height, block1.Hash(), makeSigner(keys[committee[i].Address]))
 			vr5Prevotes = append(vr5Prevotes, vr6Prevote)
@@ -641,7 +641,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		for i := newProposalBIn5.R(); i < precommitForBIn7.R(); i++ {
 			fd.msgStore.Save(message.NewPrecommit(i, height, nilValue, makeSigner(pi)))
 		}
-		var precommitsFromPiAfterLatestPrecommitForB []message.Message
+		var precommitsFromPiAfterLatestPrecommitForB []message.Msg
 		fd.msgStore.Save(precommitForBIn7)
 
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForBIn7)
@@ -714,7 +714,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[committee[i].Address])))
 		}
 
-		var precommitsFromPiAfterVR []message.Message
+		var precommitsFromPiAfterVR []message.Msg
 		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
 			p := message.NewPrecommit(i, height, nilValue, makeSigner(pi))
 			fd.msgStore.Save(p)
@@ -869,7 +869,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(precommitForB)
 
-		var prevotesForB1 []message.Message
+		var prevotesForB1 []message.Msg
 		for i := int64(0); i < quorum.Int64(); i++ {
 			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[committee[i].Address]))
 			fd.msgStore.Save(p)
@@ -901,7 +901,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(precommitForB)
 
-		var prevotesForB1 []message.Message
+		var prevotesForB1 []message.Msg
 		for i := int64(0); i < quorum.Int64(); i++ {
 			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[committee[i].Address]))
 			fd.msgStore.Save(p)

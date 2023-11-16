@@ -8,12 +8,11 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/e2e_test"
-	"github.com/autonity/autonity/node"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-func newPreVoteSpammer(c interfaces.Tendermint) interfaces.Prevoter {
+func newPreVoteSpammer(c interfaces.Core) interfaces.Prevoter {
 	return &preVoteSpammer{c.(*core.Core), c.Prevoter()}
 }
 
@@ -22,7 +21,7 @@ type preVoteSpammer struct {
 	interfaces.Prevoter
 }
 
-func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
+func (c *preVoteSpammer) SendPrevote(_ context.Context, isNil bool) {
 	var prevote *message.Prevote
 	if isNil {
 		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
@@ -36,7 +35,7 @@ func (c *preVoteSpammer) SendPrevote(ctx context.Context, isNil bool) {
 	}
 
 	for i := 0; i < 1000; i++ {
-		c.BroadcastAll(ctx, prevote)
+		c.BroadcastAll(prevote)
 	}
 	c.SetSentPrevote(true)
 }
@@ -47,8 +46,8 @@ func TestPrevoteSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: newPreVoteSpammer}
-	users[1].TendermintServices = &node.TendermintServices{Prevoter: newPreVoteSpammer}
+	users[0].TendermintServices = &interfaces.Services{Prevoter: newPreVoteSpammer}
+	users[1].TendermintServices = &interfaces.Services{Prevoter: newPreVoteSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -64,11 +63,11 @@ type precommitSpammer struct {
 	interfaces.Precommiter
 }
 
-func newPrecommitSpammer(c interfaces.Tendermint) interfaces.Precommiter {
+func newPrecommitSpammer(c interfaces.Core) interfaces.Precommiter {
 	return &precommitSpammer{c.(*core.Core), c.Precommiter()}
 }
 
-func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
+func (c *precommitSpammer) SendPrecommit(_ context.Context, isNil bool) {
 	var precommit *message.Precommit
 	if isNil {
 		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
@@ -81,7 +80,7 @@ func (c *precommitSpammer) SendPrecommit(ctx context.Context, isNil bool) {
 		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), h, c.Backend().Sign)
 	}
 	for i := 0; i < 1000; i++ {
-		c.Broadcaster().Broadcast(ctx, precommit)
+		c.BroadcastAll(precommit)
 	}
 	c.SetSentPrecommit(true)
 }
@@ -92,7 +91,7 @@ func TestPrecommitSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Precommiter: newPrecommitSpammer}
+	users[0].TendermintServices = &interfaces.Services{Precommiter: newPrecommitSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -108,16 +107,16 @@ type proposalSpammer struct {
 	interfaces.Proposer
 }
 
-func newProposalSpammer(c interfaces.Tendermint) interfaces.Proposer {
+func newProposalSpammer(c interfaces.Core) interfaces.Proposer {
 	return &proposalSpammer{c.(*core.Core), c.Proposer()}
 }
 
-func (c *proposalSpammer) SendProposal(ctx context.Context, p *types.Block) {
+func (c *proposalSpammer) SendProposal(_ context.Context, p *types.Block) {
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 	for i := 0; i < 1000; i++ {
-		c.BroadcastAll(ctx, proposal)
+		c.BroadcastAll(proposal)
 	}
 }
 
@@ -127,7 +126,7 @@ func TestProposalSpammer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
-	users[0].TendermintServices = &node.TendermintServices{Proposer: newProposalSpammer}
+	users[0].TendermintServices = &interfaces.Services{Proposer: newProposalSpammer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)

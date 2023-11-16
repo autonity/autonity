@@ -156,7 +156,7 @@ func TestStoreBacklog(t *testing.T) {
 		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 		}
 
 		vote := message.NewPrevote(1, 2, common.Hash{}, dummySigner)
@@ -178,7 +178,7 @@ func TestStoreBacklog(t *testing.T) {
 		c := &Core{
 			logger:   log.New("backend", "test", "id", 0),
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 		}
 
 		msg := message.NewPropose(1, 2, 1, types.NewBlockWithHeader(&types.Header{}), dummySigner)
@@ -221,7 +221,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 			step:     Propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -271,7 +271,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 			step:     Propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -330,7 +330,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 			round:    1,
 			step:     Prevote,
 			height:   big.NewInt(1),
@@ -371,7 +371,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -399,7 +399,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 			round:    2,
 			height:   big.NewInt(3),
 		}
@@ -434,8 +434,8 @@ func TestProcessBacklog(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Message),
-			backlogUntrusted: map[uint64][]message.Message{},
+			backlogs:         make(map[common.Address][]message.Msg),
+			backlogUntrusted: map[uint64][]message.Msg{},
 			round:            2,
 			height:           big.NewInt(3),
 		}
@@ -476,7 +476,7 @@ func TestProcessBacklog(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 			step:     Prevote,
 			round:    1,
 			height:   big.NewInt(4),
@@ -503,13 +503,13 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Message),
-			backlogUntrusted: make(map[uint64][]message.Message),
+			backlogs:         make(map[common.Address][]message.Msg),
+			backlogUntrusted: make(map[uint64][]message.Msg),
 			step:             Prevote,
 			round:            1,
 			height:           big.NewInt(4),
 		}
-		var messages []message.Message
+		var messages []message.Msg
 		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
 			msg := message.NewPrevote(
 				i%10,
@@ -542,16 +542,16 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Message),
-			backlogUntrusted: make(map[uint64][]message.Message),
+			backlogs:         make(map[common.Address][]message.Msg),
+			backlogUntrusted: make(map[uint64][]message.Msg),
 			step:             Prevote,
 			round:            1,
 			height:           big.NewInt(4),
 		}
 
-		var messages []message.Message
+		var messages []message.Msg
 		uncheckedFounds := make(map[uint64]struct{})
-		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(msg message.Message) {
+		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(msg message.Msg) {
 			if _, ok := uncheckedFounds[msg.H()]; ok {
 				t.Fatal("duplicate message received")
 			}

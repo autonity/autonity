@@ -3,7 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
-	"go.uber.org/mock/gomock"
+	"errors"
 	"math/big"
 	"reflect"
 	"sync"
@@ -13,8 +13,10 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
+	"go.uber.org/mock/gomock"
 )
 
 func TestPrepare(t *testing.T) {
@@ -188,8 +190,8 @@ func TestVerifyHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
 	// success case
-	headers := []*types.Header{}
-	blocks := []*types.Block{}
+	var headers []*types.Header
+	var blocks []*types.Block
 	size := 100
 
 	var err error
@@ -225,7 +227,7 @@ OUT1:
 		case err := <-results:
 			if err != nil {
 				/*  The two following errors mean that the processing has gone right */
-				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
+				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
 					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
 					break OUT1
 				}
@@ -245,8 +247,8 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
 	// success case
-	headers := []*types.Header{}
-	blocks := []*types.Block{}
+	var headers []*types.Header
+	var blocks []*types.Block
 	size := 100
 
 	var err error
@@ -282,7 +284,7 @@ OUT2:
 		select {
 		case err := <-results:
 			if err != nil {
-				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
+				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
 					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
 					break OUT2
 				}
@@ -306,8 +308,8 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
 	// success case
-	headers := []*types.Header{}
-	blocks := []*types.Block{}
+	var headers []*types.Header
+	var blocks []*types.Block
 	size := 100
 
 	var err error
@@ -339,7 +341,7 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	_, results := engine.VerifyHeaders(chain, headers, nil)
 	timeout := time.NewTimer(timeoutDura)
 	index := 0
-	errors := 0
+	errorCount := 0
 	expectedErrors := 2
 
 OUT3:
@@ -347,13 +349,13 @@ OUT3:
 		select {
 		case err := <-results:
 			if err != nil {
-				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
-					errors++
+				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
+					errorCount++
 				}
 			}
 			index++
 			if index == size {
-				if errors != expectedErrors {
+				if errorCount != expectedErrors {
 					t.Errorf("error mismatch: have %v, want %v", err, expectedErrors)
 				}
 				break OUT3
@@ -415,7 +417,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -433,7 +435,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -455,7 +457,7 @@ func TestClose(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		tendermintC := NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -505,7 +507,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
-		tendermintC := NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
@@ -534,7 +536,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 
 		ctx := context.Background()
-		tendermintC := NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		chain, _ := newBlockChain(1)
 		b := &Backend{
@@ -557,7 +559,7 @@ func TestStart(t *testing.T) {
 		defer ctrl.Finish()
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
-		tendermintC := NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
 
 		b := &Backend{
@@ -607,7 +609,7 @@ func TestMultipleRestart(t *testing.T) {
 
 	times := 5
 	ctx := context.Background()
-	tendermintC := NewMockTendermint(ctrl)
+	tendermintC := interfaces.NewMockCore(ctrl)
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 	chain, _ := newBlockChain(1)

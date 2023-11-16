@@ -19,6 +19,7 @@ package consensus
 
 import (
 	"context"
+	ethereum "github.com/autonity/autonity"
 	"math/big"
 
 	"github.com/autonity/autonity/p2p"
@@ -28,6 +29,15 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
+)
+
+// Place consensus message codes in protocol to break dependency circle in between tendermint and fault detectors.
+
+// setting for Autonity accountability protocol, they are a part of consensus.
+const (
+	ReportingSlotPeriod       = 20  // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
+	DeltaBlocks               = 10  // Wait until the GST + delta blocks to start accounting.
+	AccountabilityHeightRange = 256 // Default msg buffer range for AFD.
 )
 
 // ChainHeaderReader defines a small collection of methods needed to access the local
@@ -165,4 +175,12 @@ type Syncer interface {
 	SyncPeer(address common.Address)
 
 	ResetPeerCache(address common.Address)
+}
+
+// Broadcaster defines the interface to enqueue blocks to fetcher and find peer
+type Broadcaster interface {
+	// Enqueue adds a block into fetcher queue
+	Enqueue(id string, block *types.Block)
+	// FindPeers retrieves connected peers by addresses
+	FindPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
 }

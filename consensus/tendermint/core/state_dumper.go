@@ -2,15 +2,20 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"math/big"
 )
 
-func (c *Core) CoreState() TendermintState {
+type CoreStateRequestEvent struct {
+	StateChan chan interfaces.CoreState
+}
+
+func (c *Core) CoreState() interfaces.CoreState {
 	// send state dump request.
 	var e = CoreStateRequestEvent{
-		StateChan: make(chan TendermintState),
+		StateChan: make(chan interfaces.CoreState),
 	}
 	go c.SendEvent(e)
 	return <-e.StateChan
@@ -18,7 +23,7 @@ func (c *Core) CoreState() TendermintState {
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
 func (c *Core) handleStateDump(e CoreStateRequestEvent) {
-	state := TendermintState{
+	state := interfaces.CoreState{
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,
 		CurHeightMessages: msgForDump(c.messages.All()),
@@ -60,8 +65,8 @@ func (c *Core) handleStateDump(e CoreStateRequestEvent) {
 	close(e.StateChan)
 }
 
-func getBacklogUncheckedMsgs(c *Core) []*MsgForDump {
-	result := make([]*MsgForDump, 0)
+func getBacklogUncheckedMsgs(c *Core) []*interfaces.MsgForDump {
+	result := make([]*interfaces.MsgForDump, 0)
 	for _, ms := range c.backlogUntrusted {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -72,8 +77,8 @@ func getBacklogUncheckedMsgs(c *Core) []*MsgForDump {
 // getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
-func getBacklogMsgs(c *Core) []*MsgForDump {
-	result := make([]*MsgForDump, 0)
+func getBacklogMsgs(c *Core) []*interfaces.MsgForDump {
+	result := make([]*interfaces.MsgForDump, 0)
 	for _, ms := range c.backlogs {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -81,11 +86,11 @@ func getBacklogMsgs(c *Core) []*MsgForDump {
 	return result
 }
 
-func msgForDump(messages []message.Message) []*MsgForDump {
-	result := make([]*MsgForDump, 0, len(messages))
+func msgForDump(messages []message.Msg) []*interfaces.MsgForDump {
+	result := make([]*interfaces.MsgForDump, 0, len(messages))
 	for _, m := range messages {
-		msg := new(MsgForDump)
-		msg.Message = m
+		msg := new(interfaces.MsgForDump)
+		msg.Msg = m
 		msg.Power = m.Power()
 		msg.Hash = m.Hash()
 
@@ -115,13 +120,13 @@ func getHash(b *types.Block) *common.Hash {
 	return nil
 }
 
-func getRoundState(c *Core) []RoundState {
+func getRoundState(c *Core) []interfaces.RoundState {
 	rounds := c.messages.GetRounds()
-	states := make([]RoundState, 0, len(rounds))
+	states := make([]interfaces.RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
 		proposal, prevoteState, preCommitState := getVoteState(c.messages, r)
-		state := RoundState{
+		state := interfaces.RoundState{
 			Round:          r,
 			Proposal:       proposal,
 			PrevoteState:   prevoteState,
@@ -132,7 +137,7 @@ func getRoundState(c *Core) []RoundState {
 	return states
 }
 
-func blockHashes[T interface{ Value() common.Hash }](messages []message.Message) []common.Hash {
+func blockHashes[T interface{ Value() common.Hash }](messages []message.Msg) []common.Hash {
 	blockHashes := make([]common.Hash, 0, len(messages))
 	for _, m := range messages {
 		blockHashes = append(blockHashes, m.(T).Value())
@@ -140,7 +145,7 @@ func blockHashes[T interface{ Value() common.Hash }](messages []message.Message)
 	return blockHashes
 }
 
-func getVoteState(s *message.Map, round int64) (common.Hash, []VoteState, []VoteState) {
+func getVoteState(s *message.Map, round int64) (common.Hash, []interfaces.VoteState, []interfaces.VoteState) {
 	p := common.Hash{}
 	messages := s.GetOrCreate(round)
 	if proposal := messages.Proposal(); proposal != nil {
@@ -149,11 +154,11 @@ func getVoteState(s *message.Map, round int64) (common.Hash, []VoteState, []Vote
 
 	preVoteValues := blockHashes[*message.Prevote](messages.AllPrevotes())
 	preCommitValues := blockHashes[*message.Precommit](messages.AllPrecommits())
-	prevoteState := make([]VoteState, 0, len(preVoteValues))
-	precommitState := make([]VoteState, 0, len(preCommitValues))
+	prevoteState := make([]interfaces.VoteState, 0, len(preVoteValues))
+	precommitState := make([]interfaces.VoteState, 0, len(preCommitValues))
 
 	for _, v := range preVoteValues {
-		var s = VoteState{
+		var s = interfaces.VoteState{
 			Value:            v,
 			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
 			VotePower:        s.GetOrCreate(round).PrevotesPower(v),
@@ -162,7 +167,7 @@ func getVoteState(s *message.Map, round int64) (common.Hash, []VoteState, []Vote
 	}
 
 	for _, v := range preCommitValues {
-		var s = VoteState{
+		var s = interfaces.VoteState{
 			Value:            v,
 			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
 			VotePower:        s.GetOrCreate(round).PrecommitsPower(v),

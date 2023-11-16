@@ -5,15 +5,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	ethereum "github.com/autonity/autonity"
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/consensus/misc"
-	"github.com/autonity/autonity/consensus/tendermint"
-	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/event"
-	"github.com/autonity/autonity/p2p/enode"
-	"go.uber.org/mock/gomock"
 	"math"
 	"math/big"
 	"os"
@@ -22,17 +13,27 @@ import (
 	"testing"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
-
+	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint"
+	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var (
@@ -71,7 +72,7 @@ func TestAskSync(t *testing.T) {
 	for _, val := range validators {
 		addresses = append(addresses, val.Address)
 		mockedPeer := tendermint.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(uint64(SyncNetworkMsg), gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -82,6 +83,8 @@ func TestAskSync(t *testing.T) {
 		m[p] = struct{}{}
 	}
 	knownMessages, err := lru.NewARC(inmemoryMessages)
+	require.NoError(t, err)
+	recentMessages, err := lru.NewARC(inmemoryMessages)
 	require.NoError(t, err)
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
@@ -151,7 +154,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(validators, payload)
+	b.Gossip(validators, msg)
 	<-time.NewTimer(2 * time.Second).C
 	if c := atomic.LoadUint64(&counter); c != 4 {
 		t.Fatal("Gossip message transmission failure", "have", c, "want", 4)
@@ -379,7 +382,7 @@ func TestSyncPeer(t *testing.T) {
 		defer ctrl.Finish()
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []message.Message{
+		messages := []message.Msg{
 			message.NewPrevote(7, 8, common.HexToHash("0x1227"), dummySigner),
 		}
 
@@ -402,7 +405,7 @@ func TestSyncPeer(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
-		tendermintC := NewMockTendermint(ctrl)
+		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
 
 		gossiper := interfaces.NewMockGossiper(ctrl)

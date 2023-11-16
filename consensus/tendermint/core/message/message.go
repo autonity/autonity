@@ -15,9 +15,8 @@ import (
 )
 
 var (
-	ErrMsgPayloadNotDecoded = errors.New("payload not decoded")
-	ErrBadSignature         = errors.New("bad signature")
-	ErrUnauthorizedAddress  = errors.New("unauthorized address")
+	ErrBadSignature        = errors.New("bad signature")
+	ErrUnauthorizedAddress = errors.New("unauthorized address")
 )
 
 const (
@@ -31,7 +30,7 @@ const (
 
 type Signer func(hash common.Hash) (sig []byte, err error)
 
-type Message interface {
+type Msg interface {
 	R() int64
 	H() uint64
 	Code() uint8
@@ -46,7 +45,7 @@ type Message interface {
 	Validate(func(address common.Address) *types.CommitteeMember) error
 }
 
-type baseMessage struct {
+type base struct {
 	// attributes are left private to avoid direct modification
 	round     int64
 	height    uint64
@@ -62,7 +61,7 @@ type baseMessage struct {
 type Propose struct {
 	block      *types.Block
 	validRound int64
-	baseMessage
+	base
 }
 
 // extPropose is the actual proposal object being exchanged on the network
@@ -124,7 +123,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func(has
 	return &Propose{
 		block:      block,
 		validRound: vr,
-		baseMessage: baseMessage{
+		base: base{
 			round:          r,
 			height:         h,
 			signatureInput: signatureInput,
@@ -170,7 +169,7 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 type LightProposal struct {
 	blockHash  common.Hash
 	validRound int64
-	baseMessage
+	base
 }
 type extLightProposal struct {
 	Code            uint8
@@ -218,7 +217,7 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 	return &LightProposal{
 		blockHash:  proposal.hash,
 		validRound: proposal.validRound,
-		baseMessage: baseMessage{
+		base: base{
 			round:     proposal.round,
 			height:    proposal.height,
 			signature: proposal.signature,
@@ -279,7 +278,7 @@ type extVote struct {
 
 type Prevote struct {
 	value common.Hash
-	baseMessage
+	base
 }
 
 func (p *Prevote) Code() uint8 {
@@ -297,7 +296,7 @@ func (p *Prevote) String() string {
 
 type Precommit struct {
 	value common.Hash
-	baseMessage
+	base
 }
 
 func (p *Precommit) Code() uint8 {
@@ -317,7 +316,7 @@ func newVote[
 	E Prevote | Precommit,
 	PE interface {
 		*E
-		Message
+		Msg
 	}](r int64, h uint64, value common.Hash, signer func(hash common.Hash) ([]byte, error)) *E {
 	code := PE(new(E)).Code()
 	// Pay attention that we're adding the message Code to the signature input data.
@@ -333,7 +332,7 @@ func newVote[
 	})
 	vote := E{
 		value: value,
-		baseMessage: baseMessage{
+		base: base{
 			round:          r,
 			height:         h,
 			signature:      signature,
@@ -405,7 +404,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 
 func FromWire[T any, PT interface {
 	*T
-	Message
+	Msg
 }](p2pMsg p2p.Msg) (PT, error) {
 	message := PT(new(T))
 	if err := p2pMsg.Decode(message); err != nil {
@@ -422,49 +421,49 @@ func FromWire[T any, PT interface {
 	return message, nil
 }
 
-func (b *baseMessage) Sender() common.Address {
+func (b *base) Sender() common.Address {
 	if b.sender == (common.Address{}) {
 		panic("sender is not set")
 	}
 	return b.sender
 }
 
-func (b *baseMessage) H() uint64 {
+func (b *base) H() uint64 {
 	return b.height
 }
 
-func (b *baseMessage) setPayload(payload []byte) {
+func (b *base) setPayload(payload []byte) {
 	b.payload = payload
 	b.hash = crypto.Hash(payload)
 }
 
-func (b *baseMessage) EncodeRLP(w io.Writer) error {
+func (b *base) EncodeRLP(w io.Writer) error {
 	_, err := w.Write(b.payload)
 	return err
 }
 
-func (b *baseMessage) R() int64 {
+func (b *base) R() int64 {
 	return b.round
 }
 
-func (b *baseMessage) Power() *big.Int {
+func (b *base) Power() *big.Int {
 	return b.power
 }
 
-func (b *baseMessage) Signature() []byte {
+func (b *base) Signature() []byte {
 	return b.signature
 }
 
-func (b *baseMessage) Payload() []byte {
+func (b *base) Payload() []byte {
 	return b.payload
 }
 
-func (b *baseMessage) Hash() common.Hash {
+func (b *base) Hash() common.Hash {
 	return b.hash
 }
 
 // Validate verify the signature and set appropriate sender / power fields
-func (b *baseMessage) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
+func (b *base) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
 	// We are not saving the rlp encoded signature input data as we want
 	// to avoid this extra-serialization step if the message has already been received
 	// The call to Validate() only happen after the cache check in the backend handler.
@@ -519,7 +518,7 @@ func (f Fake) Validate(_ func(_ common.Address) *types.CommitteeMember) error { 
 func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{
 		value: f.FakeValue,
-		baseMessage: baseMessage{
+		base: base{
 			round:     f.FakeRound,
 			height:    f.FakeHeight,
 			signature: f.FakeSignature,
@@ -534,7 +533,7 @@ func NewFakePrevote(f Fake) *Prevote {
 func NewFakePrecommit(f Fake) *Precommit {
 	return &Precommit{
 		value: f.FakeValue,
-		baseMessage: baseMessage{
+		base: base{
 			round:     f.FakeRound,
 			height:    f.FakeHeight,
 			signature: f.FakeSignature,

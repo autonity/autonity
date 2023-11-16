@@ -73,24 +73,24 @@ func (c *Core) unsubscribeEvents() {
 }
 
 func shouldDisconnectSender(err error) bool {
-	switch err {
-	case constants.ErrFutureHeightMessage:
+	switch {
+	case errors.Is(err, constants.ErrFutureHeightMessage):
 		fallthrough
-	case constants.ErrOldHeightMessage:
+	case errors.Is(err, constants.ErrOldHeightMessage):
 		fallthrough
-	case constants.ErrOldRoundMessage:
+	case errors.Is(err, constants.ErrOldRoundMessage):
 		fallthrough
-	case constants.ErrFutureRoundMessage:
+	case errors.Is(err, constants.ErrFutureRoundMessage):
 		fallthrough
-	case constants.ErrFutureStepMessage:
+	case errors.Is(err, constants.ErrFutureStepMessage):
 		fallthrough
-	case constants.ErrNilPrevoteSent:
+	case errors.Is(err, constants.ErrNilPrevoteSent):
 		fallthrough
-	case constants.ErrNilPrecommitSent:
+	case errors.Is(err, constants.ErrNilPrecommitSent):
 		fallthrough
-	case constants.ErrMovedToNewRound:
+	case errors.Is(err, constants.ErrMovedToNewRound):
 		return false
-	case ErrValidatorJailed:
+	case errors.Is(err, ErrValidatorJailed):
 		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
 		// really assume that all the other committee members have the same view on the
 		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
@@ -143,7 +143,7 @@ eventLoop:
 					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(ctx, c.CommitteeSet().Committee(), e.msg)
+				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
 			case CoreStateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -208,7 +208,8 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.logger.Warn("⚠️ Consensus liveliness lost, broadcasting sync request..")
+				c.logger.Warn("⚠️ Consensus liveliness lost")
+				c.logger.Warn("Broadcasting sync request..")
 				c.backend.AskSync(c.LastHeader())
 			}
 			round = currentRound
@@ -237,7 +238,7 @@ func (c *Core) SendEvent(ev any) {
 }
 
 // handleMsg assume msg has already been decoded
-func (c *Core) handleMsg(ctx context.Context, msg message.Message) error {
+func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	msgHeight := new(big.Int).SetUint64(msg.H())
 	if msgHeight.Cmp(c.Height()) > 0 {
 		// Future height message. Skip processing and put it in the untrusted backlog buffer.
@@ -260,7 +261,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Message) error {
 	return c.handleValidMsg(ctx, msg)
 }
 
-func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Message, sender common.Address) {
+func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Msg, sender common.Address) {
 	// Decoding functions can't fail here
 	msgRound := msg.R()
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
@@ -279,7 +280,7 @@ func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Message, se
 	}
 }
 
-func (c *Core) handleValidMsg(ctx context.Context, msg message.Message) error {
+func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 	logger := c.logger.New("address", c.address, "from", msg.Sender())
 
 	// Store the message if it's a future message

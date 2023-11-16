@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"math/big"
 	"time"
 
@@ -51,17 +52,15 @@ func (g *Gossiper) Address() common.Address {
 	return g.address
 }
 
-func (g *Gossiper) Gossip(committee types.Committee, payload []byte) {
-	hash := types.RLPHash(payload)
+func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
+	hash := message.Hash()
 	g.knownMessages.Add(hash, true)
-
 	targets := make(map[common.Address]struct{})
 	for _, val := range committee {
 		if val.Address != g.address {
 			targets[val.Address] = struct{}{}
 		}
 	}
-
 	if g.broadcaster != nil && len(targets) > 0 {
 		ps := g.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
@@ -80,13 +79,12 @@ func (g *Gossiper) Gossip(committee types.Committee, payload []byte) {
 			m.Add(hash, true)
 			g.recentMessages.Add(addr, m)
 
-			go p.Send(TendermintMsg, payload) //nolint
+			go p.SendRaw(networkCodes[message.Code()], message.Payload()) //nolint
 		}
 	}
 }
 
 func (g *Gossiper) AskSync(header *types.Header) {
-	g.logger.Info("Consensus liveness lost, broadcasting sync request..")
 
 	targets := make(map[common.Address]struct{})
 	for _, val := range header.Committee {
@@ -116,7 +114,7 @@ func (g *Gossiper) AskSync(header *types.Header) {
 					break
 				}
 				g.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncMsg, []byte{}) //nolint
+				go p.Send(SyncNetworkMsg, []byte{}) //nolint
 
 				member := header.CommitteeMember(addr)
 				if member == nil {

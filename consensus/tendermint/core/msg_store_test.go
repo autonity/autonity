@@ -22,7 +22,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := NewMsgStore()
-		proposals := ms.Get(height, func(m message.Message) bool {
+		proposals := ms.Get(height, func(m message.Msg) bool {
 			return m.Code() == message.ProposalCode
 		})
 		assert.Equal(t, 0, len(proposals))
@@ -36,7 +36,7 @@ func TestMsgStore(t *testing.T) {
 		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey))
 		ms.Save(preVoteNoneNil)
 		// check equivocated msg is also stored at msg store.
-		votes := ms.Get(height, func(m message.Message) bool {
+		votes := ms.Get(height, func(m message.Msg) bool {
 			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Sender() == addrAlice
 		})
 		assert.Equal(t, 2, len(votes))
@@ -47,7 +47,7 @@ func TestMsgStore(t *testing.T) {
 		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey))
 		ms.Save(preVote)
 
-		votes := ms.Get(height, func(m message.Message) bool {
+		votes := ms.Get(height, func(m message.Msg) bool {
 			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
 				m.Value() == NilValue
 		})
@@ -68,7 +68,7 @@ func TestMsgStore(t *testing.T) {
 		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob))
 		ms.Save(preVoteNoneNil)
 
-		votes := ms.Get(height, func(m message.Message) bool {
+		votes := ms.Get(height, func(m message.Msg) bool {
 			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round
 		})
 
@@ -88,7 +88,7 @@ func TestMsgStore(t *testing.T) {
 		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob))
 		ms.Save(preVoteNoneNil)
 		ms.DeleteOlds(height)
-		votes := ms.Get(height, func(m message.Message) bool {
+		votes := ms.Get(height, func(m message.Msg) bool {
 			return m.H() == height
 		})
 		assert.Equal(t, 0, len(votes))

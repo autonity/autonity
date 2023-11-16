@@ -70,7 +70,7 @@ func TestOverQuorumVotes(t *testing.T) {
 		height := uint64(1)
 		round := int64(0)
 		notNilValue := common.Hash{0x1}
-		var preVotes []message.Message
+		var preVotes []message.Msg
 		for i := 0; i < len(committee); i++ {
 			preVote := message.NewFakePrevote(message.Fake{
 				FakeSender: committee[i].Address,
@@ -91,14 +91,20 @@ func TestOverQuorumVotes(t *testing.T) {
 
 	t.Run("with less quorum votes, it returns no votes", func(t *testing.T) {
 		seats := 10
-		committee, keys := GenerateCommittee(seats)
+		committee, _ := GenerateCommittee(seats)
 		quorum := bft.Quorum(new(big.Int).SetInt64(int64(seats)))
 		height := uint64(1)
 		round := int64(0)
 		noneNilValue := common.Hash{0x1}
-		var preVotes []message.Message
+		var preVotes []message.Msg
 		for i := 0; i < int(quorum.Uint64()-1); i++ {
-			preVote := message.NewPrevote(round, height, noneNilValue, makeSigner(keys[committee[i].Address]))
+			preVote := message.NewFakePrevote(message.Fake{
+				FakeRound:  round,
+				FakeHeight: height,
+				FakeValue:  noneNilValue,
+				FakeSender: committee[i].Address,
+				FakePower:  common.Big1,
+			})
 			preVotes = append(preVotes, preVote)
 		}
 

@@ -65,7 +65,7 @@ func TestSendPrecommit(t *testing.T) {
 
 		preCommit := message.NewPrecommit(1, 2, curRoundMessages.ProposalHash(), makeSigner(keys[addr]))
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), preCommit)
+		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
 
 		c := &Core{
 			backend:          backendMock,
@@ -103,7 +103,7 @@ func TestSendPrecommit(t *testing.T) {
 
 		preCommit := message.NewPrecommit(1, 2, common.Hash{}, makeSigner(keys[addr]))
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), preCommit)
+		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
 
 		c := &Core{
 			backend:          backendMock,

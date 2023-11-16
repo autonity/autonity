@@ -25,7 +25,7 @@ func TestSendPrevote(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(2)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		committeeSet := NewTestCommitteeSet(4)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 		backendMock.EXPECT().Sign(gomock.Any()).Times(1)
 		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),

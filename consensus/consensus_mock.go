@@ -13,6 +13,7 @@ import (
 	big "math/big"
 	reflect "reflect"
 
+	ethereum "github.com/autonity/autonity"
 	common "github.com/autonity/autonity/common"
 	state "github.com/autonity/autonity/core/state"
 	types "github.com/autonity/autonity/core/types"
@@ -1018,4 +1019,53 @@ func (m *MockSyncer) SyncPeer(address common.Address) {
 func (mr *MockSyncerMockRecorder) SyncPeer(address any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockSyncer)(nil).SyncPeer), address)
+}
+
+// MockBroadcaster is a mock of Broadcaster interface.
+type MockBroadcaster struct {
+	ctrl     *gomock.Controller
+	recorder *MockBroadcasterMockRecorder
+}
+
+// MockBroadcasterMockRecorder is the mock recorder for MockBroadcaster.
+type MockBroadcasterMockRecorder struct {
+	mock *MockBroadcaster
+}
+
+// NewMockBroadcaster creates a new mock instance.
+func NewMockBroadcaster(ctrl *gomock.Controller) *MockBroadcaster {
+	mock := &MockBroadcaster{ctrl: ctrl}
+	mock.recorder = &MockBroadcasterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockBroadcaster) EXPECT() *MockBroadcasterMockRecorder {
+	return m.recorder
+}
+
+// Enqueue mocks base method.
+func (m *MockBroadcaster) Enqueue(id string, block *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Enqueue", id, block)
+}
+
+// Enqueue indicates an expected call of Enqueue.
+func (mr *MockBroadcasterMockRecorder) Enqueue(id, block any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockBroadcaster)(nil).Enqueue), id, block)
+}
+
+// FindPeers mocks base method.
+func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindPeers", arg0)
+	ret0, _ := ret[0].(map[common.Address]ethereum.Peer)
+	return ret0
+}
+
+// FindPeers indicates an expected call of FindPeers.
+func (mr *MockBroadcasterMockRecorder) FindPeers(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindPeers", reflect.TypeOf((*MockBroadcaster)(nil).FindPeers), arg0)
 }

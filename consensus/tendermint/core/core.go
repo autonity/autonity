@@ -18,7 +18,7 @@ import (
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *node.TendermintServices) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
@@ -26,8 +26,8 @@ func New(backend interfaces.Backend, services *node.TendermintServices) *Core {
 		address:                backend.Address(),
 		logger:                 backend.Logger(),
 		backend:                backend,
-		backlogs:               make(map[common.Address][]message.Message),
-		backlogUntrusted:       make(map[uint64][]message.Message),
+		backlogs:               make(map[common.Address][]message.Msg),
+		backlogUntrusted:       make(map[uint64][]message.Msg),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -76,8 +76,8 @@ type Core struct {
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
-	backlogs             map[common.Address][]message.Message
-	backlogUntrusted     map[uint64][]message.Message
+	backlogs             map[common.Address][]message.Msg
+	backlogUntrusted     map[uint64][]message.Msg
 	backlogUntrustedSize int
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
@@ -483,7 +483,7 @@ func (c *Core) LastHeader() *types.Header {
 	return c.lastHeader
 }
 
-func (c *Core) CurrentHeightMessages() []message.Message {
+func (c *Core) CurrentHeightMessages() []message.Msg {
 	return c.messages.All()
 }
 
@@ -502,15 +502,15 @@ func (c *Core) IsProposer() bool {
 	return c.CommitteeSet().GetProposer(c.Round()).Address == c.address
 }
 
-func (c *Core) BroadcastAll(ctx context.Context, msg message.Message) {
-	c.Backend().Broadcast(ctx, c.CommitteeSet().Committee(), msg)
+func (c *Core) BroadcastAll(msg message.Msg) {
+	c.Backend().Broadcast(c.CommitteeSet().Committee(), msg)
 }
 
 type Broadcaster struct {
 	*Core
 }
 
-func (s *Broadcaster) Broadcast(msg message.Message) {
+func (s *Broadcaster) Broadcast(msg message.Msg) {
 	logger := s.Logger().New("step", s.Step())
 	logger.Debug("Broadcasting", "message", msg.String())
 	s.BroadcastAll(msg)

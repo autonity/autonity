@@ -29,7 +29,7 @@ type NewCandidateBlockEvent struct {
 
 // MessageEvent is posted for Istanbul engine communication
 type MessageEvent struct {
-	Message message.Message
+	Message message.Msg
 	ErrCh   chan<- error //error channel
 }
 

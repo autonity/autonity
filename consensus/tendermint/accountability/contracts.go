@@ -746,7 +746,7 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
 }
 
-func hasEquivocatedVotes(votes []message.Message) bool {
+func hasEquivocatedVotes(votes []message.Msg) bool {
 	voteMap := make(map[common.Address]struct{})
 	for _, vote := range votes {
 		_, ok := voteMap[vote.Sender()]
@@ -770,7 +770,7 @@ func decodeRawProof(b []byte) (*Proof, error) {
 }
 
 // checkMsgSignature checks if the consensus message is from valid member of the committee.
-func checkMsgSignature(chain ChainContext, m message.Message) error {
+func checkMsgSignature(chain ChainContext, m message.Msg) error {
 	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
 	if lastHeader == nil {
 		return errFutureMsg
@@ -781,7 +781,7 @@ func checkMsgSignature(chain ChainContext, m message.Message) error {
 	return nil
 }
 
-func checkEquivocation(m message.Message, proof []message.Message) error {
+func checkEquivocation(m message.Msg, proof []message.Msg) error {
 	if len(proof) == 0 {
 		return fmt.Errorf("no proof")
 	}
@@ -792,7 +792,7 @@ func checkEquivocation(m message.Message, proof []message.Message) error {
 	return nil
 }
 
-func validReturn(m message.Message, rule autonity.Rule) []byte {
+func validReturn(m message.Msg, rule autonity.Rule) []byte {
 	offender := common.LeftPadBytes(m.Sender().Bytes(), 32)
 	ruleID := common.LeftPadBytes([]byte{byte(rule)}, 32)
 	block := make([]byte, 32)

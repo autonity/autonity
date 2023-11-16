@@ -2,11 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	tcmessage "github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"go.uber.org/mock/gomock"
 
 	"math/big"
@@ -20,7 +15,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
-	"go.uber.org/mock/gomock"
 )
 
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {
@@ -101,7 +95,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1).Do(
-			func(ctx context.Context, c types.Committee, msg message.Message) {
+			func(ctx context.Context, c types.Committee, msg message.Msg) {
 				if msg.Code() != message.PrecommitCode {
 					t.Fatalf("unexpected message code, should be precommit")
 				}

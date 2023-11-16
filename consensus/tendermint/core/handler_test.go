@@ -2,18 +2,20 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus"
+	"errors"
+	"math/big"
+	"testing"
+
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
-	"github.com/influxdata/influxdb/pkg/deep"
-	"go.uber.org/mock/gomock"
-
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/influxdata/influxdb/pkg/deep"
+	"go.uber.org/mock/gomock"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
@@ -23,11 +25,11 @@ func TestHandleCheckedMessage(t *testing.T) {
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
 
-	createPrevote := func(round int64, height int64) message.Message {
+	createPrevote := func(round int64, height int64) message.Msg {
 		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey))
 	}
 
-	createPrecommit := func(round int64, height int64) message.Message {
+	createPrecommit := func(round int64, height int64) message.Msg {
 		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey))
 	}
 
@@ -35,7 +37,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		round   int64
 		height  *big.Int
 		step    Step
-		message message.Message
+		message message.Msg
 		outcome error
 		panic   bool
 	}{
@@ -103,7 +105,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 		engine := Core{
 			logger:            logger,
 			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]message.Message),
+			backlogs:          make(map[common.Address][]message.Msg),
 			round:             testCase.round,
 			height:            testCase.height,
 			step:              testCase.step,
@@ -154,7 +156,7 @@ func TestHandleMsg(t *testing.T) {
 			logger:   log.New("backend", "test", "id", 0),
 			backend:  backendMock,
 			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Message),
+			backlogs: make(map[common.Address][]message.Msg),
 			step:     Propose,
 			round:    1,
 			height:   big.NewInt(2),
@@ -175,8 +177,8 @@ func TestHandleMsg(t *testing.T) {
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Message),
-			backlogUntrusted: map[uint64][]message.Message{},
+			backlogs:         make(map[common.Address][]message.Msg),
+			backlogUntrusted: map[uint64][]message.Msg{},
 			step:             Propose,
 			round:            1,
 			height:           big.NewInt(2),

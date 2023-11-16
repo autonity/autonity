@@ -1,12 +1,10 @@
 package backend
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"errors"
-	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"math/big"
 	"sync"
 	"time"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
@@ -23,7 +20,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/node"
 	lru "github.com/hashicorp/golang-lru"
 	ring "github.com/zfjagann/golang-ring"
 )
@@ -38,24 +34,14 @@ const (
 )
 
 var (
-	// ErrUnauthorizedAddress is returned when given address cannot be found in
-	// current validator set.
-	ErrUnauthorizedAddress = errors.New("unauthorized address")
 	// ErrStoppedEngine is returned if the engine is stopped
 	ErrStoppedEngine = errors.New("stopped engine")
 )
 
-type Core interface {
-	Start(ctx context.Context, contract *autonity.ProtocolContracts)
-	Stop()
-	CurrentHeightMessages() []message.Message
-	CoreState() tendermintCore.TendermintState
-}
-
 // New creates an Ethereum Backend for BFT core engine.
 func New(privateKey *ecdsa.PrivateKey,
 	vmConfig *vm.Config,
-	services *node.TendermintServices,
+	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
 	log log.Logger) *Backend {
@@ -102,7 +88,7 @@ type Backend struct {
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
 	coreStarted       bool
-	core              Core
+	core              interfaces.Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup
 	coreMu            sync.RWMutex
@@ -137,9 +123,9 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(committee types.Committee, message message.Message) {
+func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	// send to others
-	sb.Gossip(ctx, committee, message)
+	sb.Gossip(committee, message)
 	// send to self
 	go sb.Post(events.MessageEvent{
 		Message: message,
@@ -151,8 +137,8 @@ func (sb *Backend) AskSync(header *types.Header) {
 }
 
 // Gossip implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(committee types.Committee, payload []byte) {
-	sb.gossiper.Gossip(committee, payload)
+func (sb *Backend) Gossip(committee types.Committee, msg message.Msg) {
+	sb.gossiper.Gossip(committee, msg)
 }
 
 // KnownMsgHash dumps the known messages in case of gossiping.
@@ -334,7 +320,7 @@ func (sb *Backend) GetContractABI() *abi.ABI {
 	return sb.blockchain.ProtocolContracts().ABI()
 }
 
-func (sb *Backend) CoreState() tendermintCore.TendermintState {
+func (sb *Backend) CoreState() interfaces.CoreState {
 	return sb.core.CoreState()
 }
 
@@ -381,6 +367,6 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 	}
 }
 
-func (sb *Backend) RemoveMessageFromLocalCache(message message.Message) {
+func (sb *Backend) RemoveMessageFromLocalCache(message message.Msg) {
 	sb.knownMessages.Remove(message.Hash())
 }

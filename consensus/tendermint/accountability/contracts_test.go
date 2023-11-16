@@ -1138,7 +1138,7 @@ func TestCheckEquivocation(t *testing.T) {
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 		vote1 := message.NewPrevote(round, height, proposal.Value(), makeSigner(keys[committee[0].Address]))
 		vote2 := message.NewPrevote(round, height, nilValue, makeSigner(keys[committee[0].Address]))
-		var proofs []message.Message
+		var proofs []message.Msg
 		proofs = append(proofs, vote2)
 		require.Equal(t, errEquivocation, checkEquivocation(vote1, proofs))
 	})
@@ -1146,7 +1146,7 @@ func TestCheckEquivocation(t *testing.T) {
 	t.Run("check equivocation with invalid Proof of equivocation", func(t *testing.T) {
 		proposal := newProposalMessage(height, round, -1, keys[committee[0].Address], committee, nil)
 		vote1 := message.NewPrevote(round, height, proposal.Value(), makeSigner(keys[committee[0].Address]))
-		var proofs []message.Message
+		var proofs []message.Msg
 		proofs = append(proofs, vote1)
 		require.Nil(t, checkEquivocation(vote1, proofs))
 	})

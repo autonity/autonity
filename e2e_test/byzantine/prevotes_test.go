@@ -6,12 +6,11 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/e2e_test"
-	"github.com/autonity/autonity/node"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-func newMalPrevoter(c interfaces.Tendermint) interfaces.Prevoter {
+func newMalPrevoter(c interfaces.Core) interfaces.Prevoter {
 	return &malPrevoter{c.(*core.Core), c.Prevoter()}
 }
 
@@ -39,7 +38,7 @@ func TestMaliciousPrevoter(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: newMalPrevoter}
+	users[0].TendermintServices = &interfaces.Services{Prevoter: newMalPrevoter}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)

@@ -1,13 +1,14 @@
 package message
 
 import (
+	"github.com/autonity/autonity/crypto"
 	"testing"
 
 	"github.com/autonity/autonity/common"
 )
 
-func stubSigner(_ common.Hash) ([]byte, error) {
-	return make([]byte, 65), nil
+func stubSigner(h common.Hash) ([]byte, error) {
+	return crypto.Sign(h)
 }
 
 func TestMessageSetAddVote(t *testing.T) {

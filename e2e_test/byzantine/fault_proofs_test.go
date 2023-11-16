@@ -14,11 +14,10 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/e2e_test"
-	"github.com/autonity/autonity/node"
 	"github.com/stretchr/testify/require"
 )
 
-func runTest(t *testing.T, services *node.TendermintServices, eventType autonity.AccountabilityEventType, rule autonity.Rule, period uint64) {
+func runTest(t *testing.T, services *interfaces.Services, eventType autonity.AccountabilityEventType, rule autonity.Rule, period uint64) {
 
 	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
@@ -42,7 +41,7 @@ func runTest(t *testing.T, services *node.TendermintServices, eventType autonity
 	require.Equal(t, true, detected)
 }
 
-func newPNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+func newPNBroadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &PN{c.(*core.Core), false}
 }
 
@@ -52,10 +51,10 @@ type PN struct {
 }
 
 // simulate a context of msgs that node proposes a new proposal rather than the one it locked at previous rounds.
-func (s *PN) Broadcast(ctx context.Context, msg message.Message) {
+func (s *PN) Broadcast(ctx context.Context, msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
-		s.BroadcastAll(ctx, msg)
+		s.BroadcastAll(msg)
 		return
 	}
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
@@ -67,13 +66,13 @@ func (s *PN) Broadcast(ctx context.Context, msg message.Message) {
 	//msgPN := message.NewPropose(proposal.ProposalBlock, decodedMsg.H(), nPR, -1, s.Core)
 	msgPN := message.NewPropose(nPR, msg.H(), -1, proposal.Block(), s.Backend().Sign)
 	printMessage(msgPN)
-	s.BroadcastAll(ctx, msg)
-	s.BroadcastAll(ctx, msgEvidence)
-	s.BroadcastAll(ctx, msgPN)
+	s.BroadcastAll(msg)
+	s.BroadcastAll(msgEvidence)
+	s.BroadcastAll(msgPN)
 	s.done = true
 }
 
-func newPOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+func newPOBroadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &PO{c.(*core.Core), false}
 }
 
@@ -83,10 +82,10 @@ type PO struct {
 }
 
 // simulate a context of msgs that node proposes a value for which was not the one it locked on.
-func (s *PO) Broadcast(ctx context.Context, msg message.Message) {
+func (s *PO) Broadcast(ctx context.Context, msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
-		s.BroadcastAll(ctx, msg)
+		s.BroadcastAll(msg)
 		return
 	}
 	// start to simulate malicious context to break rule PO.
@@ -99,14 +98,14 @@ func (s *PO) Broadcast(ctx context.Context, msg message.Message) {
 	// simulate a proposal that node propose for an old value which it is not the one it locked.
 	msgPO := message.NewPropose(nPR, proposal.H(), vR, proposal.Block(), s.Core.Backend().Sign)
 	printMessage(msgPO)
-	s.BroadcastAll(ctx, proposal)
-	s.BroadcastAll(ctx, msgEvidence)
-	s.BroadcastAll(ctx, msgPO)
+	s.BroadcastAll(proposal)
+	s.BroadcastAll(msgEvidence)
+	s.BroadcastAll(msgPO)
 	s.done = true
 }
 
 /* currently not used, see later commented tests
-func newPVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+func newPVNBroadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &PVN{c.(*core.Core), false}
 }
 */
@@ -120,8 +119,8 @@ type PVN struct {
 // An example context like below:
 // preCommit (h, r, v1)
 // preVote   (h, r+1, v2)
-func (s *PVN) Broadcast(ctx context.Context, msg message.Message) {
-	s.BroadcastAll(ctx, msg)
+func (s *PVN) Broadcast(ctx context.Context, msg message.Msg) {
+	s.BroadcastAll(msg)
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
 		return
@@ -133,24 +132,24 @@ func (s *PVN) Broadcast(ctx context.Context, msg message.Message) {
 	newBlock := types.NewBlockWithHeader(newHeader)
 	newProposal := message.NewPropose(nPR, proposal.H(), -1, newBlock, s.Core.Backend().Sign)
 	fmt.Println("BYZ PROPOSAL HASH", "old", proposal.Value(), "new", newProposal.Value())
-	s.BroadcastAll(ctx, newProposal)
+	s.BroadcastAll(newProposal)
 	// simulate a preCommit at round r, for value v1.
 	precommit := message.NewPrecommit(proposal.R(), proposal.H(), proposal.Block().Hash(), s.Backend().Sign)
 	// simulate nil precommits until nPr to get contiguous precommits
 	for i := proposal.R() + 1; i < nPR; i++ {
 		nilPrecommit := message.NewPrecommit(i, proposal.H(), core.NilValue, s.Backend().Sign)
-		s.BroadcastAll(ctx, nilPrecommit)
+		s.BroadcastAll(nilPrecommit)
 	}
 	// simulate a preVote at round nPR, for value v2, this preVote for new value break PVN.
 	evidence := message.NewPrecommit(nPR, proposal.H(), newProposal.Value(), s.Backend().Sign)
-	s.BroadcastAll(ctx, precommit)
-	s.BroadcastAll(ctx, evidence)
+	s.BroadcastAll(precommit)
+	s.BroadcastAll(evidence)
 	s.done = true
 
 }
 
 /* currently not used, see later commented tests
-func newPVO1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+func newPVO1Broadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &PVO1{c.(*core.Core), false}
 }
 */
@@ -162,8 +161,8 @@ type PVO1 struct {
 }
 
 // simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
-func (s *PVO1) Broadcast(ctx context.Context, msg message.Message) {
-	s.BroadcastAll(ctx, msg)
+func (s *PVO1) Broadcast(ctx context.Context, msg message.Msg) {
+	s.BroadcastAll(msg)
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
 		return
@@ -174,7 +173,7 @@ func (s *PVO1) Broadcast(ctx context.Context, msg message.Message) {
 	validRound := round - 5
 
 	newProposal := message.NewPropose(round, msg.H(), validRound, proposal.Block(), s.Backend().Sign)
-	s.BroadcastAll(ctx, newProposal)
+	s.BroadcastAll(newProposal)
 
 	for r := validRound; r < round; r++ {
 		// send precommit for nil and one not for vr
@@ -183,14 +182,14 @@ func (s *PVO1) Broadcast(ctx context.Context, msg message.Message) {
 			val = e2e.NonNilValue
 		}
 		precommit := message.NewPrecommit(r, newProposal.H(), val, s.Backend().Sign)
-		s.BroadcastAll(ctx, precommit)
+		s.BroadcastAll(precommit)
 	}
 	evidence := message.NewPrecommit(round, newProposal.H(), newProposal.Value(), s.Backend().Sign)
-	s.BroadcastAll(ctx, evidence)
+	s.BroadcastAll(evidence)
 	s.done = true
 }
 
-func newInvalidProposalBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+func newInvalidProposalBroadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &InvalidProposal{c.(*core.Core)}
 }
 
@@ -198,10 +197,10 @@ type InvalidProposal struct {
 	*core.Core
 }
 
-func (s *InvalidProposal) Broadcast(ctx context.Context, msg message.Message) {
+func (s *InvalidProposal) Broadcast(ctx context.Context, msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal {
-		s.BroadcastAll(ctx, msg)
+		s.BroadcastAll(msg)
 		return
 	}
 	nextPR := e2e.NextProposeRound(msg.R(), s.Core)
@@ -211,18 +210,18 @@ func (s *InvalidProposal) Broadcast(ctx context.Context, msg message.Message) {
 	newProposal := message.NewPropose(nextPR, msg.H(), proposal.ValidRound(), block, s.Backend().Sign)
 
 	s.Logger().Info("Misbehaviour of invalid proposal rule is simulated.")
-	s.BroadcastAll(ctx, msg)
-	s.BroadcastAll(ctx, newProposal)
+	s.BroadcastAll(msg)
+	s.BroadcastAll(newProposal)
 }
 
 type InvalidProposer struct {
 	*core.Core
 }
 
-func (s *InvalidProposer) Broadcast(ctx context.Context, msg message.Message) {
+func (s *InvalidProposer) Broadcast(ctx context.Context, msg message.Msg) {
 	// if current node is the proposer of current round, skip and return.
 	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
-		s.BroadcastAll(ctx, msg)
+		s.BroadcastAll(msg)
 		return
 	}
 	// current node is not the proposer of current round, propose a proposal.
@@ -231,16 +230,16 @@ func (s *InvalidProposer) Broadcast(ctx context.Context, msg message.Message) {
 	msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign)
 
 	s.Logger().Info("Invalid proposer simulation")
-	s.BroadcastAll(ctx, msg)
-	s.BroadcastAll(ctx, msgP)
+	s.BroadcastAll(msg)
+	s.BroadcastAll(msgP)
 }
 
 type Equivocation struct {
 	*core.Core
 }
 
-func (s *Equivocation) Broadcast(ctx context.Context, msg message.Message) {
-	s.BroadcastAll(ctx, msg)
+func (s *Equivocation) Broadcast(ctx context.Context, msg message.Msg) {
+	s.BroadcastAll(msg)
 	if _, isPrevote := msg.(*message.Prevote); !isPrevote {
 		return
 	}
@@ -248,7 +247,7 @@ func (s *Equivocation) Broadcast(ctx context.Context, msg message.Message) {
 	if s.IsProposer() {
 		msgEq := message.NewPrevote(msg.R(), msg.H(), e2e.NonNilValue, s.Backend().Sign)
 		s.Logger().Info("Equivocation simulation")
-		s.BroadcastAll(ctx, msgEq)
+		s.BroadcastAll(msgEq)
 	}
 }
 
@@ -256,7 +255,7 @@ func TestFaultProofs(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name         string
-		broadcasters func(c interfaces.Tendermint) interfaces.Broadcaster
+		broadcasters func(c interfaces.Core) interfaces.Broadcaster
 		rule         autonity.Rule
 	}{
 		{"PN", newPNBroadcaster, autonity.PN}, // Pass with 120
@@ -270,14 +269,14 @@ func TestFaultProofs(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			handler := &node.TendermintServices{Broadcaster: test.broadcasters}
+			handler := &interfaces.Services{Broadcaster: test.broadcasters}
 			runTest(t, handler, autonity.Misbehaviour, test.rule, 120)
 		})
 	}
 
 }
 
-func printMessage(message message.Message) {
+func printMessage(message message.Msg) {
 	marshalled, _ := json.MarshalIndent(message, "", "\t")
 	fmt.Println(string(marshalled))
 }

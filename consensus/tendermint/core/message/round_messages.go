@@ -35,11 +35,11 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
-func (s *Map) All() []Message {
+func (s *Map) All() []Msg {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	messages := make([][]Message, len(s.internal))
+	messages := make([][]Msg, len(s.internal))
 	var totalLen int
 	i := 0
 	for _, state := range s.internal {
@@ -47,7 +47,7 @@ func (s *Map) All() []Message {
 		totalLen += len(messages[i])
 		i++
 	}
-	result := make([]Message, 0, totalLen)
+	result := make([]Msg, 0, totalLen)
 	for _, ms := range messages {
 		result = append(result, ms...)
 	}
@@ -113,11 +113,11 @@ func (s *RoundMessages) AddPrevote(prevote *Prevote) {
 	s.prevotes.AddVote(prevote)
 }
 
-func (s *RoundMessages) AllPrevotes() []Message {
+func (s *RoundMessages) AllPrevotes() []Msg {
 	return s.prevotes.Messages()
 }
 
-func (s *RoundMessages) AllPrecommits() []Message {
+func (s *RoundMessages) AllPrecommits() []Msg {
 	return s.precommits.Messages()
 }
 
@@ -150,16 +150,16 @@ func (s *RoundMessages) IsProposalVerified() bool {
 	return s.verifiedProposal
 }
 
-func (s *RoundMessages) AllMessages() []Message {
+func (s *RoundMessages) AllMessages() []Msg {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	prevotes := s.prevotes.Messages()
 	precommits := s.precommits.Messages()
 
-	result := make([]Message, 0, len(prevotes)+len(precommits)+1)
+	result := make([]Msg, 0, len(prevotes)+len(precommits)+1)
 	if s.proposal != nil {
-		result = append(result, Message(s.proposal))
+		result = append(result, Msg(s.proposal))
 	}
 
 	result = append(result, prevotes...)

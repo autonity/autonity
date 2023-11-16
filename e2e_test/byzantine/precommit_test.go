@@ -7,12 +7,11 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/autonity/autonity/node"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-func newMalPrecommitService(c interfaces.Tendermint) interfaces.Precommiter {
+func newMalPrecommitService(c interfaces.Core) interfaces.Precommiter {
 	return &malPrecommitService{c.(*core.Core), c.Precommiter()}
 }
 
@@ -29,7 +28,7 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.HexToHash("0xCAFE"), c.Backend().Sign)
 	}
 	c.SetSentPrecommit(true)
-	c.Br().Broadcast(ctx, precommit)
+	c.BroadcastAll(precommit)
 }
 
 func TestMaliciousPrecommitSender(t *testing.T) {
@@ -37,7 +36,7 @@ func TestMaliciousPrecommitSender(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Precommiter: newMalPrecommitService}
+	users[0].TendermintServices = &interfaces.Services{Precommiter: newMalPrecommitService}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -52,8 +51,8 @@ func TestMaliciousSenderDisc(t *testing.T) {
 	users, err := e2e.Validators(t, 4, "10e18,v,100,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 
-	users[0].TendermintServices = &node.TendermintServices{Precommiter: newMalPrecommitService}
-	users[1].TendermintServices = &node.TendermintServices{Precommiter: newMalPrecommitService}
+	users[0].TendermintServices = &interfaces.Services{Precommiter: newMalPrecommitService}
+	users[1].TendermintServices = &interfaces.Services{Precommiter: newMalPrecommitService}
 
 	// creates a network of users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)

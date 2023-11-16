@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-// Backend provides application specific functions for Istanbul Core
+// Backend is the interface used by Core
 type Backend interface {
 	Address() common.Address
 
@@ -22,7 +23,7 @@ type Backend interface {
 	AskSync(header *types.Header)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(committee types.Committee, message message.Message)
+	Broadcast(committee types.Committee, message message.Msg)
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
@@ -32,7 +33,7 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(committee types.Committee, message message.Message)
+	Gossip(committee types.Committee, message message.Msg)
 
 	KnownMsgHash() []common.Hash
 
@@ -65,7 +66,7 @@ type Backend interface {
 
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
 	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
-	RemoveMessageFromLocalCache(message message.Message)
+	RemoveMessageFromLocalCache(message message.Msg)
 
 	// Logger returns the object used for logging purposes.
 	Logger() log.Logger
@@ -75,4 +76,15 @@ type Backend interface {
 
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
+}
+
+type Core interface {
+	Start(ctx context.Context, contract *autonity.ProtocolContracts)
+	Stop()
+	CurrentHeightMessages() []message.Msg
+	CoreState() CoreState
+	Broadcaster() Broadcaster
+	Proposer() Proposer
+	Prevoter() Prevoter
+	Precommiter() Precommiter
 }
