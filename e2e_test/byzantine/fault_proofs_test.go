@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -51,7 +50,7 @@ type PN struct {
 }
 
 // simulate a context of msgs that node proposes a new proposal rather than the one it locked at previous rounds.
-func (s *PN) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *PN) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
 		s.BroadcastAll(msg)
@@ -82,7 +81,7 @@ type PO struct {
 }
 
 // simulate a context of msgs that node proposes a value for which was not the one it locked on.
-func (s *PO) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *PO) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
 		s.BroadcastAll(msg)
@@ -119,7 +118,7 @@ type PVN struct {
 // An example context like below:
 // preCommit (h, r, v1)
 // preVote   (h, r+1, v2)
-func (s *PVN) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *PVN) Broadcast(msg message.Msg) {
 	s.BroadcastAll(msg)
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
@@ -161,7 +160,7 @@ type PVO1 struct {
 }
 
 // simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
-func (s *PVO1) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *PVO1) Broadcast(msg message.Msg) {
 	s.BroadcastAll(msg)
 	proposal, isProposal := msg.(*message.Propose)
 	if s.done || s.Height().Uint64() < 10 || !isProposal {
@@ -197,7 +196,7 @@ type InvalidProposal struct {
 	*core.Core
 }
 
-func (s *InvalidProposal) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *InvalidProposal) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal {
 		s.BroadcastAll(msg)
@@ -214,11 +213,15 @@ func (s *InvalidProposal) Broadcast(ctx context.Context, msg message.Msg) {
 	s.BroadcastAll(newProposal)
 }
 
+func newInvalidProposer(c interfaces.Core) interfaces.Broadcaster {
+	return &InvalidProposer{c.(*core.Core)}
+}
+
 type InvalidProposer struct {
 	*core.Core
 }
 
-func (s *InvalidProposer) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *InvalidProposer) Broadcast(msg message.Msg) {
 	// if current node is the proposer of current round, skip and return.
 	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
 		s.BroadcastAll(msg)
@@ -234,11 +237,15 @@ func (s *InvalidProposer) Broadcast(ctx context.Context, msg message.Msg) {
 	s.BroadcastAll(msgP)
 }
 
+func newEquivocation(c interfaces.Core) interfaces.Broadcaster {
+	return &Equivocation{c.(*core.Core)}
+}
+
 type Equivocation struct {
 	*core.Core
 }
 
-func (s *Equivocation) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *Equivocation) Broadcast(msg message.Msg) {
 	s.BroadcastAll(msg)
 	if _, isPrevote := msg.(*message.Prevote); !isPrevote {
 		return
@@ -263,8 +270,8 @@ func TestFaultProofs(t *testing.T) {
 		// {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
 		// {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
 		// {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
-		{"InvalidProposer", newInvalidProposer, autonity.InvalidProposer},   // Pass with 120
-		{"Equivocation", newEquivocationBroadcaster, autonity.Equivocation}, // Pass with 120
+		{"InvalidProposer", newInvalidProposer, autonity.InvalidProposer}, // Pass with 120
+		{"Equivocation", newEquivocation, autonity.Equivocation},          // Pass with 120
 	}
 
 	for _, test := range testCases {

@@ -245,7 +245,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 	}
 }
 
-func OffChainAccusationTests(t *testing.T) {
+func TestOffChainAccusation(t *testing.T) {
 	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newC1OffChainAccusation}
 		tp := autonity.Accusation
@@ -266,7 +266,7 @@ func OffChainAccusationTests(t *testing.T) {
 	// them from CI job.
 	t.Run("Test off chain accusation with garbage msg", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &interfaces.Services{Broadcaster: newOffChainAccusationGarbageBroadcaster}
+		handler := &interfaces.Services{Broadcaster: newGarbageOffChainAccusation}
 		runDropPeerConnectionTest(t, handler, 10)
 	})
 
@@ -278,7 +278,7 @@ func OffChainAccusationTests(t *testing.T) {
 
 	t.Run("Test over rated off chain accusation", func(t *testing.T) {
 		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &interfaces.Services{Broadcaster: newOffChainAccusationOverRatedBroadcaster}
+		handler := &interfaces.Services{Broadcaster: newOverRatedOffChainAccusation}
 		runDropPeerConnectionTest(t, handler, 20)
 	})
 }

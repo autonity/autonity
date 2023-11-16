@@ -1,20 +1,25 @@
 package byzantine
 
 import (
-	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/e2e_test"
-	"testing"
 )
 
 type AccusationPO struct {
 	*core.Core
 }
 
+func newAccusationPO(c interfaces.Core) interfaces.Broadcaster {
+	return &AccusationPO{c.(*core.Core)}
+}
+
 // simulate an old proposal which refer to less quorum preVotes to trigger the accusation of rule PO
-func (s *AccusationPO) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *AccusationPO) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal {
 		s.BroadcastAll(msg)
@@ -34,8 +39,12 @@ type AccusationPVN struct {
 	*core.Core
 }
 
+func newAccusationPVN(c interfaces.Core) interfaces.Broadcaster {
+	return &AccusationPVN{c.(*core.Core)}
+}
+
 // simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
-func (s *AccusationPVN) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *AccusationPVN) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal || !s.IsProposer() {
 		s.BroadcastAll(msg)
@@ -52,8 +61,15 @@ type AccusationPVO struct {
 	*core.Core
 }
 
+/*
+To be uncommented when PVO is fixed
+func newAccusationPVO(c interfaces.Core) interfaces.Broadcaster {
+	return &AccusationPVO{c.(*core.Core)}
+}
+*/
+
 // simulate an accusation context that an old proposal have less quorum preVotes for the value at the valid round.
-func (s *AccusationPVO) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *AccusationPVO) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal {
 		s.BroadcastAll(msg)
@@ -84,8 +100,12 @@ type AccusationC1 struct {
 	*core.Core
 }
 
+func newAccusationC1(c interfaces.Core) interfaces.Broadcaster {
+	return &AccusationC1{c.(*core.Core)}
+}
+
 // simulate an accusation context that node preCommit for a value that have less quorum of preVote for the value.
-func (s *AccusationC1) Broadcast(ctx context.Context, msg message.Msg) {
+func (s *AccusationC1) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal {
 		s.BroadcastAll(msg)
@@ -102,13 +122,13 @@ func (s *AccusationC1) Broadcast(ctx context.Context, msg message.Msg) {
 
 func TestAccusationFlow(t *testing.T) {
 	t.Run("AccusationRulePO", func(t *testing.T) {
-		handler := &interfaces.Services{Broadcaster: &AccusationPO{}}
+		handler := &interfaces.Services{Broadcaster: newAccusationPO}
 		tp := autonity.Accusation
 		rule := autonity.PO
 		runTest(t, handler, tp, rule, 100)
 	})
 	t.Run("AccusationRulePVN", func(t *testing.T) {
-		handler := &interfaces.Services{Broadcaster: &AccusationPVN{}}
+		handler := &interfaces.Services{Broadcaster: newAccusationPVN}
 		tp := autonity.Accusation
 		rule := autonity.PVN
 		runTest(t, handler, tp, rule, 100)
@@ -124,7 +144,7 @@ func TestAccusationFlow(t *testing.T) {
 		})
 	*/
 	t.Run("AccusationRuleC1", func(t *testing.T) {
-		handler := &interfaces.Services{Broadcaster: &AccusationC1{}}
+		handler := &interfaces.Services{Broadcaster: newAccusationC1}
 		tp := autonity.Accusation
 		rule := autonity.C1
 		runTest(t, handler, tp, rule, 60)

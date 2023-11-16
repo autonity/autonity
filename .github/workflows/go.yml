@@ -21,7 +21,7 @@ env:
   # purpose of defining them here.
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
-  GO_VERSION: "1.20" # 1.15 seems to cause tests to fail
+  GO_VERSION: "1.21" # 1.15 seems to cause tests to fail
 
 jobs:
 

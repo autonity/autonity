@@ -22,7 +22,7 @@ type randomBytesBroadcaster struct {
 	*core.Core
 }
 
-func (s *randomBytesBroadcaster) Broadcast(ctx context.Context, _ message.Msg) {
+func (s *randomBytesBroadcaster) Broadcast(_ message.Msg) {
 	logger := s.Logger().New("step", s.Step())
 	logger.Info("Broadcasting random bytes")
 
@@ -66,7 +66,7 @@ type garbageMessageBroadcaster struct {
 	*core.Core
 }
 
-func (s *garbageMessageBroadcaster) Broadcast(ctx context.Context, _ message.Msg) {
+func (s *garbageMessageBroadcaster) Broadcast(_ message.Msg) {
 	logger := s.Logger().New("step", s.Step())
 	var fMsg message.Prevote
 	f := fuzz.New().NilChance(0.5).Funcs(
@@ -106,7 +106,7 @@ type garbagePrecommitSender struct {
 	interfaces.Precommiter
 }
 
-func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) {
+func (c *garbagePrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 	var precommit *message.Precommit
 	precommitFieldComb := e2e.GetAllFieldCombinations(precommit)
 	proposedBlockHash := common.Hash{}
@@ -162,7 +162,7 @@ type garbagePrevoter struct {
 	interfaces.Prevoter
 }
 
-func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
+func (c *garbagePrevoter) SendPrevote(_ context.Context, isNil bool) {
 	var prevote message.Prevote
 	prevoteFieldComb := e2e.GetAllFieldCombinations(&prevote)
 	proposedBlockHash := c.CurRoundMessages().ProposalHash()
@@ -248,7 +248,7 @@ func generateFieldMap(v interface{}) map[string]reflect.Value {
 }
 */
 
-func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
+func (c *garbageProposer) SendProposal(_ context.Context, p *types.Block) {
 	var proposalMsg *message.Propose
 	allComb := e2e.GetAllFieldCombinations(proposalMsg)
 	//Each iteration tries to fuzz a unique set of fields and skipping

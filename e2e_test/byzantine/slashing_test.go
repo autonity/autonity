@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	core2 "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
-
-	"github.com/autonity/autonity/autonity"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/stretchr/testify/require"

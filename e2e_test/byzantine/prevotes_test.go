@@ -28,7 +28,7 @@ func (c *malPrevoter) HandlePrevote(ctx context.Context, prevote *message.Prevot
 		return err
 	}
 	c.Logger().Debug("Stopped Scheduled Prevote Timeout")
-	c.GetPrecommiter().SendPrecommit(ctx, true)
+	c.Precommiter().SendPrecommit(ctx, true)
 	c.SetStep(core.Precommit)
 	return nil
 }

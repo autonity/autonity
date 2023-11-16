@@ -15,13 +15,17 @@ import (
 	"testing"
 )
 
+func newDuplicateProposalSender(c interfaces.Core) interfaces.Proposer {
+	return &duplicateProposalSender{c.(*core.Core), c.Proposer()}
+}
+
 type duplicateProposalSender struct {
 	*core.Core
 	interfaces.Proposer
 }
 
 // SendProposal overrides core.sendProposal and send multiple proposals
-func (c *duplicateProposalSender) SendProposal(ctx context.Context, p *types.Block) {
+func (c *duplicateProposalSender) SendProposal(_ context.Context, p *types.Block) {
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
 	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()-1, p, c.Backend().Sign)
 
@@ -61,7 +65,7 @@ type malProposalSender struct {
 	*core.Core
 }
 
-func (c *malProposalSender) Broadcast(ctx context.Context, msg message.Msg) {
+func (c *malProposalSender) Broadcast(msg message.Msg) {
 	round := msg.R()
 	height := msg.H()
 	// if we are the proposer for this round, return
@@ -87,7 +91,7 @@ type proposalApprover struct {
 func (c *proposalApprover) HandleProposal(ctx context.Context, proposal *message.Propose) error {
 	// Set the proposal for the current round
 	c.CurRoundMessages().SetProposal(proposal, true)
-	c.GetPrevoter().SendPrevote(ctx, false)
+	c.Prevoter().SendPrevote(ctx, false)
 	c.SetStep(core.Prevote)
 	return nil
 }
@@ -144,7 +148,7 @@ type partialProposalSender struct {
 }
 
 // SendProposal overrides core.sendProposal and send multiple proposals
-func (c *partialProposalSender) SendProposal(ctx context.Context, p *types.Block) {
+func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) {
 	fakeTransactions := make([]*types.Transaction, 0)
 	for i := 0; i < 5; i++ {
 		var fakeTransaction types.Transaction
@@ -192,7 +196,7 @@ type invalidBlockProposer struct {
 }
 
 // SendProposal overrides core.sendProposal and send multiple proposals
-func (c *invalidBlockProposer) SendProposal(ctx context.Context, p *types.Block) {
+func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	fakeTransactions := make([]*types.Transaction, 0)
 	f := fuzz.New()
 	for i := 0; i < 5; i++ {
