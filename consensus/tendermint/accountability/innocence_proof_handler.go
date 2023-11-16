@@ -343,7 +343,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 	peers := fd.broadcaster.FindPeers(targets)
 	if len(peers) == 0 {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.
-		fd.logger.Debug("no peer connection for off chain accountability event")
+		fd.logger.Debug("No direct p2p connection with suspect")
 		return
 	}
 
@@ -353,7 +353,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 		return
 	}
 
-	fd.logger.Info("send off chain accusation msg to remote peer", "addr", accusation.Message.Sender())
+	fd.logger.Info("Attempting direct p2p resolution..", "addr", accusation.Message.Sender())
 	go peers[accusation.Message.Sender()].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
 }
 
@@ -372,6 +372,6 @@ func (fd *FaultDetector) sendOffChainInnocenceProof(receiver common.Address, pay
 		return
 	}
 
-	fd.logger.Info("send off chain innocence proof msg to remote peer", "addr", receiver)
+	fd.logger.Info("Sending requested innocence proof", "addr", receiver)
 	go peers[receiver].Send(backend.AccountabilityNetworkMsg, payload) //nolint
 }

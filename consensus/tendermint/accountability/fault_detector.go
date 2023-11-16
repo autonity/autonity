@@ -48,15 +48,14 @@ const (
 )
 
 var (
-	errWrongSignatureMsg = errors.New("invalid signature of message")
-	errInvalidRound      = errors.New("invalid round or steps")
-	errWrongValidRound   = errors.New("wrong valid-round")
-	errDuplicatedMsg     = errors.New("duplicated msg")
-	errEquivocation      = errors.New("equivocation")
-	errFutureMsg         = errors.New("future height msg")
-	errNotCommitteeMsg   = errors.New("msg from none committee member")
-	errProposer          = errors.New("proposal is not from proposer")
-	errInvalidMessage    = errors.New("invalid consensus message")
+	errInvalidRound    = errors.New("invalid round or steps")
+	errWrongValidRound = errors.New("wrong valid-round")
+	errDuplicatedMsg   = errors.New("duplicated msg")
+	errEquivocation    = errors.New("equivocation")
+	errFutureMsg       = errors.New("future height msg")
+	errNotCommitteeMsg = errors.New("msg from none committee member")
+	errProposer        = errors.New("proposal is not from proposer")
+	errInvalidMessage  = errors.New("invalid consensus message")
 
 	errNoEvidenceForPO  = errors.New("no proof of innocence found for rule PO")
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
@@ -683,7 +682,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePN", autonity.PN, "sender", proposal.Sender())
+			fd.logger.Info("Misbehaviour detected", "rule", "PN", "incriminated", proposal.Sender())
 		}
 	}
 	return proofs
@@ -731,7 +730,7 @@ oldProposalLoop:
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePO", autonity.PO, "sender", proposal.Sender())
+			fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender())
 			continue oldProposalLoop
 		}
 
@@ -750,7 +749,7 @@ oldProposalLoop:
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePO", autonity.PO, "sender", proposal.Sender())
+			fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender())
 			continue oldProposalLoop
 		}
 
@@ -776,7 +775,7 @@ oldProposalLoop:
 					Message:   message.NewLightProposal(proposal.(*message.Propose)),
 				}
 				proofs = append(proofs, proof)
-				fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePO", autonity.PO, "sender", proposal.Sender())
+				fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender())
 				continue oldProposalLoop
 			}
 		}
@@ -795,7 +794,7 @@ oldProposalLoop:
 				Message: message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, accusation)
-			fd.logger.Info("Accusation detected", "fault detector", fd.address, "rulePO", autonity.PO, "sender", proposal.Sender())
+			fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PO", "suspect", proposal.Sender())
 		}
 	}
 	return proofs
@@ -846,7 +845,6 @@ prevotesLoop:
 					Message: prevote,
 				}
 				proofs = append(proofs, accusation)
-				fd.logger.Info("Accusation detected", "fault detector", fd.address, "rulePVN", autonity.PVN, "sender", prevote.Sender())
 				continue prevotesLoop
 			}
 		}
@@ -944,7 +942,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 				// round when the equivocated message was first received.
 				if len(precommitsAtRPrime) == 1 {
 					if precommitsAtRPrime[0].Value() != prevote.Value() {
-						fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePVN", autonity.PVN, "sender", prevote.Sender())
+						fd.logger.Info("Misbehaviour detected", "rule", "PVN", "incriminated", prevote.Sender())
 						proof := &Proof{
 							Type:    autonity.Misbehaviour,
 							Rule:    autonity.PVN,
@@ -975,7 +973,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 
 	// If one prevotes for an invalid old proposal, then it should be a misbehaviour.
 	if validRound >= currentR {
-		fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePVO3", autonity.PVO3, "sender", prevote.Sender())
+		fd.logger.Info("Misbehaviour detected", "rule", "PVO3", "incriminated", prevote.Sender())
 		proof := &Proof{
 			Type:    autonity.Misbehaviour,
 			Rule:    autonity.PVO3,
@@ -1005,7 +1003,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		// this would imply at least quorum nodes are malicious which is much higher than our assumption.
 		overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
 		if overQuorumVotes != nil {
-			fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePVO", autonity.PVO, "sender", prevote.Sender())
+			fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", prevote.Sender())
 			proof := &Proof{
 				Type:    autonity.Misbehaviour,
 				Rule:    autonity.PVO,
@@ -1087,7 +1085,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 			}
 
 			if lastRoundForNotV > lastRoundForV {
-				fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "rulePVO12", autonity.PVO12, "sender", prevote.Sender())
+				fd.logger.Info("Misbehaviour detected", "rule", "PVO12", "incriminated", prevote.Sender())
 				proof := &Proof{
 					Type:    autonity.Misbehaviour,
 					Rule:    autonity.PVO12,
@@ -1103,7 +1101,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 	// if there is no misbehaviour of the prevote msg addressed, then we lastly check accusation.
 	if overQuorumPrevotesForVFromValidRound == nil {
 		// raise an accusation
-		fd.logger.Info("Accusation detected", "fault detector", fd.address, "rulePVO", autonity.PVO, "sender", prevote.Sender())
+		fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVO", "suspect", prevote.Sender())
 		return &Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.PVO,
@@ -1160,7 +1158,7 @@ precommitLoop:
 					Message:   precommit,
 				}
 				proofs = append(proofs, proof)
-				fd.logger.Info("Misbehaviour detected", "fault detector", fd.address, "ruleC", autonity.C, "sender", precommit.Sender())
+				fd.logger.Info("Misbehaviour detected", "rule", "C", "incriminated", precommit.Sender())
 				continue precommitLoop
 			}
 		}
@@ -1182,7 +1180,8 @@ precommitLoop:
 				Message: precommit,
 			}
 			proofs = append(proofs, accusation)
-			fd.logger.Info("Accusation detected", "fault detector", fd.address, "ruleC1", autonity.C1, "sender", precommit.Sender())
+
+			fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "C1", "suspect", precommit.Sender())
 		}
 	}
 	return proofs
