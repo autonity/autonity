@@ -405,18 +405,14 @@ contract Accountability is IAccountability {
         if (_slashingAmount > 0 && _slashingAmount >= _availableFunds - 1) {
             // validator is jailed permanently if 100% slashed or _slashingAmount = _availableFunds-1
             _val.state = ValidatorState.jailbound;
+            emit ValidatorJailbound(_val.nodeAddress, _slashingAmount);
         } else {
             _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
             _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
+            emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
         }
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
-
-        if (_val.state == ValidatorState.jailed) {
-            emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
-        } else {
-            emit ValidatorJailbound(_val.nodeAddress, _slashingAmount);
-        }
     }
 
 
