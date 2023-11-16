@@ -2,13 +2,14 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func newMalPrecommitService(c interfaces.Core) interfaces.Precommiter {

@@ -2,6 +2,11 @@ package core
 
 import (
 	"errors"
+	"math/big"
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -10,10 +15,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"go.uber.org/mock/gomock"
-	"math/big"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestCheckMessage(t *testing.T) {

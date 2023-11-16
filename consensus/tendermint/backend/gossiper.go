@@ -79,7 +79,7 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 			m.Add(hash, true)
 			g.recentMessages.Add(addr, m)
 
-			go p.SendRaw(networkCodes[message.Code()], message.Payload()) //nolint
+			go p.SendRaw(NetworkCodes[message.Code()], message.Payload()) //nolint
 		}
 	}
 }

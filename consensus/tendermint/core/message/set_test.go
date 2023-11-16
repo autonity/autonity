@@ -7,13 +7,17 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
-func stubSigner(h common.Hash) ([]byte, error) {
-	return crypto.Sign(h)
+var (
+	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+)
+
+func defaultSigner(h common.Hash) ([]byte, error) {
+	return crypto.Sign(h[:], testKey)
 }
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := newVote[Prevote](1, 1, blockHash, stubSigner)
+	msg := newVote[Prevote](1, 1, blockHash, defaultSigner)
 	msg.power = common.Big1
 	ms := NewSet[*Prevote]()
 	ms.AddVote(msg)
@@ -32,7 +36,7 @@ func TestMessageSetVotesSize(t *testing.T) {
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
-	msg := newVote[Prevote](1, 1, common.Hash{}, stubSigner)
+	msg := newVote[Prevote](1, 1, common.Hash{}, defaultSigner)
 	ms := NewSet[*Prevote]()
 	ms.AddVote(msg)
 	ms.AddVote(msg)

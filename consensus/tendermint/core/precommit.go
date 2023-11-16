@@ -27,7 +27,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 	c.sentPrecommit = true
-	c.BroadcastAll(precommit)
+	c.Broadcaster().Broadcast(precommit)
 }
 
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {

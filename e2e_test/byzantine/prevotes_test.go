@@ -2,12 +2,13 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func newMalPrevoter(c interfaces.Core) interfaces.Prevoter {

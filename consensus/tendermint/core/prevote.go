@@ -26,7 +26,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 	c.sentPrevote = true
-	c.BroadcastAll(prevote)
+	c.Broadcaster().Broadcast(prevote)
 }
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {

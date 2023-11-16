@@ -2,6 +2,8 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	proto "github.com/autonity/autonity/consensus"
@@ -13,7 +15,6 @@ import (
 	"github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func newPVNOffChainAccusation(c interfaces.Core) interfaces.Broadcaster {

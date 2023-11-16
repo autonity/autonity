@@ -29,7 +29,7 @@ func (c *Proposer) SendProposal(ctx context.Context, block *types.Block) {
 			ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
 		}
 		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
-		c.BroadcastAll(proposal)
+		c.Broadcaster().Broadcast(proposal)
 	}
 }
 

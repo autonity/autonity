@@ -21,7 +21,7 @@ var (
 
 func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
-		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), stubSigner)
+		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner)
 		decrypted := &Prevote{}
 		reader := bytes.NewReader(vote.Payload())
 		if err := rlp.Decode(reader, decrypted); err != nil {
@@ -38,7 +38,7 @@ func TestMessageDecode(t *testing.T) {
 		}
 	})
 	t.Run("precommit", func(t *testing.T) {
-		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), stubSigner)
+		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), defaultSigner)
 		decrypted := &Precommit{}
 		reader := bytes.NewReader(vote.Payload())
 		if err := rlp.Decode(reader, decrypted); err != nil {
@@ -62,7 +62,7 @@ func TestMessageDecode(t *testing.T) {
 func TestValidate(t *testing.T) {
 	t.Run("invalid signature, error returned", func(t *testing.T) {
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
-		msg := newVote[Prevote](1, 25, lastHeader.Hash(), stubSigner)
+		msg := newVote[Prevote](1, 25, lastHeader.Hash(), defaultSigner)
 		if err := msg.Validate(func(_ common.Address) *types.CommitteeMember {
 			return &types.CommitteeMember{}
 		}); err == nil {

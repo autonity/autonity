@@ -3,6 +3,9 @@ package message
 import (
 	"errors"
 	"fmt"
+	"io"
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -10,8 +13,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
-	"io"
-	"math/big"
 )
 
 var (
@@ -23,8 +24,6 @@ const (
 	ProposalCode uint8 = iota
 	PrevoteCode
 	PrecommitCode
-	// LightProposalCode is only used by accountability that it converts full proposal to a lite one
-	// which contains just meta-data of a proposal for a sustainable on-chain proof mechanism.
 	LightProposalCode
 )
 

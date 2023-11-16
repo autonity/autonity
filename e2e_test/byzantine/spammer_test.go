@@ -2,6 +2,8 @@ package byzantine
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -9,7 +11,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func newPreVoteSpammer(c interfaces.Core) interfaces.Prevoter {

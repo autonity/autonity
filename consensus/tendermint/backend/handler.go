@@ -29,7 +29,7 @@ type UnhandledMsg struct {
 var (
 	// errDecodeFailed is returned when decode message fails
 	errDecodeFailed = errors.New("fail to decode tendermint message")
-	networkCodes    = map[uint8]uint64{
+	NetworkCodes    = map[uint8]uint64{
 		message.ProposalCode:  ProposeNetworkMsg,
 		message.PrevoteCode:   PrevoteNetworkMsg,
 		message.PrecommitCode: PrecommitNetworkMsg,

@@ -2,6 +2,10 @@ package byzantine
 
 import (
 	"context"
+	"math/big"
+	"sync/atomic"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -10,9 +14,6 @@ import (
 	"github.com/autonity/autonity/e2e_test"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"sync/atomic"
-	"testing"
 )
 
 func newDuplicateProposalSender(c interfaces.Core) interfaces.Proposer {

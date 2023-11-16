@@ -354,7 +354,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	messages := sb.core.CurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.SendRaw(networkCodes[msg.Code()], msg.Payload()) //nolint
+		go p.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
 

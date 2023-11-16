@@ -2,6 +2,9 @@ package byzantine
 
 import (
 	"context"
+	"regexp"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -10,8 +13,6 @@ import (
 	"github.com/autonity/autonity/e2e_test"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
-	"regexp"
-	"testing"
 )
 
 func newRandomBytesBroadcaster(c interfaces.Core) interfaces.Broadcaster {
