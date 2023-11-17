@@ -85,7 +85,7 @@ func (s *Set[T]) VotesFor(blockHash common.Hash) []T {
 	if _, ok := s.votes[blockHash]; !ok {
 		return nil
 	}
-	messages := make([]T, 0)
+	messages := make([]T, 0, len(s.votes[blockHash]))
 	for _, v := range s.votes[blockHash] {
 		messages = append(messages, v)
 	}

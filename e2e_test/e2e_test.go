@@ -162,19 +162,6 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 	n := network[0]
-	startTime := time.Now()
-	idump := 0
-	go func() {
-		timer := time.NewTicker(time.Second)
-		for range timer.C {
-			fmt.Println("====", idump, "TIME(", time.Now().Sub(startTime).Seconds(), ")====")
-			for i := range network {
-				fmt.Println("node", i, "header", network[i].Eth.BlockChain().CurrentHeader().Number, "running", network[i].isRunning)
-			}
-			fmt.Println("============")
-			idump++
-		}
-	}()
 	// Send a tx to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

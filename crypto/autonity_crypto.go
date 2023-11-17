@@ -3,10 +3,11 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"github.com/autonity/autonity/common"
 	"golang.org/x/crypto/blake2b"
 )
 
-func Hash(data []byte) [32]byte {
+func Hash(data []byte) common.Hash {
 	return blake2b.Sum256(data)
 }
 

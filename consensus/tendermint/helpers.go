@@ -12,9 +12,9 @@ var (
 )
 
 func SigToAddr(hash common.Hash, sig []byte) (common.Address, error) {
-	var cacheKey [65 + 32]byte
+	var cacheKey [common.SealLength + common.HashLength]byte
 	copy(cacheKey[:], hash[:])
-	copy(cacheKey[32:], sig)
+	copy(cacheKey[common.HashLength:], sig)
 
 	if data, ok := signatureCache.Get(cacheKey); ok {
 		return data.(common.Address), nil

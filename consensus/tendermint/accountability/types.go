@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"errors"
+	"fmt"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
@@ -49,7 +50,7 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 		return errUnexpectedCode
 	}
 	if err := stream.Decode(p); err != nil {
-		return err
+		return fmt.Errorf("could not decode proof's typed message %w", err)
 	}
 	t.Msg = p
 	return stream.ListEnd()
@@ -85,7 +86,7 @@ func (p *Proof) EncodeRLP(w io.Writer) error {
 func (p *Proof) DecodeRLP(stream *rlp.Stream) error {
 	encoded := encodedProof{}
 	if err := stream.Decode(&encoded); err != nil {
-		return err
+		return fmt.Errorf("could not decode encoded proof %w", err)
 	}
 	p.Type = encoded.Type
 	p.Rule = encoded.Rule
