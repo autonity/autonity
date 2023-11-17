@@ -215,16 +215,17 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 		Signature:       proposal.signature,
 	})
 	return &LightProposal{
-		blockHash:  proposal.hash,
+		blockHash:  proposal.Block().Hash(),
 		validRound: proposal.validRound,
 		base: base{
-			round:     proposal.round,
-			height:    proposal.height,
-			signature: proposal.signature,
-			payload:   payload,
-			power:     proposal.Power(),
-			sender:    proposal.sender,
-			hash:      crypto.Hash(payload),
+			round:          proposal.round,
+			height:         proposal.height,
+			signature:      proposal.signature,
+			signatureInput: proposal.signatureInput,
+			payload:        payload,
+			power:          proposal.Power(),
+			sender:         proposal.sender,
+			hash:           crypto.Hash(payload),
 		},
 	}
 }

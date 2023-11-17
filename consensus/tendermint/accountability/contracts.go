@@ -27,7 +27,7 @@ var (
 	checkMisbehaviourAddress = common.BytesToAddress([]byte{254})
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult = common.LeftPadBytes([]byte{1}, 32)
-	failureResult = make([]byte, 128)
+	failureReturn = make([]byte, 128)
 )
 
 const KB = 1024
@@ -66,27 +66,27 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationVerifier) Run(input []byte, blockNumber uint64) ([]byte, error) {
 	if len(input) <= 32 {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	evHeight := p.Message.H()
 	if evHeight == 0 {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	// prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
 	// corresponding to an old height, while at each Pi, they only buffer specific heights of message in msg store, thus
 	// Pi can never provide a valid proof of innocence anymore, making the malicious accusation be valid for slashing.
 	if blockNumber > evHeight && (blockNumber-evHeight >= consensus.AccountabilityHeightRange) {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	if verifyAccusation(a.chain, p) {
 		return validReturn(p.Message, p.Rule), nil
 	}
-	return failureResult, nil
+	return failureReturn, nil
 }
 
 // validate the submitted accusation by the contract call.
@@ -142,11 +142,13 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 			oldProposal.(*message.LightProposal).ValidRound() == -1 {
 			return false
 		}
+	} else {
+		// do not allow useless evidences
+		if len(p.Evidences) > 0 {
+			return false
+		}
 	}
-	// do not allow useless evidences
-	if len(p.Evidences) > 0 {
-		return false
-	}
+
 	return true
 }
 
@@ -165,16 +167,16 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for Proof management.
 func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 	if len(input) <= 32 {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	if p.Message.H() == 0 {
 		// this is an edge case
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	return c.validateProof(p), nil
 }
@@ -182,74 +184,66 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 // validate the Proof, if the Proof is valid, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for Proof management.
 func (c *MisbehaviourVerifier) validateProof(p *Proof) []byte {
-
 	// check if suspicious message is from correct committee member.
 	err := checkMsgSignature(c.chain, p.Message)
 	if err != nil {
-		return failureResult
+		return failureReturn
 	}
-
 	// check if evidence msgs are from committee members of that height.
 	h := p.Message.H()
 	lastHeader := c.chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
-		return failureResult
+		return failureReturn
 	}
-
 	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
 	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
-		return failureResult
+		return failureReturn
 	}
-
 	for _, msg := range p.Evidences {
 		if msg.H() != h {
-			return failureResult
+			return failureReturn
 		}
 		if err := msg.Validate(lastHeader.CommitteeMember); err != nil {
-			return failureResult
+			return failureReturn
 		}
 	}
 
-	if c.validProof(p) {
-		return validReturn(p.Message, p.Rule)
-	}
-	return failureResult
-}
-
-// check if the evidence of the misbehaviour is valid or not.
-func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
+	valid := false
 	switch p.Rule {
 	case autonity.PN:
-		return c.validMisbehaviourOfPN(p)
+		valid = c.validMisbehaviourOfPN(p)
 	case autonity.PO:
-		return c.validMisbehaviourOfPO(p)
+		valid = c.validMisbehaviourOfPO(p)
 	case autonity.PVN:
-		return c.validMisbehaviourOfPVN(p)
+		valid = c.validMisbehaviourOfPVN(p)
 	case autonity.PVO:
-		return c.validMisbehaviourOfPVO(p)
+		valid = c.validMisbehaviourOfPVO(p)
 	case autonity.PVO12:
-		return c.validMisbehaviourOfPVO12(p)
+		valid = c.validMisbehaviourOfPVO12(p)
 	case autonity.PVO3:
-		return c.validMisbehaviourOfPVO3(p)
+		valid = c.validMisbehaviourOfPVO3(p)
 	case autonity.C:
-		return c.validMisbehaviourOfC(p)
+		valid = c.validMisbehaviourOfC(p)
 	case autonity.InvalidRound:
-		return p.Message.R() > constants.MaxRound
+		valid = p.Message.R() > constants.MaxRound
 	case autonity.WrongValidRound:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
-			return lightProposal.ValidRound() >= lightProposal.R()
+			valid = lightProposal.ValidRound() >= lightProposal.R()
 		}
-		return false
 	case autonity.InvalidProposer:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
-			return !isProposerValid(c.chain, lightProposal)
+			valid = !isProposerValid(c.chain, lightProposal)
 		}
-		return false
 	case autonity.Equivocation:
-		return errors.Is(checkEquivocation(p.Message, p.Evidences), errEquivocation)
+		valid = errors.Is(checkEquivocation(p.Message, p.Evidences), errEquivocation)
 	default:
-		return false
+		valid = false
 	}
+
+	if valid {
+		return validReturn(p.Message, p.Rule)
+	}
+	return failureReturn
 }
 
 // check if the Proof of challenge of PN is valid,
@@ -567,13 +561,13 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64) ([]byte, error) {
 	// take an on-chain innocent Proof, tell the results of the checking
 	if len(input) <= 32 || blockNumber == 0 {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	return c.validateInnocenceProof(p), nil
 }
@@ -584,26 +578,26 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
 	h := in.Message.H()
 	lastHeader := c.chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
-		return failureResult
+		return failureReturn
 	}
 	// validate message.
 	if err := in.Message.Validate(lastHeader.CommitteeMember); err != nil {
-		return failureResult
+		return failureReturn
 	}
 	// to prevent the abuse of the proof message.
 	if len(in.Evidences) > maxEvidenceMessages(lastHeader) {
-		return failureResult
+		return failureReturn
 	}
 	for _, m := range in.Evidences {
 		if m.H() != h {
-			return failureResult
+			return failureReturn
 		}
 		if err := m.Validate(lastHeader.CommitteeMember); err != nil {
-			return failureResult
+			return failureReturn
 		}
 	}
 	if !validInnocenceProof(in, c.chain) {
-		return failureResult
+		return failureReturn
 	}
 	return validReturn(in.Message, in.Rule)
 }
