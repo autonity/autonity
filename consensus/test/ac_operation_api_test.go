@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/core"
@@ -17,7 +19,6 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -192,7 +193,7 @@ func TestACSystemOperatorOPs(t *testing.T) {
 			// change settings right after block #1 is committed from client V0.
 			"V0": changeSettingHook(
 				map[uint64]struct{}{
-					1: {},
+					5: {},
 				},
 				initialOperator,
 				newOperatorAddr,

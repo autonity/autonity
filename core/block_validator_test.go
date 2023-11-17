@@ -26,6 +26,7 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/consensus/ethash"
@@ -39,7 +40,11 @@ func FakeContractBackendProvider(t gomock.TestReporter) func(_ *BlockChain, _ et
 	return func(_ *BlockChain, _ ethdb.Database) bind.ContractBackend {
 		ctrl := gomock.NewController(t)
 		contractBackend := bind.NewMockContractBackend(ctrl)
-		contractBackend.EXPECT().SubscribeFilterLogs(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
+		sub := event.NewSubscription(func(quit <-chan struct{}) error {
+			<-quit
+			return nil
+		})
+		contractBackend.EXPECT().SubscribeFilterLogs(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(sub, nil)
 		return contractBackend
 	}
 }
