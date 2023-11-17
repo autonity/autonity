@@ -2,10 +2,11 @@ package message
 
 import (
 	"bytes"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"testing"
+
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/rlp"
@@ -14,8 +15,9 @@ import (
 var (
 	key, _  = crypto.GenerateKey()
 	address = crypto.PubkeyToAddress(key.PublicKey)
-	signer  = func(hash common.Hash) ([]byte, error) {
-		return crypto.Sign(hash[:], key)
+	signer  = func(hash common.Hash) ([]byte, common.Address) {
+		out, _ := crypto.Sign(hash[:], key)
+		return out, address
 	}
 )
 

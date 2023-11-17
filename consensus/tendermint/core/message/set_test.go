@@ -1,18 +1,21 @@
 package message
 
 import (
-	"github.com/autonity/autonity/crypto"
 	"testing"
+
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
 )
 
 var (
 	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
-func defaultSigner(h common.Hash) ([]byte, error) {
-	return crypto.Sign(h[:], testKey)
+func defaultSigner(h common.Hash) ([]byte, common.Address) {
+	out, _ := crypto.Sign(h[:], testKey)
+	return out, testAddr
 }
 
 func TestMessageSetAddVote(t *testing.T) {

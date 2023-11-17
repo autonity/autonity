@@ -6,6 +6,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/influxdata/influxdb/pkg/deep"
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -14,8 +17,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
-	"github.com/influxdata/influxdb/pkg/deep"
-	"go.uber.org/mock/gomock"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
@@ -163,7 +164,7 @@ func TestHandleMsg(t *testing.T) {
 		}
 		c.SetDefaultHandlers()
 
-		prevote := message.NewPrevote(2, 1, common.BytesToHash([]byte{0x1}), dummySigner)
+		prevote := message.NewPrevote(2, 1, common.BytesToHash([]byte{0x1}), defaultSigner)
 		if err := c.handleMsg(context.Background(), prevote); !errors.Is(err, constants.ErrOldHeightMessage) {
 			t.Fatal("errOldHeightMessage not returned")
 		}
@@ -185,7 +186,7 @@ func TestHandleMsg(t *testing.T) {
 		}
 		c.SetDefaultHandlers()
 
-		prevote := message.NewPrevote(2, 3, common.BytesToHash([]byte{0x1}), dummySigner)
+		prevote := message.NewPrevote(2, 3, common.BytesToHash([]byte{0x1}), defaultSigner)
 		if err := c.handleMsg(context.Background(), prevote); !errors.Is(err, constants.ErrFutureHeightMessage) {
 			t.Fatal("errFutureHeightMessage not returned")
 		}

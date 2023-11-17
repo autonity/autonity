@@ -3,10 +3,14 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+
+	lru "github.com/hashicorp/golang-lru"
+	ring "github.com/zfjagann/golang-ring"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
@@ -20,8 +24,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
-	lru "github.com/hashicorp/golang-lru"
-	ring "github.com/zfjagann/golang-ring"
 )
 
 const (
@@ -300,8 +302,13 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 }
 
 // Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data common.Hash) ([]byte, error) {
-	return crypto.Sign(data[:], sb.privateKey)
+func (sb *Backend) Sign(data common.Hash) ([]byte, common.Address) {
+	ret, err := crypto.Sign(data[:], sb.privateKey)
+	if err != nil {
+		// We panic here, it should never happen.
+		sb.logger.Crit("Consensus signing failed")
+	}
+	return ret, sb.address
 }
 
 func (sb *Backend) HeadBlock() *types.Block {

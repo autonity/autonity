@@ -27,7 +27,7 @@ const (
 	LightProposalCode
 )
 
-type Signer func(hash common.Hash) (sig []byte, err error)
+type Signer func(hash common.Hash) (signature []byte, address common.Address)
 
 type Msg interface {
 	R() int64
@@ -95,7 +95,7 @@ func (p *Propose) String() string {
 		p.round, p.H(), p.validRound, p.block.Hash().String())
 }
 
-func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func(hash common.Hash) ([]byte, error)) *Propose {
+func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) *Propose {
 	isValidRoundNil := false
 	validRound := uint64(0)
 	if vr == -1 {
@@ -106,7 +106,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func(has
 	// Calculate signature first
 	signatureInput := []any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, block.Hash()}
 	signatureInputEncoded, _ := rlp.EncodeToBytes(signatureInput)
-	signature, _ := signer(crypto.Hash(signatureInputEncoded))
+	signature, validator := signer(crypto.Hash(signatureInputEncoded))
 
 	payload, _ := rlp.EncodeToBytes(&extPropose{
 		Code:            ProposalCode,
@@ -126,6 +126,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer func(has
 			round:          r,
 			height:         h,
 			signatureInput: signatureInput,
+			sender:         validator,
 			signature:      signature,
 			payload:        payload,
 			hash:           crypto.Hash(payload),
@@ -316,12 +317,12 @@ func newVote[
 	PE interface {
 		*E
 		Msg
-	}](r int64, h uint64, value common.Hash, signer func(hash common.Hash) ([]byte, error)) *E {
+	}](r int64, h uint64, value common.Hash, signer Signer) *E {
 	code := PE(new(E)).Code()
 	// Pay attention that we're adding the message Code to the signature input data.
 	signatureInput := []any{code, uint64(r), h, value}
 	signatureEncodedInput, _ := rlp.EncodeToBytes(signatureInput)
-	signature, _ := signer(crypto.Hash(signatureEncodedInput))
+	signature, validator := signer(crypto.Hash(signatureEncodedInput))
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,
 		Round:     uint64(r),
@@ -335,6 +336,7 @@ func newVote[
 			round:          r,
 			height:         h,
 			signature:      signature,
+			sender:         validator,
 			payload:        payload,
 			hash:           crypto.Hash(payload),
 			signatureInput: signatureInput,

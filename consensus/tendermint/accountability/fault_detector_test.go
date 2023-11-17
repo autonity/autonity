@@ -3,6 +3,14 @@ package accountability
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
+	"math/rand"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -18,32 +26,22 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-	"math/big"
-	"math/rand"
-	"sort"
-	"testing"
 )
 
-type addressKeyMap map[common.Address]*ecdsa.PrivateKey
-
-func generateCommittee() (types.Committee, addressKeyMap) {
+func generateCommittee() (types.Committee, []*ecdsa.PrivateKey) {
 	n := 5
-	vals := make(types.Committee, 0)
-	keymap := make(addressKeyMap)
+	vals := make(types.Committee, n)
+	keys := make([]*ecdsa.PrivateKey, n)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		committeeMember := types.CommitteeMember{
 			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
 			VotingPower: new(big.Int).SetUint64(1),
 		}
-		vals = append(vals, committeeMember)
-		keymap[committeeMember.Address] = privateKey
+		vals[i] = committeeMember
+		keys[i] = privateKey
 	}
-	sort.Sort(vals)
-	return vals, keymap
+	return vals, keys
 }
 
 func newBlockHeader(height uint64, committee types.Committee) *types.Header {
@@ -61,13 +59,13 @@ func newBlockHeader(height uint64, committee types.Committee) *types.Header {
 
 // new proposal with metadata, if the withValue is not nil, it will use the value as proposal, otherwise a
 // random block will be used as the value for proposal.
-func newProposalMessage(h uint64, r int64, vr int64, senderKey *ecdsa.PrivateKey, committee types.Committee, withValue *types.Block) *message.Propose {
+func newProposalMessage(h uint64, r int64, vr int64, signer message.Signer, committee types.Committee, withValue *types.Block) *message.Propose {
 	block := withValue
 	if withValue == nil {
 		header := newBlockHeader(h, committee)
 		block = types.NewBlockWithHeader(header)
 	}
-	return message.NewPropose(r, h, vr, block, makeSigner(senderKey))
+	return message.NewPropose(r, h, vr, block, signer)
 }
 
 func TestSameVote(t *testing.T) {

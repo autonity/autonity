@@ -285,11 +285,11 @@ func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash any) *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockBackend) Sign(hash common.Hash) ([]byte, error) {
+func (m *MockBackend) Sign(hash common.Hash) ([]byte, common.Address) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sign", hash)
 	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
+	ret1, _ := ret[1].(common.Address)
 	return ret0, ret1
 }
 

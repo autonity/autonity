@@ -2,9 +2,10 @@ package interfaces
 
 import (
 	"context"
+	"time"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"time"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
@@ -48,7 +49,7 @@ type Backend interface {
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
-	Sign(hash common.Hash) ([]byte, error)
+	Sign(hash common.Hash) ([]byte, common.Address)
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 

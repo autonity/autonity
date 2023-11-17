@@ -40,7 +40,10 @@ import (
 var (
 	testAddress = common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
 	testKey, _  = crypto.HexToECDSA("bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1")
-	testSigner  = func(data common.Hash) ([]byte, error) { return crypto.Sign(data[:], testKey) }
+	testSigner  = func(data common.Hash) ([]byte, common.Address) {
+		out, _ := crypto.Sign(data[:], testKey)
+		return out, testAddress
+	}
 )
 
 func newTestHeader(committeeSize int) *types.Header {
@@ -107,7 +110,7 @@ func TestGossip(t *testing.T) {
 
 	header := newTestHeader(5)
 	validators := header.Committee
-	msg := message.NewPrevote(1, 1, common.Hash{}, dummySigner)
+	msg := message.NewPrevote(1, 1, common.Hash{}, testSigner)
 
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
@@ -177,10 +180,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not create block %d, err=%s", i, errBlock)
 		}
 		header := block.Header()
-		seal, errS := backend.Sign(types.SigHash(header))
-		if errS != nil {
-			t.Fatalf("could not sign %d, err=%s", i, errS)
-		}
+		seal, _ := backend.Sign(types.SigHash(header))
 		if err := types.WriteSeal(header, seal); err != nil {
 			t.Fatalf("could not write seal %d, err=%s", i, err)
 		}

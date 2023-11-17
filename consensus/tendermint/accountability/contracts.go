@@ -3,6 +3,8 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -14,7 +16,6 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	"math/big"
 )
 
 // precompiled contracts to be call by autonity contract to verify on-chain proofs of accountability events, they are
@@ -27,8 +28,6 @@ var (
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult = common.LeftPadBytes([]byte{1}, 32)
 	failureResult = make([]byte, 128)
-
-	errNilMessage = errors.New("nil message")
 )
 
 const KB = 1024

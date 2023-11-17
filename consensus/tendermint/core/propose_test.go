@@ -484,7 +484,3 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		require.Equal(t, uint64(1), c.pendingCandidateBlocks[uint64(1)].Number().Uint64())
 	})
 }
-
-func dummySigner(_ common.Hash) ([]byte, error) {
-	return nil, nil
-}

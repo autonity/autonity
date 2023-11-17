@@ -7,16 +7,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/influxdata/influxdb/pkg/deep"
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
-	"github.com/influxdata/influxdb/pkg/deep"
-	"go.uber.org/mock/gomock"
 )
 
+var (
+	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
+)
+
+func defaultSigner(h common.Hash) ([]byte, common.Address) {
+	out, _ := crypto.Sign(h[:], testKey)
+	return out, testAddr
+}
 func TestCheckMessage(t *testing.T) {
 	t.Run("valid params given, nil returned", func(t *testing.T) {
 		c := &Core{
@@ -160,7 +171,7 @@ func TestStoreBacklog(t *testing.T) {
 			backlogs: make(map[common.Address][]message.Msg),
 		}
 
-		vote := message.NewPrevote(1, 2, common.Hash{}, dummySigner)
+		vote := message.NewPrevote(1, 2, common.Hash{}, defaultSigner)
 		val := types.CommitteeMember{
 			Address:     common.HexToAddress("0x0987654321"),
 			VotingPower: big.NewInt(1),
@@ -182,7 +193,7 @@ func TestStoreBacklog(t *testing.T) {
 			backlogs: make(map[common.Address][]message.Msg),
 		}
 
-		msg := message.NewPropose(1, 2, 1, types.NewBlockWithHeader(&types.Header{}), dummySigner)
+		msg := message.NewPropose(1, 2, 1, types.NewBlockWithHeader(&types.Header{}), defaultSigner)
 		val := types.CommitteeMember{
 			Address:     common.HexToAddress("0x0987654321"),
 			VotingPower: big.NewInt(1),
@@ -200,7 +211,7 @@ func TestStoreBacklog(t *testing.T) {
 func TestProcessBacklog(t *testing.T) {
 	t.Run("valid proposal received", func(t *testing.T) {
 
-		msg := message.NewPropose(1, 2, 1, types.NewBlockWithHeader(&types.Header{}), dummySigner)
+		msg := message.NewPropose(1, 2, 1, types.NewBlockWithHeader(&types.Header{}), defaultSigner)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -250,7 +261,7 @@ func TestProcessBacklog(t *testing.T) {
 
 	t.Run("valid vote received, processed at prevote step", func(t *testing.T) {
 
-		msg := message.NewPrevote(1, 2, common.Hash{}, dummySigner)
+		msg := message.NewPrevote(1, 2, common.Hash{}, defaultSigner)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -309,7 +320,7 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("same height, but old round", func(t *testing.T) {
-		msg := message.NewPrevote(0, 1, common.Hash{}, dummySigner)
+		msg := message.NewPrevote(0, 1, common.Hash{}, defaultSigner)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -358,7 +369,7 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future height message are not processed", func(t *testing.T) {
-		msg := message.NewPrevote(2, 4, common.Hash{}, dummySigner)
+		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -384,8 +395,8 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future height message are processed when height change", func(t *testing.T) {
-		msg := message.NewPrevote(2, 4, common.Hash{}, dummySigner)
-		msg2 := message.NewPrecommit(2, 4, common.Hash{}, dummySigner)
+		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
+		msg2 := message.NewPrecommit(2, 4, common.Hash{}, defaultSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -421,8 +432,8 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("untrusted messages are processed when height change", func(t *testing.T) {
-		msg := message.NewPrevote(2, 4, common.Hash{}, dummySigner)
-		msg2 := message.NewPrecommit(2, 4, common.Hash{}, dummySigner)
+		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
+		msg2 := message.NewPrecommit(2, 4, common.Hash{}, defaultSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -459,7 +470,7 @@ func TestProcessBacklog(t *testing.T) {
 	})
 
 	t.Run("future round message are processed when round change", func(t *testing.T) {
-		msg := message.NewPrevote(2, 4, common.Hash{}, dummySigner)
+		msg := message.NewPrevote(2, 4, common.Hash{}, defaultSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -516,7 +527,7 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 				i%10,
 				uint64(i/(1+i%10)),
 				common.Hash{},
-				dummySigner)
+				defaultSigner)
 			c.storeFutureMessage(msg)
 			messages = append(messages, msg)
 		}
@@ -560,7 +571,7 @@ func TestStoreUncheckedBacklog(t *testing.T) {
 		})
 
 		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
-			prevote := message.NewPrevote(i%10, uint64(i), common.Hash{}, dummySigner)
+			prevote := message.NewPrevote(i%10, uint64(i), common.Hash{}, defaultSigner)
 			c.storeFutureMessage(prevote)
 			if i < MaxSizeBacklogUnchecked {
 				messages = append(messages, prevote)

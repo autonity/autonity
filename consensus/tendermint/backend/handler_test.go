@@ -2,17 +2,19 @@ package backend
 
 import (
 	"bytes"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/events"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
+
+	"github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
-	"github.com/hashicorp/golang-lru"
 )
 
 func TestTendermintMessage(t *testing.T) {
@@ -101,7 +103,6 @@ func TestSynchronisationMessage(t *testing.T) {
 
 func TestProtocol(t *testing.T) {
 	b := &Backend{}
-
 	name, code := b.Protocol()
 	if name != "tendermint" {
 		t.Fatalf("expected 'tendermint', got %v", name)
