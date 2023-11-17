@@ -10,15 +10,16 @@ const (
 )
 
 func (s Step) String() string {
-	if s == Propose {
+	switch s {
+	case Propose:
 		return "propose"
-	} else if s == Prevote {
+	case Prevote:
 		return "prevote"
-	} else if s == Precommit {
+	case Precommit:
 		return "precommit"
-	} else if s == PrecommitDone {
+	case PrecommitDone:
 		return "precommitDone"
-	} else {
+	default:
 		return "Unknown"
 	}
 }

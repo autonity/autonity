@@ -510,7 +510,7 @@ func (f Fake) String() string                                                 { 
 func (f Fake) Hash() common.Hash                                              { return f.FakeHash }
 func (f Fake) Value() common.Hash                                             { return common.Hash{} }
 func (f Fake) Payload() []byte                                                { return f.FakePayload }
-func (f Fake) setPayload(i []byte)                                            {}
+func (f Fake) setPayload(_ []byte)                                            {}
 func (f Fake) Signature() []byte                                              { return f.FakeSignature }
 func (f Fake) Validate(_ func(_ common.Address) *types.CommitteeMember) error { return nil }
 

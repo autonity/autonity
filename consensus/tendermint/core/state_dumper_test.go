@@ -1,6 +1,14 @@
 package core
 
 import (
+	"math/big"
+	"math/rand"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -8,12 +16,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-	"math/big"
-	"math/rand"
-	"testing"
 )
 
 func TestGetLockedValueAndValidValue(t *testing.T) {
@@ -104,7 +106,7 @@ func TestGetCoreState(t *testing.T) {
 	setCoreState(c, height, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet,
 		prevBlock.Header())
 
-	var e = CoreStateRequestEvent{
+	var e = StateRequestEvent{
 		StateChan: make(chan interfaces.CoreState),
 	}
 	go c.handleStateDump(e)

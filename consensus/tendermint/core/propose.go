@@ -17,7 +17,7 @@ type Proposer struct {
 	*Core
 }
 
-func (c *Proposer) SendProposal(ctx context.Context, block *types.Block) {
+func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	// If I'm the proposer and I have the same height with the proposal
 	if c.Height().Cmp(block.Number()) == 0 && c.IsProposer() && !c.sentProposal {
 		proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)

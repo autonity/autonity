@@ -1,20 +1,21 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"math/big"
 )
 
-type CoreStateRequestEvent struct {
+type StateRequestEvent struct {
 	StateChan chan interfaces.CoreState
 }
 
 func (c *Core) CoreState() interfaces.CoreState {
 	// send state dump request.
-	var e = CoreStateRequestEvent{
+	var e = StateRequestEvent{
 		StateChan: make(chan interfaces.CoreState),
 	}
 	go c.SendEvent(e)
@@ -22,7 +23,7 @@ func (c *Core) CoreState() interfaces.CoreState {
 }
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
-func (c *Core) handleStateDump(e CoreStateRequestEvent) {
+func (c *Core) handleStateDump(e StateRequestEvent) {
 	state := interfaces.CoreState{
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,

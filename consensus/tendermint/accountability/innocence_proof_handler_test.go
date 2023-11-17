@@ -1,6 +1,13 @@
 package accountability
 
 import (
+	"math/big"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
@@ -17,11 +24,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-	"math/big"
-	"testing"
-	"time"
 )
 
 func TestNewOffChainAccusationRateLimiter(t *testing.T) {
@@ -155,7 +157,7 @@ func TestFaultDetector_sendOffChainInnocenceProof(t *testing.T) {
 func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	committee, keys := generateCommittee()
 	clientAddr := committee[0].Address
-	sk, _ := keys[committee[0].Address]
+	sk := keys[committee[0].Address]
 	remotePeer := committee[1].Address
 
 	ctrl := gomock.NewController(t)
@@ -197,7 +199,7 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 func TestOffChainAccusationManagement(t *testing.T) {
 	committee, keys := generateCommittee()
 	clientAddr := committee[0].Address
-	sk, _ := keys[committee[0].Address]
+	sk := keys[committee[0].Address]
 	remotePeer := committee[1].Address
 	t.Run("Add off chain accusation", func(t *testing.T) {
 		var proposal = message.NewPropose(1, 1, -1, types.NewBlockWithHeader(newBlockHeader(1, committee)), makeSigner(keys[remotePeer]))

@@ -3,23 +3,23 @@ package core
 import (
 	"context"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/core/committee"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/crypto"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/committee"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 )
 
@@ -463,7 +463,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
-		backendMock.EXPECT().Broadcast( gomock.Any(), proposal)
+		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),

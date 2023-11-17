@@ -13,6 +13,10 @@ import (
 	"testing"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
@@ -31,9 +35,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 var (
@@ -42,9 +43,8 @@ var (
 	testSigner  = func(data common.Hash) ([]byte, error) { return crypto.Sign(data[:], testKey) }
 )
 
-func newTestHeader(committeeSize int) (*types.Header, []*ecdsa.PrivateKey) {
+func newTestHeader(committeeSize int) *types.Header {
 	validators := make(types.Committee, committeeSize)
-	keys := make([]*ecdsa.PrivateKey, committeeSize)
 	for i := 0; i < committeeSize; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		committeeMember := types.CommitteeMember{
@@ -52,19 +52,18 @@ func newTestHeader(committeeSize int) (*types.Header, []*ecdsa.PrivateKey) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 		validators[i] = committeeMember
-		keys[i] = privateKey
 	}
 	return &types.Header{
 		Number:    new(big.Int).SetUint64(7),
 		Committee: validators,
-	}, keys
+	}
 }
 
 func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
-	header, _ := newTestHeader(7) // N=7, F=2, Q=5
+	header := newTestHeader(7) // N=7, F=2, Q=5
 	validators := header.Committee
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
@@ -106,7 +105,7 @@ func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	header, _ := newTestHeader(5)
+	header := newTestHeader(5)
 	validators := header.Committee
 	msg := message.NewPrevote(1, 1, common.Hash{}, dummySigner)
 

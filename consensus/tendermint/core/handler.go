@@ -56,7 +56,7 @@ func (c *Core) subscribeEvents() {
 		events.MessageEvent{},
 		backlogMessageEvent{},
 		backlogUntrustedMessageEvent{},
-		CoreStateRequestEvent{})
+		StateRequestEvent{})
 	c.candidateBlockSub = c.backend.Subscribe(events.NewCandidateBlockEvent{})
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
 	c.committedSub = c.backend.Subscribe(events.CommitEvent{})
@@ -144,7 +144,7 @@ eventLoop:
 					continue
 				}
 				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
-			case CoreStateRequestEvent:
+			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
 			}

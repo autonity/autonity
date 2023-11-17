@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	proto "github.com/autonity/autonity/consensus"
@@ -12,9 +14,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/rlp"
-	"github.com/stretchr/testify/require"
 )
 
 func newPVNOffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
