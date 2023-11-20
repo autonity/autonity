@@ -2,6 +2,9 @@ package byzantine
 
 import (
 	"context"
+	"regexp"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -9,20 +12,22 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
-	"regexp"
-	"testing"
 )
+
+func newRandomBytesBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &randomBytesBroadcaster{c.(*core.Core)}
+}
 
 type randomBytesBroadcaster struct {
 	*core.Core
 }
 
-func (s *randomBytesBroadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *randomBytesBroadcaster) SignAndBroadcast(msg *message.Message) {
 	logger := s.Logger().New("step", s.Step())
 	logger.Info("Broadcasting random bytes")
 
@@ -32,7 +37,7 @@ func (s *randomBytesBroadcaster) SignAndBroadcast(ctx context.Context, msg *mess
 			logger.Error("Failed to generate random bytes ", "err", err)
 			return
 		}
-		if err = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
+		if err = s.Backend().Broadcast(s.CommitteeSet().Committee(), payload); err != nil {
 			logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 			return
 		}
@@ -47,22 +52,26 @@ func TestRandomBytesBroadcaster(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Broadcaster: &randomBytesBroadcaster{}}
+	users[0].TendermintServices = &node.TendermintServices{Broadcaster: newRandomBytesBroadcaster}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 180)
+	err = network.WaitToMineNBlocks(10, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbageMessageBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &garbageMessageBroadcaster{c.(*core.Core)}
 }
 
 type garbageMessageBroadcaster struct {
 	*core.Core
 }
 
-func (s *garbageMessageBroadcaster) SignAndBroadcast(ctx context.Context, _ *message.Message) {
+func (s *garbageMessageBroadcaster) SignAndBroadcast(_ *message.Message) {
 	logger := s.Logger().New("step", s.Step())
 
 	var fMsg message.Message
@@ -79,7 +88,7 @@ func (s *garbageMessageBroadcaster) SignAndBroadcast(ctx context.Context, _ *mes
 		logger.Error("Failed to finalize message", "msg", fMsg, "err", err)
 		return
 	}
-	if err = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
+	if err = s.Backend().Broadcast(s.CommitteeSet().Committee(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", fMsg, "err", err)
 		return
 	}
@@ -93,15 +102,19 @@ func TestGarbageMessageBroadcaster(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Broadcaster: &garbageMessageBroadcaster{}}
+	users[0].TendermintServices = &node.TendermintServices{Broadcaster: newGarbageMessageBroadcaster}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 180)
+	err = network.WaitToMineNBlocks(10, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbagePrecommitSender(c interfaces.Tendermint) interfaces.Precommiter {
+	return &garbagePrecommitSender{c.(*core.Core), c.Precommiter()}
 }
 
 type garbagePrecommitSender struct {
@@ -172,7 +185,7 @@ func (c *garbagePrecommitSender) SendPrecommit(ctx context.Context, isNil bool) 
 			}
 
 			c.SetSentPrecommit(true)
-			c.Br().SignAndBroadcast(ctx, msg)
+			c.Broadcaster().SignAndBroadcast(msg)
 		}
 	}
 }
@@ -185,15 +198,19 @@ func TestGarbagePrecommitter(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Precommitter: &garbagePrecommitSender{}}
+	users[0].TendermintServices = &node.TendermintServices{Precommiter: newGarbagePrecommitSender}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbagePrevoter(c interfaces.Tendermint) interfaces.Prevoter {
+	return &garbagePrevoter{c.(*core.Core), c.Prevoter()}
 }
 
 type garbagePrevoter struct {
@@ -252,7 +269,7 @@ func (c *garbagePrevoter) SendPrevote(ctx context.Context, isNil bool) {
 			}
 			f.Funcs(func(dMsg *message.ConsensusMsg, fc fuzz.Continue) {})
 			f.Fuzz(msg)
-			c.Br().SignAndBroadcast(ctx, msg)
+			c.Broadcaster().SignAndBroadcast(msg)
 		}
 	}
 	c.SetSentPrevote(true)
@@ -266,15 +283,19 @@ func TestGarbagePrevoter(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: &garbagePrevoter{}}
+	users[0].TendermintServices = &node.TendermintServices{Prevoter: newGarbagePrevoter}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func newGarbageProposer(c interfaces.Tendermint) interfaces.Proposer {
+	return &garbageProposer{c.(*core.Core), c.Proposer()}
 }
 
 type garbageProposer struct {
@@ -348,7 +369,7 @@ func (c *garbageProposer) SendProposal(ctx context.Context, p *types.Block) {
 			c.SetSentProposal(true)
 			c.Backend().SetProposedBlockHash(p.Hash())
 
-			c.Br().SignAndBroadcast(ctx, &message.Message{
+			c.Broadcaster().SignAndBroadcast(&message.Message{
 				Code:          consensus.MsgProposal,
 				Payload:       proposal,
 				ConsensusMsg:  proposalBlock,
@@ -367,13 +388,13 @@ func TestGarbageProposer(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Proposer: &garbageProposer{}}
+	users[0].TendermintServices = &node.TendermintServices{Proposer: newGarbageProposer}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 120)
+	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }

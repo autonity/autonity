@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -98,8 +99,8 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		}
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).Times(2)
-		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
-			func(ctx context.Context, c types.Committee, payload []byte) {
+		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1).Do(
+			func(c types.Committee, payload []byte) {
 				message := new(tcmessage.Message)
 				if err := rlp.DecodeBytes(payload, message); err != nil {
 					t.Fatalf("could not decode payload")

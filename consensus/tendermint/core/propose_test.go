@@ -58,7 +58,7 @@ func TestSendPropose(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).Times(2).DoAndReturn(signer(proposerKey))
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), msg.Bytes)
+		backendMock.EXPECT().Broadcast(gomock.Any(), msg.Bytes)
 
 		c := &Core{
 			address:          proposer,
@@ -246,7 +246,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, errors.New("bad block"))
 		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 
 		c := &Core{
@@ -542,7 +542,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
 		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
 
 		c := &Core{
 			address:          addr,
@@ -642,7 +642,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(decProposal.ProposalBlock)
 		backendMock.EXPECT().Sign(payloadNoSig)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
 
 		c := &Core{
 			address:          addr,
@@ -734,7 +734,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(signer(proposerKey))
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), msg.Bytes)
+		backendMock.EXPECT().Broadcast(gomock.Any(), msg.Bytes)
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),

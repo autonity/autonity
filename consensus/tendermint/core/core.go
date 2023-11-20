@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"math/big"
-	"reflect"
 	"sync"
 	"time"
 
@@ -17,10 +16,11 @@ import (
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/node"
 )
 
 // New creates an Tendermint consensus Core
-func New(backend interfaces.Backend) *Core {
+func New(backend interfaces.Backend, services *node.TendermintServices) *Core {
 	addr := backend.Address()
 	messagesMap := message.NewMessagesMap()
 	roundMessage := messagesMap.GetOrCreate(0)
@@ -47,6 +47,12 @@ func New(backend interfaces.Backend) *Core {
 		stepChange:             time.Now(),
 	}
 	c.SetDefaultHandlers()
+	if services != nil {
+		c.broadcaster = services.Broadcaster(c)
+		c.prevoter = services.Prevoter(c)
+		c.precommiter = services.Precommiter(c)
+		c.proposer = services.Proposer(c)
+	}
 	return c
 }
 
@@ -55,65 +61,6 @@ func (c *Core) SetDefaultHandlers() {
 	c.prevoter = &Prevoter{c}
 	c.precommiter = &Precommiter{c}
 	c.proposer = &Proposer{c}
-}
-
-func (c *Core) SetBroadcaster(svc interfaces.Broadcaster) {
-	if svc == nil {
-		return
-	}
-	// this would set the current Core object state in the
-	// broadcast service object
-	field0 := reflect.ValueOf(svc).Elem().Field(0)
-	field0.Set(reflect.ValueOf(c))
-	c.broadcaster = svc
-}
-func (c *Core) SetPrevoter(svc interfaces.Prevoter) {
-	if svc == nil {
-		return
-	}
-	fields := reflect.ValueOf(svc).Elem()
-	// Set up default Core
-	field0 := fields.Field(0)
-	field0.Set(reflect.ValueOf(c))
-	// Set up default prevote service
-	if fields.NumField() > 1 {
-		field1 := fields.Field(1)
-		field1.Set(reflect.ValueOf(c.prevoter))
-	}
-	c.prevoter = svc
-}
-
-func (c *Core) SetPrecommitter(svc interfaces.Precommiter) {
-	if svc == nil {
-		return
-	}
-	fields := reflect.ValueOf(svc).Elem()
-	// Set up default Core
-	field0 := fields.Field(0)
-	field0.Set(reflect.ValueOf(c))
-	// Set up default precommit service
-	if fields.NumField() > 1 {
-		field1 := fields.Field(1)
-		field1.Set(reflect.ValueOf(c.precommiter))
-	}
-
-	c.precommiter = svc
-}
-
-func (c *Core) SetProposer(svc interfaces.Proposer) {
-	if svc == nil {
-		return
-	}
-	fields := reflect.ValueOf(svc).Elem()
-	// Set up default Core
-	field0 := fields.Field(0)
-	field0.Set(reflect.ValueOf(c))
-	// Set up default propose service
-	if fields.NumField() > 1 {
-		field1 := fields.Field(1)
-		field1.Set(reflect.ValueOf(c.proposer))
-	}
-	c.proposer = svc
 }
 
 type Core struct {
@@ -183,15 +130,15 @@ type Core struct {
 	newRound  time.Time
 }
 
-func (c *Core) GetPrevoter() interfaces.Prevoter {
+func (c *Core) Prevoter() interfaces.Prevoter {
 	return c.prevoter
 }
 
-func (c *Core) GetPrecommiter() interfaces.Precommiter {
+func (c *Core) Precommiter() interfaces.Precommiter {
 	return c.precommiter
 }
 
-func (c *Core) GetProposer() interfaces.Proposer {
+func (c *Core) Proposer() interfaces.Proposer {
 	return c.proposer
 }
 
@@ -303,7 +250,7 @@ func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Addre
 	c.futureRoundChange = futureRoundChange
 }
 
-func (c *Core) Br() interfaces.Broadcaster {
+func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
 
@@ -584,7 +531,7 @@ type Broadcaster struct {
 	*Core
 }
 
-func (s *Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *Broadcaster) SignAndBroadcast(msg *message.Message) {
 	logger := s.Logger().New("step", s.Step())
 	payload, err := s.SignMessage(msg)
 	if err != nil {
@@ -594,7 +541,7 @@ func (s *Broadcaster) SignAndBroadcast(ctx context.Context, msg *message.Message
 	}
 	// SignAndBroadcast payload
 	logger.Debug("Broadcasting", "message", msg.String())
-	if err := s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), payload); err != nil {
+	if err := s.Backend().Broadcast(s.CommitteeSet().Committee(), payload); err != nil {
 		logger.Error("Failed to broadcast message", "msg", msg, "err", err)
 		return
 	}

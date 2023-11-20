@@ -5,6 +5,15 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
+	"math/big"
+	"os"
+	"reflect"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/consensus/misc"
@@ -15,15 +24,8 @@ import (
 	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"math"
-	"math/big"
-	"os"
-	"reflect"
-	"strings"
-	"sync/atomic"
-	"testing"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 
@@ -61,15 +63,16 @@ func TestAskSync(t *testing.T) {
 	for _, p := range addresses {
 		m[p] = struct{}{}
 	}
+	recentMessages, err := lru.NewARC(inmemoryMessages)
+	require.NoError(t, err)
 	knownMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
 	b := &Backend{
 		knownMessages: knownMessages,
+		gossiper:      NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
@@ -87,10 +90,9 @@ func TestGossip(t *testing.T) {
 	header := newTestHeader(5)
 	validators := header.Committee
 	payload, err := rlp.EncodeToBytes([]byte("data"))
+	require.NoError(t, err)
 	hash := types.RLPHash(payload)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
@@ -120,26 +122,22 @@ func TestGossip(t *testing.T) {
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
 
 	knownMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
 	recentMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
 	address3Cache, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	require.NoError(t, err)
+
 	address3Cache.Add(hash, true)
 	recentMessages.Add(addresses[3], address3Cache)
 	b := &Backend{
 		knownMessages:  knownMessages,
 		recentMessages: recentMessages,
+		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(context.Background(), validators, payload)
+	b.Gossip(validators, payload)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 4 {
 		t.Fatalf("gossip message transmission failure")
@@ -361,8 +359,11 @@ func TestCommit(t *testing.T) {
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		broadcaster.EXPECT().Enqueue(fetcherID, gomock.Any())
 
+		gossiper := interfaces.NewMockGossiper(ctrl)
+		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 		b := &Backend{
 			Broadcaster: broadcaster,
+			gossiper:    gossiper,
 			logger:      log.New("backend", "test", "id", 0),
 		}
 		b.SetBroadcaster(broadcaster)
@@ -413,8 +414,11 @@ func TestSyncPeer(t *testing.T) {
 		tendermintC := interfaces.NewMockTendermint(ctrl)
 		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
 
+		gossiper := interfaces.NewMockGossiper(ctrl)
+		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 		b := &Backend{
 			logger:         log.New("backend", "test", "id", 0),
+			gossiper:       gossiper,
 			recentMessages: recentMessages,
 			core:           tendermintC,
 		}

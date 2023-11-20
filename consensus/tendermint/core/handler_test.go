@@ -2,6 +2,9 @@ package core
 
 import (
 	"context"
+	"math/big"
+	"testing"
+
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
@@ -11,8 +14,6 @@ import (
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"math/big"
-	"testing"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/events"
@@ -274,7 +275,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	c := New(backendMock)
+	c := New(backendMock, nil)
 	_, c.cancel = context.WithCancel(context.Background())
 	c.subscribeEvents()
 	c.stopped <- struct{}{}

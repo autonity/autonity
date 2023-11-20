@@ -194,10 +194,13 @@ func (n *Node) Start() error {
 	nodeConfigCopy.Logger = log.New()
 	nodeConfigCopy.Logger.SetHandler(logger)
 
+	// set custom tendermint services
+	nodeConfigCopy.SetTendermintServices(n.CustHandler)
+
 	if n.Node, err = node.New(nodeConfigCopy); err != nil {
 		return err
 	}
-	n.Node.SetTendermintServices(n.CustHandler)
+
 	// This registers the ethereum service on the n.Node, so that calling
 	// n.Node.Stop will also close the eth service. Again we provide a copy of
 	// the EthConfig so that we can use our copy for black box testing.
@@ -430,14 +433,17 @@ func (nw Network) WaitForNetworkToStartMining() error {
 
 // WaitToMineNBlocks waits for network to mine given number of
 // blocks in the given time window default value for numSec can be kept 60 seconds
-func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int) error {
+// if verifyRate == true --> we return an error if we cannot satisfy that 1 block/s rate
+func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numSec)*time.Second)
 	defer cancel()
 	// cache current chain height for all nodes
 	chainHeights := make([]uint64, len(nw))
+	lastHeights := make([]uint64, len(nw))
 	for i, n := range nw {
 		if n.isRunning {
 			chainHeights[i] = n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+			lastHeights[i] = chainHeights[i]
 		}
 	}
 	syncTicker := time.NewTicker(1 * time.Second)
@@ -451,11 +457,24 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int) error {
 				if !n.isRunning {
 					continue
 				}
-				currHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+				currHeader := n.Eth.BlockChain().CurrentHeader()
+				currHeight := currHeader.Number.Uint64()
 				if currHeight > chainHeights[i]+numBlocks {
 					syncedNodes++
 				}
 				totalRunning++
+
+				// verify block rate against parent if we moved forward
+				// it is not bulletproof but good enough
+				// (we could have moved 2 blocks from last iteration, with first block not respecting the rate and second yes)
+				if verifyRate && currHeight > lastHeights[i] {
+					currTime := currHeader.Time
+					parentTime := n.Eth.BlockChain().GetHeaderByHash(currHeader.ParentHash).Time
+					if currTime-parentTime != 1 {
+						return fmt.Errorf("Block rate not respected. parentTime: %d, currTime: %d", parentTime, currTime)
+					}
+				}
+				lastHeights[i] = currHeight
 			}
 			// all the running nodes should reach the required chainHeight
 			if syncedNodes == totalRunning {

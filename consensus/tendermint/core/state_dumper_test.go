@@ -1,6 +1,10 @@
 package core
 
 import (
+	"math/big"
+	"math/rand"
+	"testing"
+
 	"github.com/autonity/autonity/consensus"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -8,9 +12,6 @@ import (
 	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
 	"github.com/autonity/autonity/log"
 	"go.uber.org/mock/gomock"
-	"math/big"
-	"math/rand"
-	"testing"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
@@ -36,7 +37,7 @@ func TestGetProposal(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Address().Return(nodeAddr)
 	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
-	core := New(backendMock)
+	core := New(backendMock, nil)
 
 	proposalMsg, proposal := randomProposal(t)
 	core.messages.GetOrCreate(proposal.Round).SetProposal(proposal, proposalMsg, true)
@@ -54,7 +55,7 @@ func TestGetRoundState(t *testing.T) {
 	backendMock.EXPECT().Address().Return(sender)
 	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 
-	c := New(backendMock)
+	c := New(backendMock, nil)
 
 	rounds := []int64{0, 1}
 	height := big.NewInt(int64(100) + 1)
@@ -90,7 +91,7 @@ func TestGetCoreState(t *testing.T) {
 	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
 
-	c := New(backendMock)
+	c := New(backendMock, nil)
 
 	var rounds = []int64{0, 1}
 

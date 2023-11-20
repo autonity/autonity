@@ -60,7 +60,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 
 	c.sentPrecommit = true
-	c.Br().SignAndBroadcast(ctx, msg)
+	c.Broadcaster().SignAndBroadcast(msg)
 }
 
 func (c *Precommiter) HandlePrecommit(ctx context.Context, msg *message.Message) error {
