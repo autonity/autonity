@@ -3,13 +3,14 @@ package byzantine
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
 	core2 "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
-	"math/big"
-	"testing"
-	"time"
 
 	"github.com/autonity/autonity/autonity"
 	e2e "github.com/autonity/autonity/e2e_test"
@@ -46,7 +47,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	// set Malicious validators
 	for _, faultyNodeIndex := range faultyNodes {
-		validators[faultyNodeIndex].TendermintServices = &node.TendermintServices{Broadcaster: &InvalidProposal{}}
+		validators[faultyNodeIndex].TendermintServices = &node.TendermintServices{Broadcaster: newInvalidProposalBroadcaster}
 	}
 
 	validatorsBefore := make([]autonity.AutonityValidator, len(faultyNodes))
@@ -208,7 +209,7 @@ func TestHistoryFactor(t *testing.T) {
 
 	// set Malicious validators
 	faultyNode := 2
-	validators[faultyNode].TendermintServices = &node.TendermintServices{Broadcaster: &InvalidProposal{}}
+	validators[faultyNode].TendermintServices = &node.TendermintServices{Broadcaster: newInvalidProposalBroadcaster}
 
 	var chainID *big.Int
 

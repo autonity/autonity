@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/p2p"
-	"github.com/hashicorp/golang-lru"
-	"io"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -129,6 +130,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
 func (sb *Backend) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	sb.Broadcaster = broadcaster
+	sb.gossiper.SetBroadcaster(broadcaster)
 }
 
 func (sb *Backend) NewChainHead() error {

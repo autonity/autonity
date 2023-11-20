@@ -21,7 +21,7 @@ type Backend interface {
 	AskSync(header *types.Header)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(ctx context.Context, committee types.Committee, payload []byte) error
+	Broadcast(committee types.Committee, payload []byte) error
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
@@ -31,7 +31,7 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(ctx context.Context, committee types.Committee, payload []byte)
+	Gossip(committee types.Committee, payload []byte)
 
 	KnownMsgHash() []common.Hash
 
@@ -71,4 +71,7 @@ type Backend interface {
 
 	// IsJailed returns true if the address belongs to the jailed validator list.
 	IsJailed(address common.Address) bool
+
+	// Gossiper returns gossiper object
+	Gossiper() Gossiper
 }

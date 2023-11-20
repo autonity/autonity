@@ -32,7 +32,7 @@ func TestSendPrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(0)
 
 		messages := message.NewMessagesMap()
 		c := &Core{
@@ -99,7 +99,7 @@ func TestSendPrecommit(t *testing.T) {
 
 		payload := expectedMsg.GetBytes()
 
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
 
 		c := &Core{
 			backend:          backendMock,
@@ -165,7 +165,7 @@ func TestSendPrecommit(t *testing.T) {
 
 		payload := expectedMsg.GetBytes()
 
-		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any(), payload)
+		backendMock.EXPECT().Broadcast(gomock.Any(), payload)
 
 		c := &Core{
 			backend:          backendMock,

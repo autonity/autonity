@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -14,7 +13,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/node"
 	"github.com/stretchr/testify/require"
 )
@@ -35,12 +34,16 @@ func runTest(t *testing.T, services *node.TendermintServices, eventType autonity
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(period, 500) // nolint
+	network.WaitToMineNBlocks(period, 500, false) // nolint
 
 	// check if the misbehaviour is presented for faulty node #0
 	faultyAddress := network[faultyNode].Address
 	detected := e2e.AccountabilityEventDetected(t, faultyAddress, eventType, rule, network)
 	require.Equal(t, true, detected)
+}
+
+func newPNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PN{c.(*core.Core), false}
 }
 
 type PN struct {
@@ -49,9 +52,9 @@ type PN struct {
 }
 
 // simulate a context of msgs that node proposes a new proposal rather than the one it locked at previous rounds.
-func (s *PN) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *PN) SignAndBroadcast(msg *message.Message) {
 	if s.done || s.Height().Uint64() < 10 || msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	_ = msg.DecodePayload()
@@ -66,11 +69,15 @@ func (s *PN) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 	msgPN := e2e.NewProposeMsg(s.Core.Address(), msg.ConsensusMsg.(*message.Proposal).ProposalBlock, msg.H(), nPR, -1, s.Core.Backend().Sign)
 	printMessage(msgPN)
 
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msgEvidence)
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msgPN)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
+	e2e.DefaultSignAndBroadcast(s.Core, msgEvidence)
+	e2e.DefaultSignAndBroadcast(s.Core, msgPN)
 
 	s.done = true
+}
+
+func newPOBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PO{c.(*core.Core), false}
 }
 
 type PO struct {
@@ -79,9 +86,9 @@ type PO struct {
 }
 
 // simulate a context of msgs that node proposes a value for which was not the one it locked on.
-func (s *PO) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
+func (s *PO) SignAndBroadcast(proposal *message.Message) {
 	if s.done || s.Height().Uint64() < 10 || proposal.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, proposal)
+		e2e.DefaultSignAndBroadcast(s.Core, proposal)
 		return
 	}
 	// start to simulate malicious context to break rule PO.
@@ -96,11 +103,17 @@ func (s *PO) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
 	msgPO := e2e.NewProposeMsg(s.Address(), proposal.ConsensusMsg.(*message.Proposal).ProposalBlock, proposal.H(), nPR, vR, s.Core.Backend().Sign)
 	printMessage(msgPO)
 
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, proposal)
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msgEvidence)
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msgPO)
+	e2e.DefaultSignAndBroadcast(s.Core, proposal)
+	e2e.DefaultSignAndBroadcast(s.Core, msgEvidence)
+	e2e.DefaultSignAndBroadcast(s.Core, msgPO)
 	s.done = true
 }
+
+/* currently not used, see later commented tests
+func newPVNBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PVN{c.(*core.Core), false}
+}
+*/
 
 type PVN struct {
 	*core.Core
@@ -111,8 +124,8 @@ type PVN struct {
 // An example context like below:
 // preCommit (h, r, v1)
 // preVote   (h, r+1, v2)
-func (s *PVN) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, proposal)
+func (s *PVN) SignAndBroadcast(proposal *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, proposal)
 	if s.done || s.Height().Uint64() < 10 || proposal.Code != consensus.MsgProposal {
 		return
 	}
@@ -126,22 +139,28 @@ func (s *PVN) SignAndBroadcast(ctx context.Context, proposal *message.Message) {
 
 	newProposal := e2e.NewProposeMsg(s.Address(), newBlock, proposal.H(), nPR, -1, s.Core.Backend().Sign)
 	fmt.Println("BYZ PROPOSAL HASH", "old", proposal.Value(), "new", newProposal.Value())
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, newProposal)
+	e2e.DefaultSignAndBroadcast(s.Core, newProposal)
 	// simulate a preCommit at round r, for value v1.
 	precommit := e2e.NewVoteMsg(consensus.MsgPrecommit, proposal.H(), proposal.R(), proposal.ConsensusMsg.V(), s.Core)
 	// simulate nil precommits until nPr to get contiguous precommits
 	for i := proposal.R() + 1; i < nPR; i++ {
 		nilPrecommit := e2e.NewVoteMsg(consensus.MsgPrecommit, proposal.H(), i, core.NilValue, s.Core)
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, nilPrecommit)
+		e2e.DefaultSignAndBroadcast(s.Core, nilPrecommit)
 	}
 	// simulate a preVote at round nPR, for value v2, this preVote for new value break PVN.
 	evidence := e2e.NewVoteMsg(consensus.MsgPrevote, proposal.H(), nPR, newProposal.Value(), s.Core)
 
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, precommit)
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, evidence)
+	e2e.DefaultSignAndBroadcast(s.Core, precommit)
+	e2e.DefaultSignAndBroadcast(s.Core, evidence)
 	s.done = true
 	// TODO:(youssef) We need to test the accusation flow when we have an evidence for it too !
 }
+
+/* currently not used, see later commented tests
+func newPVO1Broadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &PVO1{c.(*core.Core), false}
+}
+*/
 
 // PVO rule requires coordination from multiple agents otherwise only the proposal for "PO" will be submitted on-chain.
 type PVO1 struct {
@@ -150,8 +169,8 @@ type PVO1 struct {
 }
 
 // simulate a context of msgs that a node preVote for a value that is not the one it precommitted at previous round.
-func (s *PVO1) SignAndBroadcast(ctx context.Context, msg *message.Message) {
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+func (s *PVO1) SignAndBroadcast(msg *message.Message) {
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 
 	if s.done || s.Height().Uint64() < 10 || msg.Code != consensus.MsgProposal {
 		return
@@ -166,7 +185,7 @@ func (s *PVO1) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 	validRound := round - 5
 
 	proposal := e2e.NewProposeMsg(s.Address(), msg.ConsensusMsg.(*message.Proposal).ProposalBlock, msg.H(), round, validRound, s.Backend().Sign)
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, proposal)
+	e2e.DefaultSignAndBroadcast(s.Core, proposal)
 
 	for r := validRound; r < round; r++ {
 		// send precommit for nil and one not for vr
@@ -175,21 +194,25 @@ func (s *PVO1) SignAndBroadcast(ctx context.Context, msg *message.Message) {
 			val = e2e.NonNilValue
 		}
 		precommit := e2e.NewVoteMsg(consensus.MsgPrecommit, proposal.H(), r, val, s.Core)
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, precommit)
+		e2e.DefaultSignAndBroadcast(s.Core, precommit)
 	}
 	evidence := e2e.NewVoteMsg(consensus.MsgPrevote, proposal.H(), round, proposal.Value(), s.Core)
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, evidence)
+	e2e.DefaultSignAndBroadcast(s.Core, evidence)
 
 	s.done = true
+}
+
+func newInvalidProposalBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &InvalidProposal{c.(*core.Core)}
 }
 
 type InvalidProposal struct {
 	*core.Core
 }
 
-func (s *InvalidProposal) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *InvalidProposal) SignAndBroadcast(msg *message.Message) {
 	if msg.Code != consensus.MsgProposal {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	err := msg.DecodePayload()
@@ -206,19 +229,23 @@ func (s *InvalidProposal) SignAndBroadcast(ctx context.Context, msg *message.Mes
 		s.Logger().Warn("Cannot simulate Misbehaviour of invalid proposal rule", err)
 	}
 	s.Logger().Info("Misbehaviour of invalid proposal rule is simulated.")
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mP)
 }
 
 type InvalidProposer struct {
 	*core.Core
 }
 
-func (s *InvalidProposer) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func newInvalidProposer(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &InvalidProposer{c.(*core.Core)}
+}
+
+func (s *InvalidProposer) SignAndBroadcast(msg *message.Message) {
 	_ = msg.DecodePayload()
 	// if current node is the proposer of current round, skip and return.
 	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
-		e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+		e2e.DefaultSignAndBroadcast(s.Core, msg)
 		return
 	}
 	// current node is not the proposer of current round, propose a proposal.
@@ -230,17 +257,21 @@ func (s *InvalidProposer) SignAndBroadcast(ctx context.Context, msg *message.Mes
 		s.Logger().Crit("Cannot simulate Misbehaviour of invalid proposer rule", err)
 	}
 	s.Logger().Info("Misbehaviour of invalid proposer rule is simulated.")
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
-	_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mP)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
+	_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mP)
+}
+
+func newEquivocationBroadcaster(c interfaces.Tendermint) interfaces.Broadcaster {
+	return &Equivocation{c.(*core.Core)}
 }
 
 type Equivocation struct {
 	*core.Core
 }
 
-func (s *Equivocation) SignAndBroadcast(ctx context.Context, msg *message.Message) {
+func (s *Equivocation) SignAndBroadcast(msg *message.Message) {
 	_ = msg.DecodePayload()
-	e2e.DefaultSignAndBroadcast(ctx, s.Core, msg)
+	e2e.DefaultSignAndBroadcast(s.Core, msg)
 	// let proposer of the round send equivocated preVote.
 	if msg.Code == consensus.MsgPrevote && s.IsProposer() {
 		msgEq := e2e.NewVoteMsg(consensus.MsgPrevote, msg.H(), msg.R(), e2e.NonNilValue, s.Core)
@@ -249,7 +280,7 @@ func (s *Equivocation) SignAndBroadcast(ctx context.Context, msg *message.Messag
 			s.Logger().Warn("Cannot simulate Misbehaviour of equivocation rule", err)
 		}
 		s.Logger().Info("Misbehaviour of equivocation rule is simulated.")
-		_ = s.Backend().Broadcast(ctx, s.CommitteeSet().Committee(), mE)
+		_ = s.Backend().Broadcast(s.CommitteeSet().Committee(), mE)
 	}
 }
 
@@ -257,16 +288,16 @@ func TestFaultProofs(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name         string
-		broadcasters interfaces.Broadcaster
+		broadcasters func(c interfaces.Tendermint) interfaces.Broadcaster
 		rule         autonity.Rule
 	}{
-		{"PN", &PN{}, autonity.PN}, // Pass with 120
-		{"PO", &PO{}, autonity.PO}, // Pass with 120
-		// {"PVN", &PVN{}, autonity.PVN}, //Not supported, need multiple byzantine validators
-		// {"PVO1", &PVO1{}, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
-		// {"InvalidProposal", &InvalidProposal{}, autonity.InvalidProposal}, Invalid proposals are not currently supported
-		{"InvalidProposer", &InvalidProposer{}, autonity.InvalidProposer}, // Pass with 120
-		{"Equivocation", &Equivocation{}, autonity.Equivocation},          // Pass with 120
+		{"PN", newPNBroadcaster, autonity.PN}, // Pass with 120
+		{"PO", newPOBroadcaster, autonity.PO}, // Pass with 120
+		// {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
+		// {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
+		// {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
+		{"InvalidProposer", newInvalidProposer, autonity.InvalidProposer},   // Pass with 120
+		{"Equivocation", newEquivocationBroadcaster, autonity.Equivocation}, // Pass with 120
 	}
 
 	for _, test := range testCases {
