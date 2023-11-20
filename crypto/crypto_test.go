@@ -334,16 +334,14 @@ func TestHexToNodeKey(t *testing.T) {
 	require.NoError(t, err)
 
 	keyHex := hex.EncodeToString(FromECDSA(key))
-	println(keyHex)
 	derivedKeyHex := hex.EncodeToString(derivedKey.Marshal())
-	println(derivedKeyHex)
 
-	parsedKey, parsedBLSKey, err := HexToNodeKey(keyHex + derivedKeyHex)
+	parsedKey, parsedValidatorKey, err := HexToNodeKey(keyHex + derivedKeyHex)
 	require.NoError(t, err)
 
 	require.Equal(t, key, parsedKey)
 	require.Equal(t, true, key.Equal(parsedKey))
-	require.Equal(t, derivedKey.Hex(), parsedBLSKey.Hex())
+	require.Equal(t, derivedKey.Hex(), parsedValidatorKey.Hex())
 }
 
 func TestLoadNodeKey(t *testing.T) {
