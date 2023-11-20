@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 )
@@ -55,6 +56,7 @@ type base struct {
 	power          *big.Int
 	sender         common.Address
 	hash           common.Hash
+	verified       bool
 }
 
 type Propose struct {
@@ -95,6 +97,15 @@ func (p *Propose) String() string {
 		p.round, p.H(), p.validRound, p.block.Hash().String())
 }
 
+func (p *Propose) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Propose {
+	p.Validate(inCommittee)
+	return p
+}
+
+func (p *Propose) ToLight() *LightProposal {
+	return NewLightProposal(p)
+}
+
 func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) *Propose {
 	isValidRoundNil := false
 	validRound := uint64(0)
@@ -130,6 +141,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 			signature:      signature,
 			payload:        payload,
 			hash:           crypto.Hash(payload),
+			verified:       false,
 		},
 	}
 }
@@ -198,6 +210,11 @@ func (p *LightProposal) String() string {
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
+	if !proposal.verified {
+		//temporary panic to catch bugs.
+		panic("unverified light-proposal creation")
+		return nil
+	}
 	isValidRoundNil := false
 	validRound := uint64(0)
 	if proposal.validRound == -1 {
@@ -226,6 +243,7 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 			power:          proposal.Power(),
 			sender:         proposal.sender,
 			hash:           crypto.Hash(payload),
+			verified:       true,
 		},
 	}
 }
@@ -290,6 +308,11 @@ func (p *Prevote) Value() common.Hash {
 	return p.value
 }
 
+func (p *Prevote) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Prevote {
+	p.Validate(inCommittee)
+	return p
+}
+
 func (p *Prevote) String() string {
 	return fmt.Sprintf("{r:  %v, h: %v , sender: %v, power: %v, Code: %v, value: %v}",
 		p.round, p.height, p.sender, p.power, p.Code(), p.value)
@@ -306,6 +329,11 @@ func (p *Precommit) Code() uint8 {
 
 func (p *Precommit) Value() common.Hash {
 	return p.value
+}
+
+func (p *Precommit) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Precommit {
+	p.Validate(inCommittee)
+	return p
 }
 
 func (p *Precommit) String() string {
@@ -341,6 +369,7 @@ func newVote[
 			payload:        payload,
 			hash:           crypto.Hash(payload),
 			signatureInput: signatureInput,
+			verified:       false,
 		},
 	}
 	return &vote
@@ -424,8 +453,8 @@ func FromWire[T any, PT interface {
 }
 
 func (b *base) Sender() common.Address {
-	if b.sender == (common.Address{}) {
-		panic("sender is not set")
+	if !b.verified {
+		panic("unverified message")
 	}
 	return b.sender
 }
@@ -449,6 +478,9 @@ func (b *base) R() int64 {
 }
 
 func (b *base) Power() *big.Int {
+	if !b.verified {
+		panic("unverified message")
+	}
 	return b.power
 }
 
@@ -457,10 +489,16 @@ func (b *base) Signature() []byte {
 }
 
 func (b *base) Payload() []byte {
+	if b.payload == nil {
+		log.Crit("message returning empty payload")
+	}
 	return b.payload
 }
 
 func (b *base) Hash() common.Hash {
+	if b.payload == nil {
+		log.Crit("message returning empty hash")
+	}
 	return b.hash
 }
 
@@ -481,6 +519,7 @@ func (b *base) Validate(inCommittee func(address common.Address) *types.Committe
 	}
 	b.sender = addr
 	b.power = validator.VotingPower
+	b.verified = true
 	return nil
 }
 

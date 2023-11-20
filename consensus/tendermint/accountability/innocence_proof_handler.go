@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -199,7 +200,9 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		fd.logger.Info("over rated accusation over a height", "error", err)
 		return err
 	}
-
+	if err = verifyProofSignatures(fd.blockchain, proof); err != nil {
+		return err
+	}
 	// handle accusation and provide innocence proof.
 	if proof.Type == autonity.Accusation {
 		return fd.handleOffChainAccusation(proof, sender, msgHash)
@@ -219,7 +222,7 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	}
 
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
-	if !verifyAccusation(fd.blockchain, accusation) {
+	if !verifyAccusation(accusation) {
 		return errInvalidAccusation
 	}
 
@@ -247,26 +250,8 @@ func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender com
 	if proof.Message.Sender() != sender {
 		return errInvalidInnocenceProof
 	}
-	// check if evidence msgs are from committee members of that height.
-	h := proof.Message.H()
-	lastHeader := fd.blockchain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return errNoParentHeader
-	}
-	// validate message.
-	if err := proof.Message.Validate(lastHeader.CommitteeMember); err != nil {
-		return errInvalidInnocenceProof
-	}
-	for _, m := range proof.Evidences {
-		if m.H() != h {
-			return errInvalidInnocenceProof
-		}
-		if err := m.Validate(lastHeader.CommitteeMember); err != nil {
-			return errInvalidInnocenceProof
-		}
-	}
 	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
-	if !validInnocenceProof(proof, fd.blockchain) {
+	if !verifyInnocenceProof(proof, fd.blockchain) {
 		return errInvalidInnocenceProof
 	}
 	// the proof is valid, withdraw the off chain challenge.

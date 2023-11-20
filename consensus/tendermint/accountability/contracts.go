@@ -22,6 +22,11 @@ import (
 // a part of consensus.
 
 var (
+	errBadHeight    = errors.New("height invalid")
+	errMaxEvidences = errors.New("above max evidence threshold")
+)
+
+var (
 	checkAccusationAddress   = common.BytesToAddress([]byte{252})
 	checkInnocenceAddress    = common.BytesToAddress([]byte{253})
 	checkMisbehaviourAddress = common.BytesToAddress([]byte{254})
@@ -73,24 +78,24 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64) ([]byte, erro
 	if err != nil {
 		return failureReturn, nil
 	}
-	evHeight := p.Message.H()
-	if evHeight == 0 {
+	if err := verifyProofSignatures(a.chain, p); err != nil {
 		return failureReturn, nil
 	}
+
 	// prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
 	// corresponding to an old height, while at each Pi, they only buffer specific heights of message in msg store, thus
 	// Pi can never provide a valid proof of innocence anymore, making the malicious accusation be valid for slashing.
-	if blockNumber > evHeight && (blockNumber-evHeight >= consensus.AccountabilityHeightRange) {
+	if blockNumber > p.Message.H() && (blockNumber-p.Message.H() >= consensus.AccountabilityHeightRange) {
 		return failureReturn, nil
 	}
-	if verifyAccusation(a.chain, p) {
+	if verifyAccusation(p) {
 		return validReturn(p.Message, p.Rule), nil
 	}
 	return failureReturn, nil
 }
 
 // validate the submitted accusation by the contract call.
-func verifyAccusation(chain ChainContext, p *Proof) bool {
+func verifyAccusation(p *Proof) bool {
 	// we have only 4 types of rule on accusation.
 	// an improvement of this function would be to return an error instead of a bool
 	switch p.Rule {
@@ -114,39 +119,21 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 		return false
 	}
 
-	// check if the suspicious msg is from the correct committee of that height.
-	h := p.Message.H()
-	lastHeader := chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return false
-	}
-	if err := p.Message.Validate(lastHeader.CommitteeMember); err != nil {
-		return false
-	}
-
 	// p case of PVO accusation, we need to check corresponding old proposal of this preVote.
 	if p.Rule == autonity.PVO {
 		if len(p.Evidences) != 1 {
 			return false
 		}
 		oldProposal := p.Evidences[0]
-		if oldProposal.H() != h {
-			return false
-		}
-		if err := oldProposal.Validate(lastHeader.CommitteeMember); err != nil {
-			return false
-		}
 		if oldProposal.Code() != message.LightProposalCode ||
 			oldProposal.R() != p.Message.R() ||
 			oldProposal.Value() != p.Message.Value() ||
 			oldProposal.(*message.LightProposal).ValidRound() == -1 {
 			return false
 		}
-	} else {
+	} else if len(p.Evidences) > 0 {
 		// do not allow useless evidences
-		if len(p.Evidences) > 0 {
-			return false
-		}
+		return false
 	}
 
 	return true
@@ -174,8 +161,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 	if err != nil {
 		return failureReturn, nil
 	}
-	if p.Message.H() == 0 {
-		// this is an edge case
+	if err := verifyProofSignatures(c.chain, p); err != nil {
 		return failureReturn, nil
 	}
 	return c.validateProof(p), nil
@@ -184,30 +170,6 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 // validate the Proof, if the Proof is valid, then the rlp hash of the msg payload and rlp hash of msg sender is
 // returned as the valid identity for Proof management.
 func (c *MisbehaviourVerifier) validateProof(p *Proof) []byte {
-	// check if suspicious message is from correct committee member.
-	err := checkMsgSignature(c.chain, p.Message)
-	if err != nil {
-		return failureReturn
-	}
-	// check if evidence msgs are from committee members of that height.
-	h := p.Message.H()
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return failureReturn
-	}
-	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
-	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
-		return failureReturn
-	}
-	for _, msg := range p.Evidences {
-		if msg.H() != h {
-			return failureReturn
-		}
-		if err := msg.Validate(lastHeader.CommitteeMember); err != nil {
-			return failureReturn
-		}
-	}
-
 	valid := false
 	switch p.Rule {
 	case autonity.PN:
@@ -559,50 +521,24 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
 func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64) ([]byte, error) {
-	// take an on-chain innocent Proof, tell the results of the checking
 	if len(input) <= 32 || blockNumber == 0 {
 		return failureReturn, nil
 	}
-
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
 		return failureReturn, nil
 	}
-	return c.validateInnocenceProof(p), nil
+	if err := verifyProofSignatures(c.chain, p); err != nil {
+		return failureReturn, nil
+	}
+	if !verifyInnocenceProof(p, c.chain) {
+		return failureReturn, nil
+	}
+	return validReturn(p.Message, p.Rule), nil
 }
 
-// validate if the innocence Proof is valid, it returns sender address and msg hash in byte array when Proof is valid.
-func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
-	// check if evidence msgs are from committee members of that height.
-	h := in.Message.H()
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return failureReturn
-	}
-	// validate message.
-	if err := in.Message.Validate(lastHeader.CommitteeMember); err != nil {
-		return failureReturn
-	}
-	// to prevent the abuse of the proof message.
-	if len(in.Evidences) > maxEvidenceMessages(lastHeader) {
-		return failureReturn
-	}
-	for _, m := range in.Evidences {
-		if m.H() != h {
-			return failureReturn
-		}
-		if err := m.Validate(lastHeader.CommitteeMember); err != nil {
-			return failureReturn
-		}
-	}
-	if !validInnocenceProof(in, c.chain) {
-		return failureReturn
-	}
-	return validReturn(in.Message, in.Rule)
-}
-
-func validInnocenceProof(p *Proof, chain ChainContext) bool {
+func verifyInnocenceProof(p *Proof, chain ChainContext) bool {
 	// rule engine only have 4 kind of provable accusation for the time being.
 	switch p.Rule {
 	case autonity.PO:
@@ -763,13 +699,29 @@ func decodeRawProof(b []byte) (*Proof, error) {
 }
 
 // checkMsgSignature checks if the consensus message is from valid member of the committee.
-func checkMsgSignature(chain ChainContext, m message.Msg) error {
-	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
+func verifyProofSignatures(chain ChainContext, p *Proof) error {
+	h := p.Message.H()
+	if h == 0 {
+		return errBadHeight
+	}
+	lastHeader := chain.GetHeaderByNumber(p.Message.H() - 1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}
-	if err := m.Validate(lastHeader.CommitteeMember); err != nil {
+	if err := p.Message.Validate(lastHeader.CommitteeMember); err != nil {
 		return errNotCommitteeMsg
+	}
+	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
+	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
+		return errMaxEvidences
+	}
+	for _, msg := range p.Evidences {
+		if msg.H() != h {
+			return errBadHeight
+		}
+		if err := msg.Validate(lastHeader.CommitteeMember); err != nil {
+			return errNotCommitteeMsg
+		}
 	}
 	return nil
 }

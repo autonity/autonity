@@ -413,8 +413,11 @@ func (fd *FaultDetector) eventFromProof(p *Proof) *autonity.AccountabilityEvent 
 		Epoch:          common.Big0,                           // assigned contract-side
 		MessageHash:    common.Big0,                           // assigned contract-side
 	}
-	// error is ignored here as there is no reason why encoding should fail
-	rProof, _ := rlp.EncodeToBytes(p)
+	// panic because encoding must not fail here
+	rProof, err := rlp.EncodeToBytes(p)
+	if err != nil {
+		fd.logger.Crit("error encoding proof", err)
+	}
 	ev.RawProof = rProof
 	return ev
 }

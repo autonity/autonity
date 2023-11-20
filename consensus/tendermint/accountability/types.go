@@ -3,10 +3,11 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"io"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
-	"io"
 )
 
 var (
@@ -27,6 +28,8 @@ func (t *typedMessage) EncodeRLP(w io.Writer) error {
 }
 
 func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
+	// Getting back the original payload directly from this stream object
+	// is currently not supported.
 	if _, err := stream.List(); err != nil {
 		return err
 	}
@@ -91,6 +94,7 @@ func (p *Proof) DecodeRLP(stream *rlp.Stream) error {
 	p.Type = encoded.Type
 	p.Rule = encoded.Rule
 	p.Message = encoded.Message.Msg
+
 	p.Evidences = make([]message.Msg, len(encoded.Evidences))
 	for i := range encoded.Evidences {
 		p.Evidences[i] = encoded.Evidences[i].Msg
