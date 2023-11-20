@@ -2,8 +2,8 @@ package bls
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 
 	"github.com/autonity/autonity/crypto/bls/blst"
@@ -11,34 +11,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-const MsgPrefix = "Auton"
-
-func ValidateValidatorKeyProof(pubKey common.BLSPublicKey, sig common.BLSSignature, msg []byte) error {
-	m := append([]byte(MsgPrefix), msg...)
-	hash := crypto.Keccak256Hash(m)
-	if !sig.Verify(pubKey, hash.Bytes()) {
-		return fmt.Errorf("cannot verify proof")
-	}
-
-	return nil
-}
-
-func GenerateValidatorKeyProof(priKey SecretKey, msg []byte) ([]byte, error) {
-	// generate bls key ownership proof
-	m := append([]byte(MsgPrefix), msg...)
-	hash := crypto.Keccak256Hash(m)
-	proof := priKey.Sign(hash.Bytes())
-
-	err := ValidateValidatorKeyProof(priKey.PublicKey(), proof, msg)
-	if err != nil {
-		return nil, err
-	}
-	return proof.Marshal(), nil
-}
-
 // SecretKeyFromECDSAKey generate a BLS private key by sourcing from an ECDSA private key.
 func SecretKeyFromECDSAKey(sk *ecdsa.PrivateKey) (SecretKey, error) {
 	return blst.SecretKeyFromECDSAKey(sk.D.Bytes())
+}
+
+// SecretKeyFromHex generate a BLS private key from hex string.
+func SecretKeyFromHex(hexKey string) (SecretKey, error) {
+	b, err := hex.DecodeString(hexKey)
+	if byteErr, ok := err.(hex.InvalidByteError); ok {
+		return nil, fmt.Errorf("invalid hex character %q in private key", byte(byteErr))
+	} else if err != nil {
+		return nil, errors.New("invalid hex data for private key")
+	}
+	return blst.SecretKeyFromBytes(b)
 }
 
 // SecretKeyFromBytes creates a BLS private key from a BigEndian byte slice.

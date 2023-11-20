@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -251,6 +252,47 @@ func checkKeyFileEnd(r *bufio.Reader) error {
 func SaveECDSA(file string, key *ecdsa.PrivateKey) error {
 	k := hex.EncodeToString(FromECDSA(key))
 	return ioutil.WriteFile(file, []byte(k), 0600)
+}
+
+// SaveNodeKey saves a secp256k1 private key and its derived BLS
+// private key to the given file with restrictive permissions. The key data is saved hex-encoded.
+func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, blsKey bls.SecretKey) error {
+	k := hex.EncodeToString(FromECDSA(ecdsaKey))
+	d := hex.EncodeToString(blsKey.Marshal())
+	return ioutil.WriteFile(file, []byte(k+d), 0600)
+}
+
+// LoadNodeKey loads a secp256k1 private key and a derived BLS private key from the given file.
+func LoadNodeKey(file string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
+	fd, err := os.Open(file)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer fd.Close()
+
+	r := bufio.NewReader(fd)
+	buf := make([]byte, 128)
+	n, err := readASCII(buf, r)
+	if err != nil {
+		return nil, nil, err
+	} else if n != len(buf) {
+		return nil, nil, fmt.Errorf("key file too short, want 128 hex characters")
+	}
+
+	if err = checkKeyFileEnd(r); err != nil {
+		return nil, nil, err
+	}
+
+	ecdsaKey, err := HexToECDSA(string(buf[0:64]))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	blsKey, err := bls.SecretKeyFromBytes(buf[64:])
+	if err != nil {
+		return nil, nil, err
+	}
+	return ecdsaKey, blsKey, nil
 }
 
 // GenerateKey generates a new private key.

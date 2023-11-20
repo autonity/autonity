@@ -3,7 +3,35 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
+	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/bls/common"
 )
+
+const MsgPrefix = "Auton"
+
+func ValidateValidatorKeyProof(pubKey common.BLSPublicKey, sig common.BLSSignature, msg []byte) error {
+	m := append([]byte(MsgPrefix), msg...)
+	hash := Keccak256Hash(m)
+	if !sig.Verify(pubKey, hash.Bytes()) {
+		return fmt.Errorf("cannot verify proof")
+	}
+
+	return nil
+}
+
+func GenerateValidatorKeyProof(priKey bls.SecretKey, msg []byte) ([]byte, error) {
+	// generate bls key ownership proof
+	m := append([]byte(MsgPrefix), msg...)
+	hash := Keccak256Hash(m)
+	proof := priKey.Sign(hash.Bytes())
+
+	err := ValidateValidatorKeyProof(priKey.PublicKey(), proof, msg)
+	if err != nil {
+		return nil, err
+	}
+	return proof.Marshal(), nil
+}
 
 func PrivECDSAToHex(k *ecdsa.PrivateKey) []byte {
 	return hexEncode(FromECDSA(k))

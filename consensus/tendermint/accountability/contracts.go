@@ -13,6 +13,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	crypto2 "github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
@@ -81,7 +82,7 @@ func (b *ValidatorKeyProofVerifier) Run(input []byte, _ uint64) ([]byte, error) 
 		return failure32Byte, err
 	}
 
-	err = bls.ValidateValidatorKeyProof(key, sig, treasuryBytes)
+	err = crypto2.ValidateValidatorKeyProof(key, sig, treasuryBytes)
 	if err != nil {
 		return failure32Byte, err
 	}
