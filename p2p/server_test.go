@@ -35,12 +35,12 @@ import (
 
 func startTestServer(t *testing.T, remoteKey *ecdsa.PublicKey, pf func(*Peer)) *Server {
 	config := Config{
-		Name:        "test",
-		MaxPeers:    10,
-		ListenAddr:  "127.0.0.1:0",
-		NoDiscovery: true,
-		PrivateKey:  newkey(),
-		Logger:      testlog.Logger(t, log.LvlTrace),
+		Name:         "test",
+		MaxPeers:     10,
+		TxListenAddr: "127.0.0.1:0",
+		NoDiscovery:  true,
+		PrivateKey:   newkey(),
+		Logger:       testlog.Logger(t, log.LvlTrace),
 	}
 	server := &Server{
 		Config:      config,
@@ -69,7 +69,7 @@ func TestServerListen(t *testing.T) {
 	defer srv.Stop()
 
 	// dial the test server
-	conn, err := net.DialTimeout("tcp", srv.ListenAddr, 5*time.Second)
+	conn, err := net.DialTimeout("tcp", srv.TxListenAddr, 5*time.Second)
 	if err != nil {
 		t.Fatalf("could not dial: %v", err)
 	}
@@ -179,12 +179,12 @@ func TestServerRemovePeerDisconnect(t *testing.T) {
 		Logger:      testlog.Logger(t, log.LvlTrace).New("server", "1"),
 	}}
 	srv2 := &Server{Config: Config{
-		PrivateKey:  newkey(),
-		MaxPeers:    1,
-		NoDiscovery: true,
-		NoDial:      true,
-		ListenAddr:  "127.0.0.1:0",
-		Logger:      testlog.Logger(t, log.LvlTrace).New("server", "2"),
+		PrivateKey:   newkey(),
+		MaxPeers:     1,
+		NoDiscovery:  true,
+		NoDial:       true,
+		TxListenAddr: "127.0.0.1:0",
+		Logger:       testlog.Logger(t, log.LvlTrace).New("server", "2"),
 	}}
 	srv1.Start()
 	defer srv1.Stop()
@@ -478,13 +478,13 @@ func TestServerInboundThrottle(t *testing.T) {
 	newTransportCalled := make(chan struct{})
 	srv := &Server{
 		Config: Config{
-			PrivateKey:  newkey(),
-			ListenAddr:  "127.0.0.1:0",
-			MaxPeers:    10,
-			NoDial:      true,
-			NoDiscovery: true,
-			Protocols:   []Protocol{discard},
-			Logger:      testlog.Logger(t, log.LvlTrace),
+			PrivateKey:   newkey(),
+			TxListenAddr: "127.0.0.1:0",
+			MaxPeers:     10,
+			NoDial:       true,
+			NoDiscovery:  true,
+			Protocols:    []Protocol{discard},
+			Logger:       testlog.Logger(t, log.LvlTrace),
 		},
 		newTransport: func(fd net.Conn, dialDest *ecdsa.PublicKey) transport {
 			newTransportCalled <- struct{}{}
@@ -501,7 +501,7 @@ func TestServerInboundThrottle(t *testing.T) {
 	defer srv.Stop()
 
 	// Dial the test server.
-	conn, err := net.DialTimeout("tcp", srv.ListenAddr, timeout)
+	conn, err := net.DialTimeout("tcp", srv.TxListenAddr, timeout)
 	if err != nil {
 		t.Fatalf("could not dial: %v", err)
 	}
@@ -515,7 +515,7 @@ func TestServerInboundThrottle(t *testing.T) {
 
 	// Dial again. This time the server should close the connection immediately.
 	connClosed := make(chan struct{}, 1)
-	conn, err = net.DialTimeout("tcp", srv.ListenAddr, timeout)
+	conn, err = net.DialTimeout("tcp", srv.TxListenAddr, timeout)
 	if err != nil {
 		t.Fatalf("could not dial: %v", err)
 	}

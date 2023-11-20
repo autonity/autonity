@@ -55,12 +55,22 @@ func WithEntry(k string, v interface{}) Entry {
 	return &generic{key: k, value: v}
 }
 
+// CnsTCP is the "cns" key, which holds the consensus port of the node.
+type CnsTCP uint16
+
+func (v CnsTCP) ENRKey() string { return "cnstcp" }
+
+// CnsTCP6 is the "cns6" key, which holds the IPv6-specific consensus tcp port of the node.
+type CnsTCP6 uint16
+
+func (v CnsTCP6) ENRKey() string { return "cnstcp6" }
+
 // TCP is the "tcp" key, which holds the TCP port of the node.
 type TCP uint16
 
 func (v TCP) ENRKey() string { return "tcp" }
 
-// UDP is the "udp" key, which holds the IPv6-specific UDP port of the node.
+// TCP6 is the "tcp6" key, which holds the IPv6-specific TCP port of the node.
 type TCP6 uint16
 
 func (v TCP6) ENRKey() string { return "tcp6" }
@@ -127,6 +137,31 @@ type IPv4 net.IP
 
 func (v IPv4) ENRKey() string { return "ip" }
 
+// CnsIPv4 is the "ip" key, which holds the IP address of the consensus endpoint.
+type CnsIPv4 net.IP
+
+func (v CnsIPv4) ENRKey() string { return "cnsip" }
+
+// EncodeRLP implements rlp.Encoder.
+func (v CnsIPv4) EncodeRLP(w io.Writer) error {
+	ip4 := net.IP(v).To4()
+	if ip4 == nil {
+		return fmt.Errorf("invalid IPv4 address: %v", net.IP(v))
+	}
+	return rlp.Encode(w, ip4)
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (v *CnsIPv4) DecodeRLP(s *rlp.Stream) error {
+	if err := s.Decode((*net.IP)(v)); err != nil {
+		return err
+	}
+	if len(*v) != 4 {
+		return fmt.Errorf("invalid IPv4 address, want 4 bytes: %v", *v)
+	}
+	return nil
+}
+
 // EncodeRLP implements rlp.Encoder.
 func (v IPv4) EncodeRLP(w io.Writer) error {
 	ip4 := net.IP(v).To4()
@@ -163,6 +198,30 @@ func (v IPv6) EncodeRLP(w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder.
 func (v *IPv6) DecodeRLP(s *rlp.Stream) error {
+	if err := s.Decode((*net.IP)(v)); err != nil {
+		return err
+	}
+	if len(*v) != 16 {
+		return fmt.Errorf("invalid IPv6 address, want 16 bytes: %v", *v)
+	}
+	return nil
+}
+
+type CnsIPv6 net.IP
+
+func (v CnsIPv6) ENRKey() string { return "ip6" }
+
+// EncodeRLP implements rlp.Encoder.
+func (v CnsIPv6) EncodeRLP(w io.Writer) error {
+	ip6 := net.IP(v).To16()
+	if ip6 == nil {
+		return fmt.Errorf("invalid IPv6 address: %v", net.IP(v))
+	}
+	return rlp.Encode(w, ip6)
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (v *CnsIPv6) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode((*net.IP)(v)); err != nil {
 		return err
 	}

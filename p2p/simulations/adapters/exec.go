@@ -119,7 +119,7 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 
 	// Listen on a localhost port, which we set when we
 	// initialise NodeConfig (usually a random port)
-	conf.Stack.P2P.ListenAddr = fmt.Sprintf(":%d", config.Port)
+	conf.Stack.P2P.TxListenAddr = fmt.Sprintf(":%d", config.Port)
 
 	node := &ExecNode{
 		ID:      config.ID,
@@ -463,7 +463,7 @@ func startExecNodeStack() (*node.Node, error) {
 	}
 
 	// create enode record
-	nodeTcpConn, _ := net.ResolveTCPAddr("tcp", conf.Stack.P2P.ListenAddr)
+	nodeTcpConn, _ := net.ResolveTCPAddr("tcp", conf.Stack.P2P.TxListenAddr)
 	if nodeTcpConn.IP == nil {
 		nodeTcpConn.IP = net.IPv4(127, 0, 0, 1)
 	}

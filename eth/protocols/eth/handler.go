@@ -114,6 +114,7 @@ func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator) []p2
 			},
 			NodeInfo: func() interface{} {
 				return nodeInfo(backend.Chain(), network)
+
 			},
 			PeerInfo: func(id enode.ID) interface{} {
 				return backend.PeerInfo(id)

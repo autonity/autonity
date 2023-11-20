@@ -87,10 +87,10 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		Version: params.Version,
 		DataDir: datadir,
 		P2P: p2p.Config{
-			ListenAddr:  listenAddr,
-			NoDiscovery: true,
-			MaxPeers:    25,
-			PrivateKey:  nodekey,
+			TxListenAddr: listenAddr,
+			NoDiscovery:  true,
+			MaxPeers:     25,
+			PrivateKey:   nodekey,
 		},
 	}
 	configNode.HTTPHost = "127.0.0.1"

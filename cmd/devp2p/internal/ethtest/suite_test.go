@@ -82,10 +82,10 @@ func TestSnapSuite(t *testing.T) {
 func runGeth() (*node.Node, error) {
 	stack, err := node.New(&node.Config{
 		P2P: p2p.Config{
-			ListenAddr:  "127.0.0.1:0",
-			NoDiscovery: true,
-			MaxPeers:    10, // in case a test requires multiple connections, can be changed in the future
-			NoDial:      true,
+			TxListenAddr: "127.0.0.1:0",
+			NoDiscovery:  true,
+			MaxPeers:     10, // in case a test requires multiple connections, can be changed in the future
+			NoDial:       true,
 		},
 	})
 	if err != nil {

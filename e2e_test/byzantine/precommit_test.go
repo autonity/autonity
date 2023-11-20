@@ -95,6 +95,8 @@ func TestMaliciousSenderDisc(t *testing.T) {
 	require.NoError(t, err)
 	// set a malicious precommitter, this should cause one of the validator to be
 	// evicted from the quorum
+	mpc := &malPrecommitService{}
+	mpc.Core = valPrecommiter1.Core.GetCore()
 	valPrecommiter1.Core.SetPrecommitter(&malPrecommitService{})
 	valPrecommiter2.Core.SetPrecommitter(&malPrecommitService{})
 

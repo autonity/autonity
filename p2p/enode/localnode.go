@@ -52,12 +52,14 @@ type LocalNode struct {
 	db  *DB
 
 	// everything below is protected by a lock
-	mu        sync.RWMutex
-	seq       uint64
-	update    time.Time // timestamp when the record was last updated
-	entries   map[string]enr.Entry
-	endpoint4 lnEndpoint
-	endpoint6 lnEndpoint
+	mu                 sync.RWMutex
+	seq                uint64
+	update             time.Time // timestamp when the record was last updated
+	entries            map[string]enr.Entry
+	endpoint4          lnEndpoint
+	endpoint6          lnEndpoint
+	consensusEndpoint4 lnEndpoint
+	consensusEndpoint6 lnEndpoint
 
 	log log.Logger
 }
@@ -80,6 +82,12 @@ func NewLocalNode(db *DB, key *ecdsa.PrivateKey, log log.Logger) *LocalNode {
 			track: netutil.NewIPTracker(iptrackWindow, iptrackContactWindow, iptrackMinStatements),
 		},
 		endpoint6: lnEndpoint{
+			track: netutil.NewIPTracker(iptrackWindow, iptrackContactWindow, iptrackMinStatements),
+		},
+		consensusEndpoint4: lnEndpoint{
+			track: netutil.NewIPTracker(iptrackWindow, iptrackContactWindow, iptrackMinStatements),
+		},
+		consensusEndpoint6: lnEndpoint{
 			track: netutil.NewIPTracker(iptrackWindow, iptrackContactWindow, iptrackMinStatements),
 		},
 	}
@@ -185,6 +193,23 @@ func (ln *LocalNode) endpointForIP(ip net.IP) *lnEndpoint {
 	return &ln.endpoint6
 }
 
+func (ln *LocalNode) endpointForConsensusIP(ip net.IP) *lnEndpoint {
+	if ip.To4() != nil {
+		return &ln.consensusEndpoint4
+	}
+	return &ln.consensusEndpoint6
+}
+
+// SetConsensusIP sets the local IP to the given one unconditionally.
+// This disables endpoint prediction.
+func (ln *LocalNode) SetConsensusIP(ip net.IP) {
+	ln.mu.Lock()
+	defer ln.mu.Unlock()
+
+	ln.endpointForConsensusIP(ip).staticIP = ip
+	ln.updateEndpoints()
+}
+
 // SetStaticIP sets the local IP to the given one unconditionally.
 // This disables endpoint prediction.
 func (ln *LocalNode) SetStaticIP(ip net.IP) {
@@ -202,6 +227,7 @@ func (ln *LocalNode) SetFallbackIP(ip net.IP) {
 	defer ln.mu.Unlock()
 
 	ln.endpointForIP(ip).fallbackIP = ip
+	ln.endpointForConsensusIP(ip).fallbackIP = ip
 	ln.updateEndpoints()
 }
 

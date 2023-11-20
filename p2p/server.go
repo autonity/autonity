@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -128,13 +130,21 @@ type Config struct {
 	// each peer.
 	Protocols []Protocol `toml:"-"`
 
-	// If ListenAddr is set to a non-nil address, the server
+	// If TxListenAddr is set to a non-nil address, the server
 	// will listen for incoming connections.
 	//
 	// If the port is zero, the operating system will pick a port. The
-	// ListenAddr field will be updated with the actual address when
+	// TxListenAddr field will be updated with the actual address when
 	// the server is started.
-	ListenAddr string
+	TxListenAddr string
+
+	// If ConsensusListenAddr is set to a non-nil address, the server
+	// will listen for incoming connections.
+	//
+	// If the port is zero, the operating system will pick a port. The
+	// ConsensusListenAddr field will be updated with the actual address when
+	// the server is started.
+	ConsensusListenAddr string
 
 	// If set to a non-nil value, the given NAT port mapper
 	// is used to make the listening port available to the
@@ -181,11 +191,13 @@ type Server struct {
 	lock    sync.Mutex // protects running
 	running bool
 
-	listener     net.Listener
-	ourHandshake *protoHandshake
-	loopWG       sync.WaitGroup // loop, listenLoop
-	peerFeed     event.Feed
-	log          log.Logger
+	txListener         net.Listener
+	cnsListener        net.Listener //consensus listener
+	ourHandshake       *protoHandshake
+	consensusHandshake *protoHandshake
+	loopWG             sync.WaitGroup // loop, listenLoop
+	peerFeed           event.Feed
+	log                log.Logger
 
 	nodedb    *enode.DB
 	localnode *enode.LocalNode
@@ -195,7 +207,8 @@ type Server struct {
 	dialsched *dialScheduler
 
 	// Channels into the run loop.
-	quit                    chan struct{}
+	quit chan struct{}
+	//TODO: should we keep add/remove chan for each protocol separately
 	addtrusted              chan *enode.Node
 	removetrusted           chan *enode.Node
 	peerOp                  chan peerOpFunc
@@ -227,6 +240,7 @@ const (
 	staticDialedConn
 	inboundConn
 	trustedConn
+	consensusConn
 )
 
 // conn wraps a network connection with information gathered
@@ -320,6 +334,18 @@ func (srv *Server) Peers() []*Peer {
 	return ps
 }
 
+// TODO: review this code again
+// GetPeer returns a connected eth peers
+func (srv *Server) GetPeer(id enode.ID) *Peer {
+	var peer *Peer
+	srv.doPeerOp(func(peers map[enode.ID]*Peer) {
+		if p, ok := peers[id]; ok {
+			peer = p
+		}
+	})
+	return peer
+}
+
 // PeerCount returns the number of connected peers.
 func (srv *Server) PeerCount() int {
 	var count int
@@ -334,6 +360,11 @@ func (srv *Server) PeerCount() int {
 // will attempt to reconnect the peer.
 func (srv *Server) AddPeer(node *enode.Node) {
 	srv.dialsched.addStatic(node)
+}
+
+// AddConsensusChannel
+func (srv *Server) AddConsensusChannel(node *enode.Node) {
+	srv.dialsched.addConsensusChannel(node)
 }
 
 // RemovePeer removes a node from the static node set. It also disconnects from the given
@@ -449,9 +480,9 @@ func (srv *Server) Stop() {
 		return
 	}
 	srv.running = false
-	if srv.listener != nil {
+	if srv.txListener != nil {
 		// this unblocks listener Accept
-		srv.listener.Close()
+		srv.txListener.Close()
 	}
 	close(srv.quit)
 	srv.lock.Unlock()
@@ -500,7 +531,7 @@ func (srv *Server) Start() (err error) {
 	if srv.clock == nil {
 		srv.clock = mclock.System{}
 	}
-	if srv.NoDial && srv.ListenAddr == "" {
+	if srv.NoDial && srv.TxListenAddr == "" {
 		srv.log.Warn("P2P server will be useless, neither dialing nor listening")
 	}
 
@@ -526,11 +557,18 @@ func (srv *Server) Start() (err error) {
 	if err := srv.setupLocalNode(); err != nil {
 		return err
 	}
-	if srv.ListenAddr != "" {
+	if srv.TxListenAddr != "" {
 		if err := srv.setupListening(); err != nil {
 			return err
 		}
 	}
+	if srv.ConsensusListenAddr != "" {
+		//TODO: merge with setuplistening later
+		if err := srv.setupCnsListening(); err != nil {
+			return err
+		}
+	}
+
 	if err := srv.setupDiscovery(); err != nil {
 		return err
 	}
@@ -550,6 +588,9 @@ func (srv *Server) setupLocalNode() error {
 	}
 	sort.Sort(capsByNameAndVersion(srv.ourHandshake.Caps))
 
+	strList := strings.Split(srv.ConsensusListenAddr, ":")
+	port, _ := strconv.Atoi(strList[len(strList)-1])
+	cInfo := &consensusInfo{port: uint64(port)}
 	// Create the local node.
 	db, err := enode.OpenDB(srv.Config.NodeDatabase)
 	if err != nil {
@@ -571,6 +612,10 @@ func (srv *Server) setupLocalNode() error {
 		// ExtIP doesn't block, set the IP right away.
 		ip, _ := srv.NAT.ExternalIP()
 		srv.localnode.SetStaticIP(ip)
+		//TODO: allow to set a different IP for consensus
+		// we need a separate NAT Config for consensus
+		srv.localnode.SetConsensusIP(ip)
+		cInfo.ip = ip.String()
 	default:
 		// Ask the router about the IP. This takes a while and blocks startup,
 		// do it in the background.
@@ -579,6 +624,9 @@ func (srv *Server) setupLocalNode() error {
 			defer srv.loopWG.Done()
 			if ip, err := srv.NAT.ExternalIP(); err == nil {
 				srv.localnode.SetStaticIP(ip)
+				//TODO: allow to set a different IP for consensus
+				srv.localnode.SetConsensusIP(ip)
+				cInfo.ip = ip.String()
 			}
 		}()
 	}
@@ -602,7 +650,7 @@ func (srv *Server) setupDiscovery() error {
 		return nil
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", srv.ListenAddr)
+	addr, err := net.ResolveUDPAddr("udp", srv.TxListenAddr)
 	if err != nil {
 		return err
 	}
@@ -711,12 +759,12 @@ func (srv *Server) maxDialedConns() (limit int) {
 
 func (srv *Server) setupListening() error {
 	// Launch the listener.
-	listener, err := srv.listenFunc("tcp", srv.ListenAddr)
+	listener, err := srv.listenFunc("tcp", srv.TxListenAddr)
 	if err != nil {
 		return err
 	}
-	srv.listener = listener
-	srv.ListenAddr = listener.Addr().String()
+	srv.txListener = listener
+	srv.TxListenAddr = listener.Addr().String()
 
 	// Update the local node record and map the TCP listening port if NAT is configured.
 	if tcp, ok := listener.Addr().(*net.TCPAddr); ok {
@@ -732,6 +780,32 @@ func (srv *Server) setupListening() error {
 
 	srv.loopWG.Add(1)
 	go srv.listenLoop()
+	return nil
+}
+
+func (srv *Server) setupCnsListening() error {
+	// Launch the listener.
+	listener, err := srv.listenFunc("tcp", srv.ConsensusListenAddr)
+	if err != nil {
+		return err
+	}
+	srv.cnsListener = listener
+	srv.ConsensusListenAddr = listener.Addr().String()
+
+	// Update the local node record and map the TCP listening port if NAT is configured.
+	if tcp, ok := listener.Addr().(*net.TCPAddr); ok {
+		srv.localnode.Set(enr.CnsTCP(tcp.Port)) //TODO: review this may not be needed at all
+		if !tcp.IP.IsLoopback() && srv.NAT != nil {
+			srv.loopWG.Add(1)
+			go func() {
+				nat.Map(srv.NAT, srv.quit, "tcp", tcp.Port, tcp.Port, "ethereum p2p")
+				srv.loopWG.Done()
+			}()
+		}
+	}
+
+	srv.loopWG.Add(1)
+	go srv.listenCnsLoop()
 	return nil
 }
 
@@ -775,7 +849,7 @@ running:
 			srv.log.Trace("Adding trusted node", "node", n)
 			srv.trusted.Store(n.ID(), n)
 			if p, ok := peers[n.ID()]; ok {
-				p.rw.set(trustedConn, true)
+				p.txRW.set(trustedConn, true)
 			}
 
 		case n := <-srv.removetrusted:
@@ -784,7 +858,7 @@ running:
 			srv.log.Trace("Removing trusted node", "node", n)
 			srv.trusted.Delete(n.ID())
 			if p, ok := peers[n.ID()]; ok {
-				p.rw.set(trustedConn, false)
+				p.txRW.set(trustedConn, false)
 			}
 
 		case op := <-srv.peerOp:
@@ -823,7 +897,7 @@ running:
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
 			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err)
-			srv.dialsched.peerRemoved(pd.rw)
+			srv.dialsched.peerRemoved(pd.txRW)
 			if pd.Inbound() {
 				inboundCount--
 			}
@@ -853,6 +927,12 @@ running:
 	}
 }
 
+func deriveConnIDFromNode(node *enode.Node) string {
+	//TODO: Check and concatenate all of them will be not set always
+	return node.IP().String() + ":" + strconv.Itoa(node.TCP()) + "-" +
+		node.CnsIP().String() + ":" + strconv.Itoa(node.CnsTCP())
+}
+
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
 	srv.jailed.expire(srv.clock.Now(), nil)
 	switch {
@@ -860,7 +940,7 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscTooManyPeers
 	case !c.is(trustedConn) && c.is(inboundConn) && inboundCount >= srv.maxInboundConns():
 		return DiscTooManyPeers
-	case peers[c.node.ID()] != nil:
+	case peers[c.node.ID()] != nil && peers[c.node.ID()].txRW != nil && peers[c.node.ID()].cnsRW != nil: //TODO: review
 		return DiscAlreadyConnected
 	case c.node.ID() == srv.localnode.ID():
 		return DiscSelf
@@ -881,10 +961,10 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 	return srv.postHandshakeChecks(peers, inboundCount, c)
 }
 
-// listenLoop runs in its own goroutine and accepts
-// inbound connections.
-func (srv *Server) listenLoop() {
-	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr())
+// listenCnsLoop runs in its own goroutine and accepts
+// inbound connections on consensus channel
+func (srv *Server) listenCnsLoop() {
+	srv.log.Debug("consensus TCP listener up", "addr", srv.cnsListener.Addr())
 
 	// The slots channel limits accepts of new connections.
 	tokens := defaultMaxPendingPeers
@@ -915,7 +995,7 @@ func (srv *Server) listenLoop() {
 			lastLog time.Time
 		)
 		for {
-			fd, err = srv.listener.Accept()
+			fd, err = srv.cnsListener.Accept()
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
 					srv.log.Debug("Temporary read error", "err", err)
@@ -931,8 +1011,8 @@ func (srv *Server) listenLoop() {
 			break
 		}
 
-		remoteIP := netutil.AddrIP(fd.RemoteAddr())
-		if err := srv.checkInboundConn(remoteIP); err != nil {
+		remoteIP, port := netutil.AddrIP(fd.RemoteAddr())
+		if err := srv.checkInboundConn(remoteIP, port); err != nil {
 			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
 			fd.Close()
 			slots <- struct{}{}
@@ -952,6 +1032,79 @@ func (srv *Server) listenLoop() {
 		}()
 	}
 }
+
+// listenLoop runs in its own goroutine and accepts
+// inbound connections.
+func (srv *Server) listenLoop() {
+	srv.log.Debug("TCP listener up", "addr", srv.txListener.Addr())
+
+	// The slots channel limits accepts of new connections.
+	tokens := defaultMaxPendingPeers
+	if srv.MaxPendingPeers > 0 {
+		tokens = srv.MaxPendingPeers
+	}
+	slots := make(chan struct{}, tokens)
+	for i := 0; i < tokens; i++ {
+		slots <- struct{}{}
+	}
+
+	// Wait for slots to be returned on exit. This ensures all connection goroutines
+	// are down before listenLoop returns.
+	defer srv.loopWG.Done()
+	defer func() {
+		for i := 0; i < cap(slots); i++ {
+			<-slots
+		}
+	}()
+
+	for {
+		// Wait for a free slot before accepting.
+		<-slots
+
+		var (
+			fd      net.Conn
+			err     error
+			lastLog time.Time
+		)
+		for {
+			fd, err = srv.txListener.Accept()
+			if netutil.IsTemporaryError(err) {
+				if time.Since(lastLog) > 1*time.Second {
+					srv.log.Debug("Temporary read error", "err", err)
+					lastLog = time.Now()
+				}
+				time.Sleep(time.Millisecond * 200)
+				continue
+			} else if err != nil {
+				srv.log.Debug("Read error", "err", err)
+				slots <- struct{}{}
+				return
+			}
+			break
+		}
+
+		remoteIP, port := netutil.AddrIP(fd.RemoteAddr())
+		if err := srv.checkInboundConn(remoteIP, port); err != nil {
+			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
+			fd.Close()
+			slots <- struct{}{}
+			continue
+		}
+		if remoteIP != nil {
+			var addr *net.TCPAddr
+			if tcp, ok := fd.RemoteAddr().(*net.TCPAddr); ok {
+				addr = tcp
+			}
+			fd = newMeteredConn(fd, true, addr)
+			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr())
+		}
+		go func() {
+			srv.SetupConn(fd, inboundConn, nil)
+			slots <- struct{}{}
+		}()
+	}
+}
+
 func isTrustedIP(trusted *sync.Map, remoteIP net.IP) bool {
 	res := false
 	trusted.Range(func(key, value interface{}) bool {
@@ -965,7 +1118,7 @@ func isTrustedIP(trusted *sync.Map, remoteIP net.IP) bool {
 	return res
 }
 
-func (srv *Server) checkInboundConn(remoteIP net.IP) error {
+func (srv *Server) checkInboundConn(remoteIP net.IP, port int) error {
 	if remoteIP == nil {
 		return nil
 	}
@@ -973,13 +1126,19 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	if srv.NetRestrict != nil && !srv.NetRestrict.Contains(remoteIP) && !isTrustedIP(&srv.trusted, remoteIP) {
 		return fmt.Errorf("not in netrestrict list")
 	}
+
+	remoteHistory := remoteIP.String()
+	if port != -1 {
+		remoteHistory += strconv.Itoa(port)
+	}
 	// Reject Internet peers that try too often.
 	now := srv.clock.Now()
 	srv.inboundHistory.expire(now, nil)
-	if !netutil.IsLAN(remoteIP) && srv.inboundHistory.contains(remoteIP.String()) {
+	if !netutil.IsLAN(remoteIP) && srv.inboundHistory.contains(remoteHistory) {
 		return fmt.Errorf("too many attempts")
 	}
-	srv.inboundHistory.add(remoteIP.String(), now.Add(inboundThrottleTime))
+
+	srv.inboundHistory.add(remoteHistory, now.Add(inboundThrottleTime))
 	return nil
 }
 
@@ -1031,11 +1190,26 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
 		return err
 	}
-	if dialDest != nil {
-		c.node = dialDest
+
+	var ourHandshake *protoHandshake
+	if c.is(consensusConn) {
+		c.node = srv.nodeFromEthConn(remotePubkey)
+		//TODO: review, current assumption is consensus Connection must come after the Eth tx connection
+		// can this be avoided
+		if c.node == nil {
+			return DiscEthConnectionNotEstablished
+		}
+		ourHandshake = srv.consensusHandshake
 	} else {
-		c.node = nodeFromConn(remotePubkey, c.fd)
+		if dialDest != nil {
+			c.node = dialDest
+		} else {
+			c.node = nodeFromConn(remotePubkey, c.fd)
+		}
+		ourHandshake = srv.ourHandshake
 	}
+
+	//TODO: improve logs considering both connections
 	clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", c.flags)
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {
@@ -1043,8 +1217,10 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		return err
 	}
 
+	//TODO: review do we really need to run the protohandshake for consensus channel
+	// with current design, It might be useful to have it for completeness
 	// Run the capability negotiation handshake.
-	phs, err := c.doProtoHandshake(srv.ourHandshake)
+	phs, err := c.doProtoHandshake(ourHandshake)
 	if err != nil {
 		clog.Trace("Failed p2p handshake", "err", err)
 		return err
@@ -1061,7 +1237,17 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		return err
 	}
 
+	if !c.is(consensusConn) && phs.ConsensusInfo != nil {
+		// If all check are fine, and the remote supports consensus endpoint
+		// Add the consensusChannel for this node
+		//TODO: are nodes disconnected when they are removed from committee, handle that case
+		srv.AddConsensusChannel(c.node)
+	}
 	return nil
+}
+
+func handleConsensusChannel(cInfo *consensusInfo) {
+
 }
 
 func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node {
@@ -1072,6 +1258,15 @@ func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node {
 		port = tcp.Port
 	}
 	return enode.NewV4(pubkey, ip, port, port)
+}
+
+func (srv *Server) nodeFromEthConn(pubkey *ecdsa.PublicKey) *enode.Node {
+	id := enode.PubkeyToIDV4(pubkey)
+	if peer := srv.GetPeer(id); peer != nil {
+		return peer.Node()
+	} else {
+		return nil
+	}
 }
 
 // checkpoint sends the conn to run, which performs the
@@ -1101,6 +1296,7 @@ func (srv *Server) runPeer(p *Peer) {
 	if srv.newPeerHook != nil {
 		srv.newPeerHook(p)
 	}
+	//TODO: update peerEvent for tx and cns connection
 	srv.peerFeed.Send(&PeerEvent{
 		Type:          PeerEventTypeAdd,
 		Peer:          p.ID(),
@@ -1153,7 +1349,7 @@ func (srv *Server) NodeInfo() *NodeInfo {
 		Enode:      node.URLv4(),
 		ID:         node.ID().String(),
 		IP:         node.IP().String(),
-		ListenAddr: srv.ListenAddr,
+		ListenAddr: srv.TxListenAddr,
 		Protocols:  make(map[string]interface{}),
 	}
 	info.Ports.Discovery = node.UDP()

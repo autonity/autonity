@@ -20,6 +20,8 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/eth/protocols/tm"
 	"math/big"
 	"runtime"
 	"sync"
@@ -45,7 +47,6 @@ import (
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/filters"
 	"github.com/autonity/autonity/eth/gasprice"
-	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/eth/protocols/snap"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
@@ -539,6 +540,7 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 	if s.config.SnapshotCache > 0 {
 		protos = append(protos, snap.MakeProtocols((*snapHandler)(s.handler), s.snapDialCandidates)...)
 	}
+	protos = append(protos, tm.MakeProtocols((*tmHandler)(s.handler), s.networkID)...)
 	return protos
 }
 

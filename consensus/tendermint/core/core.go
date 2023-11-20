@@ -81,6 +81,9 @@ func (c *Core) SetPrevoter(svc interfaces.Prevoter) {
 	c.prevoter = svc
 }
 
+func (c *Core) GetCore() *Core {
+	return c
+}
 func (c *Core) SetPrecommitter(svc interfaces.Precommiter) {
 	if svc == nil {
 		return

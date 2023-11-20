@@ -58,13 +58,19 @@ const (
 	pongMsg      = 0x03
 )
 
+type consensusInfo struct {
+	port uint64
+	ip   string
+}
+
 // protoHandshake is the RLP structure of the protocol handshake.
 type protoHandshake struct {
-	Version    uint64
-	Name       string
-	Caps       []Cap
-	ListenPort uint64
-	ID         []byte // secp256k1 public key
+	Version       uint64
+	Name          string
+	Caps          []Cap
+	ListenPort    uint64
+	ID            []byte // secp256k1 public key
+	ConsensusInfo *consensusInfo
 
 	// Ignore additional fields (for forward compatibility).
 	Rest []rlp.RawValue `rlp:"tail"`
@@ -106,7 +112,8 @@ type PeerEvent struct {
 
 // Peer represents a connected remote node.
 type Peer struct {
-	rw      *conn
+	txRW    *conn
+	cnsRW   *conn
 	running map[string]*protoRW
 	log     log.Logger
 	created mclock.AbsTime
@@ -154,17 +161,17 @@ func NewPeerPipe(id enode.ID, name string, caps []Cap, pipe *MsgPipeRW) *Peer {
 
 // ID returns the node's public key.
 func (p *Peer) ID() enode.ID {
-	return p.rw.node.ID()
+	return p.txRW.node.ID()
 }
 
 // Node returns the peer's node descriptor.
 func (p *Peer) Node() *enode.Node {
-	return p.rw.node
+	return p.txRW.node
 }
 
 // Name returns an abbreviated form of the name
 func (p *Peer) Name() string {
-	s := p.rw.name
+	s := p.txRW.name
 	if len(s) > 20 {
 		return s[:20] + "..."
 	}
@@ -173,13 +180,13 @@ func (p *Peer) Name() string {
 
 // Fullname returns the node name that the remote node advertised.
 func (p *Peer) Fullname() string {
-	return p.rw.name
+	return p.txRW.name
 }
 
 // Caps returns the capabilities (supported subprotocols) of the remote peer.
 func (p *Peer) Caps() []Cap {
 	// TODO: maybe return copy
-	return p.rw.caps
+	return p.txRW.caps
 }
 
 // RunningCap returns true if the peer is actively connected using any of the
@@ -198,12 +205,12 @@ func (p *Peer) RunningCap(protocol string, versions []uint) bool {
 
 // RemoteAddr returns the remote address of the network connection.
 func (p *Peer) RemoteAddr() net.Addr {
-	return p.rw.fd.RemoteAddr()
+	return p.txRW.fd.RemoteAddr()
 }
 
 // LocalAddr returns the local address of the network connection.
 func (p *Peer) LocalAddr() net.Addr {
-	return p.rw.fd.LocalAddr()
+	return p.txRW.fd.LocalAddr()
 }
 
 // Disconnect terminates the peer connection with the given reason.
@@ -227,19 +234,23 @@ func (p *Peer) String() string {
 
 // Inbound returns true if the peer is an inbound connection
 func (p *Peer) Inbound() bool {
-	return p.rw.is(inboundConn)
+	return p.txRW.is(inboundConn)
 }
 
 func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 	protomap := matchProtocols(protocols, conn.caps, conn)
 	p := &Peer{
-		rw:       conn,
 		running:  protomap,
 		created:  mclock.Now(),
 		disc:     make(chan DiscReason),
 		protoErr: make(chan error, len(protomap)+1), // protocols + pingLoop
 		closed:   make(chan struct{}),
 		log:      log.New("id", conn.node.ID(), "conn", connFlag(atomic.LoadInt32((*int32)(&conn.flags)))),
+	}
+	if conn.is(consensusConn) {
+		p.cnsRW = conn
+	} else {
+		p.txRW = conn
 	}
 	return p
 }
@@ -293,7 +304,7 @@ loop:
 	}
 
 	close(p.closed)
-	p.rw.close(reason)
+	p.txRW.close(reason)
 	p.wg.Wait()
 	return remoteRequested, err
 }
@@ -305,7 +316,7 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <-ping.C:
-			if err := SendItems(p.rw, pingMsg); err != nil {
+			if err := SendItems(p.txRW, pingMsg); err != nil {
 				p.protoErr <- err
 				return
 			}
@@ -319,7 +330,7 @@ func (p *Peer) pingLoop() {
 func (p *Peer) readLoop(errc chan<- error) {
 	defer p.wg.Done()
 	for {
-		msg, err := p.rw.ReadMsg()
+		msg, err := p.txRW.ReadMsg()
 		if err != nil {
 			errc <- err
 			return
@@ -336,7 +347,7 @@ func (p *Peer) handle(msg Msg) error {
 	switch {
 	case msg.Code == pingMsg:
 		msg.Discard()
-		go SendItems(p.rw, pongMsg)
+		go SendItems(p.txRW, pongMsg)
 	case msg.Code == discMsg:
 		var reason [1]DiscReason
 		// This is the last message. We don't need to discard or
@@ -523,9 +534,9 @@ func (p *Peer) Info() *PeerInfo {
 	}
 	info.Network.LocalAddress = p.LocalAddr().String()
 	info.Network.RemoteAddress = p.RemoteAddr().String()
-	info.Network.Inbound = p.rw.is(inboundConn)
-	info.Network.Trusted = p.rw.is(trustedConn)
-	info.Network.Static = p.rw.is(staticDialedConn)
+	info.Network.Inbound = p.txRW.is(inboundConn)
+	info.Network.Trusted = p.txRW.is(trustedConn)
+	info.Network.Static = p.txRW.is(staticDialedConn)
 
 	// Gather all the running protocol infos
 	for _, proto := range p.running {

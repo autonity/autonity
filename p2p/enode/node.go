@@ -116,6 +116,21 @@ func (n *Node) IP() net.IP {
 	return nil
 }
 
+// CnsIP returns the IP address of the consensus endpoint. This prefers IPv4 addresses.
+func (n *Node) CnsIP() net.IP {
+	var (
+		ip4 enr.CnsIPv4
+		ip6 enr.CnsIPv6
+	)
+	if n.Load(&ip4) == nil {
+		return net.IP(ip4)
+	}
+	if n.Load(&ip6) == nil {
+		return net.IP(ip6)
+	}
+	return nil
+}
+
 // UDP returns the UDP port of the node.
 func (n *Node) UDP() int {
 	var port enr.UDP
@@ -126,6 +141,13 @@ func (n *Node) UDP() int {
 // TCP returns the TCP port of the node.
 func (n *Node) TCP() int {
 	var port enr.TCP
+	n.Load(&port)
+	return int(port)
+}
+
+// CnsTCP returns the TCP port of the consensus endpoint.
+func (n *Node) CnsTCP() int {
+	var port enr.CnsTCP
 	n.Load(&port)
 	return int(port)
 }

@@ -237,7 +237,7 @@ func newFaucet(genesis *core.Genesis, port int, enodes []*enode.Node, network ui
 			NAT:              nat.Any(),
 			NoDiscovery:      true,
 			DiscoveryV5:      true,
-			ListenAddr:       fmt.Sprintf(":%d", port),
+			TxListenAddr:     fmt.Sprintf(":%d", port),
 			MaxPeers:         25,
 			BootstrapNodesV5: enodes,
 		},

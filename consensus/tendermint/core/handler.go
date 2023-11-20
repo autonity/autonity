@@ -247,6 +247,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Message) error {
 		// Old height messages. Do nothing.
 		return constants.ErrOldHeightMessage // No gossip
 	}
+	// REVIEW: why do we use committe from last header here
 	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		c.logger.Error(msg.String())

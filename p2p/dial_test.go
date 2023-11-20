@@ -565,7 +565,7 @@ func newDialTestDialer() *dialTestDialer {
 }
 
 // Dial implements NodeDialer.
-func (d *dialTestDialer) Dial(ctx context.Context, n *enode.Node) (net.Conn, error) {
+func (d *dialTestDialer) Dial(ctx context.Context, n *enode.Node, b bool) (net.Conn, error) {
 	req := &dialTestReq{n: n, unblock: make(chan error, 1)}
 	select {
 	case d.init <- req:

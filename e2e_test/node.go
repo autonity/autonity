@@ -112,7 +112,7 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 
 	// p2p key and address
 	c.P2P.PrivateKey = u.Key.(*ecdsa.PrivateKey)
-	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
+	c.P2P.TxListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
 	// Set rpc ports
 	c.HTTPPort = freeport.GetOne(t)

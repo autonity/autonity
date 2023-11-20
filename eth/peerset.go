@@ -19,6 +19,7 @@ package eth
 import (
 	"errors"
 	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/eth/protocols/tm"
 	"math/big"
 	"sync"
 
@@ -49,22 +50,26 @@ var (
 // peerSet represents the collection of active peers currently participating in
 // the `eth` protocol, with or without the `snap` extension.
 type peerSet struct {
-	peers     map[string]*ethPeer // Peers connected on the `eth` protocol
-	snapPeers int                 // Number of `snap` compatible peers for connection prioritization
+	peers map[string]*ethPeer // Peers connected on the `eth` protocol
+	//TODO: a separate PeerSet for consensus peers could be a good idea here
+	consensusPeers map[string]*consensusPeer // Peers connected on the `eth` protocol
+	snapPeers      int                       // Number of `snap` compatible peers for connection prioritization
 
 	snapWait map[string]chan *snap.Peer // Peers connected on `eth` waiting for their snap extension
 	snapPend map[string]*snap.Peer      // Peers connected on the `snap` protocol, but not yet on `eth`
 
-	lock   sync.RWMutex
-	closed bool
+	lock             sync.RWMutex
+	consensusSetLock sync.RWMutex
+	closed           bool
 }
 
-// newPeerSet creates a new peer set to track the active participants.
+// Voters creates a new peer set to track the active participants.
 func newPeerSet() *peerSet {
 	return &peerSet{
-		peers:    make(map[string]*ethPeer),
-		snapWait: make(map[string]chan *snap.Peer),
-		snapPend: make(map[string]*snap.Peer),
+		peers:          make(map[string]*ethPeer),
+		consensusPeers: make(map[string]*consensusPeer),
+		snapWait:       make(map[string]chan *snap.Peer),
+		snapPend:       make(map[string]*snap.Peer),
 	}
 }
 
@@ -171,6 +176,41 @@ func (ps *peerSet) unregisterPeer(id string) error {
 	if peer.snapExt != nil {
 		ps.snapPeers--
 	}
+	return nil
+}
+
+// registerPeer injects a new `eth` peer into the working set, or returns an error
+// if the peer is already known.
+func (ps *peerSet) registerConsensusPeer(peer *tm.Peer) error {
+	// Start tracking the new peer
+	ps.consensusSetLock.Lock()
+	defer ps.consensusSetLock.Unlock()
+
+	if ps.closed {
+		return errPeerSetClosed
+	}
+	id := peer.ID()
+	if _, ok := ps.consensusPeers[id]; ok {
+		return errPeerAlreadyRegistered
+	}
+	cnsPeer := &consensusPeer{
+		Peer: peer,
+	}
+	ps.consensusPeers[id] = cnsPeer
+	return nil
+}
+
+// unregisterPeer removes a remote peer from the active set, disabling any further
+// actions to/from that particular entity.
+func (ps *peerSet) unregisterConsensusPeer(id string) error {
+	ps.consensusSetLock.Lock()
+	defer ps.consensusSetLock.Unlock()
+
+	_, ok := ps.consensusPeers[id]
+	if !ok {
+		return errPeerNotRegistered
+	}
+	delete(ps.consensusPeers, id)
 	return nil
 }
 

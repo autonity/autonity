@@ -229,9 +229,9 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 		Version: params.Version,
 		DataDir: datadir,
 		P2P: p2p.Config{
-			ListenAddr:  "0.0.0.0:0",
-			NoDiscovery: true,
-			MaxPeers:    25,
+			TxListenAddr: "0.0.0.0:0",
+			NoDiscovery:  true,
+			MaxPeers:     25,
 		},
 		UseLightweightKDF: true,
 	}
