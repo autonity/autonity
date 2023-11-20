@@ -3,21 +3,20 @@ package main
 import (
 	"fmt"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/bls"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
 )
 
-func TestGenEnodeProof(t *testing.T) {
+func TestGenOwnershipProof(t *testing.T) {
+
 	tests := []struct {
 		name, nodeKey, oracleKey, treasury, output string
 		useNodeKeyFile, useOracleKeyFile           bool
 	}{
 		{
 			name:             "incorrect node key file",
-			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a579@",
+			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a5793cca398a63081b656790184794b9997073620e5d862750fd61b6e7fec3399ce3@",
 			oracleKey:        "198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301",
 			treasury:         "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f",
 			output:           "Fatal: Failed to load the node private key: invalid character '@' at end of key file\n",
@@ -26,16 +25,16 @@ func TestGenEnodeProof(t *testing.T) {
 		},
 		{
 			name:             "incorrect node key hex",
-			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a579@",
+			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a5793cca398a63081b656790184794b9997073620e5d862750fd61b6e7fec3399ce3@",
 			oracleKey:        "198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301",
 			treasury:         "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f",
-			output:           "Fatal: Failed to parse the node private key: invalid hex character '@' in private key\n",
+			output:           "Fatal: Failed to parse the node private key: invalid hex character '@' in node key\n",
 			useNodeKeyFile:   false,
 			useOracleKeyFile: false,
 		},
 		{
 			name:             "incorrect oracle key file",
-			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a579",
+			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a5793cca398a63081b656790184794b9997073620e5d862750fd61b6e7fec3399ce3",
 			oracleKey:        "198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301@",
 			treasury:         "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f",
 			output:           "Fatal: Failed to load the oracle private key: invalid character '@' at end of key file\n",
@@ -44,7 +43,7 @@ func TestGenEnodeProof(t *testing.T) {
 		},
 		{
 			name:             "incorrect oracle key hex",
-			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a579",
+			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a5793cca398a63081b656790184794b9997073620e5d862750fd61b6e7fec3399ce3",
 			oracleKey:        "198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301@",
 			treasury:         "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f",
 			output:           "Fatal: Failed to parse the oracle private key: invalid hex character '@' in private key\n",
@@ -53,7 +52,7 @@ func TestGenEnodeProof(t *testing.T) {
 		},
 		{
 			name:             "incorrect treasury format",
-			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a579",
+			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a5793cca398a63081b656790184794b9997073620e5d862750fd61b6e7fec3399ce3",
 			oracleKey:        "198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301",
 			treasury:         "850c1eb8d190e05845ad7f84ac95a318c8aab07f",
 			output:           "Fatal: Failed to decode: hex string without 0x prefix\n",
@@ -62,7 +61,7 @@ func TestGenEnodeProof(t *testing.T) {
 		},
 		{
 			name:             "success with key files",
-			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a579",
+			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a5793cca398a63081b656790184794b9997073620e5d862750fd61b6e7fec3399ce3",
 			oracleKey:        "198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301",
 			treasury:         "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f",
 			output:           "Validator key hex: 0xb04455eb4e96d8781d4b9514e80594b51393ca2e7ec2d120adde2e41e07b796896598bf8f5b50b082126e6868434cdf8\nSignatures hex: 0xbb20d3fc5401cdf47ef59db8b581552a02023f10abd9bed4386ccdceb8522e7646bb72efcd669b98301fb040f2772c5553da50e0ee541aa84a5e67ff35e5c22c0123dce5d268ac692308a5f046c5a605da3ac66aff78810615eff008318b2e16001fe8d4e8735180cc46fe80e84a4580d80b82d51161676342cd54c6854faa823200927e829d1f741b09959b5bfa5be15fafc4bcb27c78a48c4fddf87657d1ac7c87660cb1dc3d1388bd7fe136e9f41cb97d15161b968501f13c9322f26292314b4c8cc2564d7db703fc318571679f9b7a39c1e163de8b02a8901a9637fc920f39c5\n",
@@ -71,7 +70,7 @@ func TestGenEnodeProof(t *testing.T) {
 		},
 		{
 			name:             "success with key hex",
-			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a579",
+			nodeKey:          "f1ab65d8d07ab6a7a2ab8419fa5bbaf8938f45556387d43f3f15967bc599a5793cca398a63081b656790184794b9997073620e5d862750fd61b6e7fec3399ce3",
 			oracleKey:        "198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301",
 			treasury:         "0x850c1eb8d190e05845ad7f84ac95a318c8aab07f",
 			output:           "Validator key hex: 0xb04455eb4e96d8781d4b9514e80594b51393ca2e7ec2d120adde2e41e07b796896598bf8f5b50b082126e6868434cdf8\nSignatures hex: 0xbb20d3fc5401cdf47ef59db8b581552a02023f10abd9bed4386ccdceb8522e7646bb72efcd669b98301fb040f2772c5553da50e0ee541aa84a5e67ff35e5c22c0123dce5d268ac692308a5f046c5a605da3ac66aff78810615eff008318b2e16001fe8d4e8735180cc46fe80e84a4580d80b82d51161676342cd54c6854faa823200927e829d1f741b09959b5bfa5be15fafc4bcb27c78a48c4fddf87657d1ac7c87660cb1dc3d1388bd7fe136e9f41cb97d15161b968501f13c9322f26292314b4c8cc2564d7db703fc318571679f9b7a39c1e163de8b02a8901a9637fc920f39c5\n",
@@ -163,17 +162,15 @@ func genNodeKeyWithExpect(t *testing.T, fileName string, writeAddr bool) {
 
 	output := string(geth.Output())
 	if len(fileName) != 0 {
-		privateKey, err := crypto.LoadECDSA(keyfile)
+		privateKey, validatorKey, err := crypto.LoadNodeKey(keyfile)
 		if err != nil {
 			t.Errorf("Failed to load the private key: %v", err)
 			return
 		}
-		blsKey, err := bls.SecretKeyFromECDSAKey(privateKey)
-		require.NoError(t, err)
 		if writeAddr {
-			expected = fmt.Sprintf("%x\nNode's validator key: %v\n", crypto.FromECDSAPub(&privateKey.PublicKey)[1:], blsKey.PublicKey().Hex())
+			expected = fmt.Sprintf("%x\nNode's validator key: %v\n", crypto.FromECDSAPub(&privateKey.PublicKey)[1:], validatorKey.PublicKey().Hex())
 		} else {
-			expected = fmt.Sprintf("Node's validator key: %v\n", blsKey.PublicKey().Hex())
+			expected = fmt.Sprintf("Node's validator key: %v\n", validatorKey.PublicKey().Hex())
 		}
 	} else {
 		expected = "Fatal: could not save key open " + keyfile + ": is a directory\n"
