@@ -804,8 +804,7 @@ func setNodeKey(ctx *cli.Context, cfg *node.Config) {
 		cfg.ValidatorKey = validatorKey
 		cfg.P2P.PrivateKey = key
 	case hex != "":
-		// todo: parse node key and validator key from hex string
-		if key, err = crypto.HexToECDSA(hex); err != nil {
+		if key, validatorKey, err = crypto.HexToNodeKey(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
 		cfg.ValidatorKey = validatorKey

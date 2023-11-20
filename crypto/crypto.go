@@ -37,7 +37,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-//SignatureLength indicates the byte length required to carry a signature with recovery id.
+// SignatureLength indicates the byte length required to carry a signature with recovery id.
 const SignatureLength = 64 + 1 // 64 bytes ECDSA signature + 1 byte recovery id
 
 // RecoveryIDOffset points to the byte offset within the signature that contains the recovery id.
@@ -208,7 +208,7 @@ func LoadECDSA(file string) (*ecdsa.PrivateKey, error) {
 	} else if n != len(buf) {
 		return nil, fmt.Errorf("key file too short, want 64 hex characters")
 	}
-	if err := checkKeyFileEnd(r); err != nil {
+	if err := checkKeyFileEnd(r, 64); err != nil {
 		return nil, err
 	}
 
@@ -231,7 +231,7 @@ func readASCII(buf []byte, r *bufio.Reader) (n int, err error) {
 }
 
 // checkKeyFileEnd skips over additional newlines at the end of a key file.
-func checkKeyFileEnd(r *bufio.Reader) error {
+func checkKeyFileEnd(r *bufio.Reader, expectedChars int) error {
 	for i := 0; ; i++ {
 		b, err := r.ReadByte()
 		switch {
@@ -242,7 +242,7 @@ func checkKeyFileEnd(r *bufio.Reader) error {
 		case b != '\n' && b != '\r':
 			return fmt.Errorf("invalid character %q at end of key file", b)
 		case i >= 2:
-			return errors.New("key file too long, want 64 hex characters")
+			return fmt.Errorf("key file too long, want %v hex characters", expectedChars)
 		}
 	}
 }
@@ -279,7 +279,7 @@ func LoadNodeKey(file string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
 		return nil, nil, fmt.Errorf("key file too short, want 128 hex characters")
 	}
 
-	if err = checkKeyFileEnd(r); err != nil {
+	if err = checkKeyFileEnd(r, 128); err != nil {
 		return nil, nil, err
 	}
 
@@ -288,11 +288,40 @@ func LoadNodeKey(file string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
 		return nil, nil, err
 	}
 
-	blsKey, err := bls.SecretKeyFromBytes(buf[64:])
+	blsKeyBytes, err := hex.DecodeString(string(buf[64:128]))
+	if err != nil {
+		return nil, nil, err
+	}
+	blsKey, err := bls.SecretKeyFromBytes(blsKeyBytes)
 	if err != nil {
 		return nil, nil, err
 	}
 	return ecdsaKey, blsKey, nil
+}
+
+// HexToNodeKey parse the hex string into a secp256k1 private key and a derived BLS private key.
+func HexToNodeKey(hexKeys string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
+	b, err := hex.DecodeString(hexKeys)
+	if byteErr, ok := err.(hex.InvalidByteError); ok {
+		return nil, nil, fmt.Errorf("invalid hex character %q in node key", byte(byteErr))
+	} else if err != nil {
+		return nil, nil, errors.New("invalid hex data for node key")
+	}
+
+	if len(b) != 64 {
+		return nil, nil, errors.New("invalid length of hex data for node key")
+	}
+
+	ecdsaKey, err := ToECDSA(b[0:32])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	validatorKey, err := bls.SecretKeyFromBytes(b[32:64])
+	if err != nil {
+		return nil, nil, err
+	}
+	return ecdsaKey, validatorKey, nil
 }
 
 // GenerateKey generates a new private key.

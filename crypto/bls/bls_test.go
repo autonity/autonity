@@ -3,7 +3,6 @@ package bls
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -15,19 +14,6 @@ import (
 
 	"github.com/autonity/autonity/crypto/bls/common"
 )
-
-func TestSecretKeyFromHex(t *testing.T) {
-	key, err := RandKey()
-	require.NoError(t, err)
-
-	hex := hex.EncodeToString(key.Marshal())
-
-	parsedKey, err := SecretKeyFromHex(hex)
-	require.NoError(t, err)
-
-	require.Equal(t, parsedKey.PublicKey().Hex(), key.PublicKey().Hex())
-	require.Equal(t, parsedKey.Hex(), key.Hex())
-}
 
 func TestDisallowZeroSecretKeys(t *testing.T) {
 	t.Run("blst", func(t *testing.T) {

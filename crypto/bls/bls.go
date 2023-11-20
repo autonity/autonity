@@ -2,8 +2,6 @@ package bls
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/crypto/bls/blst"
@@ -14,17 +12,6 @@ import (
 // SecretKeyFromECDSAKey generate a BLS private key by sourcing from an ECDSA private key.
 func SecretKeyFromECDSAKey(sk *ecdsa.PrivateKey) (SecretKey, error) {
 	return blst.SecretKeyFromECDSAKey(sk.D.Bytes())
-}
-
-// SecretKeyFromHex generate a BLS private key from hex string.
-func SecretKeyFromHex(hexKey string) (SecretKey, error) {
-	b, err := hex.DecodeString(hexKey)
-	if byteErr, ok := err.(hex.InvalidByteError); ok {
-		return nil, fmt.Errorf("invalid hex character %q in private key", byte(byteErr))
-	} else if err != nil {
-		return nil, errors.New("invalid hex data for private key")
-	}
-	return blst.SecretKeyFromBytes(b)
 }
 
 // SecretKeyFromBytes creates a BLS private key from a BigEndian byte slice.

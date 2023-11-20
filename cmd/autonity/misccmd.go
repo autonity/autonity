@@ -178,9 +178,8 @@ func genOwnershipProof(ctx *cli.Context) error {
 		if err != nil {
 			utils.Fatalf("Failed to load the node private key: %v", err)
 		}
-	} else if privateKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeyHex != "" {
-		// todo: parse node key and validator key from hex.
-		nodePrivateKey, err = crypto.HexToECDSA(privateKeyHex)
+	} else if privateKeysHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeysHex != "" {
+		nodePrivateKey, validatorKey, err = crypto.HexToNodeKey(privateKeysHex)
 		if err != nil {
 			utils.Fatalf("Failed to parse the node private key: %v", err)
 		}
@@ -255,7 +254,7 @@ func genNodeKey(ctx *cli.Context) error {
 	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
 	if writeAddr {
 		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
-		fmt.Println("Node's validator key:", validatorKey.PublicKey().Hex())
 	}
+	fmt.Println("Node's validator key:", validatorKey.PublicKey().Hex())
 	return nil
 }
