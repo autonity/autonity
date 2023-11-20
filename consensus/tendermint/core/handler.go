@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/log"
 )
 
 // todo: resolve proper tendermint state synchronization timeout from block period.
@@ -281,20 +282,20 @@ func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Msg, sender
 }
 
 func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
-	logger := c.logger.New("address", c.address, "from", msg.Sender())
+	logger := c.logger.New("from", msg.Sender())
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
-		if errors.Is(err, constants.ErrFutureHeightMessage) {
-			//Future messages should never be processed and reach this point. Panic.
-			panic("Processed future message as a valid message")
-		} else if errors.Is(err, constants.ErrFutureRoundMessage) {
+		switch {
+		case errors.Is(err, constants.ErrFutureHeightMessage):
+			log.Crit("Processed future message as a valid message")
+		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, msg.Sender())
 			// decoding must have been successful to return
 			c.handleFutureRoundMsg(ctx, msg, msg.Sender())
-		} else if errors.Is(err, constants.ErrFutureStepMessage) {
+		case errors.Is(err, constants.ErrFutureStepMessage):
 			logger.Debug("Storing future step message in backlog")
 			c.storeBacklog(msg, msg.Sender())
 		}

@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 )

@@ -567,6 +567,7 @@ func NewFakePrevote(f Fake) *Prevote {
 			power:     f.FakePower,
 			sender:    f.FakeSender,
 			hash:      f.FakeHash,
+			verified:  true,
 		},
 	}
 }

@@ -37,7 +37,7 @@ func TestSendPropose(t *testing.T) {
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := generateBlockProposal(1, height, validRound, true, proposerKey)
+		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerKey, proposer))
 
 		assert.NoError(t, err)
 
@@ -54,8 +54,8 @@ func TestSendPropose(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
-		backendMock.EXPECT().Sign(gomock.Any()).Times(2).DoAndReturn(makeSigner(proposerKey))
-		backendMock.EXPECT().Broadcast(gomock.Any(), proposal.Payload())
+		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(makeSigner(proposerKey, proposer))
+		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
 
 		c := &Core{
 			address:          proposer,
@@ -75,21 +75,24 @@ func TestSendPropose(t *testing.T) {
 }
 
 func TestHandleProposal(t *testing.T) {
+	commiteeSet, keys := NewTestCommitteeSetWithKeys(4)
+	addr := commiteeSet.Committee()[0].Address // round 3 - height 1 proposer
+	signer := makeSigner(keys[addr], addr)
+
 	t.Run("old proposal given, error returned", func(t *testing.T) {
-		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
 		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
-		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(1, 1, 1, block, dummySigner)
+		curRoundMessages := messages.GetOrCreate(4)
+		proposal := message.NewPropose(3, 1, 1, block, signer).MustVerify(stubVerifier)
 		c := &Core{
 			address:          addr,
 			messages:         messages,
+			committee:        commiteeSet,
 			curRoundMessages: curRoundMessages,
-			logger:           logger,
-			round:            2,
+			logger:           log.Root(),
+			round:            4,
 			height:           big.NewInt(1),
 		}
 		c.SetDefaultHandlers()
@@ -102,17 +105,14 @@ func TestHandleProposal(t *testing.T) {
 	t.Run("msg from non-proposer given, error returned", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
 		messages := message.NewMap()
-		addr := common.HexToAddress("0x0123456789")
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
-
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(2, 1, 1, block, dummySigner)
+		proposal := message.NewPropose(2, 1, 1, block, defaultSigner).MustVerify(stubVerifier)
 
 		testCommittee, _ := GenerateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
@@ -139,34 +139,31 @@ func TestHandleProposal(t *testing.T) {
 		}
 	})
 
-	t.Run("unverified proposal given, error returned", func(t *testing.T) {
+	t.Run("unverified block proposal given, error returned", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committee, keys := NewTestCommitteeSetWithKeys(2)
-		member1 := committee.Committee()[0]
+
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
 		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(2)
 
-		proposal := message.NewPropose(2, 1, 1, block, makeSigner(keys[member1.Address]))
-		prevote := message.NewPrevote(2, 1, common.Hash{}, makeSigner(keys[member1.Address]))
+		proposal := message.NewPropose(2, 1, 1, block, signer).MustVerify(stubVerifier)
+		prevote := message.NewPrevote(2, 1, common.Hash{}, signer)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(time.Nanosecond, errors.New("bad block"))
 		backendMock.EXPECT().Broadcast(gomock.Any(), prevote.Payload())
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
-
-		logger := log.New("backend", "test", "id", 0)
 		c := &Core{
-			address:          member1.Address,
+			address:          addr,
 			backend:          backendMock,
 			messages:         messageMap,
 			curRoundMessages: curRoundMessages,
-			logger:           logger,
-			proposeTimeout:   NewTimeout(Propose, logger),
-			committee:        committee,
+			logger:           log.Root(),
+			proposeTimeout:   NewTimeout(Propose, log.Root()),
+			committee:        commiteeSet,
 			round:            2,
 			height:           big.NewInt(1),
 		}
@@ -182,8 +179,6 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		addr := common.HexToAddress("0x0123456789")
-
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
@@ -192,7 +187,7 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messageMap.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(2, 1, 1, block, dummySigner)
+		proposal := message.NewPropose(2, 1, 1, block, defaultSigner)
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
@@ -242,7 +237,7 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(2, 1, 2, block, makeSigner(keys[addr]))
+		proposal := message.NewPropose(2, 1, 2, block, makeSigner(keys[addr], addr))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
@@ -286,7 +281,7 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address]))
+		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address], proposer.Address))
 
 		assert.NoError(t, err)
 
@@ -312,7 +307,7 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.GetByIndex(i)
-			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address]))
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address], val.Address))
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			assert.NoError(t, err)
 		}
@@ -338,8 +333,8 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(2, 1, -1, block, makeSigner(keys[local.Address]))
-		prevote := message.NewPrevote(2, 1, block.Hash(), makeSigner(keys[local.Address]))
+		proposal := message.NewPropose(2, 1, -1, block, makeSigner(keys[local.Address], local.Address))
+		prevote := message.NewPrevote(2, 1, block.Hash(), makeSigner(keys[local.Address], local.Address))
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().Broadcast(gomock.Any(), prevote)
@@ -380,8 +375,8 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessage := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(1, 2, 1, block, makeSigner(keys[local.Address]))
-		prevote := message.NewPrevote(2, 1, proposal.Block().Hash(), makeSigner(keys[local.Address]))
+		proposal := message.NewPropose(1, 2, 1, block, makeSigner(keys[local.Address], local.Address))
+		prevote := message.NewPrevote(2, 1, proposal.Block().Hash(), makeSigner(keys[local.Address], local.Address))
 
 		messages.GetOrCreate(1).AddPrevote(prevote)
 
@@ -459,7 +454,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := generateBlockProposal(1, height, validRound, false, proposerKey)
+		proposal := generateBlockProposal(1, height, validRound, false, makeSigner(proposerKey, proposer.Address))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())

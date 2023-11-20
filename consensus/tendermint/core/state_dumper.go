@@ -147,12 +147,9 @@ func blockHashes[T interface{ Value() common.Hash }](messages []message.Msg) []c
 }
 
 func getVoteState(s *message.Map, round int64) (common.Hash, []interfaces.VoteState, []interfaces.VoteState) {
-	p := common.Hash{}
 	messages := s.GetOrCreate(round)
-	if proposal := messages.Proposal(); proposal != nil {
-		p = proposal.Hash()
-	}
 
+	p := messages.ProposalHash()
 	preVoteValues := blockHashes[*message.Prevote](messages.AllPrevotes())
 	preCommitValues := blockHashes[*message.Precommit](messages.AllPrecommits())
 	prevoteState := make([]interfaces.VoteState, 0, len(preVoteValues))

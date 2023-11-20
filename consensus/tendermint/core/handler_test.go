@@ -27,11 +27,11 @@ func TestHandleCheckedMessage(t *testing.T) {
 	senderKey := keysMap[sender.Address]
 
 	createPrevote := func(round int64, height int64) message.Msg {
-		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey))
+		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address))
 	}
 
 	createPrecommit := func(round int64, height int64) message.Msg {
-		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey))
+		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address))
 	}
 
 	cases := []struct {

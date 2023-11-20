@@ -3,6 +3,7 @@ package message
 import (
 	"testing"
 
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
@@ -17,10 +18,16 @@ func defaultSigner(h common.Hash) ([]byte, common.Address) {
 	out, _ := crypto.Sign(h[:], testKey)
 	return out, testAddr
 }
+func stubVerifier(address common.Address) *types.CommitteeMember {
+	return &types.CommitteeMember{
+		Address:     address,
+		VotingPower: common.Big1,
+	}
+}
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := newVote[Prevote](1, 1, blockHash, defaultSigner)
+	msg := newVote[Prevote](1, 1, blockHash, defaultSigner).MustVerify(stubVerifier)
 	msg.power = common.Big1
 	ms := NewSet[*Prevote]()
 	ms.AddVote(msg)
@@ -39,7 +46,7 @@ func TestMessageSetVotesSize(t *testing.T) {
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
-	msg := newVote[Prevote](1, 1, common.Hash{}, defaultSigner)
+	msg := newVote[Prevote](1, 1, common.Hash{}, defaultSigner).MustVerify(stubVerifier)
 	ms := NewSet[*Prevote]()
 	ms.AddVote(msg)
 	ms.AddVote(msg)

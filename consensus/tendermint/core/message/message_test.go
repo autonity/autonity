@@ -66,7 +66,7 @@ func TestValidate(t *testing.T) {
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
 		msg := newVote[Prevote](1, 25, lastHeader.Hash(), defaultSigner)
 		if err := msg.Validate(func(_ common.Address) *types.CommitteeMember {
-			return &types.CommitteeMember{}
+			return nil
 		}); err == nil {
 			t.Fatalf("want error, nil returned")
 		}

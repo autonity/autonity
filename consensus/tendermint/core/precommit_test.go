@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -15,10 +18,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/secp256k1"
 	"github.com/autonity/autonity/log"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 func TestSendPrecommit(t *testing.T) {
@@ -56,16 +56,17 @@ func TestSendPrecommit(t *testing.T) {
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[me.Address]),
+			makeSigner(keys[me.Address], me.Address),
 		)
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		curRoundMessages.SetProposal(proposal, false)
 
-		preCommit := message.NewPrecommit(1, 2, curRoundMessages.ProposalHash(), makeSigner(keys[addr]))
+		preCommit := message.NewPrecommit(1, 2, curRoundMessages.ProposalHash(), makeSigner(keys[addr], addr))
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr], addr))
 
 		c := &Core{
 			backend:          backendMock,
@@ -95,15 +96,16 @@ func TestSendPrecommit(t *testing.T) {
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[me.Address]))
+			makeSigner(keys[me.Address], me.Address))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		curRoundMessages.SetProposal(proposal, true)
 
-		preCommit := message.NewPrecommit(1, 2, common.Hash{}, makeSigner(keys[addr]))
+		preCommit := message.NewPrecommit(1, 2, common.Hash{}, makeSigner(keys[addr], addr))
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr], addr))
 
 		c := &Core{
 			backend:          backendMock,
@@ -127,7 +129,7 @@ func TestHandlePrecommit(t *testing.T) {
 		addr := common.HexToAddress("0x0123456789")
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
-		preCommit := message.NewPrecommit(2, 3, common.Hash{}, dummySigner)
+		preCommit := message.NewPrecommit(2, 3, common.Hash{}, defaultSigner)
 
 		c := &Core{
 			address:          addr,
@@ -146,12 +148,12 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 	})
 
-	t.Run("pre-commit with invalid signature given, error returned", func(t *testing.T) {
+	t.Run("pre-commit with invalid signature given, panic", func(t *testing.T) {
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 		member, _ := committeeSet.GetByIndex(1)
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
-		preCommit := message.NewPrecommit(2, 3, curRoundMessages.ProposalHash(), makeSigner(keys[member.Address]))
+		preCommit := message.NewPrecommit(2, 3, curRoundMessages.ProposalHash(), makeSigner(keys[member.Address], member.Address))
 
 		c := &Core{
 			address:          member.Address,
@@ -162,10 +164,13 @@ func TestHandlePrecommit(t *testing.T) {
 		}
 		c.SetDefaultHandlers()
 		c.SetStep(Precommit)
-		err := c.precommiter.HandlePrecommit(context.Background(), preCommit)
-		if !errors.Is(err, secp256k1.ErrInvalidSignatureLen) {
-			t.Fatalf("Expected %v, got %v", secp256k1.ErrInvalidSignatureLen, err)
-		}
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("The code did not panic")
+			}
+		}()
+		c.precommiter.HandlePrecommit(context.Background(), preCommit)
+
 	})
 
 	t.Run("pre-commit given with no errors, commit called", func(t *testing.T) {
@@ -180,16 +185,17 @@ func TestHandlePrecommit(t *testing.T) {
 			3,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[member.Address]))
+			makeSigner(keys[member.Address], member.Address))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, true)
 
-		msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address]))
+		msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
+		msg.MustVerify(stubVerifier)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Commit(proposal.Value(), gomock.Any(), gomock.Any()).Return(nil).Do(
+		backendMock.EXPECT().Commit(proposal.Block(), gomock.Any(), gomock.Any()).Return(nil).Do(
 			func(proposalBlock *types.Block, round int64, seals [][]byte) {
 				if round != 2 {
 					t.Fatal("Commit called with round different than precommit seal")
@@ -228,13 +234,14 @@ func TestHandlePrecommit(t *testing.T) {
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[member.Address]))
+			makeSigner(keys[member.Address], member.Address))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, true)
 
-		msg := message.NewPrecommit(1, 2, proposal.Block().Hash(), makeSigner(keys[member.Address]))
+		msg := message.NewPrecommit(1, 2, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
+		msg.Validate(stubVerifier)
 
 		c := &Core{
 			address:          member.Address,
@@ -268,7 +275,7 @@ func TestHandlePrecommit(t *testing.T) {
 			3,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[me.Address]))
+			makeSigner(keys[me.Address], me.Address))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
@@ -290,14 +297,14 @@ func TestHandlePrecommit(t *testing.T) {
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 
 		for _, member := range committeeSet.Committee()[1:5] {
-			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address]))
-			if err := c.precommiter.HandlePrecommit(context.Background(), msg); err != nil {
+			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
+			if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(stubVerifier)); err != nil {
 				t.Fatalf("Expected nil, got %v", err)
 			}
 		}
 
-		msg := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[me.Address]))
-		if err := c.precommiter.HandlePrecommit(context.Background(), msg); err != nil {
+		msg := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[me.Address], me.Address))
+		if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(stubVerifier)); err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 
@@ -334,7 +341,7 @@ func TestHandleCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	backendMock := interfaces.NewMockBackend(ctrl)
-	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block, addr)
+	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block)
 
 	c := &Core{
 		address:          addr,

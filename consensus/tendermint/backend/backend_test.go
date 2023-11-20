@@ -192,9 +192,9 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
 		// VerifyProposal don't need committed seals
-		committedSeal, errSC := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
-		if errSC != nil {
-			t.Fatalf("could not sign commit %d, err=%s", i, errS)
+		committedSeal, address := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+		if address != backend.address {
+			t.Fatal("did not return signing address")
 		}
 		// Append seals into extra-data
 		if err := types.WriteCommittedSeals(header, [][]byte{committedSeal}); err != nil {
@@ -256,9 +256,9 @@ func TestHasBadProposal(t *testing.T) {
 func TestSign(t *testing.T) {
 	_, b := newBlockChain(4)
 	data := common.HexToHash("0x12345")
-	sig, err := b.Sign(data)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
+	sig, addr := b.Sign(data)
+	if addr != b.address {
+		t.Error("error mismatch of addresses")
 	}
 	//Check signature recovery
 	signer, _ := crypto.SigToAddr(data[:], sig)
@@ -621,6 +621,6 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	return block, nil
 }
 
-func dummySigner(_ common.Hash) ([]byte, error) {
-	return nil, nil
+func dummySigner(_ common.Hash) ([]byte, common.Address) {
+	return nil, common.Address{}
 }

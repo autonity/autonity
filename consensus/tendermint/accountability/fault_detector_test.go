@@ -39,18 +39,18 @@ var (
 
 func generateCommittee() (types.Committee, []*ecdsa.PrivateKey) {
 	n := 5
-	vals := make(types.Committee, n)
-	keys := make([]*ecdsa.PrivateKey, n)
+	validators := make(types.Committee, n)
+	pkeys := make([]*ecdsa.PrivateKey, n)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		committeeMember := types.CommitteeMember{
 			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
 			VotingPower: new(big.Int).SetUint64(1),
 		}
-		vals[i] = committeeMember
-		keys[i] = privateKey
+		validators[i] = committeeMember
+		pkeys[i] = privateKey
 	}
-	return vals, keys
+	return validators, pkeys
 }
 
 func newBlockHeader(height uint64, committee types.Committee) *types.Header {
@@ -614,7 +614,6 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		quorum := bft.Quorum(totalPower)
 		signerBis := makeSigner(keys[1], committee[1])
-		maliciousSigner := makeSigner(keys[2], committee[2])
 
 		header := newBlockHeader(height, committee)
 		block := types.NewBlockWithHeader(header)

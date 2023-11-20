@@ -2,24 +2,31 @@ package core
 
 import (
 	"crypto/ecdsa"
-	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
+	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/stretchr/testify/require"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 )
 
-func makeSigner(key *ecdsa.PrivateKey) message.Signer {
-	return func(hash common.Hash) (output []byte, err error) {
-		return crypto.Sign(hash[:], key)
+func makeSigner(key *ecdsa.PrivateKey, addr common.Address) message.Signer {
+	return func(hash common.Hash) ([]byte, common.Address) {
+		out, _ := crypto.Sign(hash[:], key)
+		return out, addr
 	}
+}
+
+func defaultSigner(h common.Hash) ([]byte, common.Address) {
+	out, _ := crypto.Sign(h[:], testKey)
+	return out, testAddr
 }
 
 type AddressKeyMap map[common.Address]*ecdsa.PrivateKey

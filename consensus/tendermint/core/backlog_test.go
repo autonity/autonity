@@ -24,10 +24,6 @@ var (
 	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
-func defaultSigner(h common.Hash) ([]byte, common.Address) {
-	out, _ := crypto.Sign(h[:], testKey)
-	return out, testAddr
-}
 func TestCheckMessage(t *testing.T) {
 	t.Run("valid params given, nil returned", func(t *testing.T) {
 		c := &Core{
