@@ -254,15 +254,15 @@ func SaveECDSA(file string, key *ecdsa.PrivateKey) error {
 	return ioutil.WriteFile(file, []byte(k), 0600)
 }
 
-// SaveNodeKey saves a secp256k1 private key and its derived BLS
+// SaveNodeKey saves a secp256k1 private key and its derived validator BLS
 // private key to the given file with restrictive permissions. The key data is saved hex-encoded.
-func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, blsKey bls.SecretKey) error {
+func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, validatorKey bls.SecretKey) error {
 	k := hex.EncodeToString(FromECDSA(ecdsaKey))
-	d := hex.EncodeToString(blsKey.Marshal())
+	d := hex.EncodeToString(validatorKey.Marshal())
 	return ioutil.WriteFile(file, []byte(k+d), 0600)
 }
 
-// LoadNodeKey loads a secp256k1 private key and a derived BLS private key from the given file.
+// LoadNodeKey loads a secp256k1 private key and a derived validator BLS private key from the given file.
 func LoadNodeKey(file string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
 	fd, err := os.Open(file)
 	if err != nil {
@@ -288,15 +288,15 @@ func LoadNodeKey(file string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
 		return nil, nil, err
 	}
 
-	blsKeyBytes, err := hex.DecodeString(string(buf[64:128]))
+	validatorKeyBytes, err := hex.DecodeString(string(buf[64:128]))
 	if err != nil {
 		return nil, nil, err
 	}
-	blsKey, err := bls.SecretKeyFromBytes(blsKeyBytes)
+	validatorKey, err := bls.SecretKeyFromBytes(validatorKeyBytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	return ecdsaKey, blsKey, nil
+	return ecdsaKey, validatorKey, nil
 }
 
 // HexToNodeKey parse the hex string into a secp256k1 private key and a derived BLS private key.
