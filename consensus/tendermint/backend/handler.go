@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/p2p"
-	lru "github.com/hashicorp/golang-lru"
-	"io"
 )
 
 const (
@@ -116,8 +118,8 @@ func handleConsensusMsg[T any, PT interface {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: savedMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
-	msg, err := message.FromWire[T, PT](p2pMsg)
-	if err != nil {
+	msg := PT(new(T))
+	if err := p2pMsg.Decode(msg); err != nil {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}

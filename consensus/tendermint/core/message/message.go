@@ -1,3 +1,17 @@
+// Package message implements an interface and the three underlying consensus messages types that
+// tendermint is using: Propose, Prevote and Precommit.
+// In addition to that, we have a special type, the "Light Proposal" which is being used for
+// accountability purposes. Light proposals are never directly brodcasted
+// over the network but always part of a proof object, defined in the accountability package.
+// Messages can exist in two states: unverified and verified depending on their signature verification.
+// When verified, calling `Validate` the voting power information and the sender information become available
+// There are three ways that a consensus message can be instantiated:
+//  - using a "New" constructor, e.g. NewPrevote :
+//    The following created object is then fully created, with signature and final payload already
+//    pre-computed. Internal state is unverified as voting power information is not available.
+//  - using "FromWire": signature and payload object available. State unverified.
+//  - using a Fake constructor.
+
 package message
 
 import (
@@ -11,24 +25,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 )
-
-// This package implement an interface and the three underlying consensus messages types that
-// tendermint is using: Propose, Prevote and Precommit.
-// In addition to that, we have a special type, the "Light Proposal" which is being used for
-// accountability purposes. Light proposals are never directly brodcasted
-// over the network but always part of a proof object, defined in the accountability package.
-// Messages can exist in two states: unverified and verified depending on their signature verification.
-// When verified, calling `Validate` the voting power information and the sender information become available
-// There are three ways that a consensus message can be instantiated:
-//  - using a "New" constructor, e.g. NewPrevote :
-//    The following created object is then fully created, with signature and final payload already
-//    pre-computed. Internal state is unverified as voting power information is not available.
-//  - using "FromWire": signature and payload object available. State unverified.
-//  - using a Fake constructor.
 
 var (
 	ErrBadSignature        = errors.New("bad signature")
@@ -72,9 +70,6 @@ type Msg interface {
 
 	// Payload returns the rlp-encoded payload ready to be broadcasted.
 	Payload() []byte
-
-	// setPayload is a private setter used by FromWire.
-	setPayload([]byte)
 
 	// Signature returns the signature of this message
 	Signature() []byte
@@ -184,8 +179,12 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 	}
 }
 func (p *Propose) DecodeRLP(s *rlp.Stream) error {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
 	ext := &extPropose{}
-	if err := s.Decode(ext); err != nil {
+	if err := rlp.DecodeBytes(payload, ext); err != nil {
 		return err
 	}
 	if ext.Code != ProposalCode {
@@ -213,6 +212,8 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	p.block = ext.ProposalBlock
 	p.signature = ext.Signature
 	p.signatureInput = []any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()}
+	p.payload = payload
+	p.hash = crypto.Hash(payload)
 	return nil
 }
 
@@ -287,8 +288,12 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 }
 
 func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
 	ext := &extLightProposal{}
-	if err := s.Decode(ext); err != nil {
+	if err := rlp.DecodeBytes(payload, ext); err != nil {
 		return err
 	}
 	if ext.Code != LightProposalCode {
@@ -316,16 +321,16 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.blockHash = ext.ProposalBlock
 	p.signature = ext.Signature
 	p.signatureInput = []any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash}
+	p.payload = payload
+	p.hash = crypto.Hash(payload)
 	return nil
 }
 
 // extVote is object being transmitted over the network to carry votes.
 type extVote struct {
-	// code is redundant with the p2p.msg code however it is required
+	// Code is redundant with the p2p.msg code however it is required
 	// because we don't want to re-serialize the message again in order
 	// to compute the hash value.
-	// todo: remove the need to hash those values or at least try doing something
-	// more efficient.
 	Code      uint8
 	Round     uint64
 	Height    uint64
@@ -422,8 +427,12 @@ func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommi
 }
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
-	encoded := extVote{}
-	if err := s.Decode(&encoded); err != nil {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	encoded := &extVote{}
+	if err := rlp.DecodeBytes(payload, encoded); err != nil {
 		return err
 	}
 	if encoded.Code != PrevoteCode {
@@ -443,12 +452,18 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 		return constants.ErrInvalidMessage
 	}
 	p.signatureInput = []any{PrevoteCode, encoded.Round, encoded.Height, encoded.Value}
+	p.payload = payload
+	p.hash = crypto.Hash(payload)
 	return nil
 }
 
 func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
-	encoded := extVote{}
-	if err := s.Decode(&encoded); err != nil {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	encoded := &extVote{}
+	if err := rlp.DecodeBytes(payload, encoded); err != nil {
 		return err
 	}
 	if encoded.Code != PrecommitCode {
@@ -468,26 +483,9 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 		return constants.ErrInvalidMessage
 	}
 	p.signatureInput = []any{PrecommitCode, encoded.Round, encoded.Height, encoded.Value}
+	p.payload = payload
+	p.hash = crypto.Hash(payload)
 	return nil
-}
-
-func FromWire[T any, PT interface {
-	*T
-	Msg
-}](p2pMsg p2p.Msg) (PT, error) {
-	message := PT(new(T))
-	if err := p2pMsg.Decode(message); err != nil {
-		return message, err
-	}
-	if _, err := p2pMsg.Payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
-		return message, err
-	}
-	payload := make([]byte, p2pMsg.Size)
-	if _, err := p2pMsg.Payload.Read(payload); err != nil {
-		return message, err
-	}
-	message.setPayload(payload)
-	return message, nil
 }
 
 func (b *base) Sender() common.Address {
@@ -499,11 +497,6 @@ func (b *base) Sender() common.Address {
 
 func (b *base) H() uint64 {
 	return b.height
-}
-
-func (b *base) setPayload(payload []byte) {
-	b.payload = payload
-	b.hash = crypto.Hash(payload)
 }
 
 func (b *base) EncodeRLP(w io.Writer) error {
@@ -527,16 +520,10 @@ func (b *base) Signature() []byte {
 }
 
 func (b *base) Payload() []byte {
-	if b.payload == nil {
-		log.Crit("message returning empty payload")
-	}
 	return b.payload
 }
 
 func (b *base) Hash() common.Hash {
-	if b.payload == nil {
-		log.Crit("message returning empty hash")
-	}
 	return b.hash
 }
 
@@ -590,7 +577,6 @@ func (f Fake) String() string                                                 { 
 func (f Fake) Hash() common.Hash                                              { return f.FakeHash }
 func (f Fake) Value() common.Hash                                             { return common.Hash{} }
 func (f Fake) Payload() []byte                                                { return f.FakePayload }
-func (f Fake) setPayload(_ []byte)                                            {}
 func (f Fake) Signature() []byte                                              { return f.FakeSignature }
 func (f Fake) Validate(_ func(_ common.Address) *types.CommitteeMember) error { return nil }
 
