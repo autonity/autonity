@@ -28,8 +28,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/autonity/autonity/common/hexutil"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/autonity/autonity/common/hexutil"
 )
 
 // Lengths of hashes and addresses in bytes.

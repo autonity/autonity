@@ -59,7 +59,6 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 	return stream.ListEnd()
 }
 
-// Proof is what to prove that one is misbehaving, one should be slashed when a valid Proof is rise.
 type Proof struct {
 	Type      autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
 	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.

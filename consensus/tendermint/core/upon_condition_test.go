@@ -804,7 +804,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		sender := 1
 		currentProposer := members[sender].Address
 		currentSigner := makeSigner(privateKeys[currentProposer], currentProposer)
-		prevoteMsg := message.NewPrevote(currentRound, currentHeight.Uint64(), generateBlock(currentHeight).Hash(), currentSigner)
+		prevoteMsg := message.NewPrevote(currentRound, currentHeight.Uint64(), generateBlock(currentHeight).Hash(), currentSigner).MustVerify(stubVerifier)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -851,10 +851,10 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		sender1 := members[1].Address
 		sender1Signer := makeSigner(privateKeys[sender1], sender1)
-		prevote1Msg := message.NewPrevote(currentRound, currentHeight.Uint64(), generateBlock(currentHeight).Hash(), sender1Signer)
+		prevote1Msg := message.NewPrevote(currentRound, currentHeight.Uint64(), generateBlock(currentHeight).Hash(), sender1Signer).MustVerify(stubVerifier)
 		sender2 := members[2].Address
 		sender2Signer := makeSigner(privateKeys[sender2], sender2)
-		prevote2Msg := message.NewPrevote(currentRound, currentHeight.Uint64(), generateBlock(currentHeight).Hash(), sender2Signer)
+		prevote2Msg := message.NewPrevote(currentRound, currentHeight.Uint64(), generateBlock(currentHeight).Hash(), sender2Signer).MustVerify(stubVerifier)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -949,6 +949,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.setCommitteeSet(committeeSet)
 
 		backendMock.EXPECT().Broadcast(committeeSet.Committee(), precommitMsg)
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
 		c.handleTimeoutPrevote(context.Background(), timeoutE)
 		assert.Equal(t, currentHeight, c.Height())
@@ -976,7 +977,7 @@ func TestQuorumPrevote(t *testing.T) {
 		currentStep := Step(rand.Intn(2) + 1)                                                                                              //nolint:gosec
 		proposal := generateBlockProposal(currentRound, currentHeight, int64(rand.Intn(int(currentRound+1))), false, signer(currentRound)) //nolint:gosec
 
-		prevoteMsg := message.NewPrevote(currentRound, currentHeight.Uint64(), proposal.Block().Hash(), signer(currentRound))
+		prevoteMsg := message.NewPrevote(currentRound, currentHeight.Uint64(), proposal.Block().Hash(), signer(currentRound)).MustVerify(stubVerifier)
 		precommitMsg := message.NewPrecommit(currentRound, currentHeight.Uint64(), proposal.Block().Hash(), clientSigner)
 
 		ctrl := gomock.NewController(t)

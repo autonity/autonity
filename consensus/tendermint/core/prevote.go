@@ -42,7 +42,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 				// ProposalBlock would be nil if node haven't received the proposal yet.
 				if proposal := c.curRoundMessages.Proposal(); proposal != nil {
 					vr := proposal.ValidRound()
-					h := proposal.Hash()
+					h := proposal.Block().Hash()
 					rs := c.messages.GetOrCreate(vr)
 
 					if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {

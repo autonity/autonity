@@ -16,6 +16,20 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
+// This package implement an interface and the three underlying consensus messages types that
+// tendermint is using: Propose, Prevote and Precommit.
+// In addition to that, we have a special type, the "Light Proposal" which is being used for
+// accountability purposes. Light proposals are never directly brodcasted
+// over the network but always part of a proof object, defined in the accountability package.
+// Messages can exist in two states: unverified and verified depending on their signature verification.
+// When verified, calling `Validate` the voting power information and the sender information become available
+// There are three ways that a consensus message can be instantiated:
+//  - using a "New" constructor, e.g. NewPrevote :
+//    The following created object is then fully created, with signature and final payload already
+//    pre-computed. Internal state is unverified as voting power information is not available.
+//  - using "FromWire": signature and payload object available. State unverified.
+//  - using a Fake constructor.
+
 var (
 	ErrBadSignature        = errors.New("bad signature")
 	ErrUnauthorizedAddress = errors.New("unauthorized address")
@@ -31,17 +45,41 @@ const (
 type Signer func(hash common.Hash) (signature []byte, address common.Address)
 
 type Msg interface {
-	R() int64
-	H() uint64
+	// Code returns the message code, it must always matching the concrete type.
 	Code() uint8
-	Sender() common.Address
-	Power() *big.Int
-	String() string
-	Hash() common.Hash
+
+	// R returns the message round.
+	R() int64
+
+	// H returns the mesage height.
+	H() uint64
+
+	// Value returns the block hash being voted for.
 	Value() common.Hash
+
+	// Returns the sender address. This is not available until the message has been validated
+	Sender() common.Address
+
+	// Power returns the message voting power.
+	Power() *big.Int
+
+	// String returns a string description of the message.
+	String() string
+
+	// Hash returns the hash of the messagel. This is not available if the underlying payload
+	// hasn't be assigned.
+	Hash() common.Hash
+
+	// Payload returns the rlp-encoded payload ready to be broadcasted.
 	Payload() []byte
+
+	// setPayload is a private setter used by FromWire.
 	setPayload([]byte)
+
+	// Signature returns the signature of this message
 	Signature() []byte
+
+	// Validate execute the message's signature verification, assign the power and the sender.
 	Validate(func(address common.Address) *types.CommitteeMember) error
 }
 

@@ -19,14 +19,14 @@ package consensus
 
 import (
 	"context"
-	ethereum "github.com/autonity/autonity"
 	"math/big"
 
-	"github.com/autonity/autonity/p2p"
+	ethereum "github.com/autonity/autonity"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
 )
