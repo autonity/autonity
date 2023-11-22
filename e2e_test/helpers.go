@@ -5,11 +5,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/crypto"
-	"github.com/stretchr/testify/require"
 )
 
 var AutonityContractAddr = crypto.CreateAddress(common.Address{}, 0)
@@ -75,11 +76,12 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 	n := network[1]
 	autonityContract, _ := autonity.NewAccountability(autonity.AccountabilityContractAddress, n.WsClient)
 	var events []autonity.AccountabilityEvent
-	var err error
 	if eventType == autonity.Misbehaviour {
-		events, err = autonityContract.GetValidatorFaults(nil, faultyValidator)
+		events, err := autonityContract.GetValidatorFaults(nil, faultyValidator)
 	} else {
 		var event autonity.AccountabilityEvent
+		iter, err := autonityContract.FilterNewAccusation(nil, faultyValidator)
+		require.NoError(t, err)
 		event, err = autonityContract.GetValidatorAccusation(nil, faultyValidator)
 		events = []autonity.AccountabilityEvent{event}
 	}
