@@ -164,12 +164,11 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 	if err := verifyProofSignatures(c.chain, p); err != nil {
 		return failureReturn, nil
 	}
-	return c.validateProof(p), nil
+	return c.validateFault(p), nil
 }
 
-// validate the Proof, if the Proof is valid, then the rlp hash of the msg payload and rlp hash of msg sender is
-// returned as the valid identity for Proof management.
-func (c *MisbehaviourVerifier) validateProof(p *Proof) []byte {
+// validate a misbehavior proof, doesn't check the proof signatures.
+func (c *MisbehaviourVerifier) validateFault(p *Proof) []byte {
 	valid := false
 	switch p.Rule {
 	case autonity.PN:
@@ -704,7 +703,7 @@ func verifyProofSignatures(chain ChainContext, p *Proof) error {
 	if h == 0 {
 		return errBadHeight
 	}
-	lastHeader := chain.GetHeaderByNumber(p.Message.H() - 1)
+	lastHeader := chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}

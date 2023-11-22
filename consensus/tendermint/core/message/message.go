@@ -130,7 +130,9 @@ func (p *Propose) String() string {
 }
 
 func (p *Propose) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Propose {
-	p.Validate(inCommittee)
+	if err := p.Validate(inCommittee); err != nil {
+		panic("validation failed")
+	}
 	return p
 }
 
@@ -527,6 +529,9 @@ func (b *base) Hash() common.Hash {
 
 // Validate verify the signature and set appropriate sender / power fields
 func (b *base) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
+	if b.verified {
+		panic("Re-validating already verified message")
+	}
 	// We are not saving the rlp encoded signature input data as we want
 	// to avoid this extra-serialization step if the message has already been received
 	// The call to Validate() only happen after the cache check in the backend handler.

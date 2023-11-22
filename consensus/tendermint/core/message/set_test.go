@@ -30,9 +30,9 @@ func TestMessageSetAddVote(t *testing.T) {
 	msg := newVote[Prevote](1, 1, blockHash, defaultSigner).MustVerify(stubVerifier)
 	msg.power = common.Big1
 	ms := NewSet[*Prevote]()
-	ms.AddVote(msg)
-	ms.AddVote(msg)
-	if got := ms.VotePower(blockHash); got.Cmp(common.Big1) != 0 {
+	ms.Add(msg)
+	ms.Add(msg)
+	if got := ms.PowerFor(blockHash); got.Cmp(common.Big1) != 0 {
 		t.Fatalf("Expected 1 vote, got %v", got)
 	}
 }
@@ -40,7 +40,7 @@ func TestMessageSetAddVote(t *testing.T) {
 func TestMessageSetVotesSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
 	ms := NewSet[*Prevote]()
-	if got := ms.VotePower(blockHash); got.Cmp(common.Big0) != 0 {
+	if got := ms.PowerFor(blockHash); got.Cmp(common.Big0) != 0 {
 		t.Fatalf("Expected 0, got %v", got)
 	}
 }
@@ -48,9 +48,9 @@ func TestMessageSetVotesSize(t *testing.T) {
 func TestMessageSetAddNilVote(t *testing.T) {
 	msg := newVote[Prevote](1, 1, common.Hash{}, defaultSigner).MustVerify(stubVerifier)
 	ms := NewSet[*Prevote]()
-	ms.AddVote(msg)
-	ms.AddVote(msg)
-	if got := ms.VotePower(common.Hash{}); got.Cmp(common.Big1) != 0 {
+	ms.Add(msg)
+	ms.Add(msg)
+	if got := ms.PowerFor(common.Hash{}); got.Cmp(common.Big1) != 0 {
 		t.Fatalf("Expected 1 nil vote, got %v", got)
 	}
 }

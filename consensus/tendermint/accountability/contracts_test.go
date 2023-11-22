@@ -230,7 +230,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = invalidProposal
 		mv := MisbehaviourVerifier{chain: chainMock}
 
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -246,7 +246,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, invalidPreCommit)
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -263,7 +263,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{chain: chainMock}
 
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -277,7 +277,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, preCommit)
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -287,7 +287,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = newProposalMessage(height, 1, -1, signer, committee, nil)
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -301,7 +301,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = proposal.ToLight()
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -316,7 +316,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -335,7 +335,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -344,7 +344,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.PO
 		p.Message = newProposalMessage(height, 3, 0, signer, committee, nil).MustVerify(stubVerifier).ToLight()
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -356,7 +356,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -377,7 +377,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -397,7 +397,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, preCommit, preCommitR1)
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -410,7 +410,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preVote
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -423,7 +423,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := message.NewPrecommit(0, height, noneNilValue, signer)
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -438,7 +438,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, preCommit)
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -458,7 +458,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, message.NewLightProposal(correspondingProposal), pcForV, pcForNotV)
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -471,7 +471,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Type = autonity.Misbehaviour
 		p.Message = preVote
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -488,7 +488,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = correspondingProposal
 		p.Evidences = append(p.Evidences, correspondingProposal, pcForV, pcForNotV)
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -507,7 +507,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, correspondingProposal, pcForV, pcForNotV)
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -529,7 +529,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, correspondingProposal, pcValidRound, pcForV, pcForNotV)
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -548,7 +548,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -564,7 +564,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, preVote)
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -582,7 +582,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -603,7 +603,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, correspondingProposal, pcVR, pcR1, pcR2)
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -620,7 +620,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
@@ -632,7 +632,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = preCommit
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -648,7 +648,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -664,7 +664,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -682,7 +682,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -701,7 +701,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -718,7 +718,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		mv := MisbehaviourVerifier{chain: chainMock}
 		verifyProofSignatures(chainMock, &p)
-		ret := mv.validateProof(&p)
+		ret := mv.validateFault(&p)
 		assert.Equal(t, failureReturn, ret)
 	})
 }

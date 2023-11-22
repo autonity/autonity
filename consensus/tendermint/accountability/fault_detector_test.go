@@ -97,12 +97,12 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	proofs = append(proofs, proposal2)
 
 	fd := &FaultDetector{
-		misbehaviourProofsCh: make(chan *autonity.AccountabilityEvent, 100),
-		logger:               log.New("FaultDetector", nil),
+		misbehaviourProofCh: make(chan *autonity.AccountabilityEvent, 100),
+		logger:              log.New("FaultDetector", nil),
 	}
 
 	fd.submitMisbehavior(proposal, proofs, errEquivocation)
-	p := <-fd.misbehaviourProofsCh
+	p := <-fd.misbehaviourProofCh
 
 	require.Equal(t, uint8(autonity.Misbehaviour), p.EventType)
 	require.Equal(t, proposer, p.Offender)
@@ -177,7 +177,7 @@ func TestProcessMsg(t *testing.T) {
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: bindings}, log.Root())
 		require.Equal(t, errFutureMsg, fd.processMsg(proposal))
-		require.Equal(t, proposal, fd.futureHeightMsgs[futureHeight][0])
+		require.Equal(t, proposal, fd.futureMessages[futureHeight][0])
 	})
 }
 

@@ -95,14 +95,13 @@ type FaultDetector struct {
 	address    common.Address
 	msgStore   *engineCore.MsgStore
 
-	// chain event subscriber for msg handler.
-	msgHandlerBlockCh  chan core.ChainEvent
-	msgHandlerBlockSub event.Subscription
+	chainEventCh  chan core.ChainEvent
+	chainEventSub event.Subscription
 
-	misbehaviourProofsCh chan *autonity.AccountabilityEvent
-	futureHeightMsgs     map[uint64][]message.Msg        // map[blockHeight][]*tendermintMessages
-	futureHeightMsgsSize uint64                          // a counter to count the total cached future height msg.
-	pendingEvents        []*autonity.AccountabilityEvent // accountability event buffer.
+	misbehaviourProofCh chan *autonity.AccountabilityEvent
+	futureMessages      map[uint64][]message.Msg        // map[blockHeight][]*tendermintMessages
+	futureMessageCount  uint64                          // a counter to count the total cached future height msg.
+	pendingEvents       []*autonity.AccountabilityEvent // accountability event buffer.
 
 	offChainAccusationsMu sync.RWMutex
 	offChainAccusations   []*Proof // off chain accusations list, ordered in chain height from low to high.
@@ -141,16 +140,16 @@ func NewFaultDetector(
 		blockchain:            chain,
 		address:               nodeAddress,
 		msgStore:              ms,
-		msgHandlerBlockCh:     make(chan core.ChainEvent, 300),
+		chainEventCh:          make(chan core.ChainEvent, 300),
 		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
-		misbehaviourProofsCh:  make(chan *autonity.AccountabilityEvent, 100),
-		futureHeightMsgs:      make(map[uint64][]message.Msg),
-		futureHeightMsgsSize:  0,
+		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
+		futureMessages:        make(map[uint64][]message.Msg),
+		futureMessageCount:    0,
 		logger:                logger, // Todo(youssef): remove context
 	}
 	// todo(youssef): analyze chainEvent vs chainHeadEvent and very important: what to do during sync !
 	fd.ruleEngineBlockSub = fd.blockchain.SubscribeChainEvent(fd.ruleEngineBlockCh)
-	fd.msgHandlerBlockSub = fd.blockchain.SubscribeChainEvent(fd.msgHandlerBlockCh)
+	fd.chainEventSub = fd.blockchain.SubscribeChainEvent(fd.chainEventCh)
 
 	fd.accountabilityEventSub, _ = protocolContracts.WatchNewAccusation(
 		nil,
@@ -178,30 +177,30 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (fd *FaultDetector) saveFutureHeightMsg(m message.Msg) {
-	fd.futureHeightMsgs[m.H()] = append(fd.futureHeightMsgs[m.H()], m)
-	fd.futureHeightMsgsSize++
+	fd.futureMessages[m.H()] = append(fd.futureMessages[m.H()], m)
+	fd.futureMessageCount++
 
 	// buffer is full, remove the furthest away msg from buffer to prevent DoS attack.
-	if fd.futureHeightMsgsSize >= maxFutureHeightMsgs {
+	if fd.futureMessageCount >= maxFutureHeightMsgs {
 		maxHeight := m.H()
-		for h, msgs := range fd.futureHeightMsgs {
+		for h, msgs := range fd.futureMessages {
 			if h > maxHeight && len(msgs) > 0 {
 				maxHeight = h
 			}
 		}
-		if len(fd.futureHeightMsgs[maxHeight]) > 1 {
-			fd.futureHeightMsgs[maxHeight] = fd.futureHeightMsgs[maxHeight][:len(fd.futureHeightMsgs[maxHeight])-1]
+		if len(fd.futureMessages[maxHeight]) > 1 {
+			fd.futureMessages[maxHeight] = fd.futureMessages[maxHeight][:len(fd.futureMessages[maxHeight])-1]
 		} else {
-			delete(fd.futureHeightMsgs, maxHeight)
+			delete(fd.futureMessages, maxHeight)
 		}
-		fd.futureHeightMsgsSize--
+		fd.futureMessageCount--
 	}
 }
 
 func (fd *FaultDetector) deleteFutureHeightMsg(height uint64) {
-	length := len(fd.futureHeightMsgs[height])
-	fd.futureHeightMsgsSize = fd.futureHeightMsgsSize - uint64(length)
-	delete(fd.futureHeightMsgs, height)
+	length := len(fd.futureMessages[height])
+	fd.futureMessageCount = fd.futureMessageCount - uint64(length)
+	delete(fd.futureMessages, height)
 }
 
 func preCheckMessage(m message.Msg, chain ChainContext) error {
@@ -246,7 +245,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 			}
-		case e, ok := <-fd.msgHandlerBlockCh:
+		case e, ok := <-fd.chainEventCh:
 			if !ok {
 				break tendermintMsgLoop
 			}
@@ -265,7 +264,7 @@ tendermintMsgLoop:
 			}
 			*/
 
-			for h, messages := range fd.futureHeightMsgs {
+			for h, messages := range fd.futureMessages {
 				if h <= curHeight {
 					for _, m := range messages {
 						if err := fd.processMsg(m); err != nil {
@@ -279,7 +278,7 @@ tendermintMsgLoop:
 		case <-ticker.C:
 			// on each 1 seconds, reset the rate limiter counters.
 			fd.rateLimiter.resetRateLimiter()
-		case err, ok := <-fd.msgHandlerBlockSub.Err():
+		case err, ok := <-fd.chainEventSub.Err():
 			if ok {
 				// why crit? what can happen here?
 				fd.logger.Crit("block subscription error", "err", err)
@@ -287,7 +286,7 @@ tendermintMsgLoop:
 			break tendermintMsgLoop
 		}
 	}
-	close(fd.misbehaviourProofsCh)
+	close(fd.misbehaviourProofCh)
 }
 
 // check to GC msg store for those msgs out of buffering window on every 60 blocks.
@@ -360,7 +359,7 @@ loop:
 				}
 			}
 
-		case m, ok := <-fd.misbehaviourProofsCh:
+		case m, ok := <-fd.misbehaviourProofCh:
 			if !ok {
 				break loop
 			}
@@ -400,7 +399,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 
 func (fd *FaultDetector) Stop() {
 	fd.ruleEngineBlockSub.Unsubscribe()
-	fd.msgHandlerBlockSub.Unsubscribe()
+	fd.chainEventSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	fd.accountabilityEventSub.Unsubscribe()
 	close(fd.eventReporterCh)
@@ -1210,7 +1209,7 @@ func (fd *FaultDetector) submitMisbehavior(m message.Msg, evidence []message.Msg
 		Evidences: evidence,
 	})
 	// submit misbehavior proof to buffer, it will be sent once aggregated.
-	fd.misbehaviourProofsCh <- proof
+	fd.misbehaviourProofCh <- proof
 }
 
 func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propose) error {

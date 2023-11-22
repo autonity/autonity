@@ -1,14 +1,15 @@
 package message
 
 import (
-	"github.com/autonity/autonity/common"
 	"math/big"
 	"sync"
+
+	"github.com/autonity/autonity/common"
 )
 
 type isVote interface {
+	*Prevote | *Precommit
 	Msg
-	Value() common.Hash
 }
 
 func NewSet[T isVote]() *Set[T] {
@@ -23,12 +24,12 @@ type Set[T isVote] struct {
 	// receiving a proposal, so we must save received message with different proposed block hash.
 	votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
 	messages map[common.Address]T
-	lock     sync.RWMutex
+	sync.RWMutex
 }
 
-func (s *Set[T]) AddVote(vote T) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+func (s *Set[T]) Add(vote T) {
+	s.Lock()
+	defer s.Unlock()
 	sender := vote.Sender()
 	value := vote.Value()
 	// Check first if we already received a message from this pal.
@@ -45,8 +46,8 @@ func (s *Set[T]) AddVote(vote T) {
 }
 
 func (s *Set[T]) Messages() []Msg {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 	result := make([]Msg, len(s.messages))
 	k := 0
 	for _, v := range s.messages {
@@ -56,9 +57,9 @@ func (s *Set[T]) Messages() []Msg {
 	return result
 }
 
-func (s *Set[T]) VotePower(h common.Hash) *big.Int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+func (s *Set[T]) PowerFor(h common.Hash) *big.Int {
+	s.RLock()
+	defer s.RUnlock()
 	if votes, ok := s.votes[h]; ok {
 		power := new(big.Int)
 		for _, v := range votes {
@@ -69,9 +70,9 @@ func (s *Set[T]) VotePower(h common.Hash) *big.Int {
 	return new(big.Int)
 }
 
-func (s *Set[T]) TotalVotePower() *big.Int {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+func (s *Set[T]) TotalPower() *big.Int {
+	s.RLock()
+	defer s.RUnlock()
 	power := new(big.Int)
 	for _, msg := range s.messages {
 		power.Add(power, msg.Power())
@@ -80,8 +81,8 @@ func (s *Set[T]) TotalVotePower() *big.Int {
 }
 
 func (s *Set[T]) VotesFor(blockHash common.Hash) []T {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 	if _, ok := s.votes[blockHash]; !ok {
 		return nil
 	}

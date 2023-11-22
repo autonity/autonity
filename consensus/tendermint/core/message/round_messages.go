@@ -1,9 +1,10 @@
 package message
 
 import (
-	"github.com/autonity/autonity/common"
 	"math/big"
 	"sync"
+
+	"github.com/autonity/autonity/common"
 )
 
 type Map struct {
@@ -94,23 +95,23 @@ func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 }
 
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
-	return s.prevotes.VotePower(hash)
+	return s.prevotes.PowerFor(hash)
 }
 
 func (s *RoundMessages) PrevotesTotalPower() *big.Int {
-	return s.prevotes.TotalVotePower()
+	return s.prevotes.TotalPower()
 }
 
 func (s *RoundMessages) PrecommitsPower(hash common.Hash) *big.Int {
-	return s.precommits.VotePower(hash)
+	return s.precommits.PowerFor(hash)
 }
 
 func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
-	return s.precommits.TotalVotePower()
+	return s.precommits.TotalPower()
 }
 
 func (s *RoundMessages) AddPrevote(prevote *Prevote) {
-	s.prevotes.AddVote(prevote)
+	s.prevotes.Add(prevote)
 }
 
 func (s *RoundMessages) AllPrevotes() []Msg {
@@ -122,7 +123,7 @@ func (s *RoundMessages) AllPrecommits() []Msg {
 }
 
 func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
-	s.precommits.AddVote(precommit)
+	s.precommits.Add(precommit)
 }
 
 func (s *RoundMessages) PrecommitsFor(hash common.Hash) []*Precommit {
