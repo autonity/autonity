@@ -127,6 +127,8 @@ func (p *Propose) Value() common.Hash {
 }
 
 func (p *Propose) String() string {
+	p.RLock()
+	defer p.RUnlock()
 	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
 		p.round, p.H(), p.validRound, p.block.Hash().String())
 }
@@ -248,6 +250,8 @@ func (p *LightProposal) Value() common.Hash {
 }
 
 func (p *LightProposal) String() string {
+	p.RLock()
+	defer p.RUnlock()
 	return fmt.Sprintf("{sender: %v, power: %v, Code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.blockHash)
 }
 
@@ -359,6 +363,8 @@ func (p *Prevote) MustVerify(inCommittee func(address common.Address) *types.Com
 }
 
 func (p *Prevote) String() string {
+	p.RLock()
+	defer p.RUnlock()
 	return fmt.Sprintf("{r:  %v, h: %v , sender: %v, power: %v, Code: %v, value: %v}",
 		p.round, p.height, p.sender, p.power, p.Code(), p.value)
 }
@@ -382,6 +388,8 @@ func (p *Precommit) MustVerify(inCommittee func(address common.Address) *types.C
 }
 
 func (p *Precommit) String() string {
+	p.RLock()
+	defer p.RUnlock()
 	return fmt.Sprintf("{r:  %v, h: %v , sender: %v, power: %v, Code: %v, value: %v}",
 		p.round, p.height, p.sender, p.power, p.Code(), p.value)
 }
