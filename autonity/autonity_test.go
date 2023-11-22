@@ -7,11 +7,78 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
 	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 )
+
+func BenchmarkContractFunction(b *testing.B) {
+	// Deploy contract
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	state, err := state.New(common.Hash{}, db, nil)
+	require.NoError(b, err)
+	vmctx := vm.BlockContext{
+		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
+		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
+		BlockNumber: common.Big0,
+	}
+
+	txContext := vm.TxContext{
+		Origin:   common.Address{},
+		GasPrice: common.Big0,
+	}
+
+	evm := vm.NewEVM(vmctx, txContext, state, params.TestChainConfig, vm.Config{})
+	gas := uint64(math.MaxUint64)
+	value := common.Big0
+
+	contractConfig := AutonityConfig{
+		Policy: AutonityPolicy{
+			TreasuryFee:     new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
+			MinBaseFee:      new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
+			DelegationRate:  new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
+			UnbondingPeriod: new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
+			TreasuryAccount: params.TestAutonityContractConfig.Operator,
+		},
+		Contracts: AutonityContracts{
+			AccountabilityContract: AccountabilityContractAddress,
+			OracleContract:         OracleContractAddress,
+			AcuContract:            ACUContractAddress,
+			SupplyControlContract:  SupplyControlContractAddress,
+			StabilizationContract:  StabilizationContractAddress,
+		},
+		Protocol: AutonityProtocol{
+			OperatorAccount: params.TestAutonityContractConfig.Operator,
+			EpochPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
+			BlockPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
+			CommitteeSize:   new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
+		},
+		ContractVersion: big.NewInt(1),
+	}
+
+	args, err := generated.AutonityAbi.Pack("", []params.Validator{}, contractConfig)
+	require.NoError(b, err)
+	data := append(generated.AutonityBytecode, args...)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		evm.Create(vm.AccountRef(common.Address{}), data, gas, value)
+		//require.NoError(b, err)
+		//b.Log(autonity)
+		//b.Log("gas used:", gas-leftOverGas)
+	}
+	//genesisContracts := NewGenesisEVMContract()
+	//DeployAutonityContract()
+	// get bindings via :
+	//NewProtocolContracts
+}
 
 func TestElectProposer(t *testing.T) {
 	height := uint64(9999)
