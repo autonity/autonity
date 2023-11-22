@@ -12,7 +12,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/log"
 )
 
 // todo: resolve proper tendermint state synchronization timeout from block period.
@@ -289,7 +288,7 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 		// We want to store only future messages in backlog
 		switch {
 		case errors.Is(err, constants.ErrFutureHeightMessage):
-			log.Crit("Processed future message as a valid message")
+			panic("Processed future message as a valid message")
 		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, msg.Sender())
