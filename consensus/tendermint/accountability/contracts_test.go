@@ -755,6 +755,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
 		ret, err := iv.Run(append(make([]byte, 32), raw...), height)
+		require.NoError(t, err)
 		assert.Equal(t, failureReturn, ret)
 	})
 
@@ -772,6 +773,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
 		ret, err := iv.Run(append(make([]byte, 32), raw...), height)
+		require.NoError(t, err)
 		assert.Equal(t, failureReturn, ret)
 	})
 

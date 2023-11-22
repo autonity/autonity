@@ -325,7 +325,7 @@ loop:
 			// msg store delete msgs out of buffering window on every 60 blocks.
 			fd.checkMsgStoreGC(ev.Block.NumberU64())
 		case accusation := <-fd.accountabilityEventCh:
-			fd.logger.Warn("Local node accountability accusation!")
+			fd.logger.Warn("Local node byzantine accusation!")
 			accusationEvent, err := fd.protocolContracts.Events(nil, accusation.Id)
 			if err != nil {
 				// this should not happen
@@ -335,6 +335,12 @@ loop:
 			decodedProof, err := decodeRawProof(accusationEvent.RawProof)
 			if err != nil {
 				fd.logger.Error("Can't decode accusation", "err", err)
+				break
+			}
+			// The signatures must be valid at this stage, however we have to recover the original
+			// senders, hence the following call.
+			if err := verifyProofSignatures(fd.blockchain, decodedProof); err != nil {
+				fd.logger.Error("Can't verify proof signatures", "err", err)
 				break
 			}
 			innocenceProof, err := fd.innocenceProof(decodedProof)
