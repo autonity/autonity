@@ -335,8 +335,8 @@ func (srv *Server) Peers() []*Peer {
 }
 
 // TODO: review this code again
-// GetPeer returns a connected eth peers
-func (srv *Server) GetPeer(id enode.ID) *Peer {
+// Peer returns a connected eth peers
+func (srv *Server) Peer(id enode.ID) *Peer {
 	var peer *Peer
 	srv.doPeerOp(func(peers map[enode.ID]*Peer) {
 		if p, ok := peers[id]; ok {
@@ -362,9 +362,14 @@ func (srv *Server) AddPeer(node *enode.Node) {
 	srv.dialsched.addStatic(node)
 }
 
-// AddConsensusChannel
+// AddConsensusChannel sets up the dialer for consensus channel for the given node
 func (srv *Server) AddConsensusChannel(node *enode.Node) {
 	srv.dialsched.addConsensusChannel(node)
+}
+
+// RemoveConsensusChannel removes the dialer for consensus channel for the given node
+func (srv *Server) RemoveConsensusChannel(node *enode.Node) {
+	srv.dialsched.removeConsensusChannel(node)
 }
 
 // RemovePeer removes a node from the static node set. It also disconnects from the given
@@ -430,8 +435,10 @@ func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 		}
 		if !found {
 			log.Debug("Dropping node from static peers", "enode", connectedPeer.String())
+			//TODO: Do we need trusted anymore can't we
+			// make use of consensus flag only (maybe not)
 			src.RemoveTrustedPeer(connectedPeer)
-			src.dialsched.removeStatic(connectedPeer)
+			src.dialsched.removeConsensusChannel(connectedPeer)
 		}
 	}
 
@@ -447,7 +454,7 @@ func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 		if !found {
 			log.Debug("Connecting to validator", "enode", whitelistedEnode.String())
 			src.AddTrustedPeer(whitelistedEnode)
-			src.AddPeer(whitelistedEnode)
+			src.AddConsensusChannel(whitelistedEnode)
 		}
 	}
 
@@ -1262,7 +1269,7 @@ func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node {
 
 func (srv *Server) nodeFromEthConn(pubkey *ecdsa.PublicKey) *enode.Node {
 	id := enode.PubkeyToIDV4(pubkey)
-	if peer := srv.GetPeer(id); peer != nil {
+	if peer := srv.Peer(id); peer != nil {
 		return peer.Node()
 	} else {
 		return nil

@@ -111,6 +111,7 @@ type dialScheduler struct {
 	addStaticCh    chan *enode.Node
 	addConsensusCh chan *enode.Node
 	remStaticCh    chan *enode.Node
+	remConsensusCh chan *enode.Node
 	addPeerCh      chan *conn
 	remPeerCh      chan *conn
 
@@ -216,6 +217,14 @@ func (d *dialScheduler) addStatic(n *enode.Node) {
 }
 
 // removeStatic removes a static dial candidate.
+func (d *dialScheduler) removeConsensusChannel(n *enode.Node) {
+	select {
+	case d.remConsensusCh <- n:
+	case <-d.ctx.Done():
+	}
+}
+
+// removeStatic removes a static dial candidate.
 func (d *dialScheduler) removeStatic(n *enode.Node) {
 	select {
 	case d.remStaticCh <- n:
@@ -275,15 +284,12 @@ loop:
 
 		case task := <-d.doneCh:
 			isConsensusConn := (task.flags >> consensusConn) & 1
-			dialKey := task.dest.ID().String() + ":" + strconv.Itoa(isConsensusConn)
+			dialKey := task.dest.ID().String() + ":" + strconv.Itoa(int(isConsensusConn))
 			delete(d.dialing, dialKey)
 			d.updateStaticPool(dialKey)
 			d.doneSinceLastLog++
 
 		case c := <-d.addPeerCh:
-			// Exclude trusted nodes here -
-			// dialPeers is used to limit the number of dials based on maxPeers config, trusted nodes should be tried
-			// regardless of the maxPeers config
 			if (c.is(dynDialedConn) || c.is(staticDialedConn)) && !c.is(trustedConn) {
 				d.dialPeers++
 			}
@@ -327,6 +333,8 @@ loop:
 			}
 
 		case node := <-d.addStaticCh:
+			//Only adding eth channel here, consensus Channel is added after
+			// eth connection is established in addConsensusCh
 			id := node.ID().String() + ":0"
 			_, exists := d.static[id]
 			d.log.Trace("Adding static node", "id", id, "ip", node.IP(), "added", !exists)
@@ -340,16 +348,25 @@ loop:
 			}
 
 		case node := <-d.remStaticCh:
-			for i := 0; i <= 1; i++ {
-				id := node.ID().String() + ":" + strconv.Itoa(i)
-				task := d.static[id]
-				d.log.Trace("Removing static node", "id", id, "ok", task != nil)
-				if task != nil {
-					delete(d.static, id)
-					if task.staticPoolIndex >= 0 {
-						//TODO: fix
-						d.removeFromStaticPool(task.staticPoolIndex)
-					}
+			id := node.ID().String() + ":1"
+			task := d.static[id]
+			d.log.Trace("Removing static node", "id", id, "ok", task != nil)
+			if task != nil {
+				delete(d.static, id)
+				if task.staticPoolIndex >= 0 {
+					//TODO: fix
+					d.removeFromStaticPool(task.staticPoolIndex)
+				}
+			}
+		case node := <-d.remConsensusCh:
+			id := node.ID().String() + ":1"
+			task := d.static[id]
+			d.log.Trace("Removing static node", "id", id, "ok", task != nil)
+			if task != nil {
+				delete(d.static, id)
+				if task.staticPoolIndex >= 0 {
+					//TODO: fix
+					d.removeFromStaticPool(task.staticPoolIndex)
 				}
 			}
 
@@ -514,7 +531,7 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 func (d *dialScheduler) startDial(task *dialTask) {
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
 	isConsensusConn := (task.flags >> consensusConn) & 1
-	hkey := task.dest.ID().String() + ":" + strconv.Itoa(isConsensusConn)
+	hkey := task.dest.ID().String() + ":" + strconv.Itoa(int(isConsensusConn))
 	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
 	d.dialing[hkey] = task
 	go func() {
@@ -564,7 +581,8 @@ func (t *dialTask) run(d *dialScheduler) {
 
 func (t *dialTask) needResolve() bool {
 	ip := t.dest.IP()
-	isConsensusConn := (t.flags >> consensusConn) & 1
+	consensusFlag := (t.flags >> consensusConn) & 1
+	isConsensusConn := consensusFlag != 0
 	if isConsensusConn {
 		ip = t.dest.CnsIP()
 	}
@@ -609,8 +627,9 @@ func (t *dialTask) resolve(d *dialScheduler) bool {
 
 // dial performs the actual connection attempt.
 func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
-	isConsensusConn := (t.flags >> consensusConn) & 1
 	addr := &net.TCPAddr{IP: dest.IP(), Port: dest.TCP()}
+	consensusFlag := (t.flags >> consensusConn) & 1
+	isConsensusConn := consensusFlag != 0
 	if isConsensusConn {
 		addr = &net.TCPAddr{IP: dest.CnsIP(), Port: dest.CnsTCP()}
 	}

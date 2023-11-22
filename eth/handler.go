@@ -603,10 +603,12 @@ func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Addr
 	return h.peers.findPeers(targets)
 }
 
-// runConsensusPeer registers a `snap` peer into the joint eth/snap peerset and
-// starts handling inbound messages. As `snap` is only a satellite protocol to
-// `eth`, all subsystem registrations and lifecycle management will be done by
-// the main `eth` handler to prevent strange races.
+func (h *handler) FindConsensusPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+	return h.peers.findConsensusPeers(targets)
+}
+
+// runConsensusPeer registers a `consensus` peer into the consensus peerset and
+// starts handling inbound messages.
 func (h *handler) runConsensusPeer(peer *tm.Peer, handler tm.Handler) error {
 	h.peerWG.Add(1)
 	defer h.peerWG.Done()

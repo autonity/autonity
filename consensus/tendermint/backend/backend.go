@@ -199,7 +199,7 @@ func (sb *Backend) Gossip(ctx context.Context, committee types.Committee, messag
 	}
 
 	if sb.Broadcaster != nil && len(targets) > 0 {
-		ps := sb.Broadcaster.FindPeers(targets)
+		ps := sb.Broadcaster.FindConsensusPeers(targets)
 		for addr, p := range ps {
 			// todo: find a better strategy to manage these caches, they keep increasing ..
 			ms, ok := sb.recentMessages.Get(addr)

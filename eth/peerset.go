@@ -58,6 +58,7 @@ type peerSet struct {
 	snapWait map[string]chan *snap.Peer // Peers connected on `eth` waiting for their snap extension
 	snapPend map[string]*snap.Peer      // Peers connected on the `snap` protocol, but not yet on `eth`
 
+	ethWait          map[string]chan *snap.Peer // Peers connected on `eth` waiting for their snap extension
 	lock             sync.RWMutex
 	consensusSetLock sync.RWMutex
 	closed           bool
@@ -101,6 +102,20 @@ func (ps *peerSet) registerSnapExtension(peer *snap.Peer) error {
 	}
 	ps.snapPend[id] = peer
 	return nil
+}
+
+// EthHandshakeStatus returns if eth handshake was successfully done
+func (ps *peerSet) EthHandshakeStatus(peer *eth.Peer) bool {
+	// Ensure nobody can double connect
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+
+	id := peer.ID()
+	if _, ok := ps.peers[id]; ok {
+		ps.lock.Unlock()
+		return true
+	}
+	return false
 }
 
 // waitExtensions blocks until all satellite protocols are connected and tracked
@@ -227,6 +242,19 @@ func (ps *peerSet) findPeers(targets map[common.Address]struct{}) map[common.Add
 	defer ps.lock.RUnlock()
 	m := make(map[common.Address]ethereum.Peer)
 	for _, p := range ps.peers {
+		addr := p.Address()
+		if _, ok := targets[addr]; ok {
+			m[addr] = p
+		}
+	}
+	return m
+}
+
+func (ps *peerSet) findConsensusPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+	ps.consensusSetLock.RLock()
+	defer ps.consensusSetLock.RUnlock()
+	m := make(map[common.Address]ethereum.Peer)
+	for _, p := range ps.consensusPeers {
 		addr := p.Address()
 		if _, ok := targets[addr]; ok {
 			m[addr] = p
