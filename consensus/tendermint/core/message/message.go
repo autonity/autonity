@@ -90,7 +90,7 @@ type base struct {
 	sender         common.Address
 	hash           common.Hash
 	verified       bool
-	sync.RWMutex   // To remove once we can merge the parralel signature verification work.
+	sync.RWMutex   // To remove once we can merge the parallel signature verification work.
 }
 
 type Propose struct {

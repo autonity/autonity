@@ -1050,26 +1050,26 @@ func TestVerifyProofSignatures(t *testing.T) {
 	chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(currentHeader).AnyTimes()
 
 	t.Run("normal case, proposal msg is checked correctly", func(t *testing.T) {
-		proposal := newProposalMessage(height, round, -1, signer, committee, nil).MustVerify(stubVerifier)
+		proposal := newProposalMessage(height, round, -1, signer, committee, nil)
 		require.Nil(t, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
 
 	t.Run("a future msg is received, expect an error of errFutureMsg", func(t *testing.T) {
 		futureHeight := height + 1
-		proposal := newProposalMessage(futureHeight, round, -1, signer, committee, nil).MustVerify(stubVerifier)
+		proposal := newProposalMessage(futureHeight, round, -1, signer, committee, nil)
 		chainMock.EXPECT().GetHeaderByNumber(height).Return(nil)
 		require.Equal(t, errFutureMsg, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
 
 	t.Run("chain cannot provide the last header of the height that msg votes on, expect an error of errFutureMsg", func(t *testing.T) {
-		proposal := newProposalMessage(height-5, round, -1, signer, committee, nil).MustVerify(stubVerifier)
+		proposal := newProposalMessage(height-5, round, -1, signer, committee, nil)
 		chainMock.EXPECT().GetHeaderByNumber(height - 6).Return(nil)
 		require.Equal(t, errFutureMsg, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
 
 	t.Run("abnormal case, msg is not signed by committee", func(t *testing.T) {
 		wrongCommitte, ks := generateCommittee()
-		proposal := newProposalMessage(height, round, -1, makeSigner(ks[0], wrongCommitte[0]), wrongCommitte, nil).MustVerify(stubVerifier)
+		proposal := newProposalMessage(height, round, -1, makeSigner(ks[0], wrongCommitte[0]), wrongCommitte, nil)
 		require.Equal(t, errNotCommitteeMsg, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
 }
