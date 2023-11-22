@@ -305,7 +305,6 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 
 // if those off chain challenge have no innocence proof within the proof window, then escalate them on-chain.
 func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
-
 	escalatedOnes := fd.getExpiredOffChainAccusation(currentChainHeight)
 	for _, accusation := range escalatedOnes {
 		fd.removeOffChainAccusation(accusation)
@@ -338,7 +337,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 		return
 	}
 
-	fd.logger.Info("Attempting direct p2p resolution..", "addr", accusation.Message.Sender())
+	fd.logger.Info("Attempting direct p2p resolution..", "suspect", accusation.Message.Sender())
 	go peers[accusation.Message.Sender()].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
 }
 

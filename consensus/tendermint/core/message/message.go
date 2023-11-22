@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint"
@@ -89,6 +90,7 @@ type base struct {
 	sender         common.Address
 	hash           common.Hash
 	verified       bool
+	sync.RWMutex   // To remove once we can merge the parralel signature verification work.
 }
 
 type Propose struct {
@@ -489,6 +491,8 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 }
 
 func (b *base) Sender() common.Address {
+	b.RLock()
+	defer b.RUnlock()
 	if !b.verified {
 		panic("unverified message")
 	}
@@ -509,6 +513,8 @@ func (b *base) R() int64 {
 }
 
 func (b *base) Power() *big.Int {
+	b.RLock()
+	defer b.RUnlock()
 	if !b.verified {
 		panic("unverified message")
 	}
@@ -529,8 +535,10 @@ func (b *base) Hash() common.Hash {
 
 // Validate verify the signature and set appropriate sender / power fields
 func (b *base) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
+	b.Lock()
+	defer b.Unlock()
 	if b.verified {
-		panic("Re-validating already verified message")
+		return nil
 	}
 	// We are not saving the rlp encoded signature input data as we want
 	// to avoid this extra-serialization step if the message has already been received

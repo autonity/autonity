@@ -251,10 +251,6 @@ func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
 
-func (c *Core) SetBr(br interfaces.Broadcaster) {
-	c.broadcaster = br
-}
-
 func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 	c.SetStep(PrecommitDone)
 	// for metrics
