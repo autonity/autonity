@@ -36,7 +36,7 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose) error {
 	// Ensure we have the same view with the Proposal message
 	if err := c.checkMessageStep(proposal.R(), proposal.H(), Propose); err != nil {
-		// If it's a future round proposal2, the only upon condition
+		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the
 		// message to the backlog is fine.
@@ -52,13 +52,13 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 				c.logger.Warn("Ignoring proposal from non-proposer")
 				return constants.ErrNotFromProposer
 			}
-			// We do not verify the proposal2 in this case.
+			// We do not verify the proposal in this case.
 			roundMessages.SetProposal(proposal, false)
 			if roundMessages.PrecommitsPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 				if _, err2 := c.backend.VerifyProposal(proposal.Block()); err2 != nil {
 					return err2
 				}
-				c.logger.Debug("Committing old round proposal2")
+				c.logger.Debug("Committing old round proposal")
 				c.Commit(proposal.R(), roundMessages)
 				return nil
 			}
@@ -68,18 +68,18 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 
 	// Check if the message comes from curRoundMessages proposer
 	if !c.IsFromProposer(c.Round(), proposal.Sender()) {
-		c.logger.Warn("Ignore proposal2 messages from non-proposer")
+		c.logger.Warn("Ignore proposal messages from non-proposer")
 		return constants.ErrNotFromProposer
 	}
 
-	// received a current round proposal2
+	// received a current round proposal
 	if metrics.Enabled {
 		now := time.Now()
 		ProposalReceivedTimer.Update(now.Sub(c.newRound))
 		ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
 	}
 
-	// Verify the proposal2 we received
+	// Verify the proposal we received
 	start := time.Now()
 	duration, err := c.backend.VerifyProposal(proposal.Block()) // youssef: can we skip the verification for our own proposal?
 
@@ -105,7 +105,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			return err
 		}
 		c.prevoter.SendPrevote(ctx, true)
-		// do not to accept another proposal2 in current round
+		// do not to accept another proposal in current round
 		c.SetStep(Prevote)
 
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)

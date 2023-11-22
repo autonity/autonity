@@ -43,7 +43,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 				if !roundMessages.IsProposalVerified() {
 					if _, err2 := c.backend.VerifyProposal(roundMessages.Proposal().Block()); err2 != nil {
 						// Impossible with the BFT assumptions of 1/3rd honest.
-						return err2
+						panic("Fatal Safety Error: Quorum on unverifiable proposal")
 					}
 				}
 				c.Commit(precommit.R(), c.curRoundMessages)

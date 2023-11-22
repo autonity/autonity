@@ -358,7 +358,9 @@ func (p *Prevote) Value() common.Hash {
 }
 
 func (p *Prevote) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Prevote {
-	p.Validate(inCommittee)
+	if err := p.Validate(inCommittee); err != nil {
+		panic("verification failed")
+	}
 	return p
 }
 
@@ -383,7 +385,9 @@ func (p *Precommit) Value() common.Hash {
 }
 
 func (p *Precommit) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Precommit {
-	p.Validate(inCommittee)
+	if err := p.Validate(inCommittee); err != nil {
+		panic("verification failed")
+	}
 	return p
 }
 
