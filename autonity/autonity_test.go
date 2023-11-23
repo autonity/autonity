@@ -13,13 +13,13 @@ import (
 )
 
 func TestElectProposer(t *testing.T) {
-	height := uint64(9999)
+	epochHeadHeight := uint64(1)
 	samePowers := []int{100, 100, 100, 100}
 	linearPowers := []int{100, 200, 400, 800}
 	var ac = &AutonityContract{}
 	t.Run("Proposer election should be deterministic", func(t *testing.T) {
 		committee := generateCommittee(samePowers)
-		epochHead := newEpochHead(height, committee)
+		epochHead := newEpochHead(epochHeadHeight, committee)
 		for h := uint64(0); h < uint64(100); h++ {
 			for r := int64(0); r <= int64(3); r++ {
 				proposer1 := ac.electProposer(epochHead, h, r)
@@ -31,7 +31,7 @@ func TestElectProposer(t *testing.T) {
 
 	t.Run("Proposer selection, print and compare the scheduling rate with same stake", func(t *testing.T) {
 		committee := generateCommittee(samePowers)
-		epochHead := newEpochHead(height, committee)
+		epochHead := newEpochHead(epochHeadHeight, committee)
 		maxHeight := uint64(10000)
 		maxRound := int64(4)
 		//expectedRatioDelta := float64(0.01)
@@ -63,7 +63,7 @@ func TestElectProposer(t *testing.T) {
 
 	t.Run("Proposer selection, print and compare the scheduling rate with liner increasing stake", func(t *testing.T) {
 		committee := generateCommittee(linearPowers)
-		epochHead := newEpochHead(height, committee)
+		epochHead := newEpochHead(epochHeadHeight, committee)
 		maxHeight := uint64(1000000)
 		maxRound := int64(4)
 		//expectedRatioDelta := float64(0.01)

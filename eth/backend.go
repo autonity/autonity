@@ -545,8 +545,12 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
-	go s.accountability.Start()
-	go s.newCommitteeWatcher()
+	// let only tendermint bft engine to start its sub components, otherwise committee watcher will panic for
+	// none tendermint engine legacy tests.
+	if s.engine.BFT() {
+		go s.accountability.Start()
+		go s.newCommitteeWatcher()
+	}
 
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
 	// Start the bloom bits servicing goroutines
