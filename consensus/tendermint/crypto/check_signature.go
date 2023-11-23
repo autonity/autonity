@@ -26,7 +26,7 @@ func SignHeader(h *types.Header, priv *ecdsa.PrivateKey) error {
 	return nil
 }
 
-func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+func CheckValidatorSignature(epochHead *types.Header, data []byte, sig []byte) (common.Address, error) {
 	// 1. Get signature address
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
@@ -35,7 +35,7 @@ func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []by
 	}
 
 	// 2. Check validator
-	val := previousHeader.CommitteeMember(signer)
+	val := epochHead.CommitteeMember(signer)
 	if val == nil {
 		return common.Address{}, ErrUnauthorizedAddress
 	}

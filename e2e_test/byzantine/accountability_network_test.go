@@ -139,7 +139,7 @@ func (s *OffChainAccusationGarbageBroadcaster) SignAndBroadcast(msg *message.Mes
 
 	committee := s.Core.Committee().Committee()
 
-	for _, c := range committee {
+	for _, c := range committee.Members {
 		if c.Address == s.Address() {
 			continue
 		}

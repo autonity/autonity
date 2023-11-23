@@ -394,7 +394,7 @@ func TestHandlePrecommit(t *testing.T) {
 		c.SetDefaultHandlers()
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 
-		for _, member := range committeeSet.Committee()[1:5] {
+		for _, member := range committeeSet.Committee().Members[1:5] {
 
 			msg, err := preparePrecommitMsg(proposal.ProposalBlock.Hash(), 2, 3, keys, member)
 			if err != nil {
@@ -491,7 +491,7 @@ func TestHandleCommit(t *testing.T) {
 	addr := common.HexToAddress("0x0123456789")
 	testCommittee, keys := helpers.GenerateCommittee(3)
 
-	firstKey := keys[testCommittee[0].Address]
+	firstKey := keys[testCommittee.Members[0].Address]
 
 	h := &types.Header{Number: big.NewInt(3)}
 
@@ -505,9 +505,11 @@ func TestHandleCommit(t *testing.T) {
 	h.Committee = testCommittee
 
 	block := types.NewBlockWithHeader(h)
-	testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
-	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+	testCommittee.Members = append(testCommittee.Members, &types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
+	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee.Members[0].Address)
 	require.NoError(t, err)
+
+	epochHead := newBlockHeader(common.Big1.Uint64(), testCommittee)
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block, addr)
@@ -523,6 +525,7 @@ func TestHandleCommit(t *testing.T) {
 		prevoteTimeout:   tctypes.NewTimeout(tctypes.Prevote, logger),
 		precommitTimeout: tctypes.NewTimeout(tctypes.Precommit, logger),
 		committee:        committeeSet,
+		epochHead:        epochHead,
 	}
 	c.SetDefaultHandlers()
 	c.precommiter.HandleCommit(context.Background())
@@ -536,7 +539,7 @@ func TestHandleCommit(t *testing.T) {
 	}
 }
 
-func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys helpers.AddressKeyMap, member types.CommitteeMember) (*message.Message, error) {
+func preparePrecommitMsg(proposalHash common.Hash, round int64, height int64, keys helpers.AddressKeyMap, member *types.CommitteeMember) (*message.Message, error) {
 	var preCommit = message.Vote{
 		Round:             round,
 		Height:            big.NewInt(height),

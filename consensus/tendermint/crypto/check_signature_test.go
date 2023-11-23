@@ -29,7 +29,7 @@ func TestCheckValidatorSignature(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mismatch: have %v, want nil", err)
 		}
-		val := header.Committee[i]
+		val := header.Committee.Members[i]
 		if addr != val.Address {
 			t.Errorf("validator address mismatch: have %v, want %v", addr, val.Address)
 		}
@@ -79,7 +79,7 @@ func TestCheckValidatorSignatureInvalid(t *testing.T) {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		val := header.Committee[i]
+		val := header.Committee.Members[i]
 		if addr == val.Address {
 			t.Errorf("validator address match: have %v, want != %v", addr, val.Address)
 		}
@@ -133,7 +133,7 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 			t.Errorf("check error mismatch: have %v, want ErrUnauthorizedAddress", err)
 		}
 
-		val := header.Committee[i]
+		val := header.Committee.Members[i]
 		if addr == val.Address {
 			t.Errorf("validator address match: have %v, want != %v", addr, val.Address)
 		}
@@ -165,17 +165,17 @@ func TestCheckValidatorUnauthorizedAddress(t *testing.T) {
 func newTestHeader(n int) (*types.Header, []*ecdsa.PrivateKey) {
 	// generate validators
 	keys := make(Keys, n)
-	addrs := make(types.Committee, n)
+	c := new(types.Committee)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
 		keys[i] = privateKey
-		addrs[i] = types.CommitteeMember{
+		c.Members = append(c.Members, &types.CommitteeMember{
 			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
 			VotingPower: new(big.Int).SetUint64(1),
-		}
+		})
 	}
 	h := &types.Header{
-		Committee: addrs,
+		Committee: c,
 	}
 	return h, keys
 }

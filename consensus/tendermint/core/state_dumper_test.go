@@ -102,8 +102,9 @@ func TestGetCoreState(t *testing.T) {
 	proposals[1], proposers[1] = prepareRoundMsgs(t, c, rounds[1], height, sender)
 
 	one := common.Big1
-	members := []types.CommitteeMember{{Address: proposers[0], VotingPower: one}, {Address: proposers[1], VotingPower: one}}
-	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
+	committee := new(types.Committee)
+	committee.Members = []*types.CommitteeMember{{Address: proposers[0], VotingPower: one}, {Address: proposers[1], VotingPower: one}}
+	committeeSet, err := tdmcommittee.NewRoundRobinSet(committee, proposers[1])
 	require.NoError(t, err)
 	setCoreState(c, height, rounds[1], tctypes.Propose, proposals[0].ProposalBlock, rounds[0], proposals[0].ProposalBlock, rounds[0], committeeSet,
 		prevBlock.Header())
@@ -190,7 +191,7 @@ func setCoreState(c *Core, h *big.Int, r int64, s tctypes.Step, lv *types.Block,
 	c.lockedRound = lr
 	c.validValue = vv
 	c.validRound = vr
-	c.setCommitteeSet(committee)
+	c.setCommittee(committee)
 	c.setLastHeader(header)
 	c.sentProposal = true
 	c.sentPrevote = true

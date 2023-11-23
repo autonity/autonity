@@ -185,11 +185,12 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if the event is not from validator node.
 	msgHeight := proof.Message.H()
-	lastHeader := fd.blockchain.GetHeaderByNumber(msgHeight - 1)
-	if lastHeader == nil {
+	epochHead, _, err := fd.blockchain.EpochHeadAndParentHead(msgHeight)
+	if err != nil {
 		return errNoParentHeader
 	}
-	memberShip := lastHeader.CommitteeMember(sender)
+
+	memberShip := epochHead.CommitteeMember(sender)
 	if memberShip == nil {
 		return errAccusationFromNoneValidator
 	}
@@ -252,19 +253,19 @@ func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender com
 	// check if evidence msgs are from committee members of that height.
 	h := proof.Message.H()
 
-	lastHeader := fd.blockchain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
+	epochHead, lastHeader, err := fd.blockchain.EpochHeadAndParentHead(h)
+	if err != nil {
 		return errNoParentHeader
 	}
 
 	// validate message.
-	if err := proof.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if err := proof.Message.Validate(crypto.CheckValidatorSignature, lastHeader, epochHead); err != nil {
 		return errInvalidInnocenceProof
 	}
 
 	for _, m := range proof.Evidences {
 		// the height of msg of the evidences is checked at Validate function.
-		if err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		if err := m.Validate(crypto.CheckValidatorSignature, lastHeader, epochHead); err != nil {
 			return errInvalidInnocenceProof
 		}
 	}

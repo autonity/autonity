@@ -45,7 +45,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 func TestMessageValidate(t *testing.T) {
 
 	t.Run("validate function fails, error returned", func(t *testing.T) {
-		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), types.CommitteeMember{VotingPower: big.NewInt(0)})
+		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), &types.CommitteeMember{VotingPower: big.NewInt(0)})
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
 		payload := msg.GetBytes()
 		wantErr := errors.New("some error")
@@ -58,7 +58,7 @@ func TestMessageValidate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
-		if err = decMsg.Validate(validateFn, lastHeader); err == nil {
+		if err = decMsg.Validate(validateFn, lastHeader, nil); err == nil {
 			t.Fatalf("want error, nil returned")
 		}
 	})
@@ -66,23 +66,28 @@ func TestMessageValidate(t *testing.T) {
 	t.Run("not a committee member, error returned", func(t *testing.T) {
 		member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
 
-		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), member)
+		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26), &member)
 		payload := msg.GetBytes()
 
 		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) { //nolint
 			return member.Address, nil
 		}
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{
-			{
-				Address:     common.HexToAddress("0x1234567899"),
-				VotingPower: big.NewInt(2),
-			},
-		}}
+
+		c := new(types.Committee)
+		c.Members = append(c.Members, &types.CommitteeMember{
+			Address:     common.HexToAddress("0x1234567899"),
+			VotingPower: big.NewInt(2),
+		})
+
+		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: c}
+		epochHeader := lastHeader
+		epochHeader.LastEpochBlock = new(big.Int).SetUint64(25)
+
 		decMsg, err := FromBytes(payload)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if err := decMsg.Validate(validateFn, lastHeader); err == nil {
+		if err := decMsg.Validate(validateFn, lastHeader, epochHeader); err == nil {
 			t.Fatalf("want error, nil returned")
 		}
 	})
@@ -90,7 +95,7 @@ func TestMessageValidate(t *testing.T) {
 	t.Run("valid params given, valid validator returned", func(t *testing.T) {
 		authorizedAddress := common.HexToAddress("0x1234567890")
 		msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(26),
-			types.CommitteeMember{
+			&types.CommitteeMember{
 				Address:     authorizedAddress,
 				VotingPower: big.NewInt(1),
 			})
@@ -101,10 +106,15 @@ func TestMessageValidate(t *testing.T) {
 			VotingPower: new(big.Int).SetUint64(1),
 		}
 
+		c := new(types.Committee)
+		c.Members = append(c.Members, &val)
+
 		h := types.Header{
-			Committee: types.Committee{val},
+			Committee: c,
 			Number:    big.NewInt(25),
 		}
+		epochHeader := &h
+		epochHeader.LastEpochBlock = big.NewInt(25)
 		validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) { //nolint
 			return authorizedAddress, nil
 		}
@@ -114,7 +124,7 @@ func TestMessageValidate(t *testing.T) {
 			t.Fatalf("have %v, want nil", err)
 		}
 
-		if err := decMsg.Validate(validateFn, &h); err != nil {
+		if err := decMsg.Validate(validateFn, &h, epochHeader); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
 	})
@@ -129,13 +139,15 @@ func TestMessageValidate(t *testing.T) {
 			}
 			member := types.CommitteeMember{Address: common.HexToAddress("0x1234567890"), VotingPower: big.NewInt(1)}
 
-			msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(24), member)
+			msg := CreatePrevote(t, common.Hash{}, 1, new(big.Int).SetUint64(24), &member)
 			payload := msg.GetBytes()
 
 			validateFn := func(_ *types.Header, _ []byte, _ []byte) (common.Address, error) {
 				return member.Address, nil
 			}
-			lastHeader := &types.Header{Number: new(big.Int).SetUint64(i), Committee: []types.CommitteeMember{member}}
+			c := new(types.Committee)
+			c.Members = append(c.Members, &member)
+			lastHeader := &types.Header{Number: new(big.Int).SetUint64(i), Committee: c}
 			decMsg, err := FromBytes(payload)
 			if err != nil {
 				t.Fatalf("have %v, want nil", err)
@@ -146,7 +158,7 @@ func TestMessageValidate(t *testing.T) {
 						count++
 					}
 				}()
-				err := decMsg.Validate(validateFn, lastHeader)
+				err := decMsg.Validate(validateFn, lastHeader, nil)
 				require.Error(t, err, "inconsistent message verification")
 			}()
 		}

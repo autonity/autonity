@@ -94,6 +94,7 @@ type Core struct {
 	round      int64
 	committee  interfaces.Committee
 	lastHeader *types.Header
+	epochHead  *types.Header
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	step                  tctypes.Step
@@ -373,6 +374,19 @@ func (c *Core) SetInitialState(r int64) {
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
 		c.setLastHeader(lastHeader)
+
+		// update epoch head if there was an epoch change
+		if lastBlockMined.LastEpochBlock().Cmp(lastBlockMined.Number()) == 0 {
+			log.Debug("updated EpochHead!", "number", lastBlockMined.Number())
+			c.committee.SetEpochHead(lastBlockMined.Header())
+			c.setEpochHead(lastBlockMined.Header())
+		}
+		// TODO(lorenzo) deal better with stop start failure
+		if c.EpochHead() == nil {
+			epochHeader := c.backend.BlockChain().GetHeaderByNumber(lastBlockMined.LastEpochBlock().Uint64())
+			c.setEpochHead(epochHeader)
+		}
+
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1
@@ -477,10 +491,16 @@ func (c *Core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
-func (c *Core) setCommitteeSet(set interfaces.Committee) {
+func (c *Core) setCommittee(set interfaces.Committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committee = set
+}
+
+func (c *Core) setEpochHead(epochHead *types.Header) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.epochHead = epochHead
 }
 
 func (c *Core) setLastHeader(lastHeader *types.Header) {
@@ -505,6 +525,12 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
+}
+
+func (c *Core) EpochHead() *types.Header {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.epochHead
 }
 
 func (c *Core) LastHeader() *types.Header {

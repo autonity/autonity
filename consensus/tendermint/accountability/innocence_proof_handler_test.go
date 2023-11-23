@@ -276,7 +276,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		validRound := int64(0)
 
 		committee, keys := generateCommittee()
-		proposer := committee[0].Address
+		proposer := committee.Members[0].Address
 		proposerKey := keys[proposer]
 
 		proposal := newProposalMessage(msgHeight, msgRound, validRound, proposerKey, committee, nil)
@@ -320,7 +320,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		validRound := int64(0)
 
 		committee, keys := generateCommittee()
-		proposer := committee[0].Address
+		proposer := committee.Members[0].Address
 		proposerKey := keys[proposer]
 
 		proposal := newProposalMessage(msgHeight, msgRound, validRound, proposerKey, committee, nil)
@@ -361,8 +361,8 @@ func TestOffChainAccusationManagement(t *testing.T) {
 
 func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 	committee, keys := generateCommittee()
-	proposer := committee[0].Address
-	sender := committee[1].Address
+	proposer := committee.Members[0].Address
+	sender := committee.Members[1].Address
 	proposerKey := keys[proposer]
 	height := uint64(100)
 	round := int64(1)
@@ -391,11 +391,11 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		payLoad, err := rlp.EncodeToBytes(&accusationPO)
 		require.NoError(t, err)
 
-		lastHeader := newBlockHeader(lastHeight, committee)
-		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader).AnyTimes()
-		chainMock.EXPECT().CurrentHeader().Return(lastHeader).AnyTimes()
+		lastHeader := newBlockHeader(lastHeight, nil)
+		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil).AnyTimes()
 
-		for _, c := range committee {
+		for _, c := range committee.Members {
 			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			ms.Save(preVote)
 		}
@@ -434,11 +434,12 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		payLoad, err := rlp.EncodeToBytes(&accusationPO)
 		require.NoError(t, err)
 
-		lastHeader := newBlockHeader(lastHeight, committee)
-		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader).AnyTimes()
+		lastHeader := newBlockHeader(lastHeight, nil)
+		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil).AnyTimes()
 		chainMock.EXPECT().CurrentHeader().Return(lastHeader).AnyTimes()
 
-		for _, c := range committee {
+		for _, c := range committee.Members {
 			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			ms.Save(preVote)
 		}
@@ -451,8 +452,8 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 
 func TestHandleOffChainAccusation(t *testing.T) {
 	committee, keys := generateCommittee()
-	proposer := committee[0].Address
-	sender := committee[1].Address
+	proposer := committee.Members[0].Address
+	sender := committee.Members[1].Address
 	proposerKey := keys[proposer]
 	height := uint64(100)
 	round := int64(1)
@@ -474,7 +475,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.Type = autonity.Accusation
-		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
+		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee.Members[0].Address], invalidCommittee, nil)
 		p.Message = invalidProposal.ToLightProposal()
 		payload, err := rlp.EncodeToBytes(p)
 		require.NoError(t, err)
@@ -509,13 +510,14 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		fd := NewFaultDetector(chainMock, proposer, nil, mStore, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
 		// save corresponding prevotes in msg store.
-		for _, c := range committee {
+		for _, c := range committee.Members {
 			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			mStore.Save(preVote)
 		}
 
-		lastHeader := newBlockHeader(lastHeight, committee)
-		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader).AnyTimes()
+		lastHeader := newBlockHeader(lastHeight, nil)
+		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil).AnyTimes()
 		chainMock.EXPECT().CurrentHeader().Return(lastHeader).AnyTimes()
 
 		err = fd.handleOffChainAccusation(&accusationPO, sender, hash)
@@ -527,7 +529,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 
 func TestHandleOffChainProofOfInnocence(t *testing.T) {
 	committee, keys := generateCommittee()
-	proposer := committee[0].Address
+	proposer := committee.Members[0].Address
 	proposerKey := keys[proposer]
 	height := uint64(100)
 	round := int64(1)
@@ -548,13 +550,15 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		p.Rule = autonity.PO
 		p.Type = autonity.Innocence
 		invalidCommittee, iKeys := generateCommittee()
-		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee[0].Address], invalidCommittee, nil)
+		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee.Members[0].Address], invalidCommittee, nil)
+
 		p.Message = invalidProposal
 
-		lastHeader := newBlockHeader(lastHeight, committee)
-		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		lastHeader := newBlockHeader(lastHeight, nil)
+		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil)
 
-		err := fd.handleOffChainProofOfInnocence(&p, invalidCommittee[0].Address)
+		err := fd.handleOffChainProofOfInnocence(&p, invalidCommittee.Members[0].Address)
 		require.Equal(t, errInvalidInnocenceProof, err)
 	})
 
@@ -586,13 +590,14 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		}
 
 		// handle a valid innocence proof then.
-		for _, c := range committee {
+		for _, c := range committee.Members {
 			preVote := newVoteMsg(height, validRound, consensus.MsgPrevote, keys[c.Address], proposal.Value(), committee)
 			proofPO.Evidences = append(proofPO.Evidences, preVote)
 		}
 
-		lastHeader := newBlockHeader(lastHeight, committee)
-		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader).AnyTimes()
+		lastHeader := newBlockHeader(lastHeight, nil)
+		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil).AnyTimes()
 
 		err := fd.handleOffChainProofOfInnocence(&proofPO, proposer)
 

@@ -517,6 +517,16 @@ func (lc *LightChain) GetHeaderByNumber(number uint64) *types.Header {
 	return lc.hc.GetHeaderByNumber(number)
 }
 
+// LatestEpochHeadAndChainHead retries the latest epoch head of current chain.
+func (lc *LightChain) LatestEpochHeadAndChainHead() (*types.Header, *types.Header) {
+	return lc.hc.LatestEpochHeadAndChainHead()
+}
+
+// EpochHeadAndParentHead retries the epoch head header and the parent header for a given block number.
+func (lc *LightChain) EpochHeadAndParentHead(number uint64) (*types.Header, *types.Header, error) {
+	return lc.hc.EpochHeadAndParentHead(number)
+}
+
 // GetHeaderByNumberOdr retrieves a block header from the database or network
 // by number, caching it (associated with its hash) if found.
 func (lc *LightChain) GetHeaderByNumberOdr(ctx context.Context, number uint64) (*types.Header, error) {

@@ -114,6 +114,10 @@ func (g *AutonityContractGenesis) Prepare() error {
 	return nil
 }
 
+func (g *AutonityContractGenesis) GetValidators() []*Validator {
+	return g.Validators
+}
+
 type Validator struct {
 	Treasury                 common.Address
 	NodeAddress              *common.Address

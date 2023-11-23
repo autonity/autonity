@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func CreatePrevote(t *testing.T, proposalHash common.Hash, round int64, height *big.Int, member types.CommitteeMember) *Message {
+func CreatePrevote(t *testing.T, proposalHash common.Hash, round int64, height *big.Int, member *types.CommitteeMember) *Message {
 	var preVote = Vote{
 		Round:             round,
 		Height:            height,

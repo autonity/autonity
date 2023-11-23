@@ -3,7 +3,9 @@ package backend
 import (
 	"bytes"
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/core"
 	"go.uber.org/mock/gomock"
 	"math/big"
 	"reflect"
@@ -189,180 +191,163 @@ func TestVerifyHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
 	// success case
-	headers := []*types.Header{}
-	blocks := []*types.Block{}
-	size := 100
-
-	var err error
-	for i := 0; i < size; i++ {
-		var b *types.Block
-		if i == 0 {
-			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-		} else {
-			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		b, _ = engine.AddSeal(b)
-
-		blocks = append(blocks, b)
-		headers = append(headers, blocks[i].Header())
-	}
-
-	now = func() time.Time {
-		return time.Unix(int64(headers[size-1].Time), 0)
-	}
-
-	_, results := engine.VerifyHeaders(chain, headers, nil)
-
-	const timeoutDura = 2 * time.Second
-	timeout := time.NewTimer(timeoutDura)
-	index := 0
-OUT1:
-	for {
-		select {
-		case err := <-results:
+	size := 20
+	initChain(t, chain, engine, size)
+	t.Run("Test verify headers happy case", func(t *testing.T) {
+		// success case
+		headers := []*types.Header{}
+		blocks := []*types.Block{}
+		var err error
+		for i := 0; i < size; i++ {
+			var b *types.Block
+			if i == 0 {
+				b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+			} else {
+				b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+			}
 			if err != nil {
-				/*  The two following errors mean that the processing has gone right */
-				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
-					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+				t.Fatal(err)
+			}
+
+			b, _ = engine.AddSeal(b)
+
+			blocks = append(blocks, b)
+			headers = append(headers, blocks[i].Header())
+		}
+
+		now = func() time.Time {
+			return time.Unix(int64(headers[size-1].Time), 0)
+		}
+
+		_, results := engine.VerifyHeaders(chain, headers, nil)
+
+		const timeoutDura = 2 * time.Second
+		timeout := time.NewTimer(timeoutDura)
+		index := 0
+	OUT1:
+		for {
+			select {
+			case err := <-results:
+				if err != nil {
+					/*  The two following errors mean that the processing has gone right */
+					if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
+						t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+						break OUT1
+					}
+				}
+				index++
+				if index == size {
 					break OUT1
 				}
-			}
-			index++
-			if index == size {
+			case <-timeout.C:
 				break OUT1
 			}
-		case <-timeout.C:
-			break OUT1
 		}
-	}
-}
+	})
 
-/* The logic of this needs to change with respect of Autonity contact */
-func TestVerifyHeadersAbortValidation(t *testing.T) {
-	chain, engine := newBlockChain(1)
-
-	// success case
-	headers := []*types.Header{}
-	blocks := []*types.Block{}
-	size := 100
-
-	var err error
-	for i := 0; i < size; i++ {
-		var b *types.Block
-		if i == 0 {
-			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-		} else {
-			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		b, _ = engine.AddSeal(b)
-
-		blocks = append(blocks, b)
-		headers = append(headers, blocks[i].Header())
-	}
-
-	now = func() time.Time {
-		return time.Unix(int64(headers[size-1].Time), 0)
-	}
-
-	const timeoutDura = 2 * time.Second
-
-	// abort cases
-	abort, results := engine.VerifyHeaders(chain, headers, nil)
-	timeout := time.NewTimer(timeoutDura)
-	index := 0
-OUT2:
-	for {
-		select {
-		case err := <-results:
+	t.Run("TestVerifyHeadersAbortValidation", func(t *testing.T) {
+		// success case
+		headers := []*types.Header{}
+		blocks := []*types.Block{}
+		var err error
+		for i := 0; i < size; i++ {
+			var b *types.Block
+			if i == 0 {
+				b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+			} else {
+				b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+			}
 			if err != nil {
-				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
-					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+				t.Fatal(err)
+			}
+			b, _ = engine.AddSeal(b)
+			blocks = append(blocks, b)
+			headers = append(headers, blocks[i].Header())
+		}
+		now = func() time.Time {
+			return time.Unix(int64(headers[size-1].Time), 0)
+		}
+		const timeoutDura = 2 * time.Second
+		// abort cases
+		abort, results := engine.VerifyHeaders(chain, headers, nil)
+		timeout := time.NewTimer(timeoutDura)
+		index := 0
+	OUT2:
+		for {
+			select {
+			case err := <-results:
+				if err != nil {
+					if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
+						t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+						break OUT2
+					}
+				}
+				index++
+				if index == 5 {
+					abort <- struct{}{}
+				}
+				if index >= size {
+					t.Errorf("verifyheaders should be aborted")
 					break OUT2
 				}
-			}
-			index++
-			if index == 5 {
-				abort <- struct{}{}
-			}
-			if index >= size {
-				t.Errorf("verifyheaders should be aborted")
+			case <-timeout.C:
 				break OUT2
 			}
-		case <-timeout.C:
-			break OUT2
-		}
-	}
-}
-
-/* The logic of this needs to change with respect of Autonity contact */
-func TestVerifyErrorHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1)
-
-	// success case
-	headers := []*types.Header{}
-	blocks := []*types.Block{}
-	size := 100
-
-	var err error
-	for i := 0; i < size; i++ {
-		var b *types.Block
-		if i == 0 {
-			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-		} else {
-			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
-		}
-		if err != nil {
-			t.Fatal(err)
 		}
 
-		b, _ = engine.AddSeal(b)
+	})
 
-		blocks = append(blocks, b)
-		headers = append(headers, blocks[i].Header())
-	}
-
-	now = func() time.Time {
-		return time.Unix(int64(headers[size-1].Time), 0)
-	}
-
-	const timeoutDura = 2 * time.Second
-
-	// error header cases
-	headers[2].Number = big.NewInt(100)
-	_, results := engine.VerifyHeaders(chain, headers, nil)
-	timeout := time.NewTimer(timeoutDura)
-	index := 0
-	errors := 0
-	expectedErrors := 2
-
-OUT3:
-	for {
-		select {
-		case err := <-results:
-			if err != nil {
-				if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
-					errors++
-				}
+	t.Run("TestVerifyErrorHeaders", func(t *testing.T) {
+		// success case
+		headers := []*types.Header{}
+		blocks := []*types.Block{}
+		var err error
+		for i := 0; i < size; i++ {
+			var b *types.Block
+			if i == 0 {
+				b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+			} else {
+				b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 			}
-			index++
-			if index == size {
-				if errors != expectedErrors {
-					t.Errorf("error mismatch: have %v, want %v", err, expectedErrors)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, _ = engine.AddSeal(b)
+			blocks = append(blocks, b)
+			headers = append(headers, blocks[i].Header())
+		}
+		now = func() time.Time {
+			return time.Unix(int64(headers[size-1].Time), 0)
+		}
+		const timeoutDura = 2 * time.Second
+		// error header cases
+		headers[2].Number = big.NewInt(100)
+		_, results := engine.VerifyHeaders(chain, headers, nil)
+		timeout := time.NewTimer(timeoutDura)
+		index := 0
+		errors := 0
+		expectedErrors := 2
+	OUT3:
+		for {
+			select {
+			case err := <-results:
+				if err != nil {
+					if err != types.ErrEmptyCommittedSeals && err != types.ErrInvalidCommittedSeals {
+						errors++
+					}
 				}
+				index++
+				if index == size {
+					if errors != expectedErrors {
+						t.Errorf("error mismatch: have %v, want %v", err, expectedErrors)
+					}
+					break OUT3
+				}
+			case <-timeout.C:
 				break OUT3
 			}
-		case <-timeout.C:
-			break OUT3
 		}
-	}
+	})
 }
 
 func TestWriteCommittedSeals(t *testing.T) {
@@ -507,7 +492,7 @@ func TestStart(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		tendermintC.EXPECT().Start(ctx, chain.ProtocolContracts()).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
@@ -559,7 +544,7 @@ func TestStart(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockTendermint(ctrl)
-		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
+		tendermintC.EXPECT().Start(ctx, chain.ProtocolContracts()).MaxTimes(1)
 
 		b := &Backend{
 			core:        tendermintC,
@@ -608,10 +593,10 @@ func TestMultipleRestart(t *testing.T) {
 
 	times := 5
 	ctx := context.Background()
-	tendermintC := interfaces.NewMockTendermint(ctrl)
-	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
-	tendermintC.EXPECT().Stop().MaxTimes(5)
 	chain, _ := newBlockChain(1)
+	tendermintC := interfaces.NewMockTendermint(ctrl)
+	tendermintC.EXPECT().Start(ctx, chain.ProtocolContracts()).MaxTimes(times)
+	tendermintC.EXPECT().Stop().MaxTimes(5)
 	b := &Backend{
 		core:        tendermintC,
 		coreStarted: false,
@@ -663,5 +648,53 @@ func TestBackendSealHash(t *testing.T) {
 	res := b.SealHash(&types.Header{})
 	if res.Hex() == "" {
 		t.Fatalf("expected not empty string")
+	}
+}
+
+func initChain(t *testing.T, blockchain *core.BlockChain, backend *Backend, height int) {
+
+	blocks := make([]*types.Block, height)
+	for i := range blocks {
+		var parent *types.Block
+		if i == 0 {
+			parent = blockchain.Genesis()
+		} else {
+			parent = blocks[i-1]
+		}
+
+		block, errBlock := makeBlockWithoutSeal(blockchain, backend, parent)
+		if errBlock != nil {
+			t.Fatalf("could not create block %d, err=%s", i, errBlock)
+		}
+		header := block.Header()
+		seal, errS := backend.Sign(types.SigHash(header).Bytes())
+		if errS != nil {
+			t.Fatalf("could not sign %d, err=%s", i, errS)
+		}
+		if err := types.WriteSeal(header, seal); err != nil {
+			t.Fatalf("could not write seal %d, err=%s", i, err)
+		}
+		block = block.WithSeal(header)
+
+		// We need to sleep to avoid verifying a block in the future
+		time.Sleep(time.Duration(1) * time.Second)
+		if _, err := backend.VerifyProposal(block); err != nil {
+			t.Fatalf("could not verify block %d, err=%s", i, err)
+		}
+		// VerifyProposal dont need committed seals
+		committedSeal, errSC := backend.Sign(helpers.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+		if errSC != nil {
+			t.Fatalf("could not sign commit %d, err=%s", i, errS)
+		}
+		// Append seals into extra-data
+		if err := types.WriteCommittedSeals(header, [][]byte{committedSeal}); err != nil {
+			t.Fatalf("could not write committed seal %d, err=%s", i, err)
+		}
+		block = block.WithSeal(header)
+
+		if _, errW := blockchain.InsertChain(types.Blocks{block}); errW != nil {
+			t.Fatalf("write block failure %d, err=%s", i, errW)
+		}
+		blocks[i] = block
 	}
 }

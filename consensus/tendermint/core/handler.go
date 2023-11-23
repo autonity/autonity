@@ -9,7 +9,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/committee"
+	com "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/core/types"
@@ -25,10 +25,9 @@ var ErrValidatorJailed = errors.New("jailed validator")
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	c.protocolContracts = contract
-	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
-		c.protocolContracts,
-		c.backend.BlockChain())
-	c.setCommitteeSet(committeeSet)
+	epochHead, currentHead := c.backend.BlockChain().LatestEpochHeadAndChainHead()
+	committee := com.NewWeightedRandomSamplingCommittee(currentHead, epochHead, contract)
+	c.setCommittee(committee)
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 	// Tendermint Finite State Machine discrete event loop
@@ -210,7 +209,7 @@ func (c *Core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.LastHeader())
+	c.backend.AskSync(c.EpochHead())
 
 eventLoop:
 	for {
@@ -221,7 +220,7 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.backend.AskSync(c.LastHeader())
+				c.backend.AskSync(c.EpochHead())
 			}
 			round = currentRound
 			height = currentHeight
@@ -260,7 +259,7 @@ func (c *Core) handleMsg(ctx context.Context, msg *message.Message) error {
 		// Old height messages. Do nothing.
 		return constants.ErrOldHeightMessage // No gossip
 	}
-	if err := msg.Validate(crypto.CheckValidatorSignature, c.LastHeader()); err != nil {
+	if err := msg.Validate(crypto.CheckValidatorSignature, c.LastHeader(), c.EpochHead()); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		return err
 	}

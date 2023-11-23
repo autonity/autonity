@@ -16,20 +16,21 @@ import (
 	"testing"
 )
 
-func newBlockHeader(height uint64, committee types.Committee) *types.Header {
+func newBlockHeader(height uint64, committee *types.Committee) *types.Header {
 	// use random nonce to create different blocks
 	var nonce types.BlockNonce
-	for i := 0; i < len(nonce); i++ {
-		nonce[0] = byte(rand.Intn(256)) //nolint
+	for i := range nonce {
+		nonce[i] = byte(rand.Intn(256)) //nolint
 	}
 	return &types.Header{
-		Number:    new(big.Int).SetUint64(height),
-		Nonce:     nonce,
-		Committee: committee,
+		Number:         new(big.Int).SetUint64(height),
+		Nonce:          nonce,
+		Committee:      committee,
+		LastEpochBlock: common.Big1,
 	}
 }
 
-func newVoteMsg(h uint64, r int64, code uint8, senderKey *ecdsa.PrivateKey, value common.Hash, committee types.Committee) *message.Message { //nolint
+func newVoteMsg(h uint64, r int64, code uint8, senderKey *ecdsa.PrivateKey, value common.Hash, committee *types.Committee) *message.Message { //nolint
 	lastHeader := newBlockHeader(h-1, committee)
 	var vote = message.Vote{
 		Round:             r,
@@ -37,6 +38,7 @@ func newVoteMsg(h uint64, r int64, code uint8, senderKey *ecdsa.PrivateKey, valu
 		ProposedBlockHash: value,
 	}
 
+	epochHead := newBlockHeader(common.Big1.Uint64(), committee)
 	encodedVote, err := rlp.EncodeToBytes(&vote)
 	if err != nil {
 		return nil
@@ -44,10 +46,10 @@ func newVoteMsg(h uint64, r int64, code uint8, senderKey *ecdsa.PrivateKey, valu
 
 	msg := createMsg(encodedVote, code, senderKey)
 
-	return decodeMsg(msg, lastHeader)
+	return decodeMsg(msg, lastHeader, epochHead)
 }
 
-func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []byte) (common.Address, error) {
+func CheckValidatorSignature(epochHead *types.Header, data []byte, sig []byte) (common.Address, error) {
 	// 1. Get signature address
 	signer, err := types.GetSignatureAddress(data, sig)
 	if err != nil {
@@ -55,7 +57,7 @@ func CheckValidatorSignature(previousHeader *types.Header, data []byte, sig []by
 	}
 
 	// 2. Check validator
-	val := previousHeader.CommitteeMember(signer)
+	val := epochHead.CommitteeMember(signer)
 	if val == nil {
 		return common.Address{}, fmt.Errorf("wrong membership")
 	}
@@ -84,13 +86,13 @@ func createMsg(rlpBytes []byte, code uint8, senderKey *ecdsa.PrivateKey) *messag
 }
 
 // decode msg do the msg decoding and validation to recover the voting power and decodedMsg fields.
-func decodeMsg(msg *message.Message, lastHeader *types.Header) *message.Message {
+func decodeMsg(msg *message.Message, lastHeader, epochHead *types.Header) *message.Message {
 	m, err := message.FromBytes(msg.GetBytes())
 	if err != nil {
 		return nil
 	}
 	// validate msg and get voting power with last header.
-	if err = m.Validate(CheckValidatorSignature, lastHeader); err != nil {
+	if err = m.Validate(CheckValidatorSignature, lastHeader, epochHead); err != nil {
 		return nil
 	}
 	return m
@@ -101,11 +103,11 @@ func TestMsgStore(t *testing.T) {
 	round := int64(0)
 
 	committee, keys := helpers.GenerateCommittee(5)
-	proposer := committee[0].Address
+	proposer := committee.Members[0].Address
 	proposerKey := keys[proposer]
 
-	addrAlice := committee[0].Address
-	addrBob := committee[1].Address
+	addrAlice := committee.Members[0].Address
+	addrBob := committee.Members[1].Address
 	keyBob := keys[addrBob]
 	noneNilValue := common.Hash{0x1}
 

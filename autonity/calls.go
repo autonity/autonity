@@ -383,13 +383,14 @@ func (c *AutonityContract) callGetMinimumBaseFee(state *state.StateDB, header *t
 	return minBaseFee, nil
 }
 
-func (c *AutonityContract) callFinalize(state *state.StateDB, header *types.Header) (bool, types.Committee, error) {
+func (c *AutonityContract) callFinalize(state *state.StateDB, header *types.Header) (bool, []types.CommitteeMember, *big.Int, error) {
 	var updateReady bool
-	var committee types.Committee
-	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}); err != nil {
-		return false, nil, err
+	var committee []types.CommitteeMember
+	lastEpochBlock := new(big.Int)
+	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee, &lastEpochBlock}); err != nil {
+		return false, nil, nil, err
 	}
-	return updateReady, committee, nil
+	return updateReady, committee, lastEpochBlock, nil
 }
 
 func (c *AutonityContract) callRetrieveContract(state *state.StateDB, header *types.Header) ([]byte, string, error) {

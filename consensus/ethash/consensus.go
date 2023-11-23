@@ -89,6 +89,11 @@ var (
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 )
 
+// BFT returns true if the engine is an implementation of BFT consensus algorithm.
+func (ethash *Ethash) BFT() bool {
+	return false
+}
+
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
 func (ethash *Ethash) Author(header *types.Header) (common.Address, error) {
@@ -590,11 +595,11 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.H
 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
 // setting the final state on the header
-func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, _ []*types.Transaction, uncles []*types.Header, _ []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return nil, nil, nil
+	return nil, nil, nil, nil
 }
 
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and

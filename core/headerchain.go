@@ -503,6 +503,39 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	return hc.GetHeader(hash, number)
 }
 
+// LatestEpochHeadAndChainHead retries the latest epoch head and the chain head of current chain.
+func (hc *HeaderChain) LatestEpochHeadAndChainHead() (*types.Header, *types.Header) {
+	currentHead := hc.CurrentHeader()
+
+	if currentHead.Number.Cmp(currentHead.LastEpochBlock) == 0 {
+		return currentHead, currentHead
+	}
+
+	return hc.GetHeaderByNumber(currentHead.LastEpochBlock.Uint64()), currentHead
+}
+
+// EpochHeadAndParentHead retries the epoch head header and the parent header for a given block number.
+func (hc *HeaderChain) EpochHeadAndParentHead(number uint64) (*types.Header, *types.Header, error) {
+	if number == 0 {
+		return hc.genesisHeader, hc.genesisHeader, nil
+	}
+
+	parent := hc.GetHeaderByNumber(number - 1)
+	if parent == nil {
+		return nil, nil, consensus.ErrUnknownAncestor
+	}
+
+	if parent.IsGenesis() {
+		return hc.genesisHeader, hc.genesisHeader, nil
+	}
+
+	epoch := hc.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
+	if epoch == nil {
+		return nil, nil, consensus.ErrUnknownEpoch
+	}
+	return epoch, parent, nil
+}
+
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going
 // backwards from the given number.
 // If the 'number' is higher than the highest local header, this method will

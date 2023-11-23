@@ -97,7 +97,7 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // Broadcast mocks base method.
-func (m *MockBackend) Broadcast(committee types.Committee, payload []byte) error {
+func (m *MockBackend) Broadcast(committee *types.Committee, payload []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Broadcast", committee, payload)
 	ret0, _ := ret[0].(error)
@@ -139,7 +139,7 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockBackend) Gossip(committee types.Committee, payload []byte) {
+func (m *MockBackend) Gossip(committee *types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Gossip", committee, payload)
 }

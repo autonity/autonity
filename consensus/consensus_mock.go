@@ -111,6 +111,37 @@ func (mr *MockChainHeaderReaderMockRecorder) GetHeaderByNumber(number interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeaderByNumber", reflect.TypeOf((*MockChainHeaderReader)(nil).GetHeaderByNumber), number)
 }
 
+// LatestEpochHeadAndChainHead mocks base method
+func (m *MockChainHeaderReader) LatestEpochHeadAndChainHead() (*types.Header, *types.Header) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestEpochHeadAndChainHead")
+	ret0, _ := ret[0].(*types.Header)
+	ret1, _ := ret[1].(*types.Header)
+	return ret0, ret1
+}
+
+// LatestEpochHeadAndChainHead indicates an expected call of LatestEpochHeadAndChainHead
+func (mr *MockChainHeaderReaderMockRecorder) LatestEpochHeadAndChainHead() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpochHeadAndChainHead", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestEpochHeadAndChainHead))
+}
+
+// EpochHeadAndParentHead mocks base method.
+func (m *MockChainHeaderReader) EpochHeadAndParentHead(number uint64) (*types.Header, *types.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochHeadAndParentHead", number)
+	ret0, _ := ret[0].(*types.Header)
+	ret1, _ := ret[1].(*types.Header)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// EpochHeadAndParentHead indicates an expected call of EpochHeadAndParentHead.
+func (mr *MockChainHeaderReaderMockRecorder) EpochHeadAndParentHead(number interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochHeadAndParentHead", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochHeadAndParentHead), number)
+}
+
 // GetTd mocks base method.
 func (m *MockChainHeaderReader) GetTd(hash common.Hash, number uint64) *big.Int {
 	m.ctrl.T.Helper()
@@ -244,6 +275,37 @@ func (m *MockChainReader) GetHeaderByNumber(number uint64) *types.Header {
 func (mr *MockChainReaderMockRecorder) GetHeaderByNumber(number interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeaderByNumber", reflect.TypeOf((*MockChainReader)(nil).GetHeaderByNumber), number)
+}
+
+// LatestEpochHeadAndChainHead mocks base method.
+func (m *MockChainReader) LatestEpochHeadAndChainHead() (*types.Header, *types.Header) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestEpochHeadAndChainHead")
+	ret0, _ := ret[0].(*types.Header)
+	ret1, _ := ret[1].(*types.Header)
+	return ret0, ret1
+}
+
+// LatestEpochHeadAndChainHead indicates an expected call of LatestEpochHeadAndChainHead.
+func (mr *MockChainReaderMockRecorder) LatestEpochHeadAndChainHead() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpochHeadAndChainHead", reflect.TypeOf((*MockChainReader)(nil).LatestEpochHeadAndChainHead))
+}
+
+// GetHeaderByNumber indicates an expected call of GetHeaderByNumber.
+func (m *MockChainReader) EpochHeadAndParentHead(number uint64) (*types.Header, *types.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochHeadAndParentHead", number)
+	ret0, _ := ret[0].(*types.Header)
+	ret1, _ := ret[1].(*types.Header)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// EpochHeadAndParentHead indicates an expected call of EpochHeadAndParentHead.
+func (mr *MockChainReaderMockRecorder) EpochHeadAndParentHead(number interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochHeadAndParentHead", reflect.TypeOf((*MockChainReader)(nil).EpochHeadAndParentHead), number)
 }
 
 // GetTd mocks base method.

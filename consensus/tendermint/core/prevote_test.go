@@ -48,7 +48,7 @@ func TestSendPrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		committeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
-		member := committeSet.Committee()[0]
+		member := committeSet.Committee().Members[0]
 		logger := log.New("backend", "test", "id", 0)
 
 		proposal := message.NewProposal(
@@ -91,7 +91,7 @@ func TestSendPrevote(t *testing.T) {
 func TestHandlePrevote(t *testing.T) {
 	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
 		committeeSet := helpers.NewTestCommitteeSet(4)
-		member := committeeSet.Committee()[0]
+		member := committeeSet.Committee().Members[0]
 		messages := message.NewMessagesMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
@@ -115,7 +115,7 @@ func TestHandlePrevote(t *testing.T) {
 
 	t.Run("pre-vote with old height given, pre-vote not added", func(t *testing.T) {
 		committeeSet := helpers.NewTestCommitteeSet(4)
-		member := committeeSet.Committee()[0]
+		member := committeeSet.Committee().Members[0]
 		messages := message.NewMessagesMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
@@ -147,7 +147,7 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		messages := message.NewMessagesMap()
 		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
-		member := committeeSet.Committee()[0]
+		member := committeeSet.Committee().Members[0]
 		curRoundMessages := messages.GetOrCreate(2)
 		logger := log.New("backend", "test", "id", 0)
 
@@ -191,7 +191,7 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(1)
 		logger := log.New("backend", "test", "id", 0)
-		member := committeeSet.Committee()[0]
+		member := committeeSet.Committee().Members[0]
 		proposal := message.NewProposal(
 			2,
 			big.NewInt(3),
@@ -262,7 +262,7 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		committeSet := helpers.NewTestCommitteeSet(1)
 		messages := message.NewMessagesMap()
-		member := committeSet.Committee()[0]
+		member := committeSet.Committee().Members[0]
 		curRoundMessage := messages.GetOrCreate(2)
 
 		addr := common.HexToAddress("0x0123456789")
@@ -323,7 +323,7 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		committeeSet, keys := helpers.NewTestCommitteeSetWithKeys(4)
 		messages := message.NewMessagesMap()
-		member := committeeSet.Committee()[0]
+		member := committeeSet.Committee().Members[0]
 		curRoundMessages := messages.GetOrCreate(1)
 
 		logger := log.New("backend", "test", "id", 0)

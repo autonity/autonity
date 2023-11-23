@@ -8,7 +8,7 @@ import (
 )
 
 type Gossiper interface {
-	Gossip(committee types.Committee, payload []byte)
+	Gossip(committee *types.Committee, payload []byte)
 	AskSync(header *types.Header)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Broadcaster() consensus.Broadcaster

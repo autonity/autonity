@@ -11,34 +11,43 @@ import (
 
 var _ = (*headerMarshaling)(nil)
 
+// todo: gen this file from block.go using go:generate.
+
 // MarshalJSON marshals as JSON.
-func (h Header) MarshalJSON() ([]byte, error) {
+func (h *Header) MarshalJSON() ([]byte, error) {
 	type MarshalledMember struct {
-		Address     common.Address `json:"address"            gencodec:"required"`
-		VotingPower *hexutil.Big   `json:"votingPower"  	  gencodec:"required"`
+		Address      common.Address `json:"address"            gencodec:"required"`
+		VotingPower  *hexutil.Big   `json:"votingPower"        gencodec:"required"`
+		ValidatorKey hexutil.Bytes  `json:"validatorKey"       gencodec:"required"`
 	}
+
+	type MarshalledCommittee struct {
+		Members []*MarshalledMember `json:"members"`
+	}
+
 	type Header struct {
-		ParentHash     common.Hash        `json:"parentHash"       gencodec:"required"`
-		UncleHash      common.Hash        `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase       common.Address     `json:"miner"            gencodec:"required"`
-		Root           common.Hash        `json:"stateRoot"        gencodec:"required"`
-		TxHash         common.Hash        `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash    common.Hash        `json:"receiptsRoot"     gencodec:"required"`
-		Bloom          Bloom              `json:"logsBloom"        gencodec:"required"`
-		Difficulty     *hexutil.Big       `json:"difficulty"       gencodec:"required"`
-		Number         *hexutil.Big       `json:"number"           gencodec:"required"`
-		GasLimit       hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
-		GasUsed        hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
-		Time           hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
-		Extra          hexutil.Bytes      `json:"extraData"        gencodec:"required"`
-		MixDigest      common.Hash        `json:"mixHash"`
-		Nonce          BlockNonce         `json:"nonce"`
-		Committee      []MarshalledMember `json:"committee"           gencodec:"required"`
-		ProposerSeal   hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
-		Round          hexutil.Uint64     `json:"round"               gencodec:"required"`
-		CommittedSeals []hexutil.Bytes    `json:"committedSeals"      gencodec:"required"`
-		BaseFee        *hexutil.Big       `json:"baseFeePerGas" rlp:"optional"`
-		Hash           common.Hash        `json:"hash"`
+		ParentHash     common.Hash         `json:"parentHash"       gencodec:"required"`
+		UncleHash      common.Hash         `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase       common.Address      `json:"miner"            gencodec:"required"`
+		Root           common.Hash         `json:"stateRoot"        gencodec:"required"`
+		TxHash         common.Hash         `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash    common.Hash         `json:"receiptsRoot"     gencodec:"required"`
+		Bloom          Bloom               `json:"logsBloom"        gencodec:"required"`
+		Difficulty     *hexutil.Big        `json:"difficulty"       gencodec:"required"`
+		Number         *hexutil.Big        `json:"number"           gencodec:"required"`
+		GasLimit       hexutil.Uint64      `json:"gasLimit"         gencodec:"required"`
+		GasUsed        hexutil.Uint64      `json:"gasUsed"          gencodec:"required"`
+		Time           hexutil.Uint64      `json:"timestamp"        gencodec:"required"`
+		Extra          hexutil.Bytes       `json:"extraData"        gencodec:"required"`
+		MixDigest      common.Hash         `json:"mixHash"`
+		Nonce          BlockNonce          `json:"nonce"`
+		Committee      MarshalledCommittee `json:"committee"`
+		ProposerSeal   hexutil.Bytes       `json:"proposerSeal"        gencodec:"required"`
+		Round          hexutil.Uint64      `json:"round"               gencodec:"required"`
+		CommittedSeals []hexutil.Bytes     `json:"committedSeals"      gencodec:"required"`
+		BaseFee        *hexutil.Big        `json:"baseFeePerGas" rlp:"optional"`
+		Hash           common.Hash         `json:"hash"`
+		LastEpochBlock *hexutil.Big        `json:"lastEpochBlock" gencodec:"required"`
 	}
 	var enc Header
 	enc.ParentHash = h.ParentHash
@@ -65,15 +74,17 @@ func (h Header) MarshalJSON() ([]byte, error) {
 			enc.CommittedSeals[k] = v
 		}
 	}
-	if h.Committee != nil {
-		enc.Committee = make([]MarshalledMember, len(h.Committee))
-		for k, v := range h.Committee {
-			enc.Committee[k] = MarshalledMember{
-				Address:     v.Address,
-				VotingPower: (*hexutil.Big)(v.VotingPower),
+	if h.Committee != nil && h.Committee.Members != nil {
+		enc.Committee.Members = make([]*MarshalledMember, len(h.Committee.Members))
+		for k, v := range h.Committee.Members {
+			enc.Committee.Members[k] = &MarshalledMember{
+				Address:      v.Address,
+				VotingPower:  (*hexutil.Big)(v.VotingPower),
+				ValidatorKey: v.ValidatorKey,
 			}
 		}
 	}
+	enc.LastEpochBlock = (*hexutil.Big)(h.LastEpochBlock)
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -81,30 +92,37 @@ func (h Header) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (h *Header) UnmarshalJSON(input []byte) error {
 	type MarshalledMember struct {
-		Address     common.Address `json:"address"            gencodec:"required"`
-		VotingPower *hexutil.Big   `json:"votingPower"  	  gencodec:"required"`
+		Address      common.Address `json:"address"            gencodec:"required"`
+		VotingPower  *hexutil.Big   `json:"votingPower"        gencodec:"required"`
+		ValidatorKey hexutil.Bytes  `json:"validatorKey"       gencodec:"required"`
 	}
+
+	type MarshalledCommittee struct {
+		Members []*MarshalledMember `json:"members"`
+	}
+
 	type Header struct {
-		ParentHash     *common.Hash       `json:"parentHash"       gencodec:"required"`
-		UncleHash      *common.Hash       `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase       *common.Address    `json:"miner"            gencodec:"required"`
-		Root           *common.Hash       `json:"stateRoot"        gencodec:"required"`
-		TxHash         *common.Hash       `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash    *common.Hash       `json:"receiptsRoot"     gencodec:"required"`
-		Bloom          *Bloom             `json:"logsBloom"        gencodec:"required"`
-		Difficulty     *hexutil.Big       `json:"difficulty"       gencodec:"required"`
-		Number         *hexutil.Big       `json:"number"           gencodec:"required"`
-		GasLimit       *hexutil.Uint64    `json:"gasLimit"         gencodec:"required"`
-		GasUsed        *hexutil.Uint64    `json:"gasUsed"          gencodec:"required"`
-		Time           *hexutil.Uint64    `json:"timestamp"        gencodec:"required"`
-		Extra          *hexutil.Bytes     `json:"extraData"        gencodec:"required"`
-		MixDigest      *common.Hash       `json:"mixHash"`
-		Nonce          *BlockNonce        `json:"nonce"`
-		BaseFee        *hexutil.Big       `json:"baseFeePerGas" rlp:"optional"`
-		Committee      []MarshalledMember `json:"committee"           gencodec:"required"`
-		ProposerSeal   *hexutil.Bytes     `json:"proposerSeal"        gencodec:"required"`
-		Round          *hexutil.Uint64    `json:"round"               gencodec:"required"`
-		CommittedSeals []hexutil.Bytes    `json:"committedSeals"      gencodec:"required"`
+		ParentHash     *common.Hash        `json:"parentHash"       gencodec:"required"`
+		UncleHash      *common.Hash        `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase       *common.Address     `json:"miner"            gencodec:"required"`
+		Root           *common.Hash        `json:"stateRoot"        gencodec:"required"`
+		TxHash         *common.Hash        `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash    *common.Hash        `json:"receiptsRoot"     gencodec:"required"`
+		Bloom          *Bloom              `json:"logsBloom"        gencodec:"required"`
+		Difficulty     *hexutil.Big        `json:"difficulty"       gencodec:"required"`
+		Number         *hexutil.Big        `json:"number"           gencodec:"required"`
+		GasLimit       *hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
+		GasUsed        *hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
+		Time           *hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
+		Extra          *hexutil.Bytes      `json:"extraData"        gencodec:"required"`
+		MixDigest      *common.Hash        `json:"mixHash"`
+		Nonce          *BlockNonce         `json:"nonce"`
+		BaseFee        *hexutil.Big        `json:"baseFeePerGas" rlp:"optional"`
+		Committee      MarshalledCommittee `json:"committee"`
+		ProposerSeal   *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
+		Round          *hexutil.Uint64     `json:"round"               gencodec:"required"`
+		CommittedSeals []hexutil.Bytes     `json:"committedSeals"      gencodec:"required"`
+		LastEpochBlock *hexutil.Big        `json:"lastEpochBlock"      gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -171,14 +189,17 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if dec.BaseFee != nil {
 		h.BaseFee = (*big.Int)(dec.BaseFee)
 	}
-	if dec.Committee == nil {
-		return errors.New("missing required field 'committee' for Header")
-	}
-	h.Committee = make(Committee, len(dec.Committee))
-	for k, v := range dec.Committee {
-		h.Committee[k] = CommitteeMember{
-			Address:     v.Address,
-			VotingPower: (*big.Int)(v.VotingPower),
+	if dec.Committee.Members != nil {
+		if h.Committee == nil {
+			h.Committee = new(Committee)
+		}
+		h.Committee.Members = make([]*CommitteeMember, len(dec.Committee.Members))
+		for k, v := range dec.Committee.Members {
+			h.Committee.Members[k] = &CommitteeMember{
+				Address:      v.Address,
+				VotingPower:  (*big.Int)(v.VotingPower),
+				ValidatorKey: v.ValidatorKey,
+			}
 		}
 	}
 	if dec.ProposerSeal == nil {
@@ -196,5 +217,9 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	for k, v := range dec.CommittedSeals {
 		h.CommittedSeals[k] = v
 	}
+	if dec.LastEpochBlock == nil {
+		return errors.New("missing required field 'lastEpochBlock' for Header")
+	}
+	h.LastEpochBlock = (*big.Int)(dec.LastEpochBlock)
 	return nil
 }

@@ -23,7 +23,6 @@ import (
 	"io"
 	"math/big"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -90,24 +89,14 @@ type Header struct {
 		PoS header fields, round & committedSeals not taken into account
 		for computing the sigHash.
 	*/
-	Committee Committee `json:"committee"           gencodec:"required"`
-	// used for committee member lookup, lazily initialised.
-	committeeMap map[common.Address]*CommitteeMember
-	// Used to ensure the committeeMap is created only once.
-	once sync.Once
+	Committee *Committee `json:"committee"`
 
 	ProposerSeal   []byte   `json:"proposerSeal"        gencodec:"required"`
 	Round          uint64   `json:"round"               gencodec:"required"`
 	CommittedSeals [][]byte `json:"committedSeals"      gencodec:"required"`
+	// Used for epoch head lookup as an indexing.
+	LastEpochBlock *big.Int `json:"lastEpochBlock"      gencodec:"required"`
 }
-
-type CommitteeMember struct {
-	Address      common.Address `json:"address"            gencodec:"required"       abi:"addr"`
-	VotingPower  *big.Int       `json:"votingPower"        gencodec:"required"`
-	ValidatorKey []byte         `json:"validatorKey"        gencodec:"required"`
-}
-
-type Committee []CommitteeMember
 
 // originalHeader represents the ethereum blockchain header.
 type originalHeader struct {
@@ -138,10 +127,11 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee      Committee `json:"committee"           gencodec:"required"`
-	ProposerSeal   []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round          uint64    `json:"round"               gencodec:"required"`
-	CommittedSeals [][]byte  `json:"committedSeals"      gencodec:"required"`
+	Committee      *Committee `json:"committee"`
+	ProposerSeal   []byte     `json:"proposerSeal"        gencodec:"required"`
+	Round          uint64     `json:"round"               gencodec:"required"`
+	CommittedSeals [][]byte   `json:"committedSeals"      gencodec:"required"`
+	LastEpochBlock *big.Int   `json:"lastEpochBlock"      gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked bu running go
@@ -161,10 +151,11 @@ type headerMarshaling struct {
 	/*
 		PoS header fields type overriedes
 	*/
-	Committee      Committee
+	Committee      *Committee
 	ProposerSeal   hexutil.Bytes
 	Round          hexutil.Uint64
 	CommittedSeals []hexutil.Bytes
+	LastEpochBlock *hexutil.Big
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -233,6 +224,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Committee = hExtra.Committee
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
+		h.LastEpochBlock = hExtra.LastEpochBlock
 	} else {
 		h.Extra = origin.Extra
 	}
@@ -272,6 +264,7 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 		ProposerSeal:   h.ProposerSeal,
 		Round:          h.Round,
 		CommittedSeals: h.CommittedSeals,
+		LastEpochBlock: h.LastEpochBlock,
 	}
 
 	original := h.original()
@@ -426,11 +419,16 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	/* PoS fields deep copy section*/
-	committee := make([]CommitteeMember, len(h.Committee))
-	for i, val := range h.Committee {
-		committee[i] = CommitteeMember{
-			Address:     val.Address,
-			VotingPower: new(big.Int).Set(val.VotingPower),
+	// Let the cashed fields be computed by sync.Once since the copy of sync.Once is not recommended.
+	committee := &Committee{}
+	if h.Committee != nil && h.Committee.Members != nil {
+		committee.Members = make([]*CommitteeMember, len(h.Committee.Members))
+		for i, val := range h.Committee.Members {
+			committee.Members[i] = &CommitteeMember{
+				Address:      val.Address,
+				VotingPower:  new(big.Int).Set(val.VotingPower),
+				ValidatorKey: val.ValidatorKey,
+			}
 		}
 	}
 
@@ -447,6 +445,11 @@ func CopyHeader(h *Header) *Header {
 			committedSeals[i] = make([]byte, len(val))
 			copy(committedSeals[i], val)
 		}
+	}
+
+	lastEpochBlock := big.NewInt(0)
+	if h.LastEpochBlock != nil {
+		lastEpochBlock.Set(h.LastEpochBlock)
 	}
 
 	cpy := &Header{
@@ -470,6 +473,7 @@ func CopyHeader(h *Header) *Header {
 		BaseFee:        baseFee,
 		Round:          h.Round,
 		CommittedSeals: committedSeals,
+		LastEpochBlock: lastEpochBlock,
 	}
 	return cpy
 }
@@ -528,6 +532,7 @@ func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
 func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
 func (b *Block) UncleHash() common.Hash   { return b.header.UncleHash }
 func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+func (b *Block) LastEpochBlock() *big.Int { return b.header.LastEpochBlock }
 
 func (b *Block) BaseFee() *big.Int {
 	if b.header.BaseFee == nil {

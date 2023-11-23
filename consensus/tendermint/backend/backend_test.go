@@ -46,7 +46,7 @@ func TestAskSync(t *testing.T) {
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
 	header := newTestHeader(7) // N=7, F=2, Q=5
-	validators := header.Committee
+	validators := header.Committee.Members
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
@@ -88,15 +88,15 @@ func TestGossip(t *testing.T) {
 	defer ctrl.Finish()
 
 	header := newTestHeader(5)
-	validators := header.Committee
+	committee := header.Committee
 	payload, err := rlp.EncodeToBytes([]byte("data"))
 	require.NoError(t, err)
 	hash := types.RLPHash(payload)
 
-	addresses := make([]common.Address, 0, len(validators))
+	addresses := make([]common.Address, 0, len(committee.Members))
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
-	for i, val := range validators {
+	for i, val := range committee.Members {
 		addresses = append(addresses, val.Address)
 		mockedPeer := ethereum.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
@@ -137,7 +137,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(validators, payload)
+	b.Gossip(committee, payload)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 4 {
 		t.Fatalf("gossip message transmission failure")
@@ -506,16 +506,19 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 
 func newTestHeader(n int) *types.Header {
 	// generate committee
-	addrs := make(types.Committee, n)
+	committee := new(types.Committee)
+
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
-		addrs[i] = types.CommitteeMember{
-			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower: new(big.Int).SetUint64(1),
-		}
+		validatorKey, _ := bls.SecretKeyFromECDSAKey(privateKey)
+		committee.Members = append(committee.Members, &types.CommitteeMember{
+			Address:      crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower:  new(big.Int).SetUint64(1),
+			ValidatorKey: validatorKey.PublicKey().Marshal(),
+		})
 	}
 	h := &types.Header{
-		Committee: addrs,
+		Committee: committee,
 	}
 	return h
 }

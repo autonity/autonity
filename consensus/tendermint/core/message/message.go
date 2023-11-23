@@ -95,8 +95,8 @@ func (m *Message) DecodePayload() error {
 	}
 }
 
-func (m *Message) Validate(validateSig SigVerifier, previousHeader *types.Header) error {
-	if previousHeader.Number.Uint64()+1 != m.H() {
+func (m *Message) Validate(validateSig SigVerifier, parentHead, epochHead *types.Header) error {
+	if parentHead.Number.Uint64()+1 != m.H() {
 		// don't know why the legacy code panic here, it introduces live-ness issue of the network.
 		// youssef: that is really bad and should never happen, could be because of a race-condition
 		// I'm reintroducing the panic to check if this scenario happens in the wild. We must never fail silently.
@@ -114,7 +114,7 @@ func (m *Message) Validate(validateSig SigVerifier, previousHeader *types.Header
 		signature = lp.Signature
 	}
 
-	recoveredAddress, err := validateSig(previousHeader, payload, signature)
+	recoveredAddress, err := validateSig(epochHead, payload, signature)
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func (m *Message) Validate(validateSig SigVerifier, previousHeader *types.Header
 	if m.Address != recoveredAddress {
 		return ErrBadSignature
 	}
-	validator := previousHeader.CommitteeMember(recoveredAddress)
+	validator := epochHead.CommitteeMember(recoveredAddress)
 	// validateSig check as well if the header is in the committee, so this seems unnecessary
 	if validator == nil {
 		return ErrUnauthorizedAddress

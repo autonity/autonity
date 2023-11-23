@@ -78,7 +78,7 @@ func (mr *MockGossiperMockRecorder) Broadcaster() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockGossiper) Gossip(committee types.Committee, payload []byte) {
+func (m *MockGossiper) Gossip(committee *types.Committee, payload []byte) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Gossip", committee, payload)
 }

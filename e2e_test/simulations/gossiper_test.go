@@ -36,20 +36,20 @@ type customGossiper struct {
 
 // this is a test custom gossip function, just to illustrate how to build one
 // it gossips only to a random set of ceil(sqrt(N)). It is not optimized.
-func (cg *customGossiper) Gossip(committee types.Committee, payload []byte) {
+func (cg *customGossiper) Gossip(committee *types.Committee, payload []byte) {
 	hash := types.RLPHash(payload)
 	cg.knownMessages.Add(hash, true)
 
 	// determine random subset of committee members to gossip to
 	// if by chance we include our own index, we will end up gossiping to
 	// ceil(sqrt(N)) - 1
-	fullset := rand.Perm(len(committee)) //nolint
-	num := uint(math.Ceil(math.Sqrt(float64(len(committee)))))
+	fullset := rand.Perm(len(committee.Members)) //nolint
+	num := uint(math.Ceil(math.Sqrt(float64(len(committee.Members)))))
 	subset := fullset[:num] //nolint
 
 	targets := make(map[common.Address]struct{})
 	i := 0
-	for _, val := range committee {
+	for _, val := range committee.Members {
 		if val.Address != cg.address && slices.Contains(subset, i) {
 			targets[val.Address] = struct{}{}
 		}

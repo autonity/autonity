@@ -51,12 +51,12 @@ func (g *Gossiper) Address() common.Address {
 	return g.address
 }
 
-func (g *Gossiper) Gossip(committee types.Committee, payload []byte) {
+func (g *Gossiper) Gossip(committee *types.Committee, payload []byte) {
 	hash := types.RLPHash(payload)
 	g.knownMessages.Add(hash, true)
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range committee {
+	for _, val := range committee.Members {
 		if val.Address != g.address {
 			targets[val.Address] = struct{}{}
 		}
@@ -85,11 +85,11 @@ func (g *Gossiper) Gossip(committee types.Committee, payload []byte) {
 	}
 }
 
-func (g *Gossiper) AskSync(header *types.Header) {
+func (g *Gossiper) AskSync(epochHead *types.Header) {
 	g.logger.Info("Consensus liveness lost, broadcasting sync request..")
 
 	targets := make(map[common.Address]struct{})
-	for _, val := range header.Committee {
+	for _, val := range epochHead.Committee.Members {
 		if val.Address != g.address {
 			targets[val.Address] = struct{}{}
 		}
@@ -112,13 +112,13 @@ func (g *Gossiper) AskSync(header *types.Header) {
 			count := new(big.Int)
 			for addr, p := range ps {
 				//ask to a quorum nodes to sync, 1 must then be honest and updated
-				if count.Cmp(bft.Quorum(header.TotalVotingPower())) >= 0 {
+				if count.Cmp(bft.Quorum(epochHead.TotalVotingPower())) >= 0 {
 					break
 				}
 				g.logger.Debug("Asking sync to", "addr", addr)
 				go p.Send(SyncMsg, []byte{}) //nolint
 
-				member := header.CommitteeMember(addr)
+				member := epochHead.CommitteeMember(addr)
 				if member == nil {
 					g.logger.Error("could not retrieve member from address")
 					continue

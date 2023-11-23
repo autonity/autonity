@@ -50,6 +50,12 @@ type ChainHeaderReader interface {
 
 	// GetTd retrieves the total difficulty from the database by hash and number.
 	GetTd(hash common.Hash, number uint64) *big.Int
+
+	// EpochHeadAndParentHead retries the epoch head header and the parent header for a given block number.
+	EpochHeadAndParentHead(number uint64) (*types.Header, *types.Header, error)
+
+	// LatestEpochHeadAndChainHead retries the latest epoch head of current chain.
+	LatestEpochHeadAndChainHead() (*types.Header, *types.Header)
 }
 
 // ChainReader defines a small collection of methods needed to access the local
@@ -69,6 +75,9 @@ type ChainReader interface {
 
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
+	// BFT returns true if the engine is an implementation of BFT consensus algorithm.
+	BFT() bool
+
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
@@ -99,7 +108,7 @@ type Engine interface {
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error)
+		uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
 	// rewards) and assembles the final block.

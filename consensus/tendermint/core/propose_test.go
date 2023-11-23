@@ -26,6 +26,11 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
+func makeRoundRobinCommittee(c *types.Committee, proposer common.Address, lastProposerIndex int) (*committee.RoundRobinCommittee, error) {
+	c.Members = append(c.Members, &types.CommitteeMember{Address: proposer, VotingPower: big.NewInt(1)})
+	return committee.NewRoundRobinSet(c, c.Members[lastProposerIndex].Address)
+}
+
 func TestSendPropose(t *testing.T) {
 	t.Run("valid block given, proposal is broadcast", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -44,16 +49,9 @@ func TestSendPropose(t *testing.T) {
 
 		assert.NoError(t, err)
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{
-				Address:     proposer,
-				VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		com := new(types.Committee)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, proposer, 0)
+		assert.NoError(t, err)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
@@ -69,7 +67,7 @@ func TestSendPropose(t *testing.T) {
 			round:            1,
 			height:           big.NewInt(1),
 			validRound:       validRound,
-			committee:        valSet,
+			committee:        roundRobinCommittee,
 		}
 
 		c.SetDefaultHandlers()
@@ -148,13 +146,9 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
-		testCommittee, _ := helpers.GenerateCommittee(3)
-		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		com, _ := helpers.GenerateCommittee(3)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, addr, 1)
+		require.NoError(t, err)
 
 		c := &Core{
 			address:          addr,
@@ -163,7 +157,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			round:            2,
 			height:           big.NewInt(1),
-			committee:        valSet,
+			committee:        roundRobinCommittee,
 		}
 
 		c.SetDefaultHandlers()
@@ -202,14 +196,9 @@ func TestHandleProposal(t *testing.T) {
 			Power:         common.Big1,
 		}
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		com := new(types.Committee)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, addr, 0)
+		assert.NoError(t, err)
 
 		var decProposal message.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -256,7 +245,7 @@ func TestHandleProposal(t *testing.T) {
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
 			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
-			committee:        valSet,
+			committee:        roundRobinCommittee,
 			round:            2,
 			height:           big.NewInt(1),
 		}
@@ -296,12 +285,10 @@ func TestHandleProposal(t *testing.T) {
 			Power:         common.Big1,
 		}
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		com := new(types.Committee)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, addr, 0)
 		assert.NoError(t, err)
+
 		backendMock := interfaces.NewMockBackend(ctrl)
 		const eventPostingDelay = time.Second
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
@@ -317,7 +304,7 @@ func TestHandleProposal(t *testing.T) {
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
 			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
-			committee:        valSet,
+			committee:        roundRobinCommittee,
 			round:            2,
 			height:           big.NewInt(1),
 		}
@@ -360,14 +347,9 @@ func TestHandleProposal(t *testing.T) {
 			Power:         common.Big1,
 		}
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		com := new(types.Committee)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, addr, 0)
+		assert.NoError(t, err)
 
 		var decProposal message.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -386,7 +368,7 @@ func TestHandleProposal(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(1),
 			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
-			committee:        valSet,
+			committee:        roundRobinCommittee,
 		}
 
 		c.SetDefaultHandlers()
@@ -498,14 +480,9 @@ func TestHandleProposal(t *testing.T) {
 			Power:         common.Big1,
 		}
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		com := new(types.Committee)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, addr, 0)
+		assert.NoError(t, err)
 
 		var decProposal message.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -556,7 +533,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 			validRound:       -1,
-			committee:        valSet,
+			committee:        roundRobinCommittee,
 		}
 
 		c.SetDefaultHandlers()
@@ -596,14 +573,9 @@ func TestHandleProposal(t *testing.T) {
 			Power:         common.Big1,
 		}
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		com := new(types.Committee)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, addr, 0)
+		assert.NoError(t, err)
 
 		var decProposal message.Proposal
 		if decErr := msg.Decode(&decProposal); decErr != nil {
@@ -656,7 +628,7 @@ func TestHandleProposal(t *testing.T) {
 			logger:           logger,
 			proposeTimeout:   tctypes.NewTimeout(tctypes.Propose, logger),
 			validRound:       0,
-			committee:        valSet,
+			committee:        roundRobinCommittee,
 		}
 
 		c.SetDefaultHandlers()
@@ -720,16 +692,9 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		require.NoError(t, err)
 		msg.Signature = []byte{0x1}
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{
-				Address:     proposer,
-				VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
-		if err != nil {
-			t.Error(err)
-		}
+		com := new(types.Committee)
+		roundRobinCommittee, err := makeRoundRobinCommittee(com, proposer, 0)
+		assert.NoError(t, err)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.ProposalBlock.Hash())
@@ -746,7 +711,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 			round:                  1,
 			height:                 big.NewInt(1),
 			validRound:             validRound,
-			committee:              valSet,
+			committee:              roundRobinCommittee,
 		}
 		c.SetDefaultHandlers()
 		c.pendingCandidateBlocks[uint64(0)] = preBlock

@@ -121,11 +121,11 @@ func TestCore_Setters(t *testing.T) {
 		require.Equal(t, uint64(10), c.height.Uint64())
 	})
 
-	t.Run("setCommitteeSet", func(t *testing.T) {
+	t.Run("setCommittee", func(t *testing.T) {
 		c := &Core{}
 		committeeSizeAndMaxRound := maxSize
 		committeeSet, _ := prepareCommittee(t, committeeSizeAndMaxRound)
-		c.setCommitteeSet(committeeSet)
+		c.setCommittee(committeeSet)
 		require.Equal(t, committeeSet, c.CommitteeSet())
 	})
 

@@ -23,6 +23,10 @@ var (
 	// that is unknown.
 	ErrUnknownAncestor = errors.New("unknown ancestor")
 
+	// ErrUnknownEpoch is returned when validating a block requires an epoch header
+	// that is unknown.
+	ErrUnknownEpoch = errors.New("unknown epoch header")
+
 	// ErrPrunedAncestor is returned when validating a block requires an ancestor
 	// that is known, but the state of which is not available.
 	ErrPrunedAncestor = errors.New("pruned ancestor")
@@ -37,6 +41,9 @@ var (
 
 	// ErrInconsistentCommitteeSet is returned if the committee set is inconsistent
 	ErrInconsistentCommitteeSet = errors.New("inconsistent committee set")
+
+	// ErrInconsistentLastEpochBlock is returned if the lastEpochBlock is inconsistent
+	ErrInconsistentLastEpochBlock = errors.New("inconsistent lastEpochBlock value")
 
 	// ErrCommitteeMemberNotFound is returned if the committee member is missing from
 	// the committee set.

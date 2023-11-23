@@ -52,7 +52,7 @@ type TendermintState struct {
 	ValidRound  int64
 
 	// committee state
-	Committee       types.Committee
+	Committee       *types.Committee
 	Proposer        common.Address
 	IsProposer      bool
 	QuorumVotePower *big.Int

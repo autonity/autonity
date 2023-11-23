@@ -30,11 +30,11 @@ import (
 type API struct {
 	chain        consensus.ChainReader
 	tendermint   *Backend
-	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
+	getCommittee func(header *types.Header, chain consensus.ChainReader) (*types.Committee, error)
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
-func (api *API) GetCommittee(number *rpc.BlockNumber) (types.Committee, error) {
+func (api *API) GetCommittee(number *rpc.BlockNumber) (*types.Committee, error) {
 	header := api.chain.GetHeaderByNumber(uint64(*number))
 	if header == nil {
 		return nil, errUnknownBlock
@@ -47,7 +47,7 @@ func (api *API) GetCommittee(number *rpc.BlockNumber) (types.Committee, error) {
 }
 
 // GetCommitteeAtHash retrieves the state snapshot at a given block.
-func (api *API) GetCommitteeAtHash(hash common.Hash) (types.Committee, error) {
+func (api *API) GetCommitteeAtHash(hash common.Hash) (*types.Committee, error) {
 	header := api.chain.GetHeaderByHash(hash)
 	if header == nil {
 		return nil, errUnknownBlock

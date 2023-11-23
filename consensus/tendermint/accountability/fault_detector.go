@@ -258,11 +258,11 @@ func decodeMessage(m *message.Message) error {
 }
 
 func preCheckMessage(m *message.Message, chain ChainContext) error {
-	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
-	if lastHeader == nil {
+	epochHeader, _, err := chain.EpochHeadAndParentHead(m.H())
+	if err != nil {
 		return errFutureMsg
 	}
-	v := lastHeader.CommitteeMember(m.Address)
+	v := epochHeader.CommitteeMember(m.Address)
 	if v == nil {
 		return errNotCommitteeMsg
 	}
@@ -275,8 +275,7 @@ func (fd *FaultDetector) consensusMsgHandlerLoop() {
 	defer ticker.Stop()
 tendermintMsgLoop:
 	for {
-		curHeight := fd.blockchain.CurrentBlock().Number().Uint64()
-		curHeader := fd.blockchain.CurrentHeader()
+		epochHead, currentHead := fd.blockchain.LatestEpochHeadAndChainHead()
 		select {
 		case ev, ok := <-fd.tendermintMsgSub.Chan():
 			if !ok {
@@ -298,13 +297,13 @@ tendermintMsgLoop:
 				if err != nil {
 					// make this fault accountable only for committee members, otherwise validators might pay fees to
 					// report lots of none sense proof which is a vector of attack as well.
-					if err == errAccountableGarbageMsg && curHeader.CommitteeMember(msg.Address) != nil {
+					if err == errAccountableGarbageMsg && epochHead.CommitteeMember(msg.Address) != nil {
 						fd.submitMisbehavior(msg, nil, errAccountableGarbageMsg, fd.misbehaviourProofsCh)
 					}
 					continue tendermintMsgLoop
 				}
 
-				if fd.tooOldHeightMsg(curHeight, msg.H()) {
+				if fd.tooOldHeightMsg(currentHead.Number.Uint64(), msg.H()) {
 					fd.logger.Debug("Fault detector: discarding old message", "sender", msg.Sender())
 					continue tendermintMsgLoop
 				}
@@ -345,7 +344,7 @@ tendermintMsgLoop:
 			*/
 
 			for h, msgs := range fd.futureHeightMsgs {
-				if h <= curHeight {
+				if h <= currentHead.Number.Uint64() {
 					for _, m := range msgs {
 						if err := fd.processMsg(m); err != nil {
 							fd.logger.Error("fault detector: error while processing consensus msg", "err", err)
@@ -452,14 +451,20 @@ loop:
 // the epoch limit. Also the contract side enforcement is missing.
 func (fd *FaultDetector) canReport(height uint64) bool {
 
-	committee := fd.blockchain.GetHeaderByNumber(height - 1).Committee
+	epochHead, _, err := fd.blockchain.EpochHeadAndParentHead(height)
+	if err != nil {
+		fd.logger.Error("canReport", "cannot resolve epoch header", err, "height", height)
+		return false
+	}
+
+	committee := epochHead.Committee
 
 	// each reporting slot contains ReportingSlotPeriod block period that a unique and deterministic validator is asked to
 	// be the reporter of that slot period, then at the end block of that slot, the reporter reports
 	// available events. Thus, between each reporting slot, we have 5 block period to wait for
 	// accountability events to be mined by network, and it is also disaster friendly that if the last
 	// reporter fails, the next reporter will continue to report missing events.
-	reporterIndex := (height / consensus.ReportingSlotPeriod) % uint64(len(committee))
+	reporterIndex := (height / consensus.ReportingSlotPeriod) % uint64(len(committee.Members))
 
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
@@ -467,7 +472,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 		return false
 	}
 	// todo(youssef): this seems like a non-committee member can't send a proof/ do we want that?
-	return committee[reporterIndex].Address == fd.address
+	return committee.Members[reporterIndex].Address == fd.address
 }
 
 func (fd *FaultDetector) Stop() {
@@ -527,11 +532,11 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 	preCommit := c.Message
 	height := preCommit.H()
 
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
+	epochHead, _, err := fd.blockchain.EpochHeadAndParentHead(height)
+	if err != nil {
 		return nil, errNoParentHeader
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
+	quorum := bft.Quorum(epochHead.TotalVotingPower())
 
 	prevotesForV := fd.msgStore.Get(height, func(m *message.Message) bool {
 		return m.Type() == consensus.MsgPrevote && m.Value() == preCommit.Value() && m.R() == preCommit.R()
@@ -558,11 +563,12 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 	liteProposal := c.Message
 	height := liteProposal.H()
 	validRound := liteProposal.ConsensusMsg.(*message.LightProposal).ValidRound
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
+
+	epochHead, _, err := fd.blockchain.EpochHeadAndParentHead(height)
+	if err != nil {
 		return nil, errNoParentHeader
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
+	quorum := bft.Quorum(epochHead.TotalVotingPower())
 
 	prevotes := fd.msgStore.Get(height, func(m *message.Message) bool {
 		return m.Type() == consensus.MsgPrevote && m.R() == validRound && m.Value() == liteProposal.Value()
@@ -616,11 +622,12 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 	oldProposal := c.Evidences[0]
 	height := oldProposal.H()
 	validRound := oldProposal.ConsensusMsg.(*message.LightProposal).ValidRound
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
+
+	epochHead, _, err := fd.blockchain.EpochHeadAndParentHead(height)
+	if err != nil {
 		return nil, errNoParentHeader
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
+	quorum := bft.Quorum(epochHead.TotalVotingPower())
 
 	preVotes := fd.msgStore.Get(height, func(m *message.Message) bool {
 		return m.Type() == consensus.MsgPrevote && m.Value() == oldProposal.Value() && m.R() == validRound
@@ -682,12 +689,13 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 	if height <= fd.msgStore.FirstHeightBuffered() {
 		return nil
 	}
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
+
+	epochHead, _, err := fd.blockchain.EpochHeadAndParentHead(height)
+	if err != nil {
 		// youssef: is that even possible?
 		return nil
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
+	quorum := bft.Quorum(epochHead.TotalVotingPower())
 	proofs := fd.runRulesOverHeight(height, quorum)
 	events := make([]*autonity.AccountabilityEvent, 0, len(proofs))
 
@@ -1295,6 +1303,11 @@ func (fd *FaultDetector) submitMisbehavior(m *message.Message, evidence []*messa
 
 func (fd *FaultDetector) accountForAutoIncriminatingProposal(m *message.Message) error {
 
+	if m.R() > constants.MaxRound {
+		fd.submitMisbehavior(m.ToLightProposal(), nil, errInvalidRound, fd.misbehaviourProofsCh)
+		return errInvalidRound
+	}
+
 	// skip process duplicated msg.
 	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg *message.Message) bool {
 		return msg.R() == m.R() && msg.Type() == consensus.MsgProposal && msg.Sender() == m.Sender() && msg.Value() == m.Value()
@@ -1381,18 +1394,13 @@ func errorToRule(err error) (autonity.Rule, error) {
 }
 
 func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
-	parentHeader := chain.GetHeaderByNumber(h - 1)
-	// to prevent the panic on node shutdown.
-	if parentHeader == nil {
-		return common.Address{}, fmt.Errorf("cannot find parent header")
-	}
-	state, err := chain.State()
+	epochHead, parent, err := chain.EpochHeadAndParentHead(h)
 	if err != nil {
-		log.Crit("could not retrieve state")
 		return common.Address{}, err
 	}
-	proposer := chain.ProtocolContracts().Proposer(parentHeader, state, parentHeader.Number.Uint64(), r)
-	member := parentHeader.CommitteeMember(proposer)
+
+	proposer := chain.ProtocolContracts().Proposer(epochHead, parent.Number.Uint64(), r)
+	member := epochHead.CommitteeMember(proposer)
 	if member == nil {
 		return common.Address{}, fmt.Errorf("cannot find correct proposer")
 	}

@@ -21,8 +21,8 @@ func TestOverQuorumVotes(t *testing.T) {
 		round := int64(0)
 		noneNilValue := common.Hash{0x1}
 		var preVotes []*message.Message
-		for i := 0; i < len(committee); i++ {
-			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+		for i := 0; i < committee.Len(); i++ {
+			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee.Members[i].Address], noneNilValue, committee)
 			preVotes = append(preVotes, preVote)
 		}
 
@@ -42,7 +42,7 @@ func TestOverQuorumVotes(t *testing.T) {
 		noneNilValue := common.Hash{0x1}
 		var preVotes []*message.Message
 		for i := 0; i < int(quorum.Uint64()-1); i++ {
-			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee[i].Address], noneNilValue, committee)
+			preVote := newVoteMsg(height, round, proto.MsgPrevote, keys[committee.Members[i].Address], noneNilValue, committee)
 			preVotes = append(preVotes, preVote)
 		}
 

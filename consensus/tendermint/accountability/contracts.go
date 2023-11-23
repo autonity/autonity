@@ -153,11 +153,13 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 
 	// check if the suspicious msg is from the correct committee of that height.
 	h := p.Message.H()
-	lastHeader := chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
+
+	epochHead, parentHead, err := chain.EpochHeadAndParentHead(h)
+	if err != nil {
 		return false
 	}
-	if err := p.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+
+	if err := p.Message.Validate(crypto.CheckValidatorSignature, parentHead, epochHead); err != nil {
 		return false
 	}
 
@@ -168,7 +170,7 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 		}
 		oldProposal := p.Evidences[0]
 		// Todo(Youssef): bug possible with Light proposal sig validation // signature may come from accuser not reported
-		if err := oldProposal.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		if err := oldProposal.Validate(crypto.CheckValidatorSignature, parentHead, epochHead); err != nil {
 			return false
 		}
 		if oldProposal.Code != consensus.MsgLightProposal ||
@@ -230,19 +232,20 @@ func (c *MisbehaviourVerifier) validateProof(p *Proof) []byte {
 
 	// check if evidence msgs are from committee members of that height.
 	h := p.Message.H()
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
+
+	epochHead, parentHead, err := c.chain.EpochHeadAndParentHead(h)
+	if err != nil {
 		return failureResult
 	}
 
 	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
-	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
+	if len(p.Evidences) > maxEvidenceMessages(epochHead) {
 		return failureResult
 	}
 
 	for _, msg := range p.Evidences {
 		// the height of msg of the evidences is checked at Validate function.
-		if err := msg.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		if err := msg.Validate(crypto.CheckValidatorSignature, parentHead, epochHead); err != nil {
 			return failureResult
 		}
 	}
@@ -358,13 +361,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 			return false
 		}
 
-		// check if preVotes for not V reaches to quorum.
-		lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
-		if lastHeader == nil {
-			return false
-		}
-		quorum := bft.Quorum(lastHeader.TotalVotingPower())
-		return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+		return overQuorumVotes(c.chain, p.Message.H(), p.Evidences)
 	}
 
 	return false
@@ -462,13 +459,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof) bool {
 	}
 
 	// check if quorum prevote for a different value than V at valid round.
-	lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-
-	return engineCore.OverQuorumVotes(p.Evidences[1:], quorum) != nil
+	return overQuorumVotes(c.chain, p.Message.H(), p.Evidences[1:])
 }
 
 // check if the Proof of challenge of PVO12 is valid.
@@ -574,13 +565,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof) bool {
 	}
 
 	// check if preVotes for not V reaches to quorum.
-	lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return overQuorumVotes(c.chain, p.Message.H(), p.Evidences)
 }
 
 // InnocenceVerifier implemented as a native contract to validate an innocence Proof.
@@ -616,24 +601,24 @@ func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
 	// check if evidence msgs are from committee members of that height.
 	h := in.Message.H()
 
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
+	epochHead, parentHead, err := c.chain.EpochHeadAndParentHead(h)
+	if err != nil {
 		return failureResult
 	}
 
 	// validate message.
-	if err := in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if err := in.Message.Validate(crypto.CheckValidatorSignature, parentHead, epochHead); err != nil {
 		return failureResult
 	}
 
 	// to prevent the abuse of the proof message.
-	if len(in.Evidences) > maxEvidenceMessages(lastHeader) {
+	if len(in.Evidences) > maxEvidenceMessages(epochHead) {
 		return failureResult
 	}
 
 	for _, m := range in.Evidences {
 		// the height of msg of the evidences is checked at Validate function.
-		if err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+		if err := m.Validate(crypto.CheckValidatorSignature, parentHead, epochHead); err != nil {
 			return failureResult
 		}
 	}
@@ -683,12 +668,7 @@ func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 	}
 
 	// check quorum prevotes for V at validRound.
-	lastHeader := chain.GetHeaderByNumber(proposal.H() - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return overQuorumVotes(chain, proposal.H(), p.Evidences)
 }
 
 // check if the Proof of innocent of PVN is valid.
@@ -745,13 +725,7 @@ func validInnocenceProofOfPVO(p *Proof, chain ChainContext) bool {
 	}
 
 	// check quorum prevotes at valid round.
-	height := preVote.H()
-	lastHeader := chain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences[1:], quorum) != nil
+	return overQuorumVotes(chain, preVote.H(), p.Evidences[1:])
 }
 
 // check if the Proof of innocent of C1 is valid.
@@ -774,13 +748,7 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 		return false
 	}
 
-	height := preCommit.H()
-	lastHeader := chain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return overQuorumVotes(chain, preCommit.H(), p.Evidences)
 }
 
 func hasEquivocatedVotes(votes []*message.Message) bool {
@@ -822,12 +790,12 @@ func decodeRawProof(b []byte) (*Proof, error) {
 
 // checkMsgSignature checks if the consensus message is from valid member of the committee.
 func checkMsgSignature(chain ChainContext, m *message.Message) error {
-	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
-	if lastHeader == nil {
+	epochHead, parentHead, err := chain.EpochHeadAndParentHead(m.H())
+	if err != nil {
 		return errFutureMsg
 	}
 
-	if err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if err := m.Validate(crypto.CheckValidatorSignature, parentHead, epochHead); err != nil {
 		return errNotCommitteeMsg
 	}
 	return nil
@@ -860,11 +828,20 @@ func validReturn(m *message.Message, rule autonity.Rule) []byte {
 	return result
 }
 
-func maxEvidenceMessages(header *types.Header) int {
+func maxEvidenceMessages(epochHead *types.Header) int {
 	// todo(youssef): I dont understand that
-	committeeSize := len(header.Committee)
+	committeeSize := len(epochHead.Committee.Members)
 	if committeeSize > constants.MaxRound {
 		return committeeSize + 1
 	}
 	return constants.MaxRound + 1
+}
+
+func overQuorumVotes(chain ChainContext, height uint64, msgs []*message.Message) bool {
+	epochHead, _, err := chain.EpochHeadAndParentHead(height)
+	if err != nil {
+		return false
+	}
+	q := bft.Quorum(epochHead.TotalVotingPower())
+	return engineCore.OverQuorumVotes(msgs, q) != nil
 }
