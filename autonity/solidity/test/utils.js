@@ -7,6 +7,10 @@ const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
+const EC = require('elliptic').ec;
+const ec = new EC('secp256k1');
+const keccak256 = require('keccak256');
+const ethers = require('ethers');
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
@@ -271,6 +275,65 @@ function bytesToHex(bytes) {
   return hex;
 }
 
+function randomInt() {
+  const MAX = 1e10;
+  return Math.floor(Math.random() * MAX);
+}
+
+function randomPrivateKey() {
+  let key = [];
+  for (let i = 0; i < 32; i++) {
+    key.push(randomInt() % 256);
+  }
+  return bytesToHex(key).substring(2);
+}
+
+function privateKeyToEnode(privateKey) {
+  let key = publicKey(privateKey);
+  key = key.substring(key.length - 128);
+  return publicKeyToEnode(key);
+}
+
+function publicKeyToEnode(publicKey) {
+  return "enode://" + publicKey + "@3.209.45.79:30303";
+}
+
+function publicKeyObject(privateKey) {
+  return ec.keyFromPrivate(privateKey).getPublic();
+}
+
+function publicKey(privateKey, hex = true) {
+  let publicKey = publicKeyObject(privateKey);
+  return (hex == true) ? publicKey.encode("hex") : new Uint8Array(publicKey.encode());
+}
+
+function publicKeyCompressed(privateKey, hex = true) {
+  let publicKey = publicKeyObject(privateKey);
+  return (hex == true) ? publicKey.encodeCompressed("hex") : new Uint8Array(publicKey.encodeCompressed());
+}
+
+function address(publicKeyUncompressedBytes) {
+  return ethers.utils.getAddress("0x" + keccakHash(publicKeyUncompressedBytes.subarray(1)).substring(24));
+}
+
+function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
+  let treasuryProof = web3.eth.accounts.sign(treasuryAddr, nodekey);
+  let oracleProof = web3.eth.accounts.sign(treasuryAddr, oraclekey);
+  let multisig = treasuryProof.signature + oracleProof.signature.substring(2)
+  return multisig
+}
+
+async function registerValidator(autonity, validatorPrivateKey, treasuryAddr) {
+  let multisig = generateMultiSig(validatorPrivateKey, validatorPrivateKey, treasuryAddr);
+  let oracleAddress = address(publicKey(validatorPrivateKey, false));
+  let enode = privateKeyToEnode(validatorPrivateKey);
+  await autonity.registerValidator(enode, oracleAddress, multisig, {from: treasuryAddr});
+  return oracleAddress;
+}
+
+function keccakHash(input) {
+  return keccak256(Buffer.from(input)).toString('hex');
+}
 
 module.exports.deployContracts = deployContracts;
 module.exports.deployAutonityTestContract = deployAutonityTestContract;
@@ -288,4 +351,7 @@ module.exports.ruleToRate = ruleToRate;
 module.exports.signTransaction = signTransaction;
 module.exports.signAndSendTransaction = signAndSendTransaction;
 module.exports.bytesToHex = bytesToHex;
+module.exports.randomPrivateKey = randomPrivateKey;
+module.exports.generateMultiSig = generateMultiSig;
+module.exports.registerValidator = registerValidator;
 module.exports.ValidatorState = ValidatorState;
