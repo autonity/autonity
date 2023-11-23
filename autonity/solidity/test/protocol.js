@@ -746,77 +746,91 @@ contract('Protocol', function (accounts) {
       assert.equal(newValInfo.liquidSupply, oldValInfo.liquidSupply, "liquidSupply changed");
     });
 
-    it('zero amount of bonded and unbonding stake after 100% slash', async function () {
-      const validator = validators[0].nodeAddress;
-      const treasury = validators[0].treasury;
-      const delegator = accounts[8];
-      const tokenMint = 100;
-      await autonity.mint(delegator, tokenMint, {from: operator});
-      await autonity.bond(validator, tokenMint, {from: delegator});
-      // let bonding apply
-      await utils.endEpoch(autonity, operator, deployer);
-
-      await autonity.unbond(validator, tokenMint/2, {from: delegator});
-      let valInfo = await autonity.getValidator(validator);
-      let totalSlash = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
-      let {txEvent, slashingRate} = await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
-      assert.equal(txEvent.amount.toNumber(), totalSlash, "100% slash did not happen");
-      valInfo = await autonity.getValidator(validator);
-      let totalStake = Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake) + Number(valInfo.unbondingStake);
-      assert.equal(totalStake, 0, "stake remaining after 100% slash");
-    });
-
     it('does not trigger fairness issue (unbondingStake > 0 and delegatedStake > 0)', async function () {
       // fairness issue is triggered when delegatedStake or unbondingStake becomes 0 from positive due to slashing
       // it can happen due to slashing rate = 100%
       // it can also happen if both unbondingStake and delegatedStake > 0 and slashing amount >= (totalStake - 1)
       // it should not happen for slashing amount < (totalStake - 1)
       let config = JSON.parse(JSON.stringify(accountabilityConfig));
-      config.collusionFactor = parseInt(config.slashingRatePrecision) - parseInt(config.baseSlashingRateMid) - 2;
+      // modifying config so we get slashingAmount = totalStake - 2, the highest slash possible without triggering fairness issue
+      const expectedBondedStake = parseInt(config.slashingRatePrecision);
+      const expectedSlash = expectedBondedStake - 2;
+      config.collusionFactor = expectedSlash - parseInt(config.baseSlashingRateMid);
       accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
 
-      const validatorAddresses = [ validators[0].nodeAddress, validators[1].nodeAddress];
-      const tokenUnbondFactor = [1/10, 8/10];
-      const delegator = accounts[8];
-
-      for (let iter = 0; iter < 2; iter++) {
-        let validator = validatorAddresses[iter];
-        let valInfo = await autonity.getValidator(validator);
-        let selfBondedStake = parseInt(valInfo.bondedStake);
-        // non-self bond to check fairness issue
-        const tokenMint = parseInt(config.slashingRatePrecision) - selfBondedStake;
-        await autonity.mint(delegator, tokenMint, {from: operator});
-        await autonity.bond(validator, tokenMint, {from: delegator});
-        // let bonding apply
-        await utils.endEpoch(autonity, operator, deployer);
-        let totalStake = selfBondedStake + tokenMint;
-        let tokenUnBond = Math.ceil(tokenMint*tokenUnbondFactor[iter]);
-        await autonity.unbond(validator, tokenUnBond, {from: delegator});
-        await utils.endEpoch(autonity, operator, deployer);
-        let {txEvent, rate} = await slash(config, accountability, 1, validator, validator);
-        // checking if highest possible slashing can be done without triggering fairness issue
-        assert.equal(txEvent.amount.toNumber(), totalStake - 2);
-        valInfo = await autonity.getValidator(validator);
-        assert.equal(valInfo.state, utils.ValidatorState.jailed, "validator not jailed");
-        assert(parseInt(valInfo.bondedStake) > 0 && parseInt(valInfo.unbondingStake) > 0, "fairness issue triggered");
+      const tokenUnbondFactor = [1/10, 9/10, 1/100, 99/100, 1/1000, 999/1000, 1/10000000, 9999999/10000000];
+      const delegator = accounts[9];
+      const balance = (await autonity.balanceOf(delegator)).toNumber();
+      let validatorAddresses = [];
+      for (let i = 0; i < Math.min(validators.length, tokenUnbondFactor.length); i++) {
+        validatorAddresses.push(validators[i].nodeAddress);
+      }
+      
+      while (tokenUnbondFactor.length > validatorAddresses.length) {
+        const treasury = accounts[8];
+        const privateKey = utils.randomPrivateKey();
+        const validatorNodeAddress = await utils.registerValidator(autonity, privateKey, treasury);
+        validatorAddresses.push(validatorNodeAddress);
       }
 
+      let tokenMinted = []
+      for (let iter = 0; iter < validatorAddresses.length; iter++) {
+        let validator = validatorAddresses[iter];
+        let validatorInfo = await autonity.getValidator(validator);
+        let bondedStake = parseInt(validatorInfo.bondedStake);
+        // non-self bond to check fairness issue
+        const tokenMint = expectedBondedStake - bondedStake;
+        tokenMinted.push(tokenMint);
+        await autonity.mint(delegator, tokenMint, {from: operator});
+        await autonity.bond(validator, tokenMint, {from: delegator});
+      }
+      // let bonding apply
+      await utils.endEpoch(autonity, operator, deployer);
+
+      for (let iter = 0; iter < validatorAddresses.length; iter++) {
+        const validator = validatorAddresses[iter];
+        let tokenUnBond = Math.max(1, Math.floor(tokenMinted[iter]*tokenUnbondFactor[iter]));
+        await autonity.unbond(validator, tokenUnBond, {from: delegator});
+      }
+      // let unbonding apply and unbondingStake create
+      await utils.endEpoch(autonity, operator, deployer);
+
+      for (let iter = 0; iter < validatorAddresses.length; iter++) {
+        const validator = validatorAddresses[iter];
+        let {txEvent, _} = await slash(config, accountability, 1, validator, validator);
+        // checking if highest possible slashing can be done without triggering fairness issue
+        assert.equal(txEvent.amount.toNumber(), expectedSlash, "highest slash did not happen");
+        let validatorInfo = await autonity.getValidator(validator);
+        assert.equal(validatorInfo.state, utils.ValidatorState.jailed, "validator not jailed");
+        assert(parseInt(validatorInfo.bondedStake) > 0 && parseInt(validatorInfo.unbondingStake) > 0, "fairness issue triggered");
+      }
+      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unbonding released");
     });
 
     it('kills validator for 100% slash', async function () {
+      // non-self-bond and self-bond
       const validatorAddresses = [validators[0].nodeAddress, validators[1].nodeAddress];
       const delegatorAddresses = [accounts[9], validators[1].treasury];
+      const tokenMint = 100;
+      let balances = [];
 
       for (let iter = 0; iter < delegatorAddresses.length; iter++) {
         const delegator = delegatorAddresses[iter];
         const validator = validatorAddresses[iter];
-        const tokenMint = 100;
+        balances.push((await autonity.balanceOf(delegator)).toNumber());
         await autonity.mint(delegator, tokenMint, {from: operator});
         await autonity.bond(validator, tokenMint, {from: delegator});
       }
-
       // let bonding apply
+      await utils.endEpoch(autonity, operator, deployer);
+
+      for (let iter = 0; iter < delegatorAddresses.length; iter++) {
+        const delegator = delegatorAddresses[iter];
+        const validator = validatorAddresses[iter];
+        await autonity.unbond(validator, tokenMint/2, {from: delegator});
+      }
+      // let unbonding apply
       await utils.endEpoch(autonity, operator, deployer);
 
       for (let iter = 0; iter < delegatorAddresses.length; iter++) {
@@ -829,37 +843,40 @@ contract('Protocol', function (accounts) {
           parseInt(valInfo.bondedStake) + parseInt(valInfo.unbondingStake) + parseInt(valInfo.selfUnbondingStake)
           , 0, "100% slash did not happen"
         );
+        assert.equal((await autonity.balanceOf(delegator)).toNumber(), balances[iter], "unbonding released");
       }
       
     });
 
     it('kills validator for (slashingAmount = totalStake - 1)', async function () {
       let config = JSON.parse(JSON.stringify(accountabilityConfig));
-      config.collusionFactor = parseInt(config.slashingRatePrecision) - parseInt(config.baseSlashingRateMid) - 1;
+      // in Accountability.sol, _slashingRate = _baseRate + (_epochOffencesCount * config.collusionFactor) + ( _history * config.historyFactor)
+      // setting bondedStake = config.slashingRatePrecision and collusionFactor as following to slash exactly (bondedStake - 1)
+      const expectedBondedStake = parseInt(config.slashingRatePrecision);
+      const expectedSlash = expectedBondedStake - 1;
+      config.collusionFactor = expectedSlash - parseInt(config.baseSlashingRateMid);
       accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
 
       const validatorAddresses = [validators[0].nodeAddress, validators[1].nodeAddress];
+      // non-self and self bonding
       const delegatorAddresses = [accounts[9], validators[1].treasury];
-      let stakes = [0,0];
 
       for (let iter = 0; iter < delegatorAddresses.length; iter++) {
         const delegator = delegatorAddresses[iter];
         const validator = validatorAddresses[iter];
-        let valInfo = await autonity.getValidator(validator);
-        let totalStake = parseInt(valInfo.bondedStake);
-        const tokenMint = parseInt(config.slashingRatePrecision) - totalStake;
-        totalStake += tokenMint;
+        let validatorInfo = await autonity.getValidator(validator);
+        let totalStake = parseInt(validatorInfo.bondedStake);
+        // minting to get bondedStake = expectedBondedStake
+        const tokenMint = expectedBondedStake - totalStake;
         await autonity.mint(delegator, tokenMint, {from: operator});
         await autonity.bond(validator, tokenMint, {from: delegator});
-        stakes[iter] = totalStake;
       }
       await utils.endEpoch(autonity, operator, deployer);
 
       for (let iter = 0; iter < delegatorAddresses.length; iter++) {
         const delegator = delegatorAddresses[iter];
         const validator = validatorAddresses[iter];
-        let totalStake = stakes[iter];
         const event = {
           "chunks": 1,
           "chunkId": 1,
@@ -876,12 +893,12 @@ contract('Protocol', function (accounts) {
         let epochOffenceCount = 1;
         let tx = await accountability.slash(event, epochOffenceCount);
         truffleAssert.eventEmitted(tx, 'ValidatorJailbound', (ev) => {
-          return ev.amount.toNumber() > 0 && ev.amount.toNumber() == totalStake - 1;
+          return ev.amount.toNumber() > 0 && ev.amount.toNumber() == expectedBondedStake;
         });
-        let valInfo = await autonity.getValidator(validator);
-        assert.equal(valInfo.state, utils.ValidatorState.jailbound, "validator not jailbound");
-        totalStake = parseInt(valInfo.bondedStake) + parseInt(valInfo.unbondingStake) + parseInt(valInfo.selfUnbondingStake);
-        assert.equal(totalStake, 1);
+        let validatorInfo = await autonity.getValidator(validator);
+        assert.equal(validatorInfo.state, utils.ValidatorState.jailbound, "validator not jailbound");
+        let totalStake = parseInt(validatorInfo.bondedStake) + parseInt(validatorInfo.unbondingStake) + parseInt(validatorInfo.selfUnbondingStake);
+        assert.equal(totalStake, 0, "all stakes not slashed");
       }
     });
 
