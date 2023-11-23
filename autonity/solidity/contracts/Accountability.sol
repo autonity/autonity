@@ -347,6 +347,20 @@ contract Accountability is IAccountability {
 
         uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
         uint256 _slashingAmount =  (_slashingRate * _availableFunds)/config.slashingRatePrecision;
+
+        // in case of (_slashingAmount = _availableFunds - 1) or 100% slash, we slash all stakes and jailbound the validator
+        if (_slashingAmount > 0 && _slashingAmount >= _availableFunds - 1) {
+            _val.bondedStake = 0;
+            _val.selfBondedStake = 0;
+            _val.selfUnbondingStake = 0;
+            _val.unbondingStake = 0;
+            _val.totalSlashed += _availableFunds;
+            _val.provableFaultCount += 1;
+            _val.state = ValidatorState.jailbound;
+            autonity.updateValidatorAndTransferSlashedFunds(_val);
+            emit ValidatorJailbound(_val.nodeAddress, _availableFunds);
+            return;
+        }
         uint256 _remaining = _slashingAmount;
         // -------------------------------------------
         // Implementation of Penalty Absorbing Stake
@@ -401,18 +415,12 @@ contract Accountability is IAccountability {
 
         _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
-
-        if (_slashingAmount > 0 && _slashingAmount >= _availableFunds - 1) {
-            // validator is jailed permanently if 100% slashed or _slashingAmount = _availableFunds-1
-            _val.state = ValidatorState.jailbound;
-            emit ValidatorJailbound(_val.nodeAddress, _slashingAmount);
-        } else {
-            _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
-            _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
-            emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
-        }
+        _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
+        _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
+
+        emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
     }
 
 
