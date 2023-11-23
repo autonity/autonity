@@ -785,9 +785,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		invalidProposal := newProposalMessage(height, 1, 0, iKeys[invalidCommittee.Members[0].Address], invalidCommittee, nil)
 		p.Message = invalidProposal
 
-		lastHeader := newBlockHeader(lastHeight, committee)
+		lastHeader := newBlockHeader(lastHeight, nil)
+		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil)
 		iv := InnocenceVerifier{chain: chainMock}
 		ret := iv.validateInnocenceProof(&p)
 		assert.Equal(t, failureResult, ret)
@@ -804,9 +805,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		invalidPreVote := newVoteMsg(height, 1, proto.MsgPrevote, iKeys[invalidCommittee.Members[0].Address], proposal.Value(), invalidCommittee)
 		p.Evidences = append(p.Evidences, invalidPreVote)
 
-		lastHeader := newBlockHeader(lastHeight, committee)
+		lastHeader := newBlockHeader(lastHeight, nil)
+		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil)
 		iv := InnocenceVerifier{chain: chainMock}
 		ret := iv.validateInnocenceProof(&p)
 		assert.Equal(t, failureResult, ret)
@@ -1127,7 +1129,7 @@ func TestCheckMsgSignature(t *testing.T) {
 		epochHeader := newBlockHeader(common.Big1.Uint64(), committee)
 		proposal := newProposalMessage(height, round, -1, ks[wrongCommitte.Members[0].Address], wrongCommitte, nil)
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().GetHeaderByNumber(height).Return(epochHeader, lastHeader, nil)
+		chainMock.EXPECT().EpochHeadAndParentHead(height).Return(epochHeader, lastHeader, nil)
 		require.Equal(t, errNotCommitteeMsg, checkMsgSignature(chainMock, proposal))
 	})
 }

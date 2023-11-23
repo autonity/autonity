@@ -78,7 +78,7 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				Committee: committee,
 			}),
-			common.HexToHash("0x570e7747cda5ab8a440ec5adb0ca4940c9cb69b5e8c6d2fe85b63bf5504bd1d1"),
+			common.HexToHash("0x1660f82e07fda09ac04125e46d6bddca0249bcc790ccbb0cb0d1672a6936054f"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
