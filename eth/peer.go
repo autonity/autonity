@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"github.com/autonity/autonity/eth/protocols/tm"
 	"math/big"
 
 	"github.com/autonity/autonity/eth/protocols/eth"
@@ -63,6 +64,24 @@ type snapPeer struct {
 // info gathers and returns some `snap` protocol metadata known about a peer.
 func (p *snapPeer) info() *snapPeerInfo {
 	return &snapPeerInfo{
+		Version: p.Version(),
+	}
+}
+
+// snapPeerInfo represents a short summary of the `snap` sub-protocol metadata known
+// about a connected peer.
+type consensusPeerInfo struct {
+	Version uint `json:"version"` // Snapshot protocol version negotiated
+}
+
+// snapPeer is a wrapper around snap.Peer to maintain a few extra metadata.
+type consensusPeer struct {
+	*tm.Peer
+}
+
+// info gathers and returns some `snap` protocol metadata known about a peer.
+func (p *consensusPeer) info() *consensusPeerInfo {
+	return &consensusPeerInfo{
 		Version: p.Version(),
 	}
 }

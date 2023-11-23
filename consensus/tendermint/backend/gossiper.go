@@ -63,7 +63,7 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 		}
 	}
 	if g.broadcaster != nil && len(targets) > 0 {
-		ps := g.broadcaster.FindPeers(targets)
+		ps := g.broadcaster.FindConsensusPeers(targets)
 		for addr, p := range ps {
 			ms, ok := g.recentMessages.Get(addr)
 			var m *lru.ARCCache

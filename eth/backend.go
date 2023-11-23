@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/eth/protocols/tm"
 	"math/big"
 	"runtime"
 	"sync"
@@ -303,6 +304,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// Register the backend on the node
 	stack.RegisterAPIs(eth.APIs())
 	stack.RegisterProtocols(eth.Protocols())
+	stack.RegisterConsensusProtocols(eth.ConsensusProtocols())
 	stack.RegisterLifecycle(eth)
 
 	// Successful startup; push a marker and check previous unclean shutdowns.
@@ -539,6 +541,14 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 	if s.config.SnapshotCache > 0 {
 		protos = append(protos, snap.MakeProtocols((*snapHandler)(s.handler), s.snapDialCandidates)...)
 	}
+	return protos
+}
+
+// TODO: consens protocol can be separated from ethereum object
+// ConsensusProtocols returns all the currently configured
+// network protocols to start.
+func (s *Ethereum) ConsensusProtocols() []p2p.Protocol {
+	protos := tm.MakeProtocols((*tmHandler)(s.handler), s.networkID)
 	return protos
 }
 

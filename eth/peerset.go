@@ -18,7 +18,8 @@ package eth
 
 import (
 	"errors"
-	ethereum "github.com/autonity/autonity"
+	autonity "github.com/autonity/autonity"
+	"github.com/autonity/autonity/eth/protocols/tm"
 	"math/big"
 	"sync"
 
@@ -49,22 +50,26 @@ var (
 // peerSet represents the collection of active peers currently participating in
 // the `eth` protocol, with or without the `snap` extension.
 type peerSet struct {
-	peers     map[string]*ethPeer // Peers connected on the `eth` protocol
-	snapPeers int                 // Number of `snap` compatible peers for connection prioritization
+	peers map[string]*ethPeer // Peers connected on the `eth` protocol
+	//TODO: a separate PeerSet for consensus peers could be a good idea here
+	consensusPeers map[string]*consensusPeer // Peers connected on the `eth` protocol
+	snapPeers      int                       // Number of `snap` compatible peers for connection prioritization
 
 	snapWait map[string]chan *snap.Peer // Peers connected on `eth` waiting for their snap extension
 	snapPend map[string]*snap.Peer      // Peers connected on the `snap` protocol, but not yet on `eth`
 
-	lock   sync.RWMutex
-	closed bool
+	lock             sync.RWMutex
+	consensusSetLock sync.RWMutex
+	closed           bool
 }
 
-// newPeerSet creates a new peer set to track the active participants.
+// Voters creates a new peer set to track the active participants.
 func newPeerSet() *peerSet {
 	return &peerSet{
-		peers:    make(map[string]*ethPeer),
-		snapWait: make(map[string]chan *snap.Peer),
-		snapPend: make(map[string]*snap.Peer),
+		peers:          make(map[string]*ethPeer),
+		consensusPeers: make(map[string]*consensusPeer),
+		snapWait:       make(map[string]chan *snap.Peer),
+		snapPend:       make(map[string]*snap.Peer),
 	}
 }
 
@@ -96,6 +101,20 @@ func (ps *peerSet) registerSnapExtension(peer *snap.Peer) error {
 	}
 	ps.snapPend[id] = peer
 	return nil
+}
+
+// EthHandshakeStatus returns if eth handshake was successfully done
+func (ps *peerSet) EthHandshakeStatus(peer *eth.Peer) bool {
+	// Ensure nobody can double connect
+	ps.lock.Lock()
+	defer ps.lock.Unlock()
+
+	id := peer.ID()
+	if _, ok := ps.peers[id]; ok {
+		ps.lock.Unlock()
+		return true
+	}
+	return false
 }
 
 // waitExtensions blocks until all satellite protocols are connected and tracked
@@ -174,6 +193,38 @@ func (ps *peerSet) unregisterPeer(id string) error {
 	return nil
 }
 
+// registerPeer injects a new `eth` peer into the working set, or returns an error
+// if the peer is already known.
+func (ps *peerSet) registerConsensusPeer(peer *tm.Peer) error {
+	// Start tracking the new peer
+	ps.consensusSetLock.Lock()
+	defer ps.consensusSetLock.Unlock()
+
+	if ps.closed {
+		return errPeerSetClosed
+	}
+	id := peer.ID()
+	if _, ok := ps.consensusPeers[id]; ok {
+		return errPeerAlreadyRegistered
+	}
+	ps.consensusPeers[id] = &consensusPeer{Peer: peer}
+	return nil
+}
+
+// unregisterPeer removes a remote peer from the active set, disabling any further
+// actions to/from that particular entity.
+func (ps *peerSet) unregisterConsensusPeer(id string) error {
+	ps.consensusSetLock.Lock()
+	defer ps.consensusSetLock.Unlock()
+
+	_, ok := ps.consensusPeers[id]
+	if !ok {
+		return errPeerNotRegistered
+	}
+	delete(ps.consensusPeers, id)
+	return nil
+}
+
 // peer retrieves the registered peer with the given id.
 func (ps *peerSet) peer(id string) *ethPeer {
 	ps.lock.RLock()
@@ -182,10 +233,18 @@ func (ps *peerSet) peer(id string) *ethPeer {
 	return ps.peers[id]
 }
 
-func (ps *peerSet) findPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+// peer retrieves the registered peer with the given id.
+func (ps *peerSet) consensusPeer(id string) *consensusPeer {
+	ps.consensusSetLock.RLock()
+	defer ps.consensusSetLock.RUnlock()
+
+	return ps.consensusPeers[id]
+}
+
+func (ps *peerSet) findPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
-	m := make(map[common.Address]ethereum.Peer)
+	m := make(map[common.Address]autonity.Peer)
 	for _, p := range ps.peers {
 		addr := p.Address()
 		if _, ok := targets[addr]; ok {
@@ -195,8 +254,21 @@ func (ps *peerSet) findPeers(targets map[common.Address]struct{}) map[common.Add
 	return m
 }
 
+func (ps *peerSet) findConsensusPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
+	ps.consensusSetLock.RLock()
+	defer ps.consensusSetLock.RUnlock()
+	m := make(map[common.Address]autonity.Peer)
+	for _, p := range ps.consensusPeers {
+		addr := p.Address()
+		if _, ok := targets[addr]; ok {
+			m[addr] = p
+		}
+	}
+	return m
+}
+
 // peersWithoutBlock retrieves a list of peers that do not have a given block in
-// their set of known hashes so it might be propagated to them.
+// their set of known hashes, so it might be propagated to them.
 func (ps *peerSet) peersWithoutBlock(hash common.Hash) []*ethPeer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()

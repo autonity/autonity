@@ -172,6 +172,7 @@ type Server struct {
 	// Config fields may not be modified while the server is running.
 	Config
 
+	id string
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
 	newTransport func(net.Conn, *ecdsa.PublicKey) transport
