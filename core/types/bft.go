@@ -187,7 +187,7 @@ type Committee struct {
 	totalVotingPower *big.Int
 	power            sync.Once
 	// aggregated validator public key of all committee members
-	aggValidatorKey bls.PublicKey
+	aggValidatorKey []byte
 	aggregation     sync.Once
 	// used for committee member lookup
 	membersMap map[common.Address]*CommitteeMember
@@ -245,7 +245,7 @@ func (c *Committee) CommitteeMember(address common.Address) *CommitteeMember { /
 	return c.membersMap[address]
 }
 
-func (c *Committee) AggregatedValidatorKey() bls.PublicKey { // nolint
+func (c *Committee) AggregatedValidatorKey() []byte { // nolint
 	// compute aggregated key only once, then returned cached value
 	c.aggregation.Do(func() {
 		// collect bls keys of committee members in bytes
@@ -259,7 +259,7 @@ func (c *Committee) AggregatedValidatorKey() bls.PublicKey { // nolint
 			// this shouldn't happen as all validator keys are validity checked before they are inserted into the AC
 			log.Crit("invalid BLS key in header")
 		}
-		c.aggValidatorKey = aggKey
+		c.aggValidatorKey = aggKey.Marshal()
 	})
 	return c.aggValidatorKey
 }

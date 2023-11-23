@@ -2,7 +2,6 @@ package types
 
 import (
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/log"
 	"math/big"
 )
@@ -22,7 +21,7 @@ func (h *Header) CommitteeMember(address common.Address) *CommitteeMember {
 }
 
 // AggregatedValidatorKey returns the aggregated validator public key of the committee members
-func (h *Header) AggregatedValidatorKey() bls.PublicKey {
+func (h *Header) AggregatedValidatorKey() []byte {
 	// if we are not on an epoch-header, crash
 	if h.LastEpochBlock.Cmp(h.Number) != 0 {
 		log.Crit("calling committee related function on a non-epoch header")
