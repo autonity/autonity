@@ -529,6 +529,13 @@ func (hc *HeaderChain) EpochHeadAndParentHead(number uint64) (*types.Header, *ty
 		return hc.genesisHeader, hc.genesisHeader, nil
 	}
 
+	// if current number is an epoch head, return itself and its parent.
+	header := hc.GetHeaderByNumber(number)
+	if header != nil && header.LastEpochBlock.Cmp(header.Number) == 0 {
+		return header, parent, nil
+	}
+
+	// otherwise, query the epoch head and return.
 	epoch := hc.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
 	if epoch == nil {
 		return nil, nil, consensus.ErrUnknownEpoch
