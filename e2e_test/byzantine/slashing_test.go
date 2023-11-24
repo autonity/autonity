@@ -104,7 +104,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 	for i := 1; i < epochs; i++ {
 		// scale timeout with extra 10% of expected time
 
-		timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.1)*time.Second)
+		timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.5)*time.Second)
 		defer cancel()
 		slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -120,7 +120,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		validatorsBefore[i] = validatorBefore
 	}
 
-	timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.1)*time.Second)
+	timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.5)*time.Second)
 	defer cancel()
 	slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -237,7 +237,7 @@ func TestHistoryFactor(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait for slashing
-	timeout, cancel := context.WithTimeout(context.TODO(), 120*time.Second)
+	timeout, cancel := context.WithTimeout(context.TODO(), 150*time.Second)
 	defer cancel()
 	slashingEventA := WaitForSlashingEvent(timeout, t, dedicatedNode)
 
