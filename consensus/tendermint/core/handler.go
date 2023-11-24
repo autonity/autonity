@@ -18,6 +18,7 @@ import (
 const syncTimeOut = 30 * time.Second
 
 var ErrValidatorJailed = errors.New("jailed validator")
+var ErrValidatorJailbound = errors.New("jailbound validator")
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
@@ -96,6 +97,8 @@ func shouldDisconnectSender(err error) bool {
 		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
 		// This needs to verified though. Returning false for the time being.
 		return false
+	case ErrValidatorJailbound:
+		return true
 	default:
 		return true
 	}
@@ -240,6 +243,10 @@ func (c *Core) SendEvent(ev any) {
 // handleMsg assume msg has already been decoded
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	msgHeight := new(big.Int).SetUint64(msg.H())
+	if c.backend.IsJailbound(msg.Address) {
+		c.logger.Debug("Jailbound validator, ignoring message", "address", msg.Address)
+		return ErrValidatorJailbound
+	}
 	if msgHeight.Cmp(c.Height()) > 0 {
 		// Future height message. Skip processing and put it in the untrusted backlog buffer.
 		c.storeFutureMessage(msg)
