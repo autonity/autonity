@@ -512,6 +512,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	var subscriptions event.SubscriptionScope
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
 	slashingEventCh := make(chan *autonity.AccountabilitySlashingEvent)
+	jailboundEventCh := make(chan *autonity.AccountabilityValidatorJailbound)
 	chainHeadCh := make(chan core.ChainHeadEvent)
 
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
@@ -545,6 +546,10 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailedLock.Lock()
 			sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
 			sb.jailedLock.Unlock()
+		case ev := <-jailboundEventCh:
+			sb.jailboundLock.Lock()
+			sb.jailebound[ev.Validator] = true
+			sb.jailboundLock.Unlock()
 		case ev := <-chainHeadCh:
 			sb.jailedLock.Lock()
 			for k, v := range sb.jailed {
@@ -553,6 +558,10 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				}
 			}
 			sb.jailedLock.Unlock()
+
+			// TODO: delete jailbound validator from map after they are kicked out from committee
+			// sb.jailboundLock.Lock()
+			// sb.jailboundLock.Unlock()
 		}
 	}
 }
@@ -562,4 +571,11 @@ func (sb *Backend) IsJailed(address common.Address) bool {
 	defer sb.jailedLock.RUnlock()
 	_, ok := sb.jailed[address]
 	return ok
+}
+
+func (sb *Backend) IsJailbound(address common.Address) bool {
+	sb.jailboundLock.RLock()
+	defer sb.jailboundLock.RUnlock()
+	jailbound, ok := sb.jailebound[address]
+	return ok && jailbound
 }

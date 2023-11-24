@@ -110,9 +110,11 @@ type Backend struct {
 	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
 
-	MsgStore   *tendermintCore.MsgStore
-	jailed     map[common.Address]uint64
-	jailedLock sync.RWMutex
+	MsgStore      *tendermintCore.MsgStore
+	jailed        map[common.Address]uint64
+	jailedLock    sync.RWMutex
+	jailebound    map[common.Address]bool
+	jailboundLock sync.RWMutex
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
