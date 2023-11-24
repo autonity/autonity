@@ -591,6 +591,38 @@ var (
 		Usage: "Allow for unprotected (non EIP155 signed) transactions to be submitted via RPC",
 	}
 
+	//Consensus Network settings
+	ConsensusListenPortFlag = cli.IntFlag{
+		Name:  "consensus.port",
+		Usage: "Network listening port for consensus channel",
+		Value: 30304,
+	}
+	ConsensusBootNodesFlag = cli.StringFlag{
+		Name:  "consensus.bootnodes",
+		Usage: "Comma separated enode URLs for P2P discovery bootstrap on consensus channel",
+		Value: "",
+	}
+	ConsensusNATFlag = cli.StringFlag{
+		Name:  "consensus.nat",
+		Usage: "NAT port mapping mechanism for consensus channel (any|none|upnp|pmp|extip:<IP>)",
+		Value: "any",
+	}
+	ConsensusNoDiscoverFlag = cli.BoolFlag{
+		Name:  "consensus.nodiscover",
+		Usage: "Disables the peer discovery mechanism for consensus server(manual peer addition)",
+	}
+	ConsensusDiscoveryV5Flag = cli.BoolFlag{
+		Name:  "consensus.v5disc",
+		Usage: "Enables the experimental RLPx V5 (Topic Discovery) mechanism for consensus server",
+	}
+	ConsensusNetrestrictFlag = cli.StringFlag{
+		Name:  "consensus.netrestrict",
+		Usage: "Restricts network communication to the given IP networks (CIDR masks) for consensus server",
+	}
+	ConsensusDNSDiscoveryFlag = cli.StringFlag{
+		Name:  "discovery.dns",
+		Usage: "Sets DNS discovery entry points (use \"\" to disable DNS) for consensus server",
+	}
 	// Network Settings
 	MaxPeersFlag = cli.IntFlag{
 		Name:  "maxpeers",
@@ -606,6 +638,11 @@ var (
 		Name:  "port",
 		Usage: "Network listening port",
 		Value: 30303,
+	}
+	NATFlag = cli.StringFlag{
+		Name:  "nat",
+		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",
+		Value: "any",
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -631,11 +668,6 @@ var (
 	WriteAddrFlag = cli.BoolFlag{
 		Name:  "writeaddress",
 		Usage: "writes out the node's public key on stdout",
-	}
-	NATFlag = cli.StringFlag{
-		Name:  "nat",
-		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",
-		Value: "any",
 	}
 	NoDiscoverFlag = cli.BoolFlag{
 		Name:  "nodiscover",
@@ -822,6 +854,35 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
+	case ctx.GlobalBool(PiccadillyFlag.Name):
+		urls = params.PiccadillyBootnodes
+	case ctx.GlobalBool(BakerlooFlag.Name):
+		urls = params.BakerlooBootnodes
+	case cfg.BootstrapNodes != nil:
+		return // already set, don't apply defaults.
+	}
+
+	cfg.BootstrapNodes = make([]*enode.Node, 0, len(urls))
+	for _, url := range urls {
+		if url != "" {
+			node, err := enode.Parse(enode.ValidSchemes, url)
+			if err != nil {
+				log.Crit("Bootstrap URL invalid", "enode", url, "err", err)
+				continue
+			}
+			cfg.BootstrapNodes = append(cfg.BootstrapNodes, node)
+		}
+	}
+}
+
+// setBootstrapNodes creates a list of bootstrap nodes from the command line
+// flags, reverting to pre-configured ones if none have been specified.
+func setConsensusBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
+	var urls []string
+	switch {
+	case ctx.GlobalIsSet(ConsensusBootNodesFlag.Name):
+		urls = SplitAndTrim(ctx.GlobalString(ConsensusBootNodesFlag.Name))
+		//TODO: setup picadilly/Backerloo enode flags later for consensus
 	case ctx.GlobalBool(PiccadillyFlag.Name):
 		urls = params.PiccadillyBootnodes
 	case ctx.GlobalBool(BakerlooFlag.Name):
@@ -1164,9 +1225,97 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
+func SetConsensusP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
+	setNodeKey(ctx, cfg)
+	if ctx.GlobalIsSet(ConsensusNATFlag.Name) {
+		natif, err := nat.Parse(ctx.GlobalString(ConsensusNATFlag.Name))
+		if err != nil {
+			Fatalf("Option %s: %v", ConsensusNATFlag.Name, err)
+		}
+		cfg.NAT = natif
+	}
+	// set listener
+	if ctx.GlobalIsSet(ConsensusListenPortFlag.Name) {
+		cfg.ListenAddr = fmt.Sprintf(":%d", ctx.GlobalInt(ConsensusListenPortFlag.Name))
+	}
+
+	setBootstrapNodes(ctx, cfg)
+	//enr doesn't seem to be yet supported in upstream ?
+	//setBootstrapNodesV5(ctx, cfg)
+
+	lightClient := ctx.GlobalString(SyncModeFlag.Name) == "light"
+	if lightClient {
+		Fatalf("light client currently unsupported")
+	}
+	lightServer := (ctx.GlobalInt(LightServeFlag.Name) != 0)
+
+	lightPeers := ctx.GlobalInt(LightMaxPeersFlag.Name)
+	if lightClient && !ctx.GlobalIsSet(LightMaxPeersFlag.Name) {
+		// dynamic default - for clients we use 1/10th of the default for servers
+		lightPeers /= 10
+	}
+
+	if ctx.GlobalIsSet(MaxPeersFlag.Name) {
+		cfg.MaxPeers = ctx.GlobalInt(MaxPeersFlag.Name)
+		if lightServer && !ctx.GlobalIsSet(LightMaxPeersFlag.Name) {
+			cfg.MaxPeers += lightPeers
+		}
+	} else {
+		if lightServer {
+			cfg.MaxPeers += lightPeers
+		}
+		if lightClient && ctx.GlobalIsSet(LightMaxPeersFlag.Name) && cfg.MaxPeers < lightPeers {
+			cfg.MaxPeers = lightPeers
+		}
+	}
+	if !(lightClient || lightServer) {
+		lightPeers = 0
+	}
+	ethPeers := cfg.MaxPeers - lightPeers
+	if lightClient {
+		ethPeers = 0
+	}
+	log.Info("Maximum peer count", "ETH", ethPeers, "LES", lightPeers, "total", cfg.MaxPeers)
+
+	if ctx.GlobalIsSet(MaxPendingPeersFlag.Name) {
+		cfg.MaxPendingPeers = ctx.GlobalInt(MaxPendingPeersFlag.Name)
+	}
+	if ctx.GlobalIsSet(NoDiscoverFlag.Name) || lightClient {
+		cfg.NoDiscovery = true
+	}
+
+	// if we're running a light client or server, force enable the v5 peer discovery
+	// unless it is explicitly disabled with --nodiscover note that explicitly specifying
+	// --v5disc overrides --nodiscover, in which case the later only disables v4 discovery
+	forceV5Discovery := (lightClient || lightServer) && !ctx.GlobalBool(NoDiscoverFlag.Name)
+	if ctx.GlobalIsSet(DiscoveryV5Flag.Name) {
+		cfg.DiscoveryV5 = ctx.GlobalBool(DiscoveryV5Flag.Name)
+	} else if forceV5Discovery {
+		cfg.DiscoveryV5 = true
+	}
+
+	if netrestrict := ctx.GlobalString(NetrestrictFlag.Name); netrestrict != "" {
+		list, err := netutil.ParseNetlist(netrestrict)
+		if err != nil {
+			Fatalf("Option %q: %v", NetrestrictFlag.Name, err)
+		}
+		cfg.NetRestrict = list
+	}
+
+	if ctx.Bool(DeveloperFlag.Name) {
+		// --dev mode can't use p2p networking.
+		cfg.MaxPeers = 0
+		cfg.ListenAddr = ""
+		cfg.NoDial = true
+		cfg.NoDiscovery = true
+		cfg.DiscoveryV5 = false
+	}
+}
+
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	SetP2PConfig(ctx, &cfg.P2P)
+	SetConsensusP2PConfig(ctx, &cfg.ConsensusP2P)
 	setIPC(ctx, cfg)
 	setHTTP(ctx, cfg)
 	setGraphQL(ctx, cfg)

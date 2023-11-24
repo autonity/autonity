@@ -103,8 +103,8 @@ func New(conf *Config) (*Node, error) {
 		eventmux:        new(event.TypeMux),
 		log:             conf.Logger,
 		stop:            make(chan struct{}),
-		server:          &p2p.Server{Config: conf.P2P},
-		consensusServer: &p2p.Server{Config: conf.ConsensusP2P},
+		server:          &p2p.Server{Typ: p2p.EthTx, Config: conf.P2P},
+		consensusServer: &p2p.Server{Typ: p2p.Consensus, Config: conf.ConsensusP2P},
 		databases:       make(map[*closeTrackingDB]struct{}),
 	}
 
@@ -139,6 +139,7 @@ func New(conf *Config) (*Node, error) {
 		node.server.Config.NodeDatabase = node.config.NodeDB()
 	}
 
+	//Initializing consensus server
 	node.consensusServer.Config.PrivateKey = node.config.NodeKey()
 	node.consensusServer.Config.Name = node.config.NodeName()
 	node.consensusServer.Config.Logger = node.log
@@ -537,6 +538,16 @@ func (n *Node) Server() *p2p.Server {
 	defer n.lock.Unlock()
 
 	return n.server
+}
+
+// Server retrieves the currently running P2P network layer. This method is meant
+// only to inspect fields of the currently running server. Callers should not
+// start or stop the returned server.
+func (n *Node) ConsensusServer() *p2p.Server {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	return n.consensusServer
 }
 
 // DataDir retrieves the current datadir used by the protocol stack.

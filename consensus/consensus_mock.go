@@ -1056,6 +1056,20 @@ func (mr *MockBroadcasterMockRecorder) Enqueue(id, block any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockBroadcaster)(nil).Enqueue), id, block)
 }
 
+// FindConsensusPeers mocks base method.
+func (m *MockBroadcaster) FindConsensusPeers(arg0 map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindConsensusPeers", arg0)
+	ret0, _ := ret[0].(map[common.Address]ethereum.Peer)
+	return ret0
+}
+
+// FindConsensusPeers indicates an expected call of FindConsensusPeers.
+func (mr *MockBroadcasterMockRecorder) FindConsensusPeers(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindConsensusPeers", reflect.TypeOf((*MockBroadcaster)(nil).FindConsensusPeers), arg0)
+}
+
 // FindPeers mocks base method.
 func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common.Address]ethereum.Peer {
 	m.ctrl.T.Helper()

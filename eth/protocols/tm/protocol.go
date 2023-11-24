@@ -13,6 +13,7 @@ const (
 	CNS1 = 1
 )
 
+// TODO: better name for protocol
 // ProtocolName is the official short name of the `snap` protocol used during
 // devp2p capability negotiation.
 const ProtocolName = "aut-consensus"

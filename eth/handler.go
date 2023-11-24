@@ -106,10 +106,11 @@ type handler struct {
 	chain    *core.BlockChain
 	maxPeers int
 
-	downloader   *downloader.Downloader
-	blockFetcher *fetcher.BlockFetcher
-	txFetcher    *fetcher.TxFetcher
-	peers        *peerSet
+	downloader     *downloader.Downloader
+	blockFetcher   *fetcher.BlockFetcher
+	txFetcher      *fetcher.TxFetcher
+	peers          *ethPeerSet
+	consensusPeers *consensusPeerSet
 
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
@@ -141,7 +142,8 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		database:       config.Database,
 		txpool:         config.TxPool,
 		chain:          config.Chain,
-		peers:          newPeerSet(),
+		peers:          newEthPeerSet(),
+		consensusPeers: newConsensusPeerSet(),
 		requiredBlocks: config.RequiredBlocks,
 		quitSync:       make(chan struct{}),
 	}
@@ -514,7 +516,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
 		}
-		// Send the block to a subset of our peers
+		//TODO: should we broadcast block to all peers
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
 			peer.AsyncSendNewBlock(block, td)
@@ -523,6 +525,8 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
+
+	// TODO: announcement could be done on eth peerset
 	if h.chain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
 			peer.AsyncSendNewBlockHash(block)
@@ -604,7 +608,7 @@ func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Addr
 }
 
 func (h *handler) FindConsensusPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
-	return h.peers.findConsensusPeers(targets)
+	return h.consensusPeers.findPeers(targets)
 }
 
 // runConsensusPeer registers a `consensus` peer into the consensus peerset and
@@ -627,12 +631,12 @@ func (h *handler) runConsensusPeer(peer *tm.Peer, handler tm.Handler) error {
 		return err
 	}
 
-	if err := h.peers.registerConsensusPeer(peer); err != nil {
+	if err := h.consensusPeers.registerPeer(peer); err != nil {
 		peer.Log().Error("Snapshot extension registration failed", "err", err)
 		return err
 	}
 	//TODO: checkpoint hash and required blocks check not done on consensus channel
 	// Do we need it here
-	defer h.peers.unregisterConsensusPeer(peer.ID())
+	defer h.consensusPeers.unregisterPeer(peer.ID())
 	return handler(peer)
 }

@@ -41,6 +41,13 @@ import (
 	"github.com/autonity/autonity/p2p/netutil"
 )
 
+type ServerTyp int32
+
+const (
+	EthTx = iota + 1
+	Consensus
+)
+
 const (
 	defaultDialTimeout = 15 * time.Second
 
@@ -172,7 +179,7 @@ type Server struct {
 	// Config fields may not be modified while the server is running.
 	Config
 
-	id string
+	Typ ServerTyp
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
 	newTransport func(net.Conn, *ecdsa.PublicKey) transport
