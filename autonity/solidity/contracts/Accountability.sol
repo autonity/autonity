@@ -334,6 +334,14 @@ contract Accountability is IAccountability {
         // last reporter is the beneficiary
         beneficiaries[_event.offender] = _event.reporter;
 
+        // if already jailbound, validator has 0 stake
+        if (_val.state == ValidatorState.jailbound) {
+            _val.provableFaultCount += 1;
+            autonity.updateValidatorAndTransferSlashedFunds(_val);
+            emit ValidatorJailbound(_val.nodeAddress, 0);
+            return;
+        }
+
         uint256 _baseRate = _baseSlashingRate(_ruleSeverity(_event.rule));
         uint256 _history = _val.provableFaultCount;
 
