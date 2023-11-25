@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -28,9 +29,10 @@ import (
 )
 
 const (
-	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 40
-	inmemoryMessages  = 1024
+	inmemorySnapshots      = 128 // Number of recent vote snapshots to keep in memory
+	inmemoryPeers          = 40
+	inmemoryMessages       = 1024
+	jailboundReleaseHeight = math.MaxUint64
 )
 
 // ErrStartedEngine is returned if the engine is already started
@@ -547,21 +549,18 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
 			sb.jailedLock.Unlock()
 		case ev := <-jailboundEventCh:
-			sb.jailboundLock.Lock()
-			sb.jailebound[ev.Validator] = true
-			sb.jailboundLock.Unlock()
+			sb.jailedLock.Lock()
+			sb.jailed[ev.Validator] = jailboundReleaseHeight
+			sb.jailedLock.Unlock()
 		case ev := <-chainHeadCh:
 			sb.jailedLock.Lock()
+			// TODO: delete jailbound validator from map after they are kicked out from committee
 			for k, v := range sb.jailed {
 				if v < ev.Block.NumberU64() && v != 0 {
 					delete(sb.jailed, k)
 				}
 			}
 			sb.jailedLock.Unlock()
-
-			// TODO: delete jailbound validator from map after they are kicked out from committee
-			// sb.jailboundLock.Lock()
-			// sb.jailboundLock.Unlock()
 		}
 	}
 }
@@ -574,8 +573,8 @@ func (sb *Backend) IsJailed(address common.Address) bool {
 }
 
 func (sb *Backend) IsJailbound(address common.Address) bool {
-	sb.jailboundLock.RLock()
-	defer sb.jailboundLock.RUnlock()
-	jailbound, ok := sb.jailebound[address]
-	return ok && jailbound
+	sb.jailedLock.RLock()
+	defer sb.jailedLock.RUnlock()
+	height, ok := sb.jailed[address]
+	return ok && height == jailboundReleaseHeight
 }
