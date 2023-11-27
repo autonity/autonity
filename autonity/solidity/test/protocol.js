@@ -805,6 +805,7 @@ contract('Protocol', function (accounts) {
         assert.equal(validatorInfo.state, utils.ValidatorState.jailed, "validator not jailed");
         assert(parseInt(validatorInfo.bondedStake) > 0 && parseInt(validatorInfo.unbondingStake) > 0, "fairness issue triggered");
       }
+      await utils.mineTillUnbondingRelease(autonity, operator, deployer);
       assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unbonding released");
     });
 
@@ -843,6 +844,7 @@ contract('Protocol', function (accounts) {
           parseInt(valInfo.bondedStake) + parseInt(valInfo.unbondingStake) + parseInt(valInfo.selfUnbondingStake)
           , 0, "100% slash did not happen"
         );
+        await utils.mineTillUnbondingRelease(autonity, operator, deployer);
         assert.equal((await autonity.balanceOf(delegator)).toNumber(), balances[iter], "unbonding released");
       }
       
