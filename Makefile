@@ -160,7 +160,8 @@ test-contracts-pre:
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
 
-APE_VERSION := 0.6.19
+APE_VERSION := 0.6.26
+HARDHAT_VERSION := 2.19.1
 test-contracts-asm:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
@@ -172,7 +173,7 @@ test-contracts-asm:
 		exit 1;\
 	}
 	@echo "check and install hardhat"
-	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
+	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
 	@echo "run tests for the asm contracts"
