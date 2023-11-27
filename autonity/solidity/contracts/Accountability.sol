@@ -336,9 +336,6 @@ contract Accountability is IAccountability {
 
         // if already jailbound, validator has 0 stake
         if (_val.state == ValidatorState.jailbound) {
-            _val.provableFaultCount += 1;
-            autonity.updateValidatorAndTransferSlashedFunds(_val);
-            emit ValidatorJailbound(_val.nodeAddress, 0);
             return;
         }
 
