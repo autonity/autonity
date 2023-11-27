@@ -30,7 +30,7 @@ func TestNewRoundRobinSet(t *testing.T) {
 		// create copy since slice are pass by references
 		// need to ensure a different copy of the committeMemebers is passed otherwise the sorting will affect the
 		// committee and would not give any meaningful tests
-		copyCommitteeMembers := copyCommittee(c)
+		copyCommitteeMembers := c.CopyCommittee()
 		// next proposer is chosen after sorting
 		// test the next proposer is chosen through round-robin
 		roundRobinOffset := getMemberIndex(c, lastBlockProposer)
@@ -97,7 +97,7 @@ func TestSet_Committee(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetCommittee = func(t *testing.T, n int64) {
 		c := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
-		set, err := NewRoundRobinSet(copyCommittee(c), c.Members[0].Address)
+		set, err := NewRoundRobinSet(c.CopyCommittee(), c.Members[0].Address)
 		sort.Sort(c)
 		assertNilError(t, err)
 
@@ -119,7 +119,7 @@ func TestSet_Committee(t *testing.T) {
 func TestSet_GetByIndex(t *testing.T) {
 	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
 	c.Sort()
-	set, err := NewRoundRobinSet(copyCommittee(c), c.Members[0].Address)
+	set, err := NewRoundRobinSet(c.CopyCommittee(), c.Members[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by index", func(t *testing.T) {
@@ -141,7 +141,7 @@ func TestSet_GetByIndex(t *testing.T) {
 func TestSet_GetByAddress(t *testing.T) {
 	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
 	c.Sort()
-	set, err := NewRoundRobinSet(copyCommittee(c), c.Members[0].Address)
+	set, err := NewRoundRobinSet(c.CopyCommittee(), c.Members[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by Address", func(t *testing.T) {
@@ -178,7 +178,7 @@ func TestSet_GetProposer(t *testing.T) {
 			lastBlockProposer := c.Members[r].Address
 			expectedProposerAddrForRound0 := c.Members[(r+1)%size].Address
 
-			set, err := NewRoundRobinSet(copyCommittee(c), lastBlockProposer)
+			set, err := NewRoundRobinSet(c.CopyCommittee(), lastBlockProposer)
 			require.NoError(t, err)
 
 			firstCommitteeMemberAddr := c.Members[0].Address
@@ -217,7 +217,7 @@ func TestSet_IsProposer(t *testing.T) {
 	lastBlockProposer := c.Members[lastBlockProposerIndex].Address
 	roundRobinOffset := lastBlockProposerIndex + 1
 
-	set, err := NewRoundRobinSet(copyCommittee(c), lastBlockProposer)
+	set, err := NewRoundRobinSet(c.CopyCommittee(), lastBlockProposer)
 	assertNilError(t, err)
 
 	for _, r := range rounds {

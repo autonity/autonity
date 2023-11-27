@@ -60,7 +60,7 @@ func NewRoundRobinSet(committee *types.Committee, lastBlockProposer common.Addre
 func (set *RoundRobinCommittee) Committee() *types.Committee {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
-	return copyCommittee(set.committee)
+	return set.committee
 }
 
 func (set *RoundRobinCommittee) GetByIndex(i int) (*types.CommitteeMember, error) {
@@ -168,7 +168,7 @@ func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) *types.Commit
 	proposer := w.autonityContract.Proposer(w.epochHead, w.previousHeader.Number.Uint64(), round)
 	member := w.epochHead.CommitteeMember(proposer)
 	if member == nil {
-		log.Crit("Cannot find proposer data structure in epoch block header")
+		log.Crit("Cannot find proposer in epoch head header")
 	}
 	return member
 }
@@ -179,16 +179,4 @@ func (w *WeightedRandomSamplingCommittee) Quorum() *big.Int {
 
 func (w *WeightedRandomSamplingCommittee) F() *big.Int {
 	return bft.F(w.epochHead.TotalVotingPower())
-}
-
-func copyCommittee(committee *types.Committee) *types.Committee {
-	committeeCopy := &types.Committee{Members: make([]*types.CommitteeMember, len(committee.Members))}
-	for i, val := range committee.Members {
-		committeeCopy.Members[i] = &types.CommitteeMember{
-			Address:      val.Address,
-			VotingPower:  new(big.Int).Set(val.VotingPower),
-			ValidatorKey: val.ValidatorKey,
-		}
-	}
-	return committeeCopy
 }

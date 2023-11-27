@@ -27,6 +27,7 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) []byte
 	return buf.Bytes()
 }
 
+// GenerateCommittee is a helper function to generate committee for testing.
 func GenerateCommittee(n int) (*types.Committee, AddressKeyMap) {
 	// generate committee members data and keymap
 	var vals []*types.CommitteeMember
@@ -38,7 +39,7 @@ func GenerateCommittee(n int) (*types.Committee, AddressKeyMap) {
 		committeeMember := &types.CommitteeMember{
 			Address:      crypto.PubkeyToAddress(privateKey.PublicKey),
 			VotingPower:  new(big.Int).SetUint64(1),
-			ValidatorKey: blsKey.Marshal(),
+			ValidatorKey: blsKey.PublicKey().Marshal(),
 		}
 		vals = append(vals, committeeMember)
 		keymap[committeeMember.Address] = privateKey

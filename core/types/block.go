@@ -419,17 +419,9 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	/* PoS fields deep copy section*/
-	// Let the cashed fields be computed by sync.Once since the copy of sync.Once is not recommended.
 	committee := &Committee{}
-	if h.Committee != nil && h.Committee.Members != nil {
-		committee.Members = make([]*CommitteeMember, len(h.Committee.Members))
-		for i, val := range h.Committee.Members {
-			committee.Members[i] = &CommitteeMember{
-				Address:      val.Address,
-				VotingPower:  new(big.Int).Set(val.VotingPower),
-				ValidatorKey: val.ValidatorKey,
-			}
-		}
+	if h.Committee != nil {
+		committee = h.Committee.CopyCommittee()
 	}
 
 	proposerSeal := make([]byte, 0)

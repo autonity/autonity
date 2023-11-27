@@ -13,7 +13,6 @@ import (
 	"io"
 	"math/big"
 	"sort"
-	"sync"
 )
 
 var (
@@ -183,15 +182,19 @@ func (c *CommitteeMember) DecodeRLP(s *rlp.Stream) error {
 }
 
 type Committee struct {
-	Members          []*CommitteeMember `json:"members"`
+	Members []*CommitteeMember `json:"members"`
+
+	// cached total voting power.
 	totalVotingPower *big.Int
-	power            sync.Once
-	// aggregated validator public key of all committee members
+	powerCounted     bool
+
+	// cached aggregated validator public key of all committee members
 	aggValidatorKey []byte
-	aggregation     sync.Once
-	// used for committee member lookup
+	aggregated      bool
+
+	// cached indexing of committee for member lookup
 	membersMap map[common.Address]*CommitteeMember
-	members    sync.Once
+	indexed    bool
 }
 
 func (c *Committee) String() string {
@@ -233,21 +236,55 @@ func (c *Committee) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+func (c *Committee) CopyCommittee() *Committee {
+	var clone = &Committee{}
+	if c.Members != nil {
+		clone.Members = make([]*CommitteeMember, len(c.Members))
+		for i, val := range c.Members {
+			clone.Members[i] = &CommitteeMember{
+				Address:     val.Address,
+				VotingPower: new(big.Int).Set(val.VotingPower),
+			}
+			clone.Members[i].ValidatorKey = append(clone.Members[i].ValidatorKey, val.ValidatorKey...)
+		}
+	}
+
+	if c.totalVotingPower != nil {
+		clone.totalVotingPower = new(big.Int).Set(c.totalVotingPower)
+		clone.powerCounted = true
+	}
+
+	if len(c.aggValidatorKey) != 0 {
+		copy(clone.aggValidatorKey, c.aggValidatorKey)
+		clone.aggregated = true
+	}
+
+	if len(c.membersMap) != 0 {
+		clone.membersMap = make(map[common.Address]*CommitteeMember)
+		for k, v := range c.membersMap {
+			clone.membersMap[k] = v
+		}
+		clone.indexed = true
+	}
+
+	return clone
+}
+
 func (c *Committee) CommitteeMember(address common.Address) *CommitteeMember { // nolint
 	// build the map only once
-	c.members.Do(func() {
+	if !c.indexed {
 		log.Debug("Creating committeeMap")
 		c.membersMap = make(map[common.Address]*CommitteeMember)
 		for _, member := range c.Members {
 			c.membersMap[member.Address] = member
 		}
-	})
+	}
 	return c.membersMap[address]
 }
 
 func (c *Committee) AggregatedValidatorKey() []byte { // nolint
 	// compute aggregated key only once, then returned cached value
-	c.aggregation.Do(func() {
+	if !c.aggregated {
 		// collect bls keys of committee members in bytes
 		rawKeys := make([][]byte, len(c.Members))
 		for index, member := range c.Members {
@@ -260,8 +297,23 @@ func (c *Committee) AggregatedValidatorKey() []byte { // nolint
 			log.Crit("invalid BLS key in header")
 		}
 		c.aggValidatorKey = aggKey.Marshal()
-	})
+	}
 	return c.aggValidatorKey
+}
+
+// TotalVotingPower returns the total voting power contained in the committee.
+func (c *Committee) TotalVotingPower() *big.Int {
+	// compute power only once, then returned cached value
+	if !c.powerCounted {
+		total := new(big.Int)
+		for _, m := range c.Members {
+			total.Add(total, m.VotingPower)
+		}
+		c.totalVotingPower = total
+	}
+
+	// return a copy of the cached value to prevent un-expected modification of the cached value.
+	return new(big.Int).Set(c.totalVotingPower)
 }
 
 func (c *Committee) Sort() {
@@ -271,19 +323,4 @@ func (c *Committee) Sort() {
 			return bytes.Compare(c.Members[i].Address.Bytes(), c.Members[j].Address.Bytes()) < 0
 		})
 	}
-}
-
-// TotalVotingPower returns the total voting power contained in the committee.
-func (c *Committee) TotalVotingPower() *big.Int {
-	// compute power only once, then returned cached value
-	c.power.Do(func() {
-		total := new(big.Int)
-		for _, m := range c.Members {
-			total.Add(total, m.VotingPower)
-		}
-		c.totalVotingPower = total
-	})
-
-	// return a copy of the cached value to prevent un-expected modification of the cached value.
-	return new(big.Int).Set(c.totalVotingPower)
 }
