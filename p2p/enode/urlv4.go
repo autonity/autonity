@@ -41,7 +41,9 @@ var (
 	ErrInvalidPublicKey = errors.New("invalid public key")
 	ErrInvalidPort      = errors.New("invalid port")
 	ErrInvalidDisport   = errors.New("invalid discport in query")
+	ErrInvalidATCPort   = errors.New("invalid atcport in query")
 	ErrInvalidHost      = errors.New("invalid host")
+	ErrInvalidATCHost   = errors.New("invalid ATC host")
 
 	// V4ResolveFunc is required only by tests so that they may ovveride the
 	// default resolver.

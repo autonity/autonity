@@ -654,11 +654,7 @@ func (srv *Server) setupDiscovery() error {
 	realaddr := conn.LocalAddr().(*net.UDPAddr)
 	srv.log.Debug("UDP listener up", "addr", realaddr, "type", srv.Net.String())
 	if srv.NAT != nil {
-		if !realaddr.IP.IsLoopback() {
 			srv.loopWG.Add(1)
-			go func() {
-				nat.Map(srv.NAT, srv.quit, "udp", realaddr.Port, realaddr.Port, "ethereum discovery")
-				srv.loopWG.Done()
 			}()
 		}
 	}

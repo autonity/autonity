@@ -476,6 +476,17 @@ func (n *Node) RegisterConsensusProtocols(protocols []p2p.Protocol) {
 	n.consensusServer.Protocols = append(n.consensusServer.Protocols, protocols...)
 }
 
+// RegisterConsensusProtocols adds backend's protocols to the node's p2p server.
+func (n *Node) RegisterConsensusProtocols(protocols []p2p.Protocol) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	if n.state != initializingState {
+		panic("can't register protocols on running/stopped node")
+	}
+	n.atcServer.Protocols = append(n.atcServer.Protocols, protocols...)
+}
+
 // RegisterAPIs registers the APIs a service provides on the node.
 func (n *Node) RegisterAPIs(apis []rpc.API) {
 	n.lock.Lock()
@@ -551,6 +562,16 @@ func (n *Node) ConsensusServer() *p2p.Server {
 	defer n.lock.Unlock()
 
 	return n.consensusServer
+}
+
+// Server retrieves the currently running P2P network layer. This method is meant
+// only to inspect fields of the currently running server. Callers should not
+// start or stop the returned server.
+func (n *Node) ConsensusServer() *p2p.Server {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	return n.atcServer
 }
 
 // DataDir retrieves the current datadir used by the protocol stack.
