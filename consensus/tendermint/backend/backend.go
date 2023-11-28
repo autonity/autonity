@@ -101,6 +101,9 @@ type Backend struct {
 
 	// interface to enqueue blocks to fetcher and find peers
 	Broadcaster consensus.Broadcaster
+
+	// interface to enqueue blocks to fetcher and find peers
+	Enqueuer consensus.Enqueuer
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
@@ -184,8 +187,9 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 		sb.sendResultChan(proposal)
 		return nil
 	}
-	if sb.Broadcaster != nil {
-		sb.Broadcaster.Enqueue(fetcherID, proposal)
+
+	if sb.Enqueuer != nil {
+		sb.Enqueuer.Enqueue(fetcherID, proposal)
 	}
 	return nil
 }

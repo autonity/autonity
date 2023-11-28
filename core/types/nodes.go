@@ -29,7 +29,7 @@ func NewNodes(strList []string) *Nodes {
 
 		go func(enodeStr string) {
 			log.Debug("node retrieved", "node", enodeStr)
-			newEnode, err := enode.ParseV4(enodeStr)
+			newEnode, err := enode.ParseATCV4(enodeStr)
 			if err != nil {
 				errCh <- err
 			}

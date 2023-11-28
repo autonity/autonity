@@ -153,6 +153,11 @@ func (sb *Backend) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	sb.gossiper.SetBroadcaster(broadcaster)
 }
 
+// SetEnqueuer implements consensus.Handler.SetEnqueuer
+func (sb *Backend) SetEnqueuer(enqueuer consensus.Enqueuer) {
+	sb.Enqueuer = enqueuer
+}
+
 func (sb *Backend) NewChainHead() error {
 	sb.coreMu.RLock()
 	defer sb.coreMu.RUnlock()

@@ -48,6 +48,7 @@ type Node struct {
 	dirLock       fileutil.Releaser // prevents concurrent use of instance directory
 	stop          chan struct{}     // Channel to wait for termination notifications
 	server        *p2p.Server       // Currently running P2P networking layer
+	atcServer     *p2p.Server       // Currently running P2P networking layer for consensus
 	startStopLock sync.Mutex        // Start/Stop are protected by an additional lock
 	state         int               // Tracks state of node lifecycle
 
@@ -103,7 +104,8 @@ func New(conf *Config) (*Node, error) {
 		eventmux:      new(event.TypeMux),
 		log:           conf.Logger,
 		stop:          make(chan struct{}),
-		server:        &p2p.Server{Config: conf.P2P},
+		server:        &p2p.Server{Typ: p2p.EthTx, Config: conf.P2P},
+		atcServer:     &p2p.Server{Typ: p2p.Consensus, Config: conf.ConsensusP2P},
 		databases:     make(map[*closeTrackingDB]struct{}),
 	}
 
@@ -138,6 +140,10 @@ func New(conf *Config) (*Node, error) {
 		node.server.Config.NodeDatabase = node.config.NodeDB()
 	}
 
+	//Initializing consensus server
+	node.atcServer.Config.PrivateKey = node.config.NodeKey()
+	node.atcServer.Config.Name = node.config.NodeName()
+	node.atcServer.Config.Logger = node.log
 	// Check HTTP/WS prefixes are valid.
 	if err := validatePrefix("HTTP", conf.HTTPPathPrefix); err != nil {
 		return nil, err
@@ -263,6 +269,9 @@ func (n *Node) doClose(errs []error) error {
 func (n *Node) openEndpoints() error {
 	// start networking endpoints
 	n.log.Info("Starting peer-to-peer node", "instance", n.server.Name)
+	if err := n.atcServer.Start(); err != nil {
+		return convertFileLockError(err)
+	}
 	if err := n.server.Start(); err != nil {
 		return convertFileLockError(err)
 	}
@@ -271,6 +280,7 @@ func (n *Node) openEndpoints() error {
 	if err != nil {
 		n.stopRPC()
 		n.server.Stop()
+		n.atcServer.Stop()
 	}
 	return err
 }
@@ -300,6 +310,7 @@ func (n *Node) stopServices(running []Lifecycle) error {
 
 	// Stop p2p networking.
 	n.server.Stop()
+	n.atcServer.Stop()
 
 	if len(failure.Services) > 0 {
 		return failure
@@ -454,6 +465,17 @@ func (n *Node) RegisterProtocols(protocols []p2p.Protocol) {
 	n.server.Protocols = append(n.server.Protocols, protocols...)
 }
 
+// RegisterConsensusProtocols adds backend's protocols to the node's p2p server.
+func (n *Node) RegisterConsensusProtocols(protocols []p2p.Protocol) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	if n.state != initializingState {
+		panic("can't register protocols on running/stopped node")
+	}
+	n.atcServer.Protocols = append(n.atcServer.Protocols, protocols...)
+}
+
 // RegisterAPIs registers the APIs a service provides on the node.
 func (n *Node) RegisterAPIs(apis []rpc.API) {
 	n.lock.Lock()
@@ -519,6 +541,16 @@ func (n *Node) Server() *p2p.Server {
 	defer n.lock.Unlock()
 
 	return n.server
+}
+
+// Server retrieves the currently running P2P network layer. This method is meant
+// only to inspect fields of the currently running server. Callers should not
+// start or stop the returned server.
+func (n *Node) ConsensusServer() *p2p.Server {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	return n.atcServer
 }
 
 // DataDir retrieves the current datadir used by the protocol stack.

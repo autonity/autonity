@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strconv"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -35,7 +39,11 @@ type Validator struct {
 	NodeKey *ecdsa.PrivateKey
 	// OracleKey is a private key for the oracle node.
 	OracleKey *ecdsa.PrivateKey
-	// TreasuryKey is a private key for the treasury account.
+	// atcIP is the ip that this user's consensus channel is running at
+	AtcIP net.IP
+	// AtcPort is the port that this user's consensus channel is listening at
+	AtcPort int
+	// Key is either a public or private key for the treasury account.
 	TreasuryKey *ecdsa.PrivateKey
 	// ConsensusKey is the BLS key for validator who participate in consensus.
 	ConsensusKey blst.SecretKey
@@ -137,6 +145,11 @@ func ParseUint(str string) (*big.Int, error) {
 	return result, nil
 }
 
+func appendConsensusEndpoint(u *Validator, ens string) string {
+	ens += "?atcep=" + u.AtcIP.String() + ":" + strconv.Itoa(u.AtcPort)
+	return ens
+}
+
 // Generates a slice of params.User along with a corresponding
 // core.GenesisAlloc. Also returns the address of the first user in users as
 // the operatorAddress.
@@ -158,6 +171,7 @@ func generateValidatorState(validators []*Validator) (
 		}
 
 		e := enode.NewV4(&u.NodeKey.PublicKey, u.NodeIP, u.NodePort, u.NodePort)
+		ens := appendConsensusEndpoint(u, e.String())
 
 		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
@@ -166,8 +180,8 @@ func generateValidatorState(validators []*Validator) (
 		}
 
 		gu := params.Validator{
-			Enode:           e.String(),
 			OracleAddress:   oracleAddress,
+			Enode:           ens,
 			Treasury:        treasuryAddress, // rewards goes here
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
