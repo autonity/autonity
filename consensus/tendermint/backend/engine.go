@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
-	"time"
-
 	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
+	"math/big"
+	"time"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"

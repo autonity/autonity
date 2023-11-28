@@ -149,6 +149,9 @@ type Handler interface {
 	// SetBroadcaster sets the broadcaster to send message to peers
 	SetBroadcaster(Broadcaster)
 
+	// SetEnqueuer sets the enqueuer to inject blocks in import queue
+	SetEnqueuer(Enqueuer)
+
 	//msgCodes returns the number of extra implemented msgCodes by this consensus algorithm
 	Protocol() (protocolName string, extraMsgCodes uint64)
 }
@@ -175,10 +178,14 @@ type Syncer interface {
 	ResetPeerCache(address common.Address)
 }
 
+type Enqueuer interface {
+	Enqueue(id string, block *types.Block)
+}
+
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer
 type Broadcaster interface {
 	// Enqueue adds a block into fetcher queue
-	Enqueue(id string, block *types.Block)
+	//Enqueue(id string, block *types.Block)
 	// FindPeers retrieves connected peers by addresses
 	FindPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
 }

@@ -576,24 +576,9 @@ func (s *Ethereum) newCommitteeWatcher() {
 	chainHeadCh := make(chan core.ChainHeadEvent)
 	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 
-	updateConsensusEnodes := func(block *types.Block) {
-		state, err := s.blockchain.StateAt(block.Header().Root)
-		if err != nil {
-			s.log.Error("Could not retrieve state at head block", "err", err)
-			return
-		}
-		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state)
-		if err != nil {
-			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
-			return
-		}
-		s.p2pServer.UpdateConsensusEnodes(enodesList.List)
-	}
-
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
 	if currentBlock.Header().CommitteeMember(s.address) != nil {
-		updateConsensusEnodes(currentBlock)
 		s.miner.Start()
 		s.log.Info("Starting node as validator")
 		wasValidating = true
@@ -609,14 +594,12 @@ func (s *Ethereum) newCommitteeWatcher() {
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
 				if wasValidating {
-					s.p2pServer.UpdateConsensusEnodes(nil)
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
 					wasValidating = false
 				}
 				continue
 			}
-			updateConsensusEnodes(ev.Block)
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
