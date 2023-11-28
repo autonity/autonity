@@ -38,17 +38,18 @@ import (
 
 // Node is a container on which services can be registered.
 type Node struct {
-	eventmux      *event.TypeMux
-	config        *Config
-	accman        *accounts.Manager
-	log           log.Logger
-	keyDir        string            // key store directory
-	keyDirTemp    bool              // If true, key directory will be removed by Stop
-	dirLock       fileutil.Releaser // prevents concurrent use of instance directory
-	stop          chan struct{}     // Channel to wait for termination notifications
-	server        *p2p.Server       // Currently running P2P networking layer
-	startStopLock sync.Mutex        // Start/Stop are protected by an additional lock
-	state         int               // Tracks state of node lifecycle
+	eventmux        *event.TypeMux
+	config          *Config
+	accman          *accounts.Manager
+	log             log.Logger
+	keyDir          string            // key store directory
+	keyDirTemp      bool              // If true, key directory will be removed by Stop
+	dirLock         fileutil.Releaser // prevents concurrent use of instance directory
+	stop            chan struct{}     // Channel to wait for termination notifications
+	server          *p2p.Server       // Currently running P2P networking layer
+	consensusServer *p2p.Server       // Currently running P2P networking layer for consensus
+	startStopLock   sync.Mutex        // Start/Stop are protected by an additional lock
+	state           int               // Tracks state of node lifecycle
 
 	lock          sync.Mutex
 	lifecycles    []Lifecycle // All registered backends, services, and auxiliary services that have a lifecycle
@@ -97,13 +98,14 @@ func New(conf *Config) (*Node, error) {
 	}
 
 	node := &Node{
-		config:        conf,
-		inprocHandler: rpc.NewServer(),
-		eventmux:      new(event.TypeMux),
-		log:           conf.Logger,
-		stop:          make(chan struct{}),
-		server:        &p2p.Server{Config: conf.P2P},
-		databases:     make(map[*closeTrackingDB]struct{}),
+		config:          conf,
+		inprocHandler:   rpc.NewServer(),
+		eventmux:        new(event.TypeMux),
+		log:             conf.Logger,
+		stop:            make(chan struct{}),
+		server:          &p2p.Server{Typ: p2p.EthTx, Config: conf.P2P},
+		consensusServer: &p2p.Server{Typ: p2p.Consensus, Config: conf.ConsensusP2P},
+		databases:       make(map[*closeTrackingDB]struct{}),
 	}
 
 	// Register built-in APIs.
@@ -137,6 +139,13 @@ func New(conf *Config) (*Node, error) {
 		node.server.Config.NodeDatabase = node.config.NodeDB()
 	}
 
+	//Initializing consensus server
+	node.consensusServer.Config.PrivateKey = node.config.NodeKey()
+	node.consensusServer.Config.Name = node.config.NodeName()
+	node.consensusServer.Config.Logger = node.log
+	if node.consensusServer.Config.NodeDatabase == "" {
+		node.consensusServer.Config.NodeDatabase = node.config.NodeDB()
+	}
 	// Check HTTP/WS prefixes are valid.
 	if err := validatePrefix("HTTP", conf.HTTPPathPrefix); err != nil {
 		return nil, err
@@ -453,6 +462,17 @@ func (n *Node) RegisterProtocols(protocols []p2p.Protocol) {
 	n.server.Protocols = append(n.server.Protocols, protocols...)
 }
 
+// RegisterConsensusProtocols adds backend's protocols to the node's p2p server.
+func (n *Node) RegisterConsensusProtocols(protocols []p2p.Protocol) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	if n.state != initializingState {
+		panic("can't register protocols on running/stopped node")
+	}
+	n.consensusServer.Protocols = append(n.server.Protocols, protocols...)
+}
+
 // RegisterAPIs registers the APIs a service provides on the node.
 func (n *Node) RegisterAPIs(apis []rpc.API) {
 	n.lock.Lock()
@@ -518,6 +538,16 @@ func (n *Node) Server() *p2p.Server {
 	defer n.lock.Unlock()
 
 	return n.server
+}
+
+// Server retrieves the currently running P2P network layer. This method is meant
+// only to inspect fields of the currently running server. Callers should not
+// start or stop the returned server.
+func (n *Node) ConsensusServer() *p2p.Server {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	return n.consensusServer
 }
 
 // DataDir retrieves the current datadir used by the protocol stack.

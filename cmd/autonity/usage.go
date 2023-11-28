@@ -139,6 +139,13 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.NodeKeyHexFlag,
 			utils.OracleKeyFileFlag,
 			utils.OracleKeyHexFlag,
+			utils.ConsensusListenPortFlag,
+			utils.ConsensusDiscoveryV5Flag,
+			utils.ConsensusBootNodesFlag,
+			utils.ConsensusDNSDiscoveryFlag,
+			utils.ConsensusNATFlag,
+			utils.ConsensusNetrestrictFlag,
+			utils.ConsensusNoDiscoverFlag,
 		},
 	},
 	{

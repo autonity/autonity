@@ -19,6 +19,7 @@ package eth
 import (
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/eth/protocols/tm"
 	"math"
 	"math/big"
 	"sync"
@@ -105,10 +106,11 @@ type handler struct {
 	chain    *core.BlockChain
 	maxPeers int
 
-	downloader   *downloader.Downloader
-	blockFetcher *fetcher.BlockFetcher
-	txFetcher    *fetcher.TxFetcher
-	peers        *peerSet
+	downloader     *downloader.Downloader
+	blockFetcher   *fetcher.BlockFetcher
+	txFetcher      *fetcher.TxFetcher
+	peers          *ethPeerSet
+	consensusPeers *consensusPeerSet
 
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
@@ -140,7 +142,8 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		database:       config.Database,
 		txpool:         config.TxPool,
 		chain:          config.Chain,
-		peers:          newPeerSet(),
+		peers:          newEthPeerSet(),
+		consensusPeers: newConsensusPeerSet(),
 		requiredBlocks: config.RequiredBlocks,
 		quitSync:       make(chan struct{}),
 	}
@@ -513,7 +516,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
 		}
-		// Send the block to a subset of our peers
+		//TODO: should we broadcast block to all peers
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
 			peer.AsyncSendNewBlock(block, td)
@@ -522,6 +525,8 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
+
+	// TODO: announcement could be done on eth peerset
 	if h.chain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
 			peer.AsyncSendNewBlockHash(block)
@@ -600,4 +605,38 @@ func (h *handler) txBroadcastLoop() {
 
 func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
 	return h.peers.findPeers(targets)
+}
+
+func (h *handler) FindConsensusPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+	return h.consensusPeers.findPeers(targets)
+}
+
+// runConsensusPeer registers a `consensus` peer into the consensus peerset and
+// starts handling inbound messages.
+func (h *handler) runConsensusPeer(peer *tm.Peer, handler tm.Handler) error {
+	h.peerWG.Add(1)
+	defer h.peerWG.Done()
+
+	// Execute the Ethereum handshake
+	var (
+		genesis = h.chain.Genesis()
+		head    = h.chain.CurrentHeader()
+		hash    = head.Hash()
+		number  = head.Number.Uint64()
+		td      = h.chain.GetTd(hash, number)
+	)
+	forkID := forkid.NewID(h.chain.Config(), h.chain.Genesis().Hash(), h.chain.CurrentHeader().Number.Uint64())
+	if err := peer.Handshake(h.networkID, td, hash, genesis.Hash(), forkID, h.forkFilter); err != nil {
+		peer.Log().Debug("Consensus handshake failed", "err", err)
+		return err
+	}
+
+	if err := h.consensusPeers.registerPeer(peer); err != nil {
+		peer.Log().Error("Snapshot extension registration failed", "err", err)
+		return err
+	}
+	//TODO: checkpoint hash and required blocks check not done on consensus channel
+	// Do we need it here
+	defer h.consensusPeers.unregisterPeer(peer.ID())
+	return handler(peer)
 }

@@ -51,6 +51,11 @@ var DefaultConfig = Config{
 		MaxPeers:   50,
 		NAT:        nat.Any(),
 	},
+	ConsensusP2P: p2p.Config{
+		ListenAddr: ":30301",
+		MaxPeers:   50,
+		NAT:        nat.Any(),
+	},
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other

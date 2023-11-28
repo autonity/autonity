@@ -18,7 +18,6 @@ package eth
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/consensus"
 	"math/big"
 	"time"
 
@@ -220,11 +219,14 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 			metrics.GetOrRegisterHistogramLazy(h, nil, sampler).Update(time.Since(start).Microseconds())
 		}(time.Now())
 	}
-	if handler, ok := backend.Chain().Engine().(consensus.Handler); ok {
-		if handled, err := handler.HandleMsg(peer.address, msg, errCh); handled {
-			return err
-		}
-	}
+	/*
+		//TODO: cleanup eth protocol/handler for consensus
+		// no more consensus handling in Eth Handler
+		if handler, ok := backend.Chain().Engine().(consensus.Handler); ok {
+			if handled, err := handler.HandleMsg(peer.address, msg, errCh); handled {
+				return err
+			}
+		}*/
 	if handler := handlers[msg.Code]; handler != nil {
 		return handler(backend, msg, peer)
 	}

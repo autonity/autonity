@@ -181,4 +181,5 @@ type Broadcaster interface {
 	Enqueue(id string, block *types.Block)
 	// FindPeers retrieves connected peers by addresses
 	FindPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
+	FindConsensusPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
 }
