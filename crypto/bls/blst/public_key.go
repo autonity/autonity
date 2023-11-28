@@ -13,6 +13,8 @@ var maxKeys = 10000
 
 var PubkeyCache, _ = lru.NewARC(maxKeys)
 
+const HexPrefix = "0x"
+
 // PublicKey used in the BLS signature scheme.
 type PublicKey struct {
 	p *blstPublicKey
@@ -112,5 +114,5 @@ func (p *PublicKey) Aggregate(p2 common.BLSPublicKey) (common.BLSPublicKey, erro
 }
 
 func (p *PublicKey) Hex() string {
-	return "0x" + hex.EncodeToString(p.Marshal())
+	return HexPrefix + hex.EncodeToString(p.Marshal())
 }

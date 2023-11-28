@@ -96,5 +96,5 @@ func (s *bls12SecretKey) Marshal() []byte {
 }
 
 func (s *bls12SecretKey) Hex() string {
-	return "0x" + hex.EncodeToString(s.Marshal())
+	return HexPrefix + hex.EncodeToString(s.Marshal())
 }
