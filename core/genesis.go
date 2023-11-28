@@ -522,31 +522,39 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultPiccadillyGenesisBlock returns the Piccadilly network genesis block.
 func DefaultPiccadillyGenesisBlock() *Genesis {
-	return &Genesis{
+	g := &Genesis{
 		Config:     params.PiccaddillyChainConfig,
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.PiccaddillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
-			params.PiccaddillyChainConfig.AutonityContractConfig.Treasury: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+			params.PiccaddillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
 		},
 	}
+	for _, v := range g.Config.AutonityContractConfig.Validators {
+		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+	}
+	return g
 }
 
 func DefaultBakerlooGenesisBlock() *Genesis {
-	return &Genesis{
+	g := &Genesis{
 		Config:     params.BakerlooChainConfig,
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.BakerlooChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
-			params.BakerlooChainConfig.AutonityContractConfig.Treasury: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+			params.BakerlooChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
 		},
 	}
+	for _, v := range g.Config.AutonityContractConfig.Validators {
+		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+	}
+	return g
 }
 
 // DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
