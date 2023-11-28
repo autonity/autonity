@@ -14,16 +14,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/atc"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
+
 	"github.com/hashicorp/consul/sdk/freeport"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
@@ -40,6 +42,9 @@ var (
 		Version: params.Version,
 		P2P: p2p.Config{
 			MaxPeers: 100,
+		},
+		ConsensusP2P: p2p.Config{
+			MaxPeers: 100000,
 		},
 		HTTPHost: "0.0.0.0",
 		WSHost:   "0.0.0.0",
@@ -80,6 +85,7 @@ type Node struct {
 	isRunning bool
 	Config    *node.Config
 	Eth       *eth.Ethereum
+	Atc       *atc.ATC
 	EthConfig *ethconfig.Config
 	WsClient  *ethclient.Client
 	Nonce     uint64
@@ -119,6 +125,8 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 
 	// consensus key used by consensus engine.
 	c.ConsensusKey = u.ConsensusKey
+	c.ConsensusP2P.PrivateKey = u.NodeKey
+	c.ConsensusP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.AtcPort)
 
 	// Set rpc ports
 	c.HTTPPort = freeport.GetOne(t)
@@ -220,6 +228,7 @@ func (n *Node) Start() error {
 	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}
+	atc.New(n.Node, n.Eth.BlockChain(), ethconfig.Defaults.NetworkID)
 	if _, _, err = core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis); err != nil {
 		return fmt.Errorf("cannot setup genesis block: %w", err)
 	}
@@ -642,6 +651,10 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 		if err != nil {
 			return nil, err
 		}
+		//add port ip for consensus channel
+		u.AtcIP = u.NodeIP
+		u.AtcPort = freeport.GetOne(t)
+		u.TreasuryKey, _ = crypto.GenerateKey()
 		validators = append(validators, u)
 	}
 	return validators, nil
@@ -676,11 +689,17 @@ func Genesis(users []*gengen.Validator, options ...gengen.GenesisOption) (*core.
 func copyNodeConfig(source, dest *node.Config) error {
 	s := &MarshalableNodeConfig{}
 	s.Config = *source
+
 	p := MarshalableP2PConfig{}
 	p.Config = source.P2P
-
 	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.P2P.PrivateKey)
 	s.P2P = p
+
+	cns := MarshalableP2PConfig{}
+	cns.Config = source.ConsensusP2P
+	cns.PrivateKey = (*MarshalableECDSAPrivateKey)(source.ConsensusP2P.PrivateKey)
+	s.ConsensusP2P = cns
+
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -692,13 +711,16 @@ func copyNodeConfig(source, dest *node.Config) error {
 	}
 	*dest = u.Config
 	dest.P2P = u.P2P.Config
+	dest.ConsensusP2P = u.ConsensusP2P.Config
 	dest.P2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
+	dest.ConsensusP2P.PrivateKey = (*ecdsa.PrivateKey)(u.ConsensusP2P.PrivateKey)
 	return nil
 }
 
 type MarshalableNodeConfig struct {
 	node.Config
-	P2P MarshalableP2PConfig
+	P2P          MarshalableP2PConfig
+	ConsensusP2P MarshalableP2PConfig
 }
 
 type MarshalableP2PConfig struct {

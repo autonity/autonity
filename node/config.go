@@ -73,6 +73,9 @@ type Config struct {
 	// Configuration of peer-to-peer networking.
 	P2P p2p.Config
 
+	// Configuration of peer-to-peer networking on consensus
+	ConsensusP2P p2p.Config
+
 	// KeyStoreDir is the file system folder that contains private keys. The directory can
 	// be specified as a relative path, in which case it is resolved relative to the
 	// current directory.
