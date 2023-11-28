@@ -138,6 +138,9 @@ var (
 		utils.MinerNotifyFullFlag,
 		utils.PiccadillyFlag,
 		utils.BakerlooFlag,
+		utils.ConsensusListenPortFlag,
+		utils.ConsensusNATFlag,
+		utils.ConsensusNetrestrictFlag,
 		configFileFlag,
 	}
 

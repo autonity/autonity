@@ -6,6 +6,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"math/big"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -30,6 +31,10 @@ type Validator struct {
 	NodeIP net.IP
 	// NodePort is the port that this user's node can be reached at.
 	NodePort int
+	// atcIP is the ip that this user's consensus channel is running at
+	AtcIP net.IP
+	// AtcPort is the port that this user's consensus channel is listening at
+	AtcPort int
 	// Key is either a public or private key for the validator node.
 	Key interface{}
 	// Key is either a public or private key for the treasury account.
@@ -168,6 +173,11 @@ func ParseUint(str string) (*big.Int, error) {
 	return result, nil
 }
 
+func appendConsensusEndpoint(u *Validator, ens string) string {
+	ens += "?atcep=" + u.AtcIP.String() + ":" + strconv.Itoa(u.AtcPort)
+	return ens
+}
+
 // Generates a slice of params.User along with a corresponding
 // core.GenesisAlloc. Also returns the address of the first user in users as
 // the operatorAddress.
@@ -190,6 +200,7 @@ func generateValidatorState(validators []*Validator) (
 			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
 		}
 		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
+		ens := appendConsensusEndpoint(u, e.String())
 		if u.TreasuryKey == nil {
 			u.TreasuryKey, _ = crypto.GenerateKey()
 		}
@@ -198,7 +209,7 @@ func generateValidatorState(validators []*Validator) (
 			return nil, nil, nil, fmt.Errorf("selfBondedStake (%d) cannot be higher than total stake (%d)", u.SelfBondedStake, u.Stake)
 		}
 		gu := params.Validator{
-			Enode:           e.String(),
+			Enode:           ens,
 			Treasury:        treasuryAddress, // rewards goes here
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),

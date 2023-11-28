@@ -20,6 +20,7 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/atc"
 	"io"
 	"io/ioutil"
 	"math"
@@ -593,6 +594,21 @@ var (
 		Usage: "Allow for unprotected (non EIP155 signed) transactions to be submitted via RPC",
 	}
 
+	//Consensus Network settings
+	ConsensusListenPortFlag = cli.IntFlag{
+		Name:  "consensus.port",
+		Usage: "Network listening port for consensus channel",
+		Value: node.DefaultATCPortInt,
+	}
+	ConsensusNATFlag = cli.StringFlag{
+		Name:  "consensus.nat",
+		Usage: "NAT port mapping mechanism for consensus channel (any|none|upnp|pmp|extip:<IP>)",
+		Value: "any",
+	}
+	ConsensusNetrestrictFlag = cli.StringFlag{
+		Name:  "consensus.netrestrict",
+		Usage: "Restricts network communication to the given IP networks (CIDR masks) for consensus server",
+	}
 	// Network Settings
 	MaxPeersFlag = cli.IntFlag{
 		Name:  "maxpeers",
@@ -607,7 +623,12 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
 		Usage: "Network listening port",
-		Value: 30303,
+		Value: node.DefaultETHPortInt,
+	}
+	NATFlag = cli.StringFlag{
+		Name:  "nat",
+		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",
+		Value: "any",
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -633,11 +654,6 @@ var (
 	WriteAddrFlag = cli.BoolFlag{
 		Name:  "writeaddress",
 		Usage: "writes out the node's public key on stdout",
-	}
-	NATFlag = cli.StringFlag{
-		Name:  "nat",
-		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",
-		Value: "any",
 	}
 	NoDiscoverFlag = cli.BoolFlag{
 		Name:  "nodiscover",
@@ -1166,9 +1182,45 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
+func SetConsensusP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
+	setNodeKey(ctx, cfg)
+	if ctx.GlobalIsSet(ConsensusNATFlag.Name) {
+		natif, err := nat.Parse(ctx.GlobalString(ConsensusNATFlag.Name))
+		if err != nil {
+			Fatalf("Option %s: %v", ConsensusNATFlag.Name, err)
+		}
+		cfg.NAT = natif
+	}
+	// set listener
+	if ctx.GlobalIsSet(ConsensusListenPortFlag.Name) {
+		cfg.ListenAddr = fmt.Sprintf(":%d", ctx.GlobalInt(ConsensusListenPortFlag.Name))
+	}
+
+	//TODO: fix these values later
+	cfg.MaxPeers = 10000
+	cfg.MaxPendingPeers = 10000
+	if netrestrict := ctx.GlobalString(NetrestrictFlag.Name); netrestrict != "" {
+		list, err := netutil.ParseNetlist(netrestrict)
+		if err != nil {
+			Fatalf("Option %q: %v", NetrestrictFlag.Name, err)
+		}
+		cfg.NetRestrict = list
+	}
+
+	if ctx.Bool(DeveloperFlag.Name) {
+		// --dev mode can't use p2p networking.
+		cfg.MaxPeers = 0
+		cfg.ListenAddr = ""
+		cfg.NoDial = true
+		cfg.NoDiscovery = true
+		cfg.DiscoveryV5 = false
+	}
+}
+
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	SetP2PConfig(ctx, &cfg.P2P)
+	SetConsensusP2PConfig(ctx, &cfg.ConsensusP2P)
 	setIPC(ctx, cfg)
 	setHTTP(ctx, cfg)
 	setGraphQL(ctx, cfg)
@@ -1425,7 +1477,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	}
 	// Ensure Go's GC ignores the database cache for trigger percentage
 	cache := ctx.GlobalInt(CacheFlag.Name)
-	gogc := math.Max(20, math.Min(100, 100/(float64(cache)/1024)))
+	gogc := math.Max(20, math.Min(500, 500/(float64(cache)/1024)))
 
 	log.Debug("Sanitizing Go's GC trigger", "percent", int(gogc))
 	godebug.SetGCPercent(int(gogc))
@@ -1608,6 +1660,10 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 	}
 	stack.RegisterAPIs(tracers.APIs(backend.APIBackend))
 	return backend.APIBackend, backend
+}
+
+func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) *atc.ATC {
+	return atc.New(stack, backend.BlockChain(), netID)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
