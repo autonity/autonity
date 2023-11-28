@@ -1,12 +1,22 @@
 package types
 
 import (
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
 
 	"github.com/autonity/autonity/common"
 )
+
+func TestCommittee(t *testing.T) {
+	var c = &Committee{}
+
+	require.True(t, true, c.Members == nil)
+	require.True(t, true, c.totalVotingPower == nil)
+	require.True(t, true, c.aggValidatorKey == nil)
+	require.True(t, true, c.membersMap == nil)
+}
 
 func TestHeaderHash(t *testing.T) {
 	originalHeader := Header{
