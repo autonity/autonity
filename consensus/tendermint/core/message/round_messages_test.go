@@ -2,119 +2,75 @@ package message
 
 import (
 	"bytes"
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
-	"gotest.tools/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
-func TestMessagesMap_newMessageMap(t *testing.T) {
-	messagesMap := NewMessagesMap()
-	assert.Equal(t, 0, len(messagesMap.internal))
+func TestMapReset(t *testing.T) {
+	messages := NewMap()
+	messages.GetOrCreate(0).AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier))
+	messages.GetOrCreate(1).AddPrecommit(NewPrecommit(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier))
+	messages.Reset()
+	assert.Equal(t, 0, len(messages.All()))
 }
 
-func TestMessagesMap_reset(t *testing.T) {
-	messagesMap := NewMessagesMap()
-	messagesMap.GetOrCreate(0)
-	messagesMap.GetOrCreate(1)
-	messagesMap.Reset()
-	assert.Equal(t, 0, len(messagesMap.internal))
+func TestGetOrCreate(t *testing.T) {
+	messages := NewMap()
+	rm0 := messages.GetOrCreate(0)
+	rm1 := messages.GetOrCreate(1)
+	rm1.AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier))
+	assert.Equal(t, rm0, messages.GetOrCreate(0))
+	assert.Equal(t, rm1, messages.GetOrCreate(1))
 }
 
-func TestMessagesMap_getOrCreate(t *testing.T) {
-	messagesMap := NewMessagesMap()
-	rm0 := messagesMap.GetOrCreate(0)
-	rm1 := messagesMap.GetOrCreate(1)
+func TestGetMessages(t *testing.T) {
+	messages := NewMap()
 
-	assert.Equal(t, rm0, messagesMap.GetOrCreate(0))
-	assert.Equal(t, rm1, messagesMap.GetOrCreate(1))
-	assert.Equal(t, 2, len(messagesMap.internal))
-}
-
-func TestMessagesMap_GetMessages(t *testing.T) {
-	messagesMap := NewMessagesMap()
-
-	rm0 := messagesMap.GetOrCreate(0)
-	rm1 := messagesMap.GetOrCreate(1)
+	rm0 := messages.GetOrCreate(0)
+	rm1 := messages.GetOrCreate(1)
 	// let round jump happens.
-	rm2 := messagesMap.GetOrCreate(4)
+	rm2 := messages.GetOrCreate(4)
 
-	assert.Equal(t, 3, len(messagesMap.internal))
-	assert.Equal(t, 0, len(messagesMap.Messages()))
+	assert.Equal(t, 3, len(messages.internal))
+	assert.Equal(t, 0, len(messages.All()))
 
 	prevoteHash := common.HexToHash("prevoteHash")
 	precommitHash := common.HexToHash("precommitHash")
+	block := types.NewBlockWithHeader(&types.Header{Number: common.Big1})
 
-	proposalMsg := &Message{
-		Code:          consensus.MsgProposal,
-		Payload:       []byte("proposal"),
-		Address:       common.HexToAddress("val1"),
-		CommittedSeal: []byte{},
-	}
+	proposal := NewPropose(1, 2, -1, block, defaultSigner).MustVerify(stubVerifier)
+	prevote := NewPrevote(1, 2, prevoteHash, defaultSigner).MustVerify(stubVerifier)
+	precommit := NewPrecommit(1, 2, precommitHash, defaultSigner).MustVerify(stubVerifier)
 
-	prevoteMsg := &Message{
-		Code:          consensus.MsgPrevote,
-		Payload:       []byte("prevote"),
-		Address:       common.HexToAddress("val1"),
-		CommittedSeal: []byte{},
-	}
+	rm0.SetProposal(proposal, false)
+	rm0.AddPrevote(prevote)
+	rm0.AddPrecommit(precommit)
 
-	precommitMsg := &Message{
-		Code:          consensus.MsgPrecommit,
-		Payload:       []byte("precommit"),
-		Address:       common.HexToAddress("val1"),
-		CommittedSeal: []byte("committed seal"),
-	}
+	rm1.SetProposal(proposal, false)
+	rm1.AddPrevote(prevote)
+	rm1.AddPrecommit(precommit)
 
-	rm0.SetProposal(&Proposal{}, proposalMsg, false)
-	rm0.AddPrevote(prevoteHash, *prevoteMsg)
-	rm0.AddPrecommit(precommitHash, *precommitMsg)
+	rm2.SetProposal(proposal, false)
+	rm2.AddPrevote(prevote)
+	rm2.AddPrecommit(precommit)
 
-	rm1.SetProposal(&Proposal{}, proposalMsg, false)
-	rm1.AddPrevote(prevoteHash, *prevoteMsg)
-	rm1.AddPrecommit(precommitHash, *precommitMsg)
-
-	rm2.SetProposal(&Proposal{}, proposalMsg, false)
-	rm2.AddPrevote(prevoteHash, *prevoteMsg)
-	rm2.AddPrecommit(precommitHash, *precommitMsg)
-
-	allMessages := messagesMap.Messages()
+	allMessages := messages.All()
 	assert.Equal(t, 9, len(allMessages))
 
 	for _, m := range allMessages {
-		switch m.Code {
-		case consensus.MsgProposal:
-			assert.Equal(t, proposalMsg.Code, m.Code)
-
-			r := bytes.Compare(proposalMsg.Payload, m.Payload)
+		switch m.Code() {
+		case ProposalCode:
+			r := bytes.Compare(proposal.Payload(), m.Payload())
 			assert.Equal(t, 0, r)
-
-			r = bytes.Compare(proposalMsg.Address[:], m.Address[:])
+		case PrevoteCode:
+			r := bytes.Compare(prevote.Payload(), m.Payload())
 			assert.Equal(t, 0, r)
-
-			r = bytes.Compare(proposalMsg.CommittedSeal, m.CommittedSeal)
-			assert.Equal(t, 0, r)
-		case consensus.MsgPrevote:
-			assert.Equal(t, prevoteMsg.Code, m.Code)
-
-			r := bytes.Compare(prevoteMsg.Payload, m.Payload)
-			assert.Equal(t, 0, r)
-
-			r = bytes.Compare(prevoteMsg.Address[:], m.Address[:])
-			assert.Equal(t, 0, r)
-
-			r = bytes.Compare(prevoteMsg.CommittedSeal, m.CommittedSeal)
-			assert.Equal(t, 0, r)
-		case consensus.MsgPrecommit:
-			assert.Equal(t, precommitMsg.Code, m.Code)
-
-			r := bytes.Compare(precommitMsg.Payload, m.Payload)
-			assert.Equal(t, 0, r)
-
-			r = bytes.Compare(precommitMsg.Address[:], m.Address[:])
-			assert.Equal(t, 0, r)
-
-			r = bytes.Compare(precommitMsg.CommittedSeal, m.CommittedSeal)
+		case PrecommitCode:
+			r := bytes.Compare(precommit.Payload(), m.Payload())
 			assert.Equal(t, 0, r)
 		}
 	}

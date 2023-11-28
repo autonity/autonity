@@ -5,7 +5,10 @@
 package backend
 
 import (
+	"bytes"
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/p2p"
 	"math/big"
 	"reflect"
 	"testing"
@@ -28,7 +31,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		//we generate a bunch of messages overflowing max capacity
 		for i := int64(0); i < 2*ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(TendermintMsg, append(counter, []byte("data")...))
+			msg := makeMsg(PrevoteNetworkMsg, append(counter, []byte("data")...))
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
@@ -43,7 +46,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 			addr := savedMsg.(UnhandledMsg).addr
 			expectedAddr := common.BytesToAddress(append(counter, []byte("addr")...))
-			if savedMsg.(UnhandledMsg).msg.Code != TendermintMsg {
+			if savedMsg.(UnhandledMsg).msg.Code != PrevoteNetworkMsg {
 				t.Fatalf("wrong msg code")
 			}
 			var payload []byte
@@ -75,7 +78,8 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			msg := makeMsg(TendermintMsg, append(counter, []byte("data")...))
+			vote := message.NewPrevote(1, 2, common.BigToHash(big.NewInt(i)), dummySigner)
+			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())}
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
@@ -94,12 +98,12 @@ func TestUnhandledMsgs(t *testing.T) {
 		for {
 			select {
 			case eve := <-sub.Chan():
-				payload := eve.Data.(events.MessageEvent).Payload
-				if !reflect.DeepEqual(payload[len(payload)-4:], []byte("data")) {
+				message := eve.Data.(events.MessageEvent).Message
+				if message.R() != 1 || message.H() != 2 {
 					t.Fatalf("message not expected")
 				}
 				i++
-				received[new(big.Int).SetBytes(payload[:len(payload)-4]).Uint64()] = true
+				received[message.Value().Big().Uint64()] = true
 
 			case <-timer.C:
 				if i == ringCapacity {

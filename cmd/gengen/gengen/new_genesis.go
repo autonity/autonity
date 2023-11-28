@@ -4,7 +4,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/autonity/autonity/crypto/bls"
-	"github.com/autonity/autonity/node"
+	//"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"math/big"
 	"net"
 	"time"
@@ -38,7 +39,7 @@ type Validator struct {
 	// KeyPath is the file path at which the key is stored.
 	KeyPath string
 	// TendermintServices is an optional familly of consensus hooks used for testing purposes.
-	TendermintServices *node.TendermintServices
+	TendermintServices *interfaces.Services
 }
 
 type GenesisOption func(*core.Genesis)

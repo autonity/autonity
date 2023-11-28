@@ -7,7 +7,6 @@ linters:
   enable:
     - deadcode
     - govet
-    - structcheck
     - misspell
     - megacheck
 

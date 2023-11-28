@@ -153,7 +153,7 @@ func startTestControllers(t *testing.T, test *testCase, peers map[string]*testNo
 
 	for _, key := range keys {
 		count := txs[uint64(key)]
-		fmt.Printf("Block %d has %d transactions\n", key, count)
+		fmt.Printf("block %d has %d transactions\n", key, count)
 	}
 
 	for index, peer := range peers {

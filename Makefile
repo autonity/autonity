@@ -160,7 +160,8 @@ test-contracts-pre:
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
 
-APE_VERSION := 0.6.19
+APE_VERSION := 0.6.26
+HARDHAT_VERSION := 2.19.1
 test-contracts-asm:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
@@ -172,7 +173,7 @@ test-contracts-asm:
 		exit 1;\
 	}
 	@echo "check and install hardhat"
-	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
+	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
 	@echo "run tests for the asm contracts"
@@ -228,10 +229,7 @@ docker-e2e-test: contracts
 mock-gen:
 	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
-	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
-	mockgen -source=interfaces.go -package=ethereum -destination=interfaces_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
-	mockgen -source=consensus/tendermint/core/interfaces/tendermint.go -package=interfaces -destination=consensus/tendermint/core/interfaces/tendermint_mock.go
 	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/broadcaster.go -package=interfaces -destination=consensus/tendermint/core/interfaces/broadcaster_mock.go
@@ -267,7 +265,7 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.53.3
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./build/bin v1.55.2
 
 clean:
 	go clean -cache
