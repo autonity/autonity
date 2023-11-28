@@ -4,8 +4,10 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	c "github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/bls"
 	"github.com/autonity/autonity/crypto/bls/common"
+	"golang.org/x/crypto/blake2b"
 )
 
 const MsgPrefix = "Auton"
@@ -31,6 +33,10 @@ func GenerateValidatorKeyProof(priKey bls.SecretKey, msg []byte) ([]byte, error)
 		return nil, err
 	}
 	return proof.Marshal(), nil
+}
+
+func Hash(data []byte) c.Hash {
+	return blake2b.Sum256(data)
 }
 
 func PrivECDSAToHex(k *ecdsa.PrivateKey) []byte {

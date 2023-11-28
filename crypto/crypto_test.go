@@ -19,9 +19,15 @@ package crypto
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"github.com/autonity/autonity/crypto/blake2b"
 	"github.com/autonity/autonity/crypto/bls"
 	"github.com/stretchr/testify/require"
+	stdblake "golang.org/x/crypto/blake2b"
+	"golang.org/x/crypto/sha3"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -64,6 +70,44 @@ func BenchmarkSha3(b *testing.B) {
 	a := []byte("hello world")
 	for i := 0; i < b.N; i++ {
 		Keccak256(a)
+	}
+}
+
+func BenchmarkHashing(b *testing.B) {
+	sizes := []int{1000, 10_000, 100_000, 1_000_000}
+	for _, s := range sizes {
+		b.Run(fmt.Sprintf("benchmarking %dKB", s/1000), func(b *testing.B) {
+			source := make([]byte, s)
+			newRandom := func() {
+				rand.Read(source)
+			}
+			newRandom()
+			b.Run("SHA3-256", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					sha3.Sum256(source)
+				}
+			})
+			b.Run("SHA-256", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					sha256.Sum256(source)
+				}
+			})
+			b.Run("KECCAK-256", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					Keccak256(source)
+				}
+			})
+			b.Run("BLAKE2B", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					blake2b.Sum256(source)
+				}
+			})
+			b.Run("Go lib - BLAKE2B", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					stdblake.Sum256(source)
+				}
+			})
+		})
 	}
 }
 

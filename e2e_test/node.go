@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -85,7 +86,7 @@ type Node struct {
 	Tracker   *TransactionTracker
 	// The transactions that this node has sent.
 	SentTxs     []*types.Transaction
-	CustHandler *node.TendermintServices
+	CustHandler *interfaces.Services
 	ID          int
 }
 

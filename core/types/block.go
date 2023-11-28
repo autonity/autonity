@@ -584,7 +584,6 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 // the sealed one.
 func (b *Block) WithSeal(header *Header) *Block {
 	cpy := *header
-
 	return &Block{
 		header:       &cpy,
 		transactions: b.transactions,

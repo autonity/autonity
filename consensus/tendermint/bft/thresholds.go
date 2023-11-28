@@ -16,7 +16,6 @@ func Quorum(totalVotingPower *big.Int) *big.Int {
 
 func F(totalVotingPower *big.Int) *big.Int {
 	f, mod := new(big.Int).DivMod(totalVotingPower, big.NewInt(3), new(big.Int))
-
 	if mod.Cmp(big.NewInt(0)) > 0 {
 		f.Add(f, big.NewInt(1))
 	}

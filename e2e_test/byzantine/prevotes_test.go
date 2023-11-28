@@ -5,16 +5,13 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/core/types"
-	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/autonity/autonity/node"
+	"github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
 )
 
-func newMalPrevoter(c interfaces.Tendermint) interfaces.Prevoter {
+func newMalPrevoter(c interfaces.Core) interfaces.Prevoter {
 	return &malPrevoter{c.(*core.Core), c.Prevoter()}
 }
 
@@ -25,25 +22,15 @@ type malPrevoter struct {
 
 // HandlePrevote overrides core.HandlePrevote, It accepts a vote and sends a precommit without checking
 // for 2f+1 vote count
-func (c *malPrevoter) HandlePrevote(ctx context.Context, msg *message.Message) error {
-	var preVote message.Vote
-	err := msg.Decode(&preVote)
-	if err != nil {
-		return constants.ErrFailedDecodePrevote
-	}
-
-	prevoteHash := preVote.ProposedBlockHash
-	c.AcceptVote(c.CurRoundMessages(), types.Prevote, prevoteHash, *msg)
-
+func (c *malPrevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {
+	c.CurRoundMessages().AddPrevote(prevote)
 	// Now we can add the preVote to our current round state
 	if err := c.PrevoteTimeout().StopTimer(); err != nil {
 		return err
 	}
 	c.Logger().Debug("Stopped Scheduled Prevote Timeout")
-
 	c.Precommiter().SendPrecommit(ctx, true)
-	c.SetStep(types.Precommit)
-
+	c.SetStep(core.Precommit)
 	return nil
 }
 
@@ -52,7 +39,7 @@ func TestMaliciousPrevoter(t *testing.T) {
 	require.NoError(t, err)
 
 	//set Malicious users
-	users[0].TendermintServices = &node.TendermintServices{Prevoter: newMalPrevoter}
+	users[0].TendermintServices = &interfaces.Services{Prevoter: newMalPrevoter}
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)

@@ -169,9 +169,7 @@ func (n *Node) ResolveHost() error {
 	if len(ips) == 0 {
 		return fmt.Errorf("failed to resolve IP for host %q, no IPs returned", host)
 	}
-
 	ip := ips[0]
-
 	// Ensure the IP is 4 bytes long for IPv4 addresses.
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4

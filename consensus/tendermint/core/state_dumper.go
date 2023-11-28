@@ -1,28 +1,33 @@
 package core
 
 import (
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tctypes "github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/core/types"
 	"math/big"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 )
 
-func (c *Core) CoreState() tctypes.TendermintState {
+type StateRequestEvent struct {
+	StateChan chan interfaces.CoreState
+}
+
+func (c *Core) CoreState() interfaces.CoreState {
 	// send state dump request.
-	var e = tctypes.CoreStateRequestEvent{
-		StateChan: make(chan tctypes.TendermintState),
+	var e = StateRequestEvent{
+		StateChan: make(chan interfaces.CoreState),
 	}
 	go c.SendEvent(e)
 	return <-e.StateChan
 }
 
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
-func (c *Core) handleStateDump(e tctypes.CoreStateRequestEvent) {
-	state := tctypes.TendermintState{
+func (c *Core) handleStateDump(e StateRequestEvent) {
+	state := interfaces.CoreState{
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,
-		CurHeightMessages: msgForDump(c.CurrentHeightMessages()),
+		CurHeightMessages: msgForDump(c.messages.All()),
 		BacklogMessages:   getBacklogMsgs(c),
 		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
 		// tendermint Core state:
@@ -61,8 +66,8 @@ func (c *Core) handleStateDump(e tctypes.CoreStateRequestEvent) {
 	close(e.StateChan)
 }
 
-func getBacklogUncheckedMsgs(c *Core) []*tctypes.MsgForDump {
-	result := make([]*tctypes.MsgForDump, 0)
+func getBacklogUncheckedMsgs(c *Core) []*interfaces.MsgForDump {
+	result := make([]*interfaces.MsgForDump, 0)
 	for _, ms := range c.backlogUntrusted {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -73,8 +78,8 @@ func getBacklogUncheckedMsgs(c *Core) []*tctypes.MsgForDump {
 // getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
-func getBacklogMsgs(c *Core) []*tctypes.MsgForDump {
-	result := make([]*tctypes.MsgForDump, 0)
+func getBacklogMsgs(c *Core) []*interfaces.MsgForDump {
+	result := make([]*interfaces.MsgForDump, 0)
 	for _, ms := range c.backlogs {
 		result = append(result, msgForDump(ms)...)
 	}
@@ -82,13 +87,13 @@ func getBacklogMsgs(c *Core) []*tctypes.MsgForDump {
 	return result
 }
 
-func msgForDump(msgs []*message.Message) []*tctypes.MsgForDump {
-	result := make([]*tctypes.MsgForDump, 0, len(msgs))
-	for _, m := range msgs {
-		msg := new(tctypes.MsgForDump)
-		msg.Message = *m
-		msg.Power = m.GetPower()
-		msg.Hash = types.RLPHash(m.Bytes)
+func msgForDump(messages []message.Msg) []*interfaces.MsgForDump {
+	result := make([]*interfaces.MsgForDump, 0, len(messages))
+	for _, m := range messages {
+		msg := new(interfaces.MsgForDump)
+		msg.Msg = m
+		msg.Power = m.Power()
+		msg.Hash = m.Hash()
 
 		// in case of haven't decode msg yet, set round and height as -1.
 		msg.Round = -1
@@ -101,8 +106,8 @@ func msgForDump(msgs []*message.Message) []*tctypes.MsgForDump {
 }
 
 func getProposal(c *Core, round int64) *common.Hash {
-	if c.messages.GetOrCreate(round).ProposalDetails != nil && c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock != nil {
-		v := c.messages.GetOrCreate(round).ProposalDetails.ProposalBlock.Hash()
+	if c.messages.GetOrCreate(round).Proposal() != nil && c.messages.GetOrCreate(round).Proposal().Block() != nil {
+		v := c.messages.GetOrCreate(round).Proposal().Block().Hash()
 		return &v
 	}
 	return nil
@@ -116,13 +121,13 @@ func getHash(b *types.Block) *common.Hash {
 	return nil
 }
 
-func getRoundState(c *Core) []tctypes.RoundState {
+func getRoundState(c *Core) []interfaces.RoundState {
 	rounds := c.messages.GetRounds()
-	states := make([]tctypes.RoundState, 0, len(rounds))
+	states := make([]interfaces.RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
 		proposal, prevoteState, preCommitState := getVoteState(c.messages, r)
-		state := tctypes.RoundState{
+		state := interfaces.RoundState{
 			Round:          r,
 			Proposal:       proposal,
 			PrevoteState:   prevoteState,
@@ -133,28 +138,25 @@ func getRoundState(c *Core) []tctypes.RoundState {
 	return states
 }
 
-func blockHashes(messages map[common.Hash]map[common.Address]message.Message) []common.Hash {
+func blockHashes[T interface{ Value() common.Hash }](messages []message.Msg) []common.Hash {
 	blockHashes := make([]common.Hash, 0, len(messages))
-	for key := range messages {
-		blockHashes = append(blockHashes, key)
+	for _, m := range messages {
+		blockHashes = append(blockHashes, m.(T).Value())
 	}
 	return blockHashes
 }
 
-func getVoteState(s *message.MessagesMap, round int64) (common.Hash, []tctypes.VoteState, []tctypes.VoteState) {
-	p := common.Hash{}
+func getVoteState(s *message.Map, round int64) (common.Hash, []interfaces.VoteState, []interfaces.VoteState) {
+	messages := s.GetOrCreate(round)
 
-	if s.GetOrCreate(round).Proposal() != nil && s.GetOrCreate(round).Proposal().ProposalBlock != nil {
-		p = s.GetOrCreate(round).Proposal().ProposalBlock.Hash()
-	}
-
-	preVoteValues := blockHashes(s.GetOrCreate(round).Prevotes.Votes)
-	preCommitValues := blockHashes(s.GetOrCreate(round).Precommits.Votes)
-	prevoteState := make([]tctypes.VoteState, 0, len(preVoteValues))
-	precommitState := make([]tctypes.VoteState, 0, len(preCommitValues))
+	p := messages.ProposalHash()
+	preVoteValues := blockHashes[*message.Prevote](messages.AllPrevotes())
+	preCommitValues := blockHashes[*message.Precommit](messages.AllPrecommits())
+	prevoteState := make([]interfaces.VoteState, 0, len(preVoteValues))
+	precommitState := make([]interfaces.VoteState, 0, len(preCommitValues))
 
 	for _, v := range preVoteValues {
-		var s = tctypes.VoteState{
+		var s = interfaces.VoteState{
 			Value:            v,
 			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
 			VotePower:        s.GetOrCreate(round).PrevotesPower(v),
@@ -163,7 +165,7 @@ func getVoteState(s *message.MessagesMap, round int64) (common.Hash, []tctypes.V
 	}
 
 	for _, v := range preCommitValues {
-		var s = tctypes.VoteState{
+		var s = interfaces.VoteState{
 			Value:            v,
 			ProposalVerified: s.GetOrCreate(round).IsProposalVerified(),
 			VotePower:        s.GetOrCreate(round).PrecommitsPower(v),

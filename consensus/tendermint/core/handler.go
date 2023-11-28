@@ -8,12 +8,9 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/core/types"
-	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 )
 
@@ -55,50 +52,45 @@ func (c *Core) Stop() {
 }
 
 func (c *Core) subscribeEvents() {
-	s := c.backend.Subscribe(events.MessageEvent{}, backlogMessageEvent{}, backlogUntrustedMessageEvent{}, types.CoreStateRequestEvent{})
-	c.messageEventSub = s
-
-	s1 := c.backend.Subscribe(events.NewCandidateBlockEvent{})
-	c.candidateBlockEventSub = s1
-
-	s2 := c.backend.Subscribe(types.TimeoutEvent{})
-	c.timeoutEventSub = s2
-
-	s3 := c.backend.Subscribe(events.CommitEvent{})
-	c.committedSub = s3
-
-	s4 := c.backend.Subscribe(events.SyncEvent{})
-	c.syncEventSub = s4
+	c.messageSub = c.backend.Subscribe(
+		events.MessageEvent{},
+		backlogMessageEvent{},
+		backlogUntrustedMessageEvent{},
+		StateRequestEvent{})
+	c.candidateBlockSub = c.backend.Subscribe(events.NewCandidateBlockEvent{})
+	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
+	c.committedSub = c.backend.Subscribe(events.CommitEvent{})
+	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
-// Unsubscribe all messageEventSub
+// Unsubscribe all messageSub
 func (c *Core) unsubscribeEvents() {
-	c.messageEventSub.Unsubscribe()
-	c.candidateBlockEventSub.Unsubscribe()
+	c.messageSub.Unsubscribe()
+	c.candidateBlockSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
 	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
 }
 
 func shouldDisconnectSender(err error) bool {
-	switch err {
-	case constants.ErrFutureHeightMessage:
+	switch {
+	case errors.Is(err, constants.ErrFutureHeightMessage):
 		fallthrough
-	case constants.ErrOldHeightMessage:
+	case errors.Is(err, constants.ErrOldHeightMessage):
 		fallthrough
-	case constants.ErrOldRoundMessage:
+	case errors.Is(err, constants.ErrOldRoundMessage):
 		fallthrough
-	case constants.ErrFutureRoundMessage:
+	case errors.Is(err, constants.ErrFutureRoundMessage):
 		fallthrough
-	case constants.ErrFutureStepMessage:
+	case errors.Is(err, constants.ErrFutureStepMessage):
 		fallthrough
-	case constants.ErrNilPrevoteSent:
+	case errors.Is(err, constants.ErrNilPrevoteSent):
 		fallthrough
-	case constants.ErrNilPrecommitSent:
+	case errors.Is(err, constants.ErrNilPrecommitSent):
 		fallthrough
-	case constants.ErrMovedToNewRound:
+	case errors.Is(err, constants.ErrMovedToNewRound):
 		return false
-	case ErrValidatorJailed:
+	case errors.Is(err, ErrValidatorJailed):
 		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
 		// really assume that all the other committee members have the same view on the
 		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
@@ -117,21 +109,16 @@ func (c *Core) mainEventLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case ev, ok := <-c.messageEventSub.Chan():
+		case ev, ok := <-c.messageSub.Chan():
 			if !ok {
 				break eventLoop
 			}
 			// A real ev arrived, process interesting content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				msg, err := message.FromBytes(e.Payload) // todo(youssef): move that ahead
-				if err != nil {
-					c.logger.Error("Received consensus message with invalid payload", "err", err)
-					tryDisconnect(e.ErrCh, err)
-					continue
-				}
+
 				// At this stage, a message is parsed and all the internal fields must be accessible
-				if err := c.handleMsg(ctx, msg); err != nil {
+				if err := c.handleMsg(ctx, e.Message); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
@@ -139,7 +126,7 @@ eventLoop:
 					}
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.Payload)
+				c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
 			case backlogMessageEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling consensus backlog event")
@@ -147,7 +134,7 @@ eventLoop:
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg.GetBytes())
+				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
 
 			case backlogUntrustedMessageEvent:
 				c.logger.Debug("Started handling backlog unchecked event")
@@ -156,8 +143,8 @@ eventLoop:
 					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg.GetBytes())
-			case types.CoreStateRequestEvent:
+				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
 			}
@@ -165,13 +152,13 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			if timeoutE, ok := ev.Data.(types.TimeoutEvent); ok {
+			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				switch timeoutE.Step {
-				case consensus.MsgProposal:
+				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)
-				case consensus.MsgPrevote:
+				case Prevote:
 					c.handleTimeoutPrevote(ctx, timeoutE)
-				case consensus.MsgPrecommit:
+				case Precommit:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
@@ -183,7 +170,7 @@ eventLoop:
 			case events.CommitEvent:
 				c.precommiter.HandleCommit(ctx)
 			}
-		case ev, ok := <-c.candidateBlockEventSub.Chan():
+		case ev, ok := <-c.candidateBlockSub.Chan():
 			if !ok {
 				break eventLoop
 			}
@@ -221,6 +208,8 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
+				c.logger.Warn("⚠️ Consensus liveliness lost")
+				c.logger.Warn("Broadcasting sync request..")
 				c.backend.AskSync(c.LastHeader())
 			}
 			round = currentRound
@@ -249,7 +238,7 @@ func (c *Core) SendEvent(ev any) {
 }
 
 // handleMsg assume msg has already been decoded
-func (c *Core) handleMsg(ctx context.Context, msg *message.Message) error {
+func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	msgHeight := new(big.Int).SetUint64(msg.H())
 	if msgHeight.Cmp(c.Height()) > 0 {
 		// Future height message. Skip processing and put it in the untrusted backlog buffer.
@@ -260,24 +249,25 @@ func (c *Core) handleMsg(ctx context.Context, msg *message.Message) error {
 		// Old height messages. Do nothing.
 		return constants.ErrOldHeightMessage // No gossip
 	}
-	if err := msg.Validate(crypto.CheckValidatorSignature, c.LastHeader()); err != nil {
+	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
+		c.logger.Error(msg.String())
 		return err
 	}
-	if c.backend.IsJailed(msg.Address) {
-		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Address)
+	if c.backend.IsJailed(msg.Sender()) {
+		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Sender())
 		return ErrValidatorJailed
 	}
 	return c.handleValidMsg(ctx, msg)
 }
 
-func (c *Core) handleFutureRoundMsg(ctx context.Context, msg *message.Message, sender common.Address) {
+func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Msg, sender common.Address) {
 	// Decoding functions can't fail here
 	msgRound := msg.R()
 	if _, ok := c.futureRoundChange[msgRound]; !ok {
 		c.futureRoundChange[msgRound] = make(map[common.Address]*big.Int)
 	}
-	c.futureRoundChange[msgRound][sender] = msg.Power
+	c.futureRoundChange[msgRound][sender] = msg.Power()
 
 	totalFutureRoundMessagesPower := new(big.Int)
 	for _, power := range c.futureRoundChange[msgRound] {
@@ -290,38 +280,37 @@ func (c *Core) handleFutureRoundMsg(ctx context.Context, msg *message.Message, s
 	}
 }
 
-func (c *Core) handleValidMsg(ctx context.Context, msg *message.Message) error {
-	logger := c.logger.New("address", c.address, "from", msg.Address)
+func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
+	logger := c.logger.New("from", msg.Sender())
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
-		if err == constants.ErrFutureHeightMessage {
-			//Future messages should never be processed and reach this point. Panic.
+		switch {
+		case errors.Is(err, constants.ErrFutureHeightMessage):
 			panic("Processed future message as a valid message")
-		} else if err == constants.ErrFutureRoundMessage {
+		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, msg.Address)
+			c.storeBacklog(msg, msg.Sender())
 			// decoding must have been successful to return
-			c.handleFutureRoundMsg(ctx, msg, msg.Address)
-		} else if err == constants.ErrFutureStepMessage {
+			c.handleFutureRoundMsg(ctx, msg, msg.Sender())
+		case errors.Is(err, constants.ErrFutureStepMessage):
 			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, msg.Address)
+			c.storeBacklog(msg, msg.Sender())
 		}
-
 		return err
 	}
 
-	switch msg.Code {
-	case consensus.MsgProposal:
+	switch m := msg.(type) {
+	case *message.Propose:
 		logger.Debug("Handling Proposal")
-		return testBacklog(c.proposer.HandleProposal(ctx, msg))
-	case consensus.MsgPrevote:
+		return testBacklog(c.proposer.HandleProposal(ctx, m))
+	case *message.Prevote:
 		logger.Debug("Handling Prevote")
-		return testBacklog(c.prevoter.HandlePrevote(ctx, msg))
-	case consensus.MsgPrecommit:
+		return testBacklog(c.prevoter.HandlePrevote(ctx, m))
+	case *message.Precommit:
 		logger.Debug("Handling Precommit")
-		return testBacklog(c.precommiter.HandlePrecommit(ctx, msg))
+		return testBacklog(c.precommiter.HandlePrecommit(ctx, m))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}

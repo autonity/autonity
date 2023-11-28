@@ -220,8 +220,8 @@ def test_modify_basket(acu_basic, users):
     assert len(receipt.events) == 1
     event = receipt.events[0]
     assert event.event_name == "BasketModified"
-    assert event.symbols == tuple(new_basket)
-    assert event.quantities == tuple(new_quantities)
+    assert event.symbols == new_basket
+    assert event.quantities == new_quantities
     assert event.scale == new_scale
 
 

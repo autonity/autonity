@@ -189,7 +189,7 @@ func (s *Signature) Copy() common.BLSSignature {
 }
 
 func (s *Signature) Hex() string {
-	return "0x" + hex.EncodeToString(s.Marshal())
+	return HexPrefix + hex.EncodeToString(s.Marshal())
 }
 
 // VerifyCompressed verifies that the compressed signature and pubkey

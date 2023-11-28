@@ -3,6 +3,8 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -10,7 +12,6 @@ import (
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	crypto2 "github.com/autonity/autonity/crypto"
@@ -28,11 +29,11 @@ var (
 	checkInnocenceAddress            = common.BytesToAddress([]byte{253}) //0xfd
 	checkMisbehaviourAddress         = common.BytesToAddress([]byte{254}) //0xfe
 	// error codes of the execution of precompiled contract to verify the input Proof.
-	successResult = common.LeftPadBytes([]byte{1}, 32)
-	failure32Byte = make([]byte, 32)
-	failureResult = make([]byte, 128)
-
-	errNilMessage = errors.New("nil message")
+	successResult   = common.LeftPadBytes([]byte{1}, 32)
+	failure32Byte   = make([]byte, 32)
+	failureReturn   = make([]byte, 128)
+	errBadHeight    = errors.New("height invalid")
+	errMaxEvidences = errors.New("above max evidence threshold")
 )
 
 const KB = 1024
@@ -104,61 +105,51 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationVerifier) Run(input []byte, blockNumber uint64) ([]byte, error) {
 	if len(input) <= 32 {
-		return failureResult, nil
+		return failureReturn, nil
 	}
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
-		return failureResult, nil
+		return failureReturn, nil
 	}
-	evHeight := p.Message.H()
-	if evHeight == 0 {
-		return failureResult, nil
+	if err := verifyProofSignatures(a.chain, p); err != nil {
+		return failureReturn, nil
 	}
+
 	// prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
 	// corresponding to an old height, while at each Pi, they only buffer specific heights of message in msg store, thus
 	// Pi can never provide a valid proof of innocence anymore, making the malicious accusation be valid for slashing.
-	if blockNumber > evHeight && (blockNumber-evHeight >= consensus.AccountabilityHeightRange) {
-		return failureResult, nil
+	if blockNumber > p.Message.H() && (blockNumber-p.Message.H() >= consensus.AccountabilityHeightRange) {
+		return failureReturn, nil
 	}
-	if verifyAccusation(a.chain, p) {
+	if verifyAccusation(p) {
 		return validReturn(p.Message, p.Rule), nil
 	}
-	return failureResult, nil
+	return failureReturn, nil
 }
 
 // validate the submitted accusation by the contract call.
-func verifyAccusation(chain ChainContext, p *Proof) bool {
+func verifyAccusation(p *Proof) bool {
 	// we have only 4 types of rule on accusation.
 	// an improvement of this function would be to return an error instead of a bool
 	switch p.Rule {
 	case autonity.PO:
-		if p.Message.Code != consensus.MsgLightProposal || p.Message.ConsensusMsg.(*message.LightProposal).ValidRound == -1 {
+		if p.Message.Code() != message.LightProposalCode || p.Message.(*message.LightProposal).ValidRound() == -1 {
 			return false
 		}
 	case autonity.PVN:
-		if p.Message.Code != consensus.MsgPrevote {
+		if p.Message.Code() != message.PrevoteCode {
 			return false
 		}
 	case autonity.PVO:
-		if p.Message.Code != consensus.MsgPrevote {
+		if p.Message.Code() != message.PrevoteCode {
 			return false
 		}
 	case autonity.C1:
-		if p.Message.Code != consensus.MsgPrecommit {
+		if p.Message.Code() != message.PrecommitCode {
 			return false
 		}
 	default:
-		return false
-	}
-
-	// check if the suspicious msg is from the correct committee of that height.
-	h := p.Message.H()
-	lastHeader := chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return false
-	}
-	if err := p.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
 		return false
 	}
 
@@ -168,16 +159,15 @@ func verifyAccusation(chain ChainContext, p *Proof) bool {
 			return false
 		}
 		oldProposal := p.Evidences[0]
-		// Todo(Youssef): bug possible with Light proposal sig validation // signature may come from accuser not reported
-		if err := oldProposal.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-			return false
-		}
-		if oldProposal.Code != consensus.MsgLightProposal ||
+		if oldProposal.Code() != message.LightProposalCode ||
 			oldProposal.R() != p.Message.R() ||
 			oldProposal.Value() != p.Message.Value() ||
-			oldProposal.ConsensusMsg.(*message.LightProposal).ValidRound == -1 {
+			oldProposal.(*message.LightProposal).ValidRound() == -1 {
 			return false
 		}
+	} else if len(p.Evidences) > 0 {
+		// do not allow useless evidences
+		return false
 	}
 
 	return true
@@ -198,93 +188,57 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for Proof management.
 func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 	if len(input) <= 32 {
-		return failureResult, nil
+		return failureReturn, nil
 	}
-
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
-		if p.Rule == autonity.GarbageMessage && err == errAccountableGarbageMsg && len(p.Evidences) == 0 {
-			// since garbage message cannot be decoded for msg height, we return 0 for msg height in such case.
-			return validReturn(p.Message, p.Rule), nil
-		}
-		return failureResult, nil
+		return failureReturn, nil
 	}
-
-	evHeight := p.Message.H()
-	if evHeight == 0 {
-		return failureResult, nil
+	if err := verifyProofSignatures(c.chain, p); err != nil {
+		return failureReturn, nil
 	}
-
-	return c.validateProof(p), nil
+	return c.validateFault(p), nil
 }
 
-// validate the Proof, if the Proof is valid, then the rlp hash of the msg payload and rlp hash of msg sender is
-// returned as the valid identity for Proof management.
-func (c *MisbehaviourVerifier) validateProof(p *Proof) []byte {
-
-	// check if suspicious message is from correct committee member.
-	err := checkMsgSignature(c.chain, p.Message)
-	if err != nil {
-		return failureResult
-	}
-
-	// check if evidence msgs are from committee members of that height.
-	h := p.Message.H()
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return failureResult
-	}
-
-	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
-	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
-		return failureResult
-	}
-
-	for _, msg := range p.Evidences {
-		// the height of msg of the evidences is checked at Validate function.
-		if err := msg.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-			return failureResult
-		}
-	}
-
-	if c.validProof(p) {
-		return validReturn(p.Message, p.Rule)
-	}
-	return failureResult
-}
-
-// check if the evidence of the misbehaviour is valid or not.
-func (c *MisbehaviourVerifier) validProof(p *Proof) bool {
+// validate a misbehavior proof, doesn't check the proof signatures.
+func (c *MisbehaviourVerifier) validateFault(p *Proof) []byte {
+	valid := false
 	switch p.Rule {
 	case autonity.PN:
-		return c.validMisbehaviourOfPN(p)
+		valid = c.validMisbehaviourOfPN(p)
 	case autonity.PO:
-		return c.validMisbehaviourOfPO(p)
+		valid = c.validMisbehaviourOfPO(p)
 	case autonity.PVN:
-		return c.validMisbehaviourOfPVN(p)
+		valid = c.validMisbehaviourOfPVN(p)
 	case autonity.PVO:
-		return c.validMisbehaviourOfPVO(p)
+		valid = c.validMisbehaviourOfPVO(p)
 	case autonity.PVO12:
-		return c.validMisbehaviourOfPVO12(p)
+		valid = c.validMisbehaviourOfPVO12(p)
 	case autonity.PVO3:
-		return c.validMisbehaviourOfPVO3(p)
+		valid = c.validMisbehaviourOfPVO3(p)
 	case autonity.C:
-		return c.validMisbehaviourOfC(p)
+		valid = c.validMisbehaviourOfC(p)
 	case autonity.InvalidRound:
-		return p.Message.R() > constants.MaxRound
+		valid = p.Message.R() > constants.MaxRound
 	case autonity.WrongValidRound:
-		if lightProposal, ok := p.Message.ConsensusMsg.(*message.LightProposal); ok {
-			return lightProposal.ValidRound >= lightProposal.Round
+		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
+			valid = lightProposal.ValidRound() >= lightProposal.R()
 		}
-		return false
 	case autonity.InvalidProposer:
-		return !isProposerValid(c.chain, p.Message)
+		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
+			valid = !isProposerValid(c.chain, lightProposal)
+		}
 	case autonity.Equivocation:
-		return checkEquivocation(p.Message, p.Evidences) == errEquivocation
+		valid = errors.Is(checkEquivocation(p.Message, p.Evidences), errEquivocation)
 	default:
-		return false
+		valid = false
 	}
+
+	if valid {
+		return validReturn(p.Message, p.Rule)
+	}
+	return failureReturn
 }
 
 // check if the Proof of challenge of PN is valid,
@@ -293,72 +247,73 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 	if len(p.Evidences) != 1 {
 		return false
 	}
-
 	// should be a new proposal
-	proposal := p.Message
-
-	if proposal.Code != consensus.MsgLightProposal || proposal.ConsensusMsg.(*message.LightProposal).ValidRound != -1 {
+	proposal, ok := p.Message.(*message.LightProposal)
+	if !ok {
 		return false
 	}
-
-	preCommit := p.Evidences[0]
+	if proposal.ValidRound() != -1 {
+		return false
+	}
+	preCommit, ok := p.Evidences[0].(*message.Precommit)
+	if !ok {
+		return false
+	}
 	if preCommit.Sender() == proposal.Sender() &&
-		preCommit.Type() == consensus.MsgPrecommit &&
 		preCommit.R() < proposal.R() &&
 		preCommit.Value() != nilValue {
 		return true
 	}
-
 	return false
 }
 
 // check if the Proof of challenge of PO is valid
 func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 	// should be an old proposal
-	if p.Message.Type() != consensus.MsgLightProposal {
+	proposal, ok := p.Message.(*message.LightProposal)
+	if !ok {
 		return false
 	}
-	proposal := p.Message.ConsensusMsg.(*message.LightProposal)
-	if proposal.ValidRound == -1 {
+	if proposal.ValidRound() == -1 {
 		return false
 	}
 	// if the proposal contains an invalid valid round, then it is a valid proof.
-	if proposal.ValidRound >= proposal.R() {
+	if proposal.ValidRound() >= proposal.R() {
 		return true
 	}
 
 	if len(p.Evidences) == 0 {
 		return false
 	}
-	preCommit := p.Evidences[0]
 
-	if preCommit.Type() == consensus.MsgPrecommit && preCommit.R() == proposal.ValidRound &&
-		preCommit.Sender() == p.Message.Sender() && preCommit.Value() != nilValue &&
-		preCommit.Value() != proposal.V() {
-		return true
-	}
-
-	if preCommit.Type() == consensus.MsgPrecommit &&
-		preCommit.R() > proposal.ValidRound && preCommit.R() < proposal.R() &&
-		preCommit.Sender() == p.Message.Sender() &&
-		preCommit.Value() != nilValue {
-		return true
-	}
-
-	// check if there are quorum prevotes for other value than the proposed value at valid round.
-	preVote := p.Evidences[0]
-	if preVote.Type() == consensus.MsgPrevote {
-		// validate evidences
-		for _, pv := range p.Evidences {
-			if pv.Type() != consensus.MsgPrevote || pv.R() != proposal.ValidRound || pv.Value() == proposal.V() {
+	switch vote := p.Evidences[0].(type) {
+	case *message.Precommit:
+		if vote.R() == proposal.ValidRound() &&
+			vote.Sender() == p.Message.Sender() &&
+			vote.Value() != nilValue &&
+			vote.Value() != proposal.Value() {
+			return true
+		}
+		if vote.R() > proposal.ValidRound() &&
+			vote.R() < proposal.R() &&
+			vote.Sender() == p.Message.Sender() &&
+			vote.Value() != nilValue {
+			return true
+		}
+	case *message.Prevote:
+		// check if there are quorum prevotes for other value than the proposed value at valid round.
+		for _, m := range p.Evidences {
+			pv, ok := m.(*message.Prevote)
+			if !ok {
+				return false
+			}
+			if pv.R() != proposal.ValidRound() || pv.Value() == proposal.Value() {
 				return false
 			}
 		}
-
 		if hasEquivocatedVotes(p.Evidences) {
 			return false
 		}
-
 		// check if preVotes for not V reaches to quorum.
 		lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
 		if lastHeader == nil {
@@ -366,8 +321,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 		}
 		quorum := bft.Quorum(lastHeader.TotalVotingPower())
 		return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
-	}
 
+	}
 	return false
 }
 
@@ -377,17 +332,17 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 		return false
 	}
 	prevote := p.Message
-	if prevote.Type() != consensus.MsgPrevote || prevote.Value() == nilValue {
+	if prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
 		return false
 	}
 
 	// check if the corresponding new proposal of preVote for new value is presented.
 	correspondingProposal := p.Evidences[0]
-	if correspondingProposal.Type() != consensus.MsgLightProposal ||
+	if correspondingProposal.Code() != message.LightProposalCode ||
 		correspondingProposal.H() != prevote.H() ||
 		correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.ConsensusMsg.(*message.LightProposal).ValidRound != -1 {
+		correspondingProposal.(*message.LightProposal).ValidRound() != -1 {
 		return false
 	}
 
@@ -398,7 +353,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	lastIndex := len(preCommits) - 1
 
 	for i, pc := range preCommits {
-		if pc.Type() != consensus.MsgPrecommit || pc.Sender() != prevote.Sender() || pc.R() >= prevote.R() {
+		if pc.Code() != message.PrecommitCode || pc.Sender() != prevote.Sender() || pc.R() >= prevote.R() {
 			return false
 		}
 
@@ -434,25 +389,25 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof) bool {
 		return false
 	}
 	prevote := p.Message
-	if prevote.Type() != consensus.MsgPrevote || prevote.Value() == nilValue {
+	if prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
 		return false
 	}
 	// check if the corresponding proposal of preVote is presented.
 	correspondingProposal := p.Evidences[0]
-	if correspondingProposal.Type() != consensus.MsgLightProposal ||
+	if correspondingProposal.Code() != message.LightProposalCode ||
 		correspondingProposal.H() != prevote.H() ||
 		correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.ConsensusMsg.(*message.LightProposal).ValidRound == -1 {
+		correspondingProposal.(*message.LightProposal).ValidRound() == -1 {
 		return false
 	}
 
-	validRound := correspondingProposal.ConsensusMsg.(*message.LightProposal).ValidRound
+	validRound := correspondingProposal.(*message.LightProposal).ValidRound()
 	votedVatVR := p.Evidences[1].Value()
 
 	// check preVotes at evidence.
 	for _, pv := range p.Evidences[1:] {
-		if pv.Type() != consensus.MsgPrevote || pv.R() != validRound || pv.Value() == nilValue ||
+		if pv.Code() != message.PrevoteCode || pv.R() != validRound || pv.Value() == nilValue ||
 			pv.Value() == correspondingProposal.Value() || pv.Value() != votedVatVR {
 			return false
 		}
@@ -478,28 +433,28 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 		return false
 	}
 	prevote := p.Message
-	if prevote.Type() != consensus.MsgPrevote || prevote.Value() == nilValue {
+	if prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
 		return false
 	}
 
 	// check if the corresponding proposal of preVote.
 	correspondingProposal := p.Evidences[0]
-	if correspondingProposal.Type() != consensus.MsgLightProposal ||
+	if correspondingProposal.Code() != message.LightProposalCode ||
 		correspondingProposal.H() != prevote.H() ||
 		correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.ConsensusMsg.(*message.LightProposal).ValidRound == -1 {
+		correspondingProposal.(*message.LightProposal).ValidRound() == -1 {
 		return false
 	}
 
 	currentRound := correspondingProposal.R()
-	validRound := correspondingProposal.ConsensusMsg.(*message.LightProposal).ValidRound
+	validRound := correspondingProposal.(*message.LightProposal).ValidRound()
 	allPreCommits := p.Evidences[1:]
 	// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
 	// check if all precommits between range (validRound, currentRound) are presented. There should be only one pc per round.
 	presentedRounds := make(map[int64]struct{})
 	for _, pc := range allPreCommits {
-		if pc.R() <= validRound || pc.R() >= currentRound || pc.Type() != consensus.MsgPrecommit || pc.Sender() != prevote.Sender() ||
+		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode || pc.Sender() != prevote.Sender() ||
 			pc.H() != prevote.H() {
 			return false
 		}
@@ -536,17 +491,17 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO3(p *Proof) bool {
 		return false
 	}
 	prevote := p.Message
-	if prevote.Type() != consensus.MsgPrevote || prevote.Value() == nilValue {
+	if prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
 		return false
 	}
 
 	// check if the corresponding proposal of preVote is presented, and it contains an invalid validRound.
 	correspondingProposal := p.Evidences[0]
-	if correspondingProposal.Type() != consensus.MsgLightProposal ||
+	if correspondingProposal.Code() != message.LightProposalCode ||
 		correspondingProposal.H() != prevote.H() ||
 		correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.ConsensusMsg.(*message.LightProposal).ValidRound < correspondingProposal.R() {
+		correspondingProposal.(*message.LightProposal).ValidRound() < correspondingProposal.R() {
 		return false
 	}
 	return true
@@ -558,13 +513,13 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof) bool {
 		return false
 	}
 	preCommit := p.Message
-	if preCommit.Type() != consensus.MsgPrecommit || preCommit.Value() == nilValue {
+	if preCommit.Code() != message.PrecommitCode || preCommit.Value() == nilValue {
 		return false
 	}
 
 	// check preVotes for not the same V compares to preCommit.
 	for _, m := range p.Evidences {
-		if m.Type() != consensus.MsgPrevote || m.Value() == preCommit.Value() || m.R() != preCommit.R() {
+		if m.Code() != message.PrevoteCode || m.Value() == preCommit.Value() || m.R() != preCommit.R() {
 			return false
 		}
 	}
@@ -599,54 +554,24 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
 func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64) ([]byte, error) {
-	// take an on-chain innocent Proof, tell the results of the checking
 	if len(input) <= 32 || blockNumber == 0 {
-		return failureResult, nil
+		return failureReturn, nil
 	}
-
 	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
-		return failureResult, nil
+		return failureReturn, nil
 	}
-	return c.validateInnocenceProof(p), nil
+	if err := verifyProofSignatures(c.chain, p); err != nil {
+		return failureReturn, nil
+	}
+	if !verifyInnocenceProof(p, c.chain) {
+		return failureReturn, nil
+	}
+	return validReturn(p.Message, p.Rule), nil
 }
 
-// validate if the innocence Proof is valid, it returns sender address and msg hash in byte array when Proof is valid.
-func (c *InnocenceVerifier) validateInnocenceProof(in *Proof) []byte {
-	// check if evidence msgs are from committee members of that height.
-	h := in.Message.H()
-
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return failureResult
-	}
-
-	// validate message.
-	if err := in.Message.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-		return failureResult
-	}
-
-	// to prevent the abuse of the proof message.
-	if len(in.Evidences) > maxEvidenceMessages(lastHeader) {
-		return failureResult
-	}
-
-	for _, m := range in.Evidences {
-		// the height of msg of the evidences is checked at Validate function.
-		if err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
-			return failureResult
-		}
-	}
-
-	if !validInnocenceProof(in, c.chain) {
-		return failureResult
-	}
-
-	return validReturn(in.Message, in.Rule)
-}
-
-func validInnocenceProof(p *Proof, chain ChainContext) bool {
+func verifyInnocenceProof(p *Proof, chain ChainContext) bool {
 	// rule engine only have 4 kind of provable accusation for the time being.
 	switch p.Rule {
 	case autonity.PO:
@@ -666,14 +591,14 @@ func validInnocenceProof(p *Proof, chain ChainContext) bool {
 func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal := p.Message
-	if proposal.Type() != consensus.MsgLightProposal || proposal.ConsensusMsg.(*message.LightProposal).ValidRound == -1 {
+	if proposal.Code() != message.LightProposalCode || proposal.(*message.LightProposal).ValidRound() == -1 {
 		return false
 	}
 
 	for _, m := range p.Evidences {
-		if !(m.Type() == consensus.MsgPrevote &&
+		if !(m.Code() == message.PrevoteCode &&
 			m.Value() == proposal.Value() &&
-			m.R() == proposal.ConsensusMsg.(*message.LightProposal).ValidRound) {
+			m.R() == proposal.(*message.LightProposal).ValidRound()) {
 			return false
 		}
 	}
@@ -695,7 +620,7 @@ func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 // check if the Proof of innocent of PVN is valid.
 func validInnocenceProofOfPVN(p *Proof) bool {
 	preVote := p.Message
-	if !(preVote.Type() == consensus.MsgPrevote && preVote.Value() != nilValue) {
+	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != nilValue) {
 		return false
 	}
 
@@ -704,10 +629,10 @@ func validInnocenceProofOfPVN(p *Proof) bool {
 	}
 
 	proposal := p.Evidences[0]
-	return proposal.Type() == consensus.MsgLightProposal &&
+	return proposal.Code() == message.LightProposalCode &&
 		proposal.H() == preVote.H() &&
 		proposal.R() == preVote.R() &&
-		proposal.ConsensusMsg.(*message.LightProposal).ValidRound == -1 &&
+		proposal.(*message.LightProposal).ValidRound() == -1 &&
 		proposal.Value() == preVote.Value()
 }
 
@@ -715,7 +640,7 @@ func validInnocenceProofOfPVN(p *Proof) bool {
 func validInnocenceProofOfPVO(p *Proof, chain ChainContext) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote := p.Message
-	if !(preVote.Type() == consensus.MsgPrevote && preVote.Value() != nilValue) {
+	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != nilValue) {
 		return false
 	}
 
@@ -724,18 +649,17 @@ func validInnocenceProofOfPVO(p *Proof, chain ChainContext) bool {
 	}
 
 	proposal := p.Evidences[0]
-	if proposal.Type() != consensus.MsgLightProposal ||
+	if proposal.Code() != message.LightProposalCode ||
 		proposal.Value() != preVote.Value() ||
 		proposal.R() != preVote.R() ||
-		proposal.ConsensusMsg.(*message.LightProposal).ValidRound == -1 {
+		proposal.(*message.LightProposal).ValidRound() == -1 {
 		return false
 	}
 
-	vr := proposal.ConsensusMsg.(*message.LightProposal).ValidRound
+	vr := proposal.(*message.LightProposal).ValidRound()
 	// check prevotes for V at the valid round.
 	for _, m := range p.Evidences[1:] {
-		if !(m.Type() == consensus.MsgPrevote && m.Value() == proposal.Value() &&
-			m.R() == vr) {
+		if !(m.Code() == message.PrevoteCode && m.Value() == proposal.Value() && m.R() == vr) {
 			return false
 		}
 	}
@@ -757,24 +681,24 @@ func validInnocenceProofOfPVO(p *Proof, chain ChainContext) bool {
 
 // check if the Proof of innocent of C1 is valid.
 func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
-	preCommit := p.Message
-	if !(preCommit.Type() == consensus.MsgPrecommit && preCommit.Value() != nilValue) {
+	preCommit, ok := p.Message.(*message.Precommit)
+	if !ok {
 		return false
 	}
-
+	if preCommit.Value() == nilValue {
+		return false
+	}
 	// check quorum prevotes for V at the same round.
 	for _, m := range p.Evidences {
-		if !(m.Type() == consensus.MsgPrevote && m.Value() == preCommit.Value() &&
+		if !(m.Code() == message.PrevoteCode && m.Value() == preCommit.Value() &&
 			m.R() == preCommit.R()) {
 			return false
 		}
 	}
-
 	// check no redundant vote msg in evidence in case of hacking.
 	if hasEquivocatedVotes(p.Evidences) {
 		return false
 	}
-
 	height := preCommit.H()
 	lastHeader := chain.GetHeaderByNumber(height - 1)
 	if lastHeader == nil {
@@ -784,12 +708,12 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
 }
 
-func hasEquivocatedVotes(votes []*message.Message) bool {
+func hasEquivocatedVotes(votes []message.Msg) bool {
 	voteMap := make(map[common.Address]struct{})
 	for _, vote := range votes {
-		_, ok := voteMap[vote.Address]
+		_, ok := voteMap[vote.Sender()]
 		if !ok {
-			voteMap[vote.Address] = struct{}{}
+			voteMap[vote.Sender()] = struct{}{}
 		} else {
 			return true
 		}
@@ -804,37 +728,38 @@ func decodeRawProof(b []byte) (*Proof, error) {
 	if err := rlp.DecodeBytes(b, p); err != nil {
 		return p, err
 	}
-	if p.Message == nil {
-		return p, errNilMessage
-	}
-	if err := decodeMessage(p.Message); err != nil {
-		return p, err
-	}
-	for _, m := range p.Evidences {
-		if m == nil {
-			return p, errNilMessage
-		}
-		if err := decodeMessage(m); err != nil {
-			return p, err
-		}
-	}
 	return p, nil
 }
 
 // checkMsgSignature checks if the consensus message is from valid member of the committee.
-func checkMsgSignature(chain ChainContext, m *message.Message) error {
-	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
+func verifyProofSignatures(chain ChainContext, p *Proof) error {
+	h := p.Message.H()
+	if h == 0 {
+		return errBadHeight
+	}
+	lastHeader := chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}
-
-	if err := m.Validate(crypto.CheckValidatorSignature, lastHeader); err != nil {
+	if err := p.Message.Validate(lastHeader.CommitteeMember); err != nil {
 		return errNotCommitteeMsg
+	}
+	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
+	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
+		return errMaxEvidences
+	}
+	for _, msg := range p.Evidences {
+		if msg.H() != h {
+			return errBadHeight
+		}
+		if err := msg.Validate(lastHeader.CommitteeMember); err != nil {
+			return errNotCommitteeMsg
+		}
 	}
 	return nil
 }
 
-func checkEquivocation(m *message.Message, proof []*message.Message) error {
+func checkEquivocation(m message.Msg, proof []message.Msg) error {
 	if len(proof) == 0 {
 		return fmt.Errorf("no proof")
 	}
@@ -845,13 +770,11 @@ func checkEquivocation(m *message.Message, proof []*message.Message) error {
 	return nil
 }
 
-func validReturn(m *message.Message, rule autonity.Rule) []byte {
+func validReturn(m message.Msg, rule autonity.Rule) []byte {
 	offender := common.LeftPadBytes(m.Sender().Bytes(), 32)
 	ruleID := common.LeftPadBytes([]byte{byte(rule)}, 32)
 	block := make([]byte, 32)
-	if m.ConsensusMsg != nil {
-		block = common.LeftPadBytes(m.ConsensusMsg.H().Bytes(), 32)
-	}
+	block = common.LeftPadBytes(new(big.Int).SetUint64(m.H()).Bytes(), 32)
 	result := make([]byte, 160)
 	copy(result[0:32], successResult)
 	copy(result[32:64], offender)
