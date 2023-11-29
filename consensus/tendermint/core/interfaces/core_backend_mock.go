@@ -130,10 +130,10 @@ func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals any) *gomo
 }
 
 // FutureMsgs mocks base method.
-func (m *MockBackend) FutureMsgs() []*message.Msg {
+func (m *MockBackend) FutureMsgs() []message.Msg {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FutureMsgs")
-	ret0, _ := ret[0].([]*message.Msg)
+	ret0, _ := ret[0].([]message.Msg)
 	return ret0
 }
 
@@ -273,18 +273,6 @@ func (m *MockBackend) ProcessFutureMsgs(height uint64) {
 func (mr *MockBackendMockRecorder) ProcessFutureMsgs(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessFutureMsgs", reflect.TypeOf((*MockBackend)(nil).ProcessFutureMsgs), height)
-}
-
-// RemoveMessageFromLocalCache mocks base method.
-func (m *MockBackend) RemoveMessageFromLocalCache(message message.Msg) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemoveMessageFromLocalCache", message)
-}
-
-// RemoveMessageFromLocalCache indicates an expected call of RemoveMessageFromLocalCache.
-func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(message any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMessageFromLocalCache", reflect.TypeOf((*MockBackend)(nil).RemoveMessageFromLocalCache), message)
 }
 
 // SetBlockchain mocks base method.

@@ -46,36 +46,16 @@ const (
 )
 
 var (
-	// TODO(lorenzo) figure out which useless
-	errInvalidRound    = errors.New("invalid round or steps")
-	errWrongValidRound = errors.New("wrong valid-round")
-	errDuplicatedMsg   = errors.New("duplicated msg")
-	errEquivocation    = errors.New("equivocation")
-	errFutureMsg       = errors.New("future height msg")
-	errNotCommitteeMsg = errors.New("msg from none committee member")
-	errProposer        = errors.New("proposal is not from proposer")
-	errInvalidMessage  = errors.New("invalid consensus message")
-
+	errDuplicatedMsg    = errors.New("duplicated msg")
+	errEquivocation     = errors.New("equivocation")
+	errFutureMsg        = errors.New("future height msg")
+	errNotCommitteeMsg  = errors.New("msg from none committee member")
+	errProposer         = errors.New("proposal is not from proposer")
 	errNoEvidenceForPO  = errors.New("no proof of innocence found for rule PO")
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
 	errUnprovableRule   = errors.New("unprovable rule")
-	/* TODO(lorenzo) figure out which needed
-	errWrongSignatureMsg   = errors.New("invalid signature of message")
-	errInvalidConsensusMsg = errors.New("invalid consensus msg")
-	errDuplicatedMsg       = errors.New("duplicated msg")
-	errEquivocation        = errors.New("equivocation")
-	errFutureMsg           = errors.New("future height msg")
-	errNotCommitteeMsg     = errors.New("msg from none committee member")
-	errProposer            = errors.New("proposal is not from proposer")
-	errDecodeFailed        = errors.New("cannot decode consensus msg")
-	errNoEvidenceForPO     = errors.New("no proof of innocence found for rule PO")
-	errNoEvidenceForPVN    = errors.New("no proof of innocence found for rule PVN")
-	errNoEvidenceForPVO    = errors.New("no proof of innocence found for rule PVO")
-	errNoEvidenceForC1     = errors.New("no proof of innocence found for rule C1")
-	errUnprovableRule      = errors.New("unprovable rule")
-	*/
 
 	nilValue = common.Hash{}
 )
@@ -186,55 +166,6 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	fd.broadcaster = broadcaster
 }
 
-/* TODO(lorenzo) do we need it?
-// decodeMessage decode the RLP-encoded inner messages and verify if they are well signed too.
-// Ideally this should be splitted up into two separate functions.
-func decodeMessage(m *message.Message) error {
-	// Light proposals are not signed by the reported validator but by the reporter
-	// and we don't really care about the reporter signature
-	if m.Code == consensus.MsgLightProposal {
-		var lightProposal message.LightProposal
-		if err := m.Decode(&lightProposal); err != nil {
-			return err
-		}
-		// this checks the original proposer signature in the inner payload
-		return lightProposal.VerifySignature(m.Address)
-	}
-
-	payload, err := m.BytesNoSignature()
-	if err != nil {
-		return err
-	}
-	//TODO(youssef): verifiy if lite message decoding is necessary here!!
-	signer, err := types.GetSignatureAddress(payload, m.Signature)
-	if err != nil {
-		return err
-	}
-	if !bytes.Equal(m.Address.Bytes(), signer.Bytes()) {
-		return errWrongSignatureMsg
-	}
-
-	// then try to decode the tendermint msg bytes to construct msg height, round, step, etc...
-	switch m.Code {
-	case consensus.MsgProposal:
-		var proposal message.Proposal
-		err = m.Decode(&proposal)
-		if err != nil {
-			return errDecodeFailed
-		}
-	case consensus.MsgPrevote, consensus.MsgPrecommit:
-		var vote message.Vote
-		err := m.Decode(&vote)
-		if err != nil {
-			return errDecodeFailed
-		}
-	default:
-		return errDecodeFailed
-	}
-	return nil
-}
-*/
-
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -284,15 +215,6 @@ tendermintMsgLoop:
 				fd.rateLimiter.resetHeightRateLimiter()
 				fd.rateLimiter.resetPeerJustifiedAccusations()
 			}
-			//TODO(lorenzo) verify this
-			/* THIS HAS BEEN DELETED TODO VERIFY
-			height := e.block.NumberU64()
-			if fd.isMsgExpired(curHeight, height) {
-				fd.logger.Info("fault detector: discarding old height messages", "height", height)
-				fd.deleteFutureHeightMsg(height)
-				continue tendermintMsgLoop
-			}
-			*/
 
 		case <-ticker.C:
 			// on each 1 seconds, reset the rate limiter counters.
