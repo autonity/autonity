@@ -137,7 +137,7 @@ type Validator struct {
 	State                    *uint8
 }
 
-// UnmarshalJSON and MarshalJSON are customized marshal and unmarshal methods to parse validators with activity key in
+// UnmarshalJSON and MarshalJSON are customized marshal and unmarshal methods to parse validators with validator key in
 // hex string from genesis file, the raw type []byte is replaced by hexutil.Bytes.
 func (v *Validator) UnmarshalJSON(input []byte) error {
 	type validator struct {

@@ -246,7 +246,7 @@ func genNodeKey(ctx *cli.Context) error {
 	// print the node's validator key to on-board validator from genesis config by the system operator.
 	validatorKey, err := bls.SecretKeyFromECDSAKey(nodeKey)
 	if err != nil {
-		utils.Fatalf("could not generate activity key from node key: %v", err)
+		utils.Fatalf("could not generate validator key from node key: %v", err)
 	}
 	if err = crypto.SaveNodeKey(outKeyFile, nodeKey, validatorKey); err != nil {
 		utils.Fatalf("could not save key %v", err)

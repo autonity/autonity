@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -252,76 +251,6 @@ func checkKeyFileEnd(r *bufio.Reader, expectedChars int) error {
 func SaveECDSA(file string, key *ecdsa.PrivateKey) error {
 	k := hex.EncodeToString(FromECDSA(key))
 	return ioutil.WriteFile(file, []byte(k), 0600)
-}
-
-// SaveNodeKey saves a secp256k1 private key and its derived validator BLS
-// private key to the given file with restrictive permissions. The key data is saved hex-encoded.
-func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, validatorKey bls.SecretKey) error {
-	k := hex.EncodeToString(FromECDSA(ecdsaKey))
-	d := hex.EncodeToString(validatorKey.Marshal())
-	return ioutil.WriteFile(file, []byte(k+d), 0600)
-}
-
-// LoadNodeKey loads a secp256k1 private key and a derived validator BLS private key from the given file.
-func LoadNodeKey(file string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
-	fd, err := os.Open(file)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer fd.Close()
-
-	r := bufio.NewReader(fd)
-	buf := make([]byte, 128)
-	n, err := readASCII(buf, r)
-	if err != nil {
-		return nil, nil, err
-	} else if n != len(buf) {
-		return nil, nil, fmt.Errorf("key file too short, want 128 hex characters")
-	}
-
-	if err = checkKeyFileEnd(r, 128); err != nil {
-		return nil, nil, err
-	}
-
-	ecdsaKey, err := HexToECDSA(string(buf[0:64]))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	validatorKeyBytes, err := hex.DecodeString(string(buf[64:128]))
-	if err != nil {
-		return nil, nil, err
-	}
-	validatorKey, err := bls.SecretKeyFromBytes(validatorKeyBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ecdsaKey, validatorKey, nil
-}
-
-// HexToNodeKey parse the hex string into a secp256k1 private key and a derived BLS private key.
-func HexToNodeKey(hexKeys string) (*ecdsa.PrivateKey, bls.SecretKey, error) {
-	b, err := hex.DecodeString(hexKeys)
-	if byteErr, ok := err.(hex.InvalidByteError); ok {
-		return nil, nil, fmt.Errorf("invalid hex character %q in node key", byte(byteErr))
-	} else if err != nil {
-		return nil, nil, errors.New("invalid hex data for node key")
-	}
-
-	if len(b) != 64 {
-		return nil, nil, errors.New("invalid length of hex data for node key")
-	}
-
-	ecdsaKey, err := ToECDSA(b[0:32])
-	if err != nil {
-		return nil, nil, err
-	}
-
-	validatorKey, err := bls.SecretKeyFromBytes(b[32:64])
-	if err != nil {
-		return nil, nil, err
-	}
-	return ecdsaKey, validatorKey, nil
 }
 
 // GenerateKey generates a new private key.
