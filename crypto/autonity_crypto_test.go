@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"github.com/autonity/autonity/crypto/bls"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -28,7 +27,7 @@ func TestValidateValidatorKeyProof(t *testing.T) {
 }
 
 func TestSaveNodeKey(t *testing.T) {
-	f, err := ioutil.TempFile("", "save_node_key_test.*.txt")
+	f, err := os.CreateTemp("", "save_node_key_test.*.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +101,7 @@ func TestLoadNodeKey(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		f, err := ioutil.TempFile("", "load_bls_key_test.*.txt")
+		f, err := os.CreateTemp("", "load_bls_key_test.*.txt")
 		if err != nil {
 			t.Fatal(err)
 		}
