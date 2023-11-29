@@ -55,7 +55,6 @@ var (
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
-	errUnprovableRule   = errors.New("unprovable rule")
 
 	nilValue = common.Hash{}
 )
@@ -180,7 +179,7 @@ tendermintMsgLoop:
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
+				if err := fd.processMsg(e.Message); err != nil {
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
@@ -382,8 +381,9 @@ func (fd *FaultDetector) innocenceProof(p *Proof) (*autonity.AccountabilityEvent
 	case autonity.C1:
 		return fd.innocenceProofC1(p)
 	default:
-		//TODO(lorenzo) check how this is handled by callers
-		return nil, errUnprovableRule
+		// whether the accusation comes from off-chain or on-chain
+		// it always gets verified before we try to fetch the innocence proof
+		fd.logger.Crit("Trying to fetch innocence proof for invalid accusation")
 	}
 }
 
@@ -1143,6 +1143,7 @@ func errorToRule(err error) autonity.Rule {
 	default:
 		// these 2 errors are the only ones which can be raised by a self-incriminating msg.
 		// if something else arrives here, it is a programming error.
+		// there should also be 'InvalidProposal', however we do not currently make them accountable (due to oversized proof).
 		panic("unknown error to accountability rule mapping")
 	}
 	return rule
