@@ -97,7 +97,7 @@ func shouldDisconnectSender(err error) bool {
 		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
 		// This needs to verified though. Returning false for the time being.
 		return false
-	case ErrValidatorJailbound:
+	case errors.Is(err, ErrValidatorJailbound):
 		return true
 	default:
 		return true
@@ -243,10 +243,6 @@ func (c *Core) SendEvent(ev any) {
 // handleMsg assume msg has already been decoded
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	msgHeight := new(big.Int).SetUint64(msg.H())
-	if c.backend.IsJailbound(msg.Address) {
-		c.logger.Debug("Jailbound validator, ignoring message", "address", msg.Address)
-		return ErrValidatorJailbound
-	}
 	if msgHeight.Cmp(c.Height()) > 0 {
 		// Future height message. Skip processing and put it in the untrusted backlog buffer.
 		c.storeFutureMessage(msg)
@@ -260,6 +256,10 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		c.logger.Error("Failed to validate message", "err", err)
 		c.logger.Error(msg.String())
 		return err
+	}
+	if c.backend.IsJailbound(msg.Sender()) {
+		c.logger.Debug("Jailbound validator, ignoring message", "address", msg.Sender())
+		return ErrValidatorJailbound
 	}
 	if c.backend.IsJailed(msg.Sender()) {
 		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Sender())

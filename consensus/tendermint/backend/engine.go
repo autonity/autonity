@@ -515,13 +515,18 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
 	slashingEventCh := make(chan *autonity.AccountabilitySlashingEvent)
 	jailboundEventCh := make(chan *autonity.AccountabilityValidatorJailbound)
+	newEpochEventCh := make(chan *autonity.AutonityNewEpoch)
 	chainHeadCh := make(chan core.ChainHeadEvent)
 
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
 	subSlashigEvent, _ := sb.blockchain.ProtocolContracts().WatchSlashingEvent(nil, slashingEventCh)
+	subJailboundEvent, _ := sb.blockchain.ProtocolContracts().WatchValidatorJailbound(nil, jailboundEventCh)
+	subnNewEpochEvent, _ := sb.blockchain.ProtocolContracts().WatchNewEpoch(nil, newEpochEventCh)
 	subChainhead := sb.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	subscriptions.Track(subNewFaultProofs)
 	subscriptions.Track(subSlashigEvent)
+	subscriptions.Track(subJailboundEvent)
+	subscriptions.Track(subnNewEpochEvent)
 	subscriptions.Track(subChainhead)
 
 	defer func() {
@@ -554,9 +559,16 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailedLock.Unlock()
 		case ev := <-chainHeadCh:
 			sb.jailedLock.Lock()
-			// TODO: delete jailbound validator from map after they are kicked out from committee
 			for k, v := range sb.jailed {
 				if v < ev.Block.NumberU64() && v != 0 {
+					delete(sb.jailed, k)
+				}
+			}
+			sb.jailedLock.Unlock()
+		case <-newEpochEventCh:
+			sb.jailedLock.Lock()
+			for k, v := range sb.jailed {
+				if v == jailboundReleaseHeight {
 					delete(sb.jailed, k)
 				}
 			}
