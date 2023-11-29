@@ -161,31 +161,6 @@ func TestRunRuleEngine(t *testing.T) {
 	})
 }
 
-/*
-TODO(lorenzo) future messages are now dealt with in the backend/handler.
-I am leaving this test here as a starting point for auto-incriminating msgs tests which are now missing
-
-func TestProcessMsg(t *testing.T) {
-	futureHeight := uint64(110)
-	round := int64(3)
-	t.Run("test process future msg, msg should be buffered", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().GetHeaderByNumber(futureHeight - 1).Return(nil)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		bindings, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		proposal := newProposalMessage(futureHeight, round, -1, signer, committee, nil)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: bindings}, log.Root())
-		require.Equal(t, errFutureMsg, fd.processMsg(proposal))
-		require.Equal(t, proposal, fd.futureMessages[futureHeight][0])
-	})
-}
-*/
-
 func TestGenerateOnChainProof(t *testing.T) {
 	height := uint64(100)
 	round := int64(3)
