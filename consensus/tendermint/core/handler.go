@@ -18,7 +18,6 @@ import (
 const syncTimeOut = 30 * time.Second
 
 var ErrValidatorJailed = errors.New("jailed validator")
-var ErrValidatorJailbound = errors.New("jailbound validator")
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
@@ -97,8 +96,6 @@ func shouldDisconnectSender(err error) bool {
 		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
 		// This needs to verified though. Returning false for the time being.
 		return false
-	case errors.Is(err, ErrValidatorJailbound):
-		return true
 	default:
 		return true
 	}
