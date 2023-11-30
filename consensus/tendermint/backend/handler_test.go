@@ -10,7 +10,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	tcrypto "github.com/autonity/autonity/consensus/tendermint/crypto"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -23,6 +22,8 @@ import (
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 )
+
+//TODO(lorenzo) refactor tests
 
 // a proposal with nil proposalBlock should always be rejected at decoding
 func TestNilProposalBlock(t *testing.T) {

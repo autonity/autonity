@@ -15,6 +15,8 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
+//TODO(lorenzo) delete or move this somewhere else
+
 var skey, _ = crypto.GenerateKey()
 
 func Signer(data []byte) ([]byte, error) {

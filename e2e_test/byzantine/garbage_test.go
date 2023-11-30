@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//TODO(lorenzo) might have to add the changes where I gossip only to others
+
 func newRandomBytesBroadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &randomBytesBroadcaster{c.(*core.Core)}
 }

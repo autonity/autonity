@@ -36,12 +36,6 @@ var (
 		message.PrevoteCode:   PrevoteNetworkMsg,
 		message.PrecommitCode: PrecommitNetworkMsg,
 	}
-	/* TODO(lorenzo) refactor
-	// errNotFromCommittee is returned when we receive a consensus msg from a non-committee member
-	errNotFromCommittee = errors.New("consensus message is not from a valid committee member")
-	// errInvalidMsg is returned when we receive an invalid consensus msg (e.g. round < 0)
-	errInvalidMsg = errors.New("consensus message is not valid")
-	*/
 )
 
 // Protocol implements consensus.Handler.Protocol

@@ -248,29 +248,6 @@ func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
 
-/* TODO(lorenzo) delete?
-func (c *Core) SetBr(br interfaces.Broadcaster) {
-	c.broadcaster = br
-}
-
-func (c *Core) CurrentHeightMessages() []*message.Message {
-	msgs := c.messages.Messages()
-	return msgs
-}
-
-func (c *Core) SignMessage(msg *message.Message) ([]byte, error) {
-	data, err := msg.BytesNoSignature()
-	if err != nil {
-		return nil, err
-	}
-	signature, err := c.backend.Sign(data)
-	if err != nil {
-		return nil, err
-	}
-	return signature, nil
-}
-*/
-
 func (c *Core) Commit(round int64, messages *message.RoundMessages) {
 	c.SetStep(PrecommitDone)
 	// for metrics
@@ -493,6 +470,7 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	return c.committee
 }
 
+// TODO(lorenzo) still useful?
 func (c *Core) Power() (*big.Int, error) {
 	_, member, err := c.CommitteeSet().GetByAddress(c.address)
 	if err != nil {

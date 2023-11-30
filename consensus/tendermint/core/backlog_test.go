@@ -47,7 +47,7 @@ func TestCheckMessage(t *testing.T) {
 		c := &Core{
 			round:  1,
 			height: big.NewInt(2),
-			logger: testlog.Logger(t, log.LvlTrace),
+			logger: testlog.Logger(t, log.LvlDebug),
 		}
 
 		err := c.checkMessageStep(2, 4, Propose)
