@@ -194,20 +194,6 @@ func (mr *MockBackendMockRecorder) HeadBlock() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadBlock", reflect.TypeOf((*MockBackend)(nil).HeadBlock))
 }
 
-// IsJailbound mocks base method.
-func (m *MockBackend) IsJailbound(address common.Address) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsJailbound", address)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsJailbound indicates an expected call of IsJailbound.
-func (mr *MockBackendMockRecorder) IsJailbound(address any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsJailbound", reflect.TypeOf((*MockBackend)(nil).IsJailbound), address)
-}
-
 // IsJailed mocks base method.
 func (m *MockBackend) IsJailed(address common.Address) bool {
 	m.ctrl.T.Helper()
