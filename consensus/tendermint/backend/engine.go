@@ -550,9 +550,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailedLock.Unlock()
 		case ev := <-jailboundEventCh:
 			sb.jailedLock.Lock()
-			if _, ok := sb.jailed[ev.Validator]; ok {
-				delete(sb.jailed, ev.Validator)
-			}
+			delete(sb.jailed, ev.Validator)
 			sb.jailedLock.Unlock()
 		case ev := <-chainHeadCh:
 			sb.jailedLock.Lock()
