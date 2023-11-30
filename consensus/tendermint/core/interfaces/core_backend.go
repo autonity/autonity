@@ -75,9 +75,6 @@ type Backend interface {
 	// IsJailed returns true if the address belongs to the jailed validator list.
 	IsJailed(address common.Address) bool
 
-	// IsJailbound returns true if the address belongs to the jailbound validator list.
-	IsJailbound(address common.Address) bool
-
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
 }

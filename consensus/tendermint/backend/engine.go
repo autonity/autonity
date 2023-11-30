@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -29,10 +28,9 @@ import (
 )
 
 const (
-	inmemorySnapshots      = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers          = 40
-	inmemoryMessages       = 1024
-	jailboundReleaseHeight = math.MaxUint64
+	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
+	inmemoryPeers     = 40
+	inmemoryMessages  = 1024
 )
 
 // ErrStartedEngine is returned if the engine is already started
@@ -515,18 +513,15 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
 	slashingEventCh := make(chan *autonity.AccountabilitySlashingEvent)
 	jailboundEventCh := make(chan *autonity.AccountabilityValidatorJailbound)
-	newEpochEventCh := make(chan *autonity.AutonityNewEpoch)
 	chainHeadCh := make(chan core.ChainHeadEvent)
 
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
 	subSlashigEvent, _ := sb.blockchain.ProtocolContracts().WatchSlashingEvent(nil, slashingEventCh)
 	subJailboundEvent, _ := sb.blockchain.ProtocolContracts().WatchValidatorJailbound(nil, jailboundEventCh)
-	subnNewEpochEvent, _ := sb.blockchain.ProtocolContracts().WatchNewEpoch(nil, newEpochEventCh)
 	subChainhead := sb.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	subscriptions.Track(subNewFaultProofs)
 	subscriptions.Track(subSlashigEvent)
 	subscriptions.Track(subJailboundEvent)
-	subscriptions.Track(subnNewEpochEvent)
 	subscriptions.Track(subChainhead)
 
 	defer func() {
@@ -555,20 +550,14 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailedLock.Unlock()
 		case ev := <-jailboundEventCh:
 			sb.jailedLock.Lock()
-			sb.jailed[ev.Validator] = jailboundReleaseHeight
+			if _, ok := sb.jailed[ev.Validator]; ok {
+				delete(sb.jailed, ev.Validator)
+			}
 			sb.jailedLock.Unlock()
 		case ev := <-chainHeadCh:
 			sb.jailedLock.Lock()
 			for k, v := range sb.jailed {
 				if v < ev.Block.NumberU64() && v != 0 {
-					delete(sb.jailed, k)
-				}
-			}
-			sb.jailedLock.Unlock()
-		case <-newEpochEventCh:
-			sb.jailedLock.Lock()
-			for k, v := range sb.jailed {
-				if v == jailboundReleaseHeight {
 					delete(sb.jailed, k)
 				}
 			}
@@ -582,11 +571,4 @@ func (sb *Backend) IsJailed(address common.Address) bool {
 	defer sb.jailedLock.RUnlock()
 	_, ok := sb.jailed[address]
 	return ok
-}
-
-func (sb *Backend) IsJailbound(address common.Address) bool {
-	sb.jailedLock.RLock()
-	defer sb.jailedLock.RUnlock()
-	height, ok := sb.jailed[address]
-	return ok && height == jailboundReleaseHeight
 }

@@ -257,10 +257,6 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		c.logger.Error(msg.String())
 		return err
 	}
-	if c.backend.IsJailbound(msg.Sender()) {
-		c.logger.Debug("Jailbound validator, ignoring message", "address", msg.Sender())
-		return ErrValidatorJailbound
-	}
 	if c.backend.IsJailed(msg.Sender()) {
 		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Sender())
 		return ErrValidatorJailed
