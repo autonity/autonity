@@ -40,7 +40,7 @@ const (
 	LightProposalCode
 )
 
-type Signer func(hash common.Hash) (signature []byte, address common.Address)
+type Signer func(hash common.Hash) (signature []byte, address common.Address, power *big.Int)
 
 type Msg interface {
 	// Code returns the message code, it must always matching the concrete type.
@@ -155,7 +155,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 	// Calculate signature first
 	signatureInput := []any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, block.Hash()}
 	signatureInputEncoded, _ := rlp.EncodeToBytes(signatureInput)
-	signature, validator := signer(crypto.Hash(signatureInputEncoded))
+	signature, validator, power := signer(crypto.Hash(signatureInputEncoded))
 
 	payload, _ := rlp.EncodeToBytes(&extPropose{
 		Code:            ProposalCode,
@@ -166,8 +166,8 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 		ProposalBlock:   block,
 		Signature:       signature,
 	})
-	// we don't need to assign here the voting power neither the sender as they are going to be retrieved
-	// after a Validate() call during processing.
+	// we need to assign power, sender and set verified=true as they are needed for processing the message sent to self.
+	// However they will NOT be serialized and sent on the wire, as the remote peers will retrieve them by calling Validate()
 	return &Propose{
 		block:      block,
 		validRound: vr,
@@ -175,11 +175,12 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 			round:          r,
 			height:         h,
 			signatureInput: signatureInput,
+			power:          power,
 			sender:         validator,
 			signature:      signature,
 			payload:        payload,
 			hash:           crypto.Hash(payload),
-			verified:       false,
+			verified:       true,
 		},
 	}
 }
@@ -414,7 +415,7 @@ func newVote[
 	// Pay attention that we're adding the message Code to the signature input data.
 	signatureInput := []any{code, uint64(r), h, value}
 	signatureEncodedInput, _ := rlp.EncodeToBytes(signatureInput)
-	signature, validator := signer(crypto.Hash(signatureEncodedInput))
+	signature, validator, power := signer(crypto.Hash(signatureEncodedInput))
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,
 		Round:     uint64(r),
@@ -422,17 +423,20 @@ func newVote[
 		Value:     value,
 		Signature: signature,
 	})
+	// we need to assign power, sender and set verified=true as they are needed for processing the message sent to self.
+	// However they will NOT be serialized and sent on the wire, as the remote peers will retrieve them by calling Validate()
 	vote := E{
 		value: value,
 		base: base{
 			round:          r,
 			height:         h,
 			signature:      signature,
+			power:          power,
 			sender:         validator,
 			payload:        payload,
 			hash:           crypto.Hash(payload),
 			signatureInput: signatureInput,
-			verified:       false,
+			verified:       true,
 		},
 	}
 	return &vote

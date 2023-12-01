@@ -49,7 +49,7 @@ type Backend interface {
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
-	Sign(hash common.Hash) ([]byte, common.Address)
+	Sign(hash common.Hash) ([]byte, common.Address, *big.Int)
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
@@ -91,4 +91,5 @@ type Core interface {
 	Prevoter() Prevoter
 	Precommiter() Precommiter
 	Height() *big.Int
+	Power() *big.Int
 }

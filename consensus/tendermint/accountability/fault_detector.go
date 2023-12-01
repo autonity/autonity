@@ -383,7 +383,7 @@ func (fd *FaultDetector) innocenceProof(p *Proof) (*autonity.AccountabilityEvent
 	default:
 		// whether the accusation comes from off-chain or on-chain
 		// it always gets verified before we try to fetch the innocence proof
-		fd.logger.Crit("Trying to fetch innocence proof for invalid accusation")
+		panic("Trying to fetch innocence proof for invalid accusation")
 	}
 }
 

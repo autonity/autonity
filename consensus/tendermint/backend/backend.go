@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
+	"math/big"
 	"sync"
 	"time"
 
@@ -313,13 +314,14 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 }
 
 // Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data common.Hash) ([]byte, common.Address) {
+// It also returns the local address and power, since they are needed to post messages to self
+func (sb *Backend) Sign(data common.Hash) ([]byte, common.Address, *big.Int) {
 	ret, err := crypto.Sign(data[:], sb.privateKey)
 	if err != nil {
 		// We panic here, it should never happen.
 		sb.logger.Crit("Consensus signing failed")
 	}
-	return ret, sb.address
+	return ret, sb.address, sb.core.Power()
 }
 
 func (sb *Backend) HeadBlock() *types.Block {

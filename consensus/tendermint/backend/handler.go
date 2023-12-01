@@ -153,16 +153,6 @@ func handleConsensusMsg[T any, PT interface {
 
 // TODO(lorenzo) do I need generics?
 func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, error) {
-	// if the sender is jailed, discard its messages
-	if sb.IsJailed(msg.Sender()) {
-		sb.logger.Debug("ignoring message from jailed validator", "address", msg.Sender())
-		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
-		// really assume that all the other committee members have the same view on the
-		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
-		// This needs to verified though. Returning nil for the time being.
-		return true, nil
-	}
-
 	header := sb.BlockChain().GetHeaderByNumber(msg.H() - 1)
 	if header == nil {
 		// since this is not a future message, we should always have the header of the parent block.
@@ -173,6 +163,16 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, 
 	if err := msg.Validate(header.CommitteeMember); err != nil {
 		sb.logger.Debug("Failed to verify signature for consensus msg", "hash", msg.Hash())
 		return true, err
+	}
+
+	// if the sender is jailed, discard its messages
+	if sb.IsJailed(msg.Sender()) {
+		sb.logger.Debug("ignoring message from jailed validator", "address", msg.Sender())
+		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
+		// really assume that all the other committee members have the same view on the
+		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
+		// This needs to verified though. Returning nil for the time being.
+		return true, nil
 	}
 
 	// if the message is for current height, post both to tendermint core and FD

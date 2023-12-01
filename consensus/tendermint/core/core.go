@@ -144,10 +144,6 @@ func (c *Core) Committee() interfaces.Committee {
 	return c.committee
 }
 
-func (c *Core) SetCommittee(committee interfaces.Committee) {
-	c.committee = committee
-}
-
 func (c *Core) Step() Step {
 	return c.step
 }
@@ -470,13 +466,12 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	return c.committee
 }
 
-// TODO(lorenzo) still useful?
-func (c *Core) Power() (*big.Int, error) {
+func (c *Core) Power() *big.Int {
 	_, member, err := c.CommitteeSet().GetByAddress(c.address)
 	if err != nil {
-		return nil, err
+		return new(big.Int) // if not in the committee, voting power = 0
 	}
-	return member.VotingPower, nil
+	return member.VotingPower
 }
 
 func (c *Core) LastHeader() *types.Header {
