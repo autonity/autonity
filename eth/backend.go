@@ -602,7 +602,8 @@ func (s *Ethereum) newCommitteeWatcher() {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
-		s.consensusP2P.UpdateConsensusEnodes(enodesList.List)
+
+		s.p2pServer.UpdateConsensusEnodes(enodesList.List)
 	}
 
 	wasValidating := false
@@ -624,7 +625,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
 				if wasValidating {
-					s.consensusP2P.UpdateConsensusEnodes(nil)
+					s.p2pServer.UpdateConsensusEnodes(nil)
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
 					wasValidating = false

@@ -607,21 +607,9 @@ var (
 		Usage: "NAT port mapping mechanism for consensus channel (any|none|upnp|pmp|extip:<IP>)",
 		Value: "any",
 	}
-	ConsensusNoDiscoverFlag = cli.BoolFlag{
-		Name:  "consensus.nodiscover",
-		Usage: "Disables the peer discovery mechanism for consensus server(manual peer addition)",
-	}
-	ConsensusDiscoveryV5Flag = cli.BoolFlag{
-		Name:  "consensus.v5disc",
-		Usage: "Enables the experimental RLPx V5 (Topic Discovery) mechanism for consensus server",
-	}
 	ConsensusNetrestrictFlag = cli.StringFlag{
 		Name:  "consensus.netrestrict",
 		Usage: "Restricts network communication to the given IP networks (CIDR masks) for consensus server",
-	}
-	ConsensusDNSDiscoveryFlag = cli.StringFlag{
-		Name:  "discovery.dns",
-		Usage: "Sets DNS discovery entry points (use \"\" to disable DNS) for consensus server",
 	}
 	// Network Settings
 	MaxPeersFlag = cli.IntFlag{
@@ -1239,61 +1227,9 @@ func SetConsensusP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.ListenAddr = fmt.Sprintf(":%d", ctx.GlobalInt(ConsensusListenPortFlag.Name))
 	}
 
-	setBootstrapNodes(ctx, cfg)
-	//enr doesn't seem to be yet supported in upstream ?
-	//setBootstrapNodesV5(ctx, cfg)
-
-	lightClient := ctx.GlobalString(SyncModeFlag.Name) == "light"
-	if lightClient {
-		Fatalf("light client currently unsupported")
-	}
-	lightServer := (ctx.GlobalInt(LightServeFlag.Name) != 0)
-
-	lightPeers := ctx.GlobalInt(LightMaxPeersFlag.Name)
-	if lightClient && !ctx.GlobalIsSet(LightMaxPeersFlag.Name) {
-		// dynamic default - for clients we use 1/10th of the default for servers
-		lightPeers /= 10
-	}
-
-	if ctx.GlobalIsSet(MaxPeersFlag.Name) {
-		cfg.MaxPeers = ctx.GlobalInt(MaxPeersFlag.Name)
-		if lightServer && !ctx.GlobalIsSet(LightMaxPeersFlag.Name) {
-			cfg.MaxPeers += lightPeers
-		}
-	} else {
-		if lightServer {
-			cfg.MaxPeers += lightPeers
-		}
-		if lightClient && ctx.GlobalIsSet(LightMaxPeersFlag.Name) && cfg.MaxPeers < lightPeers {
-			cfg.MaxPeers = lightPeers
-		}
-	}
-	if !(lightClient || lightServer) {
-		lightPeers = 0
-	}
-	ethPeers := cfg.MaxPeers - lightPeers
-	if lightClient {
-		ethPeers = 0
-	}
-	log.Info("Maximum peer count", "ETH", ethPeers, "LES", lightPeers, "total", cfg.MaxPeers)
-
-	if ctx.GlobalIsSet(MaxPendingPeersFlag.Name) {
-		cfg.MaxPendingPeers = ctx.GlobalInt(MaxPendingPeersFlag.Name)
-	}
-	if ctx.GlobalIsSet(NoDiscoverFlag.Name) || lightClient {
-		cfg.NoDiscovery = true
-	}
-
-	// if we're running a light client or server, force enable the v5 peer discovery
-	// unless it is explicitly disabled with --nodiscover note that explicitly specifying
-	// --v5disc overrides --nodiscover, in which case the later only disables v4 discovery
-	forceV5Discovery := (lightClient || lightServer) && !ctx.GlobalBool(NoDiscoverFlag.Name)
-	if ctx.GlobalIsSet(DiscoveryV5Flag.Name) {
-		cfg.DiscoveryV5 = ctx.GlobalBool(DiscoveryV5Flag.Name)
-	} else if forceV5Discovery {
-		cfg.DiscoveryV5 = true
-	}
-
+	//TODO: fix these values later
+	cfg.MaxPeers = 10000
+	cfg.MaxPendingPeers = 10000
 	if netrestrict := ctx.GlobalString(NetrestrictFlag.Name); netrestrict != "" {
 		list, err := netutil.ParseNetlist(netrestrict)
 		if err != nil {

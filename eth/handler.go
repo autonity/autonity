@@ -26,7 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	ethereum "github.com/autonity/autonity"
+	autonity "github.com/autonity/autonity"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -603,11 +603,11 @@ func (h *handler) txBroadcastLoop() {
 	}
 }
 
-func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
 	return h.peers.findPeers(targets)
 }
 
-func (h *handler) FindConsensusPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+func (h *handler) FindConsensusPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
 	return h.consensusPeers.findPeers(targets)
 }
 

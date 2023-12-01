@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -47,6 +49,16 @@ const (
 	EthTx = iota + 1
 	Consensus
 )
+
+func (ser ServerTyp) String() string {
+	switch ser {
+	case Consensus:
+		return "Consensus"
+	case EthTx:
+		return "EthTx"
+	}
+	return "Invalid"
+}
 
 const (
 	defaultDialTimeout = 15 * time.Second
@@ -185,6 +197,11 @@ type Server struct {
 	newTransport func(net.Conn, *ecdsa.PublicKey) transport
 	newPeerHook  func(*Peer)
 	listenFunc   func(network, addr string) (net.Listener, error)
+
+	// These members are used to push data from consensus server object to eth server object
+	NewConsensusPeer      func(pubkey *ecdsa.PublicKey, info *ConsensusInfo)
+	RetrieveConsensusInfo func() *ConsensusInfo
+	ConsensusInfo         chan *ConsensusInfo
 
 	lock    sync.Mutex // protects running
 	running bool
@@ -395,7 +412,6 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 // a node belonging to the consensus committee is fully connected
 // to the other consensus committee nodes.
 func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
-
 	// Check for peers that needs to be disconnected
 	for _, connectedPeer := range src.consensusNodes {
 		found := false
@@ -427,7 +443,6 @@ func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 			src.AddPeer(whitelistedEnode)
 		}
 	}
-
 	src.consensusNodes = enodes
 }
 
@@ -527,6 +542,7 @@ func (srv *Server) Start() (err error) {
 	srv.checkpointPostHandshake = make(chan *conn)
 	srv.checkpointAddPeer = make(chan *conn)
 	srv.addtrusted = make(chan *enode.Node)
+	srv.ConsensusInfo = make(chan *ConsensusInfo, 1)
 	srv.removetrusted = make(chan *enode.Node)
 	srv.peerOp = make(chan peerOpFunc)
 	srv.peerOpDone = make(chan struct{})
@@ -558,6 +574,8 @@ func (srv *Server) setupLocalNode() error {
 	}
 	sort.Sort(capsByNameAndVersion(srv.ourHandshake.Caps))
 
+	//TODO: (Review)We are creating a memorryDB for consensus server
+	// by passig an empty nodedatabase path, do we really need db for consensus server
 	// Create the local node.
 	db, err := enode.OpenDB(srv.Config.NodeDatabase)
 	if err != nil {
@@ -572,13 +590,17 @@ func (srv *Server) setupLocalNode() error {
 			srv.localnode.Set(e)
 		}
 	}
+
+	ipstring := "127.0.0.1"
 	switch srv.NAT.(type) {
 	case nil:
 		// No NAT interface, do nothing.
+		srv.ShareConsensusInfo(ipstring)
 	case nat.ExtIP:
 		// ExtIP doesn't block, set the IP right away.
 		ip, _ := srv.NAT.ExternalIP()
 		srv.localnode.SetStaticIP(ip)
+		srv.ShareConsensusInfo(ip.String())
 	default:
 		// Ask the router about the IP. This takes a while and blocks startup,
 		// do it in the background.
@@ -587,6 +609,7 @@ func (srv *Server) setupLocalNode() error {
 			defer srv.loopWG.Done()
 			if ip, err := srv.NAT.ExternalIP(); err == nil {
 				srv.localnode.SetStaticIP(ip)
+				srv.ShareConsensusInfo(ip.String())
 			}
 		}()
 	}
@@ -605,8 +628,8 @@ func (srv *Server) setupDiscovery() error {
 		}
 	}
 
-	// Don't listen on UDP endpoint if DHT is disabled.
-	if srv.NoDiscovery && !srv.DiscoveryV5 {
+	// Don't listen on UDP endpoint if DHT is disabled
+	if (srv.NoDiscovery && !srv.DiscoveryV5) || srv.Typ == Consensus {
 		return nil
 	}
 
@@ -619,7 +642,7 @@ func (srv *Server) setupDiscovery() error {
 		return err
 	}
 	realaddr := conn.LocalAddr().(*net.UDPAddr)
-	srv.log.Debug("UDP listener up", "addr", realaddr)
+	srv.log.Debug("UDP listener up", "addr", realaddr, "type", srv.Typ.String())
 	if srv.NAT != nil {
 		if !realaddr.IP.IsLoopback() {
 			srv.loopWG.Add(1)
@@ -892,7 +915,7 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
 func (srv *Server) listenLoop() {
-	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr())
+	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr(), "type", srv.Typ.String())
 
 	// The slots channel limits accepts of new connections.
 	tokens := defaultMaxPendingPeers
@@ -1051,6 +1074,9 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		return err
 	}
 
+	if srv.Typ == EthTx {
+		srv.ourHandshake.ConsensusInfo = srv.RetrieveConsensusInfo()
+	}
 	// Run the capability negotiation handshake.
 	phs, err := c.doProtoHandshake(srv.ourHandshake)
 	if err != nil {
@@ -1068,8 +1094,25 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		clog.Trace("Rejected peer", "err", err)
 		return err
 	}
+	if srv.Typ == EthTx && phs.ConsensusInfo != nil {
+		srv.NewConsensusPeer(remotePubkey, phs.ConsensusInfo)
+	}
 
 	return nil
+}
+
+func (srv *Server) AddConsensusPeer(key *ecdsa.PublicKey, info *ConsensusInfo) {
+	ip := net.ParseIP(info.ip)
+	node := enode.NewV4(key, ip, info.port, info.port)
+	srv.dialsched.addStatic(node)
+}
+
+func (srv *Server) ShareConsensusInfo(ip string) {
+	if srv.Typ == Consensus {
+		tokens := strings.Split(srv.ListenAddr, ":")
+		port, _ := strconv.Atoi(tokens[len(tokens)-1])
+		srv.ConsensusInfo <- &ConsensusInfo{port: port, ip: ip}
+	}
 }
 
 func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node {

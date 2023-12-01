@@ -39,6 +39,9 @@ var (
 		P2P: p2p.Config{
 			MaxPeers: 100,
 		},
+		ConsensusP2P: p2p.Config{
+			MaxPeers: 100000,
+		},
 		HTTPHost: "0.0.0.0",
 		WSHost:   "0.0.0.0",
 	}
@@ -114,6 +117,9 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	// p2p key and address
 	c.P2P.PrivateKey = u.Key.(*ecdsa.PrivateKey)
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
+
+	c.ConsensusP2P.PrivateKey = u.Key.(*ecdsa.PrivateKey)
+	c.ConsensusP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(freeport.GetOne(t))
 
 	// Set rpc ports
 	c.HTTPPort = freeport.GetOne(t)
@@ -669,11 +675,17 @@ func Genesis(users []*gengen.Validator, options ...gengen.GenesisOption) (*core.
 func copyNodeConfig(source, dest *node.Config) error {
 	s := &MarshalableNodeConfig{}
 	s.Config = *source
+
 	p := MarshalableP2PConfig{}
 	p.Config = source.P2P
-
 	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.P2P.PrivateKey)
 	s.P2P = p
+
+	cns := MarshalableP2PConfig{}
+	cns.Config = source.ConsensusP2P
+	cns.PrivateKey = (*MarshalableECDSAPrivateKey)(source.ConsensusP2P.PrivateKey)
+	s.ConsensusP2P = cns
+
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -685,13 +697,16 @@ func copyNodeConfig(source, dest *node.Config) error {
 	}
 	*dest = u.Config
 	dest.P2P = u.P2P.Config
+	dest.ConsensusP2P = u.ConsensusP2P.Config
 	dest.P2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
+	dest.ConsensusP2P.PrivateKey = (*ecdsa.PrivateKey)(u.ConsensusP2P.PrivateKey)
 	return nil
 }
 
 type MarshalableNodeConfig struct {
 	node.Config
-	P2P MarshalableP2PConfig
+	P2P          MarshalableP2PConfig
+	ConsensusP2P MarshalableP2PConfig
 }
 
 type MarshalableP2PConfig struct {

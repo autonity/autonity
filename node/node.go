@@ -17,6 +17,7 @@
 package node
 
 import (
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"net/http"
@@ -108,6 +109,16 @@ func New(conf *Config) (*Node, error) {
 		databases:       make(map[*closeTrackingDB]struct{}),
 	}
 
+	// consensus peers are discovered by eth-tx p2p server and passed to
+	// consensus server
+	node.server.NewConsensusPeer = func(key *ecdsa.PublicKey, info *p2p.ConsensusInfo) {
+		node.consensusServer.AddConsensusPeer(key, info)
+	}
+
+	node.server.RetrieveConsensusInfo = func() *p2p.ConsensusInfo {
+		return <-node.consensusServer.ConsensusInfo
+	}
+
 	// Register built-in APIs.
 	node.rpcAPIs = append(node.rpcAPIs, node.apis()...)
 
@@ -143,9 +154,6 @@ func New(conf *Config) (*Node, error) {
 	node.consensusServer.Config.PrivateKey = node.config.NodeKey()
 	node.consensusServer.Config.Name = node.config.NodeName()
 	node.consensusServer.Config.Logger = node.log
-	if node.consensusServer.Config.NodeDatabase == "" {
-		node.consensusServer.Config.NodeDatabase = node.config.NodeDB()
-	}
 	// Check HTTP/WS prefixes are valid.
 	if err := validatePrefix("HTTP", conf.HTTPPathPrefix); err != nil {
 		return nil, err
@@ -274,6 +282,9 @@ func (n *Node) openEndpoints() error {
 	if err := n.server.Start(); err != nil {
 		return convertFileLockError(err)
 	}
+	if err := n.consensusServer.Start(); err != nil {
+		return convertFileLockError(err)
+	}
 	// start RPC endpoints
 	err := n.startRPC()
 	if err != nil {
@@ -308,6 +319,7 @@ func (n *Node) stopServices(running []Lifecycle) error {
 
 	// Stop p2p networking.
 	n.server.Stop()
+	n.consensusServer.Stop()
 
 	if len(failure.Services) > 0 {
 		return failure
@@ -470,7 +482,7 @@ func (n *Node) RegisterConsensusProtocols(protocols []p2p.Protocol) {
 	if n.state != initializingState {
 		panic("can't register protocols on running/stopped node")
 	}
-	n.consensusServer.Protocols = append(n.server.Protocols, protocols...)
+	n.consensusServer.Protocols = append(n.consensusServer.Protocols, protocols...)
 }
 
 // RegisterAPIs registers the APIs a service provides on the node.

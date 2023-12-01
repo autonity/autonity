@@ -96,7 +96,7 @@ func (g *Gossiper) AskSync(header *types.Header) {
 
 	if g.broadcaster != nil && len(targets) > 0 {
 		for {
-			ps := g.broadcaster.FindPeers(targets)
+			ps := g.broadcaster.FindConsensusPeers(targets)
 			// If we didn't find any peers try again in 10ms or exit if we have
 			// been stopped.
 			if len(ps) == 0 {

@@ -324,7 +324,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 
 	targets := make(map[common.Address]struct{})
 	targets[accusation.Message.Sender()] = struct{}{}
-	peers := fd.broadcaster.FindPeers(targets)
+	peers := fd.broadcaster.FindConsensusPeers(targets)
 	if len(peers) == 0 {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.
 		fd.logger.Debug("No direct p2p connection with suspect")
@@ -349,7 +349,7 @@ func (fd *FaultDetector) sendOffChainInnocenceProof(receiver common.Address, pay
 	}
 	targets := make(map[common.Address]struct{})
 	targets[receiver] = struct{}{}
-	peers := fd.broadcaster.FindPeers(targets)
+	peers := fd.broadcaster.FindConsensusPeers(targets)
 	if len(peers) == 0 {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.
 		fd.logger.Debug("no peer connection for off chain innocence proof event")
