@@ -27,9 +27,9 @@ var (
 )
 
 var (
-	checkAccusationAddress   = common.BytesToAddress([]byte{252})
-	checkInnocenceAddress    = common.BytesToAddress([]byte{253})
-	checkMisbehaviourAddress = common.BytesToAddress([]byte{254})
+	checkAccusationAddress   = common.CheckAccusationAddress
+	checkInnocenceAddress    = common.CheckInnocenceAddress
+	checkMisbehaviourAddress = common.CheckMisbehaviourAddress
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult = common.LeftPadBytes([]byte{1}, 32)
 	failureReturn = make([]byte, 128)
