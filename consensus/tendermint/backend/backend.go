@@ -388,15 +388,6 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 	}
 }
 
-// RemoveFromCache removes a slice of local messages from the known messages cache.
-// It is called by the tendermint handler when some unprocessed messages are removed from the future height messages buffer.
-func (sb *Backend) removeFromCache(evs []*events.MessageEvent) {
-	// Note: ARC is thread-safe
-	for _, e := range evs {
-		sb.knownMessages.Remove(e.Message.Hash())
-	}
-}
-
 // called by tendermint core to dump core state
 func (sb *Backend) FutureMsgs() []message.Msg {
 	sb.futureLock.RLock()

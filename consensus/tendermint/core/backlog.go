@@ -43,7 +43,6 @@ func (c *Core) storeBacklog(msg message.Msg, src common.Address) {
 		return
 	}
 
-	logger.Debug("Storing future message")
 	c.backlogs[src] = append(c.backlogs[src], msg)
 }
 
@@ -68,10 +67,9 @@ func (c *Core) processBacklog() {
 				r := curMsg.R()
 				h := curMsg.H()
 				err := c.checkMessageStep(r, h, Step(curMsg.Code()))
-				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) || errors.Is(err, constants.ErrFutureStepMessage) {
+				if errors.Is(err, constants.ErrFutureRoundMessage) || errors.Is(err, constants.ErrFutureStepMessage) {
 					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue
-
 				}
 				logger.Debug("Post backlog event", "msg", curMsg)
 

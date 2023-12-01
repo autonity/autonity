@@ -221,7 +221,11 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
 		if ok {
 			sb.futureSize -= uint64(len(maxHeightEvs))
 			// remove messages from knowMessages cache so they can be received again
-			go sb.removeFromCache(maxHeightEvs)
+			go func(evs []*events.MessageEvent) {
+				for _, e := range evs {
+					sb.knownMessages.Remove(e.Message.Hash())
+				}
+			}(maxHeightEvs)
 			delete(sb.future, sb.futureMaxHeight)
 		}
 		// This value might be different wrt the actual maximum in the map (because of holes in future msg heights)

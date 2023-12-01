@@ -254,8 +254,6 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
 		switch {
-		case errors.Is(err, constants.ErrFutureHeightMessage):
-			panic("Processed future message as a valid message")
 		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, msg.Sender())

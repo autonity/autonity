@@ -6,9 +6,6 @@ var (
 	// ErrNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	ErrNotFromProposer = errors.New("message does not come from proposer")
-	// ErrFutureHeightMessage is returned when curRoundMessages view is earlier than the
-	// view of the received message.
-	ErrFutureHeightMessage = errors.New("future height message")
 	// ErrOldHeightMessage is returned when the received message's view is earlier
 	// than curRoundMessages view.
 	ErrOldHeightMessage = errors.New("old height message")
