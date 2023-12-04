@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"math/big"
+	mrand "math/rand"
 	"testing"
 
 	"github.com/autonity/autonity/crypto/secp256k1"
 	"github.com/stretchr/testify/require"
 
 	"crypto/rand"
-	mrand "math/rand"
-
 	"github.com/autonity/autonity/crypto/bls/common"
 )
 
@@ -92,241 +91,17 @@ func TestReuseECDSAKeyForBLS(t *testing.T) {
 	}
 }
 
-// benchmarks
+func TestFindInvalid(t *testing.T) {
 
-// benchmark bls public key aggregation
-func benchmarkAggregatePK(seed int64, n int, b *testing.B) {
-	// print out parameters
-	b.Logf("seed: %d, n: %d\n", seed, n)
-
-	// initialize deterministic randomness
-	rand := mrand.New(mrand.NewSource(seed)) //nolint
-
-	// setup public keys
-	var pks [][]byte
-	for i := 0; i < n; i++ {
-		ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
-		if err != nil {
-			b.Fatal("Failed to generate random ecdsa key. error: ", err)
-		}
-		sk, err := SecretKeyFromECDSAKey(ecdsaKey)
-		if err != nil {
-			b.Fatal("Failed to generate random bls key: ", err)
-		}
-		pk := sk.PublicKey().Marshal()
-		pks = append(pks, pk)
-	}
-
-	// start the actual aggregation benchmarking
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := AggregatePublicKeys(pks); err != nil {
-			b.Fatal("failed pks aggregation: ", err)
-		}
-	}
-
-}
-
-func BenchmarkAggregatePK0_100(b *testing.B) { benchmarkAggregatePK(0, 100, b) }
-func BenchmarkAggregatePK1_100(b *testing.B) { benchmarkAggregatePK(1, 100, b) }
-func BenchmarkAggregatePK2_100(b *testing.B) { benchmarkAggregatePK(2, 100, b) }
-func BenchmarkAggregatePK0_200(b *testing.B) { benchmarkAggregatePK(0, 200, b) }
-func BenchmarkAggregatePK1_200(b *testing.B) { benchmarkAggregatePK(1, 200, b) }
-func BenchmarkAggregatePK2_200(b *testing.B) { benchmarkAggregatePK(2, 200, b) }
-func BenchmarkAggregatePK0_300(b *testing.B) { benchmarkAggregatePK(0, 300, b) }
-func BenchmarkAggregatePK1_300(b *testing.B) { benchmarkAggregatePK(1, 300, b) }
-func BenchmarkAggregatePK2_300(b *testing.B) { benchmarkAggregatePK(2, 300, b) }
-
-// benchmark bls signature aggregation
-func benchmarkAggregateSigs(seed int64, n int, b *testing.B) {
-	// print out parameters
-	b.Logf("seed: %d, n: %d\n", seed, n)
-
-	// initialize deterministic randomness
-	rand := mrand.New(mrand.NewSource(seed)) //nolint
-
-	// generate msg
-	var msg [32]byte
-	rand.Read(msg[:])
-
-	// generate signatures over constant msg
-	var sigs []common.BLSSignature
-	for i := 0; i < n; i++ {
-		ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
-		if err != nil {
-			b.Fatal("Failed to generate random ecdsa key. error: ", err)
-		}
-		sk, err := SecretKeyFromECDSAKey(ecdsaKey)
-		if err != nil {
-			b.Fatal("Failed to generate random bls key: ", err)
-		}
-		sig := sk.Sign(msg[:])
-		sigs = append(sigs, sig)
-	}
-
-	// start the actual aggregation benchmarking
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = AggregateSignatures(sigs)
-	}
-
-}
-
-func BenchmarkAggregateSigs0_3(b *testing.B)   { benchmarkAggregateSigs(0, 3, b) }
-func BenchmarkAggregateSigs0_100(b *testing.B) { benchmarkAggregateSigs(0, 100, b) }
-func BenchmarkAggregateSigs1_100(b *testing.B) { benchmarkAggregateSigs(1, 100, b) }
-func BenchmarkAggregateSigs2_100(b *testing.B) { benchmarkAggregateSigs(2, 100, b) }
-func BenchmarkAggregateSigs0_200(b *testing.B) { benchmarkAggregateSigs(0, 200, b) }
-func BenchmarkAggregateSigs1_200(b *testing.B) { benchmarkAggregateSigs(1, 200, b) }
-func BenchmarkAggregateSigs2_200(b *testing.B) { benchmarkAggregateSigs(2, 200, b) }
-func BenchmarkAggregateSigs0_300(b *testing.B) { benchmarkAggregateSigs(0, 300, b) }
-func BenchmarkAggregateSigs1_300(b *testing.B) { benchmarkAggregateSigs(1, 300, b) }
-func BenchmarkAggregateSigs2_300(b *testing.B) { benchmarkAggregateSigs(2, 300, b) }
-
-// benchmark simple signature verification
-func BenchmarkSigVerify(b *testing.B) {
 	// initialize deterministic randomness
 	rand := mrand.New(mrand.NewSource(0)) //nolint
 
-	// generate msg
-	var msg [32]byte
-	rand.Read(msg[:])
+	n := 30
+	failedN := 5
 
-	// generate signature over constant msg
-	ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
-	if err != nil {
-		b.Fatal("Failed to generate random ecdsa key. error: ", err)
-	}
-	sk, err := SecretKeyFromECDSAKey(ecdsaKey)
-	if err != nil {
-		b.Fatal("Failed to generate random bls key: ", err)
-	}
-	sig := sk.Sign(msg[:])
-
-	// start the actual verification benchmarking
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		res := sig.Verify(sk.PublicKey(), msg[:])
-		if !res {
-			b.Fatal("failed signature verification")
-		}
-	}
-
-}
-
-// benchmark aggregated signature verification on 1 message
-func BenchmarkSigVerifyAgg(b *testing.B) {
-	// initialize deterministic randomness
-	rand := mrand.New(mrand.NewSource(0)) //nolint
-
-	// generate msg
-	var msg [32]byte
-	rand.Read(msg[:])
-
-	// generate signatures over constant msg
-	var sigs []common.BLSSignature
-	var pks [][]byte
-	for i := 0; i < 100; i++ {
-		ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
-		if err != nil {
-			b.Fatal("Failed to generate random ecdsa key. error: ", err)
-		}
-		sk, err := SecretKeyFromECDSAKey(ecdsaKey)
-		if err != nil {
-			b.Fatal("Failed to generate random bls key: ", err)
-		}
-		pk := sk.PublicKey().Marshal()
-		pks = append(pks, pk)
-		sig := sk.Sign(msg[:])
-		sigs = append(sigs, sig)
-	}
-
-	sig := AggregateSignatures(sigs)
-	aggPk, err := AggregatePublicKeys(pks)
-	if err != nil {
-		b.Fatal("failed pks aggregation: ", err)
-	}
-
-	// start the actual aggregation benchmarking
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		res := sig.Verify(aggPk, msg[:])
-		if !res {
-			b.Fatal("failed signature verification")
-		}
-	}
-}
-
-// benchmark aggregated signature verification on 3 messages (propose, prevote, precommit)
-func BenchmarkAggregateVerify3(b *testing.B) {
-	// initialize deterministic randomness
-	rand := mrand.New(mrand.NewSource(0)) //nolint
-
-	// create step messages
-	var propose [32]byte
-	rand.Read(propose[:])
-	var prevote [32]byte
-	rand.Read(prevote[:])
-	var precommit [32]byte
-	rand.Read(precommit[:])
-
-	// generate signature over propose
-	ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
-	if err != nil {
-		b.Fatal("Failed to generate random ecdsa key. error: ", err)
-	}
-	proposeSk, err := SecretKeyFromECDSAKey(ecdsaKey)
-	if err != nil {
-		b.Fatal("Failed to generate random bls key: ", err)
-	}
-	sigPropose := proposeSk.Sign(propose[:])
-
-	// generate signatures over votes
-	var sigsPrevote []common.BLSSignature
-	var sigsPrecommit []common.BLSSignature
-	var pks [][]byte
-	for i := 0; i < 100; i++ {
-		ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
-		if err != nil {
-			b.Fatal("Failed to generate random ecdsa key. error: ", err)
-		}
-		sk, err := SecretKeyFromECDSAKey(ecdsaKey)
-		if err != nil {
-			b.Fatal("Failed to generate random bls key: ", err)
-		}
-		pk := sk.PublicKey().Marshal()
-		pks = append(pks, pk)
-		sigPrevote := sk.Sign(prevote[:])
-		sigsPrevote = append(sigsPrevote, sigPrevote)
-		sigPrecommit := sk.Sign(precommit[:])
-		sigsPrecommit = append(sigsPrecommit, sigPrecommit)
-	}
-
-	aggSigPrevote := AggregateSignatures(sigsPrevote)
-	aggSigPrecommit := AggregateSignatures(sigsPrecommit)
-	aggSig := AggregateSignatures([]common.BLSSignature{sigPropose, aggSigPrevote, aggSigPrecommit})
-	aggPk, err := AggregatePublicKeys(pks)
-	if err != nil {
-		b.Fatal("failed pks aggregation: ", err)
-	}
-
-	// start the actual aggregation benchmarking
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		res := aggSig.AggregateVerify([]common.BLSPublicKey{proposeSk.PublicKey(), aggPk, aggPk}, [][32]byte{propose, prevote, precommit})
-		if !res {
-			b.Fatal("failed signature verification")
-		}
-	}
-
-}
-
-// benchmark aggregated signature verification on 15 messages
-func BenchmarkAggregateVerify15(b *testing.B) {
-	// initialize deterministic randomness
-	rand := mrand.New(mrand.NewSource(0)) //nolint
-
-	n := 15
+	invalidEcdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
+	require.NoError(t, err)
+	invalidSk, err := SecretKeyFromECDSAKey(invalidEcdsaKey)
 
 	// create messages
 	var msgs [][32]byte
@@ -336,49 +111,184 @@ func BenchmarkAggregateVerify15(b *testing.B) {
 		msgs = append(msgs, msg)
 	}
 
+	invalidSig := invalidSk.Sign(msgs[failedN][:])
+
 	// generate signatures over msgs
-	sigs := make([][]common.BLSSignature, n)
-	var pks [][]byte
-	for i := 0; i < 100; i++ {
-		ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
-		if err != nil {
-			b.Fatal("Failed to generate random ecdsa key. error: ", err)
-		}
-		sk, err := SecretKeyFromECDSAKey(ecdsaKey)
-		if err != nil {
-			b.Fatal("Failed to generate random bls key: ", err)
-		}
-		pk := sk.PublicKey().Marshal()
-		pks = append(pks, pk)
-		for j := 0; j < len(msgs); j++ {
-			sig := sk.Sign(msgs[j][:])
-			sigs[j] = append(sigs[j], sig)
-		}
-	}
+	sigs := make([]common.BLSSignature, 0, n)
 
-	aggPk, err := AggregatePublicKeys(pks)
-	if err != nil {
-		b.Fatal("failed pks aggregation: ", err)
-	}
-	var aggSigs []common.BLSSignature
-	for i := 0; i < len(sigs); i++ {
-		aggSig := AggregateSignatures(sigs[i])
-		aggSigs = append(aggSigs, aggSig)
-	}
-	aggSigTotal := AggregateSignatures(aggSigs)
-
-	var pksTotal []common.BLSPublicKey
+	var pks []common.BLSPublicKey
 	for i := 0; i < n; i++ {
-		pksTotal = append(pksTotal, aggPk)
+		ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
+		require.NoError(t, err)
+		sk, err := SecretKeyFromECDSAKey(ecdsaKey)
+		require.NoError(t, err)
+		pk := sk.PublicKey()
+		pks = append(pks, pk)
+
+		sig := sk.Sign(msgs[i][:])
+		sigs = append(sigs, sig)
 	}
 
-	// start the actual aggregation benchmarking
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		res := aggSigTotal.AggregateVerify(pksTotal, msgs)
-		if !res {
-			b.Fatal("failed signature verification")
+	t.Run("empty", func(t *testing.T) {
+		invalid, err := FindInvalidSignatures(nil, nil, nil)
+		require.NoError(t, err)
+		require.Empty(t, invalid)
+	})
+
+	t.Run("single invalid", func(t *testing.T) {
+		invalid, err := FindInvalidSignatures([]common.BLSSignature{invalidSig}, []common.BLSPublicKey{pks[failedN]}, [][32]byte{msgs[failedN]})
+		require.NoError(t, err)
+		require.Len(t, invalid, 1)
+		require.Equal(t, 0, invalid[0])
+	})
+
+	t.Run("single valid", func(t *testing.T) {
+		invalid, err := FindInvalidSignatures([]common.BLSSignature{sigs[0]}, []common.BLSPublicKey{pks[0]}, [][32]byte{msgs[0]})
+		require.NoError(t, err)
+		require.Empty(t, invalid)
+	})
+
+	t.Run("large valid", func(t *testing.T) {
+		invalid, err := FindInvalidSignatures(sigs, pks, msgs)
+		require.NoError(t, err)
+		require.Empty(t, invalid)
+	})
+
+	t.Run("large invalid", func(t *testing.T) {
+
+		makeInvalid := func(n ...int) []common.BLSSignature {
+
+			newSigs := make([]common.BLSSignature, len(sigs))
+
+			copy(newSigs, sigs)
+
+			for _, i := range n {
+				invalidSig := invalidSk.Sign(msgs[i][:])
+
+				newSigs[i] = invalidSig
+			}
+			return newSigs
 		}
+
+		t.Run("single", func(t *testing.T) {
+			sigs := makeInvalid(failedN)
+
+			invalid, err := FindInvalidSignatures(sigs, pks, msgs)
+			require.NoError(t, err)
+			require.Len(t, invalid, 1)
+		})
+
+		t.Run("multiple", func(t *testing.T) {
+			sigs := makeInvalid(0, 3, 5, 7, n-1)
+
+			invalid, err := FindInvalidSignatures(sigs, pks, msgs)
+			require.NoError(t, err)
+			require.Len(t, invalid, 5)
+
+			require.Contains(t, invalid, 0)
+			require.Contains(t, invalid, 3)
+			require.Contains(t, invalid, 5)
+			require.Contains(t, invalid, 7)
+			require.Contains(t, invalid, n-1)
+		})
+	})
+}
+
+func TestFastFindInvalid(t *testing.T) {
+
+	// initialize deterministic randomness
+	rand := mrand.New(mrand.NewSource(0)) //nolint
+
+	n := 30
+	failedN := 5
+
+	invalidEcdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
+	require.NoError(t, err)
+	invalidSk, err := SecretKeyFromECDSAKey(invalidEcdsaKey)
+
+	// create messages
+	var msg [32]byte
+	rand.Read(msg[:])
+
+	invalidSig := invalidSk.Sign(msg[:])
+
+	// generate signatures over msgs
+	sigs := make([]common.BLSSignature, 0, n)
+
+	var pks []common.BLSPublicKey
+	for i := 0; i < n; i++ {
+		ecdsaKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand)
+		require.NoError(t, err)
+		sk, err := SecretKeyFromECDSAKey(ecdsaKey)
+		require.NoError(t, err)
+		pk := sk.PublicKey()
+		pks = append(pks, pk)
+
+		sig := sk.Sign(msg[:])
+		sigs = append(sigs, sig)
 	}
 
+	t.Run("empty", func(t *testing.T) {
+		invalid, err := FindFastInvalidSignatures(nil, nil, [32]byte{})
+		require.NoError(t, err)
+		require.Empty(t, invalid)
+	})
+
+	t.Run("single invalid", func(t *testing.T) {
+		invalid, err := FindFastInvalidSignatures([]common.BLSSignature{invalidSig}, []common.BLSPublicKey{pks[failedN]}, msg)
+		require.NoError(t, err)
+		require.Len(t, invalid, 1)
+		require.Equal(t, 0, invalid[0])
+	})
+
+	t.Run("single valid", func(t *testing.T) {
+		invalid, err := FindFastInvalidSignatures([]common.BLSSignature{sigs[0]}, []common.BLSPublicKey{pks[0]}, msg)
+		require.NoError(t, err)
+		require.Empty(t, invalid)
+	})
+
+	t.Run("large valid", func(t *testing.T) {
+		invalid, err := FindFastInvalidSignatures(sigs, pks, msg)
+		require.NoError(t, err)
+		require.Empty(t, invalid)
+	})
+
+	t.Run("large invalid", func(t *testing.T) {
+
+		makeInvalid := func(n ...int) []common.BLSSignature {
+
+			newSigs := make([]common.BLSSignature, len(sigs))
+
+			copy(newSigs, sigs)
+
+			for _, i := range n {
+				invalidSig := invalidSk.Sign(msg[:])
+
+				newSigs[i] = invalidSig
+			}
+			return newSigs
+		}
+
+		t.Run("single", func(t *testing.T) {
+			sigs := makeInvalid(failedN)
+
+			invalid, err := FindFastInvalidSignatures(sigs, pks, msg)
+			require.NoError(t, err)
+			require.Len(t, invalid, 1)
+		})
+
+		t.Run("multiple", func(t *testing.T) {
+			sigs := makeInvalid(0, 3, 5, 7, n-1)
+
+			invalid, err := FindFastInvalidSignatures(sigs, pks, msg)
+			require.NoError(t, err)
+			require.Len(t, invalid, 5)
+
+			require.Contains(t, invalid, 0)
+			require.Contains(t, invalid, 3)
+			require.Contains(t, invalid, 5)
+			require.Contains(t, invalid, 7)
+			require.Contains(t, invalid, n-1)
+		})
+	})
 }
