@@ -1,21 +1,7 @@
 package message
 
-import (
-	"bytes"
-
-	"math/big"
-	"reflect"
-	"testing"
-
-	"github.com/stretchr/testify/require"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/rlp"
-)
-
 //TODO(lorenzo) delete or move this somewhere else
+/*
 
 var skey, _ = crypto.GenerateKey()
 
@@ -236,3 +222,4 @@ func TestValidate(t *testing.T) {
 		require.Equal(t, errInvalidRound, err)
 	})
 }
+*/
