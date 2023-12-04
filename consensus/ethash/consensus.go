@@ -89,11 +89,6 @@ var (
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 )
 
-// BFT returns true if the engine is an implementation of BFT consensus algorithm.
-func (ethash *Ethash) BFT() bool {
-	return false
-}
-
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
 func (ethash *Ethash) Author(header *types.Header) (common.Address, error) {

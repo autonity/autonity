@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"runtime"
 	"sync"
@@ -547,9 +548,13 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 func (s *Ethereum) Start() error {
 	// let only tendermint bft engine to start its sub components, otherwise committee watcher will panic for
 	// none tendermint engine legacy tests.
-	if s.engine.BFT() {
+	switch s.engine.(type) {
+	case *backend.Backend:
+		s.log.Info("starting accountability modules for BFT engine")
 		go s.accountability.Start()
 		go s.newCommitteeWatcher()
+	default:
+		s.log.Info("skip to start accountability modules for none BFT engine")
 	}
 
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())

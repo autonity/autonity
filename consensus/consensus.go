@@ -75,8 +75,6 @@ type ChainReader interface {
 
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
-	// BFT returns true if the engine is an implementation of BFT consensus algorithm.
-	BFT() bool
 
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus

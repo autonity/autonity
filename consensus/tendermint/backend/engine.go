@@ -65,11 +65,6 @@ var (
 	now                           = time.Now
 )
 
-// BFT returns true if the engine is an implementation of BFT consensus algorithm.
-func (sb *Backend) BFT() bool {
-	return true
-}
-
 // Author retrieves the Ethereum address of the account that minted the given
 // block, which may be different from the header's coinbase if a consensus
 // engine is based on signatures.
@@ -547,10 +542,6 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 }
 
 func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
-	if !sb.BFT() {
-		sb.logger.Info("skip watching faulty validators for none BFT consensus engine")
-		return
-	}
 	var subscriptions event.SubscriptionScope
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
 	slashingEventCh := make(chan *autonity.AccountabilitySlashingEvent)
