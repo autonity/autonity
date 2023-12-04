@@ -192,6 +192,8 @@ tendermintMsgLoop:
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
+				//TODO(lorenzo) should we gossip old height messages?
+				// might be useful for accountability, but might be exploitable for DoS
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {

@@ -115,6 +115,7 @@ eventLoop:
 				// if that's the case ignore the message
 				if msg.H() < c.Height().Uint64() {
 					c.logger.Debug("ignoring stale consensus message", "hash", msg.Hash())
+					//TODO(lorenzo) should we gossip it?
 					continue
 				}
 				// At this stage, a message is parsed and all the internal fields must be accessible
