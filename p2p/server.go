@@ -443,6 +443,7 @@ func (src *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 			src.AddPeer(whitelistedEnode)
 		}
 	}
+
 	src.consensusNodes = enodes
 }
 
@@ -572,9 +573,12 @@ func (srv *Server) setupLocalNode() error {
 	for _, p := range srv.Protocols {
 		srv.ourHandshake.Caps = append(srv.ourHandshake.Caps, p.cap())
 	}
+	if srv.Typ == EthTx {
+		srv.ourHandshake.ConsensusInfo = *srv.RetrieveConsensusInfo()
+	}
 	sort.Sort(capsByNameAndVersion(srv.ourHandshake.Caps))
 
-	//TODO: (Review)We are creating a memorryDB for consensus server
+	//TODO: (Review)We are creating a memoryDB for consensus server
 	// by passig an empty nodedatabase path, do we really need db for consensus server
 	// Create the local node.
 	db, err := enode.OpenDB(srv.Config.NodeDatabase)
@@ -1074,9 +1078,6 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		return err
 	}
 
-	if srv.Typ == EthTx {
-		srv.ourHandshake.ConsensusInfo = srv.RetrieveConsensusInfo()
-	}
 	// Run the capability negotiation handshake.
 	phs, err := c.doProtoHandshake(srv.ourHandshake)
 	if err != nil {
@@ -1094,16 +1095,16 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		clog.Trace("Rejected peer", "err", err)
 		return err
 	}
-	if srv.Typ == EthTx && phs.ConsensusInfo != nil {
-		srv.NewConsensusPeer(remotePubkey, phs.ConsensusInfo)
+	if srv.Typ == EthTx && phs.ConsensusInfo.IP != "" {
+		srv.NewConsensusPeer(remotePubkey, &phs.ConsensusInfo)
 	}
 
 	return nil
 }
 
 func (srv *Server) AddConsensusPeer(key *ecdsa.PublicKey, info *ConsensusInfo) {
-	ip := net.ParseIP(info.ip)
-	node := enode.NewV4(key, ip, info.port, info.port)
+	ip := net.ParseIP(info.IP)
+	node := enode.NewV4(key, ip, int(info.Port), int(info.Port))
 	srv.dialsched.addStatic(node)
 }
 
@@ -1111,7 +1112,7 @@ func (srv *Server) ShareConsensusInfo(ip string) {
 	if srv.Typ == Consensus {
 		tokens := strings.Split(srv.ListenAddr, ":")
 		port, _ := strconv.Atoi(tokens[len(tokens)-1])
-		srv.ConsensusInfo <- &ConsensusInfo{port: port, ip: ip}
+		srv.ConsensusInfo <- &ConsensusInfo{Port: uint64(port), IP: ip}
 	}
 }
 

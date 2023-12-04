@@ -59,8 +59,8 @@ const (
 )
 
 type ConsensusInfo struct {
-	port int
-	ip   string
+	Port uint64
+	IP   string
 }
 
 // protoHandshake is the RLP structure of the protocol handshake.
@@ -70,7 +70,7 @@ type protoHandshake struct {
 	Caps          []Cap
 	ListenPort    uint64
 	ID            []byte // secp256k1 public key
-	ConsensusInfo *ConsensusInfo
+	ConsensusInfo ConsensusInfo
 
 	// Ignore additional fields (for forward compatibility).
 	Rest []rlp.RawValue `rlp:"tail"`

@@ -24,8 +24,7 @@ var ProtocolVersions = []uint{CNS1}
 
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-// TODO: value of CNS1 based on messages
-var protocolLengths = map[uint]uint64{CNS1: 8}
+var protocolLengths = map[uint]uint64{CNS1: 22}
 
 // MaxMessageSize is the maximum cap on the size of a consensus protocol message.
 const MaxMessageSize = 10 * 1024 * 1024

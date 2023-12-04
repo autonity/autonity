@@ -196,7 +196,7 @@ func (n *Node) Start() error {
 		}
 		return b
 	})))
-	logger.Verbosity(log.LvlDebug)
+	logger.Verbosity(log.LvlTrace)
 
 	nodeConfigCopy.Logger = log.New()
 	nodeConfigCopy.Logger.SetHandler(logger)

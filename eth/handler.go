@@ -491,6 +491,7 @@ func (h *handler) Stop() {
 	// sessions which are already established but not added to h.peers yet
 	// will exit when they try to register.
 	h.peers.close()
+	h.consensusPeers.close()
 	h.peerWG.Wait()
 
 	log.Info("Ethereum protocol stopped")

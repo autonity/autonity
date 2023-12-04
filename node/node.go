@@ -279,10 +279,11 @@ func (n *Node) doClose(errs []error) error {
 func (n *Node) openEndpoints() error {
 	// start networking endpoints
 	n.log.Info("Starting peer-to-peer node", "instance", n.server.Name)
-	if err := n.server.Start(); err != nil {
+	if err := n.consensusServer.Start(); err != nil {
 		return convertFileLockError(err)
 	}
-	if err := n.consensusServer.Start(); err != nil {
+	// server depends on consensus server
+	if err := n.server.Start(); err != nil {
 		return convertFileLockError(err)
 	}
 	// start RPC endpoints
@@ -290,6 +291,7 @@ func (n *Node) openEndpoints() error {
 	if err != nil {
 		n.stopRPC()
 		n.server.Stop()
+		n.consensusServer.Stop()
 	}
 	return err
 }
