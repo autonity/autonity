@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -40,9 +39,10 @@ import (
 var (
 	testAddress = common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
 	testKey, _  = crypto.HexToECDSA("bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1")
-	testSigner  = func(data common.Hash) ([]byte, common.Address) {
+	testPower   = big.NewInt(1000)
+	testSigner  = func(data common.Hash) ([]byte, common.Address, *big.Int) {
 		out, _ := crypto.Sign(data[:], testKey)
-		return out, testAddress
+		return out, testAddress, testPower
 	}
 )
 
@@ -180,7 +180,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not create block %d, err=%s", i, errBlock)
 		}
 		header := block.Header()
-		seal, _ := backend.Sign(types.SigHash(header))
+		seal, _, _ := backend.Sign(types.SigHash(header))
 		if err := types.WriteSeal(header, seal); err != nil {
 			t.Fatalf("could not write seal %d, err=%s", i, err)
 		}
@@ -192,7 +192,7 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
 		// VerifyProposal don't need committed seals
-		committedSeal, address := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+		committedSeal, address, _ := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 		if address != backend.address {
 			t.Fatal("did not return signing address")
 		}
@@ -256,7 +256,7 @@ func TestHasBadProposal(t *testing.T) {
 func TestSign(t *testing.T) {
 	_, b := newBlockChain(4)
 	data := common.HexToHash("0x12345")
-	sig, addr := b.Sign(data)
+	sig, addr, _ := b.Sign(data)
 	if addr != b.address {
 		t.Error("error mismatch of addresses")
 	}
@@ -486,8 +486,13 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	return blockchain, b
 }
 
-// this function simulates the role of the worker
-func advanceBlockchain(backend *Backend, blockchain *core.BlockChain) error {
+// TODO(lorenzo) should I move it to handler?
+func advanceBlockchain(t *testing.T, engine *Backend, chain *core.BlockChain) {
+	block, err := makeBlock(chain, engine, chain.Genesis())
+	require.NoError(t, err)
+	_, err = chain.InsertChain(types.Blocks{block})
+	require.NoError(t, err)
+	/* //TODO(lorenzo) delete. Also substitute code repetition of this previous block with calls to advancechain
 	addr := backend.Address()
 
 	parent := blockchain.CurrentHeader()
@@ -529,6 +534,7 @@ func advanceBlockchain(backend *Backend, blockchain *core.BlockChain) error {
 	}
 
 	return nil
+	*/
 }
 
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
@@ -666,6 +672,6 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	return block, nil
 }
 
-func dummySigner(_ common.Hash) ([]byte, common.Address) {
-	return nil, common.Address{}
+func dummySigner(_ common.Hash) ([]byte, common.Address, *big.Int) {
+	return nil, common.Address{}, common.Big0
 }

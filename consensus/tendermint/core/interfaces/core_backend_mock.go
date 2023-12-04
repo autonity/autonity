@@ -300,12 +300,13 @@ func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash any) *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockBackend) Sign(hash common.Hash) ([]byte, common.Address) {
+func (m *MockBackend) Sign(hash common.Hash) ([]byte, common.Address, *big.Int) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sign", hash)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(common.Address)
-	return ret0, ret1
+	ret2, _ := ret[2].(*big.Int)
+	return ret0, ret1, ret2
 }
 
 // Sign indicates an expected call of Sign.
@@ -436,6 +437,20 @@ func (m *MockCore) Height() *big.Int {
 func (mr *MockCoreMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockCore)(nil).Height))
+}
+
+// Power mocks base method.
+func (m *MockCore) Power() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Power")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Power indicates an expected call of Power.
+func (mr *MockCoreMockRecorder) Power() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Power", reflect.TypeOf((*MockCore)(nil).Power))
 }
 
 // Precommiter mocks base method.

@@ -76,6 +76,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
 	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
+	//TODO(lorenzo) should we ignore also sync and off-chain acc from jailed validator?
 	case SyncNetworkMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Sync message received but core not running")

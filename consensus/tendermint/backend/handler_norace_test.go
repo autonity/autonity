@@ -12,14 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/p2p"
-
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-
-	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/p2p"
 )
 
 func TestUnhandledMsgs(t *testing.T) {
