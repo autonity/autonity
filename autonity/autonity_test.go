@@ -37,12 +37,12 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
 	require.NoError(b, err)
 	var header *types.Header
-	_, err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
+	err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
 	require.NoError(b, err)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "computeCommittee")
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "computeCommittee")
 		require.NoError(b, err)
 	}
 }
@@ -187,16 +187,17 @@ func deployContract(
 	return contractAddress, nil
 }
 
+// can also return result if needed
 func callContractFunction(
 	evmContract *EVMContract, contractAddress common.Address, stateDb *state.StateDB, header *types.Header, abi *abi.ABI,
 	methodName string, args ...interface{},
-) ([]byte, error) {
+) error {
 	argsPacked, err := abi.Pack(methodName, args...)
 	if err != nil {
-		return make([]byte, 0), err
+		return err
 	}
-	result, err := evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
-	return result, err
+	_, err = evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+	return err
 }
 
 func randomValidators(count int, randomPercentage int) ([]params.Validator, []*ecdsa.PrivateKey, error) {
