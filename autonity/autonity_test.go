@@ -33,16 +33,18 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	require.NoError(b, err)
 	contractAbi := &generated.AutonityTestAbi
 	deployer := common.Address{}
-	committeeSize := 1000
+	committeeSize := 100
 	contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
 	require.NoError(b, err)
 	var header *types.Header
 	err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
 	require.NoError(b, err)
+	packedArgs, err := contractAbi.Pack("computeCommittee")
+	require.NoError(b, err)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "computeCommittee")
+		_, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
 		require.NoError(b, err)
 	}
 }
@@ -187,6 +189,7 @@ func deployContract(
 	return contractAddress, nil
 }
 
+// Packs the args and then calls the function
 // can also return result if needed
 func callContractFunction(
 	evmContract *EVMContract, contractAddress common.Address, stateDb *state.StateDB, header *types.Header, abi *abi.ABI,
