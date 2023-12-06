@@ -67,10 +67,10 @@ func TestMessageDecode(t *testing.T) {
 func TestValidate(t *testing.T) {
 	t.Run("invalid signature, error returned", func(t *testing.T) {
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
-		msg := newVote[Prevote](1, 25, lastHeader.Hash(), func(hash common.Hash) (signature []byte, address common.Address) {
-			out, addr := defaultSigner(hash)
+		msg := newVote[Prevote](1, 25, lastHeader.Hash(), func(hash common.Hash) (signature []byte, address common.Address, power *big.Int) {
+			out, addr, power := defaultSigner(hash)
 			out = append(out, 1)
-			return out, addr
+			return out, addr, power
 		})
 		err := msg.Validate(func(_ common.Address) *types.CommitteeMember {
 			return nil

@@ -1243,7 +1243,8 @@ func TestPrecommitTimeout(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().Return(clientAddr)
 		backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
-		backendMock.EXPECT().ProcessFutureMsgs(currentHeight.Uint64()).MaxTimes(2)
+		//TODO(Lorenzo) double check currentHeight --> height
+		backendMock.EXPECT().ProcessFutureMsgs(height.Uint64()).MaxTimes(2)
 
 		c := New(backendMock, nil)
 		c.setHeight(height)
