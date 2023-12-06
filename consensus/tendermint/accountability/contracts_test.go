@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"crypto/ecdsa"
+	"math/big"
 	"testing"
 
 	"github.com/autonity/autonity/autonity"
@@ -1101,9 +1102,9 @@ func validateProof(p *Proof, header *types.Header) {
 }
 
 func makeSigner(key *ecdsa.PrivateKey, val types.CommitteeMember) message.Signer {
-	return func(hash common.Hash) ([]byte, common.Address) {
+	return func(hash common.Hash) ([]byte, common.Address, *big.Int) {
 		out, _ := crypto.Sign(hash[:], key)
-		return out, val.Address
+		return out, val.Address, val.VotingPower
 	}
 }
 

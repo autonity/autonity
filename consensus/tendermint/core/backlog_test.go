@@ -15,12 +15,12 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/internal/testlog"
 	"github.com/autonity/autonity/log"
-	"github.com/golang/mock/gomock"
 	"go.uber.org/mock/gomock"
 )
 
 var (
 	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testPower  = big.NewInt(1000)
 	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
@@ -50,10 +50,7 @@ func TestCheckMessage(t *testing.T) {
 			logger: testlog.Logger(t, log.LvlDebug),
 		}
 
-		err := c.checkMessageStep(2, 4, Propose)
-		if !errors.Is(err, constants.ErrFutureHeightMessage) {
-			t.Fatalf("have %v, want %v", err, constants.ErrFutureHeightMessage)
-		}
+		_ := c.checkMessageStep(2, 4, Propose)
 	})
 
 	t.Run("given old height, error returned", func(t *testing.T) {

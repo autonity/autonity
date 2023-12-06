@@ -12,12 +12,13 @@ import (
 
 var (
 	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testPower  = big.NewInt(1000)
 	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
-func defaultSigner(h common.Hash) ([]byte, common.Address) {
+func defaultSigner(h common.Hash) ([]byte, common.Address, *big.Int) {
 	out, _ := crypto.Sign(h[:], testKey)
-	return out, testAddr
+	return out, testAddr, testPower
 }
 func stubVerifier(address common.Address) *types.CommitteeMember {
 	return &types.CommitteeMember{

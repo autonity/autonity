@@ -24,9 +24,9 @@ func makeSigner(key *ecdsa.PrivateKey, addr common.Address) message.Signer {
 	}
 }
 
-func defaultSigner(h common.Hash) ([]byte, common.Address) {
+func defaultSigner(h common.Hash) ([]byte, common.Address, *big.Int) {
 	out, _ := crypto.Sign(h[:], testKey)
-	return out, testAddr
+	return out, testAddr, testPower
 }
 
 type AddressKeyMap map[common.Address]*ecdsa.PrivateKey

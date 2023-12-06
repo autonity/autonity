@@ -17,9 +17,10 @@ import (
 var (
 	key, _  = crypto.GenerateKey()
 	address = crypto.PubkeyToAddress(key.PublicKey)
-	signer  = func(hash common.Hash) ([]byte, common.Address) {
+	power   = big.NewInt(1000)
+	signer  = func(hash common.Hash) ([]byte, common.Address, *big.Int) {
 		out, _ := crypto.Sign(hash[:], key)
-		return out, address
+		return out, address, power
 	}
 )
 
