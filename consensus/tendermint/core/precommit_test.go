@@ -148,7 +148,7 @@ func TestHandlePrecommit(t *testing.T) {
 			}
 		}()
 
-		_ := c.precommiter.HandlePrecommit(context.Background(), preCommit)
+		_ = c.precommiter.HandlePrecommit(context.Background(), preCommit)
 	})
 
 	t.Run("pre-commit given with no errors, commit called", func(t *testing.T) {

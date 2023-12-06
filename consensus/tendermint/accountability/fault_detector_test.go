@@ -214,13 +214,18 @@ func TestRuleEngine(t *testing.T) {
 	noneNilValue := common.Hash{0x1}
 	lastHeader := &types.Header{Number: new(big.Int).SetUint64(lastHeight), Committee: committee}
 	maliciousSigner := makeSigner(keys[1], committee[1])
-	t.Run("innocenceProof with unprovable rule id", func(t *testing.T) {
+	t.Run("innocenceProof with unprovable rule id, code panics", func(t *testing.T) {
 		fd := FaultDetector{}
 		var input = Proof{
 			Rule: autonity.PVO12,
 		}
-		_, err := fd.innocenceProof(&input)
-		assert.NotNil(t, err)
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("The code did not panic")
+			}
+		}()
+		_, _ = fd.innocenceProof(&input)
 	})
 
 	t.Run("innocenceProofPO have quorum preVotes", func(t *testing.T) {

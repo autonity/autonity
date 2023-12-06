@@ -13,7 +13,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
-	"github.com/golang/mock/gomock"
 	"go.uber.org/mock/gomock"
 )
 
@@ -35,7 +34,6 @@ func TestSendPrevote(t *testing.T) {
 			round:            2,
 			committee:        committeeSet,
 			height:           big.NewInt(3),
-			address:          me.Address,
 		}
 
 		c.SetDefaultHandlers()

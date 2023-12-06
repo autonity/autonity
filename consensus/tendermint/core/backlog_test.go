@@ -50,7 +50,7 @@ func TestCheckMessage(t *testing.T) {
 			logger: testlog.Logger(t, log.LvlDebug),
 		}
 
-		_ := c.checkMessageStep(2, 4, Propose)
+		_ = c.checkMessageStep(2, 4, Propose)
 	})
 
 	t.Run("given old height, error returned", func(t *testing.T) {

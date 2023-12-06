@@ -20,7 +20,8 @@ import (
 func makeSigner(key *ecdsa.PrivateKey, addr common.Address) message.Signer {
 	return func(hash common.Hash) ([]byte, common.Address) {
 		out, _ := crypto.Sign(hash[:], key)
-		return out, addr
+		//TODO(lorenzo) fine to return fixed power?
+		return out, addr, big.NewInt(1000)
 	}
 }
 

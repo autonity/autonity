@@ -9,8 +9,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
