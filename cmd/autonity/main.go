@@ -139,7 +139,6 @@ var (
 		utils.PiccadillyFlag,
 		utils.BakerlooFlag,
 		utils.ConsensusListenPortFlag,
-		utils.ConsensusBootNodesFlag,
 		utils.ConsensusNATFlag,
 		utils.ConsensusNetrestrictFlag,
 		configFileFlag,

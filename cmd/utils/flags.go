@@ -597,11 +597,6 @@ var (
 		Usage: "Network listening port for consensus channel",
 		Value: 30304,
 	}
-	ConsensusBootNodesFlag = cli.StringFlag{
-		Name:  "consensus.bootnodes",
-		Usage: "Comma separated enode URLs for P2P discovery bootstrap on consensus channel",
-		Value: "",
-	}
 	ConsensusNATFlag = cli.StringFlag{
 		Name:  "consensus.nat",
 		Usage: "NAT port mapping mechanism for consensus channel (any|none|upnp|pmp|extip:<IP>)",
@@ -842,35 +837,6 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = SplitAndTrim(ctx.GlobalString(BootnodesFlag.Name))
-	case ctx.GlobalBool(PiccadillyFlag.Name):
-		urls = params.PiccadillyBootnodes
-	case ctx.GlobalBool(BakerlooFlag.Name):
-		urls = params.BakerlooBootnodes
-	case cfg.BootstrapNodes != nil:
-		return // already set, don't apply defaults.
-	}
-
-	cfg.BootstrapNodes = make([]*enode.Node, 0, len(urls))
-	for _, url := range urls {
-		if url != "" {
-			node, err := enode.Parse(enode.ValidSchemes, url)
-			if err != nil {
-				log.Crit("Bootstrap URL invalid", "enode", url, "err", err)
-				continue
-			}
-			cfg.BootstrapNodes = append(cfg.BootstrapNodes, node)
-		}
-	}
-}
-
-// setBootstrapNodes creates a list of bootstrap nodes from the command line
-// flags, reverting to pre-configured ones if none have been specified.
-func setConsensusBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
-	var urls []string
-	switch {
-	case ctx.GlobalIsSet(ConsensusBootNodesFlag.Name):
-		urls = SplitAndTrim(ctx.GlobalString(ConsensusBootNodesFlag.Name))
-		//TODO: setup picadilly/Backerloo enode flags later for consensus
 	case ctx.GlobalBool(PiccadillyFlag.Name):
 		urls = params.PiccadillyBootnodes
 	case ctx.GlobalBool(BakerlooFlag.Name):
