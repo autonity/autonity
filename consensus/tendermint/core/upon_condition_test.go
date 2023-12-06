@@ -1575,7 +1575,8 @@ func TestHandleMessage(t *testing.T) {
 		msg := message.NewPrevote(1, prevHeight.Uint64()+1, common.Hash{}, func(_ common.Hash) ([]byte, common.Address) {
 			out, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), testKey)
 			assert.NoError(t, err)
-			return out, testAddr
+			//TODO(lorenzo) fine to return 1?
+			return out, testAddr, common.Big1
 		})
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
