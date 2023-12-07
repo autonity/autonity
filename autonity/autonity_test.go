@@ -34,26 +34,109 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	contractAbi := &generated.AutonityTestAbi
 	deployer := common.Address{}
 	committeeSize := 100
-	contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
-	require.NoError(b, err)
-	var header *types.Header
-	err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
-	require.NoError(b, err)
-	packedArgs, err := contractAbi.Pack("computeCommittee")
-	require.NoError(b, err)
-	// the first run is different from the rest, because the db is empty and the function will write committee members in db
-	_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
-	require.NoError(b, err)
-	gas := uint64(math.MaxUint64)
-	var gasUsed uint64
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, gasLeft, err := evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+	b.Run("computeCommittee", func(b *testing.B) {
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
 		require.NoError(b, err)
-		gasUsed += gas - gasLeft
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
+		require.NoError(b, err)
+		packedArgs, err := contractAbi.Pack("computeCommittee")
+		require.NoError(b, err)
+		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
+	})
+
+	b.Run("computeCommitteeOptimzed to sort only 5000", func(b *testing.B) {
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(b, err)
+		// set minimum bonded stake
+		// note: validator list is sorted here, not usable for further benchmarking
+		sort.SliceStable(validators, func(i, j int) bool {
+			return validators[i].BondedStake.Cmp(validators[j].BondedStake) > 0
+		})
+		targetValidatorCount := 5000
+		minimumBondedStake := validators[targetValidatorCount-1].BondedStake
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "setMinimumBondedStake", minimumBondedStake)
+		require.NoError(b, err)
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
+		require.NoError(b, err)
+		packedArgs, err := contractAbi.Pack("computeCommitteeOptimzed")
+		require.NoError(b, err)
+		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
+	})
+}
+
+func TestArray(t *testing.T) {
+	validatorCount := 100
+	validators, _, err := randomValidators(validatorCount, 30)
+	require.NoError(t, err)
+	anotherArray := make([]params.Validator, validatorCount)
+	for i := 0; i < validatorCount; i++ {
+		anotherArray[i] = validators[i]
 	}
-	b.Log(1.0 * gasUsed / uint64(b.N))
+	sort.SliceStable(anotherArray, func(i, j int) bool {
+		return anotherArray[i].BondedStake.Cmp(anotherArray[j].BondedStake) > 0
+	})
+	require.Equal(t, 1, anotherArray[0].BondedStake.Cmp(anotherArray[1].BondedStake))
+	var equal bool = true
+	for i := 0; i < validatorCount; i++ {
+		if validators[i].NodeAddress != anotherArray[i].NodeAddress {
+			equal = false
+		}
+	}
+	require.Equal(t, false, equal)
+}
+
+func TestSorting(t *testing.T) {
+	// Deploy contract
+	stateDb, evm, evmContract, err := initalizeEvm(&generated.AutonityTestAbi)
+	require.NoError(t, err)
+
+	contractAbi := &generated.AutonityTestAbi
+	deployer := common.Address{}
+	committeeSize := 100
+	validatorCount := 1000
+
+	t.Run("test sorting with 0% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 0)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSorting")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 30% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 30)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSorting")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 70% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 70)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSorting")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 100% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 100)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSorting")
+		require.NoError(t, err)
+	})
 }
 
 func TestElectProposer(t *testing.T) {
@@ -183,6 +266,7 @@ func deployContract(
 	gas := uint64(math.MaxUint64)
 	value := common.Big0
 	contractConfig := autonityTestConfig()
+	contractConfig.Protocol.OperatorAccount = common.Address{}
 	contractConfig.Protocol.CommitteeSize = big.NewInt(int64(committeeSize))
 	args, err := abi.Pack("", validators, contractConfig)
 	if err != nil {
@@ -335,4 +419,20 @@ func testEVMProvider() func(header *types.Header, origin common.Address, statedb
 		evm := vm.NewEVM(vmBlockContext, txContext, statedb, params.TestChainConfig, vm.Config{})
 		return evm
 	}
+}
+
+func benchmarkWithGas(
+	b *testing.B, evmContract *EVMContract, stateDb *state.StateDB, header *types.Header,
+	contractAddress common.Address, packedArgs []byte,
+) {
+	gas := uint64(math.MaxUint64)
+	var gasUsed uint64
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, gasLeft, err := evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+		require.NoError(b, err)
+		gasUsed += gas - gasLeft
+	}
+	b.Log(1.0 * gasUsed / uint64(b.N))
 }
