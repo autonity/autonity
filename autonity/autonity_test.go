@@ -41,12 +41,16 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	require.NoError(b, err)
 	packedArgs, err := contractAbi.Pack("computeCommittee")
 	require.NoError(b, err)
+	gas := uint64(math.MaxUint64)
+	var gasUsed uint64 = 0
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+		_, gasLeft, err := evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
 		require.NoError(b, err)
+		gasUsed += gas - gasLeft
 	}
+	b.Log(1.0 * gasUsed / uint64(b.N))
 }
 
 func TestElectProposer(t *testing.T) {
@@ -199,7 +203,7 @@ func callContractFunction(
 	if err != nil {
 		return err
 	}
-	_, err = evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+	_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
 	return err
 }
 
