@@ -325,7 +325,7 @@ contract Accountability is IAccountability {
 
     /**
     * @notice Take funds away from faulty node account.
-    * @dev Emit a {SlashingEvent} event for the fined account or {ValidatorJailbound} event for being jailed permanently
+    * @dev Emit a {SlashingEvent} event for the fined account
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
@@ -363,7 +363,7 @@ contract Accountability is IAccountability {
             _val.provableFaultCount += 1;
             _val.state = ValidatorState.jailbound;
             autonity.updateValidatorAndTransferSlashedFunds(_val);
-            emit ValidatorJailbound(_val.nodeAddress, _availableFunds);
+            emit SlashingEvent(_val.nodeAddress, _availableFunds, 0, true);
             return;
         }
         uint256 _remaining = _slashingAmount;
@@ -425,7 +425,7 @@ contract Accountability is IAccountability {
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
 
-        emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock);
+        emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false);
     }
 
 
