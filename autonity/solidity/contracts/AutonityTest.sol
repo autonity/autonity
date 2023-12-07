@@ -25,6 +25,25 @@ contract AutonityTest is Autonity {
        _stakingOperations();
    }
 
+   function testSorting() public {
+       // testing  _sortByStakeOptimized
+       // apply staking operations first, so everyone has positive stake
+       _stakingOperations();
+       CommitteeMember[] memory _validatorList = new CommitteeMember[](validatorList.length);
+       for (uint256 i = 0; i < validatorList.length; i++) {
+            Validator storage _user = validators[validatorList[i]];
+            CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
+            _validatorList[i] = _item;
+       }
+       _sortByStakeOptimized(_validatorList);
+       
+       // check if sorted
+       for (uint256 i = 1; i < _validatorList.length; i++) {
+           require(_validatorList[i-1].votingPower >= _validatorList[i].votingPower, "not sorted");
+       }
+       require(_validatorList[0].votingPower > 0, "no positive stake");
+   }
+
    function getBondingRequest(uint256 _id) public view returns (BondingRequest memory) {
         return bondingMap[_id];
    }
