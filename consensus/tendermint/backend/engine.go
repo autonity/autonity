@@ -512,16 +512,13 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	var subscriptions event.SubscriptionScope
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
 	slashingEventCh := make(chan *autonity.AccountabilitySlashingEvent)
-	jailboundEventCh := make(chan *autonity.AccountabilityValidatorJailbound)
 	chainHeadCh := make(chan core.ChainHeadEvent)
 
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
 	subSlashigEvent, _ := sb.blockchain.ProtocolContracts().WatchSlashingEvent(nil, slashingEventCh)
-	subJailboundEvent, _ := sb.blockchain.ProtocolContracts().WatchValidatorJailbound(nil, jailboundEventCh)
 	subChainhead := sb.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	subscriptions.Track(subNewFaultProofs)
 	subscriptions.Track(subSlashigEvent)
-	subscriptions.Track(subJailboundEvent)
 	subscriptions.Track(subChainhead)
 
 	defer func() {
@@ -546,11 +543,13 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailedLock.Unlock()
 		case ev := <-slashingEventCh:
 			sb.jailedLock.Lock()
-			sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
-			sb.jailedLock.Unlock()
-		case ev := <-jailboundEventCh:
-			sb.jailedLock.Lock()
-			delete(sb.jailed, ev.Validator)
+			if ev.IsJailbound {
+				// the validator is jailed permanently, won't be able to enter committee and
+				// his messages will be discarded at validation, no need to keep track
+				delete(sb.jailed, ev.Validator)
+			} else {
+				sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
+			}
 			sb.jailedLock.Unlock()
 		case ev := <-chainHeadCh:
 			sb.jailedLock.Lock()
