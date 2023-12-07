@@ -4,7 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"reflect"
 	"testing"
@@ -57,7 +57,7 @@ func TestACPublicWritters(t *testing.T) {
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
 	msg := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
 
-	validatorKey, err := bls.SecretKeyFromECDSAKey(newValidator)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(newValidator.D.Bytes())
 	require.NoError(t, err)
 
 	validatorKeyProof, err := crypto.PopProof(validatorKey, msg)

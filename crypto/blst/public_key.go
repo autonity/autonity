@@ -3,7 +3,6 @@ package blst
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls/common"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"reflect"
@@ -15,29 +14,29 @@ var PubkeyCache, _ = lru.NewARC(maxKeys)
 
 const HexPrefix = "0x"
 
-// PublicKey used in the BLS signature scheme.
-type PublicKey struct {
+// BlsPublicKey used in the BLS signature scheme.
+type BlsPublicKey struct {
 	p *blstPublicKey
 }
 
 // PublicKeyBytesFromString decode a BLS public key from a hex format string.
 func PublicKeyBytesFromString(pubKey string) ([]byte, error) {
 	// Since a public key is 48 bytes, the hex string representing it must be 48*2 = 96 chars + "0x" prefix = 98 chars
-	if len(pubKey) != common.BLSPubKeyHexStringLength {
+	if len(pubKey) != BLSPubKeyHexStringLength {
 		return nil, fmt.Errorf("invalid BLS key string")
 	}
 	return hex.DecodeString(pubKey[2:])
 }
 
 // PublicKeyFromBytes creates a BLS public key from a  BigEndian byte slice.
-func PublicKeyFromBytes(pubKey []byte) (common.BLSPublicKey, error) {
+func PublicKeyFromBytes(pubKey []byte) (PublicKey, error) {
 
-	if len(pubKey) != common.BLSPubkeyLength {
-		return nil, fmt.Errorf("public key must be %d bytes", common.BLSPubkeyLength)
+	if len(pubKey) != BLSPubkeyLength {
+		return nil, fmt.Errorf("public key must be %d bytes", BLSPubkeyLength)
 	}
 
 	if cv, ok := PubkeyCache.Get(string(pubKey)); ok {
-		return cv.(*PublicKey).Copy(), nil
+		return cv.(*BlsPublicKey).Copy(), nil
 	}
 
 	// Subgroup check NOT done when decompressing pubkey.
@@ -49,10 +48,10 @@ func PublicKeyFromBytes(pubKey []byte) (common.BLSPublicKey, error) {
 	// Subgroup and infinity check
 	if !p.KeyValidate() {
 		// NOTE: the error is not quite accurate since it includes group check
-		return nil, common.ErrInfinitePubKey
+		return nil, ErrInfinitePubKey
 	}
 
-	pubKeyObj := &PublicKey{p: p}
+	pubKeyObj := &BlsPublicKey{p: p}
 	copiedKey := pubKeyObj.Copy()
 
 	PubkeyCache.Add(string(pubKey), copiedKey)
@@ -60,7 +59,7 @@ func PublicKeyFromBytes(pubKey []byte) (common.BLSPublicKey, error) {
 }
 
 // AggregatePublicKeys aggregates the provided raw public keys into a single key.
-func AggregatePublicKeys(pubs [][]byte) (common.BLSPublicKey, error) {
+func AggregatePublicKeys(pubs [][]byte) (PublicKey, error) {
 	if len(pubs) == 0 {
 		return nil, fmt.Errorf("empty pub-key set for key aggregation")
 	}
@@ -72,47 +71,47 @@ func AggregatePublicKeys(pubs [][]byte) (common.BLSPublicKey, error) {
 		if err != nil {
 			return nil, err
 		}
-		mulP1 = append(mulP1, pubKeyObj.(*PublicKey).p)
+		mulP1 = append(mulP1, pubKeyObj.(*BlsPublicKey).p)
 	}
 	// No group check needed here since it is done in PublicKeyFromBytes
 	// Note the checks could be moved from PublicKeyFromBytes into Aggregate
 	// and take advantage of multi-threading.
 	if agg.Aggregate(mulP1, false) {
-		return &PublicKey{p: agg.ToAffine()}, nil
+		return &BlsPublicKey{p: agg.ToAffine()}, nil
 	}
 	return nil, fmt.Errorf("cannot aggregate public keys")
 }
 
 // Marshal a public key into a LittleEndian byte slice.
-func (p *PublicKey) Marshal() []byte {
+func (p *BlsPublicKey) Marshal() []byte {
 	return p.p.Compress()
 }
 
 // Copy the public key to a new pointer reference.
-func (p *PublicKey) Copy() common.BLSPublicKey {
+func (p *BlsPublicKey) Copy() PublicKey {
 	np := *p.p
-	return &PublicKey{p: &np}
+	return &BlsPublicKey{p: &np}
 }
 
 // IsInfinite checks if the public key is infinite.
-func (p *PublicKey) IsInfinite() bool {
+func (p *BlsPublicKey) IsInfinite() bool {
 	zeroKey := new(blstPublicKey)
 	return p.p.Equals(zeroKey)
 }
 
 // Aggregate two public keys.
-func (p *PublicKey) Aggregate(p2 common.BLSPublicKey) (common.BLSPublicKey, error) {
+func (p *BlsPublicKey) Aggregate(p2 PublicKey) (PublicKey, error) {
 	if reflect.TypeOf(p2) != reflect.TypeOf(p) {
-		return nil, fmt.Errorf("wrong type of bls public key")
+		return nil, fmt.Errorf("wrong type of blst public key")
 	}
 	agg := new(blstAggregatePublicKey)
 	// No group check here since it is checked at decompression time
 	agg.Add(p.p, false)
-	agg.Add(p2.(*PublicKey).p, false)
+	agg.Add(p2.(*BlsPublicKey).p, false)
 	p.p = agg.ToAffine()
 	return p, nil
 }
 
-func (p *PublicKey) Hex() string {
+func (p *BlsPublicKey) Hex() string {
 	return HexPrefix + hex.EncodeToString(p.Marshal())
 }

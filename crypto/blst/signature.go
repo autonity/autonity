@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"crypto/rand"
-	"github.com/autonity/autonity/crypto/bls/common"
 	"github.com/pkg/errors"
 	blst "github.com/supranational/blst/bindings/go"
 )
@@ -23,15 +22,15 @@ var dst = []byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 const scalarBytes = 32
 const randBitsEntropy = 64
 
-// Signature used in the BLS signature scheme.
-type Signature struct {
+// BlsSignature used in the BLS signature scheme.
+type BlsSignature struct {
 	s *blstSignature
 }
 
 // SignatureFromBytes creates a BLS signature from a LittleEndian byte slice.
-func SignatureFromBytes(sig []byte) (common.BLSSignature, error) {
-	if len(sig) != common.BLSSignatureLength {
-		return nil, fmt.Errorf("signature must be %d bytes", common.BLSSignatureLength)
+func SignatureFromBytes(sig []byte) (Signature, error) {
+	if len(sig) != BLSSignatureLength {
+		return nil, fmt.Errorf("signature must be %d bytes", BLSSignatureLength)
 	}
 	signature := new(blstSignature).Uncompress(sig)
 	if signature == nil {
@@ -42,19 +41,19 @@ func SignatureFromBytes(sig []byte) (common.BLSSignature, error) {
 	if !signature.SigValidate(false) {
 		return nil, errors.New("signature not in group")
 	}
-	return &Signature{s: signature}, nil
+	return &BlsSignature{s: signature}, nil
 }
 
-// Verify a bls signature given a public key, a message.
+// Verify a blst signature given a public key, a message.
 //
 // In IETF draft BLS specification:
 // Verify(PK, message, signature) -> VALID or INVALID: a verification
 //
 //	algorithm that outputs VALID if signature is a valid signature of
 //	message under public key PK, and INVALID otherwise.
-func (s *Signature) Verify(pubKey common.BLSPublicKey, msg []byte) bool {
-	// BLSSignature and PKs are assumed to have been validated upon decompression!
-	return s.s.Verify(false, pubKey.(*PublicKey).p, false, msg, dst)
+func (s *BlsSignature) Verify(pubKey PublicKey, msg []byte) bool {
+	// Signature and PKs are assumed to have been validated upon decompression!
+	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, dst)
 }
 
 // AggregateVerify verifies each public key against its respective message. This is vulnerable to
@@ -70,7 +69,7 @@ func (s *Signature) Verify(pubKey common.BLSPublicKey, msg []byte) bool {
 //	algorithm that outputs VALID if signature is a valid aggregated
 //	signature for a collection of public keys and messages, and
 //	outputs INVALID otherwise.
-func (s *Signature) AggregateVerify(pubKeys []common.BLSPublicKey, msgs [][32]byte) bool {
+func (s *BlsSignature) AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool {
 	size := len(pubKeys)
 	if size == 0 {
 		return false
@@ -82,9 +81,9 @@ func (s *Signature) AggregateVerify(pubKeys []common.BLSPublicKey, msgs [][32]by
 	rawKeys := make([]*blstPublicKey, len(msgs))
 	for i := 0; i < size; i++ {
 		msgSlices[i] = msgs[i][:]
-		rawKeys[i] = pubKeys[i].(*PublicKey).p
+		rawKeys[i] = pubKeys[i].(*BlsPublicKey).p
 	}
-	// BLSSignature and PKs are assumed to have been validated upon decompression!
+	// Signature and PKs are assumed to have been validated upon decompression!
 	return s.s.AggregateVerify(false, rawKeys, false, msgSlices, dst)
 }
 
@@ -96,39 +95,39 @@ func (s *Signature) AggregateVerify(pubKeys []common.BLSPublicKey, msgs [][32]by
 //	or INVALID: a verification algorithm for the aggregate of multiple
 //	signatures on the same message.  This function is faster than
 //	AggregateVerify.
-func (s *Signature) FastAggregateVerify(pubKeys []common.BLSPublicKey, msg [32]byte) bool {
+func (s *BlsSignature) FastAggregateVerify(pubKeys []PublicKey, msg [32]byte) bool {
 	if len(pubKeys) == 0 {
 		return false
 	}
 	rawKeys := make([]*blstPublicKey, len(pubKeys))
 	for i := 0; i < len(pubKeys); i++ {
-		rawKeys[i] = pubKeys[i].(*PublicKey).p
+		rawKeys[i] = pubKeys[i].(*BlsPublicKey).p
 	}
 
 	return s.s.FastAggregateVerify(true, rawKeys, msg[:], dst)
 }
 
 // NewAggregateSignature creates a blank aggregate signature.
-func NewAggregateSignature() common.BLSSignature {
+func NewAggregateSignature() Signature {
 	sig := blst.HashToG2([]byte{'m', 'o', 'c', 'k'}, dst).ToAffine()
-	return &Signature{s: sig}
+	return &BlsSignature{s: sig}
 }
 
 // AggregateSignatures converts a list of signatures into a single, aggregated sig.
-func AggregateSignatures(sigs []common.BLSSignature) common.BLSSignature {
+func AggregateSignatures(sigs []Signature) Signature {
 	if len(sigs) == 0 {
 		return nil
 	}
 
 	rawSigs := make([]*blstSignature, len(sigs))
 	for i := 0; i < len(sigs); i++ {
-		rawSigs[i] = sigs[i].(*Signature).s
+		rawSigs[i] = sigs[i].(*BlsSignature).s
 	}
 
-	// BLSSignature and PKs are assumed to have been validated upon decompression!
+	// Signature and PKs are assumed to have been validated upon decompression!
 	signature := new(blstAggregateSignature)
 	signature.Aggregate(rawSigs, false)
-	return &Signature{s: signature.ToAffine()}
+	return &BlsSignature{s: signature.ToAffine()}
 }
 
 // Aggregate is an alias for AggregateSignatures, defined to conform to BLS specification.
@@ -138,7 +137,7 @@ func AggregateSignatures(sigs []common.BLSSignature) common.BLSSignature {
 //
 //	aggregation algorithm that compresses a collection of signatures
 //	into a single signature.
-func Aggregate(sigs []common.BLSSignature) common.BLSSignature {
+func Aggregate(sigs []Signature) Signature {
 	return AggregateSignatures(sigs)
 }
 
@@ -149,7 +148,7 @@ func Aggregate(sigs []common.BLSSignature) common.BLSSignature {
 // P'_{i,j} = P_{i,j} * r_i
 // e(S*, G) = \prod_{i=1}^n \prod_{j=1}^{m_i} e(P'_{i,j}, M_{i,j})
 // Using this we can verify multiple signatures safely.
-func VerifyMultipleSignatures(sigs [][]byte, msgs [][32]byte, pubKeys []common.BLSPublicKey) (bool, error) {
+func VerifyMultipleSignatures(sigs [][]byte, msgs [][32]byte, pubKeys []PublicKey) (bool, error) {
 	if len(sigs) == 0 || len(pubKeys) == 0 {
 		return false, nil
 	}
@@ -164,7 +163,7 @@ func VerifyMultipleSignatures(sigs [][]byte, msgs [][32]byte, pubKeys []common.B
 	rawMsgs := make([]blst.Message, length)
 
 	for i := 0; i < length; i++ {
-		mulP1Aff[i] = pubKeys[i].(*PublicKey).p
+		mulP1Aff[i] = pubKeys[i].(*BlsPublicKey).p
 		rawMsgs[i] = msgs[i][:]
 	}
 	// Secure source of RNG
@@ -185,17 +184,17 @@ func VerifyMultipleSignatures(sigs [][]byte, msgs [][32]byte, pubKeys []common.B
 }
 
 // Marshal a signature into a LittleEndian byte slice.
-func (s *Signature) Marshal() []byte {
+func (s *BlsSignature) Marshal() []byte {
 	return s.s.Compress()
 }
 
 // Copy returns a full deep copy of a signature.
-func (s *Signature) Copy() common.BLSSignature {
+func (s *BlsSignature) Copy() Signature {
 	sign := *s.s
-	return &Signature{s: &sign}
+	return &BlsSignature{s: &sign}
 }
 
-func (s *Signature) Hex() string {
+func (s *BlsSignature) Hex() string {
 	return HexPrefix + hex.EncodeToString(s.Marshal())
 }
 

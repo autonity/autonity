@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"path/filepath"
@@ -168,7 +168,7 @@ func genNodeKeyWithExpect(t *testing.T, fileName string, writeAddr bool) {
 			t.Errorf("Failed to load the private key: %v", err)
 			return
 		}
-		blsKey, err := bls.SecretKeyFromECDSAKey(privateKey)
+		blsKey, err := blst.SecretKeyFromECDSAKey(privateKey.D.Bytes())
 		require.NoError(t, err)
 		if writeAddr {
 			expected = fmt.Sprintf("%x\nNode's validator key: %v\n", crypto.FromECDSAPub(&privateKey.PublicKey)[1:], blsKey.PublicKey().Hex())

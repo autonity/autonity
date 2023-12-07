@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -11,13 +11,13 @@ func TestVerifyOwnershipProof(t *testing.T) {
 	require.NoError(t, err)
 	address := PubkeyToAddress(privKey.PublicKey)
 
-	validatorKey, err := bls.SecretKeyFromECDSAKey(privKey)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(privKey.D.Bytes())
 	require.NoError(t, err)
 
 	proof, err := PopProof(validatorKey, address.Bytes())
 	require.NoError(t, err)
 
-	sig, err := bls.SignatureFromBytes(proof)
+	sig, err := blst.SignatureFromBytes(proof)
 	require.NoError(t, err)
 
 	err = PopVerify(validatorKey.PublicKey(), sig, address.Bytes())

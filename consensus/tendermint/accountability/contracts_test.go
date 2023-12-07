@@ -14,7 +14,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -1103,7 +1103,7 @@ func TestValidatorKeyVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	treasuryAddress := crypto.PubkeyToAddress(key1.PublicKey)
-	validatorKey, err := bls.SecretKeyFromECDSAKey(key1)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(key1.D.Bytes())
 	require.NoError(t, err)
 
 	proof, err := crypto.PopProof(validatorKey, treasuryAddress.Bytes())
@@ -1119,7 +1119,7 @@ func TestValidatorKeyVerifier(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, successResult, ret)
 
-	wrongKey, err := bls.SecretKeyFromECDSAKey(key2)
+	wrongKey, err := blst.SecretKeyFromECDSAKey(key2.D.Bytes())
 	require.NoError(t, err)
 	copy(input[32:80], wrongKey.PublicKey().Marshal())
 	ret, err = av.Run(input, 0)

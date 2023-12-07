@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	ethproto "github.com/autonity/autonity/eth/protocols/eth"
 	"os"
 	"runtime"
@@ -220,7 +220,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 	}
 
 	// validator key shares the same secret with the node's key.
-	validatorKey, err := bls.SecretKeyFromECDSAKey(nodePrivateKey)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(nodePrivateKey.D.Bytes())
 	if err != nil {
 		utils.Fatalf("Failed to generate bls secret from source ecdsa key: %v", err)
 	}
@@ -255,7 +255,7 @@ func genNodeKey(ctx *cli.Context) error {
 		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
 	}
 	// print the node's validator key to on-board validator from genesis config by the system operator.
-	validatorKey, err := bls.SecretKeyFromECDSAKey(nodeKey)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(nodeKey.D.Bytes())
 	if err != nil {
 		utils.Fatalf("could not generate activity key from node key: %v", err)
 	}

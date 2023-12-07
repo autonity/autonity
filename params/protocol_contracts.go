@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -253,7 +253,7 @@ func (v *Validator) Validate() error {
 		return errors.New("enode must be specified")
 	}
 
-	_, err := bls.PublicKeyFromBytes(v.ValidatorKey)
+	_, err := blst.PublicKeyFromBytes(v.ValidatorKey)
 	if err != nil {
 		return errors.New("cannot decode bls public key")
 	}

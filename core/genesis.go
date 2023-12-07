@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 	"sort"
@@ -590,7 +590,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	validatorKey, err := bls.SecretKeyFromECDSAKey(faucet.PrivateKey)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(faucet.PrivateKey.D.Bytes())
 	if err != nil {
 		log.Error("Error preparing genesis block for dev mode, err:", err)
 		return nil

@@ -1,7 +1,7 @@
 package params
 
 import (
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 	"testing"
@@ -17,14 +17,14 @@ func TestPrepareAutonityContract(t *testing.T) {
 	key1, _ := crypto.GenerateKey()
 	addr1 := crypto.PubkeyToAddress(key1.PublicKey)
 	node1 := enode.NewV4(&key1.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	blsSK1, err := bls.SecretKeyFromECDSAKey(key1)
+	blsSK1, err := blst.SecretKeyFromECDSAKey(key1.D.Bytes())
 	require.NoError(t, err)
 	blsK1 := blsSK1.PublicKey().Marshal()
 
 	key2, _ := crypto.GenerateKey()
 	addr2 := crypto.PubkeyToAddress(key2.PublicKey)
 	node2 := enode.NewV4(&key2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	blsSK2, err := bls.SecretKeyFromECDSAKey(key2)
+	blsSK2, err := blst.SecretKeyFromECDSAKey(key2.D.Bytes())
 	require.NoError(t, err)
 	blsK2 := blsSK2.PublicKey().Marshal()
 
@@ -92,7 +92,7 @@ func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T)
 }
 func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	key, _ := crypto.GenerateKey()
-	blsSK, err := bls.SecretKeyFromECDSAKey(key)
+	blsSK, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
 	require.NoError(t, err)
 	blsK := blsSK.PublicKey().Marshal()
 	contractConfig := &AutonityContractGenesis{
