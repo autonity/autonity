@@ -32,8 +32,7 @@ func RandKey() (SecretKey, error) {
 }
 
 // SecretKeyFromECDSAKey creates a deterministic BLS private key from an ecdsa secret source.
-// todo: (Jason) remove this function on top of node key management since currently there is no place to save BLS key,
-//  thus we still derive it from ECDSA.
+// todo: (Jason) remove this function on top of node key management since currently there is no place to save BLS key, thus we still derive it from ECDSA.
 func SecretKeyFromECDSAKey(ecdsaKey []byte) (SecretKey, error) {
 	ecdsaKey = common2.LeftPadBytes(ecdsaKey, 32)
 

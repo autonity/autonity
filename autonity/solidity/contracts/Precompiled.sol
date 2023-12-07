@@ -50,22 +50,22 @@ library Precompiled {
         _msgHash = _returnData[4];
     }
 
-    // @dev check the validator key proof in a precompiled contract.
+    // @dev verify the proof of possession of validator key in a precompiled contract.
     // @param _validatorKey is a "0x" prefix hex string of the validator's BLS public key.
     // @param _proof is a "0x" prefix hex string of the proof generated together with the bls public key.
     // @param _treasury is a "0x" prefix hex string of the validator's treasury account.
     // @return 0 for a failure, 1 for a successful check.
-    function checkValidatorKeyProof(bytes memory _validatorKey, bytes memory _proof, address _treasury) internal view returns (uint256) {
+    function popVerification(bytes memory _validatorKey, bytes memory _proof, address _treasury) internal view returns (uint256) {
         uint256[1] memory retVal;
         bytes memory input = BytesLib.concat(BytesLib.concat(_validatorKey, _proof), abi.encodePacked(_treasury));
-        address validatorKeyVerifierAddress = address(0xfb);
+        address popVerifierAddress = address(0xfb);
         // type bytes in solidity consumes the first 32 bytes to save the length of the byte array, thus the memory copy
         // in the static call should take the extra 32 bytes to have all the rlp encoded bytes copied, otherwise the
         // decoding of rlp would fail.
         uint length = input.length + 32;
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), validatorKeyVerifierAddress, input, length, retVal, 32)) {
+            if iszero(staticcall(gas(), popVerifierAddress, input, length, retVal, 32)) {
                 revert(0, 0)
             }
         }

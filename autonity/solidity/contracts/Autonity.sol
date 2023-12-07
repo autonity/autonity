@@ -1027,7 +1027,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         require(signers[0] == _validator.nodeAddress, "Invalid node key ownership proof provided");
         require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
-        require(Precompiled.checkValidatorKeyProof(_validatorKey, _validatorKeyProof, _validator.treasury) == 1, "Invalid validator key proof for registration");
+        require(Precompiled.popVerification(_validatorKey, _validatorKeyProof, _validator.treasury) == 1, "Invalid validator key ownership proof for registration");
 
         // deploy liquid stake contract
         _deployLiquidContract(_validator);

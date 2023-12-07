@@ -42,7 +42,7 @@ const KB = 1024
 func LoadPrecompiles(chain ChainContext) {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
-	ov := ValidatorKeyProofVerifier{}
+	ov := POPVerifier{}
 	pv := InnocenceVerifier{chain: chain}
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
@@ -59,13 +59,14 @@ func LoadPrecompiles(chain ChainContext) {
 	setPrecompiles(vm.PrecompiledContractsBLS)
 }
 
-type ValidatorKeyProofVerifier struct{}
+// POPVerifier verifies the proof of possession of validator key.
+type POPVerifier struct{}
 
-func (b *ValidatorKeyProofVerifier) RequiredGas(_ []byte) uint64 {
+func (b *POPVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityActivityKeyCheckGas
 }
 
-func (b *ValidatorKeyProofVerifier) Run(input []byte, _ uint64) ([]byte, error) {
+func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 	if len(input) != 196 {
 		return failure32Byte, fmt.Errorf("invalid proof - empty")
 	}
