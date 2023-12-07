@@ -11,6 +11,13 @@ import (
 	blst "github.com/supranational/blst/bindings/go"
 )
 
+// In BLS (Boneh-Lynn-Shacham) signature scheme, to generate a proof of possession, you
+// should use the G2 (Group 2) setting. The reason for this is that G2 is commonly used
+// for proving knowledge of secret keys in BLS signatures, and it is specifically designed
+// for this purpose. G1 (Group 1) in BLS is typically used for generating public keys and
+// signatures. Therefore, when creating a proof of possession in BLS, it is recommended to
+// use the G2 setting.
+// the domain separation tag used by the hash_to_field operation, called by hash_to_curve
 var dst = []byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 
 const scalarBytes = 32
