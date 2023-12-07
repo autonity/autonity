@@ -64,9 +64,9 @@ async function killValidatorWithSlash(config, accountability, offender, reporter
   let tx = await accountability.slash(event, epochOffenceCount);
   let txEvent;
   // validator needs to have non-self-bonding to be jailbound
-  truffleAssert.eventEmitted(tx, 'ValidatorJailbound', (ev) => {
+  truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
     txEvent = ev;
-    return ev.amount.toNumber() > 0;
+    return ev.amount.toNumber() > 0 && ev.isJailbound == true;
   });
   let slashingRate = utils.ruleToRate(config, event.rule) / config.slashingRatePrecision;
   return {txEvent, slashingRate};
@@ -879,24 +879,10 @@ contract('Protocol', function (accounts) {
       for (let iter = 0; iter < delegatorAddresses.length; iter++) {
         const delegator = delegatorAddresses[iter];
         const validator = validatorAddresses[iter];
-        const event = {
-          "chunks": 1,
-          "chunkId": 1,
-          "eventType": 0,
-          "rule": 0, // PN rule --> severity mid
-          "reporter": delegator,
-          "offender": validator,
-          "rawProof": [], // not checked by the _slash function
-          "block": 1,
-          "epoch": 0,
-          "reportingBlock": 2,
-          "messageHash": 0, // not checked by the _slash function
-        }
         let epochOffenceCount = 1;
-        let tx = await accountability.slash(event, epochOffenceCount);
-        truffleAssert.eventEmitted(tx, 'ValidatorJailbound', (ev) => {
-          return ev.amount.toNumber() > 0 && ev.amount.toNumber() == expectedBondedStake;
-        });
+        let {txEvent, _} = await slash(config, accountability, epochOffenceCount, validator, delegator);
+        assert.equal(txEvent.amount.toNumber(), expectedBondedStake, "not slashed expected amount");
+        assert.equal(txEvent.isJailbound, true, "not jailbound");
         let validatorInfo = await autonity.getValidator(validator);
         assert.equal(validatorInfo.state, utils.ValidatorState.jailbound, "validator not jailbound");
         let totalStake = parseInt(validatorInfo.bondedStake) + parseInt(validatorInfo.unbondingStake) + parseInt(validatorInfo.selfUnbondingStake);
