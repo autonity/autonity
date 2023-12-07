@@ -543,7 +543,13 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailedLock.Unlock()
 		case ev := <-slashingEventCh:
 			sb.jailedLock.Lock()
-			sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
+			if ev.IsJailbound {
+				// the validator is jailed permanently, won't be able to enter committee and
+				// his messages will be discarded at validation, no need to keep track
+				delete(sb.jailed, ev.Validator)
+			} else {
+				sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
+			}
 			sb.jailedLock.Unlock()
 		case ev := <-chainHeadCh:
 			sb.jailedLock.Lock()
