@@ -11,7 +11,7 @@ func TestVerifyOwnershipProof(t *testing.T) {
 	require.NoError(t, err)
 	address := PubkeyToAddress(privKey.PublicKey)
 
-	validatorKey, err := blst.SecretKeyFromECDSAKey(privKey.D.Bytes())
+	validatorKey, err := blst.RandKey()
 	require.NoError(t, err)
 
 	proof, err := PopProof(validatorKey, address.Bytes())

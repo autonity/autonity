@@ -57,7 +57,7 @@ func TestACPublicWritters(t *testing.T) {
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
 	msg := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
 
-	validatorKey, err := blst.SecretKeyFromECDSAKey(newValidator.D.Bytes())
+	validatorKey, err := blst.RandKey()
 	require.NoError(t, err)
 
 	validatorKeyProof, err := crypto.PopProof(validatorKey, msg)

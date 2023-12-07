@@ -1099,11 +1099,9 @@ func TestCheckEquivocation(t *testing.T) {
 func TestValidatorKeyVerifier(t *testing.T) {
 	key1, err := crypto.GenerateKey()
 	require.NoError(t, err)
-	key2, err := crypto.GenerateKey()
-	require.NoError(t, err)
 
 	treasuryAddress := crypto.PubkeyToAddress(key1.PublicKey)
-	validatorKey, err := blst.SecretKeyFromECDSAKey(key1.D.Bytes())
+	validatorKey, err := blst.RandKey()
 	require.NoError(t, err)
 
 	proof, err := crypto.PopProof(validatorKey, treasuryAddress.Bytes())
@@ -1119,7 +1117,7 @@ func TestValidatorKeyVerifier(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, successResult, ret)
 
-	wrongKey, err := blst.SecretKeyFromECDSAKey(key2.D.Bytes())
+	wrongKey, err := blst.RandKey()
 	require.NoError(t, err)
 	copy(input[32:80], wrongKey.PublicKey().Marshal())
 	ret, err = av.Run(input, 0)

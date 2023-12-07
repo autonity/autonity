@@ -17,14 +17,14 @@ func TestPrepareAutonityContract(t *testing.T) {
 	key1, _ := crypto.GenerateKey()
 	addr1 := crypto.PubkeyToAddress(key1.PublicKey)
 	node1 := enode.NewV4(&key1.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	blsSK1, err := blst.SecretKeyFromECDSAKey(key1.D.Bytes())
+	blsSK1, err := blst.RandKey()
 	require.NoError(t, err)
 	blsK1 := blsSK1.PublicKey().Marshal()
 
 	key2, _ := crypto.GenerateKey()
 	addr2 := crypto.PubkeyToAddress(key2.PublicKey)
 	node2 := enode.NewV4(&key2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	blsSK2, err := blst.SecretKeyFromECDSAKey(key2.D.Bytes())
+	blsSK2, err := blst.RandKey()
 	require.NoError(t, err)
 	blsK2 := blsSK2.PublicKey().Marshal()
 
@@ -91,8 +91,7 @@ func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T)
 	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
 }
 func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
-	key, _ := crypto.GenerateKey()
-	blsSK, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
+	blsSK, err := blst.RandKey()
 	require.NoError(t, err)
 	blsK := blsSK.PublicKey().Marshal()
 	contractConfig := &AutonityContractGenesis{
