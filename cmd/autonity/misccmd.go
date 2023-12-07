@@ -225,7 +225,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf("Failed to generate bls secret from source ecdsa key: %v", err)
 	}
 
-	validatorKeyProof, err := bls.GenerateValidatorKeyProof(validatorKey, data)
+	validatorKeyProof, err := crypto.PopProof(validatorKey, data)
 	if err != nil {
 		utils.Fatalf("Failed to sign bls key owner proof: %v", err)
 	}

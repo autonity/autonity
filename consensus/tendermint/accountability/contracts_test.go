@@ -1106,7 +1106,7 @@ func TestValidatorKeyVerifier(t *testing.T) {
 	validatorKey, err := bls.SecretKeyFromECDSAKey(key1)
 	require.NoError(t, err)
 
-	proof, err := bls.GenerateValidatorKeyProof(validatorKey, treasuryAddress.Bytes())
+	proof, err := crypto.PopProof(validatorKey, treasuryAddress.Bytes())
 	require.NoError(t, err)
 
 	av := &ValidatorKeyProofVerifier{}

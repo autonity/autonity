@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/crypto"
 	"math/big"
 
 	"github.com/autonity/autonity/autonity"
@@ -82,7 +83,7 @@ func (b *ValidatorKeyProofVerifier) Run(input []byte, _ uint64) ([]byte, error) 
 		return failure32Byte, err
 	}
 
-	err = bls.ValidateValidatorKeyProof(key, sig, treasuryBytes)
+	err = crypto.PopVerify(key, sig, treasuryBytes)
 	if err != nil {
 		return failure32Byte, err
 	}

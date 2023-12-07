@@ -60,7 +60,7 @@ func TestACPublicWritters(t *testing.T) {
 	validatorKey, err := bls.SecretKeyFromECDSAKey(newValidator)
 	require.NoError(t, err)
 
-	validatorKeyProof, err := bls.GenerateValidatorKeyProof(validatorKey, msg)
+	validatorKeyProof, err := crypto.PopProof(validatorKey, msg)
 	require.NoError(t, err)
 
 	oracleAccount, err := makeAccount()

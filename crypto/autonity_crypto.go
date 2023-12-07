@@ -3,7 +3,10 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto/bls"
+	common2 "github.com/autonity/autonity/crypto/bls/common"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -45,4 +48,28 @@ func hexDecode(src []byte) ([]byte, error) {
 	dst := make([]byte, hex.DecodedLen(len(src)))
 	_, err := hex.Decode(dst, src)
 	return dst, err
+}
+
+// PopProof generate the proof of possession of the validator key and the treasury account in Autonity when onboarding a
+// validator. The native input msg just contains validator's treasury address. Note: DST is already specificed at
+// bls/blst/signatures.go line: 21.
+func PopProof(priKey bls.SecretKey, msg []byte) ([]byte, error) {
+	// the msg contains treasury address and the public key of private key.
+	m := append(msg, priKey.PublicKey().Marshal()...)
+	proof := priKey.Sign(Hash(m).Bytes())
+
+	err := PopVerify(priKey.PublicKey(), proof, msg)
+	if err != nil {
+		return nil, err
+	}
+	return proof.Marshal(), nil
+}
+
+func PopVerify(pubKey common2.BLSPublicKey, sig common2.BLSSignature, msg []byte) error {
+	m := append(msg, pubKey.Marshal()...)
+	if !sig.Verify(pubKey, Hash(m).Bytes()) {
+		return fmt.Errorf("cannot verify proof")
+	}
+
+	return nil
 }

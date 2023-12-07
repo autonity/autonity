@@ -2,39 +2,12 @@ package bls
 
 import (
 	"crypto/ecdsa"
-	"fmt"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 
 	"github.com/autonity/autonity/crypto/bls/blst"
 	"github.com/autonity/autonity/crypto/bls/common"
 	"github.com/pkg/errors"
 )
-
-const MsgPrefix = "Auton"
-
-func ValidateValidatorKeyProof(pubKey common.BLSPublicKey, sig common.BLSSignature, msg []byte) error {
-	m := append([]byte(MsgPrefix), msg...)
-	hash := crypto.Keccak256Hash(m)
-	if !sig.Verify(pubKey, hash.Bytes()) {
-		return fmt.Errorf("cannot verify proof")
-	}
-
-	return nil
-}
-
-func GenerateValidatorKeyProof(priKey SecretKey, msg []byte) ([]byte, error) {
-	// generate bls key ownership proof
-	m := append([]byte(MsgPrefix), msg...)
-	hash := crypto.Keccak256Hash(m)
-	proof := priKey.Sign(hash.Bytes())
-
-	err := ValidateValidatorKeyProof(priKey.PublicKey(), proof, msg)
-	if err != nil {
-		return nil, err
-	}
-	return proof.Marshal(), nil
-}
 
 // SecretKeyFromECDSAKey generate a BLS private key by sourcing from an ECDSA private key.
 func SecretKeyFromECDSAKey(sk *ecdsa.PrivateKey) (SecretKey, error) {
