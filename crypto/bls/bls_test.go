@@ -15,24 +15,30 @@ import (
 	"github.com/autonity/autonity/crypto/bls/common"
 )
 
+// ZeroSecretKey represents a zero secret key.
+var ZeroSecretKey = [32]byte{}
+
+// InfinitePublicKey represents an infinite public key.
+var InfinitePublicKey = [48]byte{0xC0}
+
 func TestDisallowZeroSecretKeys(t *testing.T) {
 	t.Run("blst", func(t *testing.T) {
 		// Blst does a zero check on the key during deserialization.
-		_, err := SecretKeyFromBytes(common.ZeroSecretKey[:])
+		_, err := SecretKeyFromBytes(ZeroSecretKey[:])
 		require.Equal(t, common.ErrSecretUnmarshal, err)
 	})
 }
 
 func TestDisallowZeroPublicKeys(t *testing.T) {
 	t.Run("blst", func(t *testing.T) {
-		_, err := PublicKeyFromBytes(common.InfinitePublicKey[:])
+		_, err := PublicKeyFromBytes(InfinitePublicKey[:])
 		require.Equal(t, common.ErrInfinitePubKey, err)
 	})
 }
 
 func TestDisallowZeroPublicKeys_AggregatePubkeys(t *testing.T) {
 	t.Run("blst", func(t *testing.T) {
-		_, err := AggregatePublicKeys([][]byte{common.InfinitePublicKey[:], common.InfinitePublicKey[:]})
+		_, err := AggregatePublicKeys([][]byte{InfinitePublicKey[:], InfinitePublicKey[:]})
 		require.Equal(t, common.ErrInfinitePubKey, err)
 	})
 }
