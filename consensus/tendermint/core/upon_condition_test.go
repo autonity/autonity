@@ -1572,7 +1572,7 @@ func TestHandleMessage(t *testing.T) {
 	t.Run("malicious sender sends incorrect signature", func(t *testing.T) {
 		prevHeight := big.NewInt(int64(rand.Intn(100) + 1))
 		prevBlock := generateBlock(prevHeight)
-		msg := message.NewPrevote(1, prevHeight.Uint64()+1, common.Hash{}, func(_ common.Hash) ([]byte, common.Address) {
+		msg := message.NewPrevote(1, prevHeight.Uint64()+1, common.Hash{}, func(_ common.Hash) ([]byte, common.Address, *big.Int) {
 			out, err := crypto.Sign(crypto.Keccak256([]byte("random bytes")), testKey)
 			assert.NoError(t, err)
 			//TODO(lorenzo) fine to return 1?
