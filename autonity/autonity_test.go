@@ -42,7 +42,7 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	packedArgs, err := contractAbi.Pack("computeCommittee")
 	require.NoError(b, err)
 	gas := uint64(math.MaxUint64)
-	var gasUsed uint64 = 0
+	var gasUsed uint64
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
