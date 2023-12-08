@@ -165,11 +165,11 @@ contract('Autonity', function (accounts) {
   const committeeSize = config.COMMITTEE_SIZE;
   const version = config.VERSION;
 
-  const autonityConfig = config.autonityConfig(operator, treasuryAccount)
   const accountabilityConfig = config.ACCOUNTABILITY_CONFIG
   const genesisEnodes = config.GENESIS_ENODES
   const genesisNodeAddresses = config.GENESIS_NODE_ADDRESSES
-  const validators = config.validators(accounts)
+  let autonityConfig = config.autonityConfig(operator, treasuryAccount)
+  let validators = config.validators(accounts)
 
   // initial validators ordered by bonded stake
   const orderedValidatorsList = [
@@ -197,7 +197,7 @@ contract('Autonity', function (accounts) {
       }
     */
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
 
     it('test get token name', async function () {

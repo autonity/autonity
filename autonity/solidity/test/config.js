@@ -61,7 +61,7 @@ const GENESIS_PRIVATE_KEYS = [
     "0c8698f456533170fe07c6dcb753d47bef8bedd46443efa57a859c989887b56b",
 ];
 
-const autonityConfig = async (operator, treasuryAccount) => {
+function autonityConfig(operator, treasuryAccount) {
     return {
         "policy": {
             "treasuryFee": TREASURY_FEE,
@@ -89,7 +89,7 @@ const autonityConfig = async (operator, treasuryAccount) => {
 
 // accounts[2] is skipped because it is used as a genesis validator when running against autonity
 // this can cause interference in reward distribution tests
-const validators = async(accounts) => {
+function validators(accounts) {
     return [
         { ...BASE_VALIDATOR,
             "treasury": accounts[0],

@@ -24,13 +24,13 @@ contract('Autonity', function (accounts) {
     const anyAccount = accounts[7];
     const treasuryAccount = accounts[8];
 
-    const autonityConfig = config.autonityConfig(operator, treasuryAccount)
     const accountabilityConfig = config.ACCOUNTABILITY_CONFIG
     const genesisEnodes = config.GENESIS_ENODES
     const genesisNodeAddresses = config.GENESIS_NODE_ADDRESSES
     const baseValidator = config.BASE_VALIDATOR
     const genesisPrivateKeys = config.GENESIS_PRIVATE_KEYS
-    const validators = config.validators(accounts)
+    let autonityConfig = config.autonityConfig(operator, treasuryAccount)
+    let validators = config.validators(accounts)
 
     // enodes with no validator registered at genesis
     const freeEnodes = [
