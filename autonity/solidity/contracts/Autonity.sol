@@ -47,14 +47,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 totalSlashed;
         uint256 jailReleaseBlock;
         uint256 provableFaultCount;
-        bytes validatorKey;
+        bytes key;
         ValidatorState state;
     }
 
     struct CommitteeMember {
         address addr;
         uint256 votingPower;
-        bytes validatorKey;
+        bytes key;
     }
 
     /**************************************************/
@@ -683,7 +683,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             CommitteeMember memory _member = CommitteeMember(
                 _committeeList[_k].nodeAddress,
                 _committeeList[_k].bondedStake,
-                _committeeList[_k].validatorKey);
+                _committeeList[_k].key);
 
             committee.push(_member);
             committeeNodes.push(_committeeList[_k].enode);
@@ -1011,7 +1011,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     function _verifyAndRegisterValidator(Validator memory _validator, bytes memory _signatures) internal {
         require(_signatures.length == POP_LEN, "Invalid proof length");
-        require(_validator.validatorKey.length == KEY_LEN, "Invalid validator key length");
+        require(_validator.key.length == KEY_LEN, "Invalid validator key length");
 
         // verify enode and parse node address
         _verifyEnode(_validator);
@@ -1036,7 +1036,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         require(signers[0] == _validator.nodeAddress, "Invalid node key ownership proof provided");
         require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
-        require(Precompiled.popVerification(_validator.validatorKey, blsSignature, _validator.treasury) == 1,
+        require(Precompiled.popVerification(_validator.key, blsSignature, _validator.treasury) == Precompiled.SUCCESS,
             "Invalid validator key ownership proof for registration");
 
         // all good, now deploy liquidity contract.

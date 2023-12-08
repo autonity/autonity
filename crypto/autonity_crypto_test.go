@@ -14,12 +14,12 @@ func TestVerifyOwnershipProof(t *testing.T) {
 	validatorKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	proof, err := PopProof(validatorKey, address.Bytes())
+	proof, err := POPProof(validatorKey, address.Bytes())
 	require.NoError(t, err)
 
 	sig, err := blst.SignatureFromBytes(proof)
 	require.NoError(t, err)
 
-	err = PopVerify(validatorKey.PublicKey(), sig, address.Bytes())
+	err = POPVerify(validatorKey.PublicKey(), sig, address.Bytes())
 	require.NoError(t, err)
 }

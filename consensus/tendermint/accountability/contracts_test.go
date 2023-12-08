@@ -1096,31 +1096,33 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 }
 
-func TestValidatorKeyVerifier(t *testing.T) {
+func TestPOPVerifier(t *testing.T) {
 	key1, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
 	treasuryAddress := crypto.PubkeyToAddress(key1.PublicKey)
-	validatorKey, err := blst.RandKey()
+	key, err := blst.RandKey()
 	require.NoError(t, err)
 
-	proof, err := crypto.PopProof(validatorKey, treasuryAddress.Bytes())
+	proof, err := crypto.POPProof(key, treasuryAddress.Bytes())
 	require.NoError(t, err)
 
-	av := &POPVerifier{}
-	input := make([]byte, 196)
-	copy(input[32:80], validatorKey.PublicKey().Marshal())
-	copy(input[80:176], proof)
-	copy(input[176:196], treasuryAddress.Bytes())
+	popVerifier := &POPVerifier{}
+	input := make([]byte, ArrayLenBytes+POPBytes)
+	signatureOffset := ArrayLenBytes + blst.BLSPubkeyLength
+	treasuryOffset := signatureOffset + blst.BLSSignatureLength
+	copy(input[ArrayLenBytes:signatureOffset], key.PublicKey().Marshal())
+	copy(input[signatureOffset:treasuryOffset], proof)
+	copy(input[treasuryOffset:ArrayLenBytes+POPBytes], treasuryAddress.Bytes())
 
-	ret, err := av.Run(input, 0)
+	ret, err := popVerifier.Run(input, 0)
 	require.NoError(t, err)
 	require.Equal(t, successResult, ret)
 
 	wrongKey, err := blst.RandKey()
 	require.NoError(t, err)
 	copy(input[32:80], wrongKey.PublicKey().Marshal())
-	ret, err = av.Run(input, 0)
+	ret, err = popVerifier.Run(input, 0)
 	require.NotNil(t, err)
 	require.Equal(t, failure32Byte, ret)
 }

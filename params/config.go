@@ -416,7 +416,7 @@ var (
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
 	ValidatorEnode             = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	validatorKey, _            = blst.SecretKeyFromECDSAKey(ValidatorNodeKey.D.Bytes())
-	ValidatorKey               = validatorKey.PublicKey().Marshal()
+	Key                        = validatorKey.PublicKey().Marshal()
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
 		EpochPeriod:      5,
@@ -433,7 +433,7 @@ var (
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
 				BondedStake:    new(big.Int).SetUint64(1000),
-				ValidatorKey:   ValidatorKey,
+				Key:            Key,
 			},
 		},
 	}

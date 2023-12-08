@@ -49,22 +49,22 @@ func hexDecode(src []byte) ([]byte, error) {
 	return dst, err
 }
 
-// PopProof generate the proof of possession of the validator key and the treasury account in Autonity when onboarding a
+// POPProof generate the proof of possession of the validator key and the treasury account in Autonity when onboarding a
 // validator. The native input msg just contains validator's treasury address. Note: DST is already specificed at
 // blst/blst/signatures.go line: 21.
-func PopProof(priKey blst.SecretKey, msg []byte) ([]byte, error) {
+func POPProof(priKey blst.SecretKey, msg []byte) ([]byte, error) {
 	// the msg contains treasury address and the public key of private key.
 	m := append(msg, priKey.PublicKey().Marshal()...)
 	proof := priKey.Sign(Hash(m).Bytes())
 
-	err := PopVerify(priKey.PublicKey(), proof, msg)
+	err := POPVerify(priKey.PublicKey(), proof, msg)
 	if err != nil {
 		return nil, err
 	}
 	return proof.Marshal(), nil
 }
 
-func PopVerify(pubKey blst.PublicKey, sig blst.Signature, msg []byte) error {
+func POPVerify(pubKey blst.PublicKey, sig blst.Signature, msg []byte) error {
 	m := append(msg, pubKey.Marshal()...)
 	if !sig.Verify(pubKey, Hash(m).Bytes()) {
 		return fmt.Errorf("cannot verify proof")

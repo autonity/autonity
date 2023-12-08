@@ -5,13 +5,17 @@ import "./lib/BytesLib.sol";
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
+    uint256 constant public SUCCESS = 1;
+    address constant public POP_VERIFIER_CONTRACT = address(0xfb);
     address constant public ACCUSATION_CONTRACT = address(0xfc);
     address constant public INNOCENCE_CONTRACT = address(0xfd);
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
+    address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
 
     function parseEnode(string memory _enode) internal view returns (address, uint) {
         uint[2] memory p;
         address addr;
+        address to = ENODE_VERIFIER_CONTRACT;
         assembly {
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
             if iszero(staticcall(gas(), 0xff, add(_enode,32), mload(_enode), p, 0x40)) {
@@ -58,14 +62,14 @@ library Precompiled {
     function popVerification(bytes memory _validatorKey, bytes memory _proof, address _treasury) internal view returns (uint256) {
         uint256[1] memory retVal;
         bytes memory input = BytesLib.concat(BytesLib.concat(_validatorKey, _proof), abi.encodePacked(_treasury));
-        address popVerifierAddress = address(0xfb);
+        address to = POP_VERIFIER_CONTRACT;
         // type bytes in solidity consumes the first 32 bytes to save the length of the byte array, thus the memory copy
         // in the static call should take the extra 32 bytes to have all the rlp encoded bytes copied, otherwise the
         // decoding of rlp would fail.
         uint length = input.length + 32;
         assembly {
         //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), popVerifierAddress, input, length, retVal, 32)) {
+            if iszero(staticcall(gas(), to, input, length, retVal, 32)) {
                 revert(0, 0)
             }
         }

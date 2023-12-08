@@ -51,7 +51,7 @@ const BASE_VALIDATOR = {
         "selfUnbondingShares": 0,
         "unbondingStake": 0,
         "unbondingShares": 0,
-        "validatorKey": "0x00",
+        "key": "0x00",
     };
 
 const GENESIS_PRIVATE_KEYS = [

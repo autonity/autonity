@@ -33,18 +33,18 @@ func TestPrepareAutonityContract(t *testing.T) {
 		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
-				Treasury:     common.Address{},
-				Enode:        node1.String(),
-				NodeAddress:  &addr1,
-				BondedStake:  big.NewInt(1),
-				ValidatorKey: blsK1,
+				Treasury:    common.Address{},
+				Enode:       node1.String(),
+				NodeAddress: &addr1,
+				BondedStake: big.NewInt(1),
+				Key:         blsK1,
 			},
 			{
-				Treasury:     common.Address{},
-				Enode:        node2.String(),
-				NodeAddress:  &addr2,
-				BondedStake:  big.NewInt(1),
-				ValidatorKey: blsK2,
+				Treasury:    common.Address{},
+				Enode:       node2.String(),
+				NodeAddress: &addr2,
+				BondedStake: big.NewInt(1),
+				Key:         blsK2,
 			},
 		},
 	}
@@ -98,10 +98,10 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
-				Treasury:     common.Address{},
-				Enode:        "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				BondedStake:  big.NewInt(1),
-				ValidatorKey: blsK,
+				Treasury:    common.Address{},
+				Enode:       "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
+				BondedStake: big.NewInt(1),
+				Key:         blsK,
 			},
 		},
 	}

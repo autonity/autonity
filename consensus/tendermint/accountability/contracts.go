@@ -24,10 +24,10 @@ import (
 // a part of consensus.
 
 var (
-	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{251}) //0xfb
-	checkAccusationAddress           = common.BytesToAddress([]byte{252}) //0xfc
-	checkInnocenceAddress            = common.BytesToAddress([]byte{253}) //0xfd
-	checkMisbehaviourAddress         = common.BytesToAddress([]byte{254}) //0xfe
+	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{0xfb})
+	checkAccusationAddress           = common.BytesToAddress([]byte{0xfc})
+	checkInnocenceAddress            = common.BytesToAddress([]byte{0xfd})
+	checkMisbehaviourAddress         = common.BytesToAddress([]byte{0xfe})
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult   = common.LeftPadBytes([]byte{1}, 32)
 	failure32Byte   = make([]byte, 32)
@@ -36,7 +36,11 @@ var (
 	errMaxEvidences = errors.New("above max evidence threshold")
 )
 
-const KB = 1024
+const (
+	KB            = 1024
+	ArrayLenBytes = 32
+	POPBytes      = 164
+)
 
 // LoadPrecompiles init the instances of Fault Detector contracts, and register them into EVM's context
 func LoadPrecompiles(chain ChainContext) {
@@ -67,13 +71,16 @@ func (b *POPVerifier) RequiredGas(_ []byte) uint64 {
 }
 
 func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
-	if len(input) != 196 {
+	totalBytes := ArrayLenBytes + POPBytes
+	if len(input) != totalBytes {
 		return failure32Byte, fmt.Errorf("invalid proof - empty")
 	}
 
-	keyBytes := input[32:80]
-	sigBytes := input[80:176]
-	treasuryBytes := input[176:]
+	signatureOffset := ArrayLenBytes + blst.BLSPubkeyLength
+	treasuryOffset := signatureOffset + blst.BLSSignatureLength
+	keyBytes := input[ArrayLenBytes:signatureOffset]
+	sigBytes := input[signatureOffset:treasuryOffset]
+	treasuryBytes := input[treasuryOffset:]
 
 	key, err := blst.PublicKeyFromBytes(keyBytes)
 	if err != nil {
@@ -84,7 +91,7 @@ func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 		return failure32Byte, err
 	}
 
-	err = crypto.PopVerify(key, sig, treasuryBytes)
+	err = crypto.POPVerify(key, sig, treasuryBytes)
 	if err != nil {
 		return failure32Byte, err
 	}

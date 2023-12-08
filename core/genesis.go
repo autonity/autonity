@@ -434,9 +434,9 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 	var committee types.Committee
 	for _, v := range validators {
 		member := types.CommitteeMember{
-			Address:      *v.NodeAddress,
-			VotingPower:  v.BondedStake,
-			ValidatorKey: v.ValidatorKey,
+			Address:     *v.NodeAddress,
+			VotingPower: v.BondedStake,
+			Key:         v.Key,
 		}
 		committee = append(committee, member)
 	}
@@ -607,10 +607,10 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		Treasury:         faucet.Address,
 		Validators: []*params.Validator{
 			{
-				Treasury:     faucet.Address,
-				Enode:        validatorEnode.String(),
-				BondedStake:  new(big.Int).SetUint64(1000),
-				ValidatorKey: validatorKey.PublicKey().Marshal(),
+				Treasury:    faucet.Address,
+				Enode:       validatorEnode.String(),
+				BondedStake: new(big.Int).SetUint64(1000),
+				Key:         validatorKey.PublicKey().Marshal(),
 			},
 		},
 	}

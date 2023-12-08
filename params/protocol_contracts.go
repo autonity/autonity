@@ -133,7 +133,7 @@ type Validator struct {
 	TotalSlashed             *big.Int
 	JailReleaseBlock         *big.Int
 	ProvableFaultCount       *big.Int
-	ValidatorKey             []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
+	Key                      []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
 	State                    *uint8
 }
 
@@ -159,7 +159,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
 		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
-		ValidatorKey             hexutil.Bytes   `json:"validatorKey"`
+		Key                      hexutil.Bytes   `json:"key"`
 		State                    *uint8          `json:"state"`
 	}
 
@@ -185,7 +185,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 	v.TotalSlashed = dec.TotalSlashed
 	v.JailReleaseBlock = dec.JailReleaseBlock
 	v.ProvableFaultCount = dec.ProvableFaultCount
-	v.ValidatorKey = dec.ValidatorKey
+	v.Key = dec.Key
 	v.State = dec.State
 
 	return nil
@@ -211,7 +211,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
 		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
-		ValidatorKey             hexutil.Bytes   `json:"validatorKey"`
+		Key                      hexutil.Bytes   `json:"key"`
 		State                    *uint8          `json:"state"`
 	}
 
@@ -234,7 +234,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 	enc.TotalSlashed = v.TotalSlashed
 	enc.JailReleaseBlock = v.JailReleaseBlock
 	enc.ProvableFaultCount = v.ProvableFaultCount
-	enc.ValidatorKey = v.ValidatorKey
+	enc.Key = v.Key
 	enc.State = v.State
 	return json.Marshal(&enc)
 }
@@ -253,7 +253,7 @@ func (v *Validator) Validate() error {
 		return errors.New("enode must be specified")
 	}
 
-	_, err := blst.PublicKeyFromBytes(v.ValidatorKey)
+	_, err := blst.PublicKeyFromBytes(v.Key)
 	if err != nil {
 		return errors.New("cannot decode bls public key")
 	}

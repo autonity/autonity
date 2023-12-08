@@ -66,7 +66,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 				Enode:          nodes[name].url,
 				Treasury:       address,
 				BondedStake:    stake,
-				ValidatorKey:   blsPK.PublicKey().Marshal(),
+				Key:            blsPK.PublicKey().Marshal(),
 				CommissionRate: new(big.Int).SetUint64(0),
 			})
 		}
