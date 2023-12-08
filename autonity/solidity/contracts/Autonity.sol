@@ -1002,7 +1002,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         validators[_validator.nodeAddress] = _validator;
     }
 
-
+    // todo: (Jason) replace this with _verifyAndRegisterValidator() after we ask PoP from genesis config.
     function _registerValidator(Validator memory _validator) internal {
         _verifyEnode(_validator);
         // deploy liquid stake contract
