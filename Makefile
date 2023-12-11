@@ -86,6 +86,8 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,Oracle)
 	@$(call gen-contract,,AutonityUpgradeTest)
 	@$(call gen-contract,,Accountability)
+	@$(call gen-contract,,AutonityTest)
+	@$(call gen-contract,,AccountabilityTest)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
@@ -95,14 +97,6 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	# Generate go bindings
 	@echo Generating protocol contracts bindings
 	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/bindings.go
-
-
-helper-contracts: contracts
-	@$(call gen-contract,,AutonityTest)
-	@$(call gen-contract,,AccountabilityTest)
-	# update 4byte selector for clef
-	build/generate_4bytedb.sh $(SOLC_BINARY)
-	cd signer/fourbyte && go generate
 
 
 $(SOLC_BINARY):
