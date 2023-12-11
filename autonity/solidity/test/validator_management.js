@@ -121,7 +121,7 @@ contract('Autonity', function (accounts) {
             // generate the validator Key and multisigs from console:
             //./autonity genOwnershipProof --nodekeyhex e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b --oraclekeyhex e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b 0xe12b43B69E57eD6ACdd8721Eb092BF7c8D41Df41
             let validatorKey = Buffer.from("b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5", 'hex');
-            let multisig = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec", "hex");
+            let multisig = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701b162451340875b034b45885eec8b0d9e0f56b8c3f89ba795276a011b337816ea6df213dcfb3bd9ee0eba3799638e6dc501166f0b81be73606582f4ddc401980f65888df2f4eaedfa9267703a3b3eee7e8c31ce4db28c01642f735a681e713238", "hex");
             let oracleAddr = newValAddr
 
             await autonity.registerValidator(enode, oracleAddr, validatorKey, multisig, {from: issuerAccount});
@@ -143,11 +143,11 @@ contract('Autonity', function (accounts) {
         });
 
         it('Pause a validator', async function () {
-            let validator = freeAddresses[0];
             let issuerAccount = accounts[8];
+            let validator = freeAddresses[0];
             let enode = freeEnodes[0]
             let validatorKey = Buffer.from("b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5", "hex");
-            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec", "hex");
+            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701b162451340875b034b45885eec8b0d9e0f56b8c3f89ba795276a011b337816ea6df213dcfb3bd9ee0eba3799638e6dc501166f0b81be73606582f4ddc401980f65888df2f4eaedfa9267703a3b3eee7e8c31ce4db28c01642f735a681e713238", "hex");
             let oracleAddr = validator
 
             // disabling a non registered validator should fail
@@ -180,7 +180,6 @@ contract('Autonity', function (accounts) {
 
         it("Re-active a paused validator", async function () {
             let issuerAccount = accounts[8];
-
             let validator = freeAddresses[0]
             let enode = freeEnodes[0]
             // activating a non-existing validator should fail
@@ -191,7 +190,7 @@ contract('Autonity', function (accounts) {
             );
 
             let validatorKey = Buffer.from("b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5", "hex");
-            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec", "hex");
+            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701b162451340875b034b45885eec8b0d9e0f56b8c3f89ba795276a011b337816ea6df213dcfb3bd9ee0eba3799638e6dc501166f0b81be73606582f4ddc401980f65888df2f4eaedfa9267703a3b3eee7e8c31ce4db28c01642f735a681e713238", "hex");
             let oracleAddr = validator
             await autonity.registerValidator(enode, oracleAddr, validatorKey, multisigs, {from: issuerAccount});
 
