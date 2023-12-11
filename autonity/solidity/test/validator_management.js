@@ -217,9 +217,11 @@ contract('Autonity', function (accounts) {
     });
 
     describe('Test committee members rotation through bonding/unbonding', function () {
+        // ./autonity genOwnershipProof --nodekeyhex genesisPrivateKeys[1] --oraclekeyhex genesisPrivateKey[1] accounts[1]
         // ./autonity genOwnershipProof --nodekeyhex aa4b77b1305f8f265e81599587c623d8950624f3e1bd9c121ef2461a7a1e7527 --oraclekeyhex aa4b77b1305f8f265e81599587c623d8950624f3e1bd9c121ef2461a7a1e7527 0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5
         let validatorKey1 = Buffer.from("a39f5fd136836a203bfd13d8acc631199c478d9aaa67b147989bdc75676c9e084c0e3396011ff370ca4635723c335a03", "hex");
         let multisig1 = Buffer.from("b958d8998c700728340e78f5371eda293602de4e0dccde8184ddb65c87c5b21b7bf4374c8df5b32cf8b611746e21403ecc1ab4182baba1a67962d4d84b95350101b958d8998c700728340e78f5371eda293602de4e0dccde8184ddb65c87c5b21b7bf4374c8df5b32cf8b611746e21403ecc1ab4182baba1a67962d4d84b953501018e53734a235b426f24d763698f5d78c32a8e0ca77c02a237114527f3c561ea885994d6d7e91f6b148de520c5a46a421b06b636364d613c2b3192ed6e620f923cb356e7c4f8c468f8077e0130772d9d1a73259e9ecb9e09c8cf14baf56c0800b5", "hex");
+        // ./autonity genOwnershipProof --nodekeyhex genesisPrivateKeys[2] --oraclekeyhex genesisPrivateKey[2] accounts[3]
         // ./autonity genOwnershipProof --nodekeyhex 4ec99383dc50aa3f3117fcbfba7b69188ba60d3418185fb353c9a69d066e55d9 --oraclekeyhex 4ec99383dc50aa3f3117fcbfba7b69188ba60d3418185fb353c9a69d066e55d9 0xc443c6c6ae98f5110702921138d840e77da67702
         let validatorKey2 = Buffer.from("9271d72f26539bbb1beb011b63fa63c56a7c225e9e20933cc8a501204fdf8b302922e11e9d45015d6547dd4e117b9c5e", "hex");
         let multisig2 = Buffer.from("2bcd02051836b04282d158c70e00236ec868019563b9caa7a6e1fc35fbc648ea5526dbdca54b0f3b5448325462b202a792582ff37ce04cf1f0c166e271dfc339012bcd02051836b04282d158c70e00236ec868019563b9caa7a6e1fc35fbc648ea5526dbdca54b0f3b5448325462b202a792582ff37ce04cf1f0c166e271dfc33901a85bffe69fe298532a5ab1cae6fadf6fb4ff4a136ad413166dc74e2e72014867159583203accf1c93665adf3543b5d4406ea6611922fd8aafeac8a6b303092b32a18b2a6d4fb241cad50619e1beb51f1a6acd17ed73b2d1657febd0f09d10543", "hex");
