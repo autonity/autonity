@@ -21,7 +21,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"io"
 	"io/ioutil"
 	"math"
@@ -791,7 +791,7 @@ func setNodeKey(ctx *cli.Context, cfg *node.Config) {
 		hex          = ctx.GlobalString(NodeKeyHexFlag.Name)
 		file         = ctx.GlobalString(NodeKeyFileFlag.Name)
 		key          *ecdsa.PrivateKey
-		validatorKey bls.SecretKey
+		validatorKey blst.SecretKey
 		err          error
 	)
 	switch {

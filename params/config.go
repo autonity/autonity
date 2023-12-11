@@ -19,7 +19,7 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 
@@ -415,8 +415,8 @@ var (
 	ValidatorNodeKey, _        = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
 	ValidatorEnode             = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	validatorKey, _            = bls.SecretKeyFromECDSAKey(ValidatorNodeKey)
-	ValidatorKey               = validatorKey.PublicKey().Marshal()
+	validatorKey, _            = blst.SecretKeyFromECDSAKey(ValidatorNodeKey.D.Bytes())
+	Key                        = validatorKey.PublicKey().Marshal()
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
 		EpochPeriod:      5,
@@ -433,7 +433,7 @@ var (
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
 				BondedStake:    new(big.Int).SetUint64(1000),
-				ValidatorKey:   ValidatorKey,
+				Key:            Key,
 			},
 		},
 	}

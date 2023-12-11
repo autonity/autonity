@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	ethproto "github.com/autonity/autonity/eth/protocols/eth"
 	"os"
 	"runtime"
@@ -170,7 +170,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 
 	// Load private key
 	var nodePrivateKey, oraclePrivateKey *ecdsa.PrivateKey
-	var validatorKey bls.SecretKey
+	var validatorKey blst.SecretKey
 	var err error
 	if nodeKeyFile := ctx.GlobalString(utils.NodeKeyFileFlag.Name); nodeKeyFile != "" {
 		// load key from the node key file
@@ -220,13 +220,13 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf("Failed to sign: %v", err)
 	}
 
-	validatorKeyProof, err := crypto.GenerateValidatorKeyProof(validatorKey, data)
+	keyProof, err := crypto.POPProof(validatorKey, data)
 	if err != nil {
 		utils.Fatalf("Failed to sign bls key owner proof: %v", err)
 	}
 
 	fmt.Println("Validator key hex:", validatorKey.PublicKey().Hex())
-	signatures := append(append(nodeSignature[:], oracleSignature[:]...), validatorKeyProof[:]...)
+	signatures := append(append(nodeSignature[:], oracleSignature[:]...), keyProof[:]...)
 	hexStr := hexutil.Encode(signatures)
 	fmt.Println("Signatures hex:", hexStr)
 	return nil
@@ -244,7 +244,7 @@ func genNodeKey(ctx *cli.Context) error {
 	}
 
 	// print the node's validator key to on-board validator from genesis config by the system operator.
-	validatorKey, err := bls.SecretKeyFromECDSAKey(nodeKey)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(nodeKey.D.Bytes())
 	if err != nil {
 		utils.Fatalf("could not generate validator key from node key: %v", err)
 	}

@@ -19,7 +19,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -49,7 +49,7 @@ const (
 // all registered services.
 type Config struct {
 	// ValidatorKey a derived BLS key from the node key, it is used by consensus engine.
-	ValidatorKey bls.SecretKey
+	ValidatorKey blst.SecretKey
 
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of autonity is "autonity". If no
@@ -405,7 +405,7 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 
-		if c.ValidatorKey, err = bls.SecretKeyFromECDSAKey(key); err != nil {
+		if c.ValidatorKey, err = blst.SecretKeyFromECDSAKey(key.D.Bytes()); err != nil {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 
@@ -429,7 +429,7 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 		return key
 	}
 
-	validatorKey, err := bls.SecretKeyFromECDSAKey(key)
+	validatorKey, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to derive validator key: %v", err))
 	}

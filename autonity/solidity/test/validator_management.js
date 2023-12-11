@@ -4,6 +4,7 @@ const { Buffer } = require('node:buffer');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
 const liquidContract = artifacts.require("Liquid")
+const config = require('./config.js')
 
 function generateMultiSig(nodekey,oraclekey,treasuryAddr) {
     let treasuryProof = web3.eth.accounts.sign(treasuryAddr, nodekey);
@@ -21,74 +22,15 @@ contract('Autonity', function (accounts) {
     const operator = accounts[5];
     const deployer = accounts[6];
     const anyAccount = accounts[7];
-    const minBaseFee = 5000;
-    const committeeSize = 1000;
-    const epochPeriod = 30;
-    const delegationRate = 100;
-    const unBondingPeriod = 60;
     const treasuryAccount = accounts[8];
-    const treasuryFee = "10000000000000000";
-    const minimumEpochPeriod = 30;
-    const version = 0;
-    const zeroAddress = "0x0000000000000000000000000000000000000000";
 
-    const autonityConfig = {
-        "policy": {
-            "treasuryFee": treasuryFee,
-            "minBaseFee": minBaseFee,
-            "delegationRate": delegationRate,
-            "unbondingPeriod" : unBondingPeriod,
-            "treasuryAccount": treasuryAccount,
-        },
-        "contracts": {
-            "oracleContract" : zeroAddress, // gets updated in deployContracts()
-            "accountabilityContract": zeroAddress, // gets updated in deployContracts()
-            "acuContract" :zeroAddress,
-            "supplyControlContract" :zeroAddress,
-            "stabilizationContract" :zeroAddress,
-        },
-        "protocol": {
-            "operatorAccount": operator,
-            "epochPeriod": epochPeriod,
-            "blockPeriod": minimumEpochPeriod,
-            "committeeSize": committeeSize,
-        },
-        "contractVersion":version,
-    };
-
-    const accountabilityConfig = {
-        "innocenceProofSubmissionWindow": 30,
-        "latestAccountabilityEventsRange": 256,
-        "baseSlashingRateLow": 500,
-        "baseSlashingRateMid": 1000,
-        "collusionFactor": 550,
-        "historyFactor": 750,
-        "jailFactor": 60,
-        "slashingRatePrecision": 10000
-    }
-
-    const genesisEnodes = [
-        "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-        "enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303",
-        "enode://438a5c2cd8fdc2ecbc508bf7362e41c0f0c3754ba1d3267127a3756324caf45e6546b02140e2144b205aeb372c96c5df9641485f721dc7c5b27eb9e35f5d887b@172.25.0.14:30303",
-        "enode://3ce6c053cb563bfd94f4e0e248510a07ccee1bc836c9784da1816dba4b10564e7be1ba42e0bd8d73c8f6274f8e9878dc13814adb381c823264265c06048b4b59@172.25.0.15:30303"
-    ]
-
-    // precomputed using aut validator compute-address
-    // TODO(lorenzo) derive them from enodes or privatekeys
-    const genesisNodeAddresses = [
-        "0x850C1Eb8D190e05845ad7F84ac95a318C8AaB07f",
-        "0x4AD219b58a5b46A1D9662BeAa6a70DB9F570deA5",
-        "0xc443C6c6AE98F5110702921138D840e77dA67702",
-        "0x09428E8674496e2D1E965402F33A9520c5fCBbE2",
-    ]
-
-    const genesisPrivateKeys = [
-        "a4b489752489e0f47e410b8e8cbb1ac1b56770d202ffd45b346ca8355c602c91",
-        "aa4b77b1305f8f265e81599587c623d8950624f3e1bd9c121ef2461a7a1e7527",
-        "4ec99383dc50aa3f3117fcbfba7b69188ba60d3418185fb353c9a69d066e55d9",
-        "0c8698f456533170fe07c6dcb753d47bef8bedd46443efa57a859c989887b56b",
-    ]
+    const accountabilityConfig = config.ACCOUNTABILITY_CONFIG
+    const genesisEnodes = config.GENESIS_ENODES
+    const genesisNodeAddresses = config.GENESIS_NODE_ADDRESSES
+    const baseValidator = config.BASE_VALIDATOR
+    const genesisPrivateKeys = config.GENESIS_PRIVATE_KEYS
+    let autonityConfig = config.autonityConfig(operator, treasuryAccount)
+    let validators = config.validators(accounts)
 
     // enodes with no validator registered at genesis
     const freeEnodes = [
@@ -103,60 +45,6 @@ contract('Autonity', function (accounts) {
     const freePrivateKeys = [
         "e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b",
     ]
-
-    const baseValidator = {
-        "selfBondedStake": 0,
-        "selfUnbondingStakeLocked": 0,
-        "totalSlashed": 0,
-        "jailReleaseBlock": 0,
-        "provableFaultCount" :0,
-        "liquidSupply": 0,
-        "registrationBlock": 0,
-        "state": 0,
-        "liquidContract" : zeroAddress,
-        "selfUnbondingStake" : 0,
-        "selfUnbondingShares" : 0,
-        "unbondingStake" : 0,
-        "unbondingShares" : 0,
-        "validatorKey": "0x00",
-    }
-
-    // accounts[2] is skipped because it is used as a genesis validator when running against autonity
-    // this can cause interference in reward distribution tests
-    const validators = [
-        { ...baseValidator,
-            "treasury": accounts[0],
-            "nodeAddress": genesisNodeAddresses[0],
-            "oracleAddress": accounts[0],
-            "enode": genesisEnodes[0],
-            "commissionRate": 100,
-            "bondedStake": 100,
-        },
-        { ...baseValidator,
-            "treasury": accounts[1],
-            "nodeAddress": genesisNodeAddresses[1],
-            "oracleAddress": accounts[1],
-            "enode": genesisEnodes[1],
-            "commissionRate": 100,
-            "bondedStake": 90,
-        },
-        { ...baseValidator,
-            "treasury": accounts[3],
-            "nodeAddress": genesisNodeAddresses[2],
-            "oracleAddress": accounts[3],
-            "enode": genesisEnodes[2],
-            "commissionRate": 100,
-            "bondedStake": 110,
-        },
-        { ...baseValidator,
-            "treasury": accounts[4],
-            "nodeAddress": genesisNodeAddresses[3],
-            "oracleAddress": accounts[4],
-            "enode": genesisEnodes[3],
-            "commissionRate": 100,
-            "bondedStake": 120,
-        },
-    ];
 
     let autonity;
 
@@ -233,7 +121,7 @@ contract('Autonity', function (accounts) {
             // generate the validator Key and multisigs from console:
             //./autonity genOwnershipProof --nodekeyhex e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b --oraclekeyhex e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b 0xe12b43B69E57eD6ACdd8721Eb092BF7c8D41Df41
             let validatorKey = Buffer.from("b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5", 'hex');
-            let multisig = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec", "hex");
+            let multisig = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701b162451340875b034b45885eec8b0d9e0f56b8c3f89ba795276a011b337816ea6df213dcfb3bd9ee0eba3799638e6dc501166f0b81be73606582f4ddc401980f65888df2f4eaedfa9267703a3b3eee7e8c31ce4db28c01642f735a681e713238", "hex");
             let oracleAddr = newValAddr
 
             await autonity.registerValidator(enode, oracleAddr, validatorKey, multisig, {from: issuerAccount});
@@ -255,11 +143,11 @@ contract('Autonity', function (accounts) {
         });
 
         it('Pause a validator', async function () {
-            let validator = freeAddresses[0];
             let issuerAccount = accounts[8];
+            let validator = freeAddresses[0];
             let enode = freeEnodes[0]
             let validatorKey = Buffer.from("b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5", "hex");
-            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec", "hex");
+            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701b162451340875b034b45885eec8b0d9e0f56b8c3f89ba795276a011b337816ea6df213dcfb3bd9ee0eba3799638e6dc501166f0b81be73606582f4ddc401980f65888df2f4eaedfa9267703a3b3eee7e8c31ce4db28c01642f735a681e713238", "hex");
             let oracleAddr = validator
 
             // disabling a non registered validator should fail
@@ -292,7 +180,6 @@ contract('Autonity', function (accounts) {
 
         it("Re-active a paused validator", async function () {
             let issuerAccount = accounts[8];
-
             let validator = freeAddresses[0]
             let enode = freeEnodes[0]
             // activating a non-existing validator should fail
@@ -303,7 +190,7 @@ contract('Autonity', function (accounts) {
             );
 
             let validatorKey = Buffer.from("b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5", "hex");
-            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb70191c4492d13544d3ea23aab9b051796e11285f519dc2316cac3d96c5f3d594459474438b09f6e60a25ea22938ed6379760b573466601576a1967cb5aceabe12c4aa2e27f67666f1a3af5fbc4b7209cb83f7e76a4be4c03e1dc99d662f9ea883ec", "hex");
+            let multisigs = Buffer.from("d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701d4b63f6b5535d7255dbb5ecc5092c7eb042de1d20dff80535321dc1f8fa3cf8844a2927ad86d4e74573b5af4bb69a2a788d0e98a0d2410aed51d355985836cb701b162451340875b034b45885eec8b0d9e0f56b8c3f89ba795276a011b337816ea6df213dcfb3bd9ee0eba3799638e6dc501166f0b81be73606582f4ddc401980f65888df2f4eaedfa9267703a3b3eee7e8c31ce4db28c01642f735a681e713238", "hex");
             let oracleAddr = validator
             await autonity.registerValidator(enode, oracleAddr, validatorKey, multisigs, {from: issuerAccount});
 

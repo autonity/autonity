@@ -61,7 +61,7 @@ var genesis = `{
 						{
 							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
 							"treasury" : "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
-							"validatorKey": "0x842299202611412934d6a9e36c36de438ed03c271adccaa42c56b65a56ae0a89fdcd12c6fcb585bbbd9654189e561acd",
+							"key": "0x842299202611412934d6a9e36c36de438ed03c271adccaa42c56b65a56ae0a89fdcd12c6fcb585bbbd9654189e561acd",
 							"bondedStake" : 1
 						}
 					]

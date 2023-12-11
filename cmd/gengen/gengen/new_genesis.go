@@ -3,7 +3,7 @@ package gengen
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	//"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"math/big"
@@ -189,7 +189,7 @@ func generateValidatorState(validators []*Validator) (
 			pk = k
 		case *ecdsa.PrivateKey:
 			pk = &k.PublicKey
-			blsSK, err := bls.SecretKeyFromECDSAKey(k)
+			blsSK, err := blst.SecretKeyFromECDSAKey(k.D.Bytes())
 			if err != nil {
 				return nil, nil, nil, fmt.Errorf("cannot generate bls pub key from ecdsa secret key")
 			}
@@ -210,7 +210,7 @@ func generateValidatorState(validators []*Validator) (
 			Treasury:        treasuryAddress, // rewards goes here
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
-			ValidatorKey:    blsPK,
+			Key:             blsPK,
 		}
 		err := gu.Validate()
 		if err != nil {

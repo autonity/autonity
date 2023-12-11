@@ -2,29 +2,11 @@ package crypto
 
 import (
 	"encoding/hex"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 )
-
-func TestValidateValidatorKeyProof(t *testing.T) {
-	privKey, err := GenerateKey()
-	require.NoError(t, err)
-	address := PubkeyToAddress(privKey.PublicKey)
-
-	validatorKey, err := bls.SecretKeyFromECDSAKey(privKey)
-	require.NoError(t, err)
-
-	proof, err := GenerateValidatorKeyProof(validatorKey, address.Bytes())
-	require.NoError(t, err)
-
-	sig, err := bls.SignatureFromBytes(proof)
-	require.NoError(t, err)
-
-	err = ValidateValidatorKeyProof(validatorKey.PublicKey(), sig, address.Bytes())
-	require.NoError(t, err)
-}
 
 func TestSaveNodeKey(t *testing.T) {
 	f, err := os.CreateTemp("", "save_node_key_test.*.txt")
@@ -38,7 +20,7 @@ func TestSaveNodeKey(t *testing.T) {
 	key, err := GenerateKey()
 	require.NoError(t, err)
 
-	derivedKey, err := bls.SecretKeyFromECDSAKey(key)
+	derivedKey, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
 	require.NoError(t, err)
 
 	err = SaveNodeKey(file, key, derivedKey)
@@ -55,7 +37,7 @@ func TestHexToNodeKey(t *testing.T) {
 	key, err := GenerateKey()
 	require.NoError(t, err)
 
-	derivedKey, err := bls.SecretKeyFromECDSAKey(key)
+	derivedKey, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
 	require.NoError(t, err)
 
 	keyHex := hex.EncodeToString(FromECDSA(key))
@@ -119,4 +101,22 @@ func TestLoadNodeKey(t *testing.T) {
 			t.Fatalf("LoadNodeKey did not return error for input %q", test.input)
 		}
 	}
+}
+
+func TestPOPVerifier(t *testing.T) {
+	privKey, err := GenerateKey()
+	require.NoError(t, err)
+	address := PubkeyToAddress(privKey.PublicKey)
+
+	validatorKey, err := blst.RandKey()
+	require.NoError(t, err)
+
+	proof, err := POPProof(validatorKey, address.Bytes())
+	require.NoError(t, err)
+
+	sig, err := blst.SignatureFromBytes(proof)
+	require.NoError(t, err)
+
+	err = POPVerify(validatorKey.PublicKey(), sig, address.Bytes())
+	require.NoError(t, err)
 }
