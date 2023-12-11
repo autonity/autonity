@@ -74,6 +74,12 @@ func (s *bls12SecretKey) IsZero() bool {
 	return s.p.Equals(zeroSecretKey)
 }
 
+// POPProof generate a proof of possession using a secret key - in a Validator client.
+func (s *bls12SecretKey) POPProof(msg []byte) Signature {
+	signature := new(blstSignature).Sign(s.p, msg, dst_pop)
+	return &BlsSignature{s: signature}
+}
+
 // Sign a message using a secret key - in a Validator client.
 //
 // In IETF draft BLS specification:

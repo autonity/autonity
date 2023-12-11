@@ -18,6 +18,14 @@ func TestSignVerify(t *testing.T) {
 	require.Equal(t, true, sig.Verify(pub, msg), "Signature did not verify")
 }
 
+func TestPOPVerify(t *testing.T) {
+	priv, err := RandKey()
+	require.NoError(t, err)
+	pub := priv.PublicKey()
+	popProof := priv.POPProof(pub.Marshal())
+	require.True(t, popProof.POPVerify(pub, pub.Marshal()))
+}
+
 // since the keys are different for each signature, the order of pubkey for aggregation verification matters.
 func TestAggregateVerifyWithDifferentKeys(t *testing.T) {
 	pubkeys := make([]PublicKey, 0, 100)

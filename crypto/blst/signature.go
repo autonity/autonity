@@ -10,14 +10,26 @@ import (
 	blst "github.com/supranational/blst/bindings/go"
 )
 
-// In BLS (Boneh-Lynn-Shacham) signature scheme, to generate a proof of possession, you
-// should use the G2 (Group 2) setting. The reason for this is that G2 is commonly used
-// for proving knowledge of secret keys in BLS signatures, and it is specifically designed
-// for this purpose. G1 (Group 1) in BLS is typically used for generating public keys and
-// signatures. Therefore, when creating a proof of possession in BLS, it is recommended to
-// use the G2 setting.
-// the domain separation tag used by the hash_to_field operation, called by hash_to_curve
+/*
+Please refer to here: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-04#section-3
+There are 3 BLS schemes that differ in handling rogue key attacks
+  - basic: requires message signed by an aggregate signature to be distinct
+  - message augmentation: signatures are generated over the concatenation of public key and the message
+    enforcing message signed by different public key to be distinct
+  - proof of possession: a separate public key called proof-of-possession is used to allow signing
+    on the same message while defending against rogue key attacks
+    with respective ID / domain separation tag:
+  - BLS_SIG_BLS12381G2-SHA256-SSWU-RO-_NUL_
+  - BLS_SIG_BLS12381G2-SHA256-SSWU-RO-_AUG_
+  - BLS_SIG_BLS12381G2-SHA256-SSWU-RO-_POP_
+  	- POP tag: BLS_POP_BLS12381G2-SHA256-SSWU-RO-_POP_
+We implement the proof-of-possession scheme
+Compared to the spec API are modified
+to enforce usage of the proof-of-posession (as recommended)
+*/
+
 var dst = []byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
+var dst_pop = []byte("BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 
 const scalarBytes = 32
 const randBitsEntropy = 64
@@ -42,6 +54,11 @@ func SignatureFromBytes(sig []byte) (Signature, error) {
 		return nil, errors.New("signature not in group")
 	}
 	return &BlsSignature{s: signature}, nil
+}
+
+// POPVerify verify a proof of possession.
+func (s *BlsSignature) POPVerify(pubKey PublicKey, msg []byte) bool {
+	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, dst_pop)
 }
 
 // Verify a blst signature given a public key, a message.

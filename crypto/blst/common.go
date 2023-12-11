@@ -29,6 +29,7 @@ var ErrInvalidSecreteKey = errors.New("secret key must be 32 bytes")
 type SecretKey interface {
 	PublicKey() PublicKey
 	Sign(msg []byte) Signature
+	POPProof(msg []byte) Signature
 	Marshal() []byte
 	IsZero() bool
 	Hex() string
@@ -46,6 +47,7 @@ type PublicKey interface {
 // Signature represents a BLS signature.
 type Signature interface {
 	Verify(pubKey PublicKey, msg []byte) bool
+	POPVerify(pubKey PublicKey, msg []byte) bool
 	AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool
 	FastAggregateVerify(pubKeys []PublicKey, msg [32]byte) bool
 	Marshal() []byte

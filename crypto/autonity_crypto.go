@@ -126,13 +126,15 @@ func hexDecode(src []byte) ([]byte, error) {
 	return dst, err
 }
 
-// POPProof generate the proof of possession of the validator key and the treasury account in Autonity when onboarding a
-// validator. The native input msg just contains validator's treasury address. Note: DST is already specificed at
-// blst/blst/signatures.go line: 21.
+// POPProof todo: (Jason) in the native BLS spec, the msg used to generate POP is just the public key, while in Autonity,
+//
+//	we also include validator treasury to prevent from cloning during the on-boarding TX propagation in P2P network.
+//	we need to double check if this none standard implementation could introduce any issue, otherwise we need to include
+//	an extra signature in the on-boarding TX.
 func POPProof(priKey blst.SecretKey, msg []byte) ([]byte, error) {
 	// the msg contains treasury address and the public key of private key.
 	m := append(msg, priKey.PublicKey().Marshal()...)
-	proof := priKey.Sign(Hash(m).Bytes())
+	proof := priKey.POPProof(Hash(m).Bytes())
 
 	err := POPVerify(priKey.PublicKey(), proof, msg)
 	if err != nil {
@@ -143,7 +145,7 @@ func POPProof(priKey blst.SecretKey, msg []byte) ([]byte, error) {
 
 func POPVerify(pubKey blst.PublicKey, sig blst.Signature, msg []byte) error {
 	m := append(msg, pubKey.Marshal()...)
-	if !sig.Verify(pubKey, Hash(m).Bytes()) {
+	if !sig.POPVerify(pubKey, Hash(m).Bytes()) {
 		return fmt.Errorf("cannot verify proof")
 	}
 
