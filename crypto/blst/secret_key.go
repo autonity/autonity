@@ -76,7 +76,7 @@ func (s *bls12SecretKey) IsZero() bool {
 
 // POPProof generate a proof of possession using a secret key - in a Validator client.
 func (s *bls12SecretKey) POPProof(msg []byte) Signature {
-	signature := new(blstSignature).Sign(s.p, msg, dst_pop)
+	signature := new(blstSignature).Sign(s.p, msg, popDST)
 	return &BlsSignature{s: signature}
 }
 
@@ -87,7 +87,7 @@ func (s *bls12SecretKey) POPProof(msg []byte) Signature {
 //
 //	a deterministic signature given a secret key SK and a message.
 func (s *bls12SecretKey) Sign(msg []byte) Signature {
-	signature := new(blstSignature).Sign(s.p, msg, dst)
+	signature := new(blstSignature).Sign(s.p, msg, generalDST)
 	return &BlsSignature{s: signature}
 }
 

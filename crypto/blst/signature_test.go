@@ -353,12 +353,12 @@ func TestCopy(t *testing.T) {
 	key, ok := priv.(*bls12SecretKey)
 	require.Equal(t, true, ok)
 
-	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), dst)}
+	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
 	signatureB, ok := signatureA.Copy().(*BlsSignature)
 	require.Equal(t, true, ok)
 	require.Equal(t, true, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
 
-	signatureA.s.Sign(key.p, []byte("bar"), dst)
+	signatureA.s.Sign(key.p, []byte("bar"), generalDST)
 	require.Equal(t, false, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
 }
 
@@ -368,7 +368,7 @@ func TestSignature_MarshalUnMarshal(t *testing.T) {
 	key, ok := priv.(*bls12SecretKey)
 	require.Equal(t, true, ok)
 
-	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), dst)}
+	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
 	signatureBytes := signatureA.Marshal()
 
 	signatureB, err := SignatureFromBytes(signatureBytes)
@@ -382,7 +382,7 @@ func TestSignature_Hex(t *testing.T) {
 	key, ok := priv.(*bls12SecretKey)
 	require.Equal(t, true, ok)
 
-	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), dst)}
+	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
 	str := signatureA.Hex()
 	b, err := hex.DecodeString(str[2:])
 	require.NoError(t, err)

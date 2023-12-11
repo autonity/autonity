@@ -25,11 +25,11 @@ There are 3 BLS schemes that differ in handling rogue key attacks
   	- POP tag: BLS_POP_BLS12381G2-SHA256-SSWU-RO-_POP_
 We implement the proof-of-possession scheme
 Compared to the spec API are modified
-to enforce usage of the proof-of-posession (as recommended)
+to enforce usage of the proof-of-possession (as recommended)
 */
 
-var dst = []byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
-var dst_pop = []byte("BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
+var generalDST = []byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
+var popDST = []byte("BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 
 const scalarBytes = 32
 const randBitsEntropy = 64
@@ -58,7 +58,7 @@ func SignatureFromBytes(sig []byte) (Signature, error) {
 
 // POPVerify verify a proof of possession.
 func (s *BlsSignature) POPVerify(pubKey PublicKey, msg []byte) bool {
-	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, dst_pop)
+	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, popDST)
 }
 
 // Verify a blst signature given a public key, a message.
@@ -70,7 +70,7 @@ func (s *BlsSignature) POPVerify(pubKey PublicKey, msg []byte) bool {
 //	message under public key PK, and INVALID otherwise.
 func (s *BlsSignature) Verify(pubKey PublicKey, msg []byte) bool {
 	// Signature and PKs are assumed to have been validated upon decompression!
-	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, dst)
+	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, generalDST)
 }
 
 // AggregateVerify verifies each public key against its respective message. This is vulnerable to
@@ -101,7 +101,7 @@ func (s *BlsSignature) AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) boo
 		rawKeys[i] = pubKeys[i].(*BlsPublicKey).p
 	}
 	// Signature and PKs are assumed to have been validated upon decompression!
-	return s.s.AggregateVerify(false, rawKeys, false, msgSlices, dst)
+	return s.s.AggregateVerify(false, rawKeys, false, msgSlices, generalDST)
 }
 
 // FastAggregateVerify verifies all the provided public keys with their aggregated signature.
@@ -121,12 +121,12 @@ func (s *BlsSignature) FastAggregateVerify(pubKeys []PublicKey, msg [32]byte) bo
 		rawKeys[i] = pubKeys[i].(*BlsPublicKey).p
 	}
 
-	return s.s.FastAggregateVerify(true, rawKeys, msg[:], dst)
+	return s.s.FastAggregateVerify(true, rawKeys, msg[:], generalDST)
 }
 
 // NewAggregateSignature creates a blank aggregate signature.
 func NewAggregateSignature() Signature {
-	sig := blst.HashToG2([]byte{'m', 'o', 'c', 'k'}, dst).ToAffine()
+	sig := blst.HashToG2([]byte{'m', 'o', 'c', 'k'}, generalDST).ToAffine()
 	return &BlsSignature{s: sig}
 }
 
@@ -197,7 +197,7 @@ func VerifyMultipleSignatures(sigs [][]byte, msgs [][32]byte, pubKeys []PublicKe
 	dummySig := new(blstSignature)
 
 	// Validate signatures since we uncompress them here. Public keys should already be validated.
-	return dummySig.MultipleAggregateVerify(rawSigs, true, mulP1Aff, false, rawMsgs, dst, randFunc, randBitsEntropy), nil
+	return dummySig.MultipleAggregateVerify(rawSigs, true, mulP1Aff, false, rawMsgs, generalDST, randFunc, randBitsEntropy), nil
 }
 
 // Marshal a signature into a LittleEndian byte slice.
@@ -219,5 +219,5 @@ func (s *BlsSignature) Hex() string {
 // are valid from the message provided.
 func VerifyCompressed(signature, pub, msg []byte) bool {
 	// Validate signature and PKs since we will uncompress them here
-	return new(blstSignature).VerifyCompressed(signature, true, pub, true, msg, dst)
+	return new(blstSignature).VerifyCompressed(signature, true, pub, true, msg, generalDST)
 }
