@@ -712,8 +712,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         */
         uint _len = 0;
         for (uint256 i = 0; i < validatorList.length; i++) {
-            if (validators[validatorList[i]].state == ValidatorState.active &&
-                validators[validatorList[i]].bondedStake >= minimumBondedStake) {
+            Validator storage _user = validators[validatorList[i]];
+            if (_user.state == ValidatorState.active && _user.bondedStake >= minimumBondedStake) {
                 _len++;
             }
         }
@@ -728,9 +728,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
         uint j = 0;
         for (uint256 i = 0; i < validatorList.length; i++) {
-            if (validators[validatorList[i]].state == ValidatorState.active &&
-                validators[validatorList[i]].bondedStake >= minimumBondedStake) {
-                Validator storage _user = validators[validatorList[i]];
+            Validator storage _user = validators[validatorList[i]];
+            if (_user.state == ValidatorState.active && _user.bondedStake >= minimumBondedStake) {
                 // Create a new copy of CommitteeMember in memory
                 CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
                 _validatorList[j] = _item;
@@ -1353,8 +1352,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         int _i = _low;
         int _j = _high;
         if (_i == _j) return;
-        uint _pivot = _users[uint(_low + (_high - _low) / 2)].votingPower;
         // Set the pivot element in its right sorted index in the array
+        uint _pivot = _users[uint(_low + (_high - _low) / 2)].votingPower;
         // _isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
         bool _isLeftSorted = true;
         // _isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
@@ -1362,25 +1361,27 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         while (_i <= _j) {
             while (_users[uint(_i)].votingPower > _pivot) {
                 _i++;
-                if (_i-1 > _low) {
-                    _isLeftSorted = _isLeftSorted && (_users[uint(_i-2)].votingPower >= _users[uint(_i-1)].votingPower);
+                // check if elements at (_i-1) and (_i-2) are sorted or not
+                if (_i-1 > _low && _isLeftSorted) {
+                    _isLeftSorted = (_users[uint(_i-2)].votingPower >= _users[uint(_i-1)].votingPower);
                 }
             }
             while (_pivot > _users[uint(_j)].votingPower) {
                 _j--;
-                if (_j+1 < _high) {
-                    _isRightSorted = _isRightSorted && (_users[uint(_j+1)].votingPower >= _users[uint(_j+2)].votingPower);
+                // check if elements at (_j+1) and (_j+2) are sorted or not
+                if (_j+1 < _high && _isRightSorted) {
+                    _isRightSorted = (_users[uint(_j+1)].votingPower >= _users[uint(_j+2)].votingPower);
                 }
             }
             if (_i <= _j) {
                 (_users[uint(_i)], _users[uint(_j)]) = (_users[uint(_j)], _users[uint(_i)]);
                 _i++;
                 _j--;
-                if (_i-1 > _low) {
-                    _isLeftSorted = _isLeftSorted && (_users[uint(_i-2)].votingPower >= _users[uint(_i-1)].votingPower);
+                if (_i-1 > _low && _isLeftSorted) {
+                    _isLeftSorted = (_users[uint(_i-2)].votingPower >= _users[uint(_i-1)].votingPower);
                 }
-                if (_j+1 < _high) {
-                    _isRightSorted = _isRightSorted && (_users[uint(_j+1)].votingPower >= _users[uint(_j+2)].votingPower);
+                if (_j+1 < _high && _isRightSorted) {
+                    _isRightSorted = (_users[uint(_j+1)].votingPower >= _users[uint(_j+2)].votingPower);
                 }
             }
         }
