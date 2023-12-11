@@ -19,6 +19,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -47,6 +48,9 @@ const (
 // P2P network layer of a protocol stack. These values can be further extended by
 // all registered services.
 type Config struct {
+	// ValidatorKey a derived BLS key from the node key, it is used by consensus engine.
+	ValidatorKey blst.SecretKey
+
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of autonity is "autonity". If no
 	// value is specified, the basename of the current executable is used.
@@ -393,19 +397,27 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 	if c.P2P.PrivateKey != nil {
 		return c.P2P.PrivateKey
 	}
+
 	// Generate ephemeral key if no datadir is being used.
 	if c.DataDir == "" {
 		key, err := crypto.GenerateKey()
 		if err != nil {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
+
+		if c.ValidatorKey, err = blst.SecretKeyFromECDSAKey(key.D.Bytes()); err != nil {
+			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
+		}
+
 		return key
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, err := crypto.LoadECDSA(keyfile); err == nil {
+	if key, validatorKey, err := crypto.LoadNodeKey(keyfile); err == nil {
+		c.ValidatorKey = validatorKey
 		return key
 	}
+
 	// No persistent key found, generate and store a new one.
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -416,10 +428,17 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 		return key
 	}
+
+	validatorKey, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
+	if err != nil {
+		log.Error(fmt.Sprintf("Failed to derive validator key: %v", err))
+	}
+
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := crypto.SaveECDSA(keyfile, key); err != nil {
+	if err := crypto.SaveNodeKey(keyfile, key, validatorKey); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 	}
+	c.ValidatorKey = validatorKey
 	return key
 }
 

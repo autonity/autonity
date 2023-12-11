@@ -1,13 +1,90 @@
 package crypto
 
 import (
+	"bufio"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/blst"
 	"golang.org/x/crypto/blake2b"
+	"os"
 )
+
+const AutonityNodeKeyLenInChar = 128
+const AutonityNodeKeyLen = 64
+const ECDSAKeyLen = 32
+
+// SaveNodeKey saves a secp256k1 private key and its derived validator BLS
+// private key to the given file with restrictive permissions. The key data is saved hex-encoded.
+func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, validatorKey blst.SecretKey) error {
+	k := hex.EncodeToString(FromECDSA(ecdsaKey))
+	d := hex.EncodeToString(validatorKey.Marshal())
+	return os.WriteFile(file, []byte(k+d), 0600)
+}
+
+// LoadNodeKey loads a secp256k1 private key and a derived validator BLS private key from the given file.
+func LoadNodeKey(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
+	fd, err := os.Open(file)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer fd.Close()
+
+	r := bufio.NewReader(fd)
+	buf := make([]byte, AutonityNodeKeyLenInChar)
+	n, err := readASCII(buf, r)
+	if err != nil {
+		return nil, nil, err
+	} else if n != len(buf) {
+		return nil, nil, fmt.Errorf("key file too short, want 128 hex characters")
+	}
+
+	if err = checkKeyFileEnd(r, AutonityNodeKeyLenInChar); err != nil {
+		return nil, nil, err
+	}
+
+	ecdsaKey, err := HexToECDSA(string(buf[0 : AutonityNodeKeyLenInChar/2]))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	validatorKeyBytes, err := hex.DecodeString(string(buf[AutonityNodeKeyLenInChar/2 : AutonityNodeKeyLenInChar]))
+	if err != nil {
+		return nil, nil, err
+	}
+	validatorKey, err := blst.SecretKeyFromBytes(validatorKeyBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ecdsaKey, validatorKey, nil
+}
+
+// HexToNodeKey parse the hex string into a secp256k1 private key and a derived BLS private key.
+func HexToNodeKey(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
+	b, err := hex.DecodeString(hexKeys)
+	if byteErr, ok := err.(hex.InvalidByteError); ok {
+		return nil, nil, fmt.Errorf("invalid hex character %q in node key", byte(byteErr))
+	} else if err != nil {
+		return nil, nil, errors.New("invalid hex data for node key")
+	}
+
+	if len(b) != AutonityNodeKeyLen {
+		return nil, nil, errors.New("invalid length of hex data for node key")
+	}
+
+	ecdsaKey, err := ToECDSA(b[0:ECDSAKeyLen])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	validatorKey, err := blst.SecretKeyFromBytes(b[ECDSAKeyLen:AutonityNodeKeyLen])
+	if err != nil {
+		return nil, nil, err
+	}
+	return ecdsaKey, validatorKey, nil
+}
 
 func Hash(data []byte) common.Hash {
 	return blake2b.Sum256(data)

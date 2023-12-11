@@ -88,8 +88,8 @@ The output of this command is supposed to be machine-readable.
 		},
 		Description: `
     	autonity genNodeKey <outkeyfile>
-		Generate node key and write key to the given file.
-		write out the node address on stdout using flag --writeaddress`,
+		Generate node key and its derived validator private key to the given file.
+		write out the node address and the validator key on stdout using flag --writeaddress`,
 		ArgsUsage: "<outkeyfile>",
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
@@ -170,15 +170,16 @@ func genOwnershipProof(ctx *cli.Context) error {
 
 	// Load private key
 	var nodePrivateKey, oraclePrivateKey *ecdsa.PrivateKey
+	var validatorKey blst.SecretKey
 	var err error
 	if nodeKeyFile := ctx.GlobalString(utils.NodeKeyFileFlag.Name); nodeKeyFile != "" {
-		// load key from the file
-		nodePrivateKey, err = crypto.LoadECDSA(nodeKeyFile)
+		// load key from the node key file
+		nodePrivateKey, validatorKey, err = crypto.LoadNodeKey(nodeKeyFile)
 		if err != nil {
 			utils.Fatalf("Failed to load the node private key: %v", err)
 		}
-	} else if privateKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeyHex != "" {
-		nodePrivateKey, err = crypto.HexToECDSA(privateKeyHex)
+	} else if privateKeysHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeysHex != "" {
+		nodePrivateKey, validatorKey, err = crypto.HexToNodeKey(privateKeysHex)
 		if err != nil {
 			utils.Fatalf("Failed to parse the node private key: %v", err)
 		}
@@ -219,25 +220,19 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf("Failed to sign: %v", err)
 	}
 
-	// validator key shares the same secret with the node's key.
-	key, err := blst.SecretKeyFromECDSAKey(nodePrivateKey.D.Bytes())
-	if err != nil {
-		utils.Fatalf("Failed to generate bls secret from source ecdsa key: %v", err)
-	}
-
-	keyProof, err := crypto.POPProof(key, data)
+	keyProof, err := crypto.POPProof(validatorKey, data)
 	if err != nil {
 		utils.Fatalf("Failed to sign bls key owner proof: %v", err)
 	}
 
-	fmt.Println("Validator key hex:", key.PublicKey().Hex())
+	fmt.Println("Validator key hex:", validatorKey.PublicKey().Hex())
 	signatures := append(append(nodeSignature[:], oracleSignature[:]...), keyProof[:]...)
 	hexStr := hexutil.Encode(signatures)
 	fmt.Println("Signatures hex:", hexStr)
 	return nil
 }
 
-// genNodeKey generates a node key
+// genNodeKey generates a node key, and append its derived BLS private key (the validator key) in the key file.
 func genNodeKey(ctx *cli.Context) error {
 	outKeyFile := ctx.Args().First()
 	if len(outKeyFile) == 0 {
@@ -247,18 +242,19 @@ func genNodeKey(ctx *cli.Context) error {
 	if err != nil {
 		utils.Fatalf("could not generate key: %v", err)
 	}
-	if err = crypto.SaveECDSA(outKeyFile, nodeKey); err != nil {
+
+	// print the node's validator key to on-board validator from genesis config by the system operator.
+	validatorKey, err := blst.SecretKeyFromECDSAKey(nodeKey.D.Bytes())
+	if err != nil {
+		utils.Fatalf("could not generate validator key from node key: %v", err)
+	}
+	if err = crypto.SaveNodeKey(outKeyFile, nodeKey, validatorKey); err != nil {
 		utils.Fatalf("could not save key %v", err)
 	}
 	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
 	if writeAddr {
 		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
 	}
-	// print the node's validator key to on-board validator from genesis config by the system operator.
-	key, err := blst.SecretKeyFromECDSAKey(nodeKey.D.Bytes())
-	if err != nil {
-		utils.Fatalf("could not generate activity key from node key: %v", err)
-	}
-	fmt.Println("Node's validator key:", key.PublicKey().Hex())
+	fmt.Println("Node's validator key:", validatorKey.PublicKey().Hex())
 	return nil
 }

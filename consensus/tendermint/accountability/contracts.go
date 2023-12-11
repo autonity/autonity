@@ -3,7 +3,6 @@ package accountability
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 
 	"github.com/autonity/autonity/autonity"
@@ -15,6 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"

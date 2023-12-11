@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/crypto/blst"
 	"io"
 	"io/ioutil"
 	"math"
@@ -782,29 +783,32 @@ func MakeDataDir(ctx *cli.Context) string {
 	return ""
 }
 
-// setNodeKey creates a node key from set command line flags, either loading it
-// from a file or as a specified hex value. If neither flags were provided, this
-// method returns nil and an emphemeral key is to be generated.
-func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
+// setNodeKey creates a node key and its derived validator key from set command line flags, either loading it
+// from a file or as a specified hex value. If neither flags were provided, this method returns nil and an
+// emphemeral key is to be generated.
+func setNodeKey(ctx *cli.Context, cfg *node.Config) {
 	var (
-		hex  = ctx.GlobalString(NodeKeyHexFlag.Name)
-		file = ctx.GlobalString(NodeKeyFileFlag.Name)
-		key  *ecdsa.PrivateKey
-		err  error
+		hex          = ctx.GlobalString(NodeKeyHexFlag.Name)
+		file         = ctx.GlobalString(NodeKeyFileFlag.Name)
+		key          *ecdsa.PrivateKey
+		validatorKey blst.SecretKey
+		err          error
 	)
 	switch {
 	case file != "" && hex != "":
 		Fatalf("Options %q and %q are mutually exclusive", NodeKeyFileFlag.Name, NodeKeyHexFlag.Name)
 	case file != "":
-		if key, err = crypto.LoadECDSA(file); err != nil {
+		if key, validatorKey, err = crypto.LoadNodeKey(file); err != nil {
 			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
 		}
-		cfg.PrivateKey = key
+		cfg.ValidatorKey = validatorKey
+		cfg.P2P.PrivateKey = key
 	case hex != "":
-		if key, err = crypto.HexToECDSA(hex); err != nil {
+		if key, validatorKey, err = crypto.HexToNodeKey(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
-		cfg.PrivateKey = key
+		cfg.ValidatorKey = validatorKey
+		cfg.P2P.PrivateKey = key
 	}
 }
 
@@ -1086,8 +1090,8 @@ func MakePasswordList(ctx *cli.Context) []string {
 	return lines
 }
 
-func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
-	setNodeKey(ctx, cfg)
+func setP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
+	//setNodeKey(ctx, cfg)
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 
@@ -1166,7 +1170,8 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
-	SetP2PConfig(ctx, &cfg.P2P)
+	setNodeKey(ctx, cfg)
+	setP2PConfig(ctx, &cfg.P2P)
 	setIPC(ctx, cfg)
 	setHTTP(ctx, cfg)
 	setGraphQL(ctx, cfg)

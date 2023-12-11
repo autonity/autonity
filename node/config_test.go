@@ -134,7 +134,7 @@ func TestNodeKeyPersistency(t *testing.T) {
 	if _, err := os.Stat(keyfile); err != nil {
 		t.Fatalf("node key not persisted to data directory: %v", err)
 	}
-	if _, err = crypto.LoadECDSA(keyfile); err != nil {
+	if _, _, err = crypto.LoadNodeKey(keyfile); err != nil {
 		t.Fatalf("failed to load freshly persisted node key: %v", err)
 	}
 	blob1, err := ioutil.ReadFile(keyfile)
