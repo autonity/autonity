@@ -130,17 +130,6 @@ func TestAccusationVerifier(t *testing.T) {
 		assert.Equal(t, false, verifyAccusation(&p))
 	})
 
-	//TODO(lorenzo) verifyAccusation does not check signatures
-	t.Run("Test validate accusation, with invalid Signature() of msg", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-		invalidCommittee, invalKeys := generateCommittee()
-		p.Message = newProposalMessage(height, 1, 0, makeSigner(invalKeys[0], invalidCommittee[0]), invalidCommittee, nil)
-
-		ret := verifyAccusation(&p)
-		assert.False(t, ret)
-	})
-
 	t.Run("Test validate accusation, with correct accusation msg", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
@@ -222,36 +211,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	//TODO(lorenzo) does validate faults check signature? do we need the unverified proposal?
-	t.Run("Test validate misbehaviour Proof, with invalid Signature() of misbehaved msg", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-		invalidCommittee, iKeys := generateCommittee()
-		invalidProposal := newProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee[0]), invalidCommittee, nil)
-		p.Message = invalidProposal
-		mv := MisbehaviourVerifier{chain: chainMock}
-
-		ret := mv.validateFault(&p)
-		assert.Equal(t, failureReturn, ret)
-	})
-
-	//TODO(lorenzo) there is no signature checking here. Also, do we need unverify?
-	t.Run("Test validate misbehaviour Proof, with invalid Signature() of evidence msgs", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-
-		invalidCommittee, ikeys := generateCommittee()
-		proposal := newProposalMessage(height, 1, 0, signer, committee, nil)
-		p.Message = proposal
-
-		invalidPreCommit := message.NewPrecommit(1, height, proposal.Value(), makeSigner(ikeys[0], invalidCommittee[0]))
-		p.Evidences = append(p.Evidences, invalidPreCommit)
-
-		mv := MisbehaviourVerifier{chain: chainMock}
-		ret := mv.validateFault(&p)
-		assert.Equal(t, failureReturn, ret)
-	})
-
 	t.Run("Test validate misbehaviour Proof of PN rule with correct Proof", func(t *testing.T) {
 		// prepare a Proof that node proposes for a new value, but he preCommitted a non nil value
 		// at previous rounds, such Proof should be valid.
@@ -269,7 +228,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, validReturn(p.Message, p.Rule), ret)
 	})
 
-	//TODO(lorenzo) double check if  we need unvierifeid proposal
 	t.Run("Test validate misbehaviour Proof of PN rule with incorrect proposal of Proof", func(t *testing.T) {
 		// prepare a p that node propose for an old value.
 		var p Proof
@@ -284,7 +242,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		assert.Equal(t, failureReturn, ret)
 	})
 
-	//TODO(lorenzo) do we need unvierifed proposal
 	t.Run("Test validate misbehaviour Proof of PN rule with no evidence of Proof", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PN

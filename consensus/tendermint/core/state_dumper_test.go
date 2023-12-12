@@ -152,7 +152,7 @@ func randomProposal(t *testing.T) *message.Propose {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 	member := types.CommitteeMember{
 		Address:     addr,
-		VotingPower: testPower, //TODO(lorenzo) fine?
+		VotingPower: testPower,
 	}
 	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(key, member))
 }

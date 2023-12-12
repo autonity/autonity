@@ -17,7 +17,7 @@ var (
 
 func defaultSigner(h common.Hash) ([]byte, common.Address, *big.Int) {
 	out, _ := crypto.Sign(h[:], testKey)
-	return out, testAddr, testPower //TODO(Lorenzo) fine to return testpower = 1000?
+	return out, testAddr, testPower
 }
 
 func TestMessageSetAddVote(t *testing.T) {

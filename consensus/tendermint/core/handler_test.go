@@ -11,15 +11,13 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"go.uber.org/mock/gomock"
 )
 
-func TestHandleCheckedMessage(t *testing.T) {
+func TestHandleValidatedMessage(t *testing.T) {
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
@@ -61,9 +59,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			big.NewInt(2),
 			Propose,
 			createPrevote(0, 3),
-			//TODO(lorenzo) check if fine
-			//constants.ErrFutureHeightMessage,
-			nil,
+			nil, // irrelevant since code panics
 			true,
 		},
 		{
@@ -87,8 +83,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 			big.NewInt(5),
 			Precommit,
 			createPrecommit(0, 10),
-			//TODO(lorenzo) check if fine
-			//			constants.ErrFutureHeightMessage,
 			nil,
 			true,
 		},
@@ -132,7 +126,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 					t.Errorf("Unexpected panic")
 				}
 			}()
-			testCase.message.Validate(header.CommitteeMember)
 			err := engine.handleMsg(context.Background(), testCase.message)
 
 			if !errors.Is(err, testCase.outcome) {

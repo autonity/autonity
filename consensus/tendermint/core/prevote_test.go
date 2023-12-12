@@ -88,7 +88,7 @@ func TestHandlePrevote(t *testing.T) {
 	signer := makeSigner(keys[member.Address], member)
 	// to easily reach quorum voting power in tests
 	quorumMember := member
-	quorumMember.VotingPower := big.NewInt(3)
+	quorumMember.VotingPower = big.NewInt(3)
 	quorumSigner := makeSigner(keys[quorumMember.Address], quorumMember)
 
 	t.Run("pre-vote with future height given, code panics", func(t *testing.T) {
@@ -236,7 +236,7 @@ func TestHandlePrevote(t *testing.T) {
 		messages := message.NewMap()
 
 		member2 := committeeSet.Committee()[1]
-		member2.VotingPower = Big.NewInt(3) // quorum power
+		member2.VotingPower = big.NewInt(3) // quorum power
 		curRoundMessage := messages.GetOrCreate(2)
 
 		expectedMsg := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[member2.Address], member2))
