@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//TODO(lorenzo) might have to add the changes where I gossip only to others
-
 func newRandomBytesBroadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &randomBytesBroadcaster{c.(*core.Core)}
 }
@@ -38,7 +36,8 @@ func (s *randomBytesBroadcaster) Broadcast(_ message.Msg) {
 		var hash common.Hash
 		copy(hash[:], payload)
 		msg := message.Fake{FakeCode: 1, FakePayload: payload, FakeHash: hash}
-		s.BroadcastAll(msg)
+		// we consider self messages as trusted, therefore we want to send garbage only to other nodes
+		s.Backend().Gossip(s.CommitteeSet().Committee(), msg)
 	}
 }
 
@@ -76,7 +75,8 @@ func (s *garbageMessageBroadcaster) Broadcast(_ message.Msg) {
 	f := fuzz.New().AllowUnexportedFields(true)
 	f.Fuzz(&fMsg)
 	logger.Info("Broadcasting random bytes")
-	s.BroadcastAll(&fMsg)
+	// we consider self messages as trusted, therefore we want to send garbage only to other nodes
+	s.Backend().Gossip(s.CommitteeSet().Committee(), &fMsg)
 }
 
 // TestGarbageMessageBroadcaster broadcasts a garbage Messages in the network,
@@ -132,7 +132,8 @@ func (c *garbagePrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 		// fuzzing existing precommit message, skip the fields in field array
 		f.Fuzz(&precommit)
 		c.SetSentPrecommit(true)
-		c.BroadcastAll(precommit)
+		// we consider self messages as trusted, therefore we want to send garbage only to other nodes
+		c.Backend().Gossip(c.CommitteeSet().Committee(), precommit)
 	}
 }
 
@@ -188,7 +189,8 @@ func (c *garbagePrevoter) SendPrevote(_ context.Context, isNil bool) {
 		}
 		prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), proposedBlockHash, c.Backend().Sign)
 		f.Fuzz(prevote)
-		c.BroadcastAll(prevote)
+		// we consider self messages as trusted, therefore we want to send garbage only to other nodes
+		c.Backend().Gossip(c.CommitteeSet().Committee(), prevote)
 	}
 	c.SetSentPrevote(true)
 }
@@ -283,7 +285,8 @@ func (c *garbageProposer) SendProposal(_ context.Context, p *types.Block) {
 			f.Fuzz(proposalMsg)
 			c.SetSentProposal(true)
 			c.Backend().SetProposedBlockHash(p.Hash())
-			c.BroadcastAll(proposalMsg)
+			// we consider self messages as trusted, therefore we want to send garbage only to other nodes
+			c.Backend().Gossip(c.CommitteeSet().Committee(), proposalMsg)
 		}
 	}
 }

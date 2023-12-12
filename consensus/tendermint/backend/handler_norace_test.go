@@ -77,7 +77,7 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			vote := message.NewPrevote(1, 2, common.BigToHash(big.NewInt(i)), dummySigner)
+			vote := message.NewUnverifiedPrevote(1, 1, common.BigToHash(big.NewInt(i)), backend.Sign)
 			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())}
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
@@ -98,7 +98,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			select {
 			case eve := <-sub.Chan():
 				message := eve.Data.(events.MessageEvent).Message
-				if message.R() != 1 || message.H() != 2 {
+				if message.R() != 1 || message.H() != 1 {
 					t.Fatalf("message not expected")
 				}
 				i++

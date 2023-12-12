@@ -54,17 +54,17 @@ func TestSendPrecommit(t *testing.T) {
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[me.Address], me.Address),
+			makeSigner(keys[me.Address], me),
 		)
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		curRoundMessages.SetProposal(proposal, false)
 
-		preCommit := message.NewPrecommit(1, 2, curRoundMessages.ProposalHash(), makeSigner(keys[addr], addr))
+		preCommit := message.NewPrecommit(1, 2, curRoundMessages.ProposalHash(), makeSigner(keys[addr], val))
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr], addr))
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr], val))
 
 		c := &Core{
 			backend:          backendMock,
@@ -94,16 +94,16 @@ func TestSendPrecommit(t *testing.T) {
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[me.Address], me.Address))
+			makeSigner(keys[me.Address], me))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		curRoundMessages.SetProposal(proposal, true)
 
-		preCommit := message.NewPrecommit(1, 2, common.Hash{}, makeSigner(keys[addr], addr))
+		preCommit := message.NewPrecommit(1, 2, common.Hash{}, makeSigner(keys[addr], val))
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr], addr))
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr], val))
 
 		c := &Core{
 			backend:          backendMock,
@@ -163,14 +163,13 @@ func TestHandlePrecommit(t *testing.T) {
 			3,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[member.Address], member.Address))
+			makeSigner(keys[member.Address], member))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, true)
 
-		msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
-		msg.MustVerify(stubVerifier)
+		msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address], member))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Commit(proposal.Block(), gomock.Any(), gomock.Any()).Return(nil).Do(
@@ -213,14 +212,13 @@ func TestHandlePrecommit(t *testing.T) {
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[member.Address], member.Address))
+			makeSigner(keys[member.Address], member))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, true)
 
-		msg := message.NewPrecommit(1, 2, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
-		msg.Validate(stubVerifier)
+		msg := message.NewPrecommit(1, 2, proposal.Block().Hash(), makeSigner(keys[member.Address], member))
 
 		c := &Core{
 			address:          member.Address,
@@ -254,7 +252,7 @@ func TestHandlePrecommit(t *testing.T) {
 			3,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[me.Address], me.Address))
+			makeSigner(keys[me.Address], me))
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
@@ -276,14 +274,14 @@ func TestHandlePrecommit(t *testing.T) {
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 
 		for _, member := range committeeSet.Committee()[1:5] {
-			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
-			if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(stubVerifier)); err != nil {
+			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address], member))
+			if err := c.precommiter.HandlePrecommit(context.Background(), msg); err != nil {
 				t.Fatalf("Expected nil, got %v", err)
 			}
 		}
 
-		msg := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[me.Address], me.Address))
-		if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(stubVerifier)); err != nil {
+		msg := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[me.Address], me))
+		if err := c.precommiter.HandlePrecommit(context.Background(), msg); err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 

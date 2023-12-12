@@ -12,7 +12,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/secp256k1"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -22,41 +21,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//TODO(lorenzo) some tests might be broken because testAddress is not in the committee
-
-// a proposal with nil proposalBlock should always be rejected at decoding
-func TestNilProposalBlock(t *testing.T) {
-	t.Skip("TODO(lorenzo) fix")
-	_, backend := newBlockChain(1)
-
-	// generate one msg
-	data := message.NewPropose(1, 2, -1, nil, testSigner)
-	msg := p2p.Msg{Code: ProposeNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
-
-	// 1. this message should not be in cache
-	// for peers
-	if _, ok := backend.recentMessages.Get(testAddress); ok {
-		t.Fatalf("the cache of messages for this peer should be nil")
-	}
-
-	// for self
-	if _, ok := backend.knownMessages.Get(data.Hash()); ok {
-		t.Fatalf("the cache of messages should be nil")
-	}
-
-	// handle message
-	errCh := make(chan error, 1)
-	_, err := backend.HandleMsg(testAddress, msg, errCh)
-	// TODO(lorenzo) change to new error
-	if err != errDecodeFailed {
-		t.Fatalf("expected error: %v, got %v", errDecodeFailed, err)
-	}
-}
-
 func TestTendermintCaches(t *testing.T) {
 	_, backend := newBlockChain(1)
-	// generate one msg
-	data := message.NewPrevote(1, 2, common.Hash{}, testSigner)
+
+	// generate a msg
+	data := message.NewPrevote(1, 1, common.Hash{}, backend.Sign)
 	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	// 1. this message should not be in cache
@@ -73,9 +42,8 @@ func TestTendermintCaches(t *testing.T) {
 	// 2. this message should be in cache after we handle it
 	errCh := make(chan error, 1)
 	_, err := backend.HandleMsg(testAddress, msg, errCh)
-	if err != nil {
-		t.Fatalf("handle message failed: %v", err)
-	}
+	require.NoError(t, err)
+
 	// for peers
 	if ms, ok := backend.recentMessages.Get(testAddress); ms == nil || !ok {
 		t.Fatalf("the cache of messages for this peer cannot be nil")
@@ -100,7 +68,7 @@ func TestFutureMsg(t *testing.T) {
 		// create valid future proposal encapsulated in p2p.Message
 		futureHeight := uint64(3)
 		round := int64(0)
-		data := message.NewPropose(round, futureHeight, -1, types.NewBlockWithHeader(&types.Header{}), testSigner)
+		data := message.NewPropose(round, futureHeight, -1, types.NewBlockWithHeader(&types.Header{}), backend.Sign)
 		msg := p2p.Msg{Code: ProposeNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 		// send it to the backend
@@ -141,7 +109,7 @@ func TestSaveFutureMessage(t *testing.T) {
 		for i := int64(0); i < maxFutureMsgs; i++ {
 			round := i % 10
 			height := uint64((i / (1 + i%10)) + 2)
-			msg := message.NewPrevote(round, height, common.Hash{}, testSigner)
+			msg := message.NewPrevote(round, height, common.Hash{}, backend.Sign)
 			backend.saveFutureMsg(msg, nil)
 			messages = append(messages, msg)
 		}
@@ -165,7 +133,7 @@ func TestSaveFutureMessage(t *testing.T) {
 		// we are at consensus instance for height = 1
 		for i := int64(2*maxFutureMsgs) + 1; i > 1; i-- {
 			round := i % 10
-			msg := message.NewPrevote(round, uint64(i), common.Hash{}, testSigner)
+			msg := message.NewPrevote(round, uint64(i), common.Hash{}, backend.Sign)
 			backend.saveFutureMsg(msg, nil)
 			if i <= maxFutureMsgs+1 {
 				messages = append(messages, msg)
@@ -272,12 +240,12 @@ func TestNewChainHead(t *testing.T) {
 func TestMsgFromJailedValidator(t *testing.T) {
 	_, backend := newBlockChain(1)
 
-	// jail testAddress and subscribe to events
-	backend.jailed[testAddress] = 0
+	// jail the test node and subscribe to events
+	backend.jailed[backend.Address()] = 0
 	sub := backend.Subscribe(events.MessageEvent{}, events.OldMessageEvent{})
 
 	// create message
-	data := message.NewPrevote(0, 1, common.Hash{}, testSigner)
+	data := message.NewPrevote(0, 1, common.Hash{}, backend.Sign)
 	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	// handle message
@@ -297,39 +265,23 @@ func TestMsgFromJailedValidator(t *testing.T) {
 			t.Fatal("Message from jailed validator treated as old valid message")
 		}
 	case <-timeout.C:
+		// good case
 	}
 }
 
-/*TODO(Lorenzo) does this still make sense?
 func TestMsgFromOutOfCommittee(t *testing.T) {
 	_, backend := newBlockChain(1)
 
-	unknownAddress := common.BytesToAddress([]byte("unknown"))
-
-	vote := message.Vote{
-		Round:             0,
-		Height:            big.NewInt(1),
-		ProposedBlockHash: common.Hash{},
-	}
-	encodedVote, err := rlp.EncodeToBytes(&vote)
-	require.NoError(t, err)
-
-	addr := backend.Address()
-	maliciousMsg := &message.Message{
-		Code:          consensus.MsgPrevote,
-		Payload:       encodedVote,
-		Address:       unknownAddress,
-		Signature:     []byte{0xca, 0xfe}, // signature verification is done after committee membership check, no need to worry about it
-		CommittedSeal: []byte{},
-	}
-	msg := makeMsg(TendermintMsg, maliciousMsg.GetBytes())
+	// create message
+	data := message.NewPrevote(0, 1, common.Hash{}, testSigner)
+	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	// handle message
 	errCh := make(chan error, 1)
-	handled, err := backend.HandleMsg(addr, msg, errCh)
+	handled, err := backend.HandleMsg(testAddress, msg, errCh)
 	require.True(t, handled)
-	require.Error(t, err, errNotFromCommittee)
-}*/
+	require.Equal(t, message.ErrUnauthorizedAddress, err)
+}
 
 func TestInvalidSignatureLenMsg(t *testing.T) {
 	_, backend := newBlockChain(1)
@@ -343,7 +295,7 @@ func TestInvalidSignatureLenMsg(t *testing.T) {
 	// handle message
 	errCh := make(chan error, 1)
 	_, err := backend.HandleMsg(testAddress, msg, errCh)
-	require.Equal(t, secp256k1.ErrInvalidSignatureLen, err)
+	require.Equal(t, message.ErrBadSignature, err)
 }
 
 func TestInvalidSignatureMsg(t *testing.T) {
@@ -359,7 +311,7 @@ func TestInvalidSignatureMsg(t *testing.T) {
 	// handle message
 	errCh := make(chan error, 1)
 	_, err := backend.HandleMsg(testAddress, msg, errCh)
-	require.Equal(t, err, nil) //TODO(Lorenzo) put actual correct error here
+	require.Equal(t, message.ErrBadSignature, err)
 }
 
 func TestInvalidRound(t *testing.T) {
@@ -374,7 +326,7 @@ func TestInvalidRound(t *testing.T) {
 	errCh := make(chan error, 1)
 	handled, err := backend.HandleMsg(testAddress, msg, errCh)
 	require.True(t, handled)
-	require.Equal(t, err, nil) //TODO(lorenzo) put actual correct error here
+	require.Error(t, err)
 
 	// make sure message has not been processed
 	timeout := time.NewTimer(2 * time.Second)
@@ -387,6 +339,7 @@ func TestInvalidRound(t *testing.T) {
 			t.Fatal("Invalid inner message treated as old valid message")
 		}
 	case <-timeout.C:
+		// good case
 	}
 }
 
@@ -395,7 +348,7 @@ func TestValidMsg(t *testing.T) {
 
 	sub := backend.Subscribe(events.MessageEvent{}, events.OldMessageEvent{})
 
-	data := message.NewPrevote(0, 1, common.Hash{}, testSigner)
+	data := message.NewPrevote(0, 1, common.Hash{}, backend.Sign)
 	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	// handle message
@@ -404,7 +357,7 @@ func TestValidMsg(t *testing.T) {
 	require.True(t, handled)
 	require.NoError(t, err)
 
-	// make sure message has not been processed
+	// make sure message has been processed
 	timeout := time.NewTimer(2 * time.Second)
 	select {
 	case ev := <-sub.Chan():
@@ -426,7 +379,7 @@ func TestValidOldMsg(t *testing.T) {
 
 	sub := backend.Subscribe(events.MessageEvent{}, events.OldMessageEvent{})
 
-	data := message.NewPrevote(0, 1, common.Hash{}, testSigner)
+	data := message.NewPrevote(0, 1, common.Hash{}, backend.Sign)
 	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	// handle message
@@ -460,10 +413,9 @@ func TestGarbagePropose(t *testing.T) {
 
 	// handle message
 	errCh := make(chan error, 1)
-	_, err = backend.HandleMsg(testAddress, msg, errCh)
-	if err != errDecodeFailed {
-		t.Fatalf("expected error: %v, got %v", errDecodeFailed, err)
-	}
+	handled, err := backend.HandleMsg(testAddress, msg, errCh)
+	require.True(t, handled)
+	require.Error(t, err)
 }
 
 func TestGarbagePrevote(t *testing.T) {
@@ -476,10 +428,9 @@ func TestGarbagePrevote(t *testing.T) {
 
 	// handle message
 	errCh := make(chan error, 1)
-	_, err = backend.HandleMsg(testAddress, msg, errCh)
-	if err != errDecodeFailed {
-		t.Fatalf("expected error: %v, got %v", errDecodeFailed, err)
-	}
+	handled, err := backend.HandleMsg(testAddress, msg, errCh)
+	require.True(t, handled)
+	require.Error(t, err)
 }
 
 func TestGarbagePrecommit(t *testing.T) {
@@ -492,10 +443,9 @@ func TestGarbagePrecommit(t *testing.T) {
 
 	// handle message
 	errCh := make(chan error, 1)
-	_, err = backend.HandleMsg(testAddress, msg, errCh)
-	if err != errDecodeFailed {
-		t.Fatalf("expected error: %v, got %v", errDecodeFailed, err)
-	}
+	handled, err := backend.HandleMsg(testAddress, msg, errCh)
+	require.True(t, handled)
+	require.Error(t, err)
 }
 
 func TestGarbageInvalidCode(t *testing.T) {
@@ -504,12 +454,11 @@ func TestGarbageInvalidCode(t *testing.T) {
 	data := message.NewPrecommit(0, 1, common.Hash{}, testSigner)
 	msg := p2p.Msg{Code: PrecommitNetworkMsg + 100, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
-	// handle message
+	// handle message, it should not be handled
 	errCh := make(chan error, 1)
-	_, err := backend.HandleMsg(testAddress, msg, errCh)
-	if err != errDecodeFailed {
-		t.Fatalf("expected error: %v, got %v", errDecodeFailed, err)
-	}
+	handled, err := backend.HandleMsg(testAddress, msg, errCh)
+	require.False(t, handled)
+	require.NoError(t, err)
 }
 
 func TestGarbageOversized(t *testing.T) {
@@ -523,10 +472,9 @@ func TestGarbageOversized(t *testing.T) {
 
 	// handle message
 	errCh := make(chan error, 1)
-	_, err = backend.HandleMsg(testAddress, msg, errCh)
-	if err != errDecodeFailed {
-		t.Fatalf("expected error: %v, got %v", errDecodeFailed, err)
-	}
+	handled, err := backend.HandleMsg(testAddress, msg, errCh)
+	require.True(t, handled)
+	require.Error(t, err)
 }
 
 func makeMsg(msgcode uint64, data interface{}) p2p.Msg {

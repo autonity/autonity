@@ -20,8 +20,12 @@ import (
 
 var (
 	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testPower  = big.NewInt(1000)
+	testPower  = big.NewInt(1000) //TODO(lorenzo) fine?
 	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
+	testMember = types.CommitteeMember{
+		Address:     testAddr,
+		VotingPower: testPower,
+	}
 )
 
 func TestCheckMessage(t *testing.T) {

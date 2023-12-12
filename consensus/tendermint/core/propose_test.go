@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -29,21 +28,21 @@ func TestSendPropose(t *testing.T) {
 		messages := message.NewMap()
 		proposerKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
-		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
+		proposerAddr := crypto.PubkeyToAddress(proposerKey.PublicKey)
 		height := new(big.Int).SetUint64(1)
 		curRoundMessages := messages.GetOrCreate(1)
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
+		proposer := types.CommitteeMember{
+			Address:     proposerAddr,
+			VotingPower: big.NewInt(1),
+		}
 		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerKey, proposer))
 
 		assert.NoError(t, err)
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{
-				Address:     proposer,
-				VotingPower: big.NewInt(1)},
-		}
+		testCommittee := types.Committee{proposer}
 
 		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
 		if err != nil {
@@ -56,7 +55,7 @@ func TestSendPropose(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
 
 		c := &Core{
-			address:          proposer,
+			address:          proposerAddr,
 			backend:          backendMock,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
@@ -74,10 +73,15 @@ func TestSendPropose(t *testing.T) {
 
 func TestHandleProposal(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-	addr := committeeSet.Committee()[0].Address // round 3 - height 1 proposer
+	member := committeeSet.Committee()[0]
+	addr := member.Address // round 3 - height 1 proposer
 	height := uint64(1)
 	round := int64(3)
-	signer := makeSigner(keys[addr], addr)
+	signer := makeSigner(keys[addr], member)
+	// increase the power of this member so that we can easily reach quorum
+	quorumMember := member
+	quorumMember.VotingPower = big.NewInt(3)
+	quorumSigner := makeSigner(keys[addr], quorumMember)
 
 	t.Run("old proposal given, error returned", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
@@ -85,7 +89,7 @@ func TestHandleProposal(t *testing.T) {
 		})
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round + 1)
-		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, 1, block, signer)
 		c := &Core{
 			address:          addr,
 			messages:         messages,
@@ -110,7 +114,7 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(2, 1, 1, block, defaultSigner).MustVerify(stubVerifier)
+		proposal := message.NewPropose(2, 1, 1, block, defaultSigner)
 
 		testCommittee, _ := GenerateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
@@ -137,6 +141,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 	})
 
+	//TODO(lorenzo) do we still care about this test
 	t.Run("unverified block proposal given, panic", func(t *testing.T) {
 		defer func() {
 			err := recover()
@@ -151,7 +156,7 @@ func TestHandleProposal(t *testing.T) {
 		})
 		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(2)
-		proposal := message.NewPropose(2, 1, 1, block, signer)
+		proposal := message.NewUnverifiedPropose(2, 1, 1, block, signer)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		backendMock.EXPECT().ProcessFutureMsgs(uint64(1)).MaxTimes(1)
@@ -179,7 +184,7 @@ func TestHandleProposal(t *testing.T) {
 		})
 		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(round)
-		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, 1, block, signer)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
 		event := backlogMessageEvent{
@@ -213,7 +218,7 @@ func TestHandleProposal(t *testing.T) {
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
-		proposal := message.NewPropose(round, height, 2, block, makeSigner(keys[addr], addr)).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, 2, block, makeSigner(keys[addr], member))
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 
@@ -254,7 +259,7 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address], proposer.Address)).MustVerify(stubVerifier)
+		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address], proposer))
 
 		assert.NoError(t, err)
 
@@ -280,7 +285,7 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.GetByIndex(i)
-			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address], val.Address)).MustVerify(stubVerifier)
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address], val))
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			assert.NoError(t, err)
 		}
@@ -304,7 +309,7 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(round, height, -1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, -1, block, signer)
 		prevote := message.NewPrevote(round, height, block.Hash(), signer)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
@@ -344,10 +349,8 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessage := messages.GetOrCreate(round)
 
-		proposal := message.NewPropose(round, height, round-1, block, signer).MustVerify(stubVerifier)
-		prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), signer).MustVerify(func(address common.Address) *types.CommitteeMember {
-			return &types.CommitteeMember{Address: address, VotingPower: big.NewInt(3)}
-		})
+		proposal := message.NewPropose(round, height, round-1, block, signer)
+		prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), quorumSigner)
 
 		messages.GetOrCreate(round - 1).AddPrevote(prevote)
 
@@ -426,12 +429,12 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := generateBlockProposal(1, height, validRound, false, makeSigner(proposerKey, proposer.Address))
+		proposal := generateBlockProposal(1, height, validRound, false, makeSigner(proposerKey, proposer))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(proposerKey, proposer.Address))
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(proposerKey, proposer))
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),

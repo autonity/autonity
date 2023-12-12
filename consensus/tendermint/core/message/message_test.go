@@ -15,10 +15,14 @@ import (
 )
 
 var (
-	key, _  = crypto.GenerateKey()
-	address = crypto.PubkeyToAddress(key.PublicKey)
-	power   = big.NewInt(1000)
-	signer  = func(hash common.Hash) ([]byte, common.Address, *big.Int) {
+	key, _    = crypto.GenerateKey()
+	address   = crypto.PubkeyToAddress(key.PublicKey)
+	power     = big.NewInt(2)
+	validator = &types.CommitteeMember{
+		Address:     address,
+		VotingPower: power,
+	}
+	signer = func(hash common.Hash) ([]byte, common.Address, *big.Int) {
 		out, _ := crypto.Sign(hash[:], key)
 		return out, address, power
 	}
@@ -67,7 +71,7 @@ func TestMessageDecode(t *testing.T) {
 func TestValidate(t *testing.T) {
 	t.Run("invalid signature, error returned", func(t *testing.T) {
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
-		msg := newVote[Prevote](1, 25, lastHeader.Hash(), func(hash common.Hash) (signature []byte, address common.Address, power *big.Int) {
+		msg := NewUnverifiedPrevote(1, 25, lastHeader.Hash(), func(hash common.Hash) (signature []byte, address common.Address, power *big.Int) {
 			out, addr, power := defaultSigner(hash)
 			out = append(out, 1)
 			return out, addr, power
@@ -79,16 +83,11 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("not a committee member, error returned", func(t *testing.T) {
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{
-			{
-				Address:     address,
-				VotingPower: big.NewInt(2),
-			},
-		}}
+		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
 		messages := []Msg{
-			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
-			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
-			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
+			NewUnverifiedPrevote(1, 25, lastHeader.Hash(), signer),
+			NewUnverifiedPrecommit(1, 25, lastHeader.Hash(), signer),
+			NewUnverifiedPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
 		}
 
 		validateFn := func(address common.Address) *types.CommitteeMember { //nolint
@@ -102,15 +101,11 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("valid params given, valid validator returned", func(t *testing.T) {
-		validator := &types.CommitteeMember{
-			Address:     address,
-			VotingPower: big.NewInt(2),
-		}
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
 		messages := []Msg{
-			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
-			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
-			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
+			NewUnverifiedPrevote(1, 25, lastHeader.Hash(), signer),
+			NewUnverifiedPrecommit(1, 25, lastHeader.Hash(), signer),
+			NewUnverifiedPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
 		}
 
 		validateFn := func(address common.Address) *types.CommitteeMember { //nolint
@@ -125,15 +120,11 @@ func TestValidate(t *testing.T) {
 }
 
 func TestMessageEncodeDecode(t *testing.T) {
-	validator := &types.CommitteeMember{
-		Address:     address,
-		VotingPower: big.NewInt(2),
-	}
 	lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
 	messages := []Msg{
-		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), signer).MustVerify(stubVerifier),
-		NewPrevote(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),
-		NewPrecommit(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),
+		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), signer),
+		NewPrevote(1, 2, lastHeader.Hash(), signer),
+		NewPrecommit(1, 2, lastHeader.Hash(), signer),
 	}
 	for i := range messages {
 		buff := new(bytes.Buffer)
@@ -142,7 +133,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 		decoded := reflect.New(reflect.TypeOf(messages[i]).Elem()).Interface().(Msg)
 		err = rlp.Decode(buff, decoded)
 		require.NoError(t, err)
-		decoded.Validate(stubVerifier)
+		decoded.Validate(lastHeader.CommitteeMember)
 		if decoded.Value() != messages[i].Value() ||
 			decoded.R() != messages[i].R() ||
 			decoded.H() != messages[i].H() ||
@@ -154,7 +145,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 }
 
 func FuzzFromPayload(f *testing.F) {
-	msg := NewPrevote(1, 2, common.Hash{}, signer).MustVerify(stubVerifier)
+	msg := NewPrevote(1, 2, common.Hash{}, signer)
 	f.Add(msg.Payload())
 	f.Fuzz(func(t *testing.T, seed []byte) {
 		var p Prevote

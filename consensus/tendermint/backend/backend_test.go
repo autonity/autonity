@@ -445,14 +445,8 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = chain.InsertChain(types.Blocks{block})
-	if err != nil {
-		t.Fatal(err)
-	}
+	advanceBlockchain(t, engine, chain)
+
 	contractABI := engine.GetContractABI()
 	expectedABI := chain.Config().AutonityContractConfig.ABI
 	if contractABI != expectedABI {
@@ -484,57 +478,6 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	}
 
 	return blockchain, b
-}
-
-// TODO(lorenzo) should I move it to handler?
-func advanceBlockchain(t *testing.T, engine *Backend, chain *core.BlockChain) {
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	require.NoError(t, err)
-	_, err = chain.InsertChain(types.Blocks{block})
-	require.NoError(t, err)
-	/* //TODO(lorenzo) delete. Also substitute code repetition of this previous block with calls to advancechain
-	addr := backend.Address()
-
-	parent := blockchain.CurrentHeader()
-	number := new(big.Int).Add(parent.Number, big.NewInt(1))
-	baseFee := misc.CalcBaseFee(blockchain.Config(), parent, blockchain)
-	header := &types.Header{ParentHash: parent.Hash(), Number: number, MixDigest: types.BFTDigest, UncleHash: types.CalcUncleHash(nil), Difficulty: big.NewInt(1), GasLimit: parent.GasLimit, BaseFee: baseFee, Time: parent.Time + 1, Coinbase: addr}
-
-	receipts := make([]*types.Receipt, 0)
-	state, err := blockchain.State()
-	if err != nil {
-		return err
-	}
-	block, err := backend.FinalizeAndAssemble(blockchain, header, state, make([]*types.Transaction, 0), make([]*types.Header, 0), &receipts)
-	if err != nil {
-		return err
-	}
-
-	results := make(chan *types.Block)
-	stop := make(chan struct{})
-	err = backend.Seal(blockchain, block, results, stop)
-	if err != nil {
-		return err
-	}
-
-	timeout := time.NewTimer(5 * time.Second)
-	select {
-	case <-timeout.C:
-		return errors.New("failed to advance chain")
-	case committedBlock := <-results:
-		// assume always only finalize receipt
-		_, err = blockchain.WriteBlockAndSetHead(committedBlock, receipts, receipts[0].Logs, state, true)
-		if err != nil {
-			return err
-		}
-	}
-	err = backend.NewChainHead()
-	if err != nil {
-		return err
-	}
-
-	return nil
-	*/
 }
 
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
@@ -608,6 +551,16 @@ func makeHeader(parent *types.Block) *types.Header {
 		Round:      0,
 	}
 	return header
+}
+
+func advanceBlockchain(t *testing.T, engine *Backend, chain *core.BlockChain) {
+	parent := chain.CurrentBlock()
+	block, err := makeBlock(chain, engine, parent)
+	require.NoError(t, err)
+	_, err = chain.InsertChain(types.Blocks{block})
+	require.NoError(t, err)
+	err = engine.NewChainHead()
+	require.NoError(t, err)
 }
 
 func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {

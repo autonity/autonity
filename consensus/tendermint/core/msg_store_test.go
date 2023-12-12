@@ -1,14 +1,12 @@
 package core
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 )
 
 func TestMsgStore(t *testing.T) {
@@ -16,11 +14,13 @@ func TestMsgStore(t *testing.T) {
 	round := int64(0)
 
 	committee, keys := GenerateCommittee(5)
-	proposer := committee[0].Address
-	proposerKey := keys[proposer]
+	proposer := committee[0]
+	proposerKey := keys[proposer.Address]
 
-	addrAlice := committee[0].Address
-	addrBob := committee[1].Address
+	alice := committee[0]
+	addrAlice := alice.Address
+	bob := committee[1]
+	addrBob := bob.Address
 	keyBob := keys[addrBob]
 	notNilValue := common.Hash{0x1}
 
@@ -34,10 +34,10 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer))
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey, proposer))
 		ms.Save(preVoteNoneNil)
 		// check equivocated msg is also stored at msg store.
 		votes := ms.Get(height, func(m message.Msg) bool {
@@ -48,7 +48,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer))
 		ms.Save(preVote)
 
 		votes := ms.Get(height, func(m message.Msg) bool {
@@ -66,10 +66,10 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer))
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, addrBob)).MustVerify(stubVerifier)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, bob))
 		ms.Save(preVoteNoneNil)
 
 		votes := ms.Get(height, func(m message.Msg) bool {
@@ -87,9 +87,9 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer))
 		ms.Save(preVoteNil)
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, addrBob)).MustVerify(stubVerifier)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, bob))
 		ms.Save(preVoteNoneNil)
 		ms.DeleteOlds(height)
 		votes := ms.Get(height, func(m message.Msg) bool {
@@ -98,19 +98,4 @@ func TestMsgStore(t *testing.T) {
 		assert.Equal(t, 0, len(votes))
 	})
 
-}
-func stubVerifier(address common.Address) *types.CommitteeMember {
-	return &types.CommitteeMember{
-		Address:     address,
-		VotingPower: common.Big1,
-	}
-}
-
-func stubVerifierWithPower(power int64) func(address common.Address) *types.CommitteeMember {
-	return func(address common.Address) *types.CommitteeMember {
-		return &types.CommitteeMember{
-			Address:     address,
-			VotingPower: big.NewInt(power),
-		}
-	}
 }

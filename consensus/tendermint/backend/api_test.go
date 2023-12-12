@@ -1,10 +1,11 @@
 package backend
 
 import (
-	"github.com/autonity/autonity/params/generated"
-	"go.uber.org/mock/gomock"
 	"math/big"
 	"testing"
+
+	"github.com/autonity/autonity/params/generated"
+	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -89,10 +90,7 @@ func TestGetCommitteeAtHash(t *testing.T) {
 
 func TestAPIGetContractABI(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	assert.Nil(t, err)
-	_, err = chain.InsertChain(types.Blocks{block})
-	assert.Nil(t, err)
+	advanceBlockchain(t, engine, chain)
 
 	want := generated.AutonityAbi
 
@@ -106,10 +104,7 @@ func TestAPIGetContractABI(t *testing.T) {
 
 func TestAPIGetContractAddress(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	assert.Nil(t, err)
-	_, err = chain.InsertChain(types.Blocks{block})
-	assert.Nil(t, err)
+	advanceBlockchain(t, engine, chain)
 
 	want := autonity.AutonityContractAddress
 

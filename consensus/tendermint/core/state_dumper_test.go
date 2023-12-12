@@ -150,7 +150,11 @@ func randomProposal(t *testing.T) *message.Propose {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
-	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(key, addr))
+	member := types.CommitteeMember{
+		Address:     addr,
+		VotingPower: testPower, //TODO(lorenzo) fine?
+	}
+	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(key, member))
 }
 
 func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wantProposal *message.Propose, wantVerfied bool) {
@@ -167,9 +171,9 @@ func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wan
 }
 
 func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Address) {
-	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
-	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
-	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
+	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testKey, testMember))
+	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testMember))
+	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testMember))
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
 	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)

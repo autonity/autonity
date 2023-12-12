@@ -17,11 +17,10 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
-func makeSigner(key *ecdsa.PrivateKey, addr common.Address) message.Signer {
+func makeSigner(key *ecdsa.PrivateKey, me types.CommitteeMember) message.Signer {
 	return func(hash common.Hash) ([]byte, common.Address, *big.Int) {
 		out, _ := crypto.Sign(hash[:], key)
-		//TODO(lorenzo) fine to return fixed power?
-		return out, addr, big.NewInt(1000)
+		return out, me.Address, me.VotingPower
 	}
 }
 

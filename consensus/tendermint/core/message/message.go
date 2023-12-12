@@ -133,13 +133,6 @@ func (p *Propose) String() string {
 		p.round, p.H(), p.validRound, p.block.Hash().String())
 }
 
-func (p *Propose) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Propose {
-	if err := p.Validate(inCommittee); err != nil {
-		panic("validation failed")
-	}
-	return p
-}
-
 func (p *Propose) ToLight() *LightProposal {
 	return NewLightProposal(p)
 }
@@ -184,6 +177,14 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 		},
 	}
 }
+
+// used in tests. Simulates an unverified proposal coming from a remote peer
+func NewUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) *Propose {
+	propose := NewPropose(r, h, vr, block, signer)
+	propose.unvalidate()
+	return propose
+}
+
 func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()
 	if err != nil {
@@ -364,13 +365,6 @@ func (p *Prevote) Value() common.Hash {
 	return p.value
 }
 
-func (p *Prevote) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Prevote {
-	if err := p.Validate(inCommittee); err != nil {
-		panic("verification failed")
-	}
-	return p
-}
-
 func (p *Prevote) String() string {
 	p.RLock()
 	defer p.RUnlock()
@@ -389,13 +383,6 @@ func (p *Precommit) Code() uint8 {
 
 func (p *Precommit) Value() common.Hash {
 	return p.value
-}
-
-func (p *Precommit) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Precommit {
-	if err := p.Validate(inCommittee); err != nil {
-		panic("verification failed")
-	}
-	return p
 }
 
 func (p *Precommit) String() string {
@@ -446,8 +433,21 @@ func NewPrevote(r int64, h uint64, value common.Hash, signer Signer) *Prevote {
 	return newVote[Prevote](r, h, value, signer)
 }
 
+// used in tests. Simulates an unverified prevote coming from a remote peer
+func NewUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer) *Prevote {
+	prevote := newVote[Prevote](r, h, value, signer)
+	prevote.unvalidate()
+	return prevote
+}
+
 func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommit {
 	return newVote[Precommit](r, h, value, signer)
+}
+
+func NewUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommit {
+	precommit := newVote[Precommit](r, h, value, signer)
+	precommit.unvalidate()
+	return precommit
 }
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
@@ -519,6 +519,13 @@ func (b *base) Sender() common.Address {
 		panic("unverified message")
 	}
 	return b.sender
+}
+
+// used by tests to simulate unverified messages
+func (b *base) unvalidate() {
+	b.verified = false
+	b.power = new(big.Int)
+	b.sender = common.Address{}
 }
 
 func (b *base) H() uint64 {

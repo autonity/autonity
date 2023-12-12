@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
@@ -18,18 +17,12 @@ var (
 
 func defaultSigner(h common.Hash) ([]byte, common.Address, *big.Int) {
 	out, _ := crypto.Sign(h[:], testKey)
-	return out, testAddr, testPower
-}
-func stubVerifier(address common.Address) *types.CommitteeMember {
-	return &types.CommitteeMember{
-		Address:     address,
-		VotingPower: common.Big1,
-	}
+	return out, testAddr, testPower //TODO(Lorenzo) fine to return testpower = 1000?
 }
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
-	msg := newVote[Prevote](1, 1, blockHash, defaultSigner).MustVerify(stubVerifier)
+	msg := newVote[Prevote](1, 1, blockHash, defaultSigner)
 	msg.power = common.Big1
 	ms := NewSet[*Prevote]()
 	ms.Add(msg)
@@ -48,7 +41,7 @@ func TestMessageSetVotesSize(t *testing.T) {
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
-	msg := newVote[Prevote](1, 1, common.Hash{}, defaultSigner).MustVerify(stubVerifier)
+	msg := newVote[Prevote](1, 1, common.Hash{}, defaultSigner)
 	ms := NewSet[*Prevote]()
 	ms.Add(msg)
 	ms.Add(msg)
