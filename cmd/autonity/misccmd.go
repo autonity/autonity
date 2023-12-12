@@ -204,6 +204,9 @@ func genOwnershipProof(ctx *cli.Context) error {
 	treasury := args[0]
 	signatures, err := crypto.AutonityPOPProof(nodePrivateKey, oraclePrivateKey, treasury, validatorKey)
 	if err != nil {
+		if err == hexutil.ErrMissingPrefix {
+			utils.Fatalf("Failed to decode: hex string without 0x prefix")
+		}
 		utils.Fatalf("Failed to generate Autonity POP: %v", err)
 	}
 
@@ -222,7 +225,7 @@ func genNodeKey(ctx *cli.Context) error {
 
 	nodeKey, validatorKey, err := crypto.GenAutonityNodeKey(outKeyFile)
 	if err != nil {
-		utils.Fatalf("Cannot generate Autonity node key: %v", err)
+		utils.Fatalf("could not save key %v", err)
 	}
 
 	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
