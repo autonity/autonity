@@ -23,11 +23,13 @@ import (
 	"math/big"
 	"net"
 
+	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/p2p/enode"
+
+	"golang.org/x/crypto/sha3"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
-	"golang.org/x/crypto/sha3"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -134,7 +136,12 @@ var (
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
 			StabilizationContractConfig: DefaultStabilizationGenesis,
-			SupplyControlConfig:         DefaultSupplyControlGenesis,
+			SupplyControlConfig: &SupplyControlGenesis{
+				InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(
+					new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), // 2^256
+					new(big.Int).Mul(big.NewInt(16), big.NewInt(Ether)),   // 16 * 10^18
+				)),
+			},
 		},
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
@@ -210,7 +217,12 @@ var (
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
 			StabilizationContractConfig: DefaultStabilizationGenesis,
-			SupplyControlConfig:         DefaultSupplyControlGenesis,
+			SupplyControlConfig: &SupplyControlGenesis{
+				InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(
+					new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), // 2^256
+					new(big.Int).Mul(big.NewInt(16), big.NewInt(Ether)),   // 16 * 10^18
+				)),
+			},
 		},
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}

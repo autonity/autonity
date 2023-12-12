@@ -133,7 +133,7 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 		panic("can't ReadMsg before handshake")
 	}
 
-	frame, err := c.session.readFrame(c.conn)
+	frame, snappyByte, err := c.session.readFrame(c.conn)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -144,7 +144,7 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 	wireSize = len(data)
 
 	// If snappy is enabled, verify and decompress message.
-	if c.snappyReadBuffer != nil {
+	if c.snappyReadBuffer != nil && snappyByte == 0xFF {
 		var actualSize int
 		actualSize, err = snappy.DecodedLen(data)
 		if err != nil {
@@ -159,19 +159,20 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 	return code, data, wireSize, err
 }
 
-func (h *sessionState) readFrame(conn io.Reader) ([]byte, error) {
+func (h *sessionState) readFrame(conn io.Reader) ([]byte, byte, error) {
 	h.rbuf.reset()
 
+	zeroByte := byte(0)
 	// Read the frame header.
 	header, err := h.rbuf.read(conn, 32)
 	if err != nil {
-		return nil, err
+		return nil, zeroByte, err
 	}
 
 	// Verify header MAC.
 	wantHeaderMAC := h.ingressMAC.computeHeader(header[:16])
 	if !hmac.Equal(wantHeaderMAC, header[16:]) {
-		return nil, errors.New("bad header MAC")
+		return nil, zeroByte, errors.New("bad header MAC")
 	}
 
 	// Decrypt the frame header to get the frame size.
@@ -182,26 +183,27 @@ func (h *sessionState) readFrame(conn io.Reader) ([]byte, error) {
 	if padding := fsize % 16; padding > 0 {
 		rsize += 16 - padding
 	}
+	snappyByte := header[3]
 
 	// Read the frame content.
 	frame, err := h.rbuf.read(conn, int(rsize))
 	if err != nil {
-		return nil, err
+		return nil, snappyByte, err
 	}
 
 	// Validate frame MAC.
 	frameMAC, err := h.rbuf.read(conn, 16)
 	if err != nil {
-		return nil, err
+		return nil, snappyByte, err
 	}
 	wantFrameMAC := h.ingressMAC.computeFrame(frame)
 	if !hmac.Equal(wantFrameMAC, frameMAC) {
-		return nil, errors.New("bad frame MAC")
+		return nil, snappyByte, errors.New("bad frame MAC")
 	}
 
 	// Decrypt the frame data.
 	h.dec.XORKeyStream(frame, frame)
-	return frame[:fsize], nil
+	return frame[:fsize], snappyByte, nil
 }
 
 // Write writes a message to the connection.
@@ -215,20 +217,22 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
 	if len(data) > maxUint24 {
 		return 0, errPlainMessageTooLarge
 	}
-	if c.snappyWriteBuffer != nil {
+	var snappyByte byte = 0x00
+	if c.snappyWriteBuffer != nil && len(data) > minSizeToCompress {
 		// Ensure the buffer has sufficient size.
 		// Package snappy will allocate its own buffer if the provided
 		// one is smaller than MaxEncodedLen.
 		c.snappyWriteBuffer = growslice(c.snappyWriteBuffer, snappy.MaxEncodedLen(len(data)))
 		data = snappy.Encode(c.snappyWriteBuffer, data)
+		snappyByte = 0xFF
 	}
 
 	wireSize := uint32(len(data))
-	err := c.session.writeFrame(c.conn, code, data)
+	err := c.session.writeFrame(c.conn, code, snappyByte, data)
 	return wireSize, err
 }
 
-func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) error {
+func (h *sessionState) writeFrame(conn io.Writer, code uint64, snappyByte byte, data []byte) error {
 	h.wbuf.reset()
 
 	// Write header.
@@ -238,7 +242,8 @@ func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) erro
 	}
 	header := h.wbuf.appendZero(16)
 	putUint24(uint32(fsize), header)
-	copy(header[3:], zeroHeader)
+	header[3] = snappyByte
+	copy(header[4:], zeroHeader)
 	h.enc.XORKeyStream(header, header)
 
 	// Write header MAC.
@@ -355,6 +360,8 @@ const (
 	shaLen = 32                     // hash length (for nonce etc)
 
 	eciesOverhead = 65 /* pubkey */ + 16 /* IV */ + 32 /* MAC */
+
+	minSizeToCompress = 512 // for smaller packets the compression is ineffective
 )
 
 var (
