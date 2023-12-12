@@ -52,6 +52,7 @@ const BASE_VALIDATOR = {
         "unbondingStake": 0,
         "unbondingShares": 0,
         "key": "0x00",
+        "pop": "0x00",
     };
 
 const GENESIS_PRIVATE_KEYS = [

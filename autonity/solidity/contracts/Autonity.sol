@@ -227,7 +227,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validators[i].state = ValidatorState.active;
             _validators[i].selfUnbondingStakeLocked = 0;
 
-            _registerValidator(_validators[i]);
+            _verifyEnode(_validators[i]);
+            _deployLiquidContract(_validators[i]);
 
             accounts[_validators[i].treasury] += _bondedStake;
             stakeSupply += _bondedStake;
@@ -1002,13 +1003,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         validatorList.push(_validator.nodeAddress);
         validators[_validator.nodeAddress] = _validator;
-    }
-
-    // todo: (Jason) replace this with _verifyAndRegisterValidator() after we ask PoP from genesis config.
-    function _registerValidator(Validator memory _validator) internal {
-        _verifyEnode(_validator);
-        // deploy liquid stake contract
-        _deployLiquidContract(_validator);
     }
 
     function _verifyAndRegisterValidator(Validator memory _validator, bytes memory _signatures) internal {
