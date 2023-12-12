@@ -68,7 +68,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 			validators = append(validators, &params.Validator{
 				NodeAddress:    &nodeAddr,
 				OracleAddress:  crypto.PubkeyToAddress(oracleKey.PublicKey),
-				POP:            pop,
+				Pop:            pop,
 				Enode:          nodes[name].url,
 				Treasury:       nodeAddr,
 				BondedStake:    stake,

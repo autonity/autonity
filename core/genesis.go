@@ -618,7 +618,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			{
 				Treasury:      faucet.Address,
 				OracleAddress: faucet.Address,
-				POP:           pop,
+				Pop:           pop,
 				Enode:         validatorEnode.String(),
 				BondedStake:   new(big.Int).SetUint64(1000),
 				Key:           validatorKey.PublicKey().Marshal(),

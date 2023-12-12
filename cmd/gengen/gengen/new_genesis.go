@@ -211,7 +211,7 @@ func generateValidatorState(validators []*Validator) (
 			Enode:           e.String(),
 			OracleAddress:   oracleAddress,
 			Treasury:        treasuryAddress, // rewards goes here
-			POP:             pop,
+			Pop:             pop,
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
 			Key:             validatorKey.PublicKey().Marshal(),

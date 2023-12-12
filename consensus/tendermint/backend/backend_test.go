@@ -552,7 +552,7 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 			&params.Validator{
 				NodeAddress:   &nodeAddr,
 				OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
-				POP:           pop,
+				Pop:           pop,
 				Treasury:      nodeAddr,
 				Enode:         node.URLv4(),
 				BondedStake:   new(big.Int).SetUint64(100),
