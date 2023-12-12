@@ -1043,10 +1043,3 @@ func makeSigner(key *ecdsa.PrivateKey, val types.CommitteeMember) message.Signer
 		return out, val.Address, val.VotingPower
 	}
 }
-
-func stubVerifier(address common.Address) *types.CommitteeMember {
-	return &types.CommitteeMember{
-		Address:     address,
-		VotingPower: common.Big1,
-	}
-}

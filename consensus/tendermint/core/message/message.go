@@ -1,3 +1,4 @@
+// TODO(lorenzo) might need to update this
 // Package message implements an interface and the three underlying consensus messages types that
 // tendermint is using: Propose, Prevote and Precommit.
 // In addition to that, we have a special type, the "Light Proposal" which is being used for
