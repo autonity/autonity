@@ -428,8 +428,12 @@ var (
 	ValidatorAddress    = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
 	ValidatorEnode      = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 
-	DevModeValidatorKey, _     = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
-	Key                        = DevModeValidatorKey.PublicKey().Marshal()
+	OracleNodeKey          = ValidatorNodeKey
+	OracleAddress          = ValidatorAddress
+	DevModeValidatorKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
+	Key                    = DevModeValidatorKey.PublicKey().Marshal()
+	POP, _                 = crypto.AutonityPOPProof(ValidatorNodeKey, OracleNodeKey, ValidatorAddress.Hex(), DevModeValidatorKey)
+
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
 		EpochPeriod:      5,
@@ -441,8 +445,10 @@ var (
 		TreasuryFee:      0,
 		Validators: []*Validator{
 			{
-				Treasury:       common.Address{},
+				Treasury:       ValidatorAddress,
 				NodeAddress:    &ValidatorAddress,
+				OracleAddress:  OracleAddress,
+				Pop:            POP,
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
 				BondedStake:    new(big.Int).SetUint64(1000),
