@@ -353,17 +353,17 @@ contract Accountability is IAccountability {
         uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
         uint256 _slashingAmount =  (_slashingRate * _availableFunds)/config.slashingRatePrecision;
 
-        // in case of (_slashingAmount = _availableFunds - 1) or 100% slash, we slash all stakes and jailbound the validator
-        if (_slashingAmount > 0 && _slashingAmount >= _availableFunds - 1) {
+        // in case of 100% slash, we jailbound the validator
+        if (_slashingAmount > 0 && _slashingAmount == _availableFunds) {
             _val.bondedStake = 0;
             _val.selfBondedStake = 0;
             _val.selfUnbondingStake = 0;
             _val.unbondingStake = 0;
-            _val.totalSlashed += _availableFunds;
+            _val.totalSlashed += _slashingAmount;
             _val.provableFaultCount += 1;
             _val.state = ValidatorState.jailbound;
             autonity.updateValidatorAndTransferSlashedFunds(_val);
-            emit SlashingEvent(_val.nodeAddress, _availableFunds, 0, true);
+            emit SlashingEvent(_val.nodeAddress, _slashingAmount, 0, true);
             return;
         }
         uint256 _remaining = _slashingAmount;
@@ -396,28 +396,24 @@ contract Accountability is IAccountability {
         // As a reminder, the delegated stake pool is bondedStake - selfBondedStake.
         // if _remaining > 0 then bondedStake = delegated stake, because all selfBondedStake is slashed
         if (_remaining > 0 && (_val.unbondingStake + _val.bondedStake > 0)) {
-            uint256 _unbondingSlash = 0;
-            uint256 _delegatedSlash = 0;
-            // as we cannot store fraction here, we are taking floor for the smaller one between unbondingStake and bondedStake
-            // and ceil for the larger one. In case both variable unbondingStake and bondedStake are positive, this modification
-            // will ensure that no variable reaches 0 too fast where the other one is too big. In this case the bigger one
-            // will reach 0 first, and the smaller one will be 0 or 1.
-            // That means the fairness issue: https://github.com/autonity/autonity/issues/819 will only be triggered if 100% stake
-            // is slashed or (slashingAmount = totalStake - 1)
-            if (_val.unbondingStake <= _val.bondedStake) {
-                _unbondingSlash = (_remaining * _val.unbondingStake) /
+            // as we cannot store fraction here, we are taking floor for both unbondingSlash and delegatedSlash
+            // In case both variable unbondingStake and bondedStake are positive, this modification
+            // will ensure that no variable reaches 0 too fast where the other one is too big. In this case both variables
+            // will reach 0 only when slashed 100%.
+            // That means the fairness issue: https://github.com/autonity/autonity/issues/819 will only be triggered
+            // if 100% stake is slashed
+            uint256 _unbondingSlash = (_remaining * _val.unbondingStake) /
                                         (_val.unbondingStake + _val.bondedStake);
-                _delegatedSlash = _remaining - _unbondingSlash;
-            } else {
-                _delegatedSlash = (_remaining * _val.bondedStake) /
+            uint256 _delegatedSlash = (_remaining * _val.bondedStake) /
                                         (_val.unbondingStake + _val.bondedStake);
-                _unbondingSlash = _remaining - _delegatedSlash;
-            }
             _val.unbondingStake -= _unbondingSlash;
             _val.bondedStake -= _delegatedSlash;
+            _remaining -= _unbondingSlash + _delegatedSlash;
 
         }
 
+        // if positive amount remains
+        _slashingAmount -= _remaining;
         _val.totalSlashed += _slashingAmount;
         _val.provableFaultCount += 1;
         _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
