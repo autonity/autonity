@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"net"
 	"sort"
@@ -590,11 +590,12 @@ func DefaultGoerliGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	validatorKey, err := blst.SecretKeyFromECDSAKey(faucet.PrivateKey.D.Bytes())
+	validatorKey := params.DevModeValidatorKey
+	pop, err := crypto.AutonityPOPProof(faucet.PrivateKey, faucet.PrivateKey, faucet.Address.Hex(), validatorKey)
 	if err != nil {
-		log.Error("Error preparing genesis block for dev mode, err:", err)
-		return nil
+		log.Error("Error preparing Autonity POP for DEV mode, err:", err)
 	}
+
 	testAutonityContractConfig := params.AutonityContractGenesis{
 		MaxCommitteeSize: 1,
 		BlockPeriod:      1,
@@ -607,10 +608,12 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		Treasury:         faucet.Address,
 		Validators: []*params.Validator{
 			{
-				Treasury:    faucet.Address,
-				Enode:       validatorEnode.String(),
-				BondedStake: new(big.Int).SetUint64(1000),
-				Key:         validatorKey.PublicKey().Marshal(),
+				Treasury:      faucet.Address,
+				OracleAddress: faucet.Address,
+				POP:           pop,
+				Enode:         validatorEnode.String(),
+				BondedStake:   new(big.Int).SetUint64(1000),
+				Key:           validatorKey.PublicKey().Marshal(),
 			},
 		},
 	}

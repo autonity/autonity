@@ -32,9 +32,11 @@ type Validator struct {
 	NodeIP net.IP
 	// NodePort is the port that this user's node can be reached at.
 	NodePort int
-	// Key is either a public or private key for the validator node.
-	Key interface{}
-	// Key is either a public or private key for the treasury account.
+	// NodeKey is a private key for the validator node.
+	NodeKey *ecdsa.PrivateKey
+	// OracleKey is a private key for the oracle node.
+	OracleKey *ecdsa.PrivateKey
+	// TreasuryKey is a private key for the treasury account.
 	TreasuryKey *ecdsa.PrivateKey
 	// KeyPath is the file path at which the key is stored.
 	KeyPath string
@@ -182,42 +184,45 @@ func generateValidatorState(validators []*Validator) (
 	genesisValidators = make([]*params.Validator, len(validators))
 	genesisAlloc = make(core.GenesisAlloc, len(validators))
 	for i, u := range validators {
-		var blsPK []byte
-		var pk *ecdsa.PublicKey
-		switch k := u.Key.(type) {
-		case *ecdsa.PublicKey:
-			pk = k
-		case *ecdsa.PrivateKey:
-			pk = &k.PublicKey
-			blsSK, err := blst.SecretKeyFromECDSAKey(k.D.Bytes())
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("cannot generate bls pub key from ecdsa secret key")
-			}
-			blsPK = blsSK.PublicKey().Marshal()
-		default:
-			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
-		}
-		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
-		if u.TreasuryKey == nil {
-			u.TreasuryKey, _ = crypto.GenerateKey()
-		}
-		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		if u.SelfBondedStake > u.Stake {
 			return nil, nil, nil, fmt.Errorf("selfBondedStake (%d) cannot be higher than total stake (%d)", u.SelfBondedStake, u.Stake)
 		}
+		if u.TreasuryKey == nil {
+			u.TreasuryKey, _ = crypto.GenerateKey()
+		}
+		if u.OracleKey == nil {
+			u.OracleKey, _ = crypto.GenerateKey()
+		}
+
+		validatorKey, err := blst.SecretKeyFromRandom32Bytes(u.NodeKey.D.Bytes())
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("cannot derive bls key in gengen")
+		}
+		e := enode.NewV4(&u.NodeKey.PublicKey, u.NodeIP, u.NodePort, u.NodePort)
+
+		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
+		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
+		pop, err := crypto.AutonityPOPProof(u.NodeKey, u.OracleKey, treasuryAddress.Hex(), validatorKey)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("cannot generate Autonity POP in gengen")
+		}
+
 		gu := params.Validator{
 			Enode:           e.String(),
+			OracleAddress:   oracleAddress,
 			Treasury:        treasuryAddress, // rewards goes here
+			POP:             pop,
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
-			Key:             blsPK,
+			Key:             validatorKey.PublicKey().Marshal(),
 		}
-		err := gu.Validate()
+		err = gu.Validate()
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid user: %v", err)
 		}
+
 		genesisValidators[i] = &gu
-		userAddress := crypto.PubkeyToAddress(*pk)
+		userAddress := crypto.PubkeyToAddress(u.NodeKey.PublicKey)
 		if i == 0 {
 			operatorAddress = &userAddress
 		}

@@ -1,7 +1,6 @@
 package gengen
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -80,9 +79,8 @@ func TestEncodeDecodeConsistency(t *testing.T) {
 	require.NoError(t, err)
 	// Set one of the validators to have a publick key, just to cover more code
 	// branches.
-	k, ok := validators[0].Key.(*ecdsa.PrivateKey)
-	require.True(t, ok, "key should be an *ecdsa.PrivateKey")
-	validators[0].Key = k
+	k := validators[0].NodeKey
+	validators[0].NodeKey = k
 	g, err := NewGenesis(validators)
 	require.NoError(t, err)
 	encoded, err := json.Marshal(g)
@@ -102,7 +100,7 @@ func TestGenesisCreationErrors(t *testing.T) {
 	// Validator with nil key
 	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
-	validators[0].Key = nil
+	validators[0].NodeKey = nil
 
 	_, err = NewGenesis(validators)
 	assert.Error(t, err, "validator had nil key")
@@ -110,7 +108,7 @@ func TestGenesisCreationErrors(t *testing.T) {
 	// Validator with key of invalid type
 	validators, err = parseValidators(validValidators)
 	require.NoError(t, err)
-	validators[0].Key = "I am not a key"
+	//validators[0].Key = "I am not a key"
 
 	_, err = NewGenesis(validators)
 	assert.Error(t, err, "validator had invalid type of key")
@@ -190,13 +188,11 @@ func TestKeyRandomGeneration(t *testing.T) {
 
 	// We expect key to have been generated because the file 'key' does not
 	// exist.
-	key1, ok := u.Key.(*ecdsa.PrivateKey)
-	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
+	key1 := u.NodeKey
 
 	u, err = ParseValidator(validator)
 	require.NoError(t, err)
-	key2, ok := u.Key.(*ecdsa.PrivateKey)
-	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
+	key2 := u.NodeKey
 
 	// We expect subsequent runs to generate a different (random) key.
 	assert.NotEqual(t, key1, key2)
@@ -230,13 +226,13 @@ func TestKeysLoadedFromFile(t *testing.T) {
 	validator := "1e12,v,1,:6789," + keyFile1
 	u, err := ParseValidator(validator)
 	assert.NoError(t, err)
-	assert.Equal(t, key1, u.Key)
+	assert.Equal(t, key1, u.NodeKey)
 
 	// Check public key loaded from file
 	validator = "1e12,v,1,:6789," + keyFile2
 	u, err = ParseValidator(validator)
 	assert.NoError(t, err)
-	assert.Equal(t, &key2.PublicKey, u.Key)
+	assert.Equal(t, &key2.PublicKey, u.NodeKey)
 }
 
 // Checks that errors are thrown appropriately in the case of invalid validator

@@ -140,7 +140,7 @@ func generateGenesis(cmd *cobra.Command, args []string) error {
 }
 
 // readKey reads the file and returns a slice of strings one per line.
-func readKey(keyFile string) (interface{}, error) {
+func readKey(keyFile string) (*ecdsa.PrivateKey, error) {
 
 	_, err := os.Stat(keyFile)
 	if os.IsNotExist(err) {
@@ -157,17 +157,7 @@ func readKey(keyFile string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var k interface{}
-	switch len(content) {
-	case 64: // Private key
-		k, err = crypto.PrivECDSAFromHex(content)
-	case 130: // Public key
-		k, err = crypto.PubECDSAFromHex(content)
-	default:
-		return nil, fmt.Errorf("unexpected key length, expecting 64 or 130 hex chars, insted got %d", len(content))
-	}
-	return k, err
+	return crypto.PrivECDSAFromHex(content)
 }
 
 // writeKeys writes the keys to file at path, one per line.
@@ -176,18 +166,9 @@ func writeKeys(validators []*Validator) error {
 		return fmt.Errorf("failed to write key to %q: %v", file, err)
 	}
 	for _, u := range validators {
-		switch k := u.Key.(type) {
-		case *ecdsa.PrivateKey:
-			err := ioutil.WriteFile(u.KeyPath, crypto.PrivECDSAToHex(k), os.ModePerm)
-			if err != nil {
-				return writeErr(u.KeyPath, err)
-			}
-
-		case *ecdsa.PublicKey:
-			err := ioutil.WriteFile(u.KeyPath, crypto.PubECDSAToHex(k), os.ModePerm)
-			if err != nil {
-				return writeErr(u.KeyPath, err)
-			}
+		err := ioutil.WriteFile(u.KeyPath, crypto.PrivECDSAToHex(u.NodeKey), os.ModePerm)
+		if err != nil {
+			return writeErr(u.KeyPath, err)
 		}
 	}
 
@@ -283,7 +264,7 @@ func ParseValidator(u string) (*Validator, error) {
 		NodeIP:     ip,
 		NodePort:   int(port),
 		KeyPath:    keyPath,
-		Key:        key,
+		NodeKey:    key,
 	}
 
 	return validator, nil

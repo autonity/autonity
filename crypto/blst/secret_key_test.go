@@ -2,7 +2,6 @@ package blst
 
 import (
 	"bytes"
-	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -85,12 +84,7 @@ func TestSecretKey_Hex(t *testing.T) {
 	sKey, err := RandKey()
 	require.NoError(t, err)
 
-	str := sKey.Hex()
-	b, err := hex.DecodeString(str[2:])
+	sk, err := SecretKeyFromHex(sKey.Hex()[2:])
 	require.NoError(t, err)
-
-	sk, err := SecretKeyFromBytes(b)
-	require.NoError(t, err)
-
 	require.Equal(t, sKey, sk)
 }

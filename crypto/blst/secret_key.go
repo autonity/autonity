@@ -15,6 +15,24 @@ type bls12SecretKey struct {
 	p *blst.SecretKey
 }
 
+func SecretKeyFromHex(key string) (SecretKey, error) {
+	if len(key) != BLSSecretKeyLength*2 {
+		return nil, ErrSecretHex
+	}
+
+	b, err := hex.DecodeString(key)
+	if err != nil {
+		return nil, err
+	}
+
+	sk, err := SecretKeyFromBytes(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return sk, nil
+}
+
 // RandKey creates a new private key using a random method provided as an io.Reader.
 func RandKey() (SecretKey, error) {
 	// Generate 32 bytes of randomness
@@ -31,12 +49,11 @@ func RandKey() (SecretKey, error) {
 	return secKey, nil
 }
 
-// SecretKeyFromECDSAKey creates a deterministic BLS private key from an ecdsa secret source.
-// todo: (Jason) remove this function on top of node key management since currently there is no place to save BLS key, thus we still derive it from ECDSA.
-func SecretKeyFromECDSAKey(ecdsaKey []byte) (SecretKey, error) {
-	ecdsaKey = common2.LeftPadBytes(ecdsaKey, 32)
+// SecretKeyFromRandom32Bytes is deprecated, please use RandKey() instead. It is only used by gengen for e2e testing.
+func SecretKeyFromRandom32Bytes(rand32Bytes []byte) (SecretKey, error) {
+	rand32Bytes = common2.LeftPadBytes(rand32Bytes, 32)
 
-	blsSK := blst.KeyGen(ecdsaKey)
+	blsSK := blst.KeyGen(rand32Bytes)
 	if blsSK == nil {
 		return nil, ErrSecretConvert
 	}

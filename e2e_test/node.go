@@ -100,7 +100,7 @@ type Node struct {
 // if anything is already bound on that port.
 func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
 
-	k := u.Key.(*ecdsa.PrivateKey)
+	k := u.NodeKey
 	address := crypto.PubkeyToAddress(k.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
@@ -112,7 +112,7 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	}
 
 	// p2p key and address
-	c.P2P.PrivateKey = u.Key.(*ecdsa.PrivateKey)
+	c.P2P.PrivateKey = u.NodeKey
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
 	// Set rpc ports
@@ -635,6 +635,7 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 			return nil, err
 		}
 		u.TreasuryKey, _ = crypto.GenerateKey()
+		u.OracleKey, _ = crypto.GenerateKey()
 		validators = append(validators, u)
 	}
 	return validators, nil

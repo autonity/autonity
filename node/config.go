@@ -405,7 +405,7 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 
-		if c.ValidatorKey, err = blst.SecretKeyFromECDSAKey(key.D.Bytes()); err != nil {
+		if c.ValidatorKey, err = blst.RandKey(); err != nil {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 
@@ -429,7 +429,7 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 		return key
 	}
 
-	validatorKey, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
+	validatorKey, err := blst.RandKey()
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to derive validator key: %v", err))
 	}

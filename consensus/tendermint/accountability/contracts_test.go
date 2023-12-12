@@ -1104,7 +1104,7 @@ func TestPOPVerifier(t *testing.T) {
 	key, err := blst.RandKey()
 	require.NoError(t, err)
 
-	proof, err := crypto.POPProof(key, treasuryAddress.Bytes())
+	proof, err := crypto.BLSPOPProof(key, treasuryAddress.Bytes())
 	require.NoError(t, err)
 
 	popVerifier := &POPVerifier{}

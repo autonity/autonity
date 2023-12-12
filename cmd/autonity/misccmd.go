@@ -202,31 +202,12 @@ func genOwnershipProof(ctx *cli.Context) error {
 	}
 
 	treasury := args[0]
-	data, err := hexutil.Decode(treasury)
+	signatures, err := crypto.AutonityPOPProof(nodePrivateKey, oraclePrivateKey, treasury, validatorKey)
 	if err != nil {
-		utils.Fatalf("Failed to decode: %v", err)
-	}
-	// Add ethereum signed message prefix to maintain compatibility with web3.eth.sign
-	// refer here : https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#sign
-	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(data))
-	hash := crypto.Keccak256Hash([]byte(prefix), data)
-	//sign the data hash
-	nodeSignature, err := crypto.Sign(hash.Bytes(), nodePrivateKey)
-	if err != nil {
-		utils.Fatalf("Failed to sign: %v", err)
-	}
-	oracleSignature, err := crypto.Sign(hash.Bytes(), oraclePrivateKey)
-	if err != nil {
-		utils.Fatalf("Failed to sign: %v", err)
-	}
-
-	keyProof, err := crypto.POPProof(validatorKey, data)
-	if err != nil {
-		utils.Fatalf("Failed to sign bls key owner proof: %v", err)
+		utils.Fatalf("Failed to generate Autonity POP: %v", err)
 	}
 
 	fmt.Println("Validator key hex:", validatorKey.PublicKey().Hex())
-	signatures := append(append(nodeSignature[:], oracleSignature[:]...), keyProof[:]...)
 	hexStr := hexutil.Encode(signatures)
 	fmt.Println("Signatures hex:", hexStr)
 	return nil
@@ -238,19 +219,12 @@ func genNodeKey(ctx *cli.Context) error {
 	if len(outKeyFile) == 0 {
 		utils.Fatalf("Out key file must be provided!! Usage: autonity genNodeKey <outkeyfile> [options]")
 	}
-	nodeKey, err := crypto.GenerateKey()
+
+	nodeKey, validatorKey, err := crypto.GenAutonityNodeKey(outKeyFile)
 	if err != nil {
-		utils.Fatalf("could not generate key: %v", err)
+		utils.Fatalf("Cannot generate Autonity node key: %v", err)
 	}
 
-	// print the node's validator key to on-board validator from genesis config by the system operator.
-	validatorKey, err := blst.SecretKeyFromECDSAKey(nodeKey.D.Bytes())
-	if err != nil {
-		utils.Fatalf("could not generate validator key from node key: %v", err)
-	}
-	if err = crypto.SaveNodeKey(outKeyFile, nodeKey, validatorKey); err != nil {
-		utils.Fatalf("could not save key %v", err)
-	}
 	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
 	if writeAddr {
 		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])

@@ -20,35 +20,35 @@ func TestSaveNodeKey(t *testing.T) {
 	key, err := GenerateKey()
 	require.NoError(t, err)
 
-	derivedKey, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
+	validatorKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	err = SaveNodeKey(file, key, derivedKey)
+	err = SaveNodeKey(file, key, validatorKey)
 	require.NoError(t, err)
 
 	loadedKey, loadedDerivedKey, err := LoadNodeKey(file)
 	require.NoError(t, err)
 
 	require.Equal(t, loadedKey, key)
-	require.Equal(t, loadedDerivedKey, derivedKey)
+	require.Equal(t, loadedDerivedKey, validatorKey)
 }
 
 func TestHexToNodeKey(t *testing.T) {
 	key, err := GenerateKey()
 	require.NoError(t, err)
 
-	derivedKey, err := blst.SecretKeyFromECDSAKey(key.D.Bytes())
+	validatorKey, err := blst.RandKey()
 	require.NoError(t, err)
 
 	keyHex := hex.EncodeToString(FromECDSA(key))
-	derivedKeyHex := hex.EncodeToString(derivedKey.Marshal())
+	derivedKeyHex := hex.EncodeToString(validatorKey.Marshal())
 
 	parsedKey, parsedValidatorKey, err := HexToNodeKey(keyHex + derivedKeyHex)
 	require.NoError(t, err)
 
 	require.Equal(t, key, parsedKey)
 	require.Equal(t, true, key.Equal(parsedKey))
-	require.Equal(t, derivedKey.Hex(), parsedValidatorKey.Hex())
+	require.Equal(t, validatorKey.Hex(), parsedValidatorKey.Hex())
 }
 
 func TestLoadNodeKey(t *testing.T) {
@@ -111,12 +111,31 @@ func TestPOPVerifier(t *testing.T) {
 	validatorKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	proof, err := POPProof(validatorKey, address.Bytes())
+	proof, err := BLSPOPProof(validatorKey, address.Bytes())
 	require.NoError(t, err)
 
 	sig, err := blst.SignatureFromBytes(proof)
 	require.NoError(t, err)
 
-	err = POPVerify(validatorKey.PublicKey(), sig, address.Bytes())
+	err = BLSPOPVerify(validatorKey.PublicKey(), sig, address.Bytes())
+	require.NoError(t, err)
+}
+
+func TestAutonityPOPProof(t *testing.T) {
+	treasury, err := GenerateKey()
+	require.NoError(t, err)
+	nodeKey, err := GenerateKey()
+	require.NoError(t, err)
+	oracleKey, err := GenerateKey()
+	require.NoError(t, err)
+	validatorKey, err := blst.RandKey()
+	require.NoError(t, err)
+
+	msg := PubkeyToAddress(treasury.PublicKey).Hex()
+	autonityPOP, err := AutonityPOPProof(nodeKey, oracleKey, msg, validatorKey)
+	require.NoError(t, err)
+	require.Equal(t, AutonityPOPLen, len(autonityPOP))
+
+	err = AutonityPOPVerify(autonityPOP, msg, PubkeyToAddress(nodeKey.PublicKey), PubkeyToAddress(oracleKey.PublicKey), validatorKey.PublicKey().Marshal())
 	require.NoError(t, err)
 }

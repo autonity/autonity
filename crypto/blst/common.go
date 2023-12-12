@@ -12,6 +12,9 @@ const (
 // ErrSecretConvert describes an error which happens when generating a BLS secret key with ECDSA secret key.
 var ErrSecretConvert = errors.New("could not generate a blst secret key from ecdsa secret key")
 
+// ErrSecretHex describes an error on the wrong hex string of secrete key
+var ErrSecretHex = errors.New("could not generate a blst secret key from hex")
+
 // ErrZeroKey describes an error due to a zero secret key.
 var ErrZeroKey = errors.New("generated secret key is zero")
 
