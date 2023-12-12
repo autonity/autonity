@@ -124,5 +124,6 @@
   "35be16e0": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8))",
   "50d93720": "POP_VERIFIER_CONTRACT()",
   "c13974e1": "ENODE_VERIFIER_CONTRACT()",
-  "d0a6d1a6": "SUCCESS()"
+  "d0a6d1a6": "SUCCESS()",
+  "32f33a37": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,uint8))"
 }
