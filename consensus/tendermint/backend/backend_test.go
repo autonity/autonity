@@ -39,7 +39,7 @@ import (
 var (
 	testAddress = common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
 	testKey, _  = crypto.HexToECDSA("bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1")
-	testPower   = big.NewInt(1000)
+	testPower   = big.NewInt(1)
 	testSigner  = func(data common.Hash) ([]byte, common.Address, *big.Int) {
 		out, _ := crypto.Sign(data[:], testKey)
 		return out, testAddress, testPower

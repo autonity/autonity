@@ -76,7 +76,7 @@ func newProposalMessage(h uint64, r int64, vr int64, signer message.Signer, comm
 	return message.NewPropose(r, h, vr, block, signer)
 }
 
-func newUnverifiedProposalMessage(h uint64, r int64, vr int64, signer message.Signer, committee types.Committee, withValue *types.Block) *message.Propose {
+func newUnverifiedProposalMessage(h uint64, r int64, vr int64, signer message.Signer, committee types.Committee, withValue *types.Block) *message.Propose { //nolint
 	block := withValue
 	if withValue == nil {
 		header := newBlockHeader(h, committee)
