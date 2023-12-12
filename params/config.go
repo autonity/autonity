@@ -507,8 +507,9 @@ var (
 
 func init() {
 	TestAutonityContractConfig.Prepare()
-	PiccaddillyChainConfig.AutonityContractConfig.Prepare()
-	BakerlooChainConfig.AutonityContractConfig.Prepare()
+	// todo: ask Raj to generate POP for Piccaddily and Bakerloo network since we don't know the secret keys.
+	//PiccaddillyChainConfig.AutonityContractConfig.Prepare()
+	//BakerlooChainConfig.AutonityContractConfig.Prepare()
 }
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and

@@ -323,7 +323,7 @@ func (v *Validator) Validate() error {
 
 	err = crypto.AutonityPOPVerify(v.Pop, v.Treasury.Hex(), *v.NodeAddress, v.OracleAddress, v.Key)
 	if err != nil {
-		return errors.New("cannot verify Autonity POP for validators in genesis")
+		return err
 	}
 
 	return nil
