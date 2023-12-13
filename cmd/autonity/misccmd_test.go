@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestGenOwnershipProof(t *testing.T) {
+func TestGenPOP(t *testing.T) {
 
 	tests := []struct {
 		name, nodeKey, oracleKey, treasury, output string
@@ -82,12 +82,12 @@ func TestGenOwnershipProof(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			genOwnershipProofWithExpect(t, test.nodeKey, test.oracleKey, test.treasury, test.output, test.useNodeKeyFile, test.useOracleKeyFile)
+			genPOPWithExpect(t, test.nodeKey, test.oracleKey, test.treasury, test.output, test.useNodeKeyFile, test.useOracleKeyFile)
 		})
 	}
 }
 
-func genOwnershipProofWithExpect(t *testing.T, nodeKey, oracleKey, treasury, expected string, useNodeKeyFile, useOracleKeyFile bool) {
+func genPOPWithExpect(t *testing.T, nodeKey, oracleKey, treasury, expected string, useNodeKeyFile, useOracleKeyFile bool) {
 	dir := tmpdir(t)
 	var geth *testautonity
 	if useNodeKeyFile && useOracleKeyFile {

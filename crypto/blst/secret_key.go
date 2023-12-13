@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	common2 "github.com/autonity/autonity/common"
 	blst "github.com/supranational/blst/bindings/go"
 )
 
@@ -47,22 +46,6 @@ func RandKey() (SecretKey, error) {
 		return nil, ErrZeroKey
 	}
 	return secKey, nil
-}
-
-// SecretKeyFromRandom32Bytes is deprecated, please use RandKey() instead. It is only used by gengen for e2e testing.
-func SecretKeyFromRandom32Bytes(rand32Bytes []byte) (SecretKey, error) {
-	rand32Bytes = common2.LeftPadBytes(rand32Bytes, 32)
-
-	blsSK := blst.KeyGen(rand32Bytes)
-	if blsSK == nil {
-		return nil, ErrSecretConvert
-	}
-
-	wrappedKey := &bls12SecretKey{p: blsSK}
-	if wrappedKey.IsZero() {
-		return nil, ErrZeroKey
-	}
-	return wrappedKey, nil
 }
 
 // SecretKeyFromBytes creates a BLS private key from a BigEndian byte slice.
