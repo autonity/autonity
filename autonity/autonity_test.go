@@ -47,6 +47,8 @@ func BenchmarkComputeCommittee(b *testing.B) {
 		require.NoError(b, err)
 		packedArgs, err := contractAbi.Pack("computeCommittee")
 		require.NoError(b, err)
+		_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+		require.NoError(b, err)
 		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
 	})
 
@@ -63,6 +65,8 @@ func BenchmarkComputeCommittee(b *testing.B) {
 		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
 		require.NoError(b, err)
 		packedArgs, err := contractAbi.Pack("computeCommitteeOptimzed")
+		require.NoError(b, err)
+		_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
 		require.NoError(b, err)
 		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
 	})
