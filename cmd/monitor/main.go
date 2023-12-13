@@ -8,6 +8,7 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/rpc"
 )
@@ -52,6 +53,7 @@ func (s *session) run() {
 
 	fmt.Println("Connected!")
 	s.eth = ethclient.NewClient(rpcClient)
+
 	s.accountability, _ = autonity.NewAccountability(autonity.AccountabilityContractAddress, s.eth)
 	s.aut, _ = autonity.NewAutonity(autonity.AutonityContractAddress, s.eth)
 	faultProofsCh := make(chan *autonity.AccountabilityNewFaultProof)
@@ -59,8 +61,10 @@ func (s *session) run() {
 	slashingCh := make(chan *autonity.AccountabilitySlashingEvent)
 	accusationCh := make(chan *autonity.AccountabilityNewAccusation)
 	innocenceCh := make(chan *autonity.AccountabilityInnocenceProven)
+	newHeadCh := make(chan *types.Header)
 	starBlock := uint64(0)
 	opts := &bind.WatchOpts{Start: &starBlock}
+	s.eth.SubscribeNewHead(nil, newHeadCh)
 	s.accountability.WatchNewFaultProof(opts, faultProofsCh, nil)
 	s.aut.WatchNewEpoch(nil, epochCh)
 	s.accountability.WatchSlashingEvent(opts, slashingCh)
@@ -71,7 +75,7 @@ func (s *session) run() {
 	s.listenSlashingEvent(slashingCh)
 	s.listenNewAccusation(accusationCh)
 	s.listenInnocence(innocenceCh)
-
+	s.listenNewHead(newHeadCh)
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		_, err := s.eth.BlockNumber(ctx)
@@ -177,6 +181,18 @@ func (s *session) listenInnocence(ch chan *autonity.AccountabilityInnocenceProve
 		for ev := range ch {
 			s.Lock()
 			printEvent("Innocence Event", "id", ev.Id, "offender", ev.Offender)
+			s.Unlock()
+		}
+	}()
+}
+
+func (s *session) listenNewHead(ch chan *types.Header) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+	go func() {
+		for ev := range ch {
+			s.Lock()
+			printEvent("New header", "num", ev.Number)
 			s.Unlock()
 		}
 	}()
