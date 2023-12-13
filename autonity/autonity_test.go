@@ -43,6 +43,7 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	require.NoError(b, err)
 	// the first run is different from the rest, because the db is empty and the function will write committee members in db
 	_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+	require.NoError(b, err)
 	gas := uint64(math.MaxUint64)
 	var gasUsed uint64
 
