@@ -358,7 +358,7 @@ func unBondStakeHook(upgradeBlocks map[uint64]struct{}, amount *big.Int) hook {
 		}
 		interaction := interact(validator.rpcPort)
 		defer interaction.close()
-		if _, err := interaction.tx(validator.privateKey).unbond(validator.EthAddress(), amount); err != nil {
+		if _, err := interaction.tx(validator.nodeKey).unbond(validator.EthAddress(), amount); err != nil {
 			return err
 		}
 		return nil
