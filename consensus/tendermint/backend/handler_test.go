@@ -95,6 +95,8 @@ func TestFutureMsg(t *testing.T) {
 		time.Sleep(5 * time.Second)
 
 		// check that not buffered anymore
+		backend.futureLock.RLock()
+		defer backend.futureLock.RUnlock()
 		require.Equal(t, uint64(0), backend.futureSize)
 		require.Len(t, backend.future[futureHeight], 0)
 	})
