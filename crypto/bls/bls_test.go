@@ -148,6 +148,12 @@ func TestFindInvalid(t *testing.T) {
 		require.Empty(t, invalid)
 	})
 
+	t.Run("last invalid", func(t *testing.T) {
+		invalid, err := FindInvalidSignatures([]common.BLSSignature{sigs[0], invalidSig}, []common.BLSPublicKey{pks[0], pks[1]}, [][32]byte{msgs[0], msgs[1]})
+		require.NoError(t, err)
+		require.Len(t, invalid, 1)
+	})
+
 	t.Run("large valid", func(t *testing.T) {
 		invalid, err := FindInvalidSignatures(sigs, pks, msgs)
 		require.NoError(t, err)
@@ -239,6 +245,12 @@ func TestFastFindInvalid(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, invalid, 1)
 		require.Equal(t, 0, invalid[0])
+	})
+
+	t.Run("last invalid", func(t *testing.T) {
+		invalid, err := FindFastInvalidSignatures([]common.BLSSignature{sigs[0], invalidSig}, []common.BLSPublicKey{pks[0], pks[1]}, msg)
+		require.NoError(t, err)
+		require.Len(t, invalid, 1)
 	})
 
 	t.Run("single valid", func(t *testing.T) {

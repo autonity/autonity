@@ -104,7 +104,7 @@ func findInvalidSignaturesRecursive(
 
 	// if we have two elements, no point in further splitting since we need to do
 	// two verifications anyway
-	if end-start <= 1 {
+	if end-start <= 2 {
 
 		var ret []int
 
@@ -113,10 +113,10 @@ func findInvalidSignaturesRecursive(
 			ret = append(ret, start)
 		}
 
-		if start-end == 1 {
-			valid := signatures[end].Verify(pks[end], msgs[end][:])
+		if end-start == 2 {
+			valid := signatures[end-1].Verify(pks[end-1], msgs[end-1][:])
 			if !valid {
-				ret = append(ret, end)
+				ret = append(ret, end-1)
 			}
 		}
 
@@ -188,7 +188,7 @@ func findFastInvalidSignaturesRecursive(
 
 	// if we have two elements, no point in further splitting since we need to do
 	// two verifications anyway
-	if end-start <= 1 {
+	if end-start <= 2 {
 
 		var ret []int
 
@@ -197,10 +197,10 @@ func findFastInvalidSignaturesRecursive(
 			ret = append(ret, start)
 		}
 
-		if start-end == 1 {
-			valid := signatures[end].Verify(pks[end], msg[:])
+		if end-start == 2 {
+			valid := signatures[end-1].Verify(pks[end-1], msg[:])
 			if !valid {
-				ret = append(ret, end)
+				ret = append(ret, end-1)
 			}
 		}
 
