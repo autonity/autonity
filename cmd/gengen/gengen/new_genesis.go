@@ -3,9 +3,8 @@ package gengen
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
-	//"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 	"time"
@@ -38,6 +37,8 @@ type Validator struct {
 	OracleKey *ecdsa.PrivateKey
 	// TreasuryKey is a private key for the treasury account.
 	TreasuryKey *ecdsa.PrivateKey
+	// ConsensusKey is the BLS key for validator who participate in consensus.
+	ConsensusKey blst.SecretKey
 	// KeyPath is the file path at which the key is stored.
 	KeyPath string
 	// TendermintServices is an optional familly of consensus hooks used for testing purposes.
@@ -194,15 +195,15 @@ func generateValidatorState(validators []*Validator) (
 			u.OracleKey, _ = crypto.GenerateKey()
 		}
 
-		validatorKey, err := blst.SecretKeyFromRandom32Bytes(u.NodeKey.D.Bytes())
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot derive bls key in gengen")
+		if u.ConsensusKey == nil {
+			u.ConsensusKey, _ = blst.RandKey()
 		}
+
 		e := enode.NewV4(&u.NodeKey.PublicKey, u.NodeIP, u.NodePort, u.NodePort)
 
 		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
-		pop, err := crypto.AutonityPOPProof(u.NodeKey, u.OracleKey, treasuryAddress.Hex(), validatorKey)
+		pop, err := crypto.AutonityPOPProof(u.NodeKey, u.OracleKey, treasuryAddress.Hex(), u.ConsensusKey)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("cannot generate Autonity POP in gengen")
 		}
@@ -214,7 +215,7 @@ func generateValidatorState(validators []*Validator) (
 			Pop:             pop,
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
-			Key:             validatorKey.PublicKey().Marshal(),
+			Key:             u.ConsensusKey.PublicKey().Marshal(),
 		}
 		err = gu.Validate()
 		if err != nil {

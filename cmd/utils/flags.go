@@ -803,13 +803,13 @@ func setNodeKey(ctx *cli.Context, cfg *node.Config) {
 		if key, validatorKey, err = crypto.LoadNodeKey(file); err != nil {
 			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
 		}
-		cfg.ValidatorKey = validatorKey
+		cfg.ConsensusKey = validatorKey
 		cfg.P2P.PrivateKey = key
 	case hex != "":
 		if key, validatorKey, err = crypto.HexToNodeKey(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
-		cfg.ValidatorKey = validatorKey
+		cfg.ConsensusKey = validatorKey
 		cfg.P2P.PrivateKey = key
 	}
 }

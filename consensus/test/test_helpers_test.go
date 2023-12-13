@@ -90,7 +90,7 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 	}
 
 	nodeConfig := &node.Config{
-		ValidatorKey: consensusKey,
+		ConsensusKey: consensusKey,
 		Name:         "autonity",
 		Version:      params.Version,
 		DataDir:      datadir,

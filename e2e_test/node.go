@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -115,6 +116,9 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	c.P2P.PrivateKey = u.NodeKey
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
+	// consensus key used by consensus engine.
+	c.ConsensusKey = u.ConsensusKey
+
 	// Set rpc ports
 	c.HTTPPort = freeport.GetOne(t)
 	c.WSPort = freeport.GetOne(t)
@@ -169,14 +173,8 @@ func (n *Node) Start() error {
 			n.isRunning = true
 		}
 	}()
-	// Provide a copy of the config to node.New, so that we can rely on
-	// Node.Config field not being manipulated by node and hence use our copy
-	// for black box testing.
-	nodeConfigCopy := &node.Config{}
-	if err = copyNodeConfig(n.Config, nodeConfigCopy); err != nil {
-		return err
-	}
 
+	nodeConfigCopy := *n.Config
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
 	// copy, since it is not useful for black box testing and it is also not
@@ -198,7 +196,7 @@ func (n *Node) Start() error {
 	// set custom tendermint services
 	nodeConfigCopy.SetTendermintServices(n.CustHandler)
 
-	if n.Node, err = node.New(nodeConfigCopy); err != nil {
+	if n.Node, err = node.New(&nodeConfigCopy); err != nil {
 		return err
 	}
 
@@ -636,6 +634,7 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 		}
 		u.TreasuryKey, _ = crypto.GenerateKey()
 		u.OracleKey, _ = crypto.GenerateKey()
+		u.ConsensusKey, _ = blst.RandKey()
 		validators = append(validators, u)
 	}
 	return validators, nil
