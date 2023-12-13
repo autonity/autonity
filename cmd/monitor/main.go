@@ -3,13 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/ethclient"
+	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/rpc"
 )
 
@@ -38,7 +41,7 @@ func (s *session) run() {
 		conn.Close()
 		host := "ws://localhost:" + strings.Trim(string(buf), "\x00")
 	*/
-	host := "wss://rpc1.piccadilly.autonity.org:8546"
+	host := "wss://rpc1.piccadilly.autonity.org/ws"
 	connected := false
 	var rpcClient *rpc.Client
 	for !connected {
@@ -63,19 +66,25 @@ func (s *session) run() {
 	innocenceCh := make(chan *autonity.AccountabilityInnocenceProven)
 	newHeadCh := make(chan *types.Header)
 	starBlock := uint64(0)
-	opts := &bind.WatchOpts{Start: &starBlock}
-	s.eth.SubscribeNewHead(nil, newHeadCh)
-	s.accountability.WatchNewFaultProof(opts, faultProofsCh, nil)
+	opts := &bind.FilterOpts{Start: starBlock}
+	s.eth.SubscribeNewHead(context.Background(), newHeadCh)
+
+	s.accountability.WatchNewFaultProof(nil, faultProofsCh, nil)
 	s.aut.WatchNewEpoch(nil, epochCh)
-	s.accountability.WatchSlashingEvent(opts, slashingCh)
-	s.accountability.WatchNewAccusation(opts, accusationCh, nil)
-	s.accountability.WatchInnocenceProven(opts, innocenceCh, nil)
+	s.accountability.WatchSlashingEvent(nil, slashingCh)
+	s.accountability.WatchNewAccusation(nil, accusationCh, nil)
+	s.accountability.WatchInnocenceProven(nil, innocenceCh, nil)
 	s.listenFaultProofs(faultProofsCh)
 	s.listenNewEpoch(epochCh)
 	s.listenSlashingEvent(slashingCh)
 	s.listenNewAccusation(accusationCh)
 	s.listenInnocence(innocenceCh)
-	s.listenNewHead(newHeadCh)
+	//s.listenNewHead(newHeadCh)
+	iter, _ := s.accountability.FilterNewFaultProof(opts, nil)
+	for iter.Next() {
+		faultProofsCh <- iter.Event
+	}
+
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		_, err := s.eth.BlockNumber(ctx)
@@ -133,30 +142,53 @@ func (s *session) listenSlashingEvent(ch chan *autonity.AccountabilitySlashingEv
 }
 
 func (s *session) listenFaultProofs(ch chan *autonity.AccountabilityNewFaultProof) {
+
 	s.wg.Add(1)
 	defer s.wg.Done()
+	slashingCount := 0
 	go func() {
 		for {
 			f, ok := <-ch
 			if !ok {
 				return
 			}
+			slashingCount++
 			ev, _ := s.accountability.Events(nil, f.Id)
 			val, _ := s.aut.GetValidator(nil, f.Offender)
+			block, _ := s.eth.BlockByNumber(context.Background(), ev.Block)
 			s.Lock()
-			printEvent("Accountability Event", "offender:", f.Offender, "severity:", f.Severity, "id:", f.Id, "block:", f.Raw.BlockNumber)
+			printEvent("Accountability Event", autonity.AccountabilityEventType(ev.EventType))
+			fmt.Println("> Event data:")
+			fmt.Println("  Offender              ", f.Offender)
+			fmt.Println("  Reporting Block       ", f.Raw.BlockNumber)
+			fmt.Println("  Event ID              ", f.Id)
+			fmt.Println("  Severity              ", f.Severity)
 			fmt.Println("> Proof data:")
 			fmt.Println("  Rule                  ", autonity.Rule(ev.Rule))
 			fmt.Println("  Offense Block         ", ev.Block)
 			fmt.Println("  Epoch                 ", ev.Epoch)
+			fmt.Println("  Time                  ", time.Unix(int64(block.Time()), 0))
 			fmt.Println("  Event Type            ", autonity.AccountabilityEventType(ev.EventType))
 			fmt.Println("  Reporter              ", ev.Reporter)
+			switch autonity.Rule(ev.Rule) {
+			case autonity.Equivocation:
+				p := new(accountability.Proof)
+				if err := rlp.DecodeBytes(ev.RawProof, &p); err != nil {
+					fmt.Println("PROOF NOT DECODED!!       ", err)
+					break
+				}
+				fmt.Println(" Faulty Vote 1", p.Message)
+				for i := range p.Evidences {
+					fmt.Println(" Faulty Vote "+strconv.Itoa(i+2), p.Evidences[i])
+				}
+			}
 			fmt.Println("> Validator data (pre-slashing):")
 			fmt.Println("  Total bonded stake    ", val.BondedStake)
 			fmt.Println("  Self bonded stake     ", val.SelfBondedStake)
 			fmt.Println("  Total Slashed         ", val.TotalSlashed)
 			fmt.Println("  Provable faults count ", val.ProvableFaultCount)
 			fmt.Println("")
+			fmt.Println("Total Chain Slashings   ", slashingCount)
 			s.Unlock()
 		}
 	}()
