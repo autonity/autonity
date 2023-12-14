@@ -568,7 +568,9 @@ func (b *base) Validate(inCommittee func(address common.Address) *types.Committe
 	b.Lock()
 	defer b.Unlock()
 	if b.verified {
-		return nil
+		// TODO(lorenzo) restore the return nil, this is just a test
+		panic("Validating already verified message")
+		//return nil
 	}
 	// We are not saving the rlp encoded signature input data as we want
 	// to avoid this extra-serialization step if the message has already been received
