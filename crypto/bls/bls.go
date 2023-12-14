@@ -75,38 +75,38 @@ func RandKey() (common.BLSSecretKey, error) {
 	return blst.RandKey()
 }
 
-func FindInvalidSignatures(signatures []common.BLSSignature, pks []common.BLSPublicKey, msgs [][32]byte) ([]int, error) {
+func FindInvalidSignatures(signatures []common.BLSSignature, pks []common.BLSPublicKey, msgs [][32]byte) ([]uint, error) {
 	if len(signatures) != len(pks) && len(pks) != len(msgs) {
 		return nil, fmt.Errorf("invalid arguments, length mismatch")
 	}
 	if len(signatures) == 0 {
 		return nil, nil
 	}
-	return findInvalidSignaturesRecursive(signatures, pks, msgs, 0, len(signatures))
+	return findInvalidSignaturesRecursive(signatures, pks, msgs, 0, uint(len(signatures)))
 }
 
-func FindFastInvalidSignatures(signatures []common.BLSSignature, pks []common.BLSPublicKey, msg [32]byte) ([]int, error) {
+func FindFastInvalidSignatures(signatures []common.BLSSignature, pks []common.BLSPublicKey, msg [32]byte) ([]uint, error) {
 	if len(signatures) != len(pks) {
 		return nil, fmt.Errorf("invalid arguments, length mismatch")
 	}
 	if len(signatures) == 0 {
 		return nil, nil
 	}
-	return findFastInvalidSignaturesRecursive(signatures, pks, msg, 0, len(signatures))
+	return findFastInvalidSignaturesRecursive(signatures, pks, msg, 0, uint(len(signatures)))
 }
 
 func findInvalidSignaturesRecursive(
 	signatures []common.BLSSignature,
 	pks []common.BLSPublicKey,
 	msgs [][32]byte,
-	start, end int,
-) ([]int, error) {
+	start, end uint,
+) ([]uint, error) {
 
 	// if we have two elements, no point in further splitting since we need to do
 	// two verifications anyway
 	if end-start <= 2 {
 
-		var ret []int
+		var ret []uint
 
 		valid := signatures[start].Verify(pks[start], msgs[start][:])
 		if !valid {
@@ -122,75 +122,72 @@ func findInvalidSignaturesRecursive(
 
 		return ret, nil
 
-	} else {
-		pivot := start + ((end - start) / 2)
-
-		var leftInvalid []int
-		var rightInvalid []int
-
-		wg := sync.WaitGroup{}
-
-		//left
-
-		var leftErr error
-		var rightErr error
-
-		wg.Add(1)
-
-		go func() {
-			//func() {
-			aggSig := AggregateSignatures(signatures[start:pivot])
-			verified := aggSig.AggregateVerify(pks[start:pivot], msgs[start:pivot])
-
-			if !verified {
-				leftInvalid, leftErr = findInvalidSignaturesRecursive(signatures, pks, msgs, start, pivot)
-			}
-			wg.Done()
-
-		}()
-
-		//right
-		wg.Add(1)
-
-		go func() {
-			//func() {
-
-			aggSig := AggregateSignatures(signatures[pivot:end])
-			verified := aggSig.AggregateVerify(pks[pivot:end], msgs[pivot:end])
-
-			if !verified {
-
-				rightInvalid, rightErr = findInvalidSignaturesRecursive(signatures, pks, msgs, pivot, end)
-
-			}
-			wg.Done()
-		}()
-
-		wg.Wait()
-
-		if leftErr != nil {
-			return nil, fmt.Errorf("recursive check failed for %d %d", start, pivot)
-		}
-		if rightErr != nil {
-			return nil, fmt.Errorf("recursive check failed for %d %d", pivot, end)
-		}
-
-		return append(leftInvalid, rightInvalid...), nil
 	}
+	pivot := start + ((end - start) / 2)
+
+	var leftInvalid []uint
+	var rightInvalid []uint
+
+	wg := sync.WaitGroup{}
+
+	//left
+
+	var leftErr error
+	var rightErr error
+
+	wg.Add(1)
+
+	go func() {
+		aggSig := AggregateSignatures(signatures[start:pivot])
+		verified := aggSig.AggregateVerify(pks[start:pivot], msgs[start:pivot])
+
+		if !verified {
+			leftInvalid, leftErr = findInvalidSignaturesRecursive(signatures, pks, msgs, start, pivot)
+		}
+		wg.Done()
+
+	}()
+
+	//right
+	wg.Add(1)
+
+	go func() {
+		aggSig := AggregateSignatures(signatures[pivot:end])
+		verified := aggSig.AggregateVerify(pks[pivot:end], msgs[pivot:end])
+
+		if !verified {
+
+			rightInvalid, rightErr = findInvalidSignaturesRecursive(signatures, pks, msgs, pivot, end)
+
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if leftErr != nil {
+		return nil, fmt.Errorf("recursive check failed for %d %d", start, pivot)
+	}
+	if rightErr != nil {
+		return nil, fmt.Errorf("recursive check failed for %d %d", pivot, end)
+	}
+
+	return append(leftInvalid, rightInvalid...), nil
+
 }
 
 func findFastInvalidSignaturesRecursive(
 	signatures []common.BLSSignature,
 	pks []common.BLSPublicKey,
 	msg [32]byte,
-	start, end int,
-) ([]int, error) {
+	start, end uint,
+) ([]uint, error) {
 
 	// if we have two elements, no point in further splitting since we need to do
 	// two verifications anyway
 	if end-start <= 2 {
 
-		var ret []int
+		var ret []uint
 
 		valid := signatures[start].Verify(pks[start], msg[:])
 		if !valid {
@@ -205,60 +202,57 @@ func findFastInvalidSignaturesRecursive(
 		}
 
 		return ret, nil
-
-	} else {
-		pivot := start + ((end - start) / 2)
-
-		var leftInvalid []int
-		var rightInvalid []int
-
-		wg := sync.WaitGroup{}
-
-		//left
-
-		var leftErr error
-		var rightErr error
-
-		wg.Add(1)
-
-		go func() {
-			//func() {
-			aggSig := AggregateSignatures(signatures[start:pivot])
-			verified := aggSig.FastAggregateVerify(pks[start:pivot], msg)
-
-			if !verified {
-				leftInvalid, leftErr = findFastInvalidSignaturesRecursive(signatures, pks, msg, start, pivot)
-			}
-			wg.Done()
-
-		}()
-
-		//right
-		wg.Add(1)
-
-		go func() {
-			//func() {
-
-			aggSig := AggregateSignatures(signatures[pivot:end])
-			verified := aggSig.FastAggregateVerify(pks[pivot:end], msg)
-
-			if !verified {
-
-				rightInvalid, rightErr = findFastInvalidSignaturesRecursive(signatures, pks, msg, pivot, end)
-
-			}
-			wg.Done()
-		}()
-
-		wg.Wait()
-
-		if leftErr != nil {
-			return nil, fmt.Errorf("recursive check failed for %d %d", start, pivot)
-		}
-		if rightErr != nil {
-			return nil, fmt.Errorf("recursive check failed for %d %d", pivot, end)
-		}
-
-		return append(leftInvalid, rightInvalid...), nil
 	}
+
+	pivot := start + ((end - start) / 2)
+
+	var leftInvalid []uint
+	var rightInvalid []uint
+
+	wg := sync.WaitGroup{}
+
+	//left
+
+	var leftErr error
+	var rightErr error
+
+	wg.Add(1)
+
+	go func() {
+		aggSig := AggregateSignatures(signatures[start:pivot])
+		verified := aggSig.FastAggregateVerify(pks[start:pivot], msg)
+
+		if !verified {
+			leftInvalid, leftErr = findFastInvalidSignaturesRecursive(signatures, pks, msg, start, pivot)
+		}
+		wg.Done()
+
+	}()
+
+	//right
+	wg.Add(1)
+
+	go func() {
+		aggSig := AggregateSignatures(signatures[pivot:end])
+		verified := aggSig.FastAggregateVerify(pks[pivot:end], msg)
+
+		if !verified {
+
+			rightInvalid, rightErr = findFastInvalidSignaturesRecursive(signatures, pks, msg, pivot, end)
+
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if leftErr != nil {
+		return nil, fmt.Errorf("recursive check failed for %d %d", start, pivot)
+	}
+	if rightErr != nil {
+		return nil, fmt.Errorf("recursive check failed for %d %d", pivot, end)
+	}
+
+	return append(leftInvalid, rightInvalid...), nil
+
 }
