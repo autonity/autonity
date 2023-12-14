@@ -45,7 +45,7 @@ func (s *randomBytesBroadcaster) Broadcast(_ message.Msg) {
 // We expect other nodes to detect this misbehaviour and discard these messages
 // Receiving nodes should also disconnect misbehaving nodes
 func TestRandomBytesBroadcaster(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users
@@ -83,7 +83,7 @@ func (s *garbageMessageBroadcaster) Broadcast(_ message.Msg) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbageMessageBroadcaster(t *testing.T) {
 	t.Skip("not supported currently, only exported fields can be fuzzed")
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users
@@ -140,7 +140,7 @@ func (c *garbagePrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbagePrecommitter(t *testing.T) {
 	t.Skip("not supported currently, only exported fields can be fuzzed")
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users
@@ -197,7 +197,7 @@ func (c *garbagePrevoter) SendPrevote(_ context.Context, isNil bool) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbagePrevoter(t *testing.T) {
 	t.Skip("not supported currently, only exported fields can be fuzzed")
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users
@@ -292,7 +292,7 @@ func (c *garbageProposer) SendProposal(_ context.Context, p *types.Block) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbageProposer(t *testing.T) {
 	t.Skip("not supported currently, only exported fields can be fuzzed")
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users

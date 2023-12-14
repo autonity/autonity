@@ -2,6 +2,7 @@ package gengen
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -13,7 +14,7 @@ import (
 )
 
 var (
-	validValidators = []string{"1e12,v,1,:6789,key1", "1e12,p,1,:6780,key3"}
+	validValidators = []string{"1e12,v,1,:6789,nodeKey1,oracleKey1,treasuryKey1", "1e12,p,1,:6780,nodeKey3,oracleKey3,treasuryKey3"}
 )
 
 // This test runs the command and checks that the output is can be json
@@ -92,9 +93,7 @@ func TestEncodeDecodeConsistency(t *testing.T) {
 	assert.Equal(t, g, decoded)
 }
 
-// Todo: (Jason) refactor the gengen tool to create custom genesis with POP and Autonity Node key.
 func TestGenesisCreationErrors(t *testing.T) {
-	t.Skip("rewrite this genesis creation test")
 	// nil validators
 	_, err := NewGenesis(nil)
 	assert.Error(t, err, "no validators provided")
@@ -106,10 +105,6 @@ func TestGenesisCreationErrors(t *testing.T) {
 
 	_, err = NewGenesis(validators)
 	assert.Error(t, err, "validator had nil key")
-
-	// Invalid validator type
-	validators, err = parseValidators(validValidators)
-	require.NoError(t, err)
 }
 
 // Checks that errors are thrown appropriately in the case of invalid validators.
@@ -175,7 +170,7 @@ func TestValidatorParsingErrors(t *testing.T) {
 
 // Checks that when there is no file provided the keys are generated for validators.
 func TestKeyRandomGeneration(t *testing.T) {
-	validator := "1e12,v,1,:6789,key"
+	validator := "1e12,v,1,:6789,nodeKey,oracleKey,treasuryKey"
 
 	u, err := ParseValidator(validator)
 	require.NoError(t, err)
@@ -208,10 +203,10 @@ func TestKeysLoadedFromFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check private key loaded from file
-	validator := "1e12,v,1,:6789," + keyFile1
+	validator := fmt.Sprintf("1e12,v,1,:6789,nodeKey,oracleKey,%s", keyFile1)
 	u, err := ParseValidator(validator)
 	assert.NoError(t, err)
-	assert.Equal(t, key1, u.NodeKey)
+	assert.Equal(t, key1, u.TreasuryKey)
 }
 
 // Checks that errors are thrown appropriately in the case of invalid validator
@@ -226,7 +221,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err := ioutil.WriteFile(keyFile, []byte("kjcld"), os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = readKey(keyFile)
+	_, _, err = readNodeKey(keyFile)
 	assert.Error(t, err, "garbage provided in key file")
 
 	// Write a private key missing the last hex char
@@ -236,7 +231,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err = ioutil.WriteFile(keyFile, data[:len(data)-1], os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = readKey(keyFile)
+	_, _, err = readNodeKey(keyFile)
 	assert.Error(t, err, "invalid key provided in key file")
 
 	// Write a public key missing the last hex char
@@ -244,7 +239,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err = ioutil.WriteFile(keyFile, data[:len(data)-1], os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = readKey(keyFile)
+	_, _, err = readNodeKey(keyFile)
 	assert.Error(t, err, "invalid key provided in key file")
 }
 

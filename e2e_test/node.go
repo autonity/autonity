@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -623,7 +622,7 @@ func ValueTransferTransaction(client *ethclient.Client,
 // The format string should follow the format defined for users in the gengen
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
-// E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s'.
+// E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s,%s,%s'.
 func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validator, error) {
 	var validators []*gengen.Validator
 	for i := 0; i < count; i++ {
@@ -632,9 +631,6 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 		if err != nil {
 			return nil, err
 		}
-		u.TreasuryKey, _ = crypto.GenerateKey()
-		u.OracleKey, _ = crypto.GenerateKey()
-		u.ConsensusKey, _ = blst.RandKey()
 		validators = append(validators, u)
 	}
 	return validators, nil

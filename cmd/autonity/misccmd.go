@@ -88,7 +88,7 @@ The output of this command is supposed to be machine-readable.
 		},
 		Description: `
     	autonity genNodeKey <outkeyfile>
-		Generate node key and its derived validator private key to the given file.
+		Generate node key and its consensus key to the given file.
 		write out the node address and the validator key on stdout using flag --writeaddress`,
 		ArgsUsage: "<outkeyfile>",
 		Category:  "MISCELLANEOUS COMMANDS",
@@ -223,8 +223,12 @@ func genNodeKey(ctx *cli.Context) error {
 		utils.Fatalf("Out key file must be provided!! Usage: autonity genNodeKey <outkeyfile> [options]")
 	}
 
-	nodeKey, consensusKey, err := crypto.GenAutonityNodeKey(outKeyFile)
+	nodeKey, consensusKey, err := crypto.GenAutonityNodeKey()
 	if err != nil {
+		utils.Fatalf("could not generate node key %v", err)
+	}
+
+	if err = crypto.SaveNodeKey(outKeyFile, nodeKey, consensusKey); err != nil {
 		utils.Fatalf("could not save key %v", err)
 	}
 

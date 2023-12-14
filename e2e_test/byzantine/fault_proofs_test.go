@@ -20,7 +20,7 @@ func runTest(t *testing.T, services *interfaces.Services, eventType autonity.Acc
 
 	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s")
+	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set Malicious validators

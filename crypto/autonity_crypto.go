@@ -241,7 +241,7 @@ func POPMsgHash(msg []byte) common.Hash {
 	return hash
 }
 
-func GenAutonityNodeKey(keyFile string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
+func GenAutonityNodeKey() (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	nodeKey, err := GenerateKey()
 	if err != nil {
 		return nil, nil, err
@@ -250,10 +250,6 @@ func GenAutonityNodeKey(keyFile string) (*ecdsa.PrivateKey, blst.SecretKey, erro
 	// generate random bls key, and save both node key and the validator key in node key file.
 	consensusKey, err := blst.RandKey()
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if err = SaveNodeKey(keyFile, nodeKey, consensusKey); err != nil {
 		return nil, nil, err
 	}
 

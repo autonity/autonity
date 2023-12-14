@@ -39,8 +39,12 @@ type Validator struct {
 	TreasuryKey *ecdsa.PrivateKey
 	// ConsensusKey is the BLS key for validator who participate in consensus.
 	ConsensusKey blst.SecretKey
-	// KeyPath is the file path at which the key is stored.
-	KeyPath string
+	// NodeKeyPath is the file path at which the node key is stored.
+	NodeKeyPath string
+	// OracleKeyPath is the file path at which the oracle key is stored.
+	OracleKeyPath string
+	// TreasuryKeyPath is the file path at which the treasury account key is stored.
+	TreasuryKeyPath string
 	// TendermintServices is an optional familly of consensus hooks used for testing purposes.
 	TendermintServices *interfaces.Services
 }
@@ -188,15 +192,9 @@ func generateValidatorState(validators []*Validator) (
 		if u.SelfBondedStake > u.Stake {
 			return nil, nil, nil, fmt.Errorf("selfBondedStake (%d) cannot be higher than total stake (%d)", u.SelfBondedStake, u.Stake)
 		}
-		if u.TreasuryKey == nil {
-			u.TreasuryKey, _ = crypto.GenerateKey()
-		}
-		if u.OracleKey == nil {
-			u.OracleKey, _ = crypto.GenerateKey()
-		}
 
-		if u.ConsensusKey == nil {
-			u.ConsensusKey, _ = blst.RandKey()
+		if u.NodeKey == nil || u.ConsensusKey == nil || u.OracleKey == nil || u.TreasuryKey == nil {
+			return nil, nil, nil, fmt.Errorf("validator had nil key")
 		}
 
 		e := enode.NewV4(&u.NodeKey.PublicKey, u.NodeIP, u.NodePort, u.NodePort)
