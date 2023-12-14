@@ -91,6 +91,7 @@ func (c *Core) processBacklog() {
 		c.backlogs[src] = backlog
 
 	}
+	//TODO(lorenzo do we need parallelization)
 	// process future height messages
 	go c.backend.ProcessFutureMsgs(c.Height().Uint64())
 }

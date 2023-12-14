@@ -76,7 +76,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
 	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
-	//TODO(lorenzo) should we ignore also sync and off-chain acc from jailed validator?
+	//TODO(lorenzo) should we ignore also sync and off-chain accountability messages from jailed validator?
 	case SyncNetworkMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Sync message received but core not running")
@@ -152,7 +152,6 @@ func handleConsensusMsg[T any, PT interface {
 	return sb.handleDecodedMsg(msg, errCh)
 }
 
-// TODO(lorenzo) do I need generics?
 func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, error) {
 	header := sb.BlockChain().GetHeaderByNumber(msg.H() - 1)
 	if header == nil {
@@ -194,7 +193,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, 
 	return true, nil
 }
 
-// TODO(lorenzo) do I need generics?
 func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
 	// create event that will be re-injected in handleDecodedMsg when we reach the correct height
 	e := &events.MessageEvent{
@@ -222,6 +220,7 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
 		if ok {
 			sb.futureSize -= uint64(len(maxHeightEvs))
 			// remove messages from knowMessages cache so they can be received again
+			//TODO(lorenzo) not sure whether it is really worth it to do in a go routine
 			go func(evs []*events.MessageEvent) {
 				for _, e := range evs {
 					sb.knownMessages.Remove(e.Message.Hash())
@@ -240,7 +239,6 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
 	}
 }
 
-// TODO(lorenzo) do I need generics?
 // re-inject future height messages
 func (sb *Backend) ProcessFutureMsgs(height uint64) {
 	sb.futureLock.Lock()

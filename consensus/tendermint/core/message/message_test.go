@@ -28,6 +28,9 @@ var (
 	}
 )
 
+// TODO: add tests that check decoding failure in invalid msg cases (e.g. round < 0, height < 0, etc.)
+// TODO: add LightProposal tests
+
 func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
 		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner)
@@ -65,6 +68,7 @@ func TestMessageDecode(t *testing.T) {
 	})
 	t.Run("propose", func(t *testing.T) {
 		//todo: ...
+		// remember to test proposal with vr >= 0 and vr==-1
 	})
 }
 
@@ -151,5 +155,4 @@ func FuzzFromPayload(f *testing.F) {
 		var p Prevote
 		rlp.Decode(bytes.NewReader(seed), &p)
 	})
-
 }

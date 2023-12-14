@@ -29,7 +29,6 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
-	// TODO(lorenzo) why did I move it here?
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
 
@@ -129,8 +128,10 @@ eventLoop:
 				}
 				c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
 			case backlogMessageEvent:
-				// No need to check signature for internal messages
 				// TODO(lorenzo) should we check for disconnection also here?
+				// I am not sure we can get the error ch though
+
+				// No need to check signature for internal messages
 				c.logger.Debug("Started handling consensus backlog event")
 				if err := c.handleMsg(ctx, e.msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)

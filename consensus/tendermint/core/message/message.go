@@ -1,4 +1,7 @@
-// TODO(lorenzo) might need to update this
+// TODO(lorenzo) this documentation is out of date:
+// - FromWire does not exist anymore (I think)
+// - We can now instantiate unverified messages for testing purposes
+//
 // Package message implements an interface and the three underlying consensus messages types that
 // tendermint is using: Propose, Prevote and Precommit.
 // In addition to that, we have a special type, the "Light Proposal" which is being used for
@@ -568,9 +571,7 @@ func (b *base) Validate(inCommittee func(address common.Address) *types.Committe
 	b.Lock()
 	defer b.Unlock()
 	if b.verified {
-		// TODO(lorenzo) restore the return nil, this is just a test
-		panic("Validating already verified message")
-		//return nil
+		return nil
 	}
 	// We are not saving the rlp encoded signature input data as we want
 	// to avoid this extra-serialization step if the message has already been received

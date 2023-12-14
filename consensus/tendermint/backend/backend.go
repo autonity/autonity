@@ -120,6 +120,7 @@ type Backend struct {
 	jailedLock sync.RWMutex
 
 	// buffer for future height events and related metadata
+	// TODO(lorenzo) wrap this stuff into a separate struct?
 	future          map[uint64][]*events.MessageEvent
 	futureMinHeight uint64
 	futureMaxHeight uint64

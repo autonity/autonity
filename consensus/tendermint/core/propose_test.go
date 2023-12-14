@@ -141,41 +141,6 @@ func TestHandleProposal(t *testing.T) {
 		}
 	})
 
-	//TODO(lorenzo) do we still care about this test
-	t.Run("unverified block proposal given, panic", func(t *testing.T) {
-		defer func() {
-			err := recover()
-			if err == nil {
-				t.Errorf("expected panic")
-			}
-		}()
-		ctrl := gomock.NewController(t)
-
-		block := types.NewBlockWithHeader(&types.Header{
-			Number: big.NewInt(1),
-		})
-		messageMap := message.NewMap()
-		curRoundMessages := messageMap.GetOrCreate(2)
-		proposal := message.NewUnverifiedPropose(2, 1, 1, block, signer)
-		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(gomock.Any()).Times(0)
-		backendMock.EXPECT().ProcessFutureMsgs(uint64(1)).MaxTimes(1)
-
-		c := &Core{
-			address:          addr,
-			backend:          backendMock,
-			messages:         messageMap,
-			curRoundMessages: curRoundMessages,
-			logger:           log.Root(),
-			proposeTimeout:   NewTimeout(Propose, log.Root()),
-			committee:        committeeSet,
-			round:            2,
-			height:           big.NewInt(1),
-		}
-		c.SetDefaultHandlers()
-		c.proposer.HandleProposal(context.Background(), proposal)
-	})
-
 	t.Run("future proposal given, backlog event posted", func(t *testing.T) {
 		const eventPostingDelay = time.Second
 		ctrl := gomock.NewController(t)

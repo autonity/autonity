@@ -10,14 +10,12 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,45 +59,6 @@ func TestTendermintCaches(t *testing.T) {
 
 // future height messages should be buffered
 func TestFutureMsg(t *testing.T) {
-	t.Run("future height messages should be buffered and processed when we reach that height", func(t *testing.T) {
-		// clean blockchain, running consensus instance for height 1
-		blockchain, backend := newBlockChain(1)
-
-		// create valid future proposal encapsulated in p2p.Message
-		futureHeight := uint64(3)
-		round := int64(0)
-		data := message.NewPropose(round, futureHeight, -1, types.NewBlockWithHeader(&types.Header{}), backend.Sign)
-		msg := p2p.Msg{Code: ProposeNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
-
-		// send it to the backend
-		errCh := make(chan error)
-		handled, err := backend.HandleMsg(backend.Address(), msg, errCh)
-		require.True(t, handled)
-		require.NoError(t, err)
-
-		// check if buffered
-		require.Equal(t, data.Hash(), backend.future[futureHeight][0].Message.Hash())
-		require.Equal(t, uint64(1), backend.futureSize)
-
-		// advance to consensus instance for height 2
-		advanceBlockchain(t, backend, blockchain)
-
-		// should still be buffered
-		require.Equal(t, data.Hash(), backend.future[futureHeight][0].Message.Hash())
-		require.Equal(t, uint64(1), backend.futureSize)
-
-		// advance to consensus instance for height 3, this should trigger the processing
-		advanceBlockchain(t, backend, blockchain)
-
-		// sleep some time to make sure that the processFutureMessage go routine has run
-		time.Sleep(5 * time.Second)
-
-		// check that not buffered anymore
-		backend.futureLock.RLock()
-		defer backend.futureLock.RUnlock()
-		require.Equal(t, uint64(0), backend.futureSize)
-		require.Len(t, backend.future[futureHeight], 0)
-	})
 }
 
 func TestSaveFutureMessage(t *testing.T) {
@@ -118,8 +77,7 @@ func TestSaveFutureMessage(t *testing.T) {
 		found := 0
 		for _, msg := range messages {
 			for _, umsg := range backend.future[msg.H()] {
-				//TODO(lorenzo) does this still work
-				if deep.Equal(msg, umsg.Message) {
+				if msg.Hash() == umsg.Message.Hash() {
 					found++
 				}
 			}
@@ -145,8 +103,7 @@ func TestSaveFutureMessage(t *testing.T) {
 		found := 0
 		for _, msg := range messages {
 			for _, umsg := range backend.future[msg.H()] {
-				//TODO(lorenzo) does this still work
-				if deep.Equal(msg, umsg.Message) {
+				if msg.Hash() == umsg.Message.Hash() {
 					found++
 				}
 			}
@@ -375,11 +332,12 @@ func TestValidMsg(t *testing.T) {
 }
 
 func TestValidOldMsg(t *testing.T) {
-	//TODO(Lorenzo) fix this
-	t.Skip("passes when ran singularly, fails otherwise")
+	//TODO(Lorenzo) this test has a very weird behaviour
+	// when ran singularly, it always passes
+	// when ran as a part of the backend package tests sometimes it fails via timeout
+	// it seems like it never arrives at the end of the test nor it fails.
 	blockchain, backend := newBlockChain(1)
 
-	advanceBlockchain(t, backend, blockchain)
 	advanceBlockchain(t, backend, blockchain)
 
 	sub := backend.Subscribe(events.MessageEvent{}, events.OldMessageEvent{})

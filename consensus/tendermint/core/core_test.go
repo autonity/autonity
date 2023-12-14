@@ -146,7 +146,9 @@ func TestCore_Setters(t *testing.T) {
 	})
 }
 
-/*TODO(lorenzo) remove?
+/*TODO(lorenzo)
+* while rebasing I realized this tests were canceled in develop.
+* Do we still need them or we can just get rid of them?
 func TestCore_AcceptVote(t *testing.T) {
 
 	t.Run("AcceptPreVote", func(t *testing.T) {
