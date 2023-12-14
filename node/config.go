@@ -413,8 +413,8 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, validatorKey, err := crypto.LoadNodeKey(keyfile); err == nil {
-		c.ConsensusKey = validatorKey
+	if key, consensusKey, err := crypto.LoadNodeKey(keyfile); err == nil {
+		c.ConsensusKey = consensusKey
 		return key
 	}
 
@@ -429,16 +429,16 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 		return key
 	}
 
-	validatorKey, err := blst.RandKey()
+	consensusKey, err := blst.RandKey()
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to derive validator key: %v", err))
 	}
 
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := crypto.SaveNodeKey(keyfile, key, validatorKey); err != nil {
+	if err := crypto.SaveNodeKey(keyfile, key, consensusKey); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 	}
-	c.ConsensusKey = validatorKey
+	c.ConsensusKey = consensusKey
 	return key
 }
 

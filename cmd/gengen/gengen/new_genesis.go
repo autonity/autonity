@@ -215,7 +215,7 @@ func generateValidatorState(validators []*Validator) (
 			Pop:             pop,
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
-			Key:             u.ConsensusKey.PublicKey().Marshal(),
+			ConsensusKey:    u.ConsensusKey.PublicKey().Marshal(),
 		}
 		err = gu.Validate()
 		if err != nil {

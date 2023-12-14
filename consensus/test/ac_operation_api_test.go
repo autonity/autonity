@@ -57,10 +57,10 @@ func TestACPublicWritters(t *testing.T) {
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
 	msg := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
 
-	validatorKey, err := blst.RandKey()
+	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	validatorKeyProof, err := crypto.BLSPOPProof(validatorKey, msg)
+	consensusKeyProof, err := crypto.BLSPOPProof(consensusKey, msg)
 	require.NoError(t, err)
 
 	oracleAccount, err := makeAccount()
@@ -92,8 +92,8 @@ func TestACPublicWritters(t *testing.T) {
 					enodeUrl,
 					newValidator,
 					oracleAccount,
-					validatorKey.PublicKey().Marshal(),
-					validatorKeyProof,
+					consensusKey.PublicKey().Marshal(),
+					consensusKeyProof,
 				),
 			},
 			finalAssert: func(t *testing.T, validators map[string]*testNode) {
@@ -396,7 +396,7 @@ func mintStakeHook(upgradeBlocks map[uint64]struct{}, operator *ecdsa.PrivateKey
 	}
 }
 
-func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey, oracleKey *ecdsa.PrivateKey, validatorKey, validatorKeyProof []byte) hook {
+func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, nodekey *ecdsa.PrivateKey, oracleKey *ecdsa.PrivateKey, consensusKey, consensusKeyProof []byte) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		blockNum := block.Number().Uint64()
 		if _, ok := upgradeBlocks[blockNum]; !ok {
@@ -420,10 +420,10 @@ func registerValidatorHook(upgradeBlocks map[uint64]struct{}, enode string, node
 			return err
 		}
 		//using same account for oracle and node, same proof can be reused here
-		signatures := append(append(nodeProof[:], oracleProof[:]...), validatorKeyProof[:]...)
+		signatures := append(append(nodeProof[:], oracleProof[:]...), consensusKeyProof[:]...)
 		fmt.Println("proof ", hexutil.Encode(signatures))
 		oracleAddr := crypto.PubkeyToAddress(oracleKey.PublicKey)
-		if _, err := interaction.tx(nodekey).registerValidator(enode, oracleAddr, validatorKey, signatures); err != nil {
+		if _, err := interaction.tx(nodekey).registerValidator(enode, oracleAddr, consensusKey, signatures); err != nil {
 			return err
 		}
 		return nil

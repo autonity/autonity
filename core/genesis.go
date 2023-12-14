@@ -434,9 +434,9 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 	var committee types.Committee
 	for _, v := range validators {
 		member := types.CommitteeMember{
-			Address:     *v.NodeAddress,
-			VotingPower: v.BondedStake,
-			Key:         v.Key,
+			Address:      *v.NodeAddress,
+			VotingPower:  v.BondedStake,
+			ConsensusKey: v.ConsensusKey,
 		}
 		committee = append(committee, member)
 	}
@@ -598,8 +598,8 @@ func DefaultGoerliGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	validatorKey := params.DevModeValidatorKey
-	pop, err := crypto.AutonityPOPProof(faucet.PrivateKey, faucet.PrivateKey, faucet.Address.Hex(), validatorKey)
+	consensusKey := params.DevModeConsensusKey
+	pop, err := crypto.AutonityPOPProof(faucet.PrivateKey, faucet.PrivateKey, faucet.Address.Hex(), consensusKey)
 	if err != nil {
 		log.Error("Error preparing Autonity POP for DEV mode, err:", err)
 	}
@@ -621,7 +621,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 				Pop:           pop,
 				Enode:         validatorEnode.String(),
 				BondedStake:   new(big.Int).SetUint64(1000),
-				Key:           validatorKey.PublicKey().Marshal(),
+				ConsensusKey:  consensusKey.PublicKey().Marshal(),
 			},
 		},
 	}

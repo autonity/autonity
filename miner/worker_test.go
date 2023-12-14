@@ -74,9 +74,9 @@ var (
 	testTreasuryKey, _  = crypto.GenerateKey()
 	testTreasuryAddress = crypto.PubkeyToAddress(testTreasuryKey.PublicKey)
 
-	testValidatorKey, _ = blst.RandKey()
+	testConsensusKey, _ = blst.RandKey()
 
-	pop, _ = crypto.AutonityPOPProof(testUserKey, testOracleKey, testTreasuryAddress.Hex(), testValidatorKey)
+	pop, _ = crypto.AutonityPOPProof(testUserKey, testOracleKey, testTreasuryAddress.Hex(), testConsensusKey)
 
 	// Test transactions
 	pendingTxs []*types.Transaction
@@ -101,7 +101,7 @@ func init() {
 	tendermintChainConfig.AutonityContractConfig.Validators[0].NodeAddress = &testUserAddress
 	tendermintChainConfig.AutonityContractConfig.Validators[0].OracleAddress = testOracleAddress
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Treasury = testTreasuryAddress
-	tendermintChainConfig.AutonityContractConfig.Validators[0].Key = testValidatorKey.PublicKey().Marshal()
+	tendermintChainConfig.AutonityContractConfig.Validators[0].ConsensusKey = testConsensusKey.PublicKey().Marshal()
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Pop = pop
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Enode = enode.NewV4(&testUserKey.PublicKey, nil, 0, 0).URLv4()
 

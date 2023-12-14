@@ -170,16 +170,16 @@ func genOwnershipProof(ctx *cli.Context) error {
 
 	// Load private key
 	var nodePrivateKey, oraclePrivateKey *ecdsa.PrivateKey
-	var validatorKey blst.SecretKey
+	var consensusKey blst.SecretKey
 	var err error
 	if nodeKeyFile := ctx.GlobalString(utils.NodeKeyFileFlag.Name); nodeKeyFile != "" {
 		// load key from the node key file
-		nodePrivateKey, validatorKey, err = crypto.LoadNodeKey(nodeKeyFile)
+		nodePrivateKey, consensusKey, err = crypto.LoadNodeKey(nodeKeyFile)
 		if err != nil {
 			utils.Fatalf("Failed to load the node private key: %v", err)
 		}
 	} else if privateKeysHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeysHex != "" {
-		nodePrivateKey, validatorKey, err = crypto.HexToNodeKey(privateKeysHex)
+		nodePrivateKey, consensusKey, err = crypto.HexToNodeKey(privateKeysHex)
 		if err != nil {
 			utils.Fatalf("Failed to parse the node private key: %v", err)
 		}
@@ -202,7 +202,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 	}
 
 	treasury := args[0]
-	signatures, err := crypto.AutonityPOPProof(nodePrivateKey, oraclePrivateKey, treasury, validatorKey)
+	signatures, err := crypto.AutonityPOPProof(nodePrivateKey, oraclePrivateKey, treasury, consensusKey)
 	if err != nil {
 		if err == hexutil.ErrMissingPrefix {
 			utils.Fatalf("Failed to decode: hex string without 0x prefix")
@@ -210,7 +210,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf("Failed to generate Autonity POP: %v", err)
 	}
 
-	fmt.Println("Validator key hex:", validatorKey.PublicKey().Hex())
+	fmt.Println("Validator key hex:", consensusKey.PublicKey().Hex())
 	hexStr := hexutil.Encode(signatures)
 	fmt.Println("Signatures hex:", hexStr)
 	return nil
@@ -223,7 +223,7 @@ func genNodeKey(ctx *cli.Context) error {
 		utils.Fatalf("Out key file must be provided!! Usage: autonity genNodeKey <outkeyfile> [options]")
 	}
 
-	nodeKey, validatorKey, err := crypto.GenAutonityNodeKey(outKeyFile)
+	nodeKey, consensusKey, err := crypto.GenAutonityNodeKey(outKeyFile)
 	if err != nil {
 		utils.Fatalf("could not save key %v", err)
 	}
@@ -232,6 +232,6 @@ func genNodeKey(ctx *cli.Context) error {
 	if writeAddr {
 		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
 	}
-	fmt.Println("Node's validator key:", validatorKey.PublicKey().Hex())
+	fmt.Println("Node's validator key:", consensusKey.PublicKey().Hex())
 	return nil
 }

@@ -793,23 +793,23 @@ func setNodeKey(ctx *cli.Context, cfg *node.Config) {
 		hex          = ctx.GlobalString(NodeKeyHexFlag.Name)
 		file         = ctx.GlobalString(NodeKeyFileFlag.Name)
 		key          *ecdsa.PrivateKey
-		validatorKey blst.SecretKey
+		consensusKey blst.SecretKey
 		err          error
 	)
 	switch {
 	case file != "" && hex != "":
 		Fatalf("Options %q and %q are mutually exclusive", NodeKeyFileFlag.Name, NodeKeyHexFlag.Name)
 	case file != "":
-		if key, validatorKey, err = crypto.LoadNodeKey(file); err != nil {
+		if key, consensusKey, err = crypto.LoadNodeKey(file); err != nil {
 			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
 		}
-		cfg.ConsensusKey = validatorKey
+		cfg.ConsensusKey = consensusKey
 		cfg.P2P.PrivateKey = key
 	case hex != "":
-		if key, validatorKey, err = crypto.HexToNodeKey(hex); err != nil {
+		if key, consensusKey, err = crypto.HexToNodeKey(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
-		cfg.ConsensusKey = validatorKey
+		cfg.ConsensusKey = consensusKey
 		cfg.P2P.PrivateKey = key
 	}
 }

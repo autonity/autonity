@@ -51,7 +51,7 @@ const BASE_VALIDATOR = {
         "selfUnbondingShares": 0,
         "unbondingStake": 0,
         "unbondingShares": 0,
-        "key": "0x00",
+        "consensusKey": "0x00",
         "pop": "0x00",
     };
 

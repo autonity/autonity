@@ -102,9 +102,9 @@ type Header struct {
 }
 
 type CommitteeMember struct {
-	Address     common.Address `json:"address"            gencodec:"required"       abi:"addr"`
-	VotingPower *big.Int       `json:"votingPower"        gencodec:"required"`
-	Key         []byte         `json:"key"        gencodec:"required"`
+	Address      common.Address `json:"address"            gencodec:"required"       abi:"addr"`
+	VotingPower  *big.Int       `json:"votingPower"        gencodec:"required"`
+	ConsensusKey []byte         `json:"consensusKey"        gencodec:"required"`
 }
 
 type Committee []CommitteeMember

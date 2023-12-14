@@ -25,9 +25,9 @@ var (
 
 // SaveNodeKey saves a secp256k1 private key and its derived validator BLS
 // private key to the given file with restrictive permissions. The key data is saved hex-encoded.
-func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, validatorKey blst.SecretKey) error {
+func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, consensusKey blst.SecretKey) error {
 	k := hex.EncodeToString(FromECDSA(ecdsaKey))
-	d := hex.EncodeToString(validatorKey.Marshal())
+	d := hex.EncodeToString(consensusKey.Marshal())
 	return os.WriteFile(file, []byte(k+d), 0600)
 }
 
@@ -57,15 +57,15 @@ func LoadNodeKey(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 		return nil, nil, err
 	}
 
-	validatorKeyBytes, err := hex.DecodeString(string(buf[AutonityNodeKeyLenInChar/2 : AutonityNodeKeyLenInChar]))
+	consensusKeyBytes, err := hex.DecodeString(string(buf[AutonityNodeKeyLenInChar/2 : AutonityNodeKeyLenInChar]))
 	if err != nil {
 		return nil, nil, err
 	}
-	validatorKey, err := blst.SecretKeyFromBytes(validatorKeyBytes)
+	consensusKey, err := blst.SecretKeyFromBytes(consensusKeyBytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	return ecdsaKey, validatorKey, nil
+	return ecdsaKey, consensusKey, nil
 }
 
 // HexToNodeKey parse the hex string into a secp256k1 private key and a derived BLS private key.
@@ -86,11 +86,11 @@ func HexToNodeKey(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 		return nil, nil, err
 	}
 
-	validatorKey, err := blst.SecretKeyFromBytes(b[ECDSAKeyLen:AutonityNodeKeyLen])
+	consensusKey, err := blst.SecretKeyFromBytes(b[ECDSAKeyLen:AutonityNodeKeyLen])
 	if err != nil {
 		return nil, nil, err
 	}
-	return ecdsaKey, validatorKey, nil
+	return ecdsaKey, consensusKey, nil
 }
 
 func Hash(data []byte) common.Hash {
@@ -159,7 +159,7 @@ func BLSPOPVerify(pubKey blst.PublicKey, sig blst.Signature, msg []byte) error {
 	return nil
 }
 
-func AutonityPOPProof(nodeKey, oracleKey *ecdsa.PrivateKey, treasuryHex string, validatorKey blst.SecretKey) ([]byte, error) {
+func AutonityPOPProof(nodeKey, oracleKey *ecdsa.PrivateKey, treasuryHex string, consensusKey blst.SecretKey) ([]byte, error) {
 	msg, err := hexutil.Decode(treasuryHex)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func AutonityPOPProof(nodeKey, oracleKey *ecdsa.PrivateKey, treasuryHex string, 
 	}
 
 	// generate the BLS POP
-	blsPOPProof, err := BLSPOPProof(validatorKey, msg)
+	blsPOPProof, err := BLSPOPProof(consensusKey, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func AutonityPOPProof(nodeKey, oracleKey *ecdsa.PrivateKey, treasuryHex string, 
 	return signatures, nil
 }
 
-func AutonityPOPVerify(signatures []byte, treasuryHex string, nodeAddress, oracleAddress common.Address, validatorKey []byte) error {
+func AutonityPOPVerify(signatures []byte, treasuryHex string, nodeAddress, oracleAddress common.Address, consensusKey []byte) error {
 	if len(signatures) != AutonityPOPLen {
 		return ErrorInvalidPOP
 	}
@@ -213,7 +213,7 @@ func AutonityPOPVerify(signatures []byte, treasuryHex string, nodeAddress, oracl
 	}
 
 	// check zero public key.
-	blsPubKey, err := blst.PublicKeyFromBytes(validatorKey)
+	blsPubKey, err := blst.PublicKeyFromBytes(consensusKey)
 	if err != nil {
 		return err
 	}
@@ -248,14 +248,14 @@ func GenAutonityNodeKey(keyFile string) (*ecdsa.PrivateKey, blst.SecretKey, erro
 	}
 
 	// generate random bls key, and save both node key and the validator key in node key file.
-	validatorKey, err := blst.RandKey()
+	consensusKey, err := blst.RandKey()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if err = SaveNodeKey(keyFile, nodeKey, validatorKey); err != nil {
+	if err = SaveNodeKey(keyFile, nodeKey, consensusKey); err != nil {
 		return nil, nil, err
 	}
 
-	return nodeKey, validatorKey, nil
+	return nodeKey, consensusKey, nil
 }

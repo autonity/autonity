@@ -162,15 +162,15 @@ func genNodeKeyWithExpect(t *testing.T, fileName string, writeAddr bool) {
 
 	output := string(geth.Output())
 	if len(fileName) != 0 {
-		privateKey, validatorKey, err := crypto.LoadNodeKey(keyfile)
+		privateKey, consensusKey, err := crypto.LoadNodeKey(keyfile)
 		if err != nil {
 			t.Errorf("Failed to load the private key: %v", err)
 			return
 		}
 		if writeAddr {
-			expected = fmt.Sprintf("%x\nNode's validator key: %v\n", crypto.FromECDSAPub(&privateKey.PublicKey)[1:], validatorKey.PublicKey().Hex())
+			expected = fmt.Sprintf("%x\nNode's validator key: %v\n", crypto.FromECDSAPub(&privateKey.PublicKey)[1:], consensusKey.PublicKey().Hex())
 		} else {
-			expected = fmt.Sprintf("Node's validator key: %v\n", validatorKey.PublicKey().Hex())
+			expected = fmt.Sprintf("Node's validator key: %v\n", consensusKey.PublicKey().Hex())
 		}
 	} else {
 		expected = "Fatal: could not save key open " + keyfile + ": is a directory\n"

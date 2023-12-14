@@ -556,7 +556,7 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 				Treasury:      nodeAddr,
 				Enode:         node.URLv4(),
 				BondedStake:   new(big.Int).SetUint64(100),
-				Key:           blsKey.PublicKey().Marshal(),
+				ConsensusKey:  blsKey.PublicKey().Marshal(),
 			})
 	}
 }

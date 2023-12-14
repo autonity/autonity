@@ -21,7 +21,7 @@ uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
-    uint256 internal constant KEY_LEN = 48;
+    uint256 internal constant CONSENSUS_KEY_LEN = 48;
     uint256 internal constant SIGNATURE_LEN = 96;
     uint256 internal constant POP_LEN = 226; // Proof of possession length in bytes. (Enode, OracleNode, ValidatorNode)
 
@@ -47,7 +47,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 totalSlashed;
         uint256 jailReleaseBlock;
         uint256 provableFaultCount;
-        bytes key;
+        bytes consensusKey;
         bytes pop;
         ValidatorState state;
     }
@@ -55,7 +55,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     struct CommitteeMember {
         address addr;
         uint256 votingPower;
-        bytes key;
+        bytes consensusKey;
     }
 
     /**************************************************/
@@ -283,14 +283,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * A new token "Liquid Stake" is deployed at this phase.
     * @param _enode enode identifying the validator node.
     * @param _oracleAddress identifying the oracle server node that the validator is managing.
-    * @param _validatorKey identifying the bls public key in bytes that the validator node is using.
+    * @param _consensusKey identifying the bls public key in bytes that the validator node is using.
     * @param _signatures is a combination of two ecdsa signatures, and a bls signature as the ownership proof of the
     * validator key appended sequentially. The 1st two ecdsa signatures are in below order:
         1. a message containing treasury account and signed by validator account private key .
         2. a message containing treasury account and signed by Oracle account private key .
     * @dev Emit a {RegisteredValidator} event.
     */
-    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _validatorKey, bytes memory _signatures) public {
+    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _consensusKey, bytes memory _signatures) public {
         Validator memory _val = Validator(
             payable(msg.sender),     // treasury
             address(0),              // address
@@ -310,7 +310,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             0,                       // total slashed
             0,                       // jail release block
             0,                       // provable faults count
-            _validatorKey,           // validator key in bytes
+            _consensusKey,           // validator key in bytes
             _signatures,             // POP
             ValidatorState.active    // state
         );
@@ -686,7 +686,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             CommitteeMember memory _member = CommitteeMember(
                 _committeeList[_k].nodeAddress,
                 _committeeList[_k].bondedStake,
-                _committeeList[_k].key);
+                _committeeList[_k].consensusKey);
 
             committee.push(_member);
             committeeNodes.push(_committeeList[_k].enode);
@@ -1007,7 +1007,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     function _verifyAndRegisterValidator(Validator memory _validator, bytes memory _signatures) internal {
         require(_signatures.length == POP_LEN, "Invalid proof length");
-        require(_validator.key.length == KEY_LEN, "Invalid validator key length");
+        require(_validator.consensusKey.length == CONSENSUS_KEY_LEN, "Invalid consensus key length");
 
         // verify enode and parse node address
         _verifyEnode(_validator);
@@ -1032,8 +1032,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         require(signers[0] == _validator.nodeAddress, "Invalid node key ownership proof provided");
         require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
-        require(Precompiled.popVerification(_validator.key, blsSignature, _validator.treasury) == Precompiled.SUCCESS,
-            "Invalid validator key ownership proof for registration");
+        require(Precompiled.popVerification(_validator.consensusKey, blsSignature, _validator.treasury) == Precompiled.SUCCESS,
+            "Invalid consensus key ownership proof for registration");
 
         // all good, now deploy liquidity contract.
         _deployLiquidContract(_validator);

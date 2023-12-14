@@ -430,9 +430,9 @@ var (
 
 	OracleNodeKey          = ValidatorNodeKey
 	OracleAddress          = ValidatorAddress
-	DevModeValidatorKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
-	Key                    = DevModeValidatorKey.PublicKey().Marshal()
-	POP, _                 = crypto.AutonityPOPProof(ValidatorNodeKey, OracleNodeKey, ValidatorAddress.Hex(), DevModeValidatorKey)
+	DevModeConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
+	Key                    = DevModeConsensusKey.PublicKey().Marshal()
+	POP, _                 = crypto.AutonityPOPProof(ValidatorNodeKey, OracleNodeKey, ValidatorAddress.Hex(), DevModeConsensusKey)
 
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
@@ -452,7 +452,7 @@ var (
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
 				BondedStake:    new(big.Int).SetUint64(1000),
-				Key:            Key,
+				ConsensusKey:   Key,
 			},
 		},
 	}
