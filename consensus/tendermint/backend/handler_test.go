@@ -10,6 +10,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -59,6 +60,45 @@ func TestTendermintCaches(t *testing.T) {
 
 // future height messages should be buffered
 func TestFutureMsg(t *testing.T) {
+	t.Run("future height messages should be buffered and processed when we reach that height", func(t *testing.T) {
+		// clean blockchain, running consensus instance for height 1
+		blockchain, backend := newBlockChain(1)
+
+		// create valid future proposal encapsulated in p2p.Message
+		futureHeight := uint64(3)
+		round := int64(0)
+		data := message.NewPropose(round, futureHeight, -1, types.NewBlockWithHeader(&types.Header{}), backend.Sign)
+		msg := p2p.Msg{Code: ProposeNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+
+		// send it to the backend
+		errCh := make(chan error)
+		handled, err := backend.HandleMsg(backend.Address(), msg, errCh)
+		require.True(t, handled)
+		require.NoError(t, err)
+
+		// check if buffered
+		require.Equal(t, data.Hash(), backend.future[futureHeight][0].Message.Hash())
+		require.Equal(t, uint64(1), backend.futureSize)
+
+		// advance to consensus instance for height 2
+		advanceBlockchain(t, backend, blockchain)
+
+		// should still be buffered
+		require.Equal(t, data.Hash(), backend.future[futureHeight][0].Message.Hash())
+		require.Equal(t, uint64(1), backend.futureSize)
+
+		// advance to consensus instance for height 3, this should trigger the processing
+		advanceBlockchain(t, backend, blockchain)
+
+		// sleep some time to make sure that the processFutureMessage go routine has run
+		time.Sleep(5 * time.Second)
+
+		// check that not buffered anymore
+		backend.futureLock.RLock()
+		defer backend.futureLock.RUnlock()
+		require.Equal(t, uint64(0), backend.futureSize)
+		require.Len(t, backend.future[futureHeight], 0)
+	})
 }
 
 func TestSaveFutureMessage(t *testing.T) {
