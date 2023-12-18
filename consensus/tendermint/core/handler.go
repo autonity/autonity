@@ -24,8 +24,10 @@ var ErrValidatorJailed = errors.New("jailed validator")
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
+	curBlock := c.backend.BlockChain().CurrentBlock()
+	c.logger.Warn("********* STARTING CORE ************", "h", curBlock.Header().Number)
 	c.protocolContracts = contract
-	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
+	committeeSet := committee.NewWeightedRandomSamplingCommittee(curBlock,
 		c.protocolContracts,
 		c.backend.BlockChain())
 	c.setCommitteeSet(committeeSet)
@@ -38,6 +40,7 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 
 // Stop implements Core.Engine.Stop
 func (c *Core) Stop() {
+	c.logger.Warn("********* STOPPING CORE ************", "h", c.height.Uint64())
 	c.logger.Debug("Stopping Tendermint Core", "addr", c.address.String())
 
 	_ = c.proposeTimeout.StopTimer()
