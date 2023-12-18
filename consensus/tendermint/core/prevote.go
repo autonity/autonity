@@ -2,8 +2,9 @@ package core
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/helpers"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -13,8 +14,14 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
+type valueTracking struct {
+	val   common.Hash
+	trace string
+}
+
 type Prevoter struct {
 	*Core
+	tracker map[uint64]map[int64]valueTracking
 }
 
 func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
@@ -42,6 +49,33 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	}
 
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
+
+	if c.sentPrevote {
+		logger.Error("Conflicting internal state - already sent prevote")
+	}
+	if c.tracker == nil {
+		c.tracker = make(map[uint64]map[int64]valueTracking)
+	}
+	if c.tracker[c.height.Uint64()] == nil {
+		c.tracker[c.height.Uint64()] = make(map[int64]valueTracking)
+	}
+	if t, ok := c.tracker[c.height.Uint64()][c.round]; ok {
+		if t.val == prevote.ProposedBlockHash {
+			logger.Error("Conflicting internal state - same value", "old", t.val, "new", prevote.ProposedBlockHash)
+		} else {
+			logger.Error("Conflicting internal state - different value", "old", t.val, "new", prevote.ProposedBlockHash)
+		}
+		fmt.Println("trace 1")
+		fmt.Println(t.trace)
+		fmt.Println("trace 2")
+		fmt.Println(helpers.StackTrace())
+		logger.Crit("Inconsistent consensus state - Report to @ya on autonity discord")
+	}
+
+	c.tracker[c.height.Uint64()][c.round] = valueTracking{
+		val:   common.Hash{},
+		trace: helpers.StackTrace(),
+	}
 
 	c.sentPrevote = true
 	c.Br().SignAndBroadcast(ctx, &message.Message{

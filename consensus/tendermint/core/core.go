@@ -52,7 +52,7 @@ func New(backend interfaces.Backend) *Core {
 
 func (c *Core) SetDefaultHandlers() {
 	c.broadcaster = &Broadcaster{c}
-	c.prevoter = &Prevoter{c}
+	c.prevoter = &Prevoter{Core: c}
 	c.precommiter = &Precommiter{c}
 	c.proposer = &Proposer{c}
 }

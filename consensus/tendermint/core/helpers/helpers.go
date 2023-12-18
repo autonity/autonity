@@ -10,7 +10,9 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"math/big"
+	"runtime"
 	"sort"
+	"strings"
 )
 
 type AddressKeyMap map[common.Address]*ecdsa.PrivateKey
@@ -62,4 +64,21 @@ func GeneratePrivateKey() (*ecdsa.PrivateKey, error) {
 
 func GetAddress() common.Address {
 	return common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
+}
+
+func StackTrace() string {
+	// Define a buffer to hold the stack trace
+	buf := make([]byte, 1024)
+	for {
+		// The runtime.Stack function returns the number of bytes written
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		// Increase the buffer size and try again
+		buf = make([]byte, len(buf)*2)
+	}
+	res := strings.Split(string(buf), "goroutine")
+	return res[1]
 }
