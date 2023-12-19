@@ -154,6 +154,8 @@ test-contracts-pre:
 	@npm list truffle > /dev/null || npm install truffle
 	@echo "check and install web3.js"
 	@npm list web3 > /dev/null || npm install web3
+	@echo "check and install keccak256"
+	@npm list keccak256 > /dev/null || npm install keccak256
 	@echo "check and install truffle-assertions.js"
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
 	@echo "check and install ganache"

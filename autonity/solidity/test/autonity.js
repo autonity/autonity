@@ -6,12 +6,6 @@ const liquidContract = artifacts.require("Liquid")
 const toBN = web3.utils.toBN;
 
 
-function generateMultiSig(nodekey,oraclekey,treasuryAddr) {
-      let treasuryProof = web3.eth.accounts.sign(treasuryAddr, nodekey);
-      let oracleProof = web3.eth.accounts.sign(treasuryAddr, oraclekey);
-      let multisig = treasuryProof.signature + oracleProof.signature.substring(2)
-      return multisig
-}
 
 async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond) {
   // store balance to check them in different phases
@@ -773,7 +767,7 @@ contract('Autonity', function (accounts) {
       let newValidator = accounts[0];
       let enode = genesisEnodes[0]
       // multisig length is checked before validator already registered (it is not verified though)
-      let multisig = generateMultiSig(genesisPrivateKeys[0],genesisPrivateKeys[0],newValidator)
+      let multisig = utils.generateMultiSig(genesisPrivateKeys[0],genesisPrivateKeys[0],newValidator)
       
       await truffleAssert.fails(
         autonity.registerValidator(enode, genesisNodeAddresses[0], multisig, {from: newValidator}),
@@ -789,7 +783,7 @@ contract('Autonity', function (accounts) {
       let newValidator = accounts[8];
       let enode = "enode://invalidEnodeAddress@172.25.0.11:30303";
       let privateKey = genesisPrivateKeys[0] // irrelevant
-      let multisig = generateMultiSig(privateKey,privateKey,newValidator)
+      let multisig = utils.generateMultiSig(privateKey,privateKey,newValidator)
       
       await truffleAssert.fails(
         autonity.registerValidator(enode, newValidator, multisig, {from: newValidator}),
@@ -806,7 +800,7 @@ contract('Autonity', function (accounts) {
       let enode = freeEnodes[0]
       let privateKey = freePrivateKeys[0]
       // generate oracle signature with nodekey instead of treasury key
-      let multisig = generateMultiSig(privateKey,privateKey,newValidator)
+      let multisig = utils.generateMultiSig(privateKey,privateKey,newValidator)
       let oracleAddr = newValidator // treasury address
       
       await truffleAssert.fails(
@@ -824,7 +818,7 @@ contract('Autonity', function (accounts) {
       let newValAddr = freeAddresses[0]
       let enode = freeEnodes[0]
       let privateKey = freePrivateKeys[0]
-      let multisig = generateMultiSig(privateKey,privateKey,issuerAccount)
+      let multisig = utils.generateMultiSig(privateKey,privateKey,issuerAccount)
       let oracleAddr = newValAddr
 
       await autonity.registerValidator(enode, oracleAddr, multisig, {from: issuerAccount});
@@ -850,7 +844,7 @@ contract('Autonity', function (accounts) {
       let issuerAccount = accounts[8];
       let enode = freeEnodes[0]
       let privateKey = freePrivateKeys[0]
-      let multisig = generateMultiSig(privateKey,privateKey,issuerAccount)
+      let multisig = utils.generateMultiSig(privateKey,privateKey,issuerAccount)
       let oracleAddr = validator
 
       // disabling a non registered validator should fail
@@ -894,7 +888,7 @@ contract('Autonity', function (accounts) {
         "validator must be registered"
       );
 
-      let multisig = generateMultiSig(privateKey,privateKey,issuerAccount)
+      let multisig = utils.generateMultiSig(privateKey,privateKey,issuerAccount)
       let oracleAddr = validator
       await autonity.registerValidator(enode, oracleAddr, multisig, {from: issuerAccount});
       
@@ -1375,12 +1369,12 @@ contract('Autonity', function (accounts) {
           let validator1 = accounts[1]; // treasury
           let oracle1 = genesisNodeAddresses[1] // oracle address = node address
           let enodeVal1 = genesisEnodes[1]
-          let multisig1 = generateMultiSig(genesisPrivateKeys[1],genesisPrivateKeys[1],validator1)
+          let multisig1 = utils.generateMultiSig(genesisPrivateKeys[1],genesisPrivateKeys[1],validator1)
 
           let validator2 = accounts[3];
           let oracle2 = genesisNodeAddresses[2] 
           let enodeVal2 = genesisEnodes[2]
-          let multisig2 = generateMultiSig(genesisPrivateKeys[2],genesisPrivateKeys[2],validator2)
+          let multisig2 = utils.generateMultiSig(genesisPrivateKeys[2],genesisPrivateKeys[2],validator2)
 
           await token.registerValidator(enodeVal1, oracle1, multisig1, {from: validator1});
           await token.registerValidator(enodeVal2, oracle2, multisig2, {from: validator2});
@@ -1415,12 +1409,12 @@ contract('Autonity', function (accounts) {
           let validator1 = accounts[1]; // treasury
           let oracle1 = genesisNodeAddresses[1] // oracle address = node address
           let enodeVal1 = genesisEnodes[1]
-          let multisig1 = generateMultiSig(genesisPrivateKeys[1],genesisPrivateKeys[1],validator1)
+          let multisig1 = utils.generateMultiSig(genesisPrivateKeys[1],genesisPrivateKeys[1],validator1)
 
           let validator2 = accounts[3];
           let oracle2 = genesisNodeAddresses[2] 
           let enodeVal2 = genesisEnodes[2]
-          let multisig2 = generateMultiSig(genesisPrivateKeys[2],genesisPrivateKeys[2],validator2)
+          let multisig2 = utils.generateMultiSig(genesisPrivateKeys[2],genesisPrivateKeys[2],validator2)
 
           await token.registerValidator(enodeVal1, oracle1, multisig1, {from: validator1});
           await token.registerValidator(enodeVal2, oracle2, multisig2, {from: validator2});
