@@ -96,6 +96,57 @@ contract AutonityTest is Autonity {
           }
      }
 
+     function testCommitteeStruct(uint256 count) public {
+          if (count > validatorList.length) {
+               count = validatorList.length;
+          }
+          _stakingOperations();
+          CommitteeMember[] memory _validatorList = new CommitteeMember[](count);
+          for (uint256 i = 0; i < count; i++) {
+               Validator storage _user = validators[validatorList[i]];
+               CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
+               _validatorList[i] = _item;
+          }
+
+          uint _length = 1000;
+          uint _returnDataLength = 32;
+          uint256[1] memory _returnData;
+          address to = address(0xf9);
+          assembly {
+               //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+               if iszero(staticcall(gas(), to, _validatorList, _length, _returnData, _returnDataLength)) {
+                    revert(0, 0)
+               }
+          }
+
+          require(_returnData[0] == 1, "unsuccessful call");
+     }
+
+     function testValidatorStruct(uint256 count) public {
+          if (count > validatorList.length) {
+               count = validatorList.length;
+          }
+          _stakingOperations();
+          Validator[] memory _validatorList = new Validator[](count);
+          for (uint256 i = 0; i < count; i++) {
+               Validator memory _user = validators[validatorList[i]];
+               _validatorList[i] = _user;
+          }
+
+          uint _length = 5000;
+          uint _returnDataLength = 32;
+          uint256[1] memory _returnData;
+          address to = address(0xf9);
+          assembly {
+               //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+               if iszero(staticcall(gas(), to, _validatorList, _length, _returnData, _returnDataLength)) {
+                    revert(0, 0)
+               }
+          }
+
+          require(_returnData[0] == 1, "unsuccessful call");
+     }
+
    function getBondingRequest(uint256 _id) public view returns (BondingRequest memory) {
         return bondingMap[_id];
    }
