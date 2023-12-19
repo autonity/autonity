@@ -23,13 +23,13 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
-    struct Validator {
-        address payable treasury;
+    struct Validator { // 0
+        address payable treasury; //
         address nodeAddress;
         address oracleAddress;
         string enode; //addr must match provided enode
         uint256 commissionRate;
-        uint256 bondedStake;
+        uint256 bondedStake; // base + 5 ( validator.bondedStake - validator.treasury = 5)
         uint256 unbondingStake;
         uint256 unbondingShares; // not effective - used for accounting purposes
         uint256 selfBondedStake;
@@ -123,10 +123,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     address[] internal validatorList;
 
     // Stake token state transitions happen every epoch.
-    uint256 public epochID;
-    mapping(uint256 => uint256) internal blockEpochMap;
-    uint256 public lastEpochBlock;
-    uint256 public epochTotalBondedStake;
+    uint256 public epochID; // This occupy storage slot P1
+    mapping(uint256 => uint256) internal blockEpochMap; // This occupy storage slot P2
+    uint256 public lastEpochBlock; // This occupy storage slot P3
+    uint256 public epochTotalBondedStake; //  P4 - opcode SLOAD(storageOffset = P4)
 
     CommitteeMember[] internal committee;
     uint256 public totalRedistributed;
@@ -1428,7 +1428,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         // TODO: is there any better way to do it?
         address[101] memory _returnData;
         address to = Precompiled.SORT_CONTRACT;
+
+
+        uint256[4] offsets
         assembly {
+            offsets[0] = validatorList // <- This refer to the slot of validatorList
+
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
             if iszero(staticcall(gas(), to, add(_validators, offset), _length, _returnData, _returnDataLength)) {
                 revert(0, 0)
