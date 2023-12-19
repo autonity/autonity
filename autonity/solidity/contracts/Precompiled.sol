@@ -4,16 +4,19 @@ pragma solidity ^0.8.3;
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
-    address constant public INNOCENCE_CONTRACT = address(0xfd);
+    address constant public SORT_CONTRACT = address(0xfb);
     address constant public ACCUSATION_CONTRACT = address(0xfc);
+    address constant public INNOCENCE_CONTRACT = address(0xfd);
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
+    address constant public PARSE_ENODE_CONTRACT = address(0xff);
 
     function parseEnode(string memory _enode) internal view returns (address, uint) {
         uint[2] memory p;
         address addr;
+        address to = PARSE_ENODE_CONTRACT;
         assembly {
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xff, add(_enode,32), mload(_enode), p, 0x40)) {
+            if iszero(staticcall(gas(), to, add(_enode,32), mload(_enode), p, 0x40)) {
                 revert(0, 0)
             }
             addr :=  div(mload(p), 0x1000000000000000000000000) // abi encoded, shift >> 96
