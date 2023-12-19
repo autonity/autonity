@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity"
 	"math/big"
 	"sync"
 
@@ -55,8 +56,8 @@ var (
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
-	RequiredGas(input []byte) uint64                      // RequiredPrice calculates the contract gas use
-	Run(input []byte, blockNumber uint64) ([]byte, error) // Run runs the precompiled contract
+	RequiredGas(input []byte) uint64                                // RequiredPrice calculates the contract gas use
+	Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) // Run runs the precompiled contract
 }
 
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
@@ -72,6 +73,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{248}): &directStorageSort{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -91,6 +93,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{248}): &directStorageSort{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -111,6 +114,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{248}): &directStorageSort{},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -131,6 +135,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{248}): &directStorageSort{},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -151,6 +156,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{248}): &directStorageSort{},
 }
 
 var (
@@ -195,13 +201,13 @@ func ActivePrecompiles(rules params.Rules) []common.Address {
 // - the returned bytes,
 // - the _remaining_ gas,
 // - any error that occurred
-func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uint64, blockNumber uint64) (ret []byte, remainingGas uint64, err error) {
+func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uint64, blockNumber uint64, evm *EVM) (ret []byte, remainingGas uint64, err error) {
 	gasCost := p.RequiredGas(input)
 	if suppliedGas < gasCost {
 		return nil, 0, ErrOutOfGas
 	}
 	suppliedGas -= gasCost
-	output, err := p.Run(input, blockNumber)
+	output, err := p.Run(input, blockNumber, evm)
 	return output, suppliedGas, err
 }
 
@@ -211,7 +217,7 @@ func (a *StructTester) RequiredGas(_ []byte) uint64 {
 	return 1
 }
 
-func (a *StructTester) Run(input []byte, _ uint64) ([]byte, error) {
+func (a *StructTester) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	res := make([]byte, 32)
 	for i := 0; i < len(input); i += 32 {
 		_, err := fmt.Printf("%v, %v : %v \n", i>>5, &input[i], input[i:i+32])
@@ -222,6 +228,54 @@ func (a *StructTester) Run(input []byte, _ uint64) ([]byte, error) {
 	res[31] = 1
 	return res, nil
 }
+
+type directStorageSort struct {
+
+}
+func (a *directStorageSort) RequiredGas(_ []byte) uint64 {
+	return 1
+}
+
+func (a *directStorageSort) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+	// step 1: Retrieve all validators from storage
+
+	// question 1: how do we retrieve the contract address?
+	//solutions :
+	//	- Send it as an input, so we access it by using "input" here
+	//	- Retrieve the contract from autonity config
+	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+	// validatorList = slot of validatorList in solidity
+	validatorListSize = evm.StateDB.GetState(autonity.AutonityContractAddress, validatorList)
+	baseOffset = crypto.Keccak256Hash(validatorList)
+	addresses := make([]common.Address,validatorListSize)
+
+	// optimisation possible here: introduce concurrency
+	for i:=0; i < validatorListSize; i++{
+		addresses[i] = evm.StateDB.GetState(autonity.AutonityContractAddress, baseOffset + i)
+	}
+
+	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
+
+	for i := range addresses {
+		// compute storage location of Validator mapping
+		// compute absolute location of bondedStake
+		// compute absolute location of state
+		// retrieve the data
+	}
+	// run quick sort
+
+	// Save that directly into storage of validator
+	// we can use evm.StateDB.SetState()
+
+	// SOLIDITY : [SIZE(uint256)]
+	//
+	// step 2: Run committee selection
+
+	// step3: Save data directly into storage from here
+
+	// if success : return true
+}
+
 
 const KB = 1024
 
@@ -240,7 +294,7 @@ func (a *QuickSort) RequiredGas(input []byte) uint64 {
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (a *QuickSort) Run(input []byte, _ uint64) ([]byte, error) {
+func (a *QuickSort) Run(input []byte, _ uint64, , evm *EVM) ([]byte, error) {
 	length := len(input) / 64
 	validators := make([]*StakeWithId, length)
 	for i := 32; i < len(input); i += 64 {
@@ -323,7 +377,7 @@ func (a *QuickSortFast) RequiredGas(input []byte) uint64 {
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (a *QuickSortFast) Run(input []byte, _ uint64) ([]byte, error) {
+func (a *QuickSortFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	length := len(input) / 64
 	validators := make([]*StakeWithId, length)
 	for i := 32; i < len(input); i += 64 {
@@ -416,7 +470,7 @@ func (c *ecrecover) RequiredGas(input []byte) uint64 {
 	return params.EcrecoverGas
 }
 
-func (c *ecrecover) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *ecrecover) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	const ecRecoverInputLength = 128
 
 	input = common.RightPadBytes(input, ecRecoverInputLength)
@@ -457,7 +511,7 @@ type sha256hash struct{}
 func (c *sha256hash) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Sha256PerWordGas + params.Sha256BaseGas
 }
-func (c *sha256hash) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *sha256hash) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	h := sha256.Sum256(input)
 	return h[:], nil
 }
@@ -472,7 +526,7 @@ type ripemd160hash struct{}
 func (c *ripemd160hash) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Ripemd160PerWordGas + params.Ripemd160BaseGas
 }
-func (c *ripemd160hash) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *ripemd160hash) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	ripemd := ripemd160.New()
 	ripemd.Write(input)
 	return common.LeftPadBytes(ripemd.Sum(nil), 32), nil
@@ -488,7 +542,7 @@ type dataCopy struct{}
 func (c *dataCopy) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.IdentityPerWordGas + params.IdentityBaseGas
 }
-func (c *dataCopy) Run(in []byte, blockNumber uint64) ([]byte, error) {
+func (c *dataCopy) Run(in []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	return in, nil
 }
 
@@ -615,7 +669,7 @@ func (c *bigModExp) RequiredGas(input []byte) uint64 {
 	return gas.Uint64()
 }
 
-func (c *bigModExp) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bigModExp) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	var (
 		baseLen = new(big.Int).SetBytes(getData(input, 0, 32)).Uint64()
 		expLen  = new(big.Int).SetBytes(getData(input, 32, 32)).Uint64()
@@ -688,7 +742,7 @@ func (c *bn256AddIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasIstanbul
 }
 
-func (c *bn256AddIstanbul) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bn256AddIstanbul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	return runBn256Add(input)
 }
 
@@ -701,7 +755,7 @@ func (c *bn256AddByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasByzantium
 }
 
-func (c *bn256AddByzantium) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bn256AddByzantium) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	return runBn256Add(input)
 }
 
@@ -726,7 +780,7 @@ func (c *bn256ScalarMulIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasIstanbul
 }
 
-func (c *bn256ScalarMulIstanbul) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bn256ScalarMulIstanbul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	return runBn256ScalarMul(input)
 }
 
@@ -739,7 +793,7 @@ func (c *bn256ScalarMulByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasByzantium
 }
 
-func (c *bn256ScalarMulByzantium) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bn256ScalarMulByzantium) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	return runBn256ScalarMul(input)
 }
 
@@ -794,7 +848,7 @@ func (c *bn256PairingIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasIstanbul + uint64(len(input)/192)*params.Bn256PairingPerPointGasIstanbul
 }
 
-func (c *bn256PairingIstanbul) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bn256PairingIstanbul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	return runBn256Pairing(input)
 }
 
@@ -807,7 +861,7 @@ func (c *bn256PairingByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasByzantium + uint64(len(input)/192)*params.Bn256PairingPerPointGasByzantium
 }
 
-func (c *bn256PairingByzantium) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bn256PairingByzantium) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	return runBn256Pairing(input)
 }
 
@@ -833,7 +887,7 @@ var (
 	errBlake2FInvalidFinalFlag   = errors.New("invalid final flag")
 )
 
-func (c *blake2F) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *blake2F) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Make sure the input is valid (correct length and final flag)
 	if len(input) != blake2FInputLength {
 		return nil, errBlake2FInvalidInputLength
@@ -887,7 +941,7 @@ func (c *bls12381G1Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1AddGas
 }
 
-func (c *bls12381G1Add) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381G1Add) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 G1Add precompile.
 	// > G1 addition call expects `256` bytes as an input that is interpreted as byte concatenation of two G1 points (`128` bytes each).
 	// > Output is an encoding of addition operation result - single G1 point (`128` bytes).
@@ -925,7 +979,7 @@ func (c *bls12381G1Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1MulGas
 }
 
-func (c *bls12381G1Mul) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381G1Mul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 G1Mul precompile.
 	// > G1 multiplication call expects `160` bytes as an input that is interpreted as byte concatenation of encoding of G1 point (`128` bytes) and encoding of a scalar value (`32` bytes).
 	// > Output is an encoding of multiplication operation result - single G1 point (`128` bytes).
@@ -975,7 +1029,7 @@ func (c *bls12381G1MultiExp) RequiredGas(input []byte) uint64 {
 	return (uint64(k) * params.Bls12381G1MulGas * discount) / 1000
 }
 
-func (c *bls12381G1MultiExp) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381G1MultiExp) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 G1MultiExp precompile.
 	// G1 multiplication call expects `160*k` bytes as an input that is interpreted as byte concatenation of `k` slices each of them being a byte concatenation of encoding of G1 point (`128` bytes) and encoding of a scalar value (`32` bytes).
 	// Output is an encoding of multiexponentiation operation result - single G1 point (`128` bytes).
@@ -1018,7 +1072,7 @@ func (c *bls12381G2Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2AddGas
 }
 
-func (c *bls12381G2Add) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381G2Add) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 G2Add precompile.
 	// > G2 addition call expects `512` bytes as an input that is interpreted as byte concatenation of two G2 points (`256` bytes each).
 	// > Output is an encoding of addition operation result - single G2 point (`256` bytes).
@@ -1056,7 +1110,7 @@ func (c *bls12381G2Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2MulGas
 }
 
-func (c *bls12381G2Mul) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381G2Mul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 G2MUL precompile logic.
 	// > G2 multiplication call expects `288` bytes as an input that is interpreted as byte concatenation of encoding of G2 point (`256` bytes) and encoding of a scalar value (`32` bytes).
 	// > Output is an encoding of multiplication operation result - single G2 point (`256` bytes).
@@ -1106,7 +1160,7 @@ func (c *bls12381G2MultiExp) RequiredGas(input []byte) uint64 {
 	return (uint64(k) * params.Bls12381G2MulGas * discount) / 1000
 }
 
-func (c *bls12381G2MultiExp) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381G2MultiExp) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 G2MultiExp precompile logic
 	// > G2 multiplication call expects `288*k` bytes as an input that is interpreted as byte concatenation of `k` slices each of them being a byte concatenation of encoding of G2 point (`256` bytes) and encoding of a scalar value (`32` bytes).
 	// > Output is an encoding of multiexponentiation operation result - single G2 point (`256` bytes).
@@ -1149,7 +1203,7 @@ func (c *bls12381Pairing) RequiredGas(input []byte) uint64 {
 	return params.Bls12381PairingBaseGas + uint64(len(input)/384)*params.Bls12381PairingPerPairGas
 }
 
-func (c *bls12381Pairing) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381Pairing) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 Pairing precompile logic.
 	// > Pairing call expects `384*k` bytes as an inputs that is interpreted as byte concatenation of `k` slices. Each slice has the following structure:
 	// > - `128` bytes of G1 point encoding
@@ -1228,7 +1282,7 @@ func (c *bls12381MapG1) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG1Gas
 }
 
-func (c *bls12381MapG1) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381MapG1) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 Map_To_G1 precompile.
 	// > Field-to-curve call expects `64` bytes an an input that is interpreted as a an element of the base field.
 	// > Output of this call is `128` bytes and is G1 point following respective encoding rules.
@@ -1263,7 +1317,7 @@ func (c *bls12381MapG2) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG2Gas
 }
 
-func (c *bls12381MapG2) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c *bls12381MapG2) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	// Implements EIP-2537 Map_FP2_TO_G2 precompile logic.
 	// > Field-to-curve call expects `128` bytes an an input that is interpreted as a an element of the quadratic extension field.
 	// > Output of this call is `256` bytes and is G2 point following respective encoding rules.
@@ -1303,7 +1357,7 @@ type checkEnode struct{}
 func (c checkEnode) RequiredGas(_ []byte) uint64 {
 	return params.AutonityEnodeCheckGas
 }
-func (c checkEnode) Run(input []byte, blockNumber uint64) ([]byte, error) {
+func (c checkEnode) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, fmt.Errorf("invalid enode - empty")
 	}
