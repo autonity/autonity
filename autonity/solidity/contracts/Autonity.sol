@@ -127,7 +127,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     Config public config;
-    uint256 public minimumBondedStake;
     address[] internal validatorList;
 
     // Stake token state transitions happen every epoch.
@@ -394,10 +393,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         commissionRateChangeQueue[commissionRateChangeQueueLast] = _newRequest;
         commissionRateChangeQueueLast += 1;
         emit CommissionRateChange(_validator, _rate);
-    }
-
-    function setMinimumBondedStake(uint256 _amount) public onlyOperator {
-        minimumBondedStake = _amount;
     }
 
     /**
@@ -713,7 +708,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint _len = 0;
         for (uint256 i = 0; i < validatorList.length; i++) {
             Validator storage _user = validators[validatorList[i]];
-            if (_user.state == ValidatorState.active && _user.bondedStake >= minimumBondedStake) {
+            if (_user.state == ValidatorState.active && _user.bondedStake > 0) {
                 _len++;
             }
         }
@@ -729,7 +724,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint j = 0;
         for (uint256 i = 0; i < validatorList.length; i++) {
             Validator storage _user = validators[validatorList[i]];
-            if (_user.state == ValidatorState.active && _user.bondedStake >= minimumBondedStake) {
+            if (_user.state == ValidatorState.active && _user.bondedStake > 0) {
                 // Create a new copy of CommitteeMember in memory
                 CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
                 _validatorList[j] = _item;

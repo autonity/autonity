@@ -71,6 +71,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
+	common.BytesToAddress([]byte{249}): &StructTester{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -89,6 +90,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
+	common.BytesToAddress([]byte{249}): &StructTester{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -108,6 +110,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
+	common.BytesToAddress([]byte{249}): &StructTester{},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -127,6 +130,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
+	common.BytesToAddress([]byte{249}): &StructTester{},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -146,6 +150,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &QuickSort{},
 	common.BytesToAddress([]byte{250}): &QuickSortFast{},
+	common.BytesToAddress([]byte{249}): &StructTester{},
 }
 
 var (
@@ -198,6 +203,24 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 	suppliedGas -= gasCost
 	output, err := p.Run(input, blockNumber)
 	return output, suppliedGas, err
+}
+
+type StructTester struct{}
+
+func (a *StructTester) RequiredGas(_ []byte) uint64 {
+	return 1
+}
+
+func (a *StructTester) Run(input []byte, _ uint64) ([]byte, error) {
+	res := make([]byte, 32)
+	for i := 0; i < len(input); i += 32 {
+		_, err := fmt.Printf("%v, %v : %v \n", i>>5, &input[i], input[i:i+32])
+		if err != nil {
+			return res, err
+		}
+	}
+	res[31] = 1
+	return res, nil
 }
 
 const KB = 1024
@@ -312,7 +335,9 @@ func (a *QuickSortFast) Run(input []byte, _ uint64) ([]byte, error) {
 		validators[idx] = &item
 	}
 
-	structQuickSortFast(validators, 0, int32(length)-1)
+	task := sync.WaitGroup{}
+	structQuickSortFast(validators, 0, int32(length)-1, &task)
+	task.Wait()
 	result := make([]byte, length*32+32)
 	result[31] = 1
 	j := 32
@@ -325,7 +350,7 @@ func (a *QuickSortFast) Run(input []byte, _ uint64) ([]byte, error) {
 	return result, nil
 }
 
-func structQuickSortFast(validators []*StakeWithId, low int32, high int32) {
+func structQuickSortFast(validators []*StakeWithId, low int32, high int32, task *sync.WaitGroup) {
 	if low < high {
 		// Set the pivot element in its right sorted index in the array
 		pivot := validators[(high+low)/2].Stake
@@ -363,13 +388,13 @@ func structQuickSortFast(validators []*StakeWithId, low int32, high int32) {
 			}
 		}
 
-		task := sync.WaitGroup{}
+		// task := sync.WaitGroup{}
 
 		if low < j && !isLeftSorted {
 			task.Add(1)
 			go func() {
 				// Recursion call in the left partition of the array
-				structQuickSortFast(validators, low, j)
+				structQuickSortFast(validators, low, j, task)
 				task.Done()
 			}()
 		}
@@ -377,11 +402,10 @@ func structQuickSortFast(validators []*StakeWithId, low int32, high int32) {
 			task.Add(1)
 			go func() {
 				// Recursion call in the right partition
-				structQuickSortFast(validators, i, high)
+				structQuickSortFast(validators, i, high, task)
 				task.Done()
 			}()
 		}
-		task.Wait()
 	}
 }
 

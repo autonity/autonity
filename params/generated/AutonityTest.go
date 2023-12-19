@@ -1550,19 +1550,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "minimumBondedStake",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "address",
@@ -1709,19 +1696,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    {
       "inputs" : [
          {
-            "internalType" : "uint256",
-            "name" : "_amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setMinimumBondedStake",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
             "internalType" : "address",
             "name" : "_account",
             "type" : "address"
@@ -1824,6 +1798,19 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
       "type" : "function"
    },
    {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "count",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "testCommitteeStruct",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
       "inputs" : [],
       "name" : "testSorting",
       "outputs" : [],
@@ -1840,6 +1827,19 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    {
       "inputs" : [],
       "name" : "testSortingPrecompiledFast",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "count",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "testValidatorStruct",
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"

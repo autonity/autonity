@@ -2153,7 +2153,6 @@ var AutonityMetaData = &bind.MetaData{
 		"b7ab4db5": "getValidators()",
 		"0d8e6e2c": "getVersion()",
 		"c2362dd5": "lastEpochBlock()",
-		"c21505a1": "minimumBondedStake()",
 		"40c10f19": "mint(address,uint256)",
 		"06fdde03": "name()",
 		"0ae65e7a": "pauseValidator(address)",
@@ -2164,7 +2163,6 @@ var AutonityMetaData = &bind.MetaData{
 		"8bac7dad": "setCommitteeSize(uint256)",
 		"6b5f444c": "setEpochPeriod(uint256)",
 		"cb696f54": "setMinimumBaseFee(uint256)",
-		"6a00f257": "setMinimumBondedStake(uint256)",
 		"520fdbbc": "setOperatorAccount(address)",
 		"496ccd9b": "setOracleContract(address)",
 		"cfd19fb9": "setStabilizationContract(address)",
@@ -3248,37 +3246,6 @@ func (_Autonity *AutonityCallerSession) LastEpochBlock() (*big.Int, error) {
 	return _Autonity.Contract.LastEpochBlock(&_Autonity.CallOpts)
 }
 
-// MinimumBondedStake is a free data retrieval call binding the contract method 0xc21505a1.
-//
-// Solidity: function minimumBondedStake() view returns(uint256)
-func (_Autonity *AutonityCaller) MinimumBondedStake(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "minimumBondedStake")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MinimumBondedStake is a free data retrieval call binding the contract method 0xc21505a1.
-//
-// Solidity: function minimumBondedStake() view returns(uint256)
-func (_Autonity *AutonitySession) MinimumBondedStake() (*big.Int, error) {
-	return _Autonity.Contract.MinimumBondedStake(&_Autonity.CallOpts)
-}
-
-// MinimumBondedStake is a free data retrieval call binding the contract method 0xc21505a1.
-//
-// Solidity: function minimumBondedStake() view returns(uint256)
-func (_Autonity *AutonityCallerSession) MinimumBondedStake() (*big.Int, error) {
-	return _Autonity.Contract.MinimumBondedStake(&_Autonity.CallOpts)
-}
-
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
 // Solidity: function name() pure returns(string)
@@ -3842,27 +3809,6 @@ func (_Autonity *AutonitySession) SetMinimumBaseFee(_price *big.Int) (*types.Tra
 // Solidity: function setMinimumBaseFee(uint256 _price) returns()
 func (_Autonity *AutonityTransactorSession) SetMinimumBaseFee(_price *big.Int) (*types.Transaction, error) {
 	return _Autonity.Contract.SetMinimumBaseFee(&_Autonity.TransactOpts, _price)
-}
-
-// SetMinimumBondedStake is a paid mutator transaction binding the contract method 0x6a00f257.
-//
-// Solidity: function setMinimumBondedStake(uint256 _amount) returns()
-func (_Autonity *AutonityTransactor) SetMinimumBondedStake(opts *bind.TransactOpts, _amount *big.Int) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "setMinimumBondedStake", _amount)
-}
-
-// SetMinimumBondedStake is a paid mutator transaction binding the contract method 0x6a00f257.
-//
-// Solidity: function setMinimumBondedStake(uint256 _amount) returns()
-func (_Autonity *AutonitySession) SetMinimumBondedStake(_amount *big.Int) (*types.Transaction, error) {
-	return _Autonity.Contract.SetMinimumBondedStake(&_Autonity.TransactOpts, _amount)
-}
-
-// SetMinimumBondedStake is a paid mutator transaction binding the contract method 0x6a00f257.
-//
-// Solidity: function setMinimumBondedStake(uint256 _amount) returns()
-func (_Autonity *AutonityTransactorSession) SetMinimumBondedStake(_amount *big.Int) (*types.Transaction, error) {
-	return _Autonity.Contract.SetMinimumBondedStake(&_Autonity.TransactOpts, _amount)
 }
 
 // SetOperatorAccount is a paid mutator transaction binding the contract method 0x520fdbbc.
