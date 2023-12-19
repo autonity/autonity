@@ -57,7 +57,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -73,7 +73,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -90,7 +90,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -107,7 +107,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -124,7 +124,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
 }
 
 var (
@@ -180,28 +180,28 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 
 const KB = 1024
 
-type QuickSort struct{}
+type quickSort struct{}
 
-type StakeWithId struct {
-	ValidatorId uint32
+type stakeWithId struct {
+	ValidatorID uint32
 	Stake       *big.Int
 }
 
 // RequiredGas the gas cost to sort validator list
-func (a *QuickSort) RequiredGas(input []byte) uint64 {
+func (a *quickSort) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
 	return params.AutonityAFDContractGasPerKB * times
 }
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (a *QuickSort) Run(input []byte, _ uint64) ([]byte, error) {
+func (a *quickSort) Run(input []byte, _ uint64) ([]byte, error) {
 	length := len(input) / 64
-	validators := make([]*StakeWithId, length)
+	validators := make([]*stakeWithId, length)
 	for i := 32; i < len(input); i += 64 {
 		idx := uint32(i >> 6)
-		item := StakeWithId{
-			ValidatorId: idx,
+		item := stakeWithId{
+			ValidatorID: idx,
 			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
 		}
 		validators[idx] = &item
@@ -209,11 +209,12 @@ func (a *QuickSort) Run(input []byte, _ uint64) ([]byte, error) {
 
 	task := sync.WaitGroup{}
 	structQuickSort(validators, 0, int32(length)-1, &task)
+	task.Wait()
 	result := make([]byte, length*32+32)
 	result[31] = 1
 	j := 32
 	for i := 0; i < length; i++ {
-		idx := validators[i].ValidatorId
+		idx := validators[i].ValidatorID
 		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
 		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
 		j += 32
@@ -221,7 +222,7 @@ func (a *QuickSort) Run(input []byte, _ uint64) ([]byte, error) {
 	return result, nil
 }
 
-func structQuickSort(validators []*StakeWithId, low int32, high int32, task *sync.WaitGroup) {
+func structQuickSort(validators []*stakeWithId, low int32, high int32, task *sync.WaitGroup) {
 	if low < high {
 		// Set the pivot element in its right sorted index in the array
 		pivot := validators[(high+low)/2].Stake
