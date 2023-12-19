@@ -52,12 +52,12 @@ func BenchmarkComputeCommittee(b *testing.B) {
 		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
 	})
 
-	b.Run("computeCommitteeOptimzed to sort only 5000", func(b *testing.B) {
+	b.Run("computeCommitteeOptimzed", func(b *testing.B) {
 		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
 		require.NoError(b, err)
 		// set minimum bonded stake
-		// the optimization here is that we are creating only 5000 copies in memory, sorting doesn't really take much time.
-		targetValidatorCount := 5000
+		// taking all the validators, so minimumBondedStake does not have any effect
+		targetValidatorCount := validatorCount
 		minimumBondedStake := validatorsSorted[targetValidatorCount-1].BondedStake
 		var header *types.Header
 		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "setMinimumBondedStake", minimumBondedStake)
@@ -65,6 +65,44 @@ func BenchmarkComputeCommittee(b *testing.B) {
 		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
 		require.NoError(b, err)
 		packedArgs, err := contractAbi.Pack("computeCommitteeOptimzed")
+		require.NoError(b, err)
+		_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+		require.NoError(b, err)
+		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
+	})
+
+	b.Run("computeCommitteePrecompiledSortingFast", func(b *testing.B) {
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(b, err)
+		// set minimum bonded stake
+		// taking all the validators, so minimumBondedStake does not have any effect
+		targetValidatorCount := validatorCount
+		minimumBondedStake := validatorsSorted[targetValidatorCount-1].BondedStake
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "setMinimumBondedStake", minimumBondedStake)
+		require.NoError(b, err)
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
+		require.NoError(b, err)
+		packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSortingFast")
+		require.NoError(b, err)
+		_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+		require.NoError(b, err)
+		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
+	})
+
+	b.Run("computeCommitteePrecompiledSorting", func(b *testing.B) {
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(b, err)
+		// set minimum bonded stake
+		// taking all the validators, so minimumBondedStake does not have any effect
+		targetValidatorCount := validatorCount
+		minimumBondedStake := validatorsSorted[targetValidatorCount-1].BondedStake
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "setMinimumBondedStake", minimumBondedStake)
+		require.NoError(b, err)
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
+		require.NoError(b, err)
+		packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSorting")
 		require.NoError(b, err)
 		_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
 		require.NoError(b, err)
@@ -119,6 +157,108 @@ func TestSorting(t *testing.T) {
 		require.NoError(t, err)
 		var header *types.Header
 		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSorting")
+		require.NoError(t, err)
+	})
+}
+
+func TestSortingPrecompiled(t *testing.T) {
+	// Deploy contract
+	stateDb, evm, evmContract, err := initalizeEvm(&generated.AutonityTestAbi)
+	require.NoError(t, err)
+
+	contractAbi := &generated.AutonityTestAbi
+	deployer := common.Address{}
+	committeeSize := 100
+	validatorCount := 100
+
+	t.Run("test sorting with 0% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 0)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiled")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 30% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 30)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiled")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 70% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 70)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiled")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 100% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 100)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiled")
+		require.NoError(t, err)
+	})
+}
+
+func TestSortingPrecompiledFast(t *testing.T) {
+	// Deploy contract
+	stateDb, evm, evmContract, err := initalizeEvm(&generated.AutonityTestAbi)
+	require.NoError(t, err)
+
+	contractAbi := &generated.AutonityTestAbi
+	deployer := common.Address{}
+	committeeSize := 100
+	validatorCount := 100
+
+	t.Run("test sorting with 0% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 0)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledFast")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 30% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 30)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledFast")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 70% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 70)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledFast")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 100% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 100)
+		require.NoError(t, err)
+		contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledFast")
 		require.NoError(t, err)
 	})
 }

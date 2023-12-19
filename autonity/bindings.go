@@ -2124,6 +2124,8 @@ var AutonityMetaData = &bind.MetaData{
 		"872cf059": "completeContractUpgrade()",
 		"ae1f5fa0": "computeCommittee()",
 		"8231a322": "computeCommitteeOptimzed()",
+		"baf83500": "computeCommitteePrecompiledSorting()",
+		"ba5125fb": "computeCommitteePrecompiledSortingFast()",
 		"79502c55": "config()",
 		"313ce567": "decimals()",
 		"d5f39488": "deployer()",
@@ -3567,6 +3569,48 @@ func (_Autonity *AutonitySession) ComputeCommitteeOptimzed() (*types.Transaction
 // Solidity: function computeCommitteeOptimzed() returns(address[])
 func (_Autonity *AutonityTransactorSession) ComputeCommitteeOptimzed() (*types.Transaction, error) {
 	return _Autonity.Contract.ComputeCommitteeOptimzed(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSorting is a paid mutator transaction binding the contract method 0xbaf83500.
+//
+// Solidity: function computeCommitteePrecompiledSorting() returns(address[])
+func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSorting(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSorting")
+}
+
+// ComputeCommitteePrecompiledSorting is a paid mutator transaction binding the contract method 0xbaf83500.
+//
+// Solidity: function computeCommitteePrecompiledSorting() returns(address[])
+func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSorting() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSorting(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSorting is a paid mutator transaction binding the contract method 0xbaf83500.
+//
+// Solidity: function computeCommitteePrecompiledSorting() returns(address[])
+func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSorting() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSorting(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSortingFast is a paid mutator transaction binding the contract method 0xba5125fb.
+//
+// Solidity: function computeCommitteePrecompiledSortingFast() returns(address[])
+func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSortingFast(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSortingFast")
+}
+
+// ComputeCommitteePrecompiledSortingFast is a paid mutator transaction binding the contract method 0xba5125fb.
+//
+// Solidity: function computeCommitteePrecompiledSortingFast() returns(address[])
+func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSortingFast() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSortingFast(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSortingFast is a paid mutator transaction binding the contract method 0xba5125fb.
+//
+// Solidity: function computeCommitteePrecompiledSortingFast() returns(address[])
+func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSortingFast() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSortingFast(&_Autonity.TransactOpts)
 }
 
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.

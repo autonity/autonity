@@ -69,6 +69,8 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -85,6 +87,8 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -102,6 +106,8 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -119,6 +125,8 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -136,6 +144,8 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 }
 
 var (
@@ -162,6 +172,7 @@ func init() {
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules params.Rules) []common.Address {
+	fmt.Println("ActivePrecompiles")
 	switch {
 	case rules.IsBerlin:
 		return PrecompiledAddressesBerlin
@@ -187,6 +198,191 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 	suppliedGas -= gasCost
 	output, err := p.Run(input, blockNumber)
 	return output, suppliedGas, err
+}
+
+const KB = 1024
+
+type QuickSort struct{}
+
+type StakeWithId struct {
+	ValidatorId uint32
+	Stake       *big.Int
+}
+
+// RequiredGas the gas cost to sort validator list
+func (a *QuickSort) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+// Run take the validator list and sort it according to bonded stake in descending order
+// and then returns the addresses only to reduce the memory usage
+func (a *QuickSort) Run(input []byte, _ uint64) ([]byte, error) {
+	length := len(input) / 64
+	validators := make([]*StakeWithId, length)
+	for i := 32; i < len(input); i += 64 {
+		idx := uint32(i >> 6)
+		item := StakeWithId{
+			ValidatorId: idx,
+			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
+		}
+		validators[idx] = &item
+	}
+
+	structQuickSort(validators, 0, int32(length)-1)
+	result := make([]byte, length*32+32)
+	result[31] = 1
+	j := 32
+	for i := 0; i < length; i++ {
+		idx := validators[i].ValidatorId
+		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
+		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
+		j += 32
+	}
+	return result, nil
+}
+
+func structQuickSort(validators []*StakeWithId, low int32, high int32) {
+	if low < high {
+		// Set the pivot element in its right sorted index in the array
+		pivot := validators[(high+low)/2].Stake
+		// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
+		isLeftSorted := true
+		// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
+		isRightSorted := true
+		i := low
+		j := high
+		for i <= j {
+			for validators[i].Stake.Cmp(pivot) == 1 {
+				i++
+				// check if elements at (i-1) and (i-2) are sorted or not
+				if i-1 > low && isLeftSorted {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+			}
+			for pivot.Cmp(validators[j].Stake) == 1 {
+				j--
+				// check if elements at (j+1) and (j+2) are sorted or not
+				if j+1 < high && isRightSorted {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+			if i <= j {
+				validators[i], validators[j] = validators[j], validators[i]
+				i++
+				j--
+				if i-1 > low && isLeftSorted {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+				if j+1 < high && isRightSorted {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+		}
+		// Recursion call in the left partition of the array
+		if low < j && !isLeftSorted {
+			structQuickSort(validators, low, j)
+		}
+		// Recursion call in the right partition
+		if i < high && !isRightSorted {
+			structQuickSort(validators, i, high)
+		}
+	}
+}
+
+type QuickSortFast struct{}
+
+// RequiredGas the gas cost to sort validator list
+func (a *QuickSortFast) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+// Run take the validator list and sort it according to bonded stake in descending order
+// and then returns the addresses only to reduce the memory usage
+func (a *QuickSortFast) Run(input []byte, _ uint64) ([]byte, error) {
+	length := len(input) / 64
+	validators := make([]*StakeWithId, length)
+	for i := 32; i < len(input); i += 64 {
+		idx := uint32(i >> 6)
+		item := StakeWithId{
+			ValidatorId: idx,
+			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
+		}
+		validators[idx] = &item
+	}
+
+	structQuickSortFast(validators, 0, int32(length)-1)
+	result := make([]byte, length*32+32)
+	result[31] = 1
+	j := 32
+	for i := 0; i < length; i++ {
+		idx := validators[i].ValidatorId
+		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
+		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
+		j += 32
+	}
+	return result, nil
+}
+
+func structQuickSortFast(validators []*StakeWithId, low int32, high int32) {
+	if low < high {
+		// Set the pivot element in its right sorted index in the array
+		pivot := validators[(high+low)/2].Stake
+		// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
+		isLeftSorted := true
+		// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
+		isRightSorted := true
+		i := low
+		j := high
+		for i <= j {
+			for validators[i].Stake.Cmp(pivot) == 1 {
+				i++
+				// check if elements at (i-1) and (i-2) are sorted or not
+				if i-1 > low && isLeftSorted {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+			}
+			for pivot.Cmp(validators[j].Stake) == 1 {
+				j--
+				// check if elements at (j+1) and (j+2) are sorted or not
+				if j+1 < high && isRightSorted {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+			if i <= j {
+				validators[i], validators[j] = validators[j], validators[i]
+				i++
+				j--
+				if i-1 > low && isLeftSorted {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+				if j+1 < high && isRightSorted {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+		}
+
+		task := sync.WaitGroup{}
+
+		if low < j && !isLeftSorted {
+			task.Add(1)
+			go func() {
+				// Recursion call in the left partition of the array
+				structQuickSortFast(validators, low, j)
+				task.Done()
+			}()
+		}
+		if i < high && !isRightSorted {
+			task.Add(1)
+			go func() {
+				// Recursion call in the right partition
+				structQuickSortFast(validators, i, high)
+				task.Done()
+			}()
+		}
+		task.Wait()
+	}
 }
 
 // ECRECOVER implemented as a native contract.
