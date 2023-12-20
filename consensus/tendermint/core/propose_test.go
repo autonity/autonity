@@ -40,13 +40,12 @@ func TestSendPropose(t *testing.T) {
 
 		assert.NoError(t, err)
 
-		testCommittee := types.Committee{
-			types.CommitteeMember{
-				Address:     proposer,
-				VotingPower: big.NewInt(1)},
-		}
-
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		testCommittee := new(types.Committee)
+		testCommittee.Members = append(testCommittee.Members, &types.CommitteeMember{
+			Address:     proposer,
+			VotingPower: big.NewInt(1),
+		})
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee.Members[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -75,7 +74,7 @@ func TestSendPropose(t *testing.T) {
 
 func TestHandleProposal(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-	addr := committeeSet.Committee()[0].Address // round 3 - height 1 proposer
+	addr := committeeSet.Committee().Members[0].Address // round 3 - height 1 proposer
 	height := uint64(1)
 	round := int64(3)
 	signer := makeSigner(keys[addr], addr)
@@ -114,9 +113,9 @@ func TestHandleProposal(t *testing.T) {
 		proposal := message.NewPropose(2, 1, 1, block, defaultSigner).MustVerify(stubVerifier)
 
 		testCommittee, _ := GenerateCommittee(3)
-		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
+		testCommittee.Members = append(testCommittee.Members, &types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee.Members[1].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -246,7 +245,7 @@ func TestHandleProposal(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
 		proposer, err := committeeSet.GetByIndex(3)
 		assert.NoError(t, err)
-		member := committeeSet.Committee()[0]
+		member := committeeSet.Committee().Members[0]
 		proposalBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})

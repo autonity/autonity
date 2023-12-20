@@ -80,12 +80,12 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("not a committee member, error returned", func(t *testing.T) {
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{
-			{
-				Address:     address,
-				VotingPower: big.NewInt(2),
-			},
-		}}
+		c := new(types.Committee)
+		c.Members = append(c.Members, &types.CommitteeMember{
+			Address:     common.HexToAddress("0x1234567899"),
+			VotingPower: big.NewInt(2),
+		})
+		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: c}
 		messages := []Msg{
 			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
 			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
@@ -103,11 +103,13 @@ func TestValidate(t *testing.T) {
 	})
 
 	t.Run("valid params given, valid validator returned", func(t *testing.T) {
+		c := new(types.Committee)
 		validator := &types.CommitteeMember{
 			Address:     address,
 			VotingPower: big.NewInt(2),
 		}
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
+		c.Members = append(c.Members, validator)
+		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: c}
 		messages := []Msg{
 			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
 			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
@@ -126,11 +128,14 @@ func TestValidate(t *testing.T) {
 }
 
 func TestMessageEncodeDecode(t *testing.T) {
+	c := new(types.Committee)
 	validator := &types.CommitteeMember{
 		Address:     address,
 		VotingPower: big.NewInt(2),
 	}
-	lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
+	c.Members = append(c.Members, validator)
+
+	lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: c}
 	messages := []Msg{
 		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), signer).MustVerify(stubVerifier),
 		NewPrevote(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),

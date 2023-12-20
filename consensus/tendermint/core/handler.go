@@ -21,10 +21,9 @@ var ErrValidatorJailed = errors.New("jailed validator")
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
+	com, chainHead := c.backend.BlockChain().LatestCommitteeAndChainHead()
 	c.protocolContracts = contract
-	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
-		c.protocolContracts,
-		c.backend.BlockChain())
+	committeeSet := committee.NewWeightedRandomSamplingCommittee(chainHead, com, c.protocolContracts)
 	c.setCommitteeSet(committeeSet)
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
@@ -197,7 +196,7 @@ func (c *Core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.LastHeader())
+	c.backend.AskSync(c.committee.Committee())
 
 eventLoop:
 	for {
@@ -210,7 +209,7 @@ eventLoop:
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
-				c.backend.AskSync(c.LastHeader())
+				c.backend.AskSync(c.committee.Committee())
 			}
 			round = currentRound
 			height = currentHeight
@@ -249,7 +248,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		// Old height messages. Do nothing.
 		return constants.ErrOldHeightMessage // No gossip
 	}
-	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
+	if err := msg.Validate(c.committee.CommitteeMember); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		c.logger.Error(msg.String())
 		return err

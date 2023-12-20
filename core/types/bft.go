@@ -1,10 +1,15 @@
 package types
 
 import (
+	"bytes"
 	"errors"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"golang.org/x/crypto/blake2b"
-	"strings"
+	"io"
+	"math/big"
+	"sort"
+	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/log"
@@ -120,26 +125,180 @@ func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
 	return nil
 }
 
-func (c Committee) String() string {
+type CommitteeMember struct {
+	Address      common.Address `json:"address"            gencodec:"required"       abi:"addr"`
+	VotingPower  *big.Int       `json:"votingPower"        gencodec:"required"`
+	ConsensusKey []byte         `json:"consensusKey"        gencodec:"required"`
+}
+
+func (c *CommitteeMember) Bytes() []byte {
+	return c.Address.Bytes()
+}
+
+func (c *CommitteeMember) String() string {
+	return c.Address.String()
+}
+
+func (c *CommitteeMember) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []any{c.Address, c.VotingPower, c.ConsensusKey})
+}
+
+func (c *CommitteeMember) DecodeRLP(s *rlp.Stream) error {
+	var cm struct {
+		Address      common.Address
+		VotingPower  *big.Int
+		ConsensusKey []byte
+	}
+
+	if err := s.Decode(&cm); err != nil {
+		return err
+	}
+
+	c.Address, c.VotingPower, c.ConsensusKey = cm.Address, cm.VotingPower, cm.ConsensusKey
+	return nil
+}
+
+type Committee struct {
+	Members []*CommitteeMember `json:"members"`
+
+	// mutex to protect internal cached fields of committee from race condition.
+	lock sync.RWMutex
+	// cached total voting power.
+	totalVotingPower *big.Int
+	// cached aggregated validator public key of all committee members
+	aggValidatorKey []byte
+	// cached indexing of committee for member lookup
+	membersMap map[common.Address]*CommitteeMember
+}
+
+func (c *Committee) String() string {
 	var ret string
-	for _, val := range c {
+	for _, val := range c.Members {
 		ret += "[" + val.Address.String() + " - " + val.VotingPower.String() + "] "
 	}
 	return ret
 }
 
-func (c Committee) Len() int {
-	return len(c)
+func (c *Committee) Len() int {
+	return len(c.Members)
 }
 
-func (c Committee) Less(i, j int) bool {
-	return strings.Compare(c[i].String(), c[j].String()) < 0
+func (c *Committee) Less(i, j int) bool {
+	return bytes.Compare(c.Members[i].Bytes(), c.Members[j].Bytes()) < 0
 }
 
-func (c Committee) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
+func (c *Committee) Swap(i, j int) {
+	c.Members[i], c.Members[j] = c.Members[j], c.Members[i]
 }
 
-func (m CommitteeMember) String() string {
-	return m.Address.String()
+// EncodeRLP To make the header hash deterministic, unify the rlp hash of committee member by excluding the cached values.
+func (c *Committee) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, []any{c.Members})
+}
+
+// DecodeRLP decodes the committee member from RLP data stream.
+func (c *Committee) DecodeRLP(s *rlp.Stream) error {
+	var committee struct {
+		Members []*CommitteeMember
+	}
+
+	if err := s.Decode(&committee); err != nil {
+		return err
+	}
+
+	c.Members = committee.Members
+	return nil
+}
+
+func (c *Committee) CopyCommittee() *Committee {
+	var clone = &Committee{}
+	if c.Members != nil {
+		clone.Members = make([]*CommitteeMember, len(c.Members))
+		for i, val := range c.Members {
+			clone.Members[i] = &CommitteeMember{
+				Address:     val.Address,
+				VotingPower: new(big.Int).Set(val.VotingPower),
+			}
+			clone.Members[i].ConsensusKey = append(clone.Members[i].ConsensusKey, val.ConsensusKey...)
+		}
+	}
+
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	if c.totalVotingPower != nil {
+		clone.totalVotingPower = new(big.Int).Set(c.totalVotingPower)
+	}
+
+	if c.aggValidatorKey != nil {
+		clone.aggValidatorKey = append(clone.aggValidatorKey, c.aggValidatorKey...)
+	}
+
+	if c.membersMap != nil {
+		clone.membersMap = make(map[common.Address]*CommitteeMember)
+		for k, v := range c.membersMap {
+			clone.membersMap[k] = v
+		}
+	}
+
+	return clone
+}
+
+func (c *Committee) CommitteeMember(address common.Address) *CommitteeMember {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.membersMap == nil {
+		c.membersMap = make(map[common.Address]*CommitteeMember)
+		for _, member := range c.Members {
+			c.membersMap[member.Address] = member
+		}
+	}
+	return c.membersMap[address]
+}
+
+func (c *Committee) AggregatedValidatorKey() []byte {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.aggValidatorKey == nil {
+		// collect bls keys of committee members in bytes
+		rawKeys := make([][]byte, len(c.Members))
+		for index, member := range c.Members {
+			rawKeys[index] = member.ConsensusKey
+		}
+
+		aggKey, err := blst.AggregatePublicKeys(rawKeys)
+		if err != nil {
+			// this shouldn't happen as all validator keys are validity checked before they are inserted into the AC
+			log.Crit("invalid BLS key in header")
+		}
+		c.aggValidatorKey = aggKey.Marshal()
+	}
+	copyKey := make([]byte, len(c.aggValidatorKey))
+	copy(copyKey, c.aggValidatorKey)
+	return copyKey
+}
+
+// TotalVotingPower returns the total voting power contained in the committee.
+func (c *Committee) TotalVotingPower() *big.Int {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	// compute power only once, then returned cached value
+	if c.totalVotingPower == nil {
+		total := new(big.Int)
+		for _, m := range c.Members {
+			total.Add(total, m.VotingPower)
+		}
+		c.totalVotingPower = total
+	}
+
+	// return a copy of the cached value to prevent un-expected modification of the cached value.
+	return new(big.Int).Set(c.totalVotingPower)
+}
+
+func (c *Committee) Sort() {
+	if len(c.Members) != 0 {
+		// sort the slice by address
+		sort.SliceStable(c.Members, func(i, j int) bool {
+			return bytes.Compare(c.Members[i].Address.Bytes(), c.Members[j].Address.Bytes()) < 0
+		})
+	}
 }

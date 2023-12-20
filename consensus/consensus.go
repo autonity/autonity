@@ -58,6 +58,12 @@ type ChainHeaderReader interface {
 
 	// GetTd retrieves the total difficulty from the database by hash and number.
 	GetTd(hash common.Hash, number uint64) *big.Int
+
+	// CommitteeOfHeight retries the committee for a given block number.
+	CommitteeOfHeight(number uint64) (*types.Committee, error)
+
+	// LatestCommitteeAndChainHead retries the latest committee and chain head of block chain.
+	LatestCommitteeAndChainHead() (*types.Committee, *types.Header)
 }
 
 // ChainReader defines a small collection of methods needed to access the local
@@ -107,7 +113,7 @@ type Engine interface {
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error)
+		uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
 	// rewards) and assembles the final block.

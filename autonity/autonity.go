@@ -194,8 +194,8 @@ func (c *Cache) MinimumBaseFee() *big.Int {
 	return new(big.Int).Set(c.minBaseFee.Load())
 }
 
-func (c *AutonityContract) CommitteeEnodes(block *types.Block, db *state.StateDB) (*types.Nodes, error) {
-	return c.callGetCommitteeEnodes(db, block.Header())
+func (c *AutonityContract) CommitteeEnodes(header *types.Header, db *state.StateDB) (*types.Nodes, error) {
+	return c.callGetCommitteeEnodes(db, header)
 }
 
 func (c *AutonityContract) MinimumBaseFee(block *types.Header, db *state.StateDB) (*big.Int, error) {
@@ -205,12 +205,12 @@ func (c *AutonityContract) MinimumBaseFee(block *types.Header, db *state.StateDB
 	return c.callGetMinimumBaseFee(db, block)
 }
 
-func (c *AutonityContract) Proposer(header *types.Header, _ *state.StateDB, height uint64, round int64) common.Address {
+func (c *AutonityContract) Proposer(committee *types.Committee, height uint64, round int64) common.Address {
 	c.Lock()
 	defer c.Unlock()
 	roundMap, ok := c.proposers[height]
 	if !ok {
-		p := c.electProposer(header, height, round)
+		p := c.electProposer(committee, height, round)
 		roundMap = make(map[int64]common.Address)
 		roundMap[round] = p
 		c.proposers[height] = roundMap
@@ -221,7 +221,7 @@ func (c *AutonityContract) Proposer(header *types.Header, _ *state.StateDB, heig
 
 	proposer, ok := roundMap[round]
 	if !ok {
-		p := c.electProposer(header, height, round)
+		p := c.electProposer(committee, height, round)
 		c.proposers[height][round] = p
 		return p
 	}
@@ -229,14 +229,11 @@ func (c *AutonityContract) Proposer(header *types.Header, _ *state.StateDB, heig
 	return proposer
 }
 
-// electProposer is a part of consensus, that it elect proposer from parent header's committee list which was returned
+// electProposer is a part of consensus, that it elect proposer from epoch head's committee list which was returned
 // from autonity contract stable ordered by voting power in evm context.
-func (c *AutonityContract) electProposer(parentHeader *types.Header, height uint64, round int64) common.Address {
+func (c *AutonityContract) electProposer(committee *types.Committee, height uint64, round int64) common.Address {
 	seed := big.NewInt(constants.MaxRound)
-	totalVotingPower := big.NewInt(0)
-	for _, c := range parentHeader.Committee {
-		totalVotingPower.Add(totalVotingPower, c.VotingPower)
-	}
+	totalVotingPower := committee.TotalVotingPower()
 
 	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
 	h := new(big.Int).SetUint64(height)
@@ -244,19 +241,18 @@ func (c *AutonityContract) electProposer(parentHeader *types.Header, height uint
 	key := r.Add(r, h.Mul(h, seed))
 	value := new(big.Int).SetBytes(crypto.Keccak256(key.Bytes()))
 	index := value.Mod(value, totalVotingPower)
-
 	// find the index hit which committee member which line up in the committee list.
 	// we assume there is no 0 stake/power validators.
 	counter := new(big.Int).SetUint64(0)
-	for _, c := range parentHeader.Committee {
-		counter.Add(counter, c.VotingPower)
+	for _, member := range committee.Members {
+		counter.Add(counter, member.VotingPower)
 		if index.Cmp(counter) == -1 {
-			return c.Address
+			return member.Address
 		}
 	}
 
 	// otherwise, we elect with round-robin.
-	return parentHeader.Committee[round%int64(len(parentHeader.Committee))].Address
+	return committee.Members[round%int64(committee.Len())].Address
 }
 
 func (c *AutonityContract) trimProposerCache(height uint64) {
@@ -270,19 +266,19 @@ func (c *AutonityContract) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb *state.StateDB) (types.Committee, *types.Receipt, error) {
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb *state.StateDB) ([]types.CommitteeMember, *types.Receipt, *big.Int, error) {
 	if header.Number.Uint64() == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(AutonityContractAddress),
 		"block", header.Number.Uint64())
 
-	upgradeContract, committee, err := c.callFinalize(statedb, header)
+	upgradeContract, committee, lastEpochBlock, err := c.callFinalize(statedb, header)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Create a new receipt for the finalize call
@@ -294,7 +290,6 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 	receipt.BlockHash = header.Hash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.
 		// in any failure, the state will be rollback to snapshot.
@@ -302,7 +297,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 			log.Warn("Autonity Contracts Upgrade Failed", "err", err)
 		}
 	}
-	return committee, receipt, nil
+	return committee, receipt, lastEpochBlock, nil
 }
 
 func (c *AutonityContract) upgradeAutonityContract(statedb *state.StateDB, header *types.Header) error {

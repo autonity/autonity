@@ -14,14 +14,12 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )
 
 func TestHandleCheckedMessage(t *testing.T) {
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
@@ -130,7 +128,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 					t.Errorf("Unexpected panic")
 				}
 			}()
-			testCase.message.Validate(header.CommitteeMember)
+			testCase.message.Validate(committeeSet.CommitteeMember)
 			err := engine.handleValidMsg(context.Background(), testCase.message)
 
 			if !errors.Is(err, testCase.outcome) {

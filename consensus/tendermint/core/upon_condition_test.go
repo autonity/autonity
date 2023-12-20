@@ -33,7 +33,7 @@ func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c interfaces.Commi
 	h := b.Header()
 	h.Committee = c.Committee()
 	hashData := types.SigHash(h)
-	signature, err := crypto.Sign(hashData[:], keys[c.Committee()[signerIndex].Address])
+	signature, err := crypto.Sign(hashData[:], keys[c.Committee().Members[signerIndex].Address])
 	require.NoError(t, err)
 	err = types.WriteSeal(h, signature)
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestStartRoundVariables(t *testing.T) {
 
 	// This header now needs to be signed  and have a committee to be able to construct a round robin committeeSet.
 	setCommitteeAndSealOnBlock(t, prevBlock, committeeSet, keys, 0)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddress := members[len(members)-1].Address
 
 	overrideDefaultCoreValues := func(core *Core) {
@@ -154,7 +154,7 @@ func TestStartRound(t *testing.T) {
 	// Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	clientKey := privateKeys[clientAddr]
 	clientSigner := makeSigner(clientKey, clientAddr)
@@ -324,7 +324,7 @@ func TestStartRound(t *testing.T) {
 func TestNewProposal(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
 	t.Run("receive invalid proposal for current round", func(t *testing.T) {
@@ -490,7 +490,7 @@ func TestOldProposal(t *testing.T) {
 	//t.Skip("Broken for some random values https://github.com/autonity/autonity/issues/715")
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
 
@@ -790,7 +790,7 @@ func TestOldProposal(t *testing.T) {
 func TestPrevoteTimeout(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
 	t.Run("prevote Timeout started after quorum of prevotes with different hashes", func(t *testing.T) {
@@ -958,7 +958,7 @@ func TestPrevoteTimeout(t *testing.T) {
 func TestQuorumPrevote(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
 	signer := func(index int64) message.Signer {
@@ -1091,7 +1091,7 @@ func TestQuorumPrevote(t *testing.T) {
 func TestQuorumPrevoteNil(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
 	currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -1135,7 +1135,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 func TestPrecommitTimeout(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 
 	t.Run("precommit Timeout started after quorum of precommits with different hashes", func(t *testing.T) {
@@ -1321,7 +1321,7 @@ func TestPrecommitTimeout(t *testing.T) {
 func TestQuorumPrecommit(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	currentHeight := big.NewInt(int64(rand.Intn(maxSize+1) + 1))
 	nextHeight := currentHeight.Uint64() + 1
@@ -1392,7 +1392,7 @@ func TestFutureRoundChange(t *testing.T) {
 	// In the following tests we are assuming that no committee member has voting power more than or equal to F()
 	committeeSizeAndMaxRound := maxSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
+	members := committeeSet.Committee().Members
 	clientAddr := members[0].Address
 	roundChangeThreshold := committeeSet.F()
 	sender1, sender2 := members[1], members[2]
@@ -1502,10 +1502,12 @@ func TestHandleMessage(t *testing.T) {
 	key1PubAddr := crypto.PubkeyToAddress(key1.PublicKey)
 	key2PubAddr := crypto.PubkeyToAddress(key2.PublicKey)
 
-	committeeSet, err := tdmcommittee.NewRoundRobinSet(types.Committee{types.CommitteeMember{
+	committee := new(types.Committee)
+	committee.Members = append(committee.Members, &types.CommitteeMember{
 		Address:     key1PubAddr,
 		VotingPower: big.NewInt(1),
-	}}, key1PubAddr)
+	})
+	committeeSet, err := tdmcommittee.NewRoundRobinSet(committee, key1PubAddr)
 	assert.NoError(t, err)
 
 	t.Run("message sender is not in the committee set", func(t *testing.T) {
@@ -1571,7 +1573,7 @@ func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer m
 // Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
 func prepareCommittee(t *testing.T, cSize int) (interfaces.Committee, AddressKeyMap) {
 	committeeMembers, privateKeys := GenerateCommittee(cSize)
-	committeeSet, err := tdmcommittee.NewRoundRobinSet(committeeMembers, committeeMembers[len(committeeMembers)-1].Address)
+	committeeSet, err := tdmcommittee.NewRoundRobinSet(committeeMembers, committeeMembers.Members[len(committeeMembers.Members)-1].Address)
 	assert.NoError(t, err)
 	return committeeSet, privateKeys
 }

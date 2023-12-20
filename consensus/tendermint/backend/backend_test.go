@@ -48,32 +48,31 @@ var (
 	}
 )
 
-func newTestHeader(committeeSize int) *types.Header {
-	validators := make(types.Committee, committeeSize)
+func newCommittee(committeeSize int) *types.Committee {
+	c := new(types.Committee)
 	for i := 0; i < committeeSize; i++ {
 		privateKey, _ := crypto.GenerateKey()
+		consensusKey, _ := blst.RandKey()
 		committeeMember := types.CommitteeMember{
-			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower: new(big.Int).SetUint64(1),
+			Address:      crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower:  new(big.Int).SetUint64(1),
+			ConsensusKey: consensusKey.PublicKey().Marshal(),
 		}
-		validators[i] = committeeMember
+		c.Members = append(c.Members, &committeeMember)
 	}
-	return &types.Header{
-		Number:    new(big.Int).SetUint64(7),
-		Committee: validators,
-	}
+	c.Sort()
+	return c
 }
 
 func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
-	header := newTestHeader(7) // N=7, F=2, Q=5
-	validators := header.Committee
-	addresses := make([]common.Address, 0, len(validators))
+	committee := newCommittee(7) // N=7, F=2, Q=5
+	addresses := make([]common.Address, 0, committee.Len())
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
-	for _, val := range validators {
+	for _, val := range committee.Members {
 		addresses = append(addresses, val.Address)
 		mockedPeer := tendermint.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
@@ -99,7 +98,7 @@ func TestAskSync(t *testing.T) {
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
-	b.AskSync(header)
+	b.AskSync(committee)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 5 {
 		t.Fatalf("ask sync message transmission failure")
@@ -110,14 +109,13 @@ func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	header := newTestHeader(5)
-	validators := header.Committee
+	committee := newCommittee(5)
 	msg := message.NewPrevote(1, 1, common.Hash{}, testSigner)
 
-	addresses := make([]common.Address, 0, len(validators))
+	addresses := make([]common.Address, 0, committee.Len())
 	peers := make(map[common.Address]ethereum.Peer)
 	counter := uint64(0)
-	for i, val := range validators {
+	for i, val := range committee.Members {
 		addresses = append(addresses, val.Address)
 		mockedPeer := tendermint.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
@@ -158,7 +156,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(validators, msg)
+	b.Gossip(committee, msg)
 	<-time.NewTimer(2 * time.Second).C
 	if c := atomic.LoadUint64(&counter); c != 4 {
 		t.Fatal("Gossip message transmission failure", "have", c, "want", 4)

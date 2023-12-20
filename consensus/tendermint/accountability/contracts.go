@@ -120,7 +120,7 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64) ([]byte, erro
 	if err != nil {
 		return failureReturn, nil
 	}
-	if err := verifyProofSignatures(a.chain, p); err != nil {
+	if err = verifyProofSignatures(a.chain, p); err != nil {
 		return failureReturn, nil
 	}
 
@@ -203,7 +203,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 	if err != nil {
 		return failureReturn, nil
 	}
-	if err := verifyProofSignatures(c.chain, p); err != nil {
+	if err = verifyProofSignatures(c.chain, p); err != nil {
 		return failureReturn, nil
 	}
 	return c.validateFault(p), nil
@@ -322,14 +322,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 		if hasEquivocatedVotes(p.Evidences) {
 			return false
 		}
-		// check if preVotes for not V reaches to quorum.
-		lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
-		if lastHeader == nil {
-			return false
-		}
-		quorum := bft.Quorum(lastHeader.TotalVotingPower())
-		return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
 
+		return overQuorumVotes(c.chain, p.Message.H(), p.Evidences)
 	}
 	return false
 }
@@ -426,13 +420,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof) bool {
 	}
 
 	// check if quorum prevote for a different value than V at valid round.
-	lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-
-	return engineCore.OverQuorumVotes(p.Evidences[1:], quorum) != nil
+	return overQuorumVotes(c.chain, p.Message.H(), p.Evidences[1:])
 }
 
 // check if the Proof of challenge of PVO12 is valid.
@@ -538,13 +526,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof) bool {
 	}
 
 	// check if preVotes for not V reaches to quorum.
-	lastHeader := c.chain.GetHeaderByNumber(p.Message.H() - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return overQuorumVotes(c.chain, p.Message.H(), p.Evidences)
 }
 
 // InnocenceVerifier implemented as a native contract to validate an innocence Proof.
@@ -617,12 +599,7 @@ func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 	}
 
 	// check quorum prevotes for V at validRound.
-	lastHeader := chain.GetHeaderByNumber(proposal.H() - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return overQuorumVotes(chain, proposal.H(), p.Evidences)
 }
 
 // check if the Proof of innocent of PVN is valid.
@@ -678,13 +655,7 @@ func validInnocenceProofOfPVO(p *Proof, chain ChainContext) bool {
 	}
 
 	// check quorum prevotes at valid round.
-	height := preVote.H()
-	lastHeader := chain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences[1:], quorum) != nil
+	return overQuorumVotes(chain, preVote.H(), p.Evidences[1:])
 }
 
 // check if the Proof of innocent of C1 is valid.
@@ -707,13 +678,8 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 	if hasEquivocatedVotes(p.Evidences) {
 		return false
 	}
-	height := preCommit.H()
-	lastHeader := chain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
-		return false
-	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+
+	return overQuorumVotes(chain, preCommit.H(), p.Evidences)
 }
 
 func hasEquivocatedVotes(votes []message.Msg) bool {
@@ -745,22 +711,24 @@ func verifyProofSignatures(chain ChainContext, p *Proof) error {
 	if h == 0 {
 		return errBadHeight
 	}
-	lastHeader := chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
+
+	committee, err := chain.CommitteeOfHeight(h)
+	if err != nil {
 		return errFutureMsg
 	}
-	if err := p.Message.Validate(lastHeader.CommitteeMember); err != nil {
+
+	if err = p.Message.Validate(committee.CommitteeMember); err != nil {
 		return errNotCommitteeMsg
 	}
 	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
-	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
+	if len(p.Evidences) > maxEvidenceMessages(committee) {
 		return errMaxEvidences
 	}
 	for _, msg := range p.Evidences {
 		if msg.H() != h {
 			return errBadHeight
 		}
-		if err := msg.Validate(lastHeader.CommitteeMember); err != nil {
+		if err = msg.Validate(committee.CommitteeMember); err != nil {
 			return errNotCommitteeMsg
 		}
 	}
@@ -792,11 +760,20 @@ func validReturn(m message.Msg, rule autonity.Rule) []byte {
 	return result
 }
 
-func maxEvidenceMessages(header *types.Header) int {
+func maxEvidenceMessages(committee *types.Committee) int {
 	// todo(youssef): I dont understand that
-	committeeSize := len(header.Committee)
+	committeeSize := committee.Len()
 	if committeeSize > constants.MaxRound {
 		return committeeSize + 1
 	}
 	return constants.MaxRound + 1
+}
+
+func overQuorumVotes(chain ChainContext, height uint64, msgs []message.Msg) bool {
+	committee, err := chain.CommitteeOfHeight(height)
+	if err != nil {
+		return false
+	}
+	q := bft.Quorum(committee.TotalVotingPower())
+	return engineCore.OverQuorumVotes(msgs, q) != nil
 }

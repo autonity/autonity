@@ -45,7 +45,7 @@ func TestSendPrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		committeSet, keys := NewTestCommitteeSetWithKeys(4)
-		member := committeSet.Committee()[0]
+		member := committeSet.Committee().Members[0]
 		signer := makeSigner(keys[member.Address], member.Address)
 		logger := log.New("backend", "test", "id", 0)
 
@@ -85,7 +85,7 @@ func TestSendPrevote(t *testing.T) {
 
 func TestHandlePrevote(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-	member := committeeSet.Committee()[0]
+	member := committeeSet.Committee().Members[0]
 	signer := makeSigner(keys[member.Address], member.Address)
 
 	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
@@ -226,7 +226,7 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		messages := message.NewMap()
 
-		member2 := committeeSet.Committee()[1]
+		member2 := committeeSet.Committee().Members[1]
 		curRoundMessage := messages.GetOrCreate(2)
 
 		expectedMsg := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[member2.Address], member2.Address)).MustVerify(stubVerifierWithPower(3))

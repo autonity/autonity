@@ -29,7 +29,15 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0x0a86281e49b390cd8347b1f2522a0f854da572d11b27f690814ec81259e59127")
+	posHeaderHash := common.HexToHash("0x013d47cf6a2874b7396ec9cb79acbff51c932f487380db8c66c363e22a2f9001")
+	committee := new(Committee)
+	committee.Members = append(committee.Members, &CommitteeMember{
+		Address:     common.HexToAddress("0x1234566"),
+		VotingPower: new(big.Int).SetUint64(12),
+	}, &CommitteeMember{
+		Address:     common.HexToAddress("0x13371337"),
+		VotingPower: new(big.Int).SetUint64(1337),
+	})
 
 	testCases := []struct {
 		header Header
@@ -68,24 +76,15 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				Committee: Committee{
-					{
-						Address:     common.HexToAddress("0x1234566"),
-						VotingPower: new(big.Int).SetUint64(12),
-					},
-					{
-						Address:     common.HexToAddress("0x13371337"),
-						VotingPower: new(big.Int).SetUint64(1337),
-					},
-				},
+				Committee: committee,
 			}),
-			common.HexToHash("0xd2651fe9e9d7693d89f437bf7ace0f614bb27cb2ddb08c45e5eefe2fb273bf40"),
+			common.HexToHash("0x1660f82e07fda09ac04125e46d6bddca0249bcc790ccbb0cb0d1672a6936054f"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0x0a86281e49b390cd8347b1f2522a0f854da572d11b27f690814ec81259e59127"),
+			posHeaderHash,
 		},
 		{
 			setExtra(PosHeader, headerExtra{

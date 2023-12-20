@@ -21,10 +21,10 @@ type Backend interface {
 
 	AddSeal(block *types.Block) (*types.Block, error)
 
-	AskSync(header *types.Header)
+	AskSync(committee *types.Committee)
 
 	// Broadcast sends a message to all validators (include self)
-	Broadcast(committee types.Committee, message message.Msg)
+	Broadcast(committee *types.Committee, message message.Msg)
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
@@ -34,7 +34,7 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(committee types.Committee, message message.Msg)
+	Gossip(committee *types.Committee, message message.Msg)
 
 	KnownMsgHash() []common.Hash
 

@@ -1,12 +1,13 @@
 package committee
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"math/rand"
 	"reflect"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,48 +24,43 @@ const maxSize = 100
 func TestNewRoundRobinSet(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSet = func(t *testing.T, n int64) {
-		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
+		c := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
+		c.Sort()
 		// Ensure last block proposer is chosen at random to test next proposer is chosen via round-robin
-		lastBlockProposer := committeeMembers[rand.Intn(int(n))].Address
+		lastBlockProposer := c.Members[rand.Intn(int(n))].Address
 		// create copy since slice are pass by references
 		// need to ensure a different copy of the committeMemebers is passed otherwise the sorting will affect the
-		// committeeMembers and would not give any meaningful tests
-		copyCommitteeMembers := copyMembers(committeeMembers)
+		// committee and would not give any meaningful tests
+		copyCommitteeMembers := c.CopyCommittee()
 		// next proposer is chosen after sorting
-		sort.Sort(committeeMembers)
 		// test the next proposer is chosen through round-robin
-		roundRobinOffset := getMemberIndex(committeeMembers, lastBlockProposer)
-		if len(committeeMembers) > 1 {
+		roundRobinOffset := getMemberIndex(c, lastBlockProposer)
+		if c.Len() > 1 {
 			roundRobinOffset++
 		}
-		allProposers := map[int64]types.CommitteeMember{0: committeeMembers[nextProposerIndex(roundRobinOffset, 0, int64(len(committeeMembers)))]}
-		totalPower := new(big.Int)
-		for _, cm := range committeeMembers {
-			totalPower.Add(totalPower, cm.VotingPower)
-		}
+		allProposers := map[int64]*types.CommitteeMember{0: c.Members[nextProposerIndex(roundRobinOffset, 0, int64(c.Len()))]}
+		totalPower := c.TotalVotingPower()
 
 		set, err := NewRoundRobinSet(copyCommitteeMembers, lastBlockProposer)
 		assertNilError(t, err)
-
 		if lastBlockProposer != set.lastBlockProposer {
 			t.Fatalf("lastBlockProposer not set properly, expected: %v and got: %v", lastBlockProposer, set.lastBlockProposer)
 		}
-
 		if roundRobinOffset != set.roundRobinOffset {
 			t.Fatalf("roundRobinOffset not set properly, expected: %v and got: %v", roundRobinOffset, set.roundRobinOffset)
 		}
 
 		// This will also check sorting
-		if !reflect.DeepEqual(committeeMembers, set.members) {
-			t.Fatalf("committee memebers are not set properly, expected: %v and got: %v", committeeMembers, set.members)
+		if !reflect.DeepEqual(c.Members, set.committee.Members) {
+			t.Fatalf("committee memebers are not set properly, expected: %v and got: %v", c, set.committee.Members)
 		}
 
 		if !reflect.DeepEqual(allProposers, set.allProposers) {
 			t.Fatalf("initial round allProposers not set properly, expected: %v and got: %v ", allProposers, set.allProposers)
 		}
 
-		if totalPower.Cmp(set.totalPower) != 0 {
-			t.Fatalf("totalPower not calculated properly, expected: %v and got: %v ", totalPower, set.totalPower)
+		if totalPower.Cmp(set.committee.TotalVotingPower()) != 0 {
+			t.Fatalf("totalPower not calculated properly, expected: %v and got: %v ", totalPower, set.committee.TotalVotingPower())
 		}
 	}
 
@@ -74,24 +70,23 @@ func TestNewRoundRobinSet(t *testing.T) {
 			assertSet(t, size)
 		})
 	}
-
 	t.Run("cannot create empty set with members as nil", func(t *testing.T) {
 		_, err := NewRoundRobinSet(nil, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)
 	})
 
 	t.Run("cannot create empty set with members as types.Committee{}", func(t *testing.T) {
-		_, err := NewRoundRobinSet(types.Committee{}, common.Address{})
+		_, err := NewRoundRobinSet(&types.Committee{}, common.Address{})
 		assertError(t, ErrEmptyCommitteeSet, err)
 	})
 }
 
 // We need to ensure that the committee is sorted, so that block hashes are the same for all validators.
 func TestCommitteeIsSorted(t *testing.T) {
-	committeeMembers := createTestCommitteeMembers(t, 10, 10)
-	require.False(t, sort.IsSorted(committeeMembers))
+	c := createTestCommitteeMembers(t, 10, 10)
+	require.False(t, sort.IsSorted(c))
 
-	set, err := NewRoundRobinSet(committeeMembers, committeeMembers[0].Address)
+	set, err := NewRoundRobinSet(c, c.Members[0].Address)
 	require.NoError(t, err)
 	assert.True(t, sort.IsSorted(set.Committee()))
 }
@@ -99,15 +94,15 @@ func TestCommitteeIsSorted(t *testing.T) {
 func TestSet_Committee(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetCommittee = func(t *testing.T, n int64) {
-		committeeMembers := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
-		set, err := NewRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
-		sort.Sort(committeeMembers)
+		c := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
+		set, err := NewRoundRobinSet(c.CopyCommittee(), c.Members[0].Address)
+		sort.Sort(c)
 		assertNilError(t, err)
 
 		gotCommittee := set.Committee()
 
-		if !reflect.DeepEqual(committeeMembers, gotCommittee) {
-			t.Fatalf("expected committee: %v and got: %v", committeeMembers, gotCommittee)
+		if !reflect.DeepEqual(c, gotCommittee) {
+			t.Fatalf("expected committee: %v and got: %v", c, gotCommittee)
 		}
 	}
 
@@ -120,13 +115,13 @@ func TestSet_Committee(t *testing.T) {
 }
 
 func TestSet_GetByIndex(t *testing.T) {
-	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
-	sort.Sort(committeeMembers)
-	set, err := NewRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
+	c.Sort()
+	set, err := NewRoundRobinSet(c.CopyCommittee(), c.Members[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by index", func(t *testing.T) {
-		expectedMember := committeeMembers[1]
+		expectedMember := c.Members[1]
 		gotMember, err := set.GetByIndex(1)
 		assertNilError(t, err)
 
@@ -134,7 +129,6 @@ func TestSet_GetByIndex(t *testing.T) {
 			t.Fatalf("expected member: %v and got %v", expectedMember, gotMember)
 		}
 	})
-
 	t.Run("error on accessing member index not in committee", func(t *testing.T) {
 		_, err := set.GetByIndex(6)
 		assertError(t, consensus.ErrCommitteeMemberNotFound, err)
@@ -142,19 +136,15 @@ func TestSet_GetByIndex(t *testing.T) {
 }
 
 func TestSet_GetByAddress(t *testing.T) {
-	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
-	sort.Sort(committeeMembers)
-	set, err := NewRoundRobinSet(copyMembers(committeeMembers), committeeMembers[0].Address)
+	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
+	c.Sort()
+	set, err := NewRoundRobinSet(c.CopyCommittee(), c.Members[0].Address)
 	assertNilError(t, err)
 
 	t.Run("can get member by Address", func(t *testing.T) {
-		expectedMember := committeeMembers[1]
-		index, gotMember, err := set.GetByAddress(expectedMember.Address)
+		expectedMember := c.Members[1]
+		gotMember, err := set.GetByAddress(expectedMember.Address)
 		assertNilError(t, err)
-
-		if index != 1 {
-			t.Fatalf("incorrect index of member expected: %v and got %v", 1, index)
-		}
 
 		if !reflect.DeepEqual(expectedMember, gotMember) {
 			t.Fatalf("expected member: %v and got %v", expectedMember, gotMember)
@@ -162,7 +152,7 @@ func TestSet_GetByAddress(t *testing.T) {
 	})
 
 	t.Run("error on accessing member address not in committee", func(t *testing.T) {
-		_, _, err := set.GetByAddress(common.HexToAddress("testaddress"))
+		_, err := set.GetByAddress(common.HexToAddress("testaddress"))
 		assertError(t, consensus.ErrCommitteeMemberNotFound, err)
 	})
 }
@@ -179,38 +169,38 @@ func TestSet_GetProposer(t *testing.T) {
 	for size := 1; size <= setSizes; size++ {
 		size := size
 		t.Run(fmt.Sprintf("check round robin for validator set size of %v", size), func(t *testing.T) {
-			committeeMembers := createTestCommitteeMembers(t, int64(size), genRandUint64(size, maxSize))
-			sort.Sort(committeeMembers)
+			c := createTestCommitteeMembers(t, int64(size), genRandUint64(size, maxSize))
+			c.Sort()
 			r := rand.Intn(size)
-			lastBlockProposer := committeeMembers[r].Address
-			expectedProposerAddrForRound0 := committeeMembers[(r+1)%size].Address
+			lastBlockProposer := c.Members[r].Address
+			expectedProposerAddrForRound0 := c.Members[(r+1)%size].Address
 
-			set, err := NewRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
+			set, err := NewRoundRobinSet(c.CopyCommittee(), lastBlockProposer)
 			require.NoError(t, err)
 
-			firstCommitteeMemberAddr := committeeMembers[0].Address
+			firstCommitteeMemberAddr := c.Members[0].Address
 			var startRound, endRound int
 			for i := 1; i <= numOfPasses; i++ {
 				startRound = endRound
 				endRound = size * i
-				var committeeFromCallingGetProposer types.Committee
+				committeeFromCallingGetProposer := new(types.Committee)
 				for j := startRound; j < endRound; j++ {
-					committeeFromCallingGetProposer = append(committeeFromCallingGetProposer, set.GetProposer(int64(j)))
+					committeeFromCallingGetProposer.Members = append(committeeFromCallingGetProposer.Members, set.GetProposer(int64(j)))
 				}
 				// Ensure the proposer for round % size = 0 is the following next member from the lastBlockProposer
 				// in the sorted committee set.
-				assert.Equal(t, expectedProposerAddrForRound0, committeeFromCallingGetProposer[0].Address)
+				assert.Equal(t, expectedProposerAddrForRound0, committeeFromCallingGetProposer.Members[0].Address)
 
-				// Determine where committeeFromCallingGetProposer and ordered committeeMembers line up using
+				// Determine where committeeFromCallingGetProposer and ordered c line up using
 				// firstCommitteeMember.
 				var startIndex int
-				for k, m := range committeeFromCallingGetProposer {
+				for k, m := range committeeFromCallingGetProposer.Members {
 					if m.Address == firstCommitteeMemberAddr {
 						startIndex = k
 						break
 					}
 				}
-				assert.Equal(t, committeeMembers, append(committeeFromCallingGetProposer[startIndex:], committeeFromCallingGetProposer[:startIndex]...))
+				assert.Equal(t, c.Members, append(committeeFromCallingGetProposer.Members[startIndex:], committeeFromCallingGetProposer.Members[:startIndex]...))
 			}
 		})
 	}
@@ -218,19 +208,19 @@ func TestSet_GetProposer(t *testing.T) {
 
 func TestSet_IsProposer(t *testing.T) {
 	rounds := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8}
-	committeeMembers := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
-	sort.Sort(committeeMembers)
+	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
+	c.Sort()
 	lastBlockProposerIndex := 2
-	lastBlockProposer := committeeMembers[lastBlockProposerIndex].Address
+	lastBlockProposer := c.Members[lastBlockProposerIndex].Address
 	roundRobinOffset := lastBlockProposerIndex + 1
 
-	set, err := NewRoundRobinSet(copyMembers(committeeMembers), lastBlockProposer)
+	set, err := NewRoundRobinSet(c.CopyCommittee(), lastBlockProposer)
 	assertNilError(t, err)
 
 	for _, r := range rounds {
 		r := r
 		t.Run(fmt.Sprintf("correct proposer for round %v", r), func(t *testing.T) {
-			testAddr := committeeMembers[(int64(roundRobinOffset)+r)%4].Address
+			testAddr := c.Members[(int64(roundRobinOffset)+r)%4].Address
 			isProposer := set.GetProposer(r).Address == testAddr
 			if !isProposer {
 				t.Fatalf("expected IsProposer(0, %v) to return true", testAddr)
@@ -238,7 +228,7 @@ func TestSet_IsProposer(t *testing.T) {
 		})
 	}
 	t.Run("false if address is in committee set but is not the proposer for round", func(t *testing.T) {
-		// committeeMembers[0].Address cannot be the proposer of round 0
+		// c[0].Address cannot be the proposer of round 0
 		isProposer := set.GetProposer(0).Address == lastBlockProposer
 		if isProposer {
 			t.Fatalf("did not expect IsProposer(0, %v) to return true", lastBlockProposer)
@@ -282,8 +272,8 @@ func TestSet_QandF(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		committeeMembers := createTestCommitteeMembers(t, genRandUint64(1, int(testCase.TotalVP)), testCase.TotalVP)
-		set, err := NewRoundRobinSet(committeeMembers, committeeMembers[0].Address)
+		c := createTestCommitteeMembers(t, genRandUint64(1, int(testCase.TotalVP)), testCase.TotalVP)
+		set, err := NewRoundRobinSet(c, c.Members[0].Address)
 		assertNilError(t, err)
 
 		gotQ := set.Quorum()
@@ -315,45 +305,45 @@ func assertError(t *testing.T, want, got error) {
 }
 
 // totalPower >= n
-func createTestCommitteeMembers(t *testing.T, n, totalPower int64) types.Committee {
+func createTestCommitteeMembers(t *testing.T, n, totalPower int64) *types.Committee {
 	t.Helper()
-	var committee types.Committee
+	c := new(types.Committee)
 
 	if n > totalPower {
-		t.Fatalf("totalPower >= size of committee")
+		t.Fatalf("totalPower >= size of c")
 	}
 
 	q, r := getTotalPowerDistribution(totalPower, n)
-
 	for i := 0; i < int(n); i++ {
 		key, err := crypto.GenerateKey()
-
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		vp := q
 		if i == int(n)-1 {
 			vp += r
 		}
 
+		consensusKey, err := blst.RandKey()
+		require.NoError(t, err)
 		member := types.CommitteeMember{
-			Address:     crypto.PubkeyToAddress(key.PublicKey),
-			VotingPower: new(big.Int).SetUint64(uint64(vp)),
+			Address:      crypto.PubkeyToAddress(key.PublicKey),
+			VotingPower:  new(big.Int).SetUint64(uint64(vp)),
+			ConsensusKey: consensusKey.PublicKey().Marshal(),
 		}
-		committee = append(committee, member)
+		c.Members = append(c.Members, &member)
 	}
 
 	if n > 0 {
-		// swap 1st and last element if 1st element is less then last to ensure committee is not sorted
-		firstIndex, lastIndex := 0, len(committee)-1
-		comp := strings.Compare(committee[firstIndex].String(), committee[lastIndex].String())
+		// swap 1st and last element if 1st element is less then last to ensure c is not sorted
+		firstIndex, lastIndex := 0, len(c.Members)-1
+		comp := bytes.Compare(c.Members[firstIndex].Bytes(), c.Members[lastIndex].Bytes())
 		if comp < 0 {
-			committee[firstIndex], committee[lastIndex] = committee[lastIndex], committee[firstIndex]
+			c.Members[firstIndex], c.Members[lastIndex] = c.Members[lastIndex], c.Members[firstIndex]
 		}
 	}
 
-	return committee
+	return c
 }
 
 func getTotalPowerDistribution(p, n int64) (int64, int64) {
@@ -364,4 +354,13 @@ func getTotalPowerDistribution(p, n int64) (int64, int64) {
 // generate random voting power in range [min...max]
 func genRandUint64(min, max int) int64 {
 	return int64(rand.Intn(max-min+1) + min)
+}
+
+func getMemberIndex(committee *types.Committee, memberAddr common.Address) int64 {
+	for i, m := range committee.Members {
+		if memberAddr == m.Address {
+			return int64(i)
+		}
+	}
+	return int64(-1)
 }

@@ -2,8 +2,8 @@ package core
 
 import (
 	"crypto/ecdsa"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,31 +31,33 @@ func defaultSigner(h common.Hash) ([]byte, common.Address) {
 
 type AddressKeyMap map[common.Address]*ecdsa.PrivateKey
 
-func GenerateCommittee(n int) (types.Committee, AddressKeyMap) {
-	validators := make(types.Committee, 0)
+func GenerateCommittee(n int) (*types.Committee, AddressKeyMap) {
+	committee := new(types.Committee)
 	keymap := make(AddressKeyMap)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
-		committeeMember := types.CommitteeMember{
-			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower: new(big.Int).SetUint64(1),
+		consensusKey, _ := blst.RandKey()
+		committeeMember := &types.CommitteeMember{
+			Address:      crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower:  new(big.Int).SetUint64(1),
+			ConsensusKey: consensusKey.PublicKey().Marshal(),
 		}
-		validators = append(validators, committeeMember)
+		committee.Members = append(committee.Members, committeeMember)
 		keymap[committeeMember.Address] = privateKey
 	}
-	sort.Sort(validators)
-	return validators, keymap
+	committee.Sort()
+	return committee, keymap
 }
 
 func NewTestCommitteeSet(n int) interfaces.Committee {
 	validators, _ := GenerateCommittee(n)
-	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators[0].Address)
+	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators.Members[0].Address)
 	return set
 }
 
 func NewTestCommitteeSetWithKeys(n int) (interfaces.Committee, AddressKeyMap) {
 	validators, keyMap := GenerateCommittee(n)
-	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators[0].Address)
+	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators.Members[0].Address)
 	return set, keyMap
 }
 
@@ -78,9 +80,9 @@ func TestOverQuorumVotes(t *testing.T) {
 		round := int64(0)
 		notNilValue := common.Hash{0x1}
 		var preVotes []message.Msg
-		for i := 0; i < len(committee); i++ {
+		for _, m := range committee.Members {
 			preVote := message.NewFakePrevote(message.Fake{
-				FakeSender: committee[i].Address,
+				FakeSender: m.Address,
 				FakeRound:  round,
 				FakeHeight: height,
 				FakeValue:  notNilValue,
@@ -109,7 +111,7 @@ func TestOverQuorumVotes(t *testing.T) {
 				FakeRound:  round,
 				FakeHeight: height,
 				FakeValue:  noneNilValue,
-				FakeSender: committee[i].Address,
+				FakeSender: committee.Members[i].Address,
 				FakePower:  common.Big1,
 			})
 			preVotes = append(preVotes, preVote)

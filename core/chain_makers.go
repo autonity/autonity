@@ -222,16 +222,18 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	var committee types.Committee
+	var committee *types.Committee
 	if config.AutonityContractConfig != nil {
-		validators := config.AutonityContractConfig.Validators
-		committee = make(types.Committee, len(validators))
+		validators := config.AutonityContractConfig.GetValidators()
+		committee = &types.Committee{Members: make([]*types.CommitteeMember, len(validators))}
 		for i, val := range validators {
-			committee[i] = types.CommitteeMember{
-				Address:     *val.NodeAddress,
-				VotingPower: val.BondedStake,
+			committee.Members[i] = &types.CommitteeMember{
+				Address:      *val.NodeAddress,
+				VotingPower:  val.BondedStake,
+				ConsensusKey: val.ConsensusKey,
 			}
 		}
+		committee.Sort()
 	}
 
 	// This interface is not enough to support tendermint consensus engine.
@@ -353,7 +355,7 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 
 type fakeChainReader struct {
 	config    *params.ChainConfig
-	committee types.Committee
+	committee *types.Committee
 }
 
 // Config returns the chain configuration.
@@ -375,4 +377,10 @@ func (cr *fakeChainReader) Engine() consensus.Engine                            
 func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int          { return nil }
 func (cr *fakeChainReader) MinBaseFee() *big.Int {
 	return big.NewInt(0)
+}
+func (cr *fakeChainReader) CommitteeOfHeight(_ uint64) (*types.Committee, error) {
+	return nil, nil
+}
+func (cr *fakeChainReader) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
+	return nil, nil
 }

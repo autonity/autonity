@@ -493,6 +493,46 @@ func (hc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
 	return rawdb.HasHeader(hc.chainDb, hash, number)
 }
 
+// LatestCommitteeAndChainHead retries the latest committee and the current chain head of chain.
+func (hc *HeaderChain) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
+	currentHead := hc.CurrentHeader()
+
+	if currentHead.Number.Cmp(currentHead.LastEpochBlock) == 0 {
+		return currentHead.Committee, currentHead
+	}
+
+	return hc.GetHeaderByNumber(currentHead.LastEpochBlock.Uint64()).Committee, currentHead
+}
+
+// CommitteeOfHeight retries the committee of a given block number.
+func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	if number == 0 {
+		return hc.genesisHeader.Committee, nil
+	}
+
+	parent := hc.GetHeaderByNumber(number - 1)
+	if parent == nil {
+		return nil, consensus.ErrUnknownAncestor
+	}
+
+	if parent.IsGenesis() {
+		return hc.genesisHeader.Committee, nil
+	}
+
+	// if current number is an epoch head, return itself and its parent.
+	header := hc.GetHeaderByNumber(number)
+	if header != nil && header.LastEpochBlock.Cmp(header.Number) == 0 {
+		return header.Committee, nil
+	}
+
+	// otherwise, query the epoch head and return.
+	epoch := hc.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
+	if epoch == nil {
+		return nil, consensus.ErrUnknownEpoch
+	}
+	return epoch.Committee, nil
+}
+
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
 func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {

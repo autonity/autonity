@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"runtime"
 	"sync"
@@ -545,8 +546,15 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
-	go s.accountability.Start()
-	go s.newCommitteeWatcher()
+	// let only tendermint bft engine to start its sub modules
+	switch s.engine.(type) {
+	case *backend.Backend:
+		s.log.Info("starting accountability modules for BFT engine")
+		go s.accountability.Start()
+		go s.newCommitteeWatcher()
+	default:
+		s.log.Info("skip to start accountability modules for none BFT engine")
+	}
 
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
 	// Start the bloom bits servicing goroutines
@@ -575,13 +583,13 @@ func (s *Ethereum) newCommitteeWatcher() {
 	chainHeadCh := make(chan core.ChainHeadEvent)
 	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 
-	updateConsensusEnodes := func(block *types.Block) {
-		state, err := s.blockchain.StateAt(block.Header().Root)
+	updateConsensusEnodes := func(currentHead *types.Header) {
+		state, err := s.blockchain.StateAt(currentHead.Root)
 		if err != nil {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state)
+		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(currentHead, state)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -590,9 +598,9 @@ func (s *Ethereum) newCommitteeWatcher() {
 	}
 
 	wasValidating := false
-	currentBlock := s.blockchain.CurrentBlock()
-	if currentBlock.Header().CommitteeMember(s.address) != nil {
-		updateConsensusEnodes(currentBlock)
+	committee, currentHead := s.blockchain.LatestCommitteeAndChainHead()
+	if committee.CommitteeMember(s.address) != nil {
+		updateConsensusEnodes(currentHead)
 		s.miner.Start()
 		s.log.Info("Starting node as validator")
 		wasValidating = true
@@ -601,9 +609,9 @@ func (s *Ethereum) newCommitteeWatcher() {
 	for {
 		select {
 		case ev := <-chainHeadCh:
-			header := ev.Block.Header()
+			committee, _ = s.blockchain.LatestCommitteeAndChainHead()
 			// check if the local node belongs to the consensus committee.
-			if header.CommitteeMember(s.address) == nil {
+			if committee.CommitteeMember(s.address) == nil {
 				// if the local node was part of the committee set for the previous block
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
@@ -615,7 +623,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				}
 				continue
 			}
-			updateConsensusEnodes(ev.Block)
+			updateConsensusEnodes(ev.Block.Header())
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
 				s.log.Info("Local node detected part of the consensus committee, mining started")

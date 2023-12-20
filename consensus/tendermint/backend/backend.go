@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"sync"
@@ -125,7 +126,7 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
+func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to others
 	sb.Gossip(committee, message)
 	// send to self
@@ -134,12 +135,12 @@ func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(header *types.Header) {
-	sb.gossiper.AskSync(header)
+func (sb *Backend) AskSync(committee *types.Committee) {
+	sb.gossiper.AskSync(committee)
 }
 
 // Gossip implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(committee types.Committee, msg message.Msg) {
+func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg) {
 	sb.gossiper.Gossip(committee, msg)
 }
 
@@ -254,7 +255,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		}
 
 		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
-		committee, receipt, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
+		committee, receipt, lastEpochBlock, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
 		if err != nil {
 			return 0, err
 		}
@@ -265,27 +266,38 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, err
 		}
 
+		// verify if LastEpochBlock is correct
+		if header.LastEpochBlock.Cmp(lastEpochBlock) != 0 {
+			sb.logger.Error("wrong lastEpochBlock",
+				"proposalNumber", proposalNumber,
+				"lastEpochBlock", header.LastEpochBlock,
+				"current", lastEpochBlock,
+			)
+			return 0, consensus.ErrInconsistentLastEpochBlock
+		}
+
 		//Perform the actual comparison
-		if len(header.Committee) != len(committee) {
+		if header.Committee.Len() != committee.Len() {
 			sb.logger.Error("wrong committee set",
 				"proposalNumber", proposalNumber,
-				"extraLen", len(header.Committee),
-				"currentLen", len(committee),
+				"extraLen", header.Committee.Len(),
+				"currentLen", committee.Len(),
 				"committee", header.Committee,
 				"current", committee,
 			)
 			return 0, consensus.ErrInconsistentCommitteeSet
 		}
 
-		for i := range committee {
-			if header.Committee[i].Address != committee[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committee[i].VotingPower) != 0 {
+		for i := range committee.Members {
+			if header.Committee.Members[i].Address != committee.Members[i].Address ||
+				header.Committee.Members[i].VotingPower.Cmp(committee.Members[i].VotingPower) != 0 ||
+				!bytes.Equal(header.Committee.Members[i].ConsensusKey, committee.Members[i].ConsensusKey) {
 				sb.logger.Error("wrong committee member in the set",
 					"index", i,
 					"currentVerifier", sb.address.String(),
 					"proposalNumber", proposalNumber,
-					"headerCommittee", header.Committee[i],
-					"computedCommittee", committee[i],
+					"headerCommittee", header.Committee.Members[i],
+					"computedCommittee", committee.Members[i],
 					"fullHeader", header.Committee,
 					"fullComputed", committee,
 				)
@@ -338,7 +350,7 @@ func (sb *Backend) CommitteeEnodes() []string {
 		sb.logger.Error("Failed to get state", "err", err)
 		return nil
 	}
-	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock().Header(), db)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil

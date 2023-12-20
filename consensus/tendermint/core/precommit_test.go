@@ -296,7 +296,7 @@ func TestHandlePrecommit(t *testing.T) {
 		c.SetDefaultHandlers()
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 
-		for _, member := range committeeSet.Committee()[1:5] {
+		for _, member := range committeeSet.Committee().Members[1:5] {
 			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
 			if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(stubVerifier)); err != nil {
 				t.Fatalf("Expected nil, got %v", err)
@@ -322,7 +322,7 @@ func TestHandleCommit(t *testing.T) {
 	addr := common.HexToAddress("0x0123456789")
 	testCommittee, keys := GenerateCommittee(3)
 
-	firstKey := keys[testCommittee[0].Address]
+	firstKey := keys[testCommittee.Members[0].Address]
 
 	h := &types.Header{Number: big.NewInt(3)}
 
@@ -336,8 +336,8 @@ func TestHandleCommit(t *testing.T) {
 	h.Committee = testCommittee
 
 	block := types.NewBlockWithHeader(h)
-	testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
-	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+	testCommittee.Members = append(testCommittee.Members, &types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
+	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee.Members[0].Address)
 	require.NoError(t, err)
 
 	backendMock := interfaces.NewMockBackend(ctrl)

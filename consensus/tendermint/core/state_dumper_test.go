@@ -100,8 +100,16 @@ func TestGetCoreState(t *testing.T) {
 	proposals[1], proposers[1] = prepareRoundMsgs(c, rounds[1], height)
 
 	one := common.Big1
-	members := []types.CommitteeMember{{Address: proposers[0], VotingPower: one}, {Address: proposers[1], VotingPower: one}}
-	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
+
+	committee := new(types.Committee)
+	committee.Members = append(committee.Members, &types.CommitteeMember{
+		Address:     proposers[0],
+		VotingPower: one,
+	}, &types.CommitteeMember{
+		Address:     proposers[1],
+		VotingPower: one,
+	})
+	committeeSet, err := tdmcommittee.NewRoundRobinSet(committee, proposers[1]) // todo construct set here
 	require.NoError(t, err)
 	setCoreState(c, height, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet,
 		prevBlock.Header())
