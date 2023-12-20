@@ -2124,6 +2124,8 @@ var AutonityMetaData = &bind.MetaData{
 		"8231a322": "computeCommitteeOptimzed()",
 		"baf83500": "computeCommitteePrecompiledSorting()",
 		"ba5125fb": "computeCommitteePrecompiledSortingFast()",
+		"53454f61": "computeCommitteePrecompiledSortingIterate()",
+		"0b0f2484": "computeCommitteePrecompiledSortingIterateFast()",
 		"79502c55": "config()",
 		"313ce567": "decimals()",
 		"d5f39488": "deployer()",
@@ -3576,6 +3578,48 @@ func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSortingFast() (*typ
 // Solidity: function computeCommitteePrecompiledSortingFast() returns(address[])
 func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSortingFast() (*types.Transaction, error) {
 	return _Autonity.Contract.ComputeCommitteePrecompiledSortingFast(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSortingIterate is a paid mutator transaction binding the contract method 0x53454f61.
+//
+// Solidity: function computeCommitteePrecompiledSortingIterate() returns(address[])
+func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSortingIterate(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSortingIterate")
+}
+
+// ComputeCommitteePrecompiledSortingIterate is a paid mutator transaction binding the contract method 0x53454f61.
+//
+// Solidity: function computeCommitteePrecompiledSortingIterate() returns(address[])
+func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSortingIterate() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterate(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSortingIterate is a paid mutator transaction binding the contract method 0x53454f61.
+//
+// Solidity: function computeCommitteePrecompiledSortingIterate() returns(address[])
+func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSortingIterate() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterate(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSortingIterateFast is a paid mutator transaction binding the contract method 0x0b0f2484.
+//
+// Solidity: function computeCommitteePrecompiledSortingIterateFast() returns(address[])
+func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSortingIterateFast(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSortingIterateFast")
+}
+
+// ComputeCommitteePrecompiledSortingIterateFast is a paid mutator transaction binding the contract method 0x0b0f2484.
+//
+// Solidity: function computeCommitteePrecompiledSortingIterateFast() returns(address[])
+func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSortingIterateFast() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterateFast(&_Autonity.TransactOpts)
+}
+
+// ComputeCommitteePrecompiledSortingIterateFast is a paid mutator transaction binding the contract method 0x0b0f2484.
+//
+// Solidity: function computeCommitteePrecompiledSortingIterateFast() returns(address[])
+func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSortingIterateFast() (*types.Transaction, error) {
+	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterateFast(&_Autonity.TransactOpts)
 }
 
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
@@ -12654,7 +12698,7 @@ func (_Oracle *OracleFilterer) ParseVoted(log types.Log) (*OracleVoted, error) {
 
 // PrecompiledMetaData contains all meta data concerning the Precompiled contract.
 var PrecompiledMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"ACCUSATION_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"INNOCENCE_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MISBEHAVIOUR_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"PARSE_ENODE_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SORT_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SORT_FAST_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"ACCUSATION_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"INNOCENCE_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MISBEHAVIOUR_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"PARSE_ENODE_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SORT_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SORT_FAST_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SORT_ITERATE_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SORT_ITERATE_FAST_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 	Sigs: map[string]string{
 		"4dc925d3": "ACCUSATION_CONTRACT()",
 		"8e153dc3": "INNOCENCE_CONTRACT()",
@@ -12662,8 +12706,10 @@ var PrecompiledMetaData = &bind.MetaData{
 		"776c306a": "PARSE_ENODE_CONTRACT()",
 		"bbd9bd5d": "SORT_CONTRACT()",
 		"516514e7": "SORT_FAST_CONTRACT()",
+		"9943851f": "SORT_ITERATE_CONTRACT()",
+		"4a5cc9ae": "SORT_ITERATE_FAST_CONTRACT()",
 	},
-	Bin: "0x60e4610034600b8282823980515f1a60731461002857634e487b7160e01b5f525f60045260245ffd5b305f52607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106064575f3560e01c80634dc925d3146068578063516514e714608b578063776c306a1460925780638e153dc3146099578063925c54921460a0578063bbd9bd5d1460a7575b5f80fd5b606f60fc81565b6040516001600160a01b03909116815260200160405180910390f35b606f60fa81565b606f60ff81565b606f60fd81565b606f60fe81565b606f60fb8156fea264697066735822122053b01214b21d84ac1d34288009caf79cf4659b214bec3758ae96f4d9ecc805fb64736f6c63430008150033",
+	Bin: "0x610114610035600b8282823980515f1a60731461002957634e487b7160e01b5f525f60045260245ffd5b305f52607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106086575f3560e01c80638e153dc311605d5780638e153dc31460c2578063925c54921460c95780639943851f1460d0578063bbd9bd5d1460d7575f80fd5b80634a5cc9ae14608a5780634dc925d31460ad578063516514e71460b4578063776c306a1460bb575b5f80fd5b609160f681565b6040516001600160a01b03909116815260200160405180910390f35b609160fc81565b609160fa81565b609160ff81565b609160fd81565b609160fe81565b609160f781565b609160fb8156fea2646970667358221220979e49f042a84cff6826f93e9410145b5781498a166aa7121e24e0c193f7cbe464736f6c63430008150033",
 }
 
 // PrecompiledABI is the input ABI used to generate the binding from.
@@ -13021,6 +13067,68 @@ func (_Precompiled *PrecompiledSession) SORTFASTCONTRACT() (common.Address, erro
 // Solidity: function SORT_FAST_CONTRACT() view returns(address)
 func (_Precompiled *PrecompiledCallerSession) SORTFASTCONTRACT() (common.Address, error) {
 	return _Precompiled.Contract.SORTFASTCONTRACT(&_Precompiled.CallOpts)
+}
+
+// SORTITERATECONTRACT is a free data retrieval call binding the contract method 0x9943851f.
+//
+// Solidity: function SORT_ITERATE_CONTRACT() view returns(address)
+func (_Precompiled *PrecompiledCaller) SORTITERATECONTRACT(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Precompiled.contract.Call(opts, &out, "SORT_ITERATE_CONTRACT")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SORTITERATECONTRACT is a free data retrieval call binding the contract method 0x9943851f.
+//
+// Solidity: function SORT_ITERATE_CONTRACT() view returns(address)
+func (_Precompiled *PrecompiledSession) SORTITERATECONTRACT() (common.Address, error) {
+	return _Precompiled.Contract.SORTITERATECONTRACT(&_Precompiled.CallOpts)
+}
+
+// SORTITERATECONTRACT is a free data retrieval call binding the contract method 0x9943851f.
+//
+// Solidity: function SORT_ITERATE_CONTRACT() view returns(address)
+func (_Precompiled *PrecompiledCallerSession) SORTITERATECONTRACT() (common.Address, error) {
+	return _Precompiled.Contract.SORTITERATECONTRACT(&_Precompiled.CallOpts)
+}
+
+// SORTITERATEFASTCONTRACT is a free data retrieval call binding the contract method 0x4a5cc9ae.
+//
+// Solidity: function SORT_ITERATE_FAST_CONTRACT() view returns(address)
+func (_Precompiled *PrecompiledCaller) SORTITERATEFASTCONTRACT(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Precompiled.contract.Call(opts, &out, "SORT_ITERATE_FAST_CONTRACT")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SORTITERATEFASTCONTRACT is a free data retrieval call binding the contract method 0x4a5cc9ae.
+//
+// Solidity: function SORT_ITERATE_FAST_CONTRACT() view returns(address)
+func (_Precompiled *PrecompiledSession) SORTITERATEFASTCONTRACT() (common.Address, error) {
+	return _Precompiled.Contract.SORTITERATEFASTCONTRACT(&_Precompiled.CallOpts)
+}
+
+// SORTITERATEFASTCONTRACT is a free data retrieval call binding the contract method 0x4a5cc9ae.
+//
+// Solidity: function SORT_ITERATE_FAST_CONTRACT() view returns(address)
+func (_Precompiled *PrecompiledCallerSession) SORTITERATEFASTCONTRACT() (common.Address, error) {
+	return _Precompiled.Contract.SORTITERATEFASTCONTRACT(&_Precompiled.CallOpts)
 }
 
 // StabilizationMetaData contains all meta data concerning the Stabilization contract.

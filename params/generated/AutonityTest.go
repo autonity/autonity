@@ -786,6 +786,32 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    },
    {
       "inputs" : [],
+      "name" : "computeCommitteePrecompiledSortingIterate",
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "computeCommitteePrecompiledSortingIterateFast",
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
       "name" : "config",
       "outputs" : [
          {
@@ -1755,6 +1781,19 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    },
    {
       "inputs" : [],
+      "name" : "sort",
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
       "name" : "symbol",
       "outputs" : [
          {
@@ -1796,6 +1835,20 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    {
       "inputs" : [],
       "name" : "testSortingPrecompiledFast",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "testSortingPrecompiledIterate",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "testSortingPrecompiledIterateFast",
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"
