@@ -6,6 +6,8 @@ var (
 	// ErrNotFromProposer is returned when received message is supposed to be from
 	// proposer.
 	ErrNotFromProposer = errors.New("message does not come from proposer")
+	// ErrAlreadyProcessed is returned when a received proposal was already processed in a specific round.
+	ErrAlreadyProcessed = errors.New("proposal was already processed")
 	// ErrFutureHeightMessage is returned when curRoundMessages view is earlier than the
 	// view of the received message.
 	ErrFutureHeightMessage = errors.New("future height message")
