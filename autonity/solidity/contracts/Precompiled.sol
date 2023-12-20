@@ -4,6 +4,8 @@ pragma solidity ^0.8.3;
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
+    address constant public SORT_ITERATE_FAST_CONTRACT = address(0xf6);
+    address constant public SORT_ITERATE_CONTRACT = address(0xf7);
     address constant public SORT_FAST_CONTRACT = address(0xfa);
     address constant public SORT_CONTRACT = address(0xfb);
     address constant public ACCUSATION_CONTRACT = address(0xfc);

@@ -54,6 +54,7 @@ contract AutonityTest is Autonity {
                CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
                _validatorList[i] = _item;
           }
+          require(validatorList.length <= 100, "limited return data");
           address[] memory addresses = _sortByStakePrecompiled(_validatorList, validatorList.length);
 
           // check if sorted
@@ -80,9 +81,81 @@ contract AutonityTest is Autonity {
                CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
                _validatorList[i] = _item;
           }
+          require(validatorList.length <= 100, "limited return data");
           address[] memory addresses = _sortByStakePrecompiledFast(_validatorList, validatorList.length);
 
           // check if sorted
+          uint256 lastStake = 0;
+          for (uint256 i = 0; i < addresses.length; i++) {
+               require(addresses[i] != address(0), "invalid address");
+               Validator storage validator = validators[addresses[i]];
+               require(validator.nodeAddress == addresses[i], "validator does not exit");
+
+               if (i > 0) {
+                    require(validator.bondedStake <= lastStake, "not sorted");
+               }
+               lastStake = validator.bondedStake;
+          }
+     }
+
+     function sort() public returns (address[] memory) {
+          // apply staking operations first, so everyone has positive stake
+          _stakingOperations();
+          CommitteeMember[] memory _validatorList = new CommitteeMember[](validatorList.length);
+          for (uint256 i = 0; i < validatorList.length; i++) {
+               Validator storage _user = validators[validatorList[i]];
+               CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
+               _validatorList[i] = _item;
+          }
+          require(validatorList.length <= 100, "limited return data");
+          address[] memory addresses = _sortByStakePrecompiledIterate(_validatorList, validatorList.length);
+          require(addresses.length == _validatorList.length, "return data wrong");
+          return addresses;
+     }
+
+     function testSortingPrecompiledIterate() public {
+          // testing  _sortByStakeOptimized
+          // apply staking operations first, so everyone has positive stake
+          _stakingOperations();
+          CommitteeMember[] memory _validatorList = new CommitteeMember[](validatorList.length);
+          for (uint256 i = 0; i < validatorList.length; i++) {
+               Validator storage _user = validators[validatorList[i]];
+               CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
+               _validatorList[i] = _item;
+          }
+          require(validatorList.length <= 100, "limited return data");
+          address[] memory addresses = _sortByStakePrecompiledIterate(_validatorList, validatorList.length);
+
+          // check if sorted
+          require(addresses.length == _validatorList.length, "return data wrong");
+          uint256 lastStake = 0;
+          for (uint256 i = 0; i < addresses.length; i++) {
+               require(addresses[i] != address(0), "invalid address");
+               Validator storage validator = validators[addresses[i]];
+               require(validator.nodeAddress == addresses[i], "validator does not exit");
+
+               if (i > 0) {
+                    require(validator.bondedStake <= lastStake, "not sorted");
+               }
+               lastStake = validator.bondedStake;
+          }
+     }
+
+     function testSortingPrecompiledIterateFast() public {
+          // testing  _sortByStakeOptimized
+          // apply staking operations first, so everyone has positive stake
+          _stakingOperations();
+          CommitteeMember[] memory _validatorList = new CommitteeMember[](validatorList.length);
+          for (uint256 i = 0; i < validatorList.length; i++) {
+               Validator storage _user = validators[validatorList[i]];
+               CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
+               _validatorList[i] = _item;
+          }
+          require(validatorList.length <= 100, "limited return data");
+          address[] memory addresses = _sortByStakePrecompiledIterateFast(_validatorList, validatorList.length);
+
+          // check if sorted
+          require(addresses.length == _validatorList.length, "return data wrong");
           uint256 lastStake = 0;
           for (uint256 i = 0; i < addresses.length; i++) {
                require(addresses[i] != address(0), "invalid address");

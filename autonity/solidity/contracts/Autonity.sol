@@ -736,6 +736,134 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         return _voterList;
     }
 
+    function computeCommitteePrecompiledSortingIterate() public onlyProtocol returns (address[] memory){
+        // Left public for testing purposes.
+        require(validatorList.length > 0, "There must be validators");
+        /*
+         As opposed to storage arrays, it is not possible to resize memory arrays
+         have to calculate the required size in advance
+        */
+        uint _len = 0;
+        for (uint256 i = 0; i < validatorList.length; i++) {
+            Validator storage _user = validators[validatorList[i]];
+            if (_user.state == ValidatorState.active && _user.bondedStake > 0) {
+                _len++;
+            }
+        }
+
+        uint256 _committeeLength = config.protocol.committeeSize;
+        if (_committeeLength > _len) {
+            _committeeLength = _len;
+        }
+
+        CommitteeMember[] memory _validatorList = new CommitteeMember[](_len);
+        address [] memory _voterList;
+
+        // since Push function does not apply to fix length array, introduce a index j to prevent the overflow,
+        // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
+        uint j = 0;
+        for (uint256 i = 0; i < validatorList.length; i++) {
+            Validator storage _user = validators[validatorList[i]];
+            if (_user.state == ValidatorState.active && _user.bondedStake > 0) {
+                // Create a new copy of CommitteeMember in memory
+                CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
+                _validatorList[j] = _item;
+                j++;
+            }
+        }
+
+        // If there are more validators than seats in the committee
+        if (_validatorList.length > _committeeLength) {
+            // sort validators by stake in descending order
+            _voterList = _sortByStakePrecompiledIterate(_validatorList, _committeeLength);
+        }
+        else {
+            _voterList = new address[](_committeeLength);
+            for (uint256 i = 0; i < _validatorList.length; i++) {
+                _voterList[i] = _validatorList[i].addr;
+            }
+        }
+
+        // Update committee in persistent storage
+        delete committee;
+        delete committeeNodes;
+        epochTotalBondedStake = 0;
+        // top _committeeLength validators in the list have the largest amount of bonded stake
+        for (uint256 _k = 0; _k < _committeeLength; _k++) {
+            Validator storage _user = validators[_voterList[_k]];
+            CommitteeMember memory _member = CommitteeMember(_voterList[_k], _user.bondedStake);
+            committee.push(_member);
+            committeeNodes.push(_user.enode);
+            _voterList[_k] = _user.oracleAddress;
+            epochTotalBondedStake += _member.votingPower;
+        }
+        return _voterList;
+    }
+
+    function computeCommitteePrecompiledSortingIterateFast() public onlyProtocol returns (address[] memory){
+        // Left public for testing purposes.
+        require(validatorList.length > 0, "There must be validators");
+        /*
+         As opposed to storage arrays, it is not possible to resize memory arrays
+         have to calculate the required size in advance
+        */
+        uint _len = 0;
+        for (uint256 i = 0; i < validatorList.length; i++) {
+            Validator storage _user = validators[validatorList[i]];
+            if (_user.state == ValidatorState.active && _user.bondedStake > 0) {
+                _len++;
+            }
+        }
+
+        uint256 _committeeLength = config.protocol.committeeSize;
+        if (_committeeLength > _len) {
+            _committeeLength = _len;
+        }
+
+        CommitteeMember[] memory _validatorList = new CommitteeMember[](_len);
+        address [] memory _voterList;
+
+        // since Push function does not apply to fix length array, introduce a index j to prevent the overflow,
+        // not all the members in validator pool satisfy the enabled && bondedStake > 0, so the overflow happens.
+        uint j = 0;
+        for (uint256 i = 0; i < validatorList.length; i++) {
+            Validator storage _user = validators[validatorList[i]];
+            if (_user.state == ValidatorState.active && _user.bondedStake > 0) {
+                // Create a new copy of CommitteeMember in memory
+                CommitteeMember memory _item = CommitteeMember(_user.nodeAddress, _user.bondedStake);
+                _validatorList[j] = _item;
+                j++;
+            }
+        }
+
+        // If there are more validators than seats in the committee
+        if (_validatorList.length > _committeeLength) {
+            // sort validators by stake in descending order
+            _voterList = _sortByStakePrecompiledIterateFast(_validatorList, _committeeLength);
+        }
+        else {
+            _voterList = new address[](_committeeLength);
+            for (uint256 i = 0; i < _validatorList.length; i++) {
+                _voterList[i] = _validatorList[i].addr;
+            }
+        }
+
+        // Update committee in persistent storage
+        delete committee;
+        delete committeeNodes;
+        epochTotalBondedStake = 0;
+        // top _committeeLength validators in the list have the largest amount of bonded stake
+        for (uint256 _k = 0; _k < _committeeLength; _k++) {
+            Validator storage _user = validators[_voterList[_k]];
+            CommitteeMember memory _member = CommitteeMember(_voterList[_k], _user.bondedStake);
+            committee.push(_member);
+            committeeNodes.push(_user.enode);
+            _voterList[_k] = _user.oracleAddress;
+            epochTotalBondedStake += _member.votingPower;
+        }
+        return _voterList;
+    }
+
     function computeCommitteePrecompiledSorting() public onlyProtocol returns (address[] memory){
         // Left public for testing purposes.
         require(validatorList.length > 0, "There must be validators");
@@ -1420,6 +1548,54 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         _structQuickSortOptimized(_validators, int(0), int(_validators.length - 1));
     }
 
+    function _sortByStakePrecompiledIterate(CommitteeMember[] memory _validators, uint256 _committeeSize) internal view returns (address[] memory) {
+        uint offset = 32 + 3 * _validators.length * 32;
+        uint _length = _validators.length * 2 * 32;
+        uint _returnDataLength = _committeeSize*32 + 32;
+        // depends on the committee size
+        // TODO: is there any better way to do it?
+        address[101] memory _returnData;
+        address to = Precompiled.SORT_ITERATE_CONTRACT;
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, add(_validators, offset), _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+
+        require(_returnData[0] == address(1), "unsuccessful call");
+
+        address[] memory _voters = new address[] (_committeeSize);
+        for (uint256 i = 0; i < _committeeSize; i++) {
+            _voters[i] = _returnData[i+1];
+        }
+        return _voters;
+    }
+
+    function _sortByStakePrecompiledIterateFast(CommitteeMember[] memory _validators, uint256 _committeeSize) internal view returns (address[] memory) {
+        uint offset = 32 + 3 * _validators.length * 32;
+        uint _length = _validators.length * 2 * 32;
+        uint _returnDataLength = _committeeSize*32 + 32;
+        // depends on the committee size
+        // TODO: is there any better way to do it?
+        address[101] memory _returnData;
+        address to = Precompiled.SORT_ITERATE_FAST_CONTRACT;
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, add(_validators, offset), _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+
+        require(_returnData[0] == address(1), "unsuccessful call");
+
+        address[] memory _voters = new address[] (_committeeSize);
+        for (uint256 i = 0; i < _committeeSize; i++) {
+            _voters[i] = _returnData[i+1];
+        }
+        return _voters;
+    }
+
     function _sortByStakePrecompiled(CommitteeMember[] memory _validators, uint256 _committeeSize) internal view returns (address[] memory) {
         uint offset = 32 + 3 * _validators.length * 32;
         uint _length = _validators.length * 2 * 32;
@@ -1428,12 +1604,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         // TODO: is there any better way to do it?
         address[101] memory _returnData;
         address to = Precompiled.SORT_CONTRACT;
-
-
-        uint256[4] offsets
         assembly {
-            offsets[0] = validatorList // <- This refer to the slot of validatorList
-
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
             if iszero(staticcall(gas(), to, add(_validators, offset), _length, _returnData, _returnDataLength)) {
                 revert(0, 0)
