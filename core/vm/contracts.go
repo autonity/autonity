@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/autonity"
 	"math/big"
 	"sync"
 
@@ -58,10 +57,12 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
-	common.BytesToAddress([]byte{250}): &QuickSortFast{},
-	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
+	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{249}): &structTester{},
 	common.BytesToAddress([]byte{248}): &directStorageSort{},
+	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -77,10 +78,12 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
-	common.BytesToAddress([]byte{250}): &QuickSortFast{},
-	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
+	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{249}): &structTester{},
 	common.BytesToAddress([]byte{248}): &directStorageSort{},
+	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -97,10 +100,12 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
-	common.BytesToAddress([]byte{250}): &QuickSortFast{},
-	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
+	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{249}): &structTester{},
 	common.BytesToAddress([]byte{248}): &directStorageSort{},
+	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -117,10 +122,12 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
-	common.BytesToAddress([]byte{250}): &QuickSortFast{},
-	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
+	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{249}): &structTester{},
 	common.BytesToAddress([]byte{248}): &directStorageSort{},
+	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -137,10 +144,12 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &QuickSort{},
-	common.BytesToAddress([]byte{250}): &QuickSortFast{},
-	common.BytesToAddress([]byte{249}): &StructTester{},
+	common.BytesToAddress([]byte{251}): &quickSort{},
+	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{249}): &structTester{},
 	common.BytesToAddress([]byte{248}): &directStorageSort{},
+	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
 }
 
 var (
@@ -195,13 +204,15 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 	return output, suppliedGas, err
 }
 
-type StructTester struct{}
+const ThreadLimit = 1000
 
-func (a *StructTester) RequiredGas(_ []byte) uint64 {
+type structTester struct{}
+
+func (a *structTester) RequiredGas(_ []byte) uint64 {
 	return 1
 }
 
-func (a *StructTester) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+func (a *structTester) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	res := make([]byte, 32)
 	for i := 0; i < len(input); i += 32 {
 		_, err := fmt.Printf("%v, %v : %v \n", i>>5, &input[i], input[i:i+32])
@@ -214,56 +225,56 @@ func (a *StructTester) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 }
 
 type directStorageSort struct {
-
 }
+
 func (a *directStorageSort) RequiredGas(_ []byte) uint64 {
 	return 1
 }
 
 func (a *directStorageSort) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
-	// step 1: Retrieve all validators from storage
+	// // step 1: Retrieve all validators from storage
 
-	// question 1: how do we retrieve the contract address?
-	//solutions :
-	//	- Send it as an input, so we access it by using "input" here
-	//	- Retrieve the contract from autonity config
-	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
-	// validatorList = slot of validatorList in solidity
-	validatorListSize = evm.StateDB.GetState(autonity.AutonityContractAddress, validatorList)
-	baseOffset = crypto.Keccak256Hash(validatorList)
-	addresses := make([]common.Address,validatorListSize)
+	// // question 1: how do we retrieve the contract address?
+	// //solutions :
+	// //	- Send it as an input, so we access it by using "input" here
+	// //	- Retrieve the contract from autonity config
+	// //  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+	// // validatorList = slot of validatorList in solidity
+	// validatorListSize = evm.StateDB.GetState(autonity.AutonityContractAddress, validatorList)
+	// baseOffset = crypto.Keccak256Hash(validatorList)
+	// addresses := make([]common.Address, validatorListSize)
 
-	// optimisation possible here: introduce concurrency
-	for i:=0; i < validatorListSize; i++{
-		addresses[i] = evm.StateDB.GetState(autonity.AutonityContractAddress, baseOffset + i)
-	}
+	// // optimisation possible here: introduce concurrency
+	// for i := 0; i < validatorListSize; i++ {
+	// 	addresses[i] = evm.StateDB.GetState(autonity.AutonityContractAddress, baseOffset+i)
+	// }
 
-	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
+	// // We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
 
-	for i := range addresses {
-		// compute storage location of Validator mapping
-		// compute absolute location of bondedStake
-		// compute absolute location of state
-		// retrieve the data
-	}
-	// run quick sort
+	// for i := range addresses {
+	// 	// compute storage location of Validator mapping
+	// 	// compute absolute location of bondedStake
+	// 	// compute absolute location of state
+	// 	// retrieve the data
+	// }
+	// // run quick sort
 
-	// Save that directly into storage of validator
-	// we can use evm.StateDB.SetState()
+	// // Save that directly into storage of validator
+	// // we can use evm.StateDB.SetState()
 
-	// SOLIDITY : [SIZE(uint256)]
-	//
-	// step 2: Run committee selection
+	// // SOLIDITY : [SIZE(uint256)]
+	// //
+	// // step 2: Run committee selection
 
-	// step3: Save data directly into storage from here
+	// // step3: Save data directly into storage from here
 
-	// if success : return true
+	// // if success : return true
+	return make([]byte, 0), nil
 }
-
 
 const KB = 1024
 
-type QuickSort struct{}
+type quickSort struct{}
 
 type StakeWithId struct {
 	ValidatorId uint32
@@ -271,14 +282,14 @@ type StakeWithId struct {
 }
 
 // RequiredGas the gas cost to sort validator list
-func (a *QuickSort) RequiredGas(input []byte) uint64 {
+func (a *quickSort) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
 	return params.AutonityAFDContractGasPerKB * times
 }
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (a *QuickSort) Run(input []byte, _ uint64, , evm *EVM) ([]byte, error) {
+func (a *quickSort) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	length := len(input) / 64
 	validators := make([]*StakeWithId, length)
 	for i := 32; i < len(input); i += 64 {
@@ -317,14 +328,14 @@ func structQuickSort(validators []*StakeWithId, low int32, high int32) {
 			for validators[i].Stake.Cmp(pivot) == 1 {
 				i++
 				// check if elements at (i-1) and (i-2) are sorted or not
-				if i-1 > low && isLeftSorted {
+				if isLeftSorted && i-1 > low {
 					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 				}
 			}
 			for pivot.Cmp(validators[j].Stake) == 1 {
 				j--
 				// check if elements at (j+1) and (j+2) are sorted or not
-				if j+1 < high && isRightSorted {
+				if isRightSorted && j+1 < high {
 					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 				}
 			}
@@ -332,36 +343,36 @@ func structQuickSort(validators []*StakeWithId, low int32, high int32) {
 				validators[i], validators[j] = validators[j], validators[i]
 				i++
 				j--
-				if i-1 > low && isLeftSorted {
+				if isLeftSorted && i-1 > low {
 					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 				}
-				if j+1 < high && isRightSorted {
+				if isRightSorted && j+1 < high {
 					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 				}
 			}
 		}
 		// Recursion call in the left partition of the array
-		if low < j && !isLeftSorted {
+		if !isLeftSorted && low < j {
 			structQuickSort(validators, low, j)
 		}
 		// Recursion call in the right partition
-		if i < high && !isRightSorted {
+		if !isRightSorted && i < high {
 			structQuickSort(validators, i, high)
 		}
 	}
 }
 
-type QuickSortFast struct{}
+type quickSortFast struct{}
 
 // RequiredGas the gas cost to sort validator list
-func (a *QuickSortFast) RequiredGas(input []byte) uint64 {
+func (a *quickSortFast) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
 	return params.AutonityAFDContractGasPerKB * times
 }
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (a *QuickSortFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+func (a *quickSortFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	length := len(input) / 64
 	validators := make([]*StakeWithId, length)
 	for i := 32; i < len(input); i += 64 {
@@ -374,7 +385,8 @@ func (a *QuickSortFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	}
 
 	task := sync.WaitGroup{}
-	structQuickSortFast(validators, 0, int32(length)-1, &task)
+	threadUsed := 0
+	structQuickSortFast(validators, 0, int32(length)-1, &task, &threadUsed)
 	task.Wait()
 	result := make([]byte, length*32+32)
 	result[31] = 1
@@ -388,7 +400,7 @@ func (a *QuickSortFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	return result, nil
 }
 
-func structQuickSortFast(validators []*StakeWithId, low int32, high int32, task *sync.WaitGroup) {
+func structQuickSortFast(validators []*StakeWithId, low int32, high int32, task *sync.WaitGroup, threadUsed *int) {
 	if low < high {
 		// Set the pivot element in its right sorted index in the array
 		pivot := validators[(high+low)/2].Stake
@@ -402,14 +414,14 @@ func structQuickSortFast(validators []*StakeWithId, low int32, high int32, task 
 			for validators[i].Stake.Cmp(pivot) == 1 {
 				i++
 				// check if elements at (i-1) and (i-2) are sorted or not
-				if i-1 > low && isLeftSorted {
+				if isLeftSorted && i-1 > low {
 					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 				}
 			}
 			for pivot.Cmp(validators[j].Stake) == 1 {
 				j--
 				// check if elements at (j+1) and (j+2) are sorted or not
-				if j+1 < high && isRightSorted {
+				if isRightSorted && j+1 < high {
 					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 				}
 			}
@@ -417,10 +429,10 @@ func structQuickSortFast(validators []*StakeWithId, low int32, high int32, task 
 				validators[i], validators[j] = validators[j], validators[i]
 				i++
 				j--
-				if i-1 > low && isLeftSorted {
+				if isLeftSorted && i-1 > low {
 					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 				}
-				if j+1 < high && isRightSorted {
+				if isRightSorted && j+1 < high {
 					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 				}
 			}
@@ -428,21 +440,254 @@ func structQuickSortFast(validators []*StakeWithId, low int32, high int32, task 
 
 		// task := sync.WaitGroup{}
 
-		if low < j && !isLeftSorted {
-			task.Add(1)
-			go func() {
+		if !isLeftSorted && low < j {
+			if *threadUsed < ThreadLimit {
+				task.Add(1)
+				(*threadUsed)++
+				go func() {
+					// Recursion call in the left partition of the array
+					structQuickSortFast(validators, low, j, task, threadUsed)
+					task.Done()
+					(*threadUsed)--
+				}()
+			} else {
 				// Recursion call in the left partition of the array
-				structQuickSortFast(validators, low, j, task)
+				structQuickSortFast(validators, low, j, task, threadUsed)
+			}
+		}
+		if !isRightSorted && i < high {
+			if *threadUsed < ThreadLimit {
+				task.Add(1)
+				(*threadUsed)++
+				go func() {
+					// Recursion call in the right partition
+					structQuickSortFast(validators, i, high, task, threadUsed)
+					task.Done()
+					(*threadUsed)--
+				}()
+			} else {
+				// Recursion call in the right partition
+				structQuickSortFast(validators, i, high, task, threadUsed)
+			}
+		}
+	}
+}
+
+type quickSortIterate struct {
+	queue []*boundary
+}
+
+type boundary struct {
+	low  int32
+	high int32
+}
+
+// RequiredGas the gas cost to sort validator list
+func (a *quickSortIterate) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+// Run take the validator list and sort it according to bonded stake in descending order
+// and then returns the addresses only to reduce the memory usage
+func (sort *quickSortIterate) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+	length := len(input) / 64
+	validators := make([]*StakeWithId, length)
+	for i := 32; i < len(input); i += 64 {
+		idx := uint32(i >> 6)
+		item := StakeWithId{
+			ValidatorId: idx,
+			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
+		}
+		validators[idx] = &item
+	}
+
+	sort.structQuickSortIterate(validators)
+	result := make([]byte, length*32+32)
+	result[31] = 1
+	j := 32
+	for i := 0; i < length; i++ {
+		idx := validators[i].ValidatorId
+		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
+		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
+		j += 32
+	}
+	return result, nil
+}
+
+func (sort *quickSortIterate) partition(validators []*StakeWithId, low int32, high int32) {
+	// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
+	isLeftSorted := true
+	// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
+	isRightSorted := true
+	i := low
+	j := high
+	if low < high {
+		// Set the pivot element in its right sorted index in the array
+		pivot := validators[(high+low)/2].Stake
+		for i <= j {
+			for validators[i].Stake.Cmp(pivot) == 1 {
+				i++
+				// check if elements at (i-1) and (i-2) are sorted or not
+				if isLeftSorted && i-1 > low {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+			}
+			for pivot.Cmp(validators[j].Stake) == 1 {
+				j--
+				// check if elements at (j+1) and (j+2) are sorted or not
+				if isRightSorted && j+1 < high {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+			if i <= j {
+				validators[i], validators[j] = validators[j], validators[i]
+				i++
+				j--
+				if isLeftSorted && i-1 > low {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+				if isRightSorted && j+1 < high {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+		}
+	}
+
+	if !isLeftSorted && low < j {
+		// need to sort the left portion
+		sort.queue = append(sort.queue, &boundary{low: low, high: j})
+	}
+	if !isRightSorted && i < high {
+		// need to sort the right portion
+		sort.queue = append(sort.queue, &boundary{low: i, high: high})
+	}
+}
+
+func (sort *quickSortIterate) structQuickSortIterate(validators []*StakeWithId) {
+	sort.queue = append(sort.queue, &boundary{low: 0, high: int32(len(validators)) - 1})
+	for len(sort.queue) > 0 {
+		// pop the first item
+		topItem := sort.queue[0]
+		sort.queue = sort.queue[1:]
+		sort.partition(validators, topItem.low, topItem.high)
+	}
+}
+
+type quickSortIterateFast struct {
+	queueLock sync.RWMutex
+	queue     []*boundary
+}
+
+// RequiredGas the gas cost to sort validator list
+func (a *quickSortIterateFast) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+// Run take the validator list and sort it according to bonded stake in descending order
+// and then returns the addresses only to reduce the memory usage
+func (sort *quickSortIterateFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+	length := len(input) / 64
+	validators := make([]*StakeWithId, length)
+	for i := 32; i < len(input); i += 64 {
+		idx := uint32(i >> 6)
+		item := StakeWithId{
+			ValidatorId: idx,
+			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
+		}
+		validators[idx] = &item
+	}
+
+	sort.structQuickSortIterateFast(validators)
+	result := make([]byte, length*32+32)
+	result[31] = 1
+	j := 32
+	for i := 0; i < length; i++ {
+		idx := validators[i].ValidatorId
+		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
+		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
+		j += 32
+	}
+	return result, nil
+}
+
+func (sort *quickSortIterateFast) partition(validators []*StakeWithId, low int32, high int32) {
+	// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
+	isLeftSorted := true
+	// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
+	isRightSorted := true
+	i := low
+	j := high
+	if low < high {
+		// Set the pivot element in its right sorted index in the array
+		pivot := validators[(high+low)/2].Stake
+		for i <= j {
+			for validators[i].Stake.Cmp(pivot) == 1 {
+				i++
+				// check if elements at (i-1) and (i-2) are sorted or not
+				if isLeftSorted && i-1 > low {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+			}
+			for pivot.Cmp(validators[j].Stake) == 1 {
+				j--
+				// check if elements at (j+1) and (j+2) are sorted or not
+				if isRightSorted && j+1 < high {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+			if i <= j {
+				validators[i], validators[j] = validators[j], validators[i]
+				i++
+				j--
+				if isLeftSorted && i-1 > low {
+					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+				}
+				if isRightSorted && j+1 < high {
+					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+				}
+			}
+		}
+	}
+
+	if !isLeftSorted && low < j {
+		// need to sort the left portion
+		sort.queueLock.Lock()
+		sort.queue = append(sort.queue, &boundary{low: low, high: j})
+		sort.queueLock.Unlock()
+	}
+	if !isRightSorted && i < high {
+		// need to sort the right portion
+		sort.queueLock.Lock()
+		sort.queue = append(sort.queue, &boundary{low: i, high: high})
+		sort.queueLock.Unlock()
+	}
+}
+
+func (sort *quickSortIterateFast) structQuickSortIterateFast(validators []*StakeWithId) {
+	sort.queue = append(sort.queue, &boundary{low: 0, high: int32(len(validators)) - 1})
+	task := sync.WaitGroup{}
+	for {
+		threadUsed := 0
+		for len(sort.queue) > 0 && threadUsed < ThreadLimit {
+			// pop the first item
+			sort.queueLock.Lock()
+			topItem := sort.queue[0]
+			sort.queue = sort.queue[1:]
+			sort.queueLock.Unlock()
+
+			task.Add(1)
+			threadUsed++
+			go func() {
+				sort.partition(validators, topItem.low, topItem.high)
 				task.Done()
+				threadUsed--
 			}()
 		}
-		if i < high && !isRightSorted {
-			task.Add(1)
-			go func() {
-				// Recursion call in the right partition
-				structQuickSortFast(validators, i, high, task)
-				task.Done()
-			}()
+		task.Wait()
+		if len(sort.queue) == 0 {
+			break
 		}
 	}
 }
