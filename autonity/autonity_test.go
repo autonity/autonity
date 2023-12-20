@@ -83,6 +83,32 @@ func BenchmarkComputeCommittee(b *testing.B) {
 		require.NoError(b, err)
 		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
 	})
+
+	b.Run("computeCommitteePrecompiledSortingIterate", func(b *testing.B) {
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(b, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
+		require.NoError(b, err)
+		packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSortingIterate")
+		require.NoError(b, err)
+		_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+		require.NoError(b, err)
+		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
+	})
+
+	b.Run("computeCommitteePrecompiledSortingIterateFast", func(b *testing.B) {
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(b, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
+		require.NoError(b, err)
+		packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSortingIterateFast")
+		require.NoError(b, err)
+		_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+		require.NoError(b, err)
+		benchmarkWithGas(b, evmContract, stateDb, header, contractAddress, packedArgs)
+	})
 }
 
 func TestSorting(t *testing.T) {
@@ -189,7 +215,7 @@ func TestSortingPrecompiledFast(t *testing.T) {
 	// Deploy contract for each test
 	contractAbi := &generated.AutonityTestAbi
 	deployer := common.Address{}
-	committeeSize := 1
+	committeeSize := 100
 	// in precompiled contract, we have to take array of fixed size for returnData
 	// if validatorCount > committeeSize, the test will not work
 	// because in the test we are expecting to get all the validators sorted and returned
@@ -233,6 +259,247 @@ func TestSortingPrecompiledFast(t *testing.T) {
 		require.NoError(t, err)
 		var header *types.Header
 		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledFast")
+		require.NoError(t, err)
+	})
+}
+
+func TestArraySlice(t *testing.T) {
+	queue := make([]int, 0)
+	printStuff(queue, t)
+	queue = append(queue, 1)
+	queue = append(queue, 2)
+	printStuff(queue, t)
+	queue = append(queue, 3)
+	queue = append(queue, 4)
+	printStuff(queue, t)
+	queue = queue[1:]
+	printStuff(queue, t)
+	queue = queue[3:]
+	printStuff(queue, t)
+}
+
+func printStuff(queue []int, t *testing.T) {
+	t.Log(len(queue))
+	t.Log(queue)
+	for i := 0; i < len(queue); i++ {
+		t.Log(&queue[i])
+	}
+}
+
+func TestSort(t *testing.T) {
+	// Deploy contract for each test
+	contractAbi := &generated.AutonityTestAbi
+	deployer := common.Address{}
+	committeeSize := 9
+	// in precompiled contract, we have to take array of fixed size for returnData
+	// if validatorCount > committeeSize, the test will not work
+	// because in the test we are expecting to get all the validators sorted and returned
+	// in practice, we don't need to return all the validators, only top 100 validators
+	validatorCount := committeeSize
+
+	// t.Run("test sorting with 0% randomness", func(t *testing.T) {
+	// 	validators, _, err := randomValidators(validatorCount, 0)
+	// 	require.NoError(t, err)
+	// 	stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+	// 	require.NoError(t, err)
+	// 	var header *types.Header
+	// 	// err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+	// 	argsPacked, err := contractAbi.Pack("sort")
+	// 	require.NoError(t, err)
+	// 	res, _, err := evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+	// 	require.NoError(t, err)
+	// 	var addresses []common.Address
+	// 	err = contractAbi.UnpackIntoInterface(&addresses, "sort", res)
+	// 	require.NoError(t, err)
+	// 	t.Log("printing res")
+	// 	t.Log(addresses)
+	// })
+
+	t.Run("test sorting with 30% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 30)
+		require.NoError(t, err)
+		sortedValidators := make([]params.Validator, validatorCount)
+		for i := 0; i < validatorCount; i++ {
+			sortedValidators[i] = validators[i]
+		}
+		sort.SliceStable(sortedValidators, func(i, j int) bool {
+			return sortedValidators[i].BondedStake.Cmp(sortedValidators[j].BondedStake) == 1
+		})
+		for i := 0; i < validatorCount; i++ {
+			t.Log(sortedValidators[i].NodeAddress)
+			t.Log(sortedValidators[i].BondedStake)
+		}
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		// err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+		argsPacked, err := contractAbi.Pack("sort")
+		require.NoError(t, err)
+		res, _, err := evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+		require.NoError(t, err)
+		var addresses []common.Address
+		err = contractAbi.UnpackIntoInterface(&addresses, "sort", res)
+		require.NoError(t, err)
+		t.Log("printing res")
+		// t.Log(addresses)
+		for i := 0; i < validatorCount; i++ {
+			t.Log(addresses[i])
+		}
+	})
+
+	// t.Run("test sorting with 70% randomness", func(t *testing.T) {
+	// 	validators, _, err := randomValidators(validatorCount, 70)
+	// 	require.NoError(t, err)
+	// 	stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+	// 	require.NoError(t, err)
+	// 	var header *types.Header
+	// 	// err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+	// 	argsPacked, err := contractAbi.Pack("sort")
+	// 	require.NoError(t, err)
+	// 	res, _, err := evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+	// 	require.NoError(t, err)
+	// 	var addresses []common.Address
+	// 	err = contractAbi.UnpackIntoInterface(&addresses, "sort", res)
+	// 	require.NoError(t, err)
+	// 	t.Log("printing res")
+	// 	t.Log(addresses)
+	// })
+
+	// t.Run("test sorting with 100% randomness", func(t *testing.T) {
+	// 	validators, _, err := randomValidators(validatorCount, 100)
+	// 	require.NoError(t, err)
+	// 	stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+	// 	require.NoError(t, err)
+	// 	var header *types.Header
+	// 	// err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+	// 	argsPacked, err := contractAbi.Pack("sort")
+	// 	require.NoError(t, err)
+	// 	res, _, err := evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+	// 	require.NoError(t, err)
+	// 	var addresses []common.Address
+	// 	err = contractAbi.UnpackIntoInterface(&addresses, "sort", res)
+	// 	require.NoError(t, err)
+	// 	t.Log("printing res")
+	// 	t.Log(addresses)
+	// })
+}
+
+func TestSortingPrecompiledIterate(t *testing.T) {
+	// Deploy contract for each test
+	contractAbi := &generated.AutonityTestAbi
+	deployer := common.Address{}
+	committeeSize := 100
+	// in precompiled contract, we have to take array of fixed size for returnData
+	// if validatorCount > committeeSize, the test will not work
+	// because in the test we are expecting to get all the validators sorted and returned
+	// in practice, we don't need to return all the validators, only top 100 validators
+	validatorCount := committeeSize
+
+	t.Run("test sorting with 0% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 0)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 30% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 30)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		// err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+		argsPacked, err := contractAbi.Pack("testSortingPrecompiledIterate")
+		require.NoError(t, err)
+		res, _, err := evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+		t.Log("printing error")
+		t.Log(err)
+		t.Log("printing res")
+		t.Log(res)
+		t.Log(string(res))
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 70% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 70)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 100% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 100)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+		require.NoError(t, err)
+	})
+}
+
+func TestSortingPrecompiledIterateFast(t *testing.T) {
+	// Deploy contract for each test
+	contractAbi := &generated.AutonityTestAbi
+	deployer := common.Address{}
+	committeeSize := 100
+	// in precompiled contract, we have to take array of fixed size for returnData
+	// if validatorCount > committeeSize, the test will not work
+	// because in the test we are expecting to get all the validators sorted and returned
+	// in practice, we don't need to return all the validators, only top 100 validators
+	validatorCount := committeeSize
+
+	t.Run("test sorting with 0% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 0)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterateFast")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 30% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 30)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		// err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterate")
+		argsPacked, err := contractAbi.Pack("testSortingPrecompiledIterateFast")
+		require.NoError(t, err)
+		res, _, err := evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
+		t.Log("printing error")
+		t.Log(err)
+		t.Log("printing res")
+		t.Log(res)
+		t.Log(string(res))
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 70% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 70)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterateFast")
+		require.NoError(t, err)
+	})
+
+	t.Run("test sorting with 100% randomness", func(t *testing.T) {
+		validators, _, err := randomValidators(validatorCount, 100)
+		require.NoError(t, err)
+		stateDb, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		require.NoError(t, err)
+		var header *types.Header
+		err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "testSortingPrecompiledIterateFast")
 		require.NoError(t, err)
 	})
 }
