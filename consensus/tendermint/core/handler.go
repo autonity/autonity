@@ -89,6 +89,8 @@ func shouldDisconnectSender(err error) bool {
 	case errors.Is(err, constants.ErrNilPrecommitSent):
 		fallthrough
 	case errors.Is(err, constants.ErrMovedToNewRound):
+		fallthrough
+	case errors.Is(err, constants.ErrAlreadyProcessed):
 		return false
 	case errors.Is(err, ErrValidatorJailed):
 		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
