@@ -96,6 +96,8 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case constants.ErrNilPrecommitSent:
 		fallthrough
+	case constants.ErrAlreadyProcessed:
+		fallthrough
 	case constants.ErrMovedToNewRound:
 		return false
 	case ErrValidatorJailed:
@@ -308,7 +310,6 @@ func (c *Core) handleValidMsg(ctx context.Context, msg *message.Message) error {
 			logger.Debug("Storing future step message in backlog")
 			c.storeBacklog(msg, msg.Address)
 		}
-
 		return err
 	}
 
