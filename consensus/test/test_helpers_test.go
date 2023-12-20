@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math"
 	"math/big"
 	"os"
@@ -47,7 +47,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, validator := range nodes {
-		genesis.Alloc[crypto.PubkeyToAddress(validator.privateKey.PublicKey)] = core.GenesisAccount{
+		genesis.Alloc[crypto.PubkeyToAddress(validator.nodeKey.PublicKey)] = core.GenesisAccount{
 			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
 		}
 	}
@@ -57,16 +57,18 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 		stake := big.NewInt(defaultStake)
 		//stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 		if strings.HasPrefix(name, ValidatorPrefix) {
-			address := crypto.PubkeyToAddress(nodes[name].privateKey.PublicKey)
-			blsPK, err := bls.SecretKeyFromECDSAKey(nodes[name].privateKey)
+			nodeAddr := crypto.PubkeyToAddress(nodes[name].nodeKey.PublicKey)
+			treasury := nodeAddr
+			pop, err := crypto.AutonityPOPProof(nodes[name].nodeKey, nodes[name].oracleKey, treasury.Hex(), nodes[name].consensusKey)
 			require.NoError(t, err)
-
 			validators = append(validators, &params.Validator{
-				NodeAddress:    &address,
+				NodeAddress:    &nodeAddr,
+				OracleAddress:  crypto.PubkeyToAddress(nodes[name].oracleKey.PublicKey),
+				Pop:            pop,
 				Enode:          nodes[name].url,
-				Treasury:       address,
+				Treasury:       nodeAddr,
 				BondedStake:    stake,
-				ValidatorKey:   blsPK.PublicKey().Marshal(),
+				ConsensusKey:   nodes[name].consensusKey.PublicKey().Marshal(),
 				CommissionRate: new(big.Int).SetUint64(0),
 			})
 		}
@@ -78,7 +80,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	return genesis
 }
 
-func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, consensusKey blst.SecretKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
@@ -87,10 +89,11 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		listenAddr = "0.0.0.0:0"
 	}
 
-	configNode := &node.Config{
-		Name:    "autonity",
-		Version: params.Version,
-		DataDir: datadir,
+	nodeConfig := &node.Config{
+		ConsensusKey: consensusKey,
+		Name:         "autonity",
+		Version:      params.Version,
+		DataDir:      datadir,
 		P2P: p2p.Config{
 			ListenAddr:  listenAddr,
 			NoDiscovery: true,
@@ -98,13 +101,13 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 			PrivateKey:  nodekey,
 		},
 	}
-	configNode.HTTPHost = "127.0.0.1"
-	configNode.HTTPPort = rpcPort
+	nodeConfig.HTTPHost = "127.0.0.1"
+	nodeConfig.HTTPPort = rpcPort
 
 	if inRate != 0 || outRate != 0 {
-		configNode.P2P.IsRated = true
-		configNode.P2P.InRate = inRate
-		configNode.P2P.OutRate = outRate
+		nodeConfig.P2P.IsRated = true
+		nodeConfig.P2P.InRate = inRate
+		nodeConfig.P2P.OutRate = outRate
 	}
 
 	ethConfig := &ethconfig.Config{
@@ -116,7 +119,7 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		TxPool:          core.DefaultTxPoolConfig,
 		Miner:           miner.Config{Etherbase: crypto.PubkeyToAddress(nodekey.PublicKey)},
 	}
-	return configNode, ethConfig
+	return nodeConfig, ethConfig
 }
 
 func startTestControllers(t *testing.T, test *testCase, peers map[string]*testNode, errorOnTx bool) {
@@ -131,7 +134,7 @@ func startTestControllers(t *testing.T, test *testCase, peers map[string]*testNo
 		index := index
 		peer := peer
 
-		logger := log.New("addr", crypto.PubkeyToAddress(peer.privateKey.PublicKey).String(), "idx", index)
+		logger := log.New("addr", crypto.PubkeyToAddress(peer.nodeKey.PublicKey).String(), "idx", index)
 
 		wg.Go(func() error {
 			return runNode(ctx, peer, test, peers, logger, index, blocksToWait, errorOnTx)

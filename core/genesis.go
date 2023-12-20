@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"net"
 	"sort"
@@ -436,7 +436,7 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 		member := types.CommitteeMember{
 			Address:      *v.NodeAddress,
 			VotingPower:  v.BondedStake,
-			ValidatorKey: v.ValidatorKey,
+			ConsensusKey: v.ConsensusKey,
 		}
 		committee = append(committee, member)
 	}
@@ -524,31 +524,39 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultPiccadillyGenesisBlock returns the Piccadilly network genesis block.
 func DefaultPiccadillyGenesisBlock() *Genesis {
-	return &Genesis{
+	g := &Genesis{
 		Config:     params.PiccaddillyChainConfig,
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.PiccaddillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
-			params.PiccaddillyChainConfig.AutonityContractConfig.Treasury: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+			params.PiccaddillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
 		},
 	}
+	for _, v := range g.Config.AutonityContractConfig.Validators {
+		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+	}
+	return g
 }
 
 func DefaultBakerlooGenesisBlock() *Genesis {
-	return &Genesis{
+	g := &Genesis{
 		Config:     params.BakerlooChainConfig,
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.BakerlooChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
-			params.BakerlooChainConfig.AutonityContractConfig.Treasury: {Balance: new(big.Int).Exp(big.NewInt(10), big.NewInt(63), nil)},
+			params.BakerlooChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
 		},
 	}
+	for _, v := range g.Config.AutonityContractConfig.Validators {
+		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+	}
+	return g
 }
 
 // DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
@@ -590,11 +598,12 @@ func DefaultGoerliGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	validatorKey, err := bls.SecretKeyFromECDSAKey(faucet.PrivateKey)
+	consensusKey := params.DevModeConsensusKey
+	pop, err := crypto.AutonityPOPProof(faucet.PrivateKey, faucet.PrivateKey, faucet.Address.Hex(), consensusKey)
 	if err != nil {
-		log.Error("Error preparing genesis block for dev mode, err:", err)
-		return nil
+		log.Error("Error preparing Autonity POP for DEV mode, err:", err)
 	}
+
 	testAutonityContractConfig := params.AutonityContractGenesis{
 		MaxCommitteeSize: 1,
 		BlockPeriod:      1,
@@ -607,10 +616,12 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		Treasury:         faucet.Address,
 		Validators: []*params.Validator{
 			{
-				Treasury:     faucet.Address,
-				Enode:        validatorEnode.String(),
-				BondedStake:  new(big.Int).SetUint64(1000),
-				ValidatorKey: validatorKey.PublicKey().Marshal(),
+				Treasury:      faucet.Address,
+				OracleAddress: faucet.Address,
+				Pop:           pop,
+				Enode:         validatorEnode.String(),
+				BondedStake:   new(big.Int).SetUint64(1000),
+				ConsensusKey:  consensusKey.PublicKey().Marshal(),
 			},
 		},
 	}

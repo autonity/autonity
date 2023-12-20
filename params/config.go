@@ -19,15 +19,17 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 
+	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/p2p/enode"
+
+	"golang.org/x/crypto/sha3"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
-	"golang.org/x/crypto/sha3"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -134,7 +136,12 @@ var (
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
 			StabilizationContractConfig: DefaultStabilizationGenesis,
-			SupplyControlConfig:         DefaultSupplyControlGenesis,
+			SupplyControlConfig: &SupplyControlGenesis{
+				InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(
+					new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), // 2^256
+					new(big.Int).Mul(big.NewInt(16), big.NewInt(Ether)),   // 16 * 10^18
+				)),
+			},
 		},
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
@@ -210,7 +217,12 @@ var (
 		ASM: AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
 			StabilizationContractConfig: DefaultStabilizationGenesis,
-			SupplyControlConfig:         DefaultSupplyControlGenesis,
+			SupplyControlConfig: &SupplyControlGenesis{
+				InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(
+					new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), // 2^256
+					new(big.Int).Mul(big.NewInt(16), big.NewInt(Ether)),   // 16 * 10^18
+				)),
+			},
 		},
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
@@ -412,11 +424,16 @@ var (
 	// adding flags to the config to also have to set these fields.
 	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}}
 
-	ValidatorNodeKey, _        = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
-	ValidatorEnode             = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	validatorKey, _            = bls.SecretKeyFromECDSAKey(ValidatorNodeKey)
-	ValidatorKey               = validatorKey.PublicKey().Marshal()
+	ValidatorNodeKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	ValidatorAddress    = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
+	ValidatorEnode      = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+
+	OracleNodeKey          = ValidatorNodeKey
+	OracleAddress          = ValidatorAddress
+	DevModeConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
+	Key                    = DevModeConsensusKey.PublicKey().Marshal()
+	POP, _                 = crypto.AutonityPOPProof(ValidatorNodeKey, OracleNodeKey, ValidatorAddress.Hex(), DevModeConsensusKey)
+
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
 		EpochPeriod:      5,
@@ -428,12 +445,14 @@ var (
 		TreasuryFee:      0,
 		Validators: []*Validator{
 			{
-				Treasury:       common.Address{},
+				Treasury:       ValidatorAddress,
 				NodeAddress:    &ValidatorAddress,
+				OracleAddress:  OracleAddress,
+				Pop:            POP,
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
 				BondedStake:    new(big.Int).SetUint64(1000),
-				ValidatorKey:   ValidatorKey,
+				ConsensusKey:   Key,
 			},
 		},
 	}
@@ -488,8 +507,9 @@ var (
 
 func init() {
 	TestAutonityContractConfig.Prepare()
-	PiccaddillyChainConfig.AutonityContractConfig.Prepare()
-	BakerlooChainConfig.AutonityContractConfig.Prepare()
+	// todo: ask Raj to generate POP for Piccaddily and Bakerloo network since we don't know the secret keys.
+	//PiccaddillyChainConfig.AutonityContractConfig.Prepare()
+	//BakerlooChainConfig.AutonityContractConfig.Prepare()
 }
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and

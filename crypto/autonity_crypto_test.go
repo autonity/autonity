@@ -2,29 +2,11 @@ package crypto
 
 import (
 	"encoding/hex"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 )
-
-func TestValidateValidatorKeyProof(t *testing.T) {
-	privKey, err := GenerateKey()
-	require.NoError(t, err)
-	address := PubkeyToAddress(privKey.PublicKey)
-
-	validatorKey, err := bls.SecretKeyFromECDSAKey(privKey)
-	require.NoError(t, err)
-
-	proof, err := GenerateValidatorKeyProof(validatorKey, address.Bytes())
-	require.NoError(t, err)
-
-	sig, err := bls.SignatureFromBytes(proof)
-	require.NoError(t, err)
-
-	err = ValidateValidatorKeyProof(validatorKey.PublicKey(), sig, address.Bytes())
-	require.NoError(t, err)
-}
 
 func TestSaveNodeKey(t *testing.T) {
 	f, err := os.CreateTemp("", "save_node_key_test.*.txt")
@@ -38,35 +20,35 @@ func TestSaveNodeKey(t *testing.T) {
 	key, err := GenerateKey()
 	require.NoError(t, err)
 
-	derivedKey, err := bls.SecretKeyFromECDSAKey(key)
+	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	err = SaveNodeKey(file, key, derivedKey)
+	err = SaveNodeKey(file, key, consensusKey)
 	require.NoError(t, err)
 
 	loadedKey, loadedDerivedKey, err := LoadNodeKey(file)
 	require.NoError(t, err)
 
 	require.Equal(t, loadedKey, key)
-	require.Equal(t, loadedDerivedKey, derivedKey)
+	require.Equal(t, loadedDerivedKey, consensusKey)
 }
 
 func TestHexToNodeKey(t *testing.T) {
 	key, err := GenerateKey()
 	require.NoError(t, err)
 
-	derivedKey, err := bls.SecretKeyFromECDSAKey(key)
+	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
 
 	keyHex := hex.EncodeToString(FromECDSA(key))
-	derivedKeyHex := hex.EncodeToString(derivedKey.Marshal())
+	derivedKeyHex := hex.EncodeToString(consensusKey.Marshal())
 
-	parsedKey, parsedValidatorKey, err := HexToNodeKey(keyHex + derivedKeyHex)
+	parsedKey, parsedConsensusKey, err := HexToNodeKey(keyHex + derivedKeyHex)
 	require.NoError(t, err)
 
 	require.Equal(t, key, parsedKey)
 	require.Equal(t, true, key.Equal(parsedKey))
-	require.Equal(t, derivedKey.Hex(), parsedValidatorKey.Hex())
+	require.Equal(t, consensusKey.Hex(), parsedConsensusKey.Hex())
 }
 
 func TestLoadNodeKey(t *testing.T) {
@@ -119,4 +101,41 @@ func TestLoadNodeKey(t *testing.T) {
 			t.Fatalf("LoadNodeKey did not return error for input %q", test.input)
 		}
 	}
+}
+
+func TestPOPVerifier(t *testing.T) {
+	privKey, err := GenerateKey()
+	require.NoError(t, err)
+	address := PubkeyToAddress(privKey.PublicKey)
+
+	consensusKey, err := blst.RandKey()
+	require.NoError(t, err)
+
+	proof, err := BLSPOPProof(consensusKey, address.Bytes())
+	require.NoError(t, err)
+
+	sig, err := blst.SignatureFromBytes(proof)
+	require.NoError(t, err)
+
+	err = BLSPOPVerify(consensusKey.PublicKey(), sig, address.Bytes())
+	require.NoError(t, err)
+}
+
+func TestAutonityPOPProof(t *testing.T) {
+	treasury, err := GenerateKey()
+	require.NoError(t, err)
+	nodeKey, err := GenerateKey()
+	require.NoError(t, err)
+	oracleKey, err := GenerateKey()
+	require.NoError(t, err)
+	consensusKey, err := blst.RandKey()
+	require.NoError(t, err)
+
+	msg := PubkeyToAddress(treasury.PublicKey).Hex()
+	autonityPOP, err := AutonityPOPProof(nodeKey, oracleKey, msg, consensusKey)
+	require.NoError(t, err)
+	require.Equal(t, AutonityPOPLen, len(autonityPOP))
+
+	err = AutonityPOPVerify(autonityPOP, msg, PubkeyToAddress(nodeKey.PublicKey), PubkeyToAddress(oracleKey.PublicKey), consensusKey.PublicKey().Marshal())
+	require.NoError(t, err)
 }

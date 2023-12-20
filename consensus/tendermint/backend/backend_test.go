@@ -20,7 +20,7 @@ import (
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -531,21 +531,32 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 	}
 
 	for i := range keys {
-		addr := crypto.PubkeyToAddress(keys[i].PublicKey)
+		nodeAddr := crypto.PubkeyToAddress(keys[i].PublicKey)
 		node := enode.NewV4(&keys[i].PublicKey, nil, 0, 0)
-		blsKey, err := bls.SecretKeyFromECDSAKey(keys[i])
+		blsKey, err := blst.RandKey()
 		if err != nil {
 			panic(err)
 		}
-		genesis.Config.AutonityContractConfig.Validators = append(
+		oracleKey, err := crypto.GenerateKey()
+		if err != nil {
+			panic(err)
+		}
+		treasuryAddr := nodeAddr
+		pop, err := crypto.AutonityPOPProof(keys[i], oracleKey, treasuryAddr.Hex(), blsKey)
+		if err != nil {
+			panic(err)
+		}
 
+		genesis.Config.AutonityContractConfig.Validators = append(
 			genesis.Config.AutonityContractConfig.Validators,
 			&params.Validator{
-				NodeAddress:  &addr,
-				Treasury:     addr,
-				Enode:        node.URLv4(),
-				BondedStake:  new(big.Int).SetUint64(100),
-				ValidatorKey: blsKey.PublicKey().Marshal(),
+				NodeAddress:   &nodeAddr,
+				OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
+				Pop:           pop,
+				Treasury:      nodeAddr,
+				Enode:         node.URLv4(),
+				BondedStake:   new(big.Int).SetUint64(100),
+				ConsensusKey:  blsKey.PublicKey().Marshal(),
 			})
 	}
 }

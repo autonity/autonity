@@ -43,7 +43,7 @@ func (c *preVoteSpammer) SendPrevote(_ context.Context, isNil bool) {
 
 // TestPrevoteSpammer spams the network by broadcasting 4k preovte messages at once
 func TestPrevoteSpammer(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users
@@ -88,7 +88,7 @@ func (c *precommitSpammer) SendPrecommit(_ context.Context, isNil bool) {
 
 // TestPrecommitSpammer spams the network by broadcasting 4k precommit messages at once
 func TestPrecommitSpammer(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users
@@ -123,7 +123,7 @@ func (c *proposalSpammer) SendProposal(_ context.Context, p *types.Block) {
 
 // TestProposalSpammer spams the network by broadcasting 4k proposal messages at once
 func TestProposalSpammer(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender

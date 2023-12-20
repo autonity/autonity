@@ -20,6 +20,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"math/big"
@@ -67,6 +68,16 @@ var (
 	testUserKey, _  = crypto.GenerateKey()
 	testUserAddress = crypto.PubkeyToAddress(testUserKey.PublicKey)
 
+	testOracleKey, _  = crypto.GenerateKey()
+	testOracleAddress = crypto.PubkeyToAddress(testOracleKey.PublicKey)
+
+	testTreasuryKey, _  = crypto.GenerateKey()
+	testTreasuryAddress = crypto.PubkeyToAddress(testTreasuryKey.PublicKey)
+
+	testConsensusKey, _ = blst.RandKey()
+
+	pop, _ = crypto.AutonityPOPProof(testUserKey, testOracleKey, testTreasuryAddress.Hex(), testConsensusKey)
+
 	// Test transactions
 	pendingTxs []*types.Transaction
 	newTxs     []*types.Transaction
@@ -88,7 +99,12 @@ func init() {
 	tendermintChainConfig = params.TestChainConfig
 	tendermintChainConfig.Ethash = nil
 	tendermintChainConfig.AutonityContractConfig.Validators[0].NodeAddress = &testUserAddress
+	tendermintChainConfig.AutonityContractConfig.Validators[0].OracleAddress = testOracleAddress
+	tendermintChainConfig.AutonityContractConfig.Validators[0].Treasury = testTreasuryAddress
+	tendermintChainConfig.AutonityContractConfig.Validators[0].ConsensusKey = testConsensusKey.PublicKey().Marshal()
+	tendermintChainConfig.AutonityContractConfig.Validators[0].Pop = pop
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Enode = enode.NewV4(&testUserKey.PublicKey, nil, 0, 0).URLv4()
+
 	tendermintChainConfig.AutonityContractConfig.Prepare()
 
 	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, big.NewInt(params.InitialBaseFee), nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)

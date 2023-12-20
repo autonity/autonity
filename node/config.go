@@ -19,7 +19,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -48,8 +48,8 @@ const (
 // P2P network layer of a protocol stack. These values can be further extended by
 // all registered services.
 type Config struct {
-	// ValidatorKey a derived BLS key from the node key, it is used by consensus engine.
-	ValidatorKey bls.SecretKey
+	// ConsensusKey, it is used by consensus engine.
+	ConsensusKey blst.SecretKey
 
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of autonity is "autonity". If no
@@ -405,7 +405,7 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 
-		if c.ValidatorKey, err = bls.SecretKeyFromECDSAKey(key); err != nil {
+		if c.ConsensusKey, err = blst.RandKey(); err != nil {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 
@@ -413,8 +413,8 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, validatorKey, err := crypto.LoadNodeKey(keyfile); err == nil {
-		c.ValidatorKey = validatorKey
+	if key, consensusKey, err := crypto.LoadNodeKey(keyfile); err == nil {
+		c.ConsensusKey = consensusKey
 		return key
 	}
 
@@ -429,16 +429,16 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 		return key
 	}
 
-	validatorKey, err := bls.SecretKeyFromECDSAKey(key)
+	consensusKey, err := blst.RandKey()
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to derive validator key: %v", err))
 	}
 
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := crypto.SaveNodeKey(keyfile, key, validatorKey); err != nil {
+	if err := crypto.SaveNodeKey(keyfile, key, consensusKey); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 	}
-	c.ValidatorKey = validatorKey
+	c.ConsensusKey = consensusKey
 	return key
 }
 

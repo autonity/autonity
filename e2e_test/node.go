@@ -100,7 +100,7 @@ type Node struct {
 // if anything is already bound on that port.
 func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
 
-	k := u.Key.(*ecdsa.PrivateKey)
+	k := u.NodeKey
 	address := crypto.PubkeyToAddress(k.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
@@ -112,8 +112,11 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	}
 
 	// p2p key and address
-	c.P2P.PrivateKey = u.Key.(*ecdsa.PrivateKey)
+	c.P2P.PrivateKey = u.NodeKey
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
+
+	// consensus key used by consensus engine.
+	c.ConsensusKey = u.ConsensusKey
 
 	// Set rpc ports
 	c.HTTPPort = freeport.GetOne(t)
@@ -169,14 +172,8 @@ func (n *Node) Start() error {
 			n.isRunning = true
 		}
 	}()
-	// Provide a copy of the config to node.New, so that we can rely on
-	// Node.Config field not being manipulated by node and hence use our copy
-	// for black box testing.
-	nodeConfigCopy := &node.Config{}
-	if err = copyNodeConfig(n.Config, nodeConfigCopy); err != nil {
-		return err
-	}
 
+	nodeConfigCopy := *n.Config
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
 	// copy, since it is not useful for black box testing and it is also not
@@ -198,7 +195,7 @@ func (n *Node) Start() error {
 	// set custom tendermint services
 	nodeConfigCopy.SetTendermintServices(n.CustHandler)
 
-	if n.Node, err = node.New(nodeConfigCopy); err != nil {
+	if n.Node, err = node.New(&nodeConfigCopy); err != nil {
 		return err
 	}
 
@@ -625,7 +622,7 @@ func ValueTransferTransaction(client *ethclient.Client,
 // The format string should follow the format defined for users in the gengen
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
-// E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s'.
+// E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s,%s,%s'.
 func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validator, error) {
 	var validators []*gengen.Validator
 	for i := 0; i < count; i++ {
@@ -634,7 +631,6 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 		if err != nil {
 			return nil, err
 		}
-		u.TreasuryKey, _ = crypto.GenerateKey()
 		validators = append(validators, u)
 	}
 	return validators, nil

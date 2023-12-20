@@ -1,7 +1,7 @@
 package params
 
 import (
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 	"testing"
@@ -14,37 +14,46 @@ import (
 )
 
 func TestPrepareAutonityContract(t *testing.T) {
-	key1, _ := crypto.GenerateKey()
-	addr1 := crypto.PubkeyToAddress(key1.PublicKey)
-	node1 := enode.NewV4(&key1.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	blsSK1, err := bls.SecretKeyFromECDSAKey(key1)
-	require.NoError(t, err)
-	blsK1 := blsSK1.PublicKey().Marshal()
 
-	key2, _ := crypto.GenerateKey()
-	addr2 := crypto.PubkeyToAddress(key2.PublicKey)
-	node2 := enode.NewV4(&key2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	blsSK2, err := bls.SecretKeyFromECDSAKey(key2)
+	treasury1, _ := crypto.GenerateKey()
+	nodeKey1, _ := crypto.GenerateKey()
+	oracleKey1, _ := crypto.GenerateKey()
+	nodeAddr1 := crypto.PubkeyToAddress(nodeKey1.PublicKey)
+	enode1 := enode.NewV4(&nodeKey1.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
+	consensusKey1, err := blst.RandKey()
 	require.NoError(t, err)
-	blsK2 := blsSK2.PublicKey().Marshal()
+	pop1, _ := crypto.AutonityPOPProof(nodeKey1, oracleKey1, crypto.PubkeyToAddress(treasury1.PublicKey).Hex(), consensusKey1)
+
+	treasury2, _ := crypto.GenerateKey()
+	nodeKey2, _ := crypto.GenerateKey()
+	oracleKey2, _ := crypto.GenerateKey()
+	nodeAddr2 := crypto.PubkeyToAddress(nodeKey2.PublicKey)
+	enode2 := enode.NewV4(&nodeKey2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
+	consensusKey2, err := blst.RandKey()
+	require.NoError(t, err)
+	pop2, _ := crypto.AutonityPOPProof(nodeKey2, oracleKey2, crypto.PubkeyToAddress(treasury2.PublicKey).Hex(), consensusKey2)
 
 	contractConfig := AutonityContractGenesis{
 		Operator:         common.HexToAddress("0xff"),
 		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
-				Treasury:     common.Address{},
-				Enode:        node1.String(),
-				NodeAddress:  &addr1,
-				BondedStake:  big.NewInt(1),
-				ValidatorKey: blsK1,
+				Treasury:      crypto.PubkeyToAddress(treasury1.PublicKey),
+				Enode:         enode1.String(),
+				NodeAddress:   &nodeAddr1,
+				OracleAddress: crypto.PubkeyToAddress(oracleKey1.PublicKey),
+				BondedStake:   big.NewInt(1),
+				ConsensusKey:  consensusKey1.PublicKey().Marshal(),
+				Pop:           pop1,
 			},
 			{
-				Treasury:     common.Address{},
-				Enode:        node2.String(),
-				NodeAddress:  &addr2,
-				BondedStake:  big.NewInt(1),
-				ValidatorKey: blsK2,
+				Treasury:      crypto.PubkeyToAddress(treasury2.PublicKey),
+				Enode:         enode2.String(),
+				NodeAddress:   &nodeAddr2,
+				OracleAddress: crypto.PubkeyToAddress(oracleKey2.PublicKey),
+				BondedStake:   big.NewInt(1),
+				ConsensusKey:  consensusKey2.PublicKey().Marshal(),
+				Pop:           pop2,
 			},
 		},
 	}
@@ -91,18 +100,24 @@ func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T)
 	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
 }
 func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
-	key, _ := crypto.GenerateKey()
-	blsSK, err := bls.SecretKeyFromECDSAKey(key)
+	treasury, _ := crypto.GenerateKey()
+	nodeKey, _ := crypto.GenerateKey()
+	oracleKey, _ := crypto.GenerateKey()
+	enode := enode.NewV4(&nodeKey.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
+	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
-	blsK := blsSK.PublicKey().Marshal()
+	pop, _ := crypto.AutonityPOPProof(nodeKey, oracleKey, crypto.PubkeyToAddress(treasury.PublicKey).Hex(), consensusKey)
+
 	contractConfig := &AutonityContractGenesis{
 		MaxCommitteeSize: 21,
 		Validators: []*Validator{
 			{
-				Treasury:     common.Address{},
-				Enode:        "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
-				BondedStake:  big.NewInt(1),
-				ValidatorKey: blsK,
+				Treasury:      crypto.PubkeyToAddress(treasury.PublicKey),
+				Enode:         enode.String(),
+				OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
+				ConsensusKey:  consensusKey.PublicKey().Marshal(),
+				Pop:           pop,
+				BondedStake:   big.NewInt(1),
 			},
 		},
 	}

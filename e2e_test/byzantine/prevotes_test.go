@@ -35,7 +35,7 @@ func (c *malPrevoter) HandlePrevote(ctx context.Context, prevote *message.Prevot
 }
 
 func TestMaliciousPrevoter(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users

@@ -15,7 +15,8 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	crypto2 "github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/bls"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -24,10 +25,10 @@ import (
 // a part of consensus.
 
 var (
-	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{251}) //0xfb
-	checkAccusationAddress           = common.BytesToAddress([]byte{252}) //0xfc
-	checkInnocenceAddress            = common.BytesToAddress([]byte{253}) //0xfd
-	checkMisbehaviourAddress         = common.BytesToAddress([]byte{254}) //0xfe
+	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{0xfb})
+	checkAccusationAddress           = common.BytesToAddress([]byte{0xfc})
+	checkInnocenceAddress            = common.BytesToAddress([]byte{0xfd})
+	checkMisbehaviourAddress         = common.BytesToAddress([]byte{0xfe})
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult   = common.LeftPadBytes([]byte{1}, 32)
 	failure32Byte   = make([]byte, 32)
@@ -36,13 +37,17 @@ var (
 	errMaxEvidences = errors.New("above max evidence threshold")
 )
 
-const KB = 1024
+const (
+	KB            = 1024
+	ArrayLenBytes = 32
+	POPBytes      = 164
+)
 
 // LoadPrecompiles init the instances of Fault Detector contracts, and register them into EVM's context
 func LoadPrecompiles(chain ChainContext) {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
-	ov := ValidatorKeyProofVerifier{}
+	ov := POPVerifier{}
 	pv := InnocenceVerifier{chain: chain}
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
@@ -59,31 +64,35 @@ func LoadPrecompiles(chain ChainContext) {
 	setPrecompiles(vm.PrecompiledContractsBLS)
 }
 
-type ValidatorKeyProofVerifier struct{}
+// POPVerifier verifies the proof of possession of validator key.
+type POPVerifier struct{}
 
-func (b *ValidatorKeyProofVerifier) RequiredGas(_ []byte) uint64 {
+func (b *POPVerifier) RequiredGas(_ []byte) uint64 {
 	return params.AutonityActivityKeyCheckGas
 }
 
-func (b *ValidatorKeyProofVerifier) Run(input []byte, _ uint64) ([]byte, error) {
-	if len(input) != 196 {
+func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
+	totalBytes := ArrayLenBytes + POPBytes
+	if len(input) != totalBytes {
 		return failure32Byte, fmt.Errorf("invalid proof - empty")
 	}
 
-	keyBytes := input[32:80]
-	sigBytes := input[80:176]
-	treasuryBytes := input[176:]
+	signatureOffset := ArrayLenBytes + blst.BLSPubkeyLength
+	treasuryOffset := signatureOffset + blst.BLSSignatureLength
+	keyBytes := input[ArrayLenBytes:signatureOffset]
+	sigBytes := input[signatureOffset:treasuryOffset]
+	treasuryBytes := input[treasuryOffset:]
 
-	key, err := bls.PublicKeyFromBytes(keyBytes)
+	key, err := blst.PublicKeyFromBytes(keyBytes)
 	if err != nil {
 		return failure32Byte, err
 	}
-	sig, err := bls.SignatureFromBytes(sigBytes)
+	sig, err := blst.SignatureFromBytes(sigBytes)
 	if err != nil {
 		return failure32Byte, err
 	}
 
-	err = crypto2.ValidateValidatorKeyProof(key, sig, treasuryBytes)
+	err = crypto.BLSPOPVerify(key, sig, treasuryBytes)
 	if err != nil {
 		return failure32Byte, err
 	}

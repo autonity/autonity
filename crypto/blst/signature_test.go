@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/bls/common"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -16,13 +15,21 @@ func TestSignVerify(t *testing.T) {
 	pub := priv.PublicKey()
 	msg := []byte("hello")
 	sig := priv.Sign(msg)
-	require.Equal(t, true, sig.Verify(pub, msg), "BLSSignature did not verify")
+	require.Equal(t, true, sig.Verify(pub, msg), "Signature did not verify")
+}
+
+func TestPOPVerify(t *testing.T) {
+	priv, err := RandKey()
+	require.NoError(t, err)
+	pub := priv.PublicKey()
+	popProof := priv.POPProof(pub.Marshal())
+	require.True(t, popProof.POPVerify(pub, pub.Marshal()))
 }
 
 // since the keys are different for each signature, the order of pubkey for aggregation verification matters.
 func TestAggregateVerifyWithDifferentKeys(t *testing.T) {
-	pubkeys := make([]common.BLSPublicKey, 0, 100)
-	sigs := make([]common.BLSSignature, 0, 100)
+	pubkeys := make([]PublicKey, 0, 100)
+	sigs := make([]Signature, 0, 100)
 	var msgs [][32]byte
 	for i := 0; i < 100; i++ {
 		// with each different key signed different msg.
@@ -36,7 +43,7 @@ func TestAggregateVerifyWithDifferentKeys(t *testing.T) {
 		msgs = append(msgs, msg)
 	}
 	aggSig := AggregateSignatures(sigs)
-	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "BLSSignature did not verify")
+	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "Signature did not verify")
 }
 
 // we want to test and verify if aggregated signatures are deterministic when they are aggregated with different orders
@@ -57,13 +64,13 @@ func TestSignatureAggregationWithDifferentOrdersOfSignatures(t *testing.T) {
 	helloSig2 := key2.Sign(msgHello[:])
 	helloSig3 := key3.Sign(msgHello[:])
 
-	helloSigs1 := make([]common.BLSSignature, 0, 3)
+	helloSigs1 := make([]Signature, 0, 3)
 	helloSigs1 = append(helloSigs1, helloSig1)
 	helloSigs1 = append(helloSigs1, helloSig2)
 	helloSigs1 = append(helloSigs1, helloSig3)
 	helloAggSig1 := AggregateSignatures(helloSigs1)
 
-	helloSigs2 := make([]common.BLSSignature, 0, 3)
+	helloSigs2 := make([]Signature, 0, 3)
 	helloSigs2 = append(helloSigs2, helloSig2)
 	helloSigs2 = append(helloSigs2, helloSig1)
 	helloSigs2 = append(helloSigs2, helloSig3)
@@ -76,10 +83,10 @@ func TestSignatureAggregationWithDifferentOrdersOfSignatures(t *testing.T) {
 
 // since the key is the same for all signatures, the order of pubkey for aggregation verification does not matter in this test.
 func TestAggregateVerifyWithSameKey(t *testing.T) {
-	pubkeys := make([]common.BLSPublicKey, 0, 100)
-	sigs := make([]common.BLSSignature, 0, 100)
+	pubkeys := make([]PublicKey, 0, 100)
+	sigs := make([]Signature, 0, 100)
 	var msgs [][32]byte
-	// generate unique bls key.
+	// generate unique blst key.
 	priv, err := RandKey()
 	require.NoError(t, err)
 	pub := priv.PublicKey()
@@ -97,16 +104,16 @@ func TestAggregateVerifyWithSameKey(t *testing.T) {
 	aggSig := AggregateSignatures(sigs)
 
 	// verification of aggregated signature.
-	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "BLSSignature did not verify")
+	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "Signature did not verify")
 }
 
 func Test20MinEpoch1ValidatorSigAggVerification(t *testing.T) {
 	t.Skip("skip time cost full unit test")
 	epochLength := 1200
-	pubkeys := make([]common.BLSPublicKey, 0, epochLength)
-	sigs := make([]common.BLSSignature, 0, epochLength)
+	pubkeys := make([]PublicKey, 0, epochLength)
+	sigs := make([]Signature, 0, epochLength)
 	var msgs [][32]byte
-	// generate unique bls key.
+	// generate unique blst key.
 	priv, err := RandKey()
 	pub := priv.PublicKey()
 	require.NoError(t, err)
@@ -125,16 +132,16 @@ func Test20MinEpoch1ValidatorSigAggVerification(t *testing.T) {
 	aggSig := AggregateSignatures(sigs)
 
 	// verification of aggregated signatures of the validator.
-	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "BLSSignature did not verify")
+	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "Signature did not verify")
 }
 
 func Test10MinEpoch1ValidatorSigAggVerification(t *testing.T) {
 	t.Skip("skip time cost full unit test")
 	epochLength := 600
-	pubkeys := make([]common.BLSPublicKey, 0, epochLength)
-	sigs := make([]common.BLSSignature, 0, epochLength)
+	pubkeys := make([]PublicKey, 0, epochLength)
+	sigs := make([]Signature, 0, epochLength)
 	var msgs [][32]byte
-	// generate unique bls key.
+	// generate unique blst key.
 	priv, err := RandKey()
 	pub := priv.PublicKey()
 	require.NoError(t, err)
@@ -153,16 +160,16 @@ func Test10MinEpoch1ValidatorSigAggVerification(t *testing.T) {
 	aggSig := AggregateSignatures(sigs)
 
 	// verification of aggregated signature.
-	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "BLSSignature did not verify")
+	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "Signature did not verify")
 }
 
 func Test5MinEpoch1ValidatorSigAggVerification(t *testing.T) {
 	t.Skip("skip time cost full unit test")
 	epochLength := 300
-	pubkeys := make([]common.BLSPublicKey, 0, epochLength)
-	sigs := make([]common.BLSSignature, 0, epochLength)
+	pubkeys := make([]PublicKey, 0, epochLength)
+	sigs := make([]Signature, 0, epochLength)
 	var msgs [][32]byte
-	// generate unique bls key.
+	// generate unique blst key.
 	priv, err := RandKey()
 	pub := priv.PublicKey()
 	require.NoError(t, err)
@@ -181,7 +188,7 @@ func Test5MinEpoch1ValidatorSigAggVerification(t *testing.T) {
 	aggSig := AggregateSignatures(sigs)
 
 	// verification of aggregated signature.
-	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "BLSSignature did not verify")
+	require.Equal(t, true, aggSig.AggregateVerify(pubkeys, msgs), "Signature did not verify")
 }
 
 // if the msg is distinct, then the order of public key does not impact the aggregation verification.
@@ -189,8 +196,8 @@ func Test20MinEpoch21ValidatorsOnSameMsgFastAggregateVerify(t *testing.T) {
 	t.Skip("skip time cost full unit test")
 	numOfValidator := 21
 	epochLength := 1200
-	skeys := make([]common.BLSSecretKey, 0, numOfValidator)
-	pubkeys := make([]common.BLSPublicKey, 0, numOfValidator)
+	skeys := make([]SecretKey, 0, numOfValidator)
+	pubkeys := make([]PublicKey, 0, numOfValidator)
 	for i := 0; i < numOfValidator; i++ {
 		priv, err := RandKey()
 		require.NoError(t, err)
@@ -201,21 +208,21 @@ func Test20MinEpoch21ValidatorsOnSameMsgFastAggregateVerify(t *testing.T) {
 	// assume we have 2 rounds for each height, we only count step: preVote, and preCommit.
 	for i := 0; i < epochLength*2*2; i++ {
 		msg := [32]byte{'h', 'e', 'l', 'l', 'o', byte(i)}
-		sigs := make([]common.BLSSignature, 0, numOfValidator)
+		sigs := make([]Signature, 0, numOfValidator)
 		for i := 0; i < numOfValidator; i++ {
 			// with different key to sign a distinct msg for per voting step..
 			sig := skeys[i].Sign(msg[:])
 			sigs = append(sigs, sig)
 		}
 		aggSig := AggregateSignatures(sigs)
-		require.Equal(t, true, aggSig.FastAggregateVerify(pubkeys, msg), "BLSSignature did not verify")
+		require.Equal(t, true, aggSig.FastAggregateVerify(pubkeys, msg), "Signature did not verify")
 	}
 }
 
 // if the msg is distinct, then the order of public key does not impact the aggregation verification.
 func TestFastAggregateVerify(t *testing.T) {
-	pubkeys := make([]common.BLSPublicKey, 0, 100)
-	sigs := make([]common.BLSSignature, 0, 100)
+	pubkeys := make([]PublicKey, 0, 100)
+	sigs := make([]Signature, 0, 100)
 	msg := [32]byte{'h', 'e', 'l', 'l', 'o'}
 	for i := 0; i < 100; i++ {
 		// with different key to sign a distinct msg.
@@ -228,7 +235,7 @@ func TestFastAggregateVerify(t *testing.T) {
 	}
 	aggSig := AggregateSignatures(sigs)
 
-	require.Equal(t, true, aggSig.FastAggregateVerify(pubkeys, msg), "BLSSignature did not verify")
+	require.Equal(t, true, aggSig.FastAggregateVerify(pubkeys, msg), "Signature did not verify")
 }
 
 func TestVerifyCompressed(t *testing.T) {
@@ -242,7 +249,7 @@ func TestVerifyCompressed(t *testing.T) {
 }
 
 func TestMultipleSignatureVerification(t *testing.T) {
-	pubkeys := make([]common.BLSPublicKey, 0, 100)
+	pubkeys := make([]PublicKey, 0, 100)
 	sigs := make([][]byte, 0, 100)
 	var msgs [][32]byte
 	for i := 0; i < 100; i++ {
@@ -256,14 +263,14 @@ func TestMultipleSignatureVerification(t *testing.T) {
 		msgs = append(msgs, msg)
 	}
 	verify, err := VerifyMultipleSignatures(sigs, msgs, pubkeys)
-	require.NoError(t, err, "BLSSignature did not verify")
-	require.Equal(t, true, verify, "BLSSignature did not verify")
+	require.NoError(t, err, "Signature did not verify")
+	require.Equal(t, true, verify, "Signature did not verify")
 }
 
 // with same key to sign different msgs, and do the signature aggregation.
 // in such case, a same validator can form a single aggregation of signatures for the entire Epoch.
 func TestMultipleSignatureByDistinctKeyVerification(t *testing.T) {
-	pubkeys := make([]common.BLSPublicKey, 0, 100)
+	pubkeys := make([]PublicKey, 0, 100)
 	sigs := make([][]byte, 0, 100)
 	priv, err := RandKey()
 	var msgs [][32]byte
@@ -277,12 +284,12 @@ func TestMultipleSignatureByDistinctKeyVerification(t *testing.T) {
 		msgs = append(msgs, msg)
 	}
 	verify, err := VerifyMultipleSignatures(sigs, msgs, pubkeys)
-	require.NoError(t, err, "BLSSignature did not verify")
-	require.Equal(t, true, verify, "BLSSignature did not verify")
+	require.NoError(t, err, "Signature did not verify")
+	require.Equal(t, true, verify, "Signature did not verify")
 }
 
 func TestFastAggregateVerify_ReturnsFalseOnEmptyPubKeyList(t *testing.T) {
-	var pubkeys []common.BLSPublicKey
+	var pubkeys []PublicKey
 	msg := [32]byte{'h', 'e', 'l', 'l', 'o'}
 
 	aggSig := NewAggregateSignature()
@@ -346,12 +353,12 @@ func TestCopy(t *testing.T) {
 	key, ok := priv.(*bls12SecretKey)
 	require.Equal(t, true, ok)
 
-	signatureA := &Signature{s: new(blstSignature).Sign(key.p, []byte("foo"), dst)}
-	signatureB, ok := signatureA.Copy().(*Signature)
+	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
+	signatureB, ok := signatureA.Copy().(*BlsSignature)
 	require.Equal(t, true, ok)
 	require.Equal(t, true, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
 
-	signatureA.s.Sign(key.p, []byte("bar"), dst)
+	signatureA.s.Sign(key.p, []byte("bar"), generalDST)
 	require.Equal(t, false, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
 }
 
@@ -361,7 +368,7 @@ func TestSignature_MarshalUnMarshal(t *testing.T) {
 	key, ok := priv.(*bls12SecretKey)
 	require.Equal(t, true, ok)
 
-	signatureA := &Signature{s: new(blstSignature).Sign(key.p, []byte("foo"), dst)}
+	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
 	signatureBytes := signatureA.Marshal()
 
 	signatureB, err := SignatureFromBytes(signatureBytes)
@@ -375,7 +382,7 @@ func TestSignature_Hex(t *testing.T) {
 	key, ok := priv.(*bls12SecretKey)
 	require.Equal(t, true, ok)
 
-	signatureA := &Signature{s: new(blstSignature).Sign(key.p, []byte("foo"), dst)}
+	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
 	str := signatureA.Hex()
 	b, err := hex.DecodeString(str[2:])
 	require.NoError(t, err)

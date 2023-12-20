@@ -21,6 +21,10 @@ uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
+    uint256 internal constant CONSENSUS_KEY_LEN = 48;
+    uint256 internal constant SIGNATURE_LEN = 96;
+    uint256 internal constant POP_LEN = 226; // Proof of possession length in bytes. (Enode, OracleNode, ValidatorNode)
+
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
     struct Validator {
@@ -43,14 +47,15 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 totalSlashed;
         uint256 jailReleaseBlock;
         uint256 provableFaultCount;
-        bytes validatorKey;
+        bytes consensusKey;
+        bytes pop;
         ValidatorState state;
     }
 
     struct CommitteeMember {
         address addr;
         uint256 votingPower;
-        bytes validatorKey;
+        bytes consensusKey;
     }
 
     /**************************************************/
@@ -222,7 +227,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validators[i].state = ValidatorState.active;
             _validators[i].selfUnbondingStakeLocked = 0;
 
-            _registerValidator(_validators[i]);
+            _verifyEnode(_validators[i]);
+            _deployLiquidContract(_validators[i]);
 
             accounts[_validators[i].treasury] += _bondedStake;
             stakeSupply += _bondedStake;
@@ -277,18 +283,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * A new token "Liquid Stake" is deployed at this phase.
     * @param _enode enode identifying the validator node.
     * @param _oracleAddress identifying the oracle server node that the validator is managing.
-    * @param _validatorKey identifying the bls public key in bytes that the validator node is using.
+    * @param _consensusKey identifying the bls public key in bytes that the validator node is using.
     * @param _signatures is a combination of two ecdsa signatures, and a bls signature as the ownership proof of the
     * validator key appended sequentially. The 1st two ecdsa signatures are in below order:
         1. a message containing treasury account and signed by validator account private key .
         2. a message containing treasury account and signed by Oracle account private key .
     * @dev Emit a {RegisteredValidator} event.
     */
-    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _validatorKey, bytes memory _signatures) public {
-        require(_signatures.length == 226, "Invalid proof length");
-        require(_validatorKey.length == 48, "Invalid validator key length");
-        bytes memory signatures = BytesLib.slice(_signatures, 0, 130);
-        bytes memory validatorKeyProof = BytesLib.slice(_signatures, 130, 96);
+    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _consensusKey, bytes memory _signatures) public {
         Validator memory _val = Validator(
             payable(msg.sender),     // treasury
             address(0),              // address
@@ -308,11 +310,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             0,                       // total slashed
             0,                       // jail release block
             0,                       // provable faults count
-            _validatorKey,            // validator key in bytes
+            _consensusKey,           // validator key in bytes
+            _signatures,             // POP
             ValidatorState.active    // state
         );
 
-        _registerValidator(_val, signatures, _validatorKey, validatorKeyProof);
+        _verifyAndRegisterValidator(_val, _signatures);
         emit RegisteredValidator(msg.sender, _val.nodeAddress, _oracleAddress, _enode, address(_val.liquidContract));
     }
 
@@ -683,7 +686,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             CommitteeMember memory _member = CommitteeMember(
                 _committeeList[_k].nodeAddress,
                 _committeeList[_k].bondedStake,
-                _committeeList[_k].validatorKey);
+                _committeeList[_k].consensusKey);
 
             committee.push(_member);
             committeeNodes.push(_committeeList[_k].enode);
@@ -1002,17 +1005,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         validators[_validator.nodeAddress] = _validator;
     }
 
+    function _verifyAndRegisterValidator(Validator memory _validator, bytes memory _signatures) internal {
+        require(_signatures.length == POP_LEN, "Invalid proof length");
+        require(_validator.consensusKey.length == CONSENSUS_KEY_LEN, "Invalid consensus key length");
 
-    function _registerValidator(Validator memory _validator) internal {
-        _verifyEnode(_validator);
-        // deploy liquid stake contract
-        _deployLiquidContract(_validator);
-    }
-
-    function _registerValidator(Validator memory _validator, bytes memory _signatures, bytes memory _validatorKey, bytes memory _validatorKeyProof) internal {
-        // verify Enode
+        // verify enode and parse node address
         _verifyEnode(_validator);
 
+        // verify proof of possessions.
         bytes memory prefix = "\x19Ethereum Signed Message:\n";
         bytes memory treasury = abi.encodePacked(_validator.treasury);
         bytes32 hashedData = keccak256(abi.encodePacked(prefix, Helpers.toString(treasury.length), treasury));
@@ -1020,16 +1020,22 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         bytes32 r;
         bytes32 s;
         uint8 v;
+        // 1st batch bytes are signatures generated by node key and oracle node key.
+        bytes memory ecdsaSignatures = BytesLib.slice(_signatures, 0, 130);
+        // 2nd batch of rest 96 bytes are the signature generated by validator BLS key.
+        bytes memory blsSignature = BytesLib.slice(_signatures, 130, SIGNATURE_LEN);
+
         //start from 32th byte to skip the encoded length field from the bytes type variable
-        for (uint i = 32; i < _signatures.length; i += 65) {
-            (r, s, v) = Helpers.extractRSV(_signatures, i);
+        for (uint i = 32; i < ecdsaSignatures.length; i += 65) {
+            (r, s, v) = Helpers.extractRSV(ecdsaSignatures, i);
             signers[i/65] = ecrecover(hashedData, v, r, s);
         }
         require(signers[0] == _validator.nodeAddress, "Invalid node key ownership proof provided");
         require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
-        require(Precompiled.checkValidatorKeyProof(_validatorKey, _validatorKeyProof, _validator.treasury) == 1, "Invalid validator key proof for registration");
+        require(Precompiled.popVerification(_validator.consensusKey, blsSignature, _validator.treasury) == Precompiled.SUCCESS,
+            "Invalid consensus key ownership proof for registration");
 
-        // deploy liquid stake contract
+        // all good, now deploy liquidity contract.
         _deployLiquidContract(_validator);
     }
 

@@ -206,7 +206,7 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
-	@#validator_management.js is ran only against Autonity, since ganache does not implement the validator key proof logic
+	@#validator_management.js is ran only against Autonity, since ganache does not implement the POP  logic
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test validator_management.js && cd -
 	@echo "killing test autonity network and cleaning chaindata"
 	@-pkill autonity

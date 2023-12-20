@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"net"
 	"os"
 	"strconv"
@@ -124,7 +125,7 @@ func runTest(t *testing.T, test *testCase) {
 	nodesNum := len(nodeNames)
 	// Generate a batch of accounts to seal and fund with
 	nodes := make(map[string]*testNode, nodesNum)
-	generateNodesPrivateKey(t, nodes, nodeNames, nodesNum)
+	generateNodesPrivateKeys(t, nodes, nodeNames, nodesNum)
 
 	// Replace normal DNS resolver with the resolver for this test framework.
 	enode.V4ResolveFunc = func(host string) (ips []net.IP, e error) {
@@ -154,7 +155,7 @@ func runTest(t *testing.T, test *testCase) {
 		peer.listener[1].Close()
 
 		rates := test.networkRates[i]
-		peer.nodeConfig, peer.ethConfig = makeNodeConfig(t, genesis, peer.privateKey,
+		peer.nodeConfig, peer.ethConfig = makeNodeConfig(t, genesis, peer.nodeKey, peer.consensusKey,
 			fmt.Sprintf("127.0.0.1:%d", peer.port),
 			peer.rpcPort, rates.in, rates.out)
 
@@ -169,7 +170,7 @@ func runTest(t *testing.T, test *testCase) {
 	}
 
 	for nodeName, node := range nodes {
-		fmt.Printf("%s === %s  -- %s\n", nodeName, node.enode.URLv4(), crypto.PubkeyToAddress(node.privateKey.PublicKey).String())
+		fmt.Printf("%s === %s  -- %s\n", nodeName, node.enode.URLv4(), crypto.PubkeyToAddress(node.nodeKey.PublicKey).String())
 	}
 
 	// apply topology changes over test network.
@@ -512,20 +513,28 @@ func getNodeNames(max int) []string {
 	return res
 }
 
-func generateNodesPrivateKey(t *testing.T, nodes map[string]*testNode, nodeNames []string, nodesNum int) {
+func generateNodesPrivateKeys(t *testing.T, nodes map[string]*testNode, nodeNames []string, nodesNum int) {
 	var err error
 	for i := 0; i < nodesNum; i++ {
 		nodes[nodeNames[i]] = new(testNode)
-		nodes[nodeNames[i]].privateKey, err = keygenerator.Next()
+		nodes[nodeNames[i]].consensusKey, err = blst.RandKey()
 		if err != nil {
-			t.Fatal("cant make pk", err)
+			t.Fatal("cannot make consensus key")
+		}
+		nodes[nodeNames[i]].nodeKey, err = keygenerator.Next()
+		if err != nil {
+			t.Fatal("cant make node pk", err)
+		}
+		nodes[nodeNames[i]].oracleKey, err = keygenerator.Next()
+		if err != nil {
+			t.Fatal("cant make oracle pk", err)
 		}
 	}
 }
 
 func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode) {
 	for addr, node := range nodes {
-		if n, err := newNode(node.privateKey, addr); err != nil {
+		if n, err := newNode(node.nodeKey, addr); err != nil {
 			t.Fatal(err)
 		} else {
 			node.netNode = n
@@ -535,8 +544,8 @@ func setNodesPortAndEnode(t *testing.T, nodes map[string]*testNode) {
 
 func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	n := netNode{
-		privateKey: privateKey,
-		address:    crypto.PubkeyToAddress(privateKey.PublicKey),
+		nodeKey: privateKey,
+		address: crypto.PubkeyToAddress(privateKey.PublicKey),
 	}
 
 	//port
@@ -570,7 +579,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	}
 
 	n.url = enode.V4DNSUrl(
-		n.privateKey.PublicKey,
+		n.nodeKey.PublicKey,
 		n.host,
 		n.port,
 		n.port,

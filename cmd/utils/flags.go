@@ -20,8 +20,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/crypto/bls"
 	"io"
 	"io/ioutil"
 	"math"
@@ -35,8 +33,15 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/crypto/blst"
+
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/tracers"
+
+	pcsclite "github.com/gballet/go-libpcsclite"
+	gopsutil "github.com/shirou/gopsutil/mem"
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/keystore"
@@ -67,9 +72,6 @@ import (
 	"github.com/autonity/autonity/p2p/nat"
 	"github.com/autonity/autonity/p2p/netutil"
 	"github.com/autonity/autonity/params"
-	pcsclite "github.com/gballet/go-libpcsclite"
-	gopsutil "github.com/shirou/gopsutil/mem"
-	"gopkg.in/urfave/cli.v1"
 )
 
 func init() {
@@ -791,23 +793,23 @@ func setNodeKey(ctx *cli.Context, cfg *node.Config) {
 		hex          = ctx.GlobalString(NodeKeyHexFlag.Name)
 		file         = ctx.GlobalString(NodeKeyFileFlag.Name)
 		key          *ecdsa.PrivateKey
-		validatorKey bls.SecretKey
+		consensusKey blst.SecretKey
 		err          error
 	)
 	switch {
 	case file != "" && hex != "":
 		Fatalf("Options %q and %q are mutually exclusive", NodeKeyFileFlag.Name, NodeKeyHexFlag.Name)
 	case file != "":
-		if key, validatorKey, err = crypto.LoadNodeKey(file); err != nil {
+		if key, consensusKey, err = crypto.LoadNodeKey(file); err != nil {
 			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
 		}
-		cfg.ValidatorKey = validatorKey
+		cfg.ConsensusKey = consensusKey
 		cfg.P2P.PrivateKey = key
 	case hex != "":
-		if key, validatorKey, err = crypto.HexToNodeKey(hex); err != nil {
+		if key, consensusKey, err = crypto.HexToNodeKey(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
-		cfg.ValidatorKey = validatorKey
+		cfg.ConsensusKey = consensusKey
 		cfg.P2P.PrivateKey = key
 	}
 }
@@ -1727,7 +1729,6 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) ethdb.
 }
 
 func MakeGenesis(ctx *cli.Context) *core.Genesis {
-
 	if ctx.GlobalBool(PiccadillyFlag.Name) {
 		return core.DefaultPiccadillyGenesisBlock()
 	}
