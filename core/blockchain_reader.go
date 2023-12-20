@@ -36,7 +36,7 @@ func (bc *BlockChain) CommitteeOfHeight(number uint64) (*types.Committee, error)
 	return bc.hc.CommitteeOfHeight(number)
 }
 
-// LatestCommitteeAndChainHead retries the latest epoch head and chain head of current chain.
+// LatestCommitteeAndChainHead retries the latest committee and chain head of current chain.
 func (bc *BlockChain) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
 	return bc.hc.LatestCommitteeAndChainHead()
 }

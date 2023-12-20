@@ -229,7 +229,7 @@ func (c *AutonityContract) Proposer(committee *types.Committee, height uint64, r
 	return proposer
 }
 
-// electProposer is a part of consensus, that it elect proposer from epoch head's committee list which was returned
+// electProposer is a part of consensus, that it elect proposer from the committee which was returned
 // from autonity contract stable ordered by voting power in evm context.
 func (c *AutonityContract) electProposer(committee *types.Committee, height uint64, round int64) common.Address {
 	seed := big.NewInt(constants.MaxRound)

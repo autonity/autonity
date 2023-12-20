@@ -339,9 +339,9 @@ func (c *Core) setInitialState(r int64) {
 		c.committee.SetLastHeader(lastHeader)
 		c.setLastHeader(lastHeader)
 
-		// update epoch head if there was an epoch change
+		// on epoch rotation, update committee.
 		if lastBlockMined.LastEpochBlock().Cmp(lastBlockMined.Number()) == 0 {
-			log.Debug("updated EpochHead, rotate committee!", "number", lastBlockMined.Number())
+			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
 			c.committee.SetCommittee(lastBlockMined.Header().Committee)
 		}
 		/*
