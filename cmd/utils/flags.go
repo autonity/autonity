@@ -1603,6 +1603,7 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 		return backend.ApiBackend, nil
 	}
 	backend, err := eth.New(stack, cfg)
+
 	if err != nil {
 		Fatalf("Failed to register the Autonity service: %v", err)
 	}

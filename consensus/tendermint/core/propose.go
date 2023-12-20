@@ -42,17 +42,17 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// message to the backlog is fine.
 		if errors.Is(err, constants.ErrOldRoundMessage) {
 			roundMessages := c.messages.GetOrCreate(proposal.R())
-			// if we already have a proposal then it must be different than the current one
-			// it can't happen unless someone's byzantine.
+			// if we already have a proposal for this old round - ignore
+			// the first proposal sent by the sender in a round is always the only one we consider.
 			if roundMessages.Proposal() != nil {
-				return err // do not gossip, TODO: accountability
+				return constants.ErrAlreadyProcessed
 			}
 
 			if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
 				c.logger.Warn("Ignoring proposal from non-proposer")
 				return constants.ErrNotFromProposer
 			}
-			// We do not verify the proposal in this case.
+			// Save it, but do not verify the proposal yet unless we have enough precommits for it.
 			roundMessages.SetProposal(proposal, false)
 			if roundMessages.PrecommitsPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 				if _, err2 := c.backend.VerifyProposal(proposal.Block()); err2 != nil {
@@ -65,6 +65,12 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		}
 		return err
 	}
+	// if we already have processed a proposal in this round we ignore.
+	if c.curRoundMessages.Proposal() != nil {
+		return constants.ErrAlreadyProcessed
+	}
+	// At this point the local round matches the message round and the current step
+	// could be either Proposal, Prevote, or Precommit.
 
 	// Check if the message comes from curRoundMessages proposer
 	if !c.IsFromProposer(c.Round(), proposal.Sender()) {
@@ -104,9 +110,14 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			})
 			return err
 		}
-		c.prevoter.SendPrevote(ctx, true)
-		// do not to accept another proposal in current round
-		c.SetStep(Prevote)
+		// Proposal is invalid here, we need to prevote nil.
+		// However, we may have already sent a prevote nil in the past without having processed the proposal
+		// because of a timeout, so we need to check if we are still in the Propose step.
+		if c.step == Propose {
+			c.prevoter.SendPrevote(ctx, true)
+			// do not to accept another proposal in current round
+			c.SetStep(Prevote)
+		}
 
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 
