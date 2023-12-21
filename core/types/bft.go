@@ -165,8 +165,8 @@ type Committee struct {
 	lock sync.RWMutex
 	// cached total voting power.
 	totalVotingPower *big.Int
-	// cached aggregated validator public key of all committee members
-	aggValidatorKey []byte
+	// cached aggregated consensus key of all committee members
+	aggConsensusKey []byte
 	// cached indexing of committee for member lookup
 	membersMap map[common.Address]*CommitteeMember
 }
@@ -229,8 +229,8 @@ func (c *Committee) CopyCommittee() *Committee {
 		clone.totalVotingPower = new(big.Int).Set(c.totalVotingPower)
 	}
 
-	if c.aggValidatorKey != nil {
-		clone.aggValidatorKey = append(clone.aggValidatorKey, c.aggValidatorKey...)
+	if c.aggConsensusKey != nil {
+		clone.aggConsensusKey = append(clone.aggConsensusKey, c.aggConsensusKey...)
 	}
 
 	if c.membersMap != nil {
@@ -258,7 +258,7 @@ func (c *Committee) CommitteeMember(address common.Address) *CommitteeMember {
 func (c *Committee) AggregatedValidatorKey() []byte {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if c.aggValidatorKey == nil {
+	if c.aggConsensusKey == nil {
 		// collect bls keys of committee members in bytes
 		rawKeys := make([][]byte, len(c.Members))
 		for index, member := range c.Members {
@@ -270,10 +270,10 @@ func (c *Committee) AggregatedValidatorKey() []byte {
 			// this shouldn't happen as all validator keys are validity checked before they are inserted into the AC
 			log.Crit("invalid BLS key in header")
 		}
-		c.aggValidatorKey = aggKey.Marshal()
+		c.aggConsensusKey = aggKey.Marshal()
 	}
-	copyKey := make([]byte, len(c.aggValidatorKey))
-	copy(copyKey, c.aggValidatorKey)
+	copyKey := make([]byte, len(c.aggConsensusKey))
+	copy(copyKey, c.aggConsensusKey)
 	return copyKey
 }
 
