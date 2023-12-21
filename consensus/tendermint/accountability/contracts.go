@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	crypto2 "github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
