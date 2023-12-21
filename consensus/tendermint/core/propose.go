@@ -117,9 +117,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, msg *message.Message) err
 	}
 
 	if err != nil {
-		if timeoutErr := c.proposeTimeout.StopTimer(); timeoutErr != nil {
-			return timeoutErr
-		}
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if err == consensus.ErrFutureTimestampBlock {
@@ -157,10 +154,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, msg *message.Message) err
 	}
 
 	if c.step == tctypes.Propose {
-		if err := c.proposeTimeout.StopTimer(); err != nil {
-			return err
-		}
-
 		vr := proposal.ValidRound
 		h := proposal.ProposalBlock.Hash()
 

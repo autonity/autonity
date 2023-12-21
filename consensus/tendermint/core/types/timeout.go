@@ -65,6 +65,10 @@ func (t *Timeout) StopTimer() error {
 	t.Lock()
 	defer t.Unlock()
 	if t.Started {
+		// timer started here
+		// timer.Stop == true =>  it stops the timer
+		//					in this case t.started = false and return no error
+		// timer.Stop == false ==> doesnt stop it, already been done
 		if t.Started = !t.Timer.Stop(); t.Started {
 			switch t.Step {
 			case Propose:
