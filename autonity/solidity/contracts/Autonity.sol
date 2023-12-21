@@ -16,7 +16,7 @@ import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
-enum ValidatorState {active, paused, jailed}
+enum ValidatorState {active, paused, jailed, jailbound}
 uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, Upgradeable {
@@ -160,6 +160,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     event MintedStake(address indexed addr, uint256 amount);
     event BurnedStake(address indexed addr, uint256 amount);
     event CommissionRateChange(address indexed validator, uint256 rate);
+    event BondingRejected(address delegator, address delegatee, uint256 amount);
 
     /** @notice This event is emitted when a bonding request to a validator node has been registered.
     * This request will only be effective at the end of the current epoch however the stake will be
@@ -362,6 +363,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         require(_val.treasury == msg.sender, "require caller to be validator treasury account");
         require(_val.state != ValidatorState.active, "validator already active");
         require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
+        require(_val.state != ValidatorState.jailbound, "validator jailed permanently");
         _val.state = ValidatorState.active;
         emit ActivatedValidator(_val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
     }
@@ -947,7 +949,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             uint256 _reward = (committee[i].votingPower * _amount) / epochTotalBondedStake;
             if (_reward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
-                if (_val.state == ValidatorState.jailed) {
+                // committee members in jailbound state are permanently jailed
+                if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
                     config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
                     continue;
                 }
@@ -1085,6 +1088,13 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
 
+        // jailbound validator is jailed permanently, no new bonding can be applied for a jailbound validator
+        if (_validator.state == ValidatorState.jailbound) {
+            accounts[_bonding.delegator] += _bonding.amount;
+            emit BondingRejected(_bonding.delegator, _bonding.delegatee, _bonding.amount);
+            return;
+        }
+
         if (_bonding.delegator != _validator.treasury) {
             /* The LNTN: NTN conversion rate is equal to the ratio of issued liquid tokens
              over the total amount of non self-delegated stake tokens. */
@@ -1128,6 +1138,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     function _releaseUnbondingStake(uint256 _id) internal virtual {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
+        if (_unbonding.unbondingShare == 0) {
+            return;
+        }
         Validator storage _validator = validators[_unbonding.delegatee];
         uint256 _returnedStake;
         if(!_unbonding.selfDelegation){
