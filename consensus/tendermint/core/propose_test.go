@@ -104,12 +104,20 @@ func TestHandleProposal(t *testing.T) {
 			Signature:     []byte{0x1},
 		}
 
+		testCommittee, _ := helpers.GenerateCommittee(3)
+		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
+		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[1].Address)
+		if err != nil {
+			t.Error(err)
+		}
+
 		c := &Core{
 			address:          addr,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
 			logger:           logger,
 			round:            2,
+			committee:        valSet,
 			height:           big.NewInt(1),
 		}
 

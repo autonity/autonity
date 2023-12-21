@@ -95,10 +95,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) erro
 
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 		if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrevotesPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
-			// this piece of code should only run once
-			if err := c.prevoteTimeout.StopTimer(); err != nil {
-				return err
-			}
+
 			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
 			if c.step == types.Prevote {
@@ -112,10 +109,6 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, msg *message.Message) erro
 			c.setValidRoundAndValue = true
 			// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
 		} else if c.step == types.Prevote && c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			if err := c.prevoteTimeout.StopTimer(); err != nil {
-				return err
-			}
-			c.logger.Debug("Stopped Scheduled Prevote Timeout")
 
 			c.precommiter.SendPrecommit(ctx, true)
 			c.SetStep(types.Precommit)
