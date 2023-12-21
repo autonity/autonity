@@ -324,6 +324,7 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
   return multisig
 }
 
+// todo: (Jason) rewrite this function since the BLS POP is required.
 async function registerValidator(autonity, validatorPrivateKey, treasuryAddr) {
   let multisig = generateMultiSig(validatorPrivateKey, validatorPrivateKey, treasuryAddr);
   let oracleAddress = address(publicKey(validatorPrivateKey, false));
