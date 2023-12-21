@@ -168,7 +168,9 @@ func genNodeKeyWithExpect(t *testing.T, fileName string, writeAddr bool) {
 			return
 		}
 		if writeAddr {
-			expected = fmt.Sprintf("Node address: %x\nNode consensus key: %v\n", crypto.FromECDSAPub(&privateKey.PublicKey)[1:], consensusKey.PublicKey().Hex())
+			expected = fmt.Sprintf("Node address: %s\nNode public key: 0x%x\nNode consensus key: %v\n",
+				crypto.PubkeyToAddress(privateKey.PublicKey).String(),
+				crypto.FromECDSAPub(&privateKey.PublicKey)[1:], consensusKey.PublicKey().Hex())
 		}
 	} else {
 		expected = "Fatal: could not save key open " + keyfile + ": is a directory\n"

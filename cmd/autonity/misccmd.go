@@ -88,8 +88,9 @@ The output of this command is supposed to be machine-readable.
 		},
 		Description: `
     	autonity genNodeKey <outkeyfile>
-		Generate node key and its consensus key to the given file.
-		write out the node address and the validator key on stdout using flag --writeaddress`,
+		Generate node key and its consensus key to the given file. Write out the
+		node address, node public key of enode URL and the consensus key of registering
+		a validator on stdout using	flag --writeaddress`,
 		ArgsUsage: "<outkeyfile>",
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
@@ -234,7 +235,8 @@ func genNodeKey(ctx *cli.Context) error {
 
 	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
 	if writeAddr {
-		fmt.Printf("Node address: %x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
+		fmt.Printf("Node address: %s\n", crypto.PubkeyToAddress(nodeKey.PublicKey).String())
+		fmt.Printf("Node public key: 0x%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
 		fmt.Println("Node consensus key:", consensusKey.PublicKey().Hex())
 	}
 	return nil
