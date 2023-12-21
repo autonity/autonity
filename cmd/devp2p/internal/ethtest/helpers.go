@@ -104,7 +104,7 @@ func (s *Suite) dialSnap() (*Conn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dial failed: %v", err)
 	}
-	conn.caps = append(conn.caps, p2p.Cap{Name: "aut-snap", Version: 1})
+	conn.caps = append(conn.caps, p2p.Cap{Name: "aut_snap", Version: 1})
 	conn.ourHighestSnapProtoVersion = 1
 	return conn, nil
 }
