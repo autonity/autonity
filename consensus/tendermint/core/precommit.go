@@ -60,11 +60,6 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	c.curRoundMessages.AddPrecommit(precommit)
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
 	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		if err := c.precommitTimeout.StopTimer(); err != nil {
-			return err
-		}
-		c.logger.Debug("Stopped Scheduled Precommit Timeout")
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

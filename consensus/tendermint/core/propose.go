@@ -96,9 +96,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	if err != nil {
-		if timeoutErr := c.proposeTimeout.StopTimer(); timeoutErr != nil {
-			return timeoutErr
-		}
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if errors.Is(err, consensus.ErrFutureTimestampBlock) {
@@ -136,9 +133,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	if c.step == Propose {
-		if err := c.proposeTimeout.StopTimer(); err != nil {
-			return err
-		}
 		vr := proposal.ValidRound()
 		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 		if vr == -1 {
