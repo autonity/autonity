@@ -1,18 +1,11 @@
-package bls
+package blst
 
 import (
-	"crypto/ecdsa"
 	"fmt"
-	"math/big"
 	"sync"
-
-	"github.com/autonity/autonity/crypto/bls/blst"
-	"github.com/autonity/autonity/crypto/bls/common"
-	"github.com/pkg/errors"
 )
 
-
-func FindInvalidSignatures(signatures []common.BLSSignature, pks []common.BLSPublicKey, msgs [][32]byte) ([]uint, error) {
+func FindInvalidSignatures(signatures []Signature, pks []PublicKey, msgs [][32]byte) ([]uint, error) {
 	if len(signatures) != len(pks) && len(pks) != len(msgs) {
 		return nil, fmt.Errorf("invalid arguments, length mismatch")
 	}
@@ -22,7 +15,7 @@ func FindInvalidSignatures(signatures []common.BLSSignature, pks []common.BLSPub
 	return findInvalidSignaturesRecursive(signatures, pks, msgs, 0, uint(len(signatures)))
 }
 
-func FindFastInvalidSignatures(signatures []common.BLSSignature, pks []common.BLSPublicKey, msg [32]byte) ([]uint, error) {
+func FindFastInvalidSignatures(signatures []Signature, pks []PublicKey, msg [32]byte) ([]uint, error) {
 	if len(signatures) != len(pks) {
 		return nil, fmt.Errorf("invalid arguments, length mismatch")
 	}
@@ -33,8 +26,8 @@ func FindFastInvalidSignatures(signatures []common.BLSSignature, pks []common.BL
 }
 
 func findInvalidSignaturesRecursive(
-	signatures []common.BLSSignature,
-	pks []common.BLSPublicKey,
+	signatures []Signature,
+	pks []PublicKey,
 	msgs [][32]byte,
 	start, end uint,
 ) ([]uint, error) {
@@ -114,8 +107,8 @@ func findInvalidSignaturesRecursive(
 }
 
 func findFastInvalidSignaturesRecursive(
-	signatures []common.BLSSignature,
-	pks []common.BLSPublicKey,
+	signatures []Signature,
+	pks []PublicKey,
 	msg [32]byte,
 	start, end uint,
 ) ([]uint, error) {
