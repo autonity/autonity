@@ -133,11 +133,10 @@ func hexDecode(src []byte) ([]byte, error) {
 	return dst, err
 }
 
-// BLSPOPProof todo: (Jason) in the native BLS spec, the msg used to generate POP is just the public key, while in Autonity,
-//
-//	we include validator treasury to prevent from cloning during the on-boarding TX propagation in P2P network.
-//	we need to double check if this none standard implementation could introduce any issue, otherwise we need to include
-//	an extra signature in the on-boarding TX.
+// BLSPOPProof generate POP of BLS private key of Autonity protocol, the msg start with a prefix of treasury address and
+// ended with the public key of the secrete key, since we don't want the POP being cloned during the propagation of the
+// on-boarding TX. Thus, this POP generation is different from the spec of BLS, which means we have a compatibility issue
+// with a standard POP generation/verification implementation.
 func BLSPOPProof(priKey blst.SecretKey, msg []byte) ([]byte, error) {
 	// the msg contains treasury address and the public key of private key.
 	m := append(msg, priKey.PublicKey().Marshal()...)
