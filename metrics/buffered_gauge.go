@@ -38,10 +38,12 @@ func GetOrRegisterBufferedGauge(name string, r Registry) BufferedGauge {
 
 // NewBufferedGauge constructs a new BufferedGauge.
 func NewBufferedGauge() BufferedGauge {
-	if !Enabled {
-		return NilBufferedGauge{}
-	}
-	return &StandardBufferedGauge{values: make([]GaugeValue, 0, BufferedGaugeCapacity)}
+	//TODO: isn't supported in prometheus, fix later
+	return NilBufferedGauge{}
+	//if !Enabled {
+	//	return NilBufferedGauge{}
+	//}
+	//return &StandardBufferedGauge{values: make([]GaugeValue, 0, BufferedGaugeCapacity)}
 }
 
 // NewRegisteredBufferedGauge constructs and registers a new StandardBufferedGauge.
