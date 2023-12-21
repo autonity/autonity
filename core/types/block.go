@@ -523,7 +523,7 @@ func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
 func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
 func (b *Block) UncleHash() common.Hash   { return b.header.UncleHash }
 func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
-func (b *Block) LastEpochBlock() *big.Int { return b.header.LastEpochBlock }
+func (b *Block) IsEpochHead() bool        { return b.header.Number.Cmp(b.header.LastEpochBlock) == 0 }
 
 func (b *Block) BaseFee() *big.Int {
 	if b.header.BaseFee == nil {

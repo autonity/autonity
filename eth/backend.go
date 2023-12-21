@@ -578,10 +578,9 @@ func (s *Ethereum) Start() error {
 
 // This routine is responsible to communicate to devp2p who are the other consensus members
 // if the local node is part of the consensus committee or not.
-// todo(youssef): listen to new epoch events instead
 func (s *Ethereum) newCommitteeWatcher() {
-	chainHeadCh := make(chan core.ChainHeadEvent)
-	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
+	epochHeadCh := make(chan core.EpochHeadEvent)
+	epochHeadSub := s.blockchain.SubscribeEpochHeadEvent(epochHeadCh)
 
 	updateConsensusEnodes := func(currentHead *types.Header) {
 		state, err := s.blockchain.StateAt(currentHead.Root)
@@ -608,8 +607,8 @@ func (s *Ethereum) newCommitteeWatcher() {
 
 	for {
 		select {
-		case ev := <-chainHeadCh:
-			committee, _ = s.blockchain.LatestCommitteeAndChainHead()
+		case ev := <-epochHeadCh:
+			committee = ev.Header.Committee
 			// check if the local node belongs to the consensus committee.
 			if committee.CommitteeMember(s.address) == nil {
 				// if the local node was part of the committee set for the previous block
@@ -623,7 +622,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				}
 				continue
 			}
-			updateConsensusEnodes(ev.Block.Header())
+			updateConsensusEnodes(ev.Header)
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
@@ -631,7 +630,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 			}
 			wasValidating = true
 		// Err() channel will be closed when unsubscribing.
-		case <-chainHeadSub.Err():
+		case <-epochHeadSub.Err():
 			return
 		}
 	}
