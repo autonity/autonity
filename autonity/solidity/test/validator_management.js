@@ -6,13 +6,6 @@ const utils = require('./utils.js');
 const liquidContract = artifacts.require("Liquid")
 const config = require('./config.js')
 
-function generateMultiSig(nodekey,oraclekey,treasuryAddr) {
-    let treasuryProof = web3.eth.accounts.sign(treasuryAddr, nodekey);
-    let oracleProof = web3.eth.accounts.sign(treasuryAddr, oraclekey);
-    let multisig = treasuryProof.signature + oracleProof.signature.substring(2)
-    return multisig
-}
-
 contract('Autonity', function (accounts) {
 
     for (let i = 0; i < accounts.length; i++) {
@@ -57,7 +50,7 @@ contract('Autonity', function (accounts) {
             let newValidator = accounts[0];
             let enode = genesisEnodes[0]
             // multisig length is checked before validator already registered (it is not verified though)
-            let multisig = generateMultiSig(genesisPrivateKeys[0],genesisPrivateKeys[0],newValidator)
+            let multisig = utils.generateMultiSig(genesisPrivateKeys[0],genesisPrivateKeys[0],newValidator)
             let consensusKey = Buffer.from('845681310fe66ed10629e76cc5aa20f3ec8b853af9f3dee8a6318f3fb81c0adcaaa0a776dc066127e743bba6b0349bc0', 'hex');
             let consensusKeyProof = '0x88a19caac1d02d2efb3675ec9fe99936b1170641b03d7525674ee001446cfd204fa5ba0b5e362d71294f3ba2f758695115a17101fc70b73fe90d7eb83950c3f7ad598b6740698b8e78fb48821c47762cdf2de889deede80fe2e7c085e48562c4';
             multisig = multisig + consensusKeyProof.substring(2);
@@ -79,7 +72,7 @@ contract('Autonity', function (accounts) {
             let consensusKey = Buffer.from('b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5', 'hex');
             let consensusKeyProof = '0xa141b3c759ad5eec4def611fc4cb028f1edb0f363f9f415c692998b0b6e677acdfb7e2ac23e3e848027b5e19e56b550c15a87ccc81e6f8ebd34fa54850ec0fe192567bf4aefcddb06f6c00bee4768010013b162a91d4f7ed397568affe497532';
 
-            let multisig = generateMultiSig(privateKey,privateKey,newValidator)
+            let multisig = utils.generateMultiSig(privateKey,privateKey,newValidator)
             multisig = multisig + consensusKeyProof.substring(2)
 
             await truffleAssert.fails(
@@ -97,7 +90,7 @@ contract('Autonity', function (accounts) {
             let enode = freeEnodes[0]
             let privateKey = freePrivateKeys[0]
             // generate oracle signature with nodekey instead of treasury key
-            let multisig = generateMultiSig(privateKey,privateKey,newValidator)
+            let multisig = utils.generateMultiSig(privateKey,privateKey,newValidator)
             let oracleAddr = newValidator // treasury address
             let consensusKey = Buffer.from('b4c9a6216f9e39139b8ea2b36f277042bbf5e1198d8e01cff0cca816ce5cc820e219025d2fa399b133d3fc83920eeca5', 'hex');
             let consensusKeyProof = '0xa141b3c759ad5eec4def611fc4cb028f1edb0f363f9f415c692998b0b6e677acdfb7e2ac23e3e848027b5e19e56b550c15a87ccc81e6f8ebd34fa54850ec0fe192567bf4aefcddb06f6c00bee4768010013b162a91d4f7ed397568affe497532';
