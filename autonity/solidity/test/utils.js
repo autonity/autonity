@@ -13,6 +13,7 @@ const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
 const ethers = require('ethers');
+const truffleAssert = require('truffle-assertions');
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
@@ -334,7 +335,7 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
 // signatures, get it from the CLI output.
 // CLI output, requires: NodeKeyfile, oracle private key, and treasury account.
 async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
-  const command = `./build/bin/autonity genOwnershipProof --nodekey ${nodeKeyFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
+  const command = `../../../build/bin/autonity genOwnershipProof --nodekey ${nodeKeyFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
   try {
     const { stdout, stderr } = await exec(command);
     if (stderr) {
@@ -348,19 +349,13 @@ async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
     return { error: error.message };
   }
 }
-/*
-// Example usage:
-executeCLICommand('node.key', '198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301', '0x850c1eb8d190e05845ad7f84ac95a318c8aab07f')
-    .then(result => console.log(result))
-    .catch(error => console.error(error));
-*/
 
 // NodeKeyfile generate from genNodeKey CLI command:
 // generateNodeKey generate an Autonity Node key, and save the node key and the consensus key in the specified key file,
 // it returns the corresponding node's address, node's public key and the consensus public key.
 async function generateNodeKey(filePath) {
   try {
-    const command = `./build/bin/autonity genNodeKey --writeaddress ${filePath}`;
+    const command = `../../../build/bin/autonity genNodeKey --writeaddress ${filePath}`;
     const { stdout, stderr } = await exec(command);
     const nodeAddress = stdout.match(/Node address: (0x[0-9a-fA-F]+)/)[1];
     const nodePublicKey = stdout.match(/Node public key: (0x[0-9a-fA-F]+)/)[1];
@@ -371,22 +366,32 @@ async function generateNodeKey(filePath) {
   }
 }
 
-/*
-// Usage example
-const filePath = 'node.key';
-generateNodeKeyAndParseOutput(filePath)
-    .then(({ nodeAddress, nodePublicKey, nodeConsensusKey }) => {
-      console.log('Node Address:', nodeAddress);
-      console.log('Node Public Key:', nodePublicKey);
-      console.log('Node Consensus Key:', nodeConsensusKey);
-    })
-    .catch(error => {
-      console.error(error);
-    });
-*/
-
 function keccakHash(input) {
   return keccak256(Buffer.from(input)).toString('hex');
+}
+
+async function slash(config, accountability, epochOffenceCount, offender, reporter) {
+  const event = {
+    "chunks": 1,
+    "chunkId": 1,
+    "eventType": 0,
+    "rule": 0, // PN rule --> severity mid
+    "reporter": reporter,
+    "offender": offender,
+    "rawProof": [],
+    "block": 1,
+    "epoch": 0,
+    "reportingBlock": 2,
+    "messageHash": 0,
+  }
+  let tx = await accountability.slash(event, epochOffenceCount);
+  let txEvent;
+  truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
+    txEvent = ev;
+    return ev.amount.toNumber() > 0;
+  });
+  let slashingRate = ruleToRate(config, event.rule) / config.slashingRatePrecision;
+  return {txEvent, slashingRate};
 }
 
 module.exports.deployContracts = deployContracts;
@@ -412,3 +417,5 @@ module.exports.generateAutonityPOP = generateAutonityPOP;
 module.exports.generateNodeKey = generateNodeKey;
 module.exports.publicKeyToEnode = publicKeyToEnode;
 module.exports.publicKey = publicKey;
+module.exports.address = address;
+module.exports.slash = slash;

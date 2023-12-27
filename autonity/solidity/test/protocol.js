@@ -20,30 +20,6 @@ async function modifiedSlashingFeeAccountability(autonity, accountabilityConfig,
   return accountability;
 }
 
-async function slash(config, accountability, epochOffenceCount, offender, reporter) {
-  const event = {
-    "chunks": 1, 
-    "chunkId": 1,
-    "eventType": 0,
-    "rule": 0, // PN rule --> severity mid
-    "reporter": reporter,
-    "offender": offender,
-    "rawProof": [], 
-    "block": 1,
-    "epoch": 0,
-    "reportingBlock": 2,
-    "messageHash": 0, 
-  }
-  let tx = await accountability.slash(event, epochOffenceCount);
-  let txEvent;
-  truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
-    txEvent = ev;
-    return ev.amount.toNumber() > 0;
-  });
-  let slashingRate = utils.ruleToRate(config, event.rule) / config.slashingRatePrecision;
-  return {txEvent, slashingRate};
-}
-
 async function killValidatorWithSlash(config, accountability, offender, reporter) {
   const event = {
     "chunks": 1, 
@@ -99,7 +75,7 @@ async function selfUnbondAndSlash(config, autonity, accountability, delegator, v
   }
 
   // slash
-  let {txEvent, slashingRate} = await slash(config, accountability, 1, validator, validator);
+  let {txEvent, slashingRate} = await utils.slash(config, accountability, 1, validator, validator);
   valInfo = await autonity.getValidator(validator);
   assert.equal(
     Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake),
@@ -155,7 +131,7 @@ async function unbondAndSlash(config, autonity, accountability, delegators, vali
     checkUnbondingRequest(request, tokenUnbondArray[i], share, false);
     requestID++;
   }
-  let {txEvent, slashingRate} = await slash(config, accountability, 1, validator, validator);
+  let {txEvent, slashingRate} = await utils.slash(config, accountability, 1, validator, validator);
   slashCount++;
   valInfo = await autonity.getValidator(validator);
   assert.equal(
@@ -219,7 +195,7 @@ async function bondSlashUnbond(config, autonity, accountability, delegators, val
 
   // to compare with expected NTN without slashing, need to store old ratio
   const oldDelegatedStakes = delegatedStakes;
-  let {txEvent, slashingRate} = await slash(config, accountability, 1, validator, validator);
+  let {txEvent, slashingRate} = await utils.slash(config, accountability, 1, validator, validator);
   valInfo = await autonity.getValidator(validator);
   assert.equal(
     Number(valInfo.bondedStake) + Number(valInfo.unbondingStake),
@@ -478,7 +454,7 @@ contract('Protocol', function (accounts) {
       await web3.eth.sendTransaction({from: anyAccount, to: autonity.address, value: reward});
 
       let epochOffenceCount = 1;
-      await slash(accountabilityConfig, accountability, epochOffenceCount, validator, reporter)
+      await utils.slash(accountabilityConfig, accountability, epochOffenceCount, validator, reporter)
       let treasuryBalance = await web3.eth.getBalance(treasury);
       let reporterTreasuryBalance = Number(await web3.eth.getBalance(reporterTreasury));
       await utils.endEpoch(autonity, operator, deployer);
@@ -537,7 +513,7 @@ contract('Protocol', function (accounts) {
       const treasury = validators[0].treasury;
 
       let epochOffenceCount = 1;
-      let {txEvent, slashingRate} = await slash(accountabilityConfig, accountability, epochOffenceCount, validator, treasury);
+      let {txEvent, slashingRate} = await utils.slash(accountabilityConfig, accountability, epochOffenceCount, validator, treasury);
       let releaseBlock = txEvent.releaseBlock.toNumber();
 
       let validatorInfo = await autonity.getValidator(validator);

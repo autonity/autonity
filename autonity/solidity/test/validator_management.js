@@ -353,6 +353,11 @@ contract('Autonity', function (accounts) {
     });
 
     describe('After effects of slashing, ', function () {
+        beforeEach(async function () {
+            autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+            accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+            await autonity.setAccountabilityContract(accountability.address, {from:operator});
+        });
         it('does not trigger fairness issue (unbondingStake > 0 and delegatedStake > 0)', async function () {
             // fairness issue is triggered when delegatedStake or unbondingStake becomes 0 from positive due to slashing
             // it can happen due to slashing rate = 100%
@@ -380,7 +385,7 @@ contract('Autonity', function (accounts) {
                 const oracleKey = utils.randomPrivateKey();
                 const popInfo = await utils.generateAutonityPOP(`${keyGenCounter}.key`, oracleKey, treasury)
                 const enode = utils.publicKeyToEnode(nodeKeyInfo.nodePublicKey.substring(2))
-                const oracleAddress = utils.publicKey(oracleKey)
+                const oracleAddress = utils.address(utils.publicKey(oracleKey, false))
                 let consensusKey = Buffer.from(nodeKeyInfo.nodeConsensusKey.substring(2), 'hex');
                 let signatures = Buffer.from(popInfo.signatures.substring(2), 'hex')
                 await autonity.registerValidator(enode, oracleAddress, consensusKey, signatures, {from: treasury});
@@ -412,7 +417,7 @@ contract('Autonity', function (accounts) {
 
             for (let iter = 0; iter < validatorAddresses.length; iter++) {
                 const validator = validatorAddresses[iter];
-                let {txEvent, _} = await slash(config, accountability, 1, validator, validator);
+                let {txEvent, _} = await utils.slash(config, accountability, 1, validator, validator);
                 // checking if highest possible slashing can be done without triggering fairness issue
                 // cannot slash (totalStake - 1) because both delegated and unbonding slash is floored
                 assert.equal(txEvent.amount.toNumber(), expectedSlash-1, "highest slash did not happen");
