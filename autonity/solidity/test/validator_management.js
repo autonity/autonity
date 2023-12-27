@@ -381,9 +381,9 @@ contract('Autonity', function (accounts) {
             let keyGenCounter = 0;
             while (tokenUnbondFactor.length > validatorAddresses.length) {
                 const treasury = accounts[8];
-                const nodeKeyInfo = await utils.generateNodeKey(`${keyGenCounter}.key`)
+                const nodeKeyInfo = await utils.generateNodeKey(`./autonity/data/${keyGenCounter}.key`)
                 const oracleKey = utils.randomPrivateKey();
-                const popInfo = await utils.generateAutonityPOP(`${keyGenCounter}.key`, oracleKey, treasury)
+                const popInfo = await utils.generateAutonityPOP(`./autonity/data/${keyGenCounter}.key`, oracleKey, treasury)
                 const enode = utils.publicKeyToEnode(nodeKeyInfo.nodePublicKey.substring(2))
                 const oracleAddress = utils.address(utils.publicKey(oracleKey, false))
                 let consensusKey = Buffer.from(nodeKeyInfo.nodeConsensusKey.substring(2), 'hex');
