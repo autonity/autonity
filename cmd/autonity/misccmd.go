@@ -74,7 +74,7 @@ The output of this command is supposed to be machine-readable.
 		key file, a new consensus key will be generated and append to the input node
 		key file.
 		There are two ways to pass node private key:
-			1. --nodekey <node key file name> 
+			1. --nodekey <Autonity node key file name> 
 			2. --nodekeyhex <node key in hex>
 		Similarly there are two ways to pass oracle private key:
 			1. --oraclekey <oracle key file name>

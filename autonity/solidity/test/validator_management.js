@@ -352,8 +352,6 @@ contract('Autonity', function (accounts) {
         });
     });
 
-    /*
-    // todo: (Jason) rewrite this test since the way of registerValidator requires POP.
     describe('After effects of slashing, ', function () {
         it('does not trigger fairness issue (unbondingStake > 0 and delegatedStake > 0)', async function () {
             // fairness issue is triggered when delegatedStake or unbondingStake becomes 0 from positive due to slashing
@@ -375,11 +373,19 @@ contract('Autonity', function (accounts) {
                 validatorAddresses.push(validators[i].nodeAddress);
             }
 
+            let keyGenCounter = 0;
             while (tokenUnbondFactor.length > validatorAddresses.length) {
                 const treasury = accounts[8];
-                const privateKey = utils.randomPrivateKey();
-                const validatorNodeAddress = await utils.registerValidator(autonity, privateKey, treasury);
-                validatorAddresses.push(validatorNodeAddress);
+                const nodeKeyInfo = await utils.generateNodeKey(`${keyGenCounter}.key`)
+                const oracleKey = utils.randomPrivateKey();
+                const popInfo = await utils.generateAutonityPOP(`${keyGenCounter}.key`, oracleKey, treasury)
+                const enode = utils.publicKeyToEnode(nodeKeyInfo.nodePublicKey.substring(2))
+                const oracleAddress = utils.publicKey(oracleKey)
+                let consensusKey = Buffer.from(nodeKeyInfo.nodeConsensusKey.substring(2), 'hex');
+                let signatures = Buffer.from(popInfo.signatures.substring(2), 'hex')
+                await autonity.registerValidator(enode, oracleAddress, consensusKey, signatures, {from: treasury});
+                validatorAddresses.push(nodeKeyInfo.nodeAddress);
+                keyGenCounter++
             }
 
             let tokenMinted = []
@@ -417,5 +423,5 @@ contract('Autonity', function (accounts) {
             await utils.mineTillUnbondingRelease(autonity, operator, deployer);
             assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unbonding released");
         });
-    });*/
+    });
 });

@@ -1,4 +1,6 @@
 const assert = require('assert');
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
 const Oracle = artifacts.require("Oracle")
@@ -324,14 +326,64 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
   return multisig
 }
 
-// todo: (Jason) rewrite this function since the BLS POP is required.
-async function registerValidator(autonity, validatorPrivateKey, treasuryAddr) {
-  let multisig = generateMultiSig(validatorPrivateKey, validatorPrivateKey, treasuryAddr);
-  let oracleAddress = address(publicKey(validatorPrivateKey, false));
-  let enode = privateKeyToEnode(validatorPrivateKey);
-  await autonity.registerValidator(enode, oracleAddress, multisig, {from: treasuryAddr});
-  return oracleAddress;
+// enode, oracleAddress, consensusKey, signatures
+// enode generate from node private key or, from a config.
+// oracleAddress generate from private key or, from a config.
+
+// consensusKey, get it from the CLI output.
+// signatures, get it from the CLI output.
+// CLI output, requires: NodeKeyfile, oracle private key, and treasury account.
+async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
+  const command = `./build/bin/autonity genOwnershipProof --nodekey ${nodeKeyFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
+  try {
+    const { stdout, stderr } = await exec(command);
+    if (stderr) {
+      throw new Error(stderr);
+    }
+    const outputLines = stdout.split('\n');
+    const nodeConsensusKey = outputLines.find(line => line.startsWith('Node consensus key:')).split(':')[1].trim();
+    const signatures = outputLines.find(line => line.startsWith('Signatures:')).split(':')[1].trim();
+    return { nodeConsensusKey, signatures };
+  } catch (error) {
+    return { error: error.message };
+  }
 }
+/*
+// Example usage:
+executeCLICommand('node.key', '198227888008a50b57bfb4d70ef5c4a3ef085538b148842fe3628b9005d66301', '0x850c1eb8d190e05845ad7f84ac95a318c8aab07f')
+    .then(result => console.log(result))
+    .catch(error => console.error(error));
+*/
+
+// NodeKeyfile generate from genNodeKey CLI command:
+// generateNodeKey generate an Autonity Node key, and save the node key and the consensus key in the specified key file,
+// it returns the corresponding node's address, node's public key and the consensus public key.
+async function generateNodeKey(filePath) {
+  try {
+    const command = `./build/bin/autonity genNodeKey --writeaddress ${filePath}`;
+    const { stdout, stderr } = await exec(command);
+    const nodeAddress = stdout.match(/Node address: (0x[0-9a-fA-F]+)/)[1];
+    const nodePublicKey = stdout.match(/Node public key: (0x[0-9a-fA-F]+)/)[1];
+    const nodeConsensusKey = stdout.match(/Node consensus key: (0x[0-9a-fA-F]+)/)[1];
+    return { nodeAddress, nodePublicKey, nodeConsensusKey };
+  } catch (error) {
+    throw new Error(`Failed to execute command: ${error.message}`);
+  }
+}
+
+/*
+// Usage example
+const filePath = 'node.key';
+generateNodeKeyAndParseOutput(filePath)
+    .then(({ nodeAddress, nodePublicKey, nodeConsensusKey }) => {
+      console.log('Node Address:', nodeAddress);
+      console.log('Node Public Key:', nodePublicKey);
+      console.log('Node Consensus Key:', nodeConsensusKey);
+    })
+    .catch(error => {
+      console.error(error);
+    });
+*/
 
 function keccakHash(input) {
   return keccak256(Buffer.from(input)).toString('hex');
@@ -355,5 +407,8 @@ module.exports.signAndSendTransaction = signAndSendTransaction;
 module.exports.bytesToHex = bytesToHex;
 module.exports.randomPrivateKey = randomPrivateKey;
 module.exports.generateMultiSig = generateMultiSig;
-module.exports.registerValidator = registerValidator;
 module.exports.ValidatorState = ValidatorState;
+module.exports.generateAutonityPOP = generateAutonityPOP;
+module.exports.generateNodeKey = generateNodeKey;
+module.exports.publicKeyToEnode = publicKeyToEnode;
+module.exports.publicKey = publicKey;
