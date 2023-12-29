@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast
 
 BINDIR = ./build/bin
 GO ?= latest
@@ -141,7 +141,9 @@ test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 	go test -race -v ./consensus/test/... -timeout 30m
 
-test-contracts: autonity contracts test-contracts-asm test-contracts-truffle
+test-contracts: test-contracts-asm test-contracts-truffle
+
+test-contracts-fast: test-contracts-asm test-contracts-truffle-fast
 
 # prerequisites for testing contracts
 test-contracts-pre:
@@ -152,17 +154,28 @@ test-contracts-pre:
 	@npm list truffle > /dev/null || npm install truffle
 	@echo "check and install web3.js"
 	@npm list web3 > /dev/null || npm install web3
+	@echo "check and install keccak256"
+	@npm list keccak256 > /dev/null || npm install keccak256
 	@echo "check and install truffle-assertions.js"
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
 	@echo "check and install ganache"
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
 
+APE_VERSION := 0.6.26
+HARDHAT_VERSION := 2.19.1
 test-contracts-asm:
 	@echo "check and install ape framework"
-	@ape > /dev/null || pipx install eth-ape || { pipx uninstall eth-ape; exit 1; }
+	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
+	@echo "check ape framework version"
+	@test $$(ape --version) = "$(APE_VERSION)" || { \
+		echo -n "error: unsupported ape version $$(ape --version) "; \
+		echo "(need $(APE_VERSION))..."; \
+		echo "please uninstall eth-ape and then re-run the make target"; \
+		exit 1;\
+	}
 	@echo "check and install hardhat"
-	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
+	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
 	@echo "run tests for the asm contracts"
@@ -181,7 +194,7 @@ start-autonity:
 # start a ganache network for fast contract tests
 start-ganache:
 	@echo "starting ganache"
-	@nohup ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
+	@nohup npx ganache --chain.allowUnlimitedContractSize --chain.allowUnlimitedInitCodeSize --gasLimit 0x1fffffffffffff >/dev/null 2>&1 &
 	@sleep 2
 	@pgrep -f ganache
 	@lsof -i :8545 | grep node
@@ -191,6 +204,8 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
 	@echo "killing test autonity network and cleaning chaindata"
@@ -202,6 +217,8 @@ test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@echo "killing ganache"
 	@-pkill -f "ganache"
 
@@ -212,10 +229,10 @@ docker-e2e-test: contracts
 mock-gen:
 	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
-	mockgen -source=consensus/protocol.go -package=consensus -destination=consensus/protocol_mock.go
-	mockgen -source=interfaces.go -package=ethereum -destination=interfaces_mock.go
 	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
-	mockgen -source=consensus/tendermint/core/interfaces/tendermint.go -package=interfaces -destination=consensus/tendermint/core/interfaces/tendermint_mock.go
+	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
+	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
+	mockgen -source=consensus/tendermint/core/interfaces/broadcaster.go -package=interfaces -destination=consensus/tendermint/core/interfaces/broadcaster_mock.go
 
 lint-dead:
 	@./.github/tools/golangci-lint run \
@@ -248,12 +265,12 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.53.3
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./build/bin v1.55.2
 
 clean:
 	go clean -cache
 	rm -fr build/_workspace/pkg/ $(BINDIR)/*
-	rm -rf $(GENERATED_CONTRACT_DIR)
+	rm -rf $(GENERATED_CONTRACT_DIR)/*.abi $(GENERATED_CONTRACT_DIR)/*.bin
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $BINDIR (or $GOPATH/bin) in your PATH to use 'go generate'.

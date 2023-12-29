@@ -4,7 +4,7 @@ ARG VERSION=""
 ARG BUILDNUM=""
 
 # Build Autonity in a stock Go builder container
-FROM golang:1.17-alpine as builder
+FROM golang:1.21-alpine as builder
 
 LABEL org.opencontainers.image.source https://github.com/autonity/autonity
 
