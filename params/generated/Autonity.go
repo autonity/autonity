@@ -809,6 +809,45 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
    },
    {
       "inputs" : [],
+      "name" : "computeCommittee_FullPrecompiled",
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "computeCommittee_FullPrecompiled_Return",
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "computeCommittee_ReadPrecompiled_WriteSolidity",
+      "outputs" : [
+         {
+            "internalType" : "address[]",
+            "name" : "",
+            "type" : "address[]"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
       "name" : "config",
       "outputs" : [
          {

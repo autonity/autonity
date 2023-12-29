@@ -138,7 +138,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     CommitteeMember[] internal committee;
     uint256 public totalRedistributed;
     uint256 public epochReward;
-    string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
 
@@ -680,7 +679,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         // Update committee in persistent storage
         delete committee;
-        delete committeeNodes;
         epochTotalBondedStake = 0;
         for (uint256 _k = 0; _k < _committeeLength; _k++) {
 
@@ -690,11 +688,65 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 _committeeList[_k].consensusKey);
 
             committee.push(_member);
-            committeeNodes.push(_committeeList[_k].enode);
             _voterList[_k] = _committeeList[_k].oracleAddress;
             epochTotalBondedStake += _committeeList[_k].bondedStake;
         }
         return _voterList;
+    }
+
+
+    function computeCommittee_ReadPrecompiled_WriteSolidity() public onlyProtocol returns (address[] memory){
+        // Left public for testing purposes.
+        require(validatorList.length > 0, "There must be validators");
+        address[] memory _addresses = _storageAccessPrecompiled(config.protocol.committeeSize);
+        require(_addresses.length <= config.protocol.committeeSize, "too many committee members");
+        address[] memory _voterList = new address[](_addresses.length);
+
+        // Update committee in persistent storage
+        delete committee;
+        epochTotalBondedStake = 0;
+        for (uint256 _k = 0; _k < _addresses.length; _k++) {
+            Validator storage validator = validators[_addresses[_k]];
+            CommitteeMember memory _member = CommitteeMember(_addresses[_k], validator.bondedStake);
+            committee.push(_member);
+            _voterList[_k] = validator.oracleAddress;
+            epochTotalBondedStake += validator.bondedStake;
+        }
+        return _voterList;
+    }
+
+    function computeCommittee_FullPrecompiled() public onlyProtocol returns (address[] memory){
+        // Left public for testing purposes.
+        require(validatorList.length > 0, "There must be validators");
+        _storageReadWritePrecompiled(config.protocol.committeeSize);
+        address[] memory _voterList = new address[](committee.length);
+
+        // Update committee in persistent storage
+        epochTotalBondedStake = 0;
+        for (uint256 i = 0; i < committee.length; i++) {
+            Validator storage validator = validators[committee[i].addr];
+            _voterList[i] = validator.oracleAddress;
+            epochTotalBondedStake += validator.bondedStake;
+        }
+        return _voterList;
+    }
+
+    function computeCommittee_FullPrecompiled_Return() public onlyProtocol returns (address[] memory){
+        // Left public for testing purposes.
+        require(validatorList.length > 0, "There must be validators");
+        return _storageReadWritePrecompiled_RetunVoters(config.protocol.committeeSize);
+        // address[] memory _voterList = new address[](committee.length);
+
+        // Update committee in persistent storage
+        // delete committeeNodes;
+        // epochTotalBondedStake = 0;
+        // for (uint256 i = 0; i < committee.length; i++) {
+        //     Validator storage validator = validators[committee[i].addr];
+        //     // committeeNodes.push(validator.enode);
+        //     _voterList[i] = validator.oracleAddress;
+        //     epochTotalBondedStake += validator.bondedStake;
+        // }
+        // return _voterList;
     }
 
 
@@ -740,13 +792,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         // Update committee in persistent storage
         delete committee;
-        delete committeeNodes;
         epochTotalBondedStake = 0;
         // top _committeeLength validators in the list have the largest amount of bonded stake
         for (uint256 _k = 0; _k < _committeeLength; _k++) {
             Validator storage _member = validators[_validatorList[_k].addr];
             committee.push(_validatorList[_k]);
-            committeeNodes.push(_member.enode);
             _voterList[_k] = _member.oracleAddress;
             epochTotalBondedStake += _validatorList[_k].votingPower;
         }
@@ -803,14 +853,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         // Update committee in persistent storage
         delete committee;
-        delete committeeNodes;
         epochTotalBondedStake = 0;
         // top _committeeLength validators in the list have the largest amount of bonded stake
         for (uint256 _k = 0; _k < _committeeLength; _k++) {
             Validator storage _user = validators[_voterList[_k]];
             CommitteeMember memory _member = CommitteeMember(_voterList[_k], _user.bondedStake);
             committee.push(_member);
-            committeeNodes.push(_user.enode);
             _voterList[_k] = _user.oracleAddress;
             epochTotalBondedStake += _member.votingPower;
         }
@@ -867,14 +915,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         // Update committee in persistent storage
         delete committee;
-        delete committeeNodes;
         epochTotalBondedStake = 0;
         // top _committeeLength validators in the list have the largest amount of bonded stake
         for (uint256 _k = 0; _k < _committeeLength; _k++) {
             Validator storage _user = validators[_voterList[_k]];
             CommitteeMember memory _member = CommitteeMember(_voterList[_k], _user.bondedStake);
             committee.push(_member);
-            committeeNodes.push(_user.enode);
             _voterList[_k] = _user.oracleAddress;
             epochTotalBondedStake += _member.votingPower;
         }
@@ -931,14 +977,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         // Update committee in persistent storage
         delete committee;
-        delete committeeNodes;
         epochTotalBondedStake = 0;
         // top _committeeLength validators in the list have the largest amount of bonded stake
         for (uint256 _k = 0; _k < _committeeLength; _k++) {
             Validator storage _user = validators[_voterList[_k]];
             CommitteeMember memory _member = CommitteeMember(_voterList[_k], _user.bondedStake);
             committee.push(_member);
-            committeeNodes.push(_user.enode);
             _voterList[_k] = _user.oracleAddress;
             epochTotalBondedStake += _member.votingPower;
         }
@@ -995,14 +1039,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         // Update committee in persistent storage
         delete committee;
-        delete committeeNodes;
         epochTotalBondedStake = 0;
         // top _committeeLength validators in the list have the largest amount of bonded stake
         for (uint256 _k = 0; _k < _committeeLength; _k++) {
             Validator storage _user = validators[_voterList[_k]];
             CommitteeMember memory _member = CommitteeMember(_voterList[_k], _user.bondedStake);
             committee.push(_member);
-            committeeNodes.push(_user.enode);
             _voterList[_k] = _user.oracleAddress;
             epochTotalBondedStake += _member.votingPower;
         }
@@ -1114,6 +1156,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @return Returns the consensus committee enodes.
     */
     function getCommitteeEnodes() external view returns (string[] memory) {
+        uint256 len = committee.length;
+        string[] memory committeeNodes = new string[](len);
+        for (uint256 i = 0; i < len; i++) {
+            Validator storage validator = validators[committee[i].addr];
+            committeeNodes[i] = validator.enode;
+        }
         return committeeNodes;
     }
 
@@ -1567,6 +1615,134 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     function _sortByStakeOptimized(CommitteeMember[] memory _validators) internal pure {
         _structQuickSortOptimized(_validators, int(0), int(_validators.length - 1));
+    }
+
+    function _sortByStakeSortLibrarySort(CommitteeMember[] memory _validators, uint256 _committeeSize) internal view returns (address[] memory) {
+        uint offset = 32 + 3 * _validators.length * 32;
+        uint _length = _validators.length * 2 * 32;
+        uint _returnDataLength = _committeeSize*32 + 32;
+        // depends on the committee size
+        // TODO: is there any better way to do it?
+        address[101] memory _returnData;
+        address to = Precompiled.SORT_LIBRARY_SORT_CONTRACT;
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, add(_validators, offset), _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+
+        require(_returnData[0] == address(1), "unsuccessful call");
+
+        address[] memory _voters = new address[] (_committeeSize);
+        for (uint256 i = 0; i < _committeeSize; i++) {
+            _voters[i] = _returnData[i+1];
+        }
+        return _voters;
+    }
+
+    function _sortByStakeSortLibrarySliceTable(CommitteeMember[] memory _validators, uint256 _committeeSize) internal view returns (address[] memory) {
+        uint offset = 32 + 3 * _validators.length * 32;
+        uint _length = _validators.length * 2 * 32;
+        uint _returnDataLength = _committeeSize*32 + 32;
+        // depends on the committee size
+        // TODO: is there any better way to do it?
+        address[101] memory _returnData;
+        address to = Precompiled.SORT_LIBRARY_SLICETABLE_CONTRACT;
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, add(_validators, offset), _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+
+        require(_returnData[0] == address(1), "unsuccessful call");
+
+        address[] memory _voters = new address[] (_committeeSize);
+        for (uint256 i = 0; i < _committeeSize; i++) {
+            _voters[i] = _returnData[i+1];
+        }
+        return _voters;
+    }
+
+    function _storageAccessPrecompiled(uint256 _committeeSize) internal view returns (address[] memory) {
+        require(_committeeSize <= 100, "hardcoded array size 102");
+        address[102] memory _returnData;
+        address to = Precompiled.STORAGE_ACCESS_CONTRACT;
+        uint256 _length = 32*2;
+        uint256[2] memory input;
+        uint _returnDataLength = 64 + _committeeSize*32;
+        assembly {
+            mstore(input, validatorList.slot)
+            mstore(add(input, 0x20), validators.slot)
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, input, _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+
+        require(_returnData[0] == address(1), "unsuccessful call");
+        require(_returnData[1] != address(0), "sorting unsuccessful");
+        if (_committeeSize > uint256(uint160(_returnData[1]))) {
+            _committeeSize = uint256(uint160(_returnData[1]));
+        }
+        address[] memory addresses = new address[](_committeeSize);
+        for (uint i = 0; i < _committeeSize; i++) {
+            addresses[i] = _returnData[i+2];
+        }
+        return addresses;
+    }
+
+    function _storageReadWritePrecompiled_RetunVoters(uint256 _committeeSize) internal returns (address[] memory) {
+        require(_committeeSize <= 100, "hardcoded array size 102");
+        address[102] memory _returnData;
+        address to = Precompiled.STORAGE_READ_WRITE_RETURN_CONTRACT;
+        uint256 _length = 32*5;
+        uint256[5] memory input;
+        input[4] = _committeeSize;
+        uint _returnDataLength = 64 + _committeeSize*32;
+        assembly {
+            mstore(input, validatorList.slot)
+            mstore(add(input, 0x20), validators.slot)
+            mstore(add(input, 0x40), committee.slot)
+            mstore(add(input,0x60), epochTotalBondedStake.slot)
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, input, _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+
+        require(_returnData[0] == address(1), "unsuccessful call");
+        require(_returnData[1] != address(0), "sorting unsuccessful");
+        if (_committeeSize > uint256(uint160(_returnData[1]))) {
+            _committeeSize = uint256(uint160(_returnData[1]));
+        }
+        address[] memory addresses = new address[](_committeeSize);
+        for (uint i = 0; i < _committeeSize; i++) {
+            addresses[i] = _returnData[i+2];
+        }
+        return addresses;
+    }
+
+    function _storageReadWritePrecompiled(uint256 _committeeSize) internal {
+        // require(_committeeSize <= 100, "hardcoded array size 102");
+        uint256[1] memory _returnData;
+        address to = Precompiled.STORAGE_READ_WRITE_CONTRACT;
+        uint256 _length = 32*4;
+        uint256[4] memory input;
+        input[3] = _committeeSize;
+        uint256 _returnDataLength = 32;
+        assembly {
+            mstore(input, validatorList.slot)
+            mstore(add(input, 0x20), validators.slot)
+            mstore(add(input, 0x40), committee.slot)
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, input, _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+
+        require(_returnData[0] == 1, "unsuccessful call");
     }
 
     function _sortByStakePrecompiledIterate(CommitteeMember[] memory _validators, uint256 _committeeSize) internal view returns (address[] memory) {
