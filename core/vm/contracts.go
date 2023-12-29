@@ -17,15 +17,18 @@
 package vm
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blake2b"
 	"github.com/autonity/autonity/crypto/bls12381"
@@ -44,8 +47,8 @@ var PrecompiledContractRWMutex = sync.RWMutex{}
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
-	RequiredGas(input []byte) uint64                                // RequiredPrice calculates the contract gas use
-	Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) // Run runs the precompiled contract
+	RequiredGas(input []byte) uint64                                                              // RequiredPrice calculates the contract gas use
+	Run(input []byte, blockNumber uint64, stateDB StateDB, caller common.Address) ([]byte, error) // Run runs the precompiled contract
 }
 
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
@@ -57,12 +60,17 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &quickSort{},
-	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &structTester{},
-	common.BytesToAddress([]byte{248}): &directStorageSort{},
-	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
-	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{248}): &ComputeCommitteeReadOnly{},
+	common.BytesToAddress([]byte{247}): &QuickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &QuickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{245}): &SortLibrarySliceStable{},
+	common.BytesToAddress([]byte{244}): &SortLibrarySort{},
+	common.BytesToAddress([]byte{243}): &TestStructLocation{},
+	common.BytesToAddress([]byte{242}): &ComputeCommitteeReadAndWrite{},
+	common.BytesToAddress([]byte{241}): &ComputeCommitteeReadAndWriteReturnVoters{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -78,12 +86,17 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &quickSort{},
-	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &structTester{},
-	common.BytesToAddress([]byte{248}): &directStorageSort{},
-	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
-	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{248}): &ComputeCommitteeReadOnly{},
+	common.BytesToAddress([]byte{247}): &QuickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &QuickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{245}): &SortLibrarySliceStable{},
+	common.BytesToAddress([]byte{244}): &SortLibrarySort{},
+	common.BytesToAddress([]byte{243}): &TestStructLocation{},
+	common.BytesToAddress([]byte{242}): &ComputeCommitteeReadAndWrite{},
+	common.BytesToAddress([]byte{241}): &ComputeCommitteeReadAndWriteReturnVoters{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -100,12 +113,17 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &quickSort{},
-	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &structTester{},
-	common.BytesToAddress([]byte{248}): &directStorageSort{},
-	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
-	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{248}): &ComputeCommitteeReadOnly{},
+	common.BytesToAddress([]byte{247}): &QuickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &QuickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{245}): &SortLibrarySliceStable{},
+	common.BytesToAddress([]byte{244}): &SortLibrarySort{},
+	common.BytesToAddress([]byte{243}): &TestStructLocation{},
+	common.BytesToAddress([]byte{242}): &ComputeCommitteeReadAndWrite{},
+	common.BytesToAddress([]byte{241}): &ComputeCommitteeReadAndWriteReturnVoters{},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -122,12 +140,17 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &quickSort{},
-	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &structTester{},
-	common.BytesToAddress([]byte{248}): &directStorageSort{},
-	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
-	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{248}): &ComputeCommitteeReadOnly{},
+	common.BytesToAddress([]byte{247}): &QuickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &QuickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{245}): &SortLibrarySliceStable{},
+	common.BytesToAddress([]byte{244}): &SortLibrarySort{},
+	common.BytesToAddress([]byte{243}): &TestStructLocation{},
+	common.BytesToAddress([]byte{242}): &ComputeCommitteeReadAndWrite{},
+	common.BytesToAddress([]byte{241}): &ComputeCommitteeReadAndWriteReturnVoters{},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -144,12 +167,17 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
 	common.BytesToAddress([]byte{255}): &checkEnode{},
-	common.BytesToAddress([]byte{251}): &quickSort{},
-	common.BytesToAddress([]byte{250}): &quickSortFast{},
+	common.BytesToAddress([]byte{251}): &QuickSort{},
+	common.BytesToAddress([]byte{250}): &QuickSortFast{},
 	common.BytesToAddress([]byte{249}): &structTester{},
-	common.BytesToAddress([]byte{248}): &directStorageSort{},
-	common.BytesToAddress([]byte{247}): &quickSortIterate{queue: make([]*boundary, 0)},
-	common.BytesToAddress([]byte{246}): &quickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{248}): &ComputeCommitteeReadOnly{},
+	common.BytesToAddress([]byte{247}): &QuickSortIterate{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{246}): &QuickSortIterateFast{queue: make([]*boundary, 0)},
+	common.BytesToAddress([]byte{245}): &SortLibrarySliceStable{},
+	common.BytesToAddress([]byte{244}): &SortLibrarySort{},
+	common.BytesToAddress([]byte{243}): &TestStructLocation{},
+	common.BytesToAddress([]byte{242}): &ComputeCommitteeReadAndWrite{},
+	common.BytesToAddress([]byte{241}): &ComputeCommitteeReadAndWriteReturnVoters{},
 }
 
 var (
@@ -176,7 +204,6 @@ func init() {
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules params.Rules) []common.Address {
-	fmt.Println("ActivePrecompiles")
 	switch {
 	case rules.IsBerlin:
 		return PrecompiledAddressesBerlin
@@ -194,17 +221,19 @@ func ActivePrecompiles(rules params.Rules) []common.Address {
 // - the returned bytes,
 // - the _remaining_ gas,
 // - any error that occurred
-func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uint64, blockNumber uint64, evm *EVM) (ret []byte, remainingGas uint64, err error) {
+func RunPrecompiledContract(
+	p PrecompiledContract, input []byte, suppliedGas uint64, blockNumber uint64, stateDB StateDB, caller common.Address,
+) (ret []byte, remainingGas uint64, err error) {
 	gasCost := p.RequiredGas(input)
 	if suppliedGas < gasCost {
 		return nil, 0, ErrOutOfGas
 	}
 	suppliedGas -= gasCost
-	output, err := p.Run(input, blockNumber, evm)
+	output, err := p.Run(input, blockNumber, stateDB, caller)
 	return output, suppliedGas, err
 }
 
-const ThreadLimit = 1000
+const ThreadLimit = 10000000
 
 type structTester struct{}
 
@@ -212,7 +241,7 @@ func (a *structTester) RequiredGas(_ []byte) uint64 {
 	return 1
 }
 
-func (a *structTester) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+func (a *structTester) Run(input []byte, _ uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	res := make([]byte, 32)
 	for i := 0; i < len(input); i += 32 {
 		_, err := fmt.Printf("%v, %v : %v \n", i>>5, &input[i], input[i:i+32])
@@ -224,34 +253,140 @@ func (a *structTester) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
 	return res, nil
 }
 
-type directStorageSort struct {
+func formatInput(input []byte) []*StakeWithID {
+	length := len(input) / 64
+	validators := make([]*StakeWithID, length)
+	for i := 32; i < len(input); i += 64 {
+		idx := uint32(i >> 6)
+		item := StakeWithID{
+			ValidatorID: idx,
+			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
+		}
+		validators[idx] = &item
+	}
+	return validators
 }
 
-func (a *directStorageSort) RequiredGas(_ []byte) uint64 {
+func formatOutput(validators []*StakeWithID, input []byte) []byte {
+	length := len(validators)
+	result := make([]byte, length*32+32)
+	result[31] = 1
+	j := 32
+	for i := 0; i < length; i++ {
+		idx := validators[i].ValidatorID
+		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
+		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
+		j += 32
+	}
+	return result
+}
+
+type SortLibrarySliceStable struct{}
+
+func (a *SortLibrarySliceStable) RequiredGas(_ []byte) uint64 {
 	return 1
 }
 
-func (a *directStorageSort) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
-	// // step 1: Retrieve all validators from storage
+func (a *SortLibrarySliceStable) Run(input []byte, _ uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
+	validators := formatInput(input)
 
-	// // question 1: how do we retrieve the contract address?
-	// //solutions :
-	// //	- Send it as an input, so we access it by using "input" here
-	// //	- Retrieve the contract from autonity config
-	// //  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
-	// // validatorList = slot of validatorList in solidity
-	// validatorListSize = evm.StateDB.GetState(autonity.AutonityContractAddress, validatorList)
-	// baseOffset = crypto.Keccak256Hash(validatorList)
+	if len(validators) > 1 {
+		sort.SliceStable(validators, func(i, j int) bool {
+			return validators[i].Stake.Cmp(validators[j].Stake) == 1
+		})
+	}
+
+	return formatOutput(validators, input), nil
+}
+
+type SortLibrarySort struct{}
+
+type validatorSorter struct {
+	validators []*StakeWithID
+}
+
+func (sorter *validatorSorter) Len() int {
+	return len(sorter.validators)
+}
+
+func (sorter *validatorSorter) Less(i, j int) bool {
+	return sorter.validators[i].Stake.Cmp(sorter.validators[j].Stake) == 1
+}
+
+func (sorter *validatorSorter) Swap(i, j int) {
+	sorter.validators[i], sorter.validators[j] = sorter.validators[j], sorter.validators[i]
+}
+
+func (a *SortLibrarySort) RequiredGas(_ []byte) uint64 {
+	return 1
+}
+
+func (a *SortLibrarySort) Run(input []byte, _ uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
+	validators := formatInput(input)
+
+	sorter := &validatorSorter{validators: validators}
+	if len(validators) > 1 {
+		sort.Sort(sorter)
+	}
+
+	return formatOutput(sorter.validators, input), nil
+}
+
+type TestStructLocation struct{}
+
+func (a *TestStructLocation) RequiredGas(_ []byte) uint64 {
+	return 1
+}
+
+func (a *TestStructLocation) Run(input []byte, _ uint64, stateDB StateDB, caller common.Address) ([]byte, error) {
+	fmt.Println(len(input))
+	for i := 0; i < len(input); i += 32 {
+		fmt.Println(input[i : i+32])
+	}
+	// step 1: Retrieve all validators from storage
+
+	// question 1: how do we retrieve the contract address?
+	//solutions :
+	//	- Send it as an input, so we access it by using "input" here
+	//	- Retrieve the contract from autonity config
+	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+	fmt.Println(caller)
+	slot := input[0:32]
+	baseOffset := big.NewInt(0).SetBytes(slot)
+	for i := 0; i < 10; i++ {
+		item := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Bytes()
+		fmt.Println(item)
+		baseOffset.Add(baseOffset, big.NewInt(1))
+	}
+	// baseOffset := crypto.Keccak256Hash(validatorListSlot).Big()
 	// addresses := make([]common.Address, validatorListSize)
 
 	// // optimisation possible here: introduce concurrency
 	// for i := 0; i < validatorListSize; i++ {
-	// 	addresses[i] = evm.StateDB.GetState(autonity.AutonityContractAddress, baseOffset+i)
+	// 	addresses[i] = common.BytesToAddress(stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes())
+	// 	fmt.Println(addresses[i])
+	// 	baseOffset.Add(baseOffset, big.NewInt(1))
 	// }
 
 	// // We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
 
-	// for i := range addresses {
+	// validatorsSlot := input[32:64]
+	// for _, address := range addresses {
+	// 	key := make([]byte, 32)
+	// 	copy(key[12:32], address.Bytes())
+	// 	baseOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
+	// 	data := stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes()
+	// 	fmt.Println(common.BytesToAddress(data))
+	// 	baseOffset.Add(baseOffset, big.NewInt(1))
+	// 	data = stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes()
+	// 	fmt.Println(common.BytesToAddress(data))
+	// 	baseOffset.Add(baseOffset, big.NewInt(4))
+	// 	data = stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes()
+	// 	fmt.Println(big.NewInt(0).SetBytes(data))
+	// 	baseOffset.Add(baseOffset, big.NewInt(3))
+	// 	data = stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes()
+	// 	fmt.Println(big.NewInt(0).SetBytes(data))
+
 	// 	// compute storage location of Validator mapping
 	// 	// compute absolute location of bondedStake
 	// 	// compute absolute location of state
@@ -259,222 +394,609 @@ func (a *directStorageSort) Run(input []byte, _ uint64, evm *EVM) ([]byte, error
 	// }
 	// // run quick sort
 
-	// // Save that directly into storage of validator
-	// // we can use evm.StateDB.SetState()
+	// // // Save that directly into storage of validator
+	// // // we can use stateDB.SetState()
 
-	// // SOLIDITY : [SIZE(uint256)]
-	// //
-	// // step 2: Run committee selection
+	// // // SOLIDITY : [SIZE(uint256)]
+	// // //
+	// // // step 2: Run committee selection
 
-	// // step3: Save data directly into storage from here
+	// // // step3: Save data directly into storage from here
 
-	// // if success : return true
-	return make([]byte, 0), nil
+	// // // if success : return true
+	res := make([]byte, 32)
+	res[31] = 1
+	return res, nil
+}
+
+// type ComputeCommitteeReadOnlyTest struct{}
+
+// func (a *ComputeCommitteeReadOnlyTest) RequiredGas(_ []byte) uint64 {
+// 	return 1
+// }
+
+// func (a *ComputeCommitteeReadOnlyTest) Run(input []byte, _ uint64, evm *EVM, caller common.Address) ([]byte, error) {
+// 	// for i := 0; i < len(input); i += 32 {
+// 	// 	fmt.Println(input[i : i+32])
+// 	// }
+// 	// step 1: Retrieve all validators from storage
+
+// 	// question 1: how do we retrieve the contract address?
+// 	//solutions :
+// 	//	- Send it as an input, so we access it by using "input" here
+// 	//	- Retrieve the contract from autonity config
+// 	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+// 	// fmt.Println(caller)
+// 	validatorListSlot := input[0:32]
+// 	// fmt.Println(validatorListSlot)
+// 	validatorListSize := int(evm.StateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
+// 	// fmt.Println(validatorListSize)
+// 	baseOffset := crypto.Keccak256Hash(validatorListSlot).Big()
+// 	addresses := make([]common.Address, validatorListSize)
+
+// 	// optimisation possible here: introduce concurrency
+// 	for i := 0; i < validatorListSize; i++ {
+// 		addresses[i] = common.BytesToAddress(evm.StateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes())
+// 		// fmt.Println(addresses[i])
+// 		baseOffset.Add(baseOffset, big.NewInt(1))
+// 	}
+
+// 	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
+
+// 	validatorsSlot := input[32:64]
+// 	validators := make([]*types.CommitteeMember, 0)
+// 	threshold := big.NewInt(0)
+// 	for _, address := range addresses {
+// 		key := make([]byte, 32)
+// 		copy(key[12:32], address.Bytes())
+// 		baseOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
+// 		// data := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Bytes()
+// 		// fmt.Println(common.BytesToAddress(data))
+// 		// bondedStake is at slot 5
+// 		baseOffset.Add(baseOffset, big.NewInt(5))
+// 		bondedStake := evm.StateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Big()
+// 		// fmt.Println(bondedStake)
+// 		if bondedStake.Cmp(threshold) == 1 {
+// 			validators = append(validators, &types.CommitteeMember{
+// 				Address:     address,
+// 				VotingPower: bondedStake,
+// 			})
+// 		}
+// 	}
+// 	sort.SliceStable(validators, func(i, j int) bool {
+// 		return validators[i].VotingPower.Cmp(validators[j].VotingPower) == 1
+// 	})
+
+// 	result := make([]byte, 64+len(validators)*32)
+// 	result[31] = 1
+// 	binary.BigEndian.PutUint32(result[60:64], uint32(len(validators)))
+// 	for i := 64; i < len(result); i += 32 {
+// 		copy(result[i:i+32], validators[(i>>5)-2].Address.Bytes())
+// 	}
+// 	return result, nil
+// }
+
+type ComputeCommitteeReadOnly struct{}
+
+func (a *ComputeCommitteeReadOnly) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+func (a *ComputeCommitteeReadOnly) Run(input []byte, _ uint64, stateDB StateDB, caller common.Address) ([]byte, error) {
+	// for i := 0; i < len(input); i += 32 {
+	// 	fmt.Println(input[i : i+32])
+	// }
+	// step 1: Retrieve all validators from storage
+
+	// question 1: how do we retrieve the contract address?
+	//solutions :
+	//	- Send it as an input, so we access it by using "input" here
+	//	- Retrieve the contract from autonity config
+	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+	// fmt.Println(caller)
+	validatorListSlot := input[0:32]
+	// fmt.Println(validatorListSlot)
+	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
+	// fmt.Println(validatorListSize)
+	baseOffset := crypto.Keccak256Hash(validatorListSlot).Big()
+	addresses := make([]common.Address, validatorListSize)
+
+	// optimisation possible here: introduce concurrency
+	for i := 0; i < validatorListSize; i++ {
+		addresses[i] = common.BytesToAddress(stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes())
+		// fmt.Println(addresses[i])
+		baseOffset.Add(baseOffset, big.NewInt(1))
+	}
+
+	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
+
+	validatorsSlot := input[32:64]
+	validators := make([]*types.CommitteeMember, 0)
+	threshold := big.NewInt(0)
+	for _, address := range addresses {
+		key := make([]byte, 32)
+		copy(key[12:32], address.Bytes())
+		baseOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
+		// data := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Bytes()
+		// fmt.Println(common.BytesToAddress(data))
+		// bondedStake is at slot 5
+		baseOffset.Add(baseOffset, big.NewInt(5))
+		bondedStake := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Big()
+		// fmt.Println(bondedStake)
+		if bondedStake.Cmp(threshold) == 1 {
+			validators = append(validators, &types.CommitteeMember{
+				Address:     address,
+				VotingPower: bondedStake,
+			})
+		}
+	}
+	sort.SliceStable(validators, func(i, j int) bool {
+		return validators[i].VotingPower.Cmp(validators[j].VotingPower) == 1
+	})
+
+	result := make([]byte, 64+len(validators)*32)
+	result[31] = 1
+	binary.BigEndian.PutUint32(result[60:64], uint32(len(validators)))
+	for i := 64; i < len(result); i += 32 {
+		copy(result[i+12:i+32], validators[(i>>5)-2].Address.Bytes())
+	}
+	return result, nil
+}
+
+type ComputeCommitteeReadAndWrite struct{}
+
+func (a *ComputeCommitteeReadAndWrite) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+func (a *ComputeCommitteeReadAndWrite) Run(input []byte, _ uint64, stateDB StateDB, caller common.Address) ([]byte, error) {
+	// for i := 0; i < len(input); i += 32 {
+	// 	fmt.Println(input[i : i+32])
+	// }
+	// step 1: Retrieve all validators from storage
+
+	// question 1: how do we retrieve the contract address?
+	//solutions :
+	//	- Send it as an input, so we access it by using "input" here
+	//	- Retrieve the contract from autonity config
+	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+	// fmt.Println(caller)
+	validatorListSlot := input[0:32]
+	validatorsSlot := input[32:64]
+	committeeSlot := input[64:96]
+	committeeLenConfig := binary.BigEndian.Uint32(input[124:128])
+	// fmt.Println(validatorListSlot)
+	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
+	// fmt.Println(validatorListSize)
+	baseOffset := crypto.Keccak256Hash(validatorListSlot).Big()
+	addresses := make([]common.Address, validatorListSize)
+
+	// optimisation possible here: introduce concurrency
+	for i := 0; i < validatorListSize; i++ {
+		addresses[i] = common.BytesToAddress(stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes())
+		// fmt.Println(addresses[i])
+		baseOffset.Add(baseOffset, big.NewInt(1))
+	}
+
+	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
+
+	validators := make([]*types.CommitteeMember, 0)
+	threshold := big.NewInt(0)
+	for _, address := range addresses {
+		key := make([]byte, 32)
+		copy(key[12:32], address.Bytes())
+		baseOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
+		// data := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Bytes()
+		// fmt.Println(common.BytesToAddress(data))
+		// bondedStake is at slot 5
+		baseOffset.Add(baseOffset, big.NewInt(5))
+		bondedStake := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Big()
+		// fmt.Println(bondedStake)
+		if bondedStake.Cmp(threshold) == 1 {
+			validators = append(validators, &types.CommitteeMember{
+				Address:     address,
+				VotingPower: bondedStake,
+			})
+		}
+	}
+	sort.SliceStable(validators, func(i, j int) bool {
+		return validators[i].VotingPower.Cmp(validators[j].VotingPower) == 1
+	})
+
+	committeeSize := int(stateDB.GetState(caller, common.BytesToHash(committeeSlot)).Big().Uint64())
+	// fmt.Println(validatorListSize)
+	baseOffset = crypto.Keccak256Hash(committeeSlot).Big()
+
+	// delete old committee members : type CommitteeMember
+	for i := 0; i < committeeSize; i++ {
+		// delete address
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), common.Hash{})
+		baseOffset.Add(baseOffset, big.NewInt(1))
+		// delete voting power
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), common.Hash{})
+		baseOffset.Add(baseOffset, big.NewInt(1))
+	}
+	if committeeLenConfig > uint32(len(validators)) {
+		committeeSize = len(validators)
+	} else {
+		committeeSize = int(committeeLenConfig)
+	}
+
+	// put new committee members : type CommitteeMember
+	// voters := make([]byte, committeeSize*32)
+	// 4 for uint32
+	committeeLenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(committeeLenBytes, uint32(committeeSize))
+	// save committeeSize in committeeSlot
+	stateDB.SetState(caller, common.BytesToHash(committeeSlot), common.BytesToHash(committeeLenBytes))
+	baseOffset = crypto.Keccak256Hash(committeeSlot).Big()
+	for i := 0; i < committeeSize; i++ {
+		// save address
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), validators[i].Address.Hash())
+		baseOffset.Add(baseOffset, big.NewInt(1))
+		// save voting power
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), common.BytesToHash(validators[i].VotingPower.Bytes()))
+		baseOffset.Add(baseOffset, big.NewInt(1))
+	}
+
+	result := make([]byte, 32)
+	result[31] = 1
+	return result, nil
+}
+
+type ComputeCommitteeReadAndWriteReturnVoters struct{}
+
+func (a *ComputeCommitteeReadAndWriteReturnVoters) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+func (a *ComputeCommitteeReadAndWriteReturnVoters) Run(input []byte, _ uint64, stateDB StateDB, caller common.Address) ([]byte, error) {
+	// for i := 0; i < len(input); i += 32 {
+	// 	fmt.Println(input[i : i+32])
+	// }
+	// step 1: Retrieve all validators from storage
+
+	// question 1: how do we retrieve the contract address?
+	//solutions :
+	//	- Send it as an input, so we access it by using "input" here
+	//	- Retrieve the contract from autonity config
+	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+	// fmt.Println(caller)
+	validatorListSlot := input[0:32]
+	validatorsSlot := input[32:64]
+	committeeSlot := input[64:96]
+	epochBondedSlot := input[96:128]
+	committeeLenConfig := binary.BigEndian.Uint32(input[156:160])
+	// fmt.Println(validatorListSlot)
+	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
+	// fmt.Println(validatorListSize)
+	baseOffset := crypto.Keccak256Hash(validatorListSlot).Big()
+	addresses := make([]common.Address, validatorListSize)
+
+	// optimisation possible here: introduce concurrency
+	for i := 0; i < validatorListSize; i++ {
+		addresses[i] = common.BytesToAddress(stateDB.GetState(caller, common.Hash(baseOffset.Bytes())).Bytes())
+		// fmt.Println(addresses[i])
+		baseOffset.Add(baseOffset, big.NewInt(1))
+	}
+
+	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
+
+	validators := make([]*types.CommitteeMember, 0)
+	threshold := big.NewInt(0)
+	for _, address := range addresses {
+		key := make([]byte, 32)
+		copy(key[12:32], address.Bytes())
+		baseOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
+		// data := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Bytes()
+		// fmt.Println(common.BytesToAddress(data))
+		// bondedStake is at slot 5
+		baseOffset.Add(baseOffset, big.NewInt(5))
+		bondedStake := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Big()
+		// fmt.Println(bondedStake)
+		if bondedStake.Cmp(threshold) == 1 {
+			validators = append(validators, &types.CommitteeMember{
+				Address:     address,
+				VotingPower: bondedStake,
+			})
+		}
+	}
+	sort.SliceStable(validators, func(i, j int) bool {
+		return validators[i].VotingPower.Cmp(validators[j].VotingPower) == 1
+	})
+
+	committeeSize := int(stateDB.GetState(caller, common.BytesToHash(committeeSlot)).Big().Uint64())
+	// fmt.Println(validatorListSize)
+	baseOffset = crypto.Keccak256Hash(committeeSlot).Big()
+
+	// delete old committee members : type CommitteeMember
+	for i := 0; i < committeeSize; i++ {
+		// delete address
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), common.Hash{})
+		baseOffset.Add(baseOffset, big.NewInt(1))
+		// delete voting power
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), common.Hash{})
+		baseOffset.Add(baseOffset, big.NewInt(1))
+	}
+	if committeeLenConfig > uint32(len(validators)) {
+		committeeSize = len(validators)
+	} else {
+		committeeSize = int(committeeLenConfig)
+	}
+
+	// put new committee members : type CommitteeMember
+	voters := make([]byte, committeeSize*32)
+	// 4 for uint32
+	committeeLenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(committeeLenBytes, uint32(committeeSize))
+	// save committeeSize in committeeSlot
+	stateDB.SetState(caller, common.BytesToHash(committeeSlot), common.BytesToHash(committeeLenBytes))
+	baseOffset = crypto.Keccak256Hash(committeeSlot).Big()
+	totalStake := big.NewInt(0)
+	for i := 0; i < committeeSize; i++ {
+		// save address
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), validators[i].Address.Hash())
+		baseOffset.Add(baseOffset, big.NewInt(1))
+		// save voting power
+		stateDB.SetState(caller, common.Hash(baseOffset.Bytes()), common.BytesToHash(validators[i].VotingPower.Bytes()))
+		baseOffset.Add(baseOffset, big.NewInt(1))
+
+		totalStake = totalStake.Add(totalStake, validators[i].VotingPower)
+
+		// get oracleAddress
+		key := make([]byte, 32)
+		copy(key[12:32], validators[i].Address.Bytes())
+		mapItemOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
+		// oracleAddress is at slot 2
+		mapItemOffset.Add(mapItemOffset, big.NewInt(2))
+		oracleAddress := stateDB.GetState(caller, common.BytesToHash(mapItemOffset.Bytes())).Bytes()
+		// voters[i*32:i*32+32] will store oracleAddress of i'th member
+		copy(voters[(i<<5):(i<<5)+32], oracleAddress)
+	}
+	// write epochTotalBondedStake
+	stateDB.SetState(caller, common.BytesToHash(epochBondedSlot), common.BytesToHash(totalStake.Bytes()))
+
+	result := make([]byte, 64)
+	result[31] = 1
+	binary.BigEndian.PutUint32(result[60:64], uint32(committeeSize))
+	result = append(result, voters...)
+	return result, nil
+}
+
+type TestCommitteeRead struct{}
+
+func (a *TestCommitteeRead) RequiredGas(input []byte) uint64 {
+	times := uint64(len(input)/KB + 1)
+	return params.AutonityAFDContractGasPerKB * times
+}
+
+func (a *TestCommitteeRead) Run(input []byte, _ uint64, stateDB StateDB, caller common.Address) ([]byte, error) {
+	// for i := 0; i < len(input); i += 32 {
+	// 	fmt.Println(input[i : i+32])
+	// }
+	// step 1: Retrieve all validators from storage
+
+	// question 1: how do we retrieve the contract address?
+	//solutions :
+	//	- Send it as an input, so we access it by using "input" here
+	//	- Retrieve the contract from autonity config
+	//  - Add new argument in Run function to pass Caller Contract Reference "ContractRef"
+	// fmt.Println(caller)
+	committeeSlot := input[0:32]
+	validatorsSlot := input[32:64]
+	fmt.Println(big.NewInt(0).SetBytes(committeeSlot))
+	committeeSize := int(stateDB.GetState(caller, common.BytesToHash(committeeSlot)).Big().Uint64())
+	fmt.Println(committeeSize)
+	baseOffset := crypto.Keccak256Hash(committeeSlot).Big()
+
+	zeroAddress := common.BytesToAddress(make([]byte, 0))
+	for i := 0; i < committeeSize; i++ {
+		fmt.Println(baseOffset)
+		address := common.BytesToAddress(stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Bytes())
+		fmt.Printf("addres %v\t", address)
+		baseOffset.Add(baseOffset, big.NewInt(1))
+		votingPower := stateDB.GetState(caller, common.BytesToHash(baseOffset.Bytes())).Big()
+		fmt.Printf("votingPower %v\n", votingPower)
+		baseOffset.Add(baseOffset, big.NewInt(1))
+		if bytes.Equal(address.Bytes(), zeroAddress.Bytes()) {
+			return make([]byte, 0), fmt.Errorf("zero address")
+		}
+		if votingPower.Cmp(big.NewInt(0)) <= 0 {
+			return make([]byte, 0), fmt.Errorf("stake not positive")
+		}
+
+		key := make([]byte, 32)
+		copy(key[12:32], address.Bytes())
+		pairOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
+		pairOffset.Add(pairOffset, big.NewInt(5))
+		bondedStake := stateDB.GetState(caller, common.BytesToHash(pairOffset.Bytes())).Big()
+		if bondedStake.Cmp(votingPower) != 0 {
+			return make([]byte, 0), fmt.Errorf("stake mismatch")
+		}
+	}
+	result := make([]byte, 32)
+	result[31] = 1
+	return result, nil
 }
 
 const KB = 1024
 
-type quickSort struct{}
+type QuickSort struct{}
 
-type StakeWithId struct {
-	ValidatorId uint32
+type StakeWithID struct {
+	ValidatorID uint32
 	Stake       *big.Int
 }
 
 // RequiredGas the gas cost to sort validator list
-func (a *quickSort) RequiredGas(input []byte) uint64 {
+func (a *QuickSort) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
 	return params.AutonityAFDContractGasPerKB * times
 }
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (a *quickSort) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+func (a *QuickSort) Run(input []byte, _ uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	length := len(input) / 64
-	validators := make([]*StakeWithId, length)
-	for i := 32; i < len(input); i += 64 {
-		idx := uint32(i >> 6)
-		item := StakeWithId{
-			ValidatorId: idx,
-			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
-		}
-		validators[idx] = &item
+	validators := formatInput(input)
+
+	if length > 1 {
+		structQuickSort(validators, 0, int32(length)-1)
 	}
 
-	structQuickSort(validators, 0, int32(length)-1)
-	result := make([]byte, length*32+32)
-	result[31] = 1
-	j := 32
-	for i := 0; i < length; i++ {
-		idx := validators[i].ValidatorId
-		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
-		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
-		j += 32
-	}
-	return result, nil
+	return formatOutput(validators, input), nil
 }
 
-func structQuickSort(validators []*StakeWithId, low int32, high int32) {
-	if low < high {
-		// Set the pivot element in its right sorted index in the array
-		pivot := validators[(high+low)/2].Stake
-		// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
-		isLeftSorted := true
-		// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
-		isRightSorted := true
-		i := low
-		j := high
-		for i <= j {
-			for validators[i].Stake.Cmp(pivot) == 1 {
-				i++
-				// check if elements at (i-1) and (i-2) are sorted or not
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
-			}
-			for pivot.Cmp(validators[j].Stake) == 1 {
-				j--
-				// check if elements at (j+1) and (j+2) are sorted or not
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
-			}
-			if i <= j {
-				validators[i], validators[j] = validators[j], validators[i]
-				i++
-				j--
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
+func structQuickSort(validators []*StakeWithID, low int32, high int32) {
+	// Set the pivot element in its right sorted index in the array
+	pivot := validators[(high+low)/2].Stake
+	// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
+	isLeftSorted := true
+	// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
+	isRightSorted := true
+	i := low
+	j := high
+	for i <= j {
+		for validators[i].Stake.Cmp(pivot) == 1 {
+			i++
+			// check if elements at (i-1) and (i-2) are sorted or not
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 			}
 		}
-		// Recursion call in the left partition of the array
-		if !isLeftSorted && low < j {
-			structQuickSort(validators, low, j)
+		for pivot.Cmp(validators[j].Stake) == 1 {
+			j--
+			// check if elements at (j+1) and (j+2) are sorted or not
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+			}
 		}
-		// Recursion call in the right partition
-		if !isRightSorted && i < high {
-			structQuickSort(validators, i, high)
+		if i <= j {
+			validators[i], validators[j] = validators[j], validators[i]
+			i++
+			j--
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+			}
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+			}
 		}
+	}
+	// Recursion call in the left partition of the array
+	if !isLeftSorted && low < j {
+		structQuickSort(validators, low, j)
+	}
+	// Recursion call in the right partition
+	if !isRightSorted && i < high {
+		structQuickSort(validators, i, high)
 	}
 }
 
-type quickSortFast struct{}
+type QuickSortFast struct{}
 
 // RequiredGas the gas cost to sort validator list
-func (a *quickSortFast) RequiredGas(input []byte) uint64 {
+func (a *QuickSortFast) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
 	return params.AutonityAFDContractGasPerKB * times
 }
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (a *quickSortFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
+func (a *QuickSortFast) Run(input []byte, _ uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	length := len(input) / 64
-	validators := make([]*StakeWithId, length)
-	for i := 32; i < len(input); i += 64 {
-		idx := uint32(i >> 6)
-		item := StakeWithId{
-			ValidatorId: idx,
-			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
-		}
-		validators[idx] = &item
+	validators := formatInput(input)
+
+	if length > 1 {
+		task := sync.WaitGroup{}
+		threadUsed := 0
+		structQuickSortFast(validators, 0, int32(length)-1, &task, &threadUsed)
+		task.Wait()
 	}
 
-	task := sync.WaitGroup{}
-	threadUsed := 0
-	structQuickSortFast(validators, 0, int32(length)-1, &task, &threadUsed)
-	task.Wait()
-	result := make([]byte, length*32+32)
-	result[31] = 1
-	j := 32
-	for i := 0; i < length; i++ {
-		idx := validators[i].ValidatorId
-		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
-		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
-		j += 32
-	}
-	return result, nil
+	return formatOutput(validators, input), nil
 }
 
-func structQuickSortFast(validators []*StakeWithId, low int32, high int32, task *sync.WaitGroup, threadUsed *int) {
-	if low < high {
-		// Set the pivot element in its right sorted index in the array
-		pivot := validators[(high+low)/2].Stake
-		// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
-		isLeftSorted := true
-		// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
-		isRightSorted := true
-		i := low
-		j := high
-		for i <= j {
-			for validators[i].Stake.Cmp(pivot) == 1 {
-				i++
-				// check if elements at (i-1) and (i-2) are sorted or not
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
-			}
-			for pivot.Cmp(validators[j].Stake) == 1 {
-				j--
-				// check if elements at (j+1) and (j+2) are sorted or not
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
-			}
-			if i <= j {
-				validators[i], validators[j] = validators[j], validators[i]
-				i++
-				j--
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
+func structQuickSortFast(validators []*StakeWithID, low int32, high int32, task *sync.WaitGroup, threadUsed *int) {
+	// Set the pivot element in its right sorted index in the array
+	pivot := validators[(high+low)/2].Stake
+	// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
+	isLeftSorted := true
+	// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
+	isRightSorted := true
+	i := low
+	j := high
+	for i <= j {
+		for validators[i].Stake.Cmp(pivot) == 1 {
+			i++
+			// check if elements at (i-1) and (i-2) are sorted or not
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 			}
 		}
+		for pivot.Cmp(validators[j].Stake) == 1 {
+			j--
+			// check if elements at (j+1) and (j+2) are sorted or not
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+			}
+		}
+		if i <= j {
+			validators[i], validators[j] = validators[j], validators[i]
+			i++
+			j--
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+			}
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
+			}
+		}
+	}
 
-		// task := sync.WaitGroup{}
+	// task := sync.WaitGroup{}
 
-		if !isLeftSorted && low < j {
-			if *threadUsed < ThreadLimit {
-				task.Add(1)
-				(*threadUsed)++
-				go func() {
-					// Recursion call in the left partition of the array
-					structQuickSortFast(validators, low, j, task, threadUsed)
-					task.Done()
-					(*threadUsed)--
-				}()
-			} else {
+	if !isLeftSorted && low < j {
+		if *threadUsed < ThreadLimit {
+			task.Add(1)
+			(*threadUsed)++
+			go func() {
 				// Recursion call in the left partition of the array
 				structQuickSortFast(validators, low, j, task, threadUsed)
-			}
+				task.Done()
+				(*threadUsed)--
+			}()
+		} else {
+			// Recursion call in the left partition of the array
+			structQuickSortFast(validators, low, j, task, threadUsed)
 		}
-		if !isRightSorted && i < high {
-			if *threadUsed < ThreadLimit {
-				task.Add(1)
-				(*threadUsed)++
-				go func() {
-					// Recursion call in the right partition
-					structQuickSortFast(validators, i, high, task, threadUsed)
-					task.Done()
-					(*threadUsed)--
-				}()
-			} else {
+	}
+	if !isRightSorted && i < high {
+		if *threadUsed < ThreadLimit {
+			task.Add(1)
+			(*threadUsed)++
+			go func() {
 				// Recursion call in the right partition
 				structQuickSortFast(validators, i, high, task, threadUsed)
-			}
+				task.Done()
+				(*threadUsed)--
+			}()
+		} else {
+			// Recursion call in the right partition
+			structQuickSortFast(validators, i, high, task, threadUsed)
 		}
 	}
 }
 
-type quickSortIterate struct {
+type QuickSortIterate struct {
 	queue []*boundary
+}
+
+func NewQuickSortIterate() *QuickSortIterate {
+	return &QuickSortIterate{queue: make([]*boundary, 0)}
 }
 
 type boundary struct {
@@ -483,73 +1005,56 @@ type boundary struct {
 }
 
 // RequiredGas the gas cost to sort validator list
-func (a *quickSortIterate) RequiredGas(input []byte) uint64 {
+func (a *QuickSortIterate) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
 	return params.AutonityAFDContractGasPerKB * times
 }
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (sort *quickSortIterate) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
-	length := len(input) / 64
-	validators := make([]*StakeWithId, length)
-	for i := 32; i < len(input); i += 64 {
-		idx := uint32(i >> 6)
-		item := StakeWithId{
-			ValidatorId: idx,
-			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
-		}
-		validators[idx] = &item
+func (sort *QuickSortIterate) Run(input []byte, _ uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
+	validators := formatInput(input)
+
+	if len(validators) > 1 {
+		sort.structQuickSortIterate(validators)
 	}
 
-	sort.structQuickSortIterate(validators)
-	result := make([]byte, length*32+32)
-	result[31] = 1
-	j := 32
-	for i := 0; i < length; i++ {
-		idx := validators[i].ValidatorId
-		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
-		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
-		j += 32
-	}
-	return result, nil
+	return formatOutput(validators, input), nil
 }
 
-func (sort *quickSortIterate) partition(validators []*StakeWithId, low int32, high int32) {
+func (sort *QuickSortIterate) partition(validators []*StakeWithID, low int32, high int32) {
 	// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
 	isLeftSorted := true
 	// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
 	isRightSorted := true
 	i := low
 	j := high
-	if low < high {
-		// Set the pivot element in its right sorted index in the array
-		pivot := validators[(high+low)/2].Stake
-		for i <= j {
-			for validators[i].Stake.Cmp(pivot) == 1 {
-				i++
-				// check if elements at (i-1) and (i-2) are sorted or not
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
+	// Set the pivot element in its right sorted index in the array
+	pivot := validators[(high+low)/2].Stake
+	for i <= j {
+		for validators[i].Stake.Cmp(pivot) == 1 {
+			i++
+			// check if elements at (i-1) and (i-2) are sorted or not
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 			}
-			for pivot.Cmp(validators[j].Stake) == 1 {
-				j--
-				// check if elements at (j+1) and (j+2) are sorted or not
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
+		}
+		for pivot.Cmp(validators[j].Stake) == 1 {
+			j--
+			// check if elements at (j+1) and (j+2) are sorted or not
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 			}
-			if i <= j {
-				validators[i], validators[j] = validators[j], validators[i]
-				i++
-				j--
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
+		}
+		if i <= j {
+			validators[i], validators[j] = validators[j], validators[i]
+			i++
+			j--
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+			}
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 			}
 		}
 	}
@@ -564,7 +1069,7 @@ func (sort *quickSortIterate) partition(validators []*StakeWithId, low int32, hi
 	}
 }
 
-func (sort *quickSortIterate) structQuickSortIterate(validators []*StakeWithId) {
+func (sort *QuickSortIterate) structQuickSortIterate(validators []*StakeWithID) {
 	sort.queue = append(sort.queue, &boundary{low: 0, high: int32(len(validators)) - 1})
 	for len(sort.queue) > 0 {
 		// pop the first item
@@ -574,79 +1079,66 @@ func (sort *quickSortIterate) structQuickSortIterate(validators []*StakeWithId) 
 	}
 }
 
-type quickSortIterateFast struct {
+type QuickSortIterateFast struct {
 	queueLock sync.RWMutex
 	queue     []*boundary
 }
 
+func NewQuickSortIterateFast() *QuickSortIterateFast {
+	return &QuickSortIterateFast{queue: make([]*boundary, 0)}
+}
+
 // RequiredGas the gas cost to sort validator list
-func (a *quickSortIterateFast) RequiredGas(input []byte) uint64 {
+func (a *QuickSortIterateFast) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
 	return params.AutonityAFDContractGasPerKB * times
 }
 
 // Run take the validator list and sort it according to bonded stake in descending order
 // and then returns the addresses only to reduce the memory usage
-func (sort *quickSortIterateFast) Run(input []byte, _ uint64, evm *EVM) ([]byte, error) {
-	length := len(input) / 64
-	validators := make([]*StakeWithId, length)
-	for i := 32; i < len(input); i += 64 {
-		idx := uint32(i >> 6)
-		item := StakeWithId{
-			ValidatorId: idx,
-			Stake:       big.NewInt(0).SetBytes(input[i : i+32]),
-		}
-		validators[idx] = &item
+func (sort *QuickSortIterateFast) Run(input []byte, _ uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
+	validators := formatInput(input)
+
+	if len(validators) > 1 {
+		sort.structQuickSortIterateFast(validators)
 	}
 
-	sort.structQuickSortIterateFast(validators)
-	result := make([]byte, length*32+32)
-	result[31] = 1
-	j := 32
-	for i := 0; i < length; i++ {
-		idx := validators[i].ValidatorId
-		// the address of validator 'idx' is at the slice [idx*64 : idx*64 + 32]
-		copy(result[j:j+32], input[(idx<<6):((idx<<6)|32)])
-		j += 32
-	}
-	return result, nil
+	return formatOutput(validators, input), nil
 }
 
-func (sort *quickSortIterateFast) partition(validators []*StakeWithId, low int32, high int32) {
+func (sort *QuickSortIterateFast) partition(validators []*StakeWithID, low int32, high int32) {
 	// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
 	isLeftSorted := true
 	// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
 	isRightSorted := true
 	i := low
 	j := high
-	if low < high {
-		// Set the pivot element in its right sorted index in the array
-		pivot := validators[(high+low)/2].Stake
-		for i <= j {
-			for validators[i].Stake.Cmp(pivot) == 1 {
-				i++
-				// check if elements at (i-1) and (i-2) are sorted or not
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
+	// Set the pivot element in its right sorted index in the array
+	pivot := validators[(high+low)/2].Stake
+	for i <= j {
+		for validators[i].Stake.Cmp(pivot) == 1 {
+			i++
+			// check if elements at (i-1) and (i-2) are sorted or not
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
 			}
-			for pivot.Cmp(validators[j].Stake) == 1 {
-				j--
-				// check if elements at (j+1) and (j+2) are sorted or not
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
+		}
+		for pivot.Cmp(validators[j].Stake) == 1 {
+			j--
+			// check if elements at (j+1) and (j+2) are sorted or not
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 			}
-			if i <= j {
-				validators[i], validators[j] = validators[j], validators[i]
-				i++
-				j--
-				if isLeftSorted && i-1 > low {
-					isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
-				}
-				if isRightSorted && j+1 < high {
-					isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
-				}
+		}
+		if i <= j {
+			validators[i], validators[j] = validators[j], validators[i]
+			i++
+			j--
+			if isLeftSorted && i-1 > low {
+				isLeftSorted = validators[i-2].Stake.Cmp(validators[i-1].Stake) >= 0
+			}
+			if isRightSorted && j+1 < high {
+				isRightSorted = validators[j+1].Stake.Cmp(validators[j+2].Stake) >= 0
 			}
 		}
 	}
@@ -665,7 +1157,7 @@ func (sort *quickSortIterateFast) partition(validators []*StakeWithId, low int32
 	}
 }
 
-func (sort *quickSortIterateFast) structQuickSortIterateFast(validators []*StakeWithId) {
+func (sort *QuickSortIterateFast) structQuickSortIterateFast(validators []*StakeWithID) {
 	sort.queue = append(sort.queue, &boundary{low: 0, high: int32(len(validators)) - 1})
 	task := sync.WaitGroup{}
 	for {
@@ -699,7 +1191,7 @@ func (c *ecrecover) RequiredGas(input []byte) uint64 {
 	return params.EcrecoverGas
 }
 
-func (c *ecrecover) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *ecrecover) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	const ecRecoverInputLength = 128
 
 	input = common.RightPadBytes(input, ecRecoverInputLength)
@@ -740,7 +1232,7 @@ type sha256hash struct{}
 func (c *sha256hash) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Sha256PerWordGas + params.Sha256BaseGas
 }
-func (c *sha256hash) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *sha256hash) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	h := sha256.Sum256(input)
 	return h[:], nil
 }
@@ -755,7 +1247,7 @@ type ripemd160hash struct{}
 func (c *ripemd160hash) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.Ripemd160PerWordGas + params.Ripemd160BaseGas
 }
-func (c *ripemd160hash) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *ripemd160hash) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	ripemd := ripemd160.New()
 	ripemd.Write(input)
 	return common.LeftPadBytes(ripemd.Sum(nil), 32), nil
@@ -771,7 +1263,7 @@ type dataCopy struct{}
 func (c *dataCopy) RequiredGas(input []byte) uint64 {
 	return uint64(len(input)+31)/32*params.IdentityPerWordGas + params.IdentityBaseGas
 }
-func (c *dataCopy) Run(in []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *dataCopy) Run(in []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	return in, nil
 }
 
@@ -898,7 +1390,7 @@ func (c *bigModExp) RequiredGas(input []byte) uint64 {
 	return gas.Uint64()
 }
 
-func (c *bigModExp) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bigModExp) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	var (
 		baseLen = new(big.Int).SetBytes(getData(input, 0, 32)).Uint64()
 		expLen  = new(big.Int).SetBytes(getData(input, 32, 32)).Uint64()
@@ -971,7 +1463,7 @@ func (c *bn256AddIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasIstanbul
 }
 
-func (c *bn256AddIstanbul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bn256AddIstanbul) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	return runBn256Add(input)
 }
 
@@ -984,7 +1476,7 @@ func (c *bn256AddByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGasByzantium
 }
 
-func (c *bn256AddByzantium) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bn256AddByzantium) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	return runBn256Add(input)
 }
 
@@ -1009,7 +1501,7 @@ func (c *bn256ScalarMulIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasIstanbul
 }
 
-func (c *bn256ScalarMulIstanbul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bn256ScalarMulIstanbul) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	return runBn256ScalarMul(input)
 }
 
@@ -1022,7 +1514,7 @@ func (c *bn256ScalarMulByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256ScalarMulGasByzantium
 }
 
-func (c *bn256ScalarMulByzantium) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bn256ScalarMulByzantium) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	return runBn256ScalarMul(input)
 }
 
@@ -1077,7 +1569,7 @@ func (c *bn256PairingIstanbul) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasIstanbul + uint64(len(input)/192)*params.Bn256PairingPerPointGasIstanbul
 }
 
-func (c *bn256PairingIstanbul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bn256PairingIstanbul) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	return runBn256Pairing(input)
 }
 
@@ -1090,7 +1582,7 @@ func (c *bn256PairingByzantium) RequiredGas(input []byte) uint64 {
 	return params.Bn256PairingBaseGasByzantium + uint64(len(input)/192)*params.Bn256PairingPerPointGasByzantium
 }
 
-func (c *bn256PairingByzantium) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bn256PairingByzantium) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	return runBn256Pairing(input)
 }
 
@@ -1116,7 +1608,7 @@ var (
 	errBlake2FInvalidFinalFlag   = errors.New("invalid final flag")
 )
 
-func (c *blake2F) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *blake2F) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Make sure the input is valid (correct length and final flag)
 	if len(input) != blake2FInputLength {
 		return nil, errBlake2FInvalidInputLength
@@ -1170,7 +1662,7 @@ func (c *bls12381G1Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1AddGas
 }
 
-func (c *bls12381G1Add) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381G1Add) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 G1Add precompile.
 	// > G1 addition call expects `256` bytes as an input that is interpreted as byte concatenation of two G1 points (`128` bytes each).
 	// > Output is an encoding of addition operation result - single G1 point (`128` bytes).
@@ -1208,7 +1700,7 @@ func (c *bls12381G1Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G1MulGas
 }
 
-func (c *bls12381G1Mul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381G1Mul) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 G1Mul precompile.
 	// > G1 multiplication call expects `160` bytes as an input that is interpreted as byte concatenation of encoding of G1 point (`128` bytes) and encoding of a scalar value (`32` bytes).
 	// > Output is an encoding of multiplication operation result - single G1 point (`128` bytes).
@@ -1258,7 +1750,7 @@ func (c *bls12381G1MultiExp) RequiredGas(input []byte) uint64 {
 	return (uint64(k) * params.Bls12381G1MulGas * discount) / 1000
 }
 
-func (c *bls12381G1MultiExp) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381G1MultiExp) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 G1MultiExp precompile.
 	// G1 multiplication call expects `160*k` bytes as an input that is interpreted as byte concatenation of `k` slices each of them being a byte concatenation of encoding of G1 point (`128` bytes) and encoding of a scalar value (`32` bytes).
 	// Output is an encoding of multiexponentiation operation result - single G1 point (`128` bytes).
@@ -1301,7 +1793,7 @@ func (c *bls12381G2Add) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2AddGas
 }
 
-func (c *bls12381G2Add) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381G2Add) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 G2Add precompile.
 	// > G2 addition call expects `512` bytes as an input that is interpreted as byte concatenation of two G2 points (`256` bytes each).
 	// > Output is an encoding of addition operation result - single G2 point (`256` bytes).
@@ -1339,7 +1831,7 @@ func (c *bls12381G2Mul) RequiredGas(input []byte) uint64 {
 	return params.Bls12381G2MulGas
 }
 
-func (c *bls12381G2Mul) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381G2Mul) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 G2MUL precompile logic.
 	// > G2 multiplication call expects `288` bytes as an input that is interpreted as byte concatenation of encoding of G2 point (`256` bytes) and encoding of a scalar value (`32` bytes).
 	// > Output is an encoding of multiplication operation result - single G2 point (`256` bytes).
@@ -1389,7 +1881,7 @@ func (c *bls12381G2MultiExp) RequiredGas(input []byte) uint64 {
 	return (uint64(k) * params.Bls12381G2MulGas * discount) / 1000
 }
 
-func (c *bls12381G2MultiExp) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381G2MultiExp) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 G2MultiExp precompile logic
 	// > G2 multiplication call expects `288*k` bytes as an input that is interpreted as byte concatenation of `k` slices each of them being a byte concatenation of encoding of G2 point (`256` bytes) and encoding of a scalar value (`32` bytes).
 	// > Output is an encoding of multiexponentiation operation result - single G2 point (`256` bytes).
@@ -1432,7 +1924,7 @@ func (c *bls12381Pairing) RequiredGas(input []byte) uint64 {
 	return params.Bls12381PairingBaseGas + uint64(len(input)/384)*params.Bls12381PairingPerPairGas
 }
 
-func (c *bls12381Pairing) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381Pairing) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 Pairing precompile logic.
 	// > Pairing call expects `384*k` bytes as an inputs that is interpreted as byte concatenation of `k` slices. Each slice has the following structure:
 	// > - `128` bytes of G1 point encoding
@@ -1511,7 +2003,7 @@ func (c *bls12381MapG1) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG1Gas
 }
 
-func (c *bls12381MapG1) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381MapG1) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 Map_To_G1 precompile.
 	// > Field-to-curve call expects `64` bytes an an input that is interpreted as a an element of the base field.
 	// > Output of this call is `128` bytes and is G1 point following respective encoding rules.
@@ -1546,7 +2038,7 @@ func (c *bls12381MapG2) RequiredGas(input []byte) uint64 {
 	return params.Bls12381MapG2Gas
 }
 
-func (c *bls12381MapG2) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c *bls12381MapG2) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	// Implements EIP-2537 Map_FP2_TO_G2 precompile logic.
 	// > Field-to-curve call expects `128` bytes an an input that is interpreted as a an element of the quadratic extension field.
 	// > Output of this call is `256` bytes and is G2 point following respective encoding rules.
@@ -1586,7 +2078,7 @@ type checkEnode struct{}
 func (c checkEnode) RequiredGas(_ []byte) uint64 {
 	return params.AutonityEnodeCheckGas
 }
-func (c checkEnode) Run(input []byte, blockNumber uint64, evm *EVM) ([]byte, error) {
+func (c checkEnode) Run(input []byte, blockNumber uint64, stateDB StateDB, _ common.Address) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, fmt.Errorf("invalid enode - empty")
 	}
