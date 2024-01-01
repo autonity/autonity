@@ -2,7 +2,7 @@
 const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
-const liquidContract = artifacts.require("Liquid")
+const liquidContract = artifacts.require("Liquid3")
 const toBN = web3.utils.toBN;
 
 

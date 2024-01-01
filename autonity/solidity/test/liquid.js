@@ -1,5 +1,5 @@
 const truffleAssert = require('truffle-assertions');
-const ValidatorLNEW = artifacts.require("Liquid")
+const ValidatorLNEW = artifacts.require("Liquid2")
 
 const toWei = web3.utils.toWei;
 const toBN = web3.utils.toBN;
