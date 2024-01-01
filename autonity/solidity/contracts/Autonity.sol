@@ -3,7 +3,8 @@
 pragma solidity ^0.8.19;
 
 import "./interfaces/IERC20.sol";
-import "./Liquid.sol";
+import "./LiquidState.sol";
+import "./LiquidLogic.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
@@ -16,7 +17,7 @@ import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
-enum ValidatorState {active, paused, jailed, jailbound}
+    enum ValidatorState {active, paused, jailed, jailbound}
 uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, Upgradeable {
@@ -37,7 +38,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 selfUnbondingStake;
         uint256 selfUnbondingShares; // not effective - used for accounting purposes
         uint256 selfUnbondingStakeLocked;
-        Liquid liquidContract;
+        LiquidState liquidContract;
         uint256 liquidSupply;
         uint256 registrationBlock;
         uint256 totalSlashed;
@@ -60,6 +61,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 amount;
         uint256 requestBlock;
     }
+
     mapping(uint256 => BondingRequest) internal bondingMap;
     uint256 internal tailBondingID;
     uint256 internal headBondingID;
@@ -73,6 +75,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         bool unlocked;
         bool selfDelegation;
     }
+
     mapping(uint256 => UnbondingRequest) internal unbondingMap;
     uint256 internal tailUnbondingID;
     uint256 internal headUnbondingID;
@@ -84,6 +87,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 startBlock;
         uint256 rate;
     }
+
     mapping(uint256 => CommissionRateChangeRequest) internal commissionRateChangeQueue;
     uint256 internal commissionRateChangeQueueFirst = 0;
     uint256 internal commissionRateChangeQueueLast = 0;
@@ -95,6 +99,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         IACU acuContract;
         ISupplyControl supplyControlContract;
         IStabilization stabilizationContract;
+//        address liquidLogicAddress;
     }
 
     struct Policy {
@@ -134,7 +139,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
-
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
@@ -148,6 +152,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     it only because of testing purposes.
     */
     address public deployer;
+
+    /*
+        Address of current logic contract for Liquid Newton
+    */
+    LiquidLogic public liquidLogicAddress;
 
     /* Events */
     event MintedStake(address indexed addr, uint256 amount);
@@ -204,6 +213,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     ) internal {
         config = _config;
 
+        liquidLogicAddress = new LiquidLogic(address(this));
+
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
            it avoids us adding more complexity to the contract and running into
@@ -214,7 +225,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
-            _validators[i].liquidContract = Liquid(address(0));
+            _validators[i].liquidContract = LiquidState(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.policy.delegationRate;
@@ -294,7 +305,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             0,                       // self unbonding stake
             0,                       // self unbonding shares
             0,                       // self unbonding stake locked
-            Liquid(address(0)),      // liquid token contract
+            LiquidState(address(0)), // liquid token contract
             0,                       // liquid token supply
             block.number,            // registration block
             0,                       // total slashed
@@ -362,8 +373,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     */
     function updateValidatorAndTransferSlashedFunds(Validator calldata _val) external onlyAccountability {
         uint256 _diffNewtonBalance = (validators[_val.nodeAddress].bondedStake - _val.bondedStake) +
-                                     (validators[_val.nodeAddress].unbondingStake - _val.unbondingStake) +
-                                     (validators[_val.nodeAddress].selfUnbondingStake - _val.selfUnbondingStake);
+            (validators[_val.nodeAddress].unbondingStake - _val.unbondingStake) +
+            (validators[_val.nodeAddress].selfUnbondingStake - _val.selfUnbondingStake);
         accounts[config.policy.treasuryAccount] += _diffNewtonBalance;
         validators[_val.nodeAddress] = _val;
     }
@@ -441,6 +452,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /*
+    * @notice Set address of Liquid Newton Logic contract. Restricted to the Operator account.
+      @param _address address of the new contract
+    */
+    function setLiquidNewtonLogicContract(address _address) public onlyOperator {
+        liquidLogicAddress = LiquidLogic(_address);
+    }
+
+    /*
     Currently not supported
     * @notice Set the block period. Restricted to the Operator account.
     * @param _period Positive integer.
@@ -466,8 +485,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         config.policy.treasuryFee = _treasuryFee;
     }
 
-   /*
-    * @notice Set the accountability contract address. Restricted to the Operator account.
+    /*
+     * @notice Set the accountability contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
     function setAccountabilityContract(IAccountability _address) public onlyOperator {
@@ -483,7 +502,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
     }
-    
+
     /*
     * @notice Set the ACU contract address. Restricted to the Operator account.
     * @param _address the contract address
@@ -491,7 +510,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function setAcuContract(IACU _address) public onlyOperator {
         config.contracts.acuContract = _address;
     }
-    
+
     /*
     * @notice Set the SupplyControl contract address. Restricted to the Operator account.
     * @param _address the contract address
@@ -499,7 +518,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function setSupplyControlContract(ISupplyControl _address) public onlyOperator {
         config.contracts.supplyControlContract = _address;
     }
-    
+
     /*
     * @notice Set the Stabilization contract address. Restricted to the Operator account.
     * @param _address the contract address
@@ -661,7 +680,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 _committeeList[_j] = _validatorList[_j];
             }
         }
-        // If all the validators fit in the committee
+            // If all the validators fit in the committee
         else {
             _committeeList = _validatorList;
         }
@@ -679,7 +698,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         return _voterList;
     }
-
 
     /*
     ============================================================
@@ -981,7 +999,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function _deployLiquidContract(Validator memory _validator) internal {
         if (address(_validator.liquidContract) == address(0)) {
             string memory stringLength = Helpers.toString(validatorList.length);
-            _validator.liquidContract = new Liquid(_validator.nodeAddress,
+            _validator.liquidContract = new LiquidState(
+                address(liquidLogicAddress),
+                _validator.nodeAddress,
                 _validator.treasury,
                 _validator.commissionRate,
                 stringLength);
@@ -1036,7 +1056,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         emit PausedValidator(val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
     }
 
-
     /**
      * @dev Create a bonding object of `amount` stake token with the `_recipient` address.
      * This object will be processed at epoch finalization.
@@ -1089,7 +1108,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual {
         Validator storage _validator = validators[_validatorAddress];
         bool selfDelegation = _recipient == _validator.treasury;
-        if(!selfDelegation) {
+        if (!selfDelegation) {
             // Lock LNTN if it was issued (non self-delegated stake case)
             uint256 liqBalance = _validator.liquidContract.unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
@@ -1102,7 +1121,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validator.selfUnbondingStakeLocked += _amount;
         }
         unbondingMap[headUnbondingID] = UnbondingRequest(_recipient, _validatorAddress, _amount,
-                                                         0, block.number, false, selfDelegation);
+            0, block.number, false, selfDelegation);
         headUnbondingID++;
 
         emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
@@ -1115,12 +1134,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         Validator storage _validator = validators[_unbonding.delegatee];
         uint256 _returnedStake;
-        if(!_unbonding.selfDelegation){
-            _returnedStake =  (_unbonding.unbondingShare *  _validator.unbondingStake) / _validator.unbondingShares;
+        if (!_unbonding.selfDelegation) {
+            _returnedStake = (_unbonding.unbondingShare * _validator.unbondingStake) / _validator.unbondingShares;
             _validator.unbondingStake -= _returnedStake;
             _validator.unbondingShares -= _unbonding.unbondingShare;
         } else {
-            _returnedStake =  (_unbonding.unbondingShare *  _validator.selfUnbondingStake) / _validator.selfUnbondingShares;
+            _returnedStake = (_unbonding.unbondingShare * _validator.selfUnbondingStake) / _validator.selfUnbondingShares;
             _validator.selfUnbondingStake -= _returnedStake;
             _validator.selfUnbondingShares -= _unbonding.unbondingShare;
         }
@@ -1132,7 +1151,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         Validator storage _validator = validators[_unbonding.delegatee];
 
         uint256 _newtonAmount;
-        if (!_unbonding.selfDelegation){
+        if (!_unbonding.selfDelegation) {
             // Step 1: Unlock and burn requested liquid newtons
             uint256 _liquidAmount = _unbonding.amount;
             _validator.liquidContract.unlock(_unbonding.delegator, _liquidAmount);
@@ -1142,17 +1161,17 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             // Note: validator.liquidSupply cannot be equal to zero here
             uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
             _newtonAmount = (_liquidAmount * _delegatedStake) / _validator.liquidSupply;
-           _validator.liquidSupply -= _liquidAmount;
+            _validator.liquidSupply -= _liquidAmount;
 
             // Step 3: Calculate the amount of shares the staker will get in the unbonding pool.
             // Note : This accounting extra-complication is due to the possibility of slashing unbonding funds.
-            if(_validator.unbondingStake == 0) {
+            if (_validator.unbondingStake == 0) {
                 _unbonding.unbondingShare = _newtonAmount;
             } else {
-                _unbonding.unbondingShare = (_newtonAmount * _validator.unbondingShares)/_validator.unbondingStake;
+                _unbonding.unbondingShare = (_newtonAmount * _validator.unbondingShares) / _validator.unbondingStake;
             }
             _validator.unbondingStake += _newtonAmount;
-            _validator.unbondingShares +=  _unbonding.unbondingShare;
+            _validator.unbondingShares += _unbonding.unbondingShare;
         } else {
             // self-delegated stake path, no LNTN<>NTN conversion
             _newtonAmount = _unbonding.amount;
@@ -1160,9 +1179,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 _newtonAmount = _validator.selfBondedStake;
             }
             if (_validator.selfUnbondingStake == 0) {
-                 _unbonding.unbondingShare = _newtonAmount;
+                _unbonding.unbondingShare = _newtonAmount;
             } else {
-                _unbonding.unbondingShare = (_newtonAmount * _validator.selfUnbondingShares)/_validator.selfUnbondingStake;
+                _unbonding.unbondingShare = (_newtonAmount * _validator.selfUnbondingShares) / _validator.selfUnbondingStake;
             }
             _validator.selfUnbondingStake += _newtonAmount;
             _validator.selfUnbondingShares += _unbonding.unbondingShare;
@@ -1198,18 +1217,18 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function _stakingOperations() internal virtual {
         // bonding operations are executed first
         for (uint256 i = tailBondingID;
-                     i < headBondingID;
-                     _applyBonding(i++)){}
+            i < headBondingID;
+            _applyBonding(i++)) {}
 
         tailBondingID = headBondingID;
-        if(tailUnbondingID == headUnbondingID) {
+        if (tailUnbondingID == headUnbondingID) {
             // everything else already processed, return early
             return;
         }
         // Process the fresh unbonding requests, unbond NTN and burn LNTN
         for (uint256 i = lastUnlockedUnbonding;
-                     i < headUnbondingID;
-                      _applyUnbonding(i++)){}
+            i < headUnbondingID;
+            _applyUnbonding(i++)) {}
         lastUnlockedUnbonding = headUnbondingID;
 
         // Finally we release the locked NTN tokens

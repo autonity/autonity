@@ -372,9 +372,11 @@ func (c *EVMContract) DeployContractWithValue(header *types.Header, origin commo
 
 	evm := c.evmProvider(header, origin, statedb)
 
-	_, _, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	ret, contractAddr, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	log.Warn("contract deployed to" + contractAddr.String())
+
 	if vmerr != nil {
-		log.Error("evm.Create failed", "err", vmerr)
+		log.Error("evm.Create failed", "err", vmerr, "ret", ret)
 		return vmerr
 	}
 
