@@ -3,7 +3,7 @@
 pragma solidity ^0.8.19;
 
 import "./interfaces/IERC20.sol";
-import "./Liquid.sol";
+import "./LiquidState.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
@@ -37,7 +37,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 selfUnbondingStake;
         uint256 selfUnbondingShares; // not effective - used for accounting purposes
         uint256 selfUnbondingStakeLocked;
-        Liquid liquidContract;
+        LiquidState liquidContract;
         uint256 liquidSupply;
         uint256 registrationBlock;
         uint256 totalSlashed;
@@ -95,6 +95,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         IACU acuContract;
         ISupplyControl supplyControlContract;
         IStabilization stabilizationContract;
+        address liquidLogicAddress;
     }
 
     struct Policy {
@@ -214,7 +215,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
-            _validators[i].liquidContract = Liquid(address(0));
+            _validators[i].liquidContract = LiquidState(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.policy.delegationRate;
@@ -294,7 +295,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             0,                       // self unbonding stake
             0,                       // self unbonding shares
             0,                       // self unbonding stake locked
-            Liquid(address(0)),      // liquid token contract
+            LiquidState(address(0)),      // liquid token contract
             0,                       // liquid token supply
             block.number,            // registration block
             0,                       // total slashed
@@ -981,7 +982,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function _deployLiquidContract(Validator memory _validator) internal {
         if (address(_validator.liquidContract) == address(0)) {
             string memory stringLength = Helpers.toString(validatorList.length);
-            _validator.liquidContract = new Liquid(_validator.nodeAddress,
+            _validator.liquidContract = new LiquidState(
+                config.contracts.liquidLogicAddress,
+                _validator.nodeAddress,
                 _validator.treasury,
                 _validator.commissionRate,
                 stringLength);

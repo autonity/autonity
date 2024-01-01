@@ -28,12 +28,13 @@ import (
 
 var (
 	DeployerAddress               = common.Address{}
-	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress         = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
+	LiquidLogicContractAddress    = crypto.CreateAddress(DeployerAddress, 0)
+	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 1)
+	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 2)
+	OracleContractAddress         = crypto.CreateAddress(DeployerAddress, 3)
+	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 4)
+	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
+	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 6)
 	AutonityABIKey                = []byte("ABISPEC")
 )
 
@@ -372,9 +373,11 @@ func (c *EVMContract) DeployContractWithValue(header *types.Header, origin commo
 
 	evm := c.evmProvider(header, origin, statedb)
 
-	_, _, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	ret, contractAddr, _, vmerr := evm.Create(vm.AccountRef(DeployerAddress), data, gas, value)
+	log.Warn("contract deployed to" + contractAddr.String())
+
 	if vmerr != nil {
-		log.Error("evm.Create failed", "err", vmerr)
+		log.Error("evm.Create failed", "err", vmerr, "ret", ret)
 		return vmerr
 	}
 
@@ -402,6 +405,10 @@ type SupplyControlContract struct {
 }
 
 type StabilizationContract struct {
+	EVMContract
+}
+
+type LiquidLogicContract struct {
 	EVMContract
 }
 
@@ -461,6 +468,14 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb *state
 				chainConfig: chainConfig,
 			},
 		},
+		LiquidLogicContract: LiquidLogicContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.LiquidLogicAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
 		statedb: statedb,
 	}
 }
@@ -472,6 +487,7 @@ type GenesisEVMContracts struct {
 	ACUContract
 	SupplyControlContract
 	StabilizationContract
+	LiquidLogicContract
 
 	statedb *state.StateDB
 }
@@ -537,4 +553,12 @@ func (c *GenesisEVMContracts) DeployStabilizationContract(
 	bytecode []byte,
 ) error {
 	return c.StabilizationContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, stabilizationConfig, autonity, operator, oracle, supplyControl, collateral)
+}
+
+func (c *GenesisEVMContracts) DeployLiquidLogicContract(
+	autonity common.Address,
+	bytecode []byte,
+) error {
+
+	return c.LiquidLogicContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, autonity)
 }

@@ -28,6 +28,9 @@ type GenesisBond struct {
 
 func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts) error {
 
+	if err := DeployLiquidLogicContract(evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the liqid logic contract: %w", err)
+	}
 	if err := DeployAutonityContract(genesisConfig.AutonityContractConfig, genesisBonds, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the autonity contract: %w", err)
 	}
@@ -46,6 +49,7 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployStabilizationContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the stabilization contract: %w", err)
 	}
+
 	return nil
 }
 
@@ -79,6 +83,19 @@ func DeployStabilizationContract(config *params.ChainConfig, evmContracts *Genes
 	}
 
 	log.Info("Deployed Stabilization contract", "address", StabilizationContractAddress.String())
+
+	return nil
+}
+
+func DeployLiquidLogicContract(evmContracts *GenesisEVMContracts) error {
+	err := evmContracts.DeployLiquidLogicContract(AutonityContractAddress, generated.LiquidLogicBytecode)
+
+	if err != nil {
+		log.Error("DeployLiquidLogicContract failed", "err", err)
+		return fmt.Errorf("failed to deploy LiquidLogic contract: %w", err)
+	}
+
+	log.Info("Deployed LiquidLogic contract", "address", LiquidLogicContractAddress.String())
 
 	return nil
 }
@@ -180,6 +197,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			AcuContract:            ACUContractAddress,
 			SupplyControlContract:  SupplyControlContractAddress,
 			StabilizationContract:  StabilizationContractAddress,
+			LiquidLogicAddress:     LiquidLogicContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: genesisConfig.Operator,
