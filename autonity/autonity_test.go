@@ -49,68 +49,17 @@ func BenchmarkComputeCommittee(b *testing.B) {
 }
 
 func TestComputeCommittee(t *testing.T) {
-	contractAbi := &generated.AutonityTestAbi
-	deployer := common.Address{}
 
 	t.Run("computeCommittee validators < committee", func(t *testing.T) {
 		committeeSize := 100
 		validatorCount := 10
-		validators, _, err := randomValidators(validatorCount, 30)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		t.Log(contractAddress)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
-		require.NoError(t, err)
-		voters := make([]common.Address, validatorCount)
-		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
-		require.NoError(t, err)
-		members := make([]types.CommitteeMember, validatorCount)
-		err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
-		require.NoError(t, err)
-		totalStake := big.NewInt(0)
-		err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
-		require.NoError(t, err)
-		err = isVotersSorted(voters, members, validators, totalStake, false)
-		require.NoError(t, err)
+		testComputeCommittee(committeeSize, validatorCount, t)
 	})
 
 	t.Run("computeCommittee validators > committee", func(t *testing.T) {
 		committeeSize := 100
 		validatorCount := 1000
-		validators, _, err := randomValidators(validatorCount, 30)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		t.Log(contractAddress)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
-		require.NoError(t, err)
-		voters := make([]common.Address, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
-		require.NoError(t, err)
-		members := make([]types.CommitteeMember, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
-		require.NoError(t, err)
-		totalStake := big.NewInt(0)
-		err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
-		require.NoError(t, err)
-		err = isVotersSorted(voters, members, validators, totalStake, true)
-		require.NoError(t, err)
-
+		testComputeCommittee(committeeSize, validatorCount, t)
 	})
 }
 
@@ -474,4 +423,34 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		return fmt.Errorf("not all are accounted")
 	}
 	return nil
+}
+
+func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
+	contractAbi := &generated.AutonityTestAbi
+	deployer := common.Address{}
+	validators, _, err := randomValidators(validatorCount, 30)
+	require.NoError(t, err)
+	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+	t.Log(contractAddress)
+	require.NoError(t, err)
+	var header *types.Header
+	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
+	require.NoError(t, err)
+	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
+	require.NoError(t, err)
+	voters := make([]common.Address, validatorCount)
+	err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
+	require.NoError(t, err)
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
+	require.NoError(t, err)
+	members := make([]types.CommitteeMember, validatorCount)
+	err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
+	require.NoError(t, err)
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
+	require.NoError(t, err)
+	totalStake := big.NewInt(0)
+	err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
+	require.NoError(t, err)
+	err = isVotersSorted(voters, members, validators, totalStake, false)
+	require.NoError(t, err)
 }

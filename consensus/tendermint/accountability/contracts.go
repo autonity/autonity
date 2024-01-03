@@ -66,7 +66,7 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 
 // Run take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg sender is returned.
-func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, stateDB vm.StateDB, _ common.Address) ([]byte, error) {
+func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, stateDB vm.StateDB, caller common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
 	}
@@ -149,7 +149,7 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 
 // Run take the rlp encoded Proof of challenge in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for Proof management.
-func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, stateDB vm.StateDB, _ common.Address) ([]byte, error) {
+func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, stateDB vm.StateDB, caller common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
 	}
@@ -516,7 +516,7 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 // Run InnocenceVerifier, take the rlp encoded Proof of innocence, decode it and validate it, if the Proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
-func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, stateDB vm.StateDB, _ common.Address) ([]byte, error) {
+func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, stateDB vm.StateDB, caller common.Address) ([]byte, error) {
 	if len(input) <= 32 || blockNumber == 0 {
 		return failureReturn, nil
 	}
