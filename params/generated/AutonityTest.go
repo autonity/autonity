@@ -758,110 +758,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    },
    {
       "inputs" : [],
-      "name" : "computeCommitteeOptimzed",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "computeCommitteePrecompiledSorting",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "computeCommitteePrecompiledSortingFast",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "computeCommitteePrecompiledSortingIterate",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "computeCommitteePrecompiledSortingIterateFast",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "computeCommittee_FullPrecompiled",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "computeCommittee_FullPrecompiled_Return",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "computeCommittee_ReadPrecompiled_WriteSolidity",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
       "name" : "config",
       "outputs" : [
          {
@@ -1172,69 +1068,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
       "inputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_idx",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "getCommitteeMember",
-      "outputs" : [
-         {
-            "components" : [
-               {
-                  "internalType" : "address",
-                  "name" : "addr",
-                  "type" : "address"
-               },
-               {
-                  "internalType" : "uint256",
-                  "name" : "votingPower",
-                  "type" : "uint256"
-               }
-            ],
-            "internalType" : "struct Autonity.CommitteeMember",
-            "name" : "",
-            "type" : "tuple"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_idx",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "getCommitteeMemberSlot",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "getCommitteeSlot",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "pure",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
             "name" : "_block",
             "type" : "uint256"
          }
@@ -1297,46 +1130,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
             "internalType" : "uint256",
             "name" : "",
             "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "getItem",
-      "outputs" : [
-         {
-            "components" : [
-               {
-                  "internalType" : "uint128",
-                  "name" : "a",
-                  "type" : "uint128"
-               },
-               {
-                  "internalType" : "uint128",
-                  "name" : "b",
-                  "type" : "uint128"
-               },
-               {
-                  "internalType" : "uint256",
-                  "name" : "c",
-                  "type" : "uint256"
-               },
-               {
-                  "internalType" : "uint128",
-                  "name" : "d",
-                  "type" : "uint128"
-               },
-               {
-                  "internalType" : "uint128",
-                  "name" : "e",
-                  "type" : "uint128"
-               }
-            ],
-            "internalType" : "struct AutonityTest.TestStruct",
-            "name" : "",
-            "type" : "tuple"
          }
       ],
       "stateMutability" : "view",
@@ -1693,19 +1486,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    },
    {
       "inputs" : [],
-      "name" : "getValidatorListSlot",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "pure",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
       "name" : "getValidators",
       "outputs" : [
          {
@@ -1715,19 +1495,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "getValidatorsSlot",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "pure",
       "type" : "function"
    },
    {
@@ -1993,19 +1760,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
    },
    {
       "inputs" : [],
-      "name" : "sort",
-      "outputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "",
-            "type" : "address[]"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
       "name" : "symbol",
       "outputs" : [
          {
@@ -2015,175 +1769,6 @@ var AutonityTestAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "stateMutability" : "pure",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testAssemblyProperArrray",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "address",
-            "name" : "",
-            "type" : "address"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "count",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "testCommitteeStruct",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testSortLibrarySliceTable",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testSortLibrarySort",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testSorting",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testSortingPrecompiled",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testSortingPrecompiledFast",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testSortingPrecompiledIterate",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "testSortingPrecompiledIterateFast",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint128",
-            "name" : "a",
-            "type" : "uint128"
-         },
-         {
-            "internalType" : "uint128",
-            "name" : "b",
-            "type" : "uint128"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "c",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint128",
-            "name" : "d",
-            "type" : "uint128"
-         },
-         {
-            "internalType" : "uint128",
-            "name" : "e",
-            "type" : "uint128"
-         }
-      ],
-      "name" : "testStructLocation",
-      "outputs" : [
-         {
-            "components" : [
-               {
-                  "internalType" : "uint128",
-                  "name" : "a",
-                  "type" : "uint128"
-               },
-               {
-                  "internalType" : "uint128",
-                  "name" : "b",
-                  "type" : "uint128"
-               },
-               {
-                  "internalType" : "uint256",
-                  "name" : "c",
-                  "type" : "uint256"
-               },
-               {
-                  "internalType" : "uint128",
-                  "name" : "d",
-                  "type" : "uint128"
-               },
-               {
-                  "internalType" : "uint128",
-                  "name" : "e",
-                  "type" : "uint128"
-               }
-            ],
-            "internalType" : "struct AutonityTest.TestStruct",
-            "name" : "",
-            "type" : "tuple"
-         }
-      ],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "count",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "testValidatorStruct",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {

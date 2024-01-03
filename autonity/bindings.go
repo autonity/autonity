@@ -2123,14 +2123,6 @@ var AutonityMetaData = &bind.MetaData{
 		"852c4849": "changeCommissionRate(address,uint256)",
 		"872cf059": "completeContractUpgrade()",
 		"ae1f5fa0": "computeCommittee()",
-		"8231a322": "computeCommitteeOptimzed()",
-		"baf83500": "computeCommitteePrecompiledSorting()",
-		"ba5125fb": "computeCommitteePrecompiledSortingFast()",
-		"53454f61": "computeCommitteePrecompiledSortingIterate()",
-		"0b0f2484": "computeCommitteePrecompiledSortingIterateFast()",
-		"3e9521a9": "computeCommittee_FullPrecompiled()",
-		"27a166bd": "computeCommittee_FullPrecompiled_Return()",
-		"4925d4ab": "computeCommittee_ReadPrecompiled_WriteSolidity()",
 		"79502c55": "config()",
 		"313ce567": "decimals()",
 		"d5f39488": "deployer()",
@@ -3520,174 +3512,6 @@ func (_Autonity *AutonitySession) ComputeCommittee() (*types.Transaction, error)
 // Solidity: function computeCommittee() returns(address[])
 func (_Autonity *AutonityTransactorSession) ComputeCommittee() (*types.Transaction, error) {
 	return _Autonity.Contract.ComputeCommittee(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeOptimzed is a paid mutator transaction binding the contract method 0x8231a322.
-//
-// Solidity: function computeCommitteeOptimzed() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteeOptimzed(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommitteeOptimzed")
-}
-
-// ComputeCommitteeOptimzed is a paid mutator transaction binding the contract method 0x8231a322.
-//
-// Solidity: function computeCommitteeOptimzed() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteeOptimzed() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeOptimzed(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeOptimzed is a paid mutator transaction binding the contract method 0x8231a322.
-//
-// Solidity: function computeCommitteeOptimzed() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteeOptimzed() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeOptimzed(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSorting is a paid mutator transaction binding the contract method 0xbaf83500.
-//
-// Solidity: function computeCommitteePrecompiledSorting() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSorting(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSorting")
-}
-
-// ComputeCommitteePrecompiledSorting is a paid mutator transaction binding the contract method 0xbaf83500.
-//
-// Solidity: function computeCommitteePrecompiledSorting() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSorting() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSorting(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSorting is a paid mutator transaction binding the contract method 0xbaf83500.
-//
-// Solidity: function computeCommitteePrecompiledSorting() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSorting() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSorting(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSortingFast is a paid mutator transaction binding the contract method 0xba5125fb.
-//
-// Solidity: function computeCommitteePrecompiledSortingFast() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSortingFast(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSortingFast")
-}
-
-// ComputeCommitteePrecompiledSortingFast is a paid mutator transaction binding the contract method 0xba5125fb.
-//
-// Solidity: function computeCommitteePrecompiledSortingFast() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSortingFast() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSortingFast(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSortingFast is a paid mutator transaction binding the contract method 0xba5125fb.
-//
-// Solidity: function computeCommitteePrecompiledSortingFast() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSortingFast() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSortingFast(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSortingIterate is a paid mutator transaction binding the contract method 0x53454f61.
-//
-// Solidity: function computeCommitteePrecompiledSortingIterate() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSortingIterate(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSortingIterate")
-}
-
-// ComputeCommitteePrecompiledSortingIterate is a paid mutator transaction binding the contract method 0x53454f61.
-//
-// Solidity: function computeCommitteePrecompiledSortingIterate() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSortingIterate() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterate(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSortingIterate is a paid mutator transaction binding the contract method 0x53454f61.
-//
-// Solidity: function computeCommitteePrecompiledSortingIterate() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSortingIterate() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterate(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSortingIterateFast is a paid mutator transaction binding the contract method 0x0b0f2484.
-//
-// Solidity: function computeCommitteePrecompiledSortingIterateFast() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteePrecompiledSortingIterateFast(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommitteePrecompiledSortingIterateFast")
-}
-
-// ComputeCommitteePrecompiledSortingIterateFast is a paid mutator transaction binding the contract method 0x0b0f2484.
-//
-// Solidity: function computeCommitteePrecompiledSortingIterateFast() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteePrecompiledSortingIterateFast() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterateFast(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteePrecompiledSortingIterateFast is a paid mutator transaction binding the contract method 0x0b0f2484.
-//
-// Solidity: function computeCommitteePrecompiledSortingIterateFast() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteePrecompiledSortingIterateFast() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteePrecompiledSortingIterateFast(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeFullPrecompiled is a paid mutator transaction binding the contract method 0x3e9521a9.
-//
-// Solidity: function computeCommittee_FullPrecompiled() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteeFullPrecompiled(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommittee_FullPrecompiled")
-}
-
-// ComputeCommitteeFullPrecompiled is a paid mutator transaction binding the contract method 0x3e9521a9.
-//
-// Solidity: function computeCommittee_FullPrecompiled() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteeFullPrecompiled() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeFullPrecompiled(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeFullPrecompiled is a paid mutator transaction binding the contract method 0x3e9521a9.
-//
-// Solidity: function computeCommittee_FullPrecompiled() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteeFullPrecompiled() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeFullPrecompiled(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeFullPrecompiledReturn is a paid mutator transaction binding the contract method 0x27a166bd.
-//
-// Solidity: function computeCommittee_FullPrecompiled_Return() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteeFullPrecompiledReturn(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommittee_FullPrecompiled_Return")
-}
-
-// ComputeCommitteeFullPrecompiledReturn is a paid mutator transaction binding the contract method 0x27a166bd.
-//
-// Solidity: function computeCommittee_FullPrecompiled_Return() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteeFullPrecompiledReturn() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeFullPrecompiledReturn(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeFullPrecompiledReturn is a paid mutator transaction binding the contract method 0x27a166bd.
-//
-// Solidity: function computeCommittee_FullPrecompiled_Return() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteeFullPrecompiledReturn() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeFullPrecompiledReturn(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeReadPrecompiledWriteSolidity is a paid mutator transaction binding the contract method 0x4925d4ab.
-//
-// Solidity: function computeCommittee_ReadPrecompiled_WriteSolidity() returns(address[])
-func (_Autonity *AutonityTransactor) ComputeCommitteeReadPrecompiledWriteSolidity(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Autonity.contract.Transact(opts, "computeCommittee_ReadPrecompiled_WriteSolidity")
-}
-
-// ComputeCommitteeReadPrecompiledWriteSolidity is a paid mutator transaction binding the contract method 0x4925d4ab.
-//
-// Solidity: function computeCommittee_ReadPrecompiled_WriteSolidity() returns(address[])
-func (_Autonity *AutonitySession) ComputeCommitteeReadPrecompiledWriteSolidity() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeReadPrecompiledWriteSolidity(&_Autonity.TransactOpts)
-}
-
-// ComputeCommitteeReadPrecompiledWriteSolidity is a paid mutator transaction binding the contract method 0x4925d4ab.
-//
-// Solidity: function computeCommittee_ReadPrecompiled_WriteSolidity() returns(address[])
-func (_Autonity *AutonityTransactorSession) ComputeCommitteeReadPrecompiledWriteSolidity() (*types.Transaction, error) {
-	return _Autonity.Contract.ComputeCommitteeReadPrecompiledWriteSolidity(&_Autonity.TransactOpts)
 }
 
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
@@ -13113,7 +12937,6 @@ func (_Precompiled *PrecompiledCaller) SUCCESS(opts *bind.CallOpts) (*big.Int, e
 	err := _Precompiled.contract.Call(opts, &out, "SUCCESS")
 
 	if err != nil {
-		return *new(*big.Int), err
 	}
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
@@ -13391,8 +13214,6 @@ var StabilizationMetaData = &bind.MetaData{
 		"eced5526": "SCALE()",
 		"ce4b5bbe": "SCALE_FACTOR()",
 		"5dcc9391": "SECONDS_IN_YEAR()",
-		"68cd03f6": "accounts()",
-		"c5ebeaec": "borrow(uint256)",
 		"83baa174": "borrowLimit(uint256,uint256,uint256,uint256)",
 		"840c7e24": "cdps(address)",
 		"5891de72": "collateralPrice()",
