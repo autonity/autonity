@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -80,6 +81,7 @@ type stateObject struct {
 	trie Trie // storage trie, which becomes non-nil on first access
 	code Code // contract bytecode, which gets set when code is loaded
 
+	cacheLock      sync.RWMutex
 	originStorage  Storage // Storage cache of original entries to dedup rewrites, reset for every transaction
 	pendingStorage Storage // Storage entries that need to be flushed to disk, at the end of an entire block
 	dirtyStorage   Storage // Storage entries that have been modified in the current transaction execution
@@ -193,7 +195,10 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if value, pending := s.pendingStorage[key]; pending {
 		return value
 	}
-	if value, cached := s.originStorage[key]; cached {
+	s.cacheLock.RLock()
+	value, cached := s.originStorage[key]
+	s.cacheLock.RUnlock()
+	if cached {
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -229,7 +234,6 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 			return common.Hash{}
 		}
 	}
-	var value common.Hash
 	if len(enc) > 0 {
 		_, content, _, err := rlp.Split(enc)
 		if err != nil {
@@ -237,7 +241,9 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		value.SetBytes(content)
 	}
+	s.cacheLock.Lock()
 	s.originStorage[key] = value
+	s.cacheLock.Unlock()
 	return value
 }
 
