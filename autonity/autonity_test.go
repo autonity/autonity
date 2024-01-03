@@ -25,191 +25,185 @@ import (
 	"github.com/autonity/autonity/params/generated"
 )
 
+func printArray(array []*types.CommitteeMember) {
+	for i := 0; i < len(array); i++ {
+		fmt.Printf("%v %v\n", array[i].Address, array[i].VotingPower)
+	}
+}
+
+// func TestSlices(t *testing.T) {
+// 	len := 2
+// 	someArray := make([]*types.CommitteeMember, len)
+// 	for i := 0; i < len; i++ {
+// 		someArray[i] = &types.CommitteeMember{
+// 			Address:     common.BytesToAddress([]byte{byte(i + 10)}),
+// 			VotingPower: big.NewInt(int64(i + 10)),
+// 		}
+// 	}
+// 	emptyArray := make([]*types.CommitteeMember, len)
+// 	for i := 0; i < len; i++ {
+// 		emptyArray[i] = &types.CommitteeMember{
+// 			Address:     common.BytesToAddress([]byte{byte(i + 20)}),
+// 			VotingPower: big.NewInt(int64(i + 20)),
+// 		}
+// 	}
+
+// 	fmt.Println("someArray")
+// 	printArray(someArray)
+// 	fmt.Println("emptyArray")
+// 	printArray(emptyArray)
+// 	emptyArray = append(emptyArray, someArray...)
+// 	fmt.Println("someArray")
+// 	printArray(someArray)
+// 	fmt.Println("emptyArray")
+// 	printArray(emptyArray)
+// 	emptyArray[len].VotingPower.Add(emptyArray[len].VotingPower, big.NewInt(1))
+// 	emptyArray[len].Address = common.BigToAddress(emptyArray[len].VotingPower)
+// 	fmt.Println("someArray")
+// 	printArray(someArray)
+// 	fmt.Println("emptyArray")
+// 	printArray(emptyArray)
+// 	someArray[0].VotingPower.Add(someArray[0].VotingPower, big.NewInt(1))
+// 	someArray[0].Address = common.BigToAddress(someArray[0].VotingPower)
+// 	fmt.Println("someArray")
+// 	printArray(someArray)
+// 	fmt.Println("emptyArray")
+// 	printArray(emptyArray)
+// }
+
+func TestAppend(t *testing.T) {
+	a := make([]int, 1, 20)
+	a[0] = 1
+	fmt.Printf("%v %v\n", len(a), cap(a))
+	fmt.Println(a)
+	lenB := 5
+	b := make([]int, lenB)
+	for i := 0; i < lenB; i++ {
+		b[i] = i
+	}
+	b = append(b, a...)
+	fmt.Printf("%v %v\n", len(b), cap(b))
+	fmt.Println(b)
+	b = append(b, a...)
+	fmt.Printf("%v %v\n", len(b), cap(b))
+	fmt.Println(b)
+	b = append(b, a...)
+	fmt.Printf("%v %v\n", len(b), cap(b))
+	fmt.Println(b)
+	b = append(b, a...)
+	fmt.Printf("%v %v\n", len(b), cap(b))
+	fmt.Println(b)
+	b = append(b, a...)
+	fmt.Printf("%v %v\n", len(b), cap(b))
+	fmt.Println(b)
+	b = append(b, a...)
+	fmt.Printf("%v %v\n", len(b), cap(b))
+	fmt.Println(b)
+}
+
+func TestBigInt(t *testing.T) {
+	var a big.Int
+	a = *big.NewInt(2)
+	b := a
+	fmt.Println(a)
+	fmt.Println(b)
+	b.Add(&a, big.NewInt(1))
+	fmt.Println(a)
+	fmt.Println(b)
+	a.Add(&b, big.NewInt(1))
+	fmt.Println(a)
+	fmt.Println(b)
+}
+
+func TestCopy(t *testing.T) {
+	len := 2
+	someArray := make([]*types.CommitteeMember, len)
+	for i := 0; i < len; i++ {
+		someArray[i] = &types.CommitteeMember{
+			Address:     common.BytesToAddress([]byte{byte(i + 10)}),
+			VotingPower: big.NewInt(int64(i + 10)),
+		}
+	}
+	emptyArray := make([]*types.CommitteeMember, 2*len)
+	for i := 0; i < 2*len; i++ {
+		emptyArray[i] = &types.CommitteeMember{
+			Address:     common.BytesToAddress([]byte{byte(i + 20)}),
+			VotingPower: big.NewInt(int64(i + 20)),
+		}
+	}
+	fmt.Println("someArray")
+	printArray(someArray)
+	fmt.Println("emptyArray")
+	printArray(emptyArray)
+	fmt.Println(&someArray[0])
+	fmt.Println(&emptyArray[0])
+	copy(emptyArray[len:], someArray)
+	fmt.Println("someArray")
+	printArray(someArray)
+	fmt.Println("emptyArray")
+	printArray(emptyArray)
+	fmt.Println(&someArray[0])
+	fmt.Println(&emptyArray[0])
+	someArray[0].VotingPower.Add(someArray[0].VotingPower, big.NewInt(1))
+	someArray[0].Address = common.BigToAddress(someArray[0].VotingPower)
+	fmt.Println("someArray")
+	printArray(someArray)
+	fmt.Println("emptyArray")
+	printArray(emptyArray)
+	fmt.Println(&someArray[0])
+	fmt.Println(&emptyArray[0])
+	emptyArray[len].VotingPower.Add(emptyArray[len].VotingPower, big.NewInt(1))
+	emptyArray[len].Address = common.BigToAddress(emptyArray[len].VotingPower)
+	fmt.Println("someArray")
+	printArray(someArray)
+	fmt.Println("emptyArray")
+	printArray(emptyArray)
+	fmt.Println(&someArray[0])
+	fmt.Println(&emptyArray[0])
+}
+
 func BenchmarkComputeCommittee(b *testing.B) {
 
-	validatorCount := 100000
+	validatorCount := 10000
 	validators, _, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
 	contractAbi := &generated.AutonityTestAbi
 	deployer := common.Address{}
 	committeeSize := 100
 
-	// b.Run("computeCommittee", func(b *testing.B) {
-	// 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	// 	require.NoError(b, err)
-	// 	var header *types.Header
-	// 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	// 	require.NoError(b, err)
-	// 	packedArgs, err := contractAbi.Pack("computeCommittee")
-	// 	require.NoError(b, err)
-	// 	_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-	// 	require.NoError(b, err)
-	// 	benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	// })
-
-	// b.Run("computeCommitteeOptimzed", func(b *testing.B) {
-	// 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	// 	require.NoError(b, err)
-	// 	var header *types.Header
-	// 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	// 	require.NoError(b, err)
-	// 	packedArgs, err := contractAbi.Pack("computeCommitteeOptimzed")
-	// 	require.NoError(b, err)
-	// 	_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-	// 	require.NoError(b, err)
-	// 	benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	// })
-
-	// b.Run("computeCommitteePrecompiledSorting", func(b *testing.B) {
-	// 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	// 	require.NoError(b, err)
-	// 	var header *types.Header
-	// 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	// 	require.NoError(b, err)
-	// 	packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSorting")
-	// 	require.NoError(b, err)
-	// 	_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-	// 	require.NoError(b, err)
-	// 	benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	// })
-
-	// b.Run("computeCommitteePrecompiledSortingFast", func(b *testing.B) {
-	// 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	// 	require.NoError(b, err)
-	// 	var header *types.Header
-	// 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	// 	require.NoError(b, err)
-	// 	packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSortingFast")
-	// 	require.NoError(b, err)
-	// 	_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-	// 	require.NoError(b, err)
-	// 	benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	// })
-
-	// b.Run("computeCommitteePrecompiledSortingIterate", func(b *testing.B) {
-	// 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	// 	require.NoError(b, err)
-	// 	var header *types.Header
-	// 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	// 	require.NoError(b, err)
-	// 	packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSortingIterate")
-	// 	require.NoError(b, err)
-	// 	_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-	// 	require.NoError(b, err)
-	// 	benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	// })
-
-	// b.Run("computeCommitteePrecompiledSortingIterateFast", func(b *testing.B) {
-	// 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	// 	require.NoError(b, err)
-	// 	var header *types.Header
-	// 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	// 	require.NoError(b, err)
-	// 	packedArgs, err := contractAbi.Pack("computeCommitteePrecompiledSortingIterateFast")
-	// 	require.NoError(b, err)
-	// 	_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-	// 	require.NoError(b, err)
-	// 	benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	// })
-
-	b.Run("computeCommittee_ReadPrecompiled_WriteSolidity", func(b *testing.B) {
+	b.Run("computeCommittee", func(b *testing.B) {
 		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
 		require.NoError(b, err)
 		var header *types.Header
 		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
 		require.NoError(b, err)
-		packedArgs, err := contractAbi.Pack("computeCommittee_ReadPrecompiled_WriteSolidity")
+		packedArgs, err := contractAbi.Pack("computeCommittee")
 		require.NoError(b, err)
 		_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
 		require.NoError(b, err)
 		benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
 	})
-
-	b.Run("computeCommittee_FullPrecompiled", func(b *testing.B) {
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(b, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-		require.NoError(b, err)
-		packedArgs, err := contractAbi.Pack("computeCommittee_FullPrecompiled")
-		require.NoError(b, err)
-		_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-		require.NoError(b, err)
-		benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	})
-
-	b.Run("computeCommittee_FullPrecompiled_Return", func(b *testing.B) {
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(b, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-		require.NoError(b, err)
-		packedArgs, err := contractAbi.Pack("computeCommittee_FullPrecompiled_Return")
-		require.NoError(b, err)
-		_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
-		require.NoError(b, err)
-		benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
-	})
-}
-
-func BenchmarkSortingAlgo(b *testing.B) {
-	validatorCount := 1000
-	validators, _, err := randomValidators(validatorCount, 70)
-	require.NoError(b, err)
-	input, err := inputToSort(validators)
-	require.NoError(b, err)
-
-	stateDB, _, _, err := initalizeEvm(nil)
-	require.NoError(b, err)
-
-	contracts := make([]vm.PrecompiledContract, 0)
-	contractNames := make([]string, 0)
-	contracts = append(contracts, &vm.SortLibrarySliceStable{})
-	contractNames = append(contractNames, "SortLibrarySliceStable")
-	contracts = append(contracts, &vm.SortLibrarySort{})
-	contractNames = append(contractNames, "SortLibrarySort")
-	contracts = append(contracts, vm.NewQuickSortIterateFast())
-	contractNames = append(contractNames, "QuickSortIterateFast")
-	contracts = append(contracts, vm.NewQuickSortIterate())
-	contractNames = append(contractNames, "QuickSortIterate")
-	contracts = append(contracts, &vm.QuickSortFast{})
-	contractNames = append(contractNames, "QuickSortFast")
-	contracts = append(contracts, &vm.QuickSort{})
-	contractNames = append(contractNames, "QuickSort")
-
-	for i, contract := range contracts {
-		b.Run(contractNames[i], func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_, err = contract.Run(input, 0, stateDB, common.Address{})
-				require.NoError(b, err)
-			}
-		})
-	}
 }
 
 func TestComputeCommittee(t *testing.T) {
 	contractAbi := &generated.AutonityTestAbi
 	deployer := common.Address{}
 
-	t.Run("computeCommittee_ReadPrecompiled_WriteSolidity validators < committee", func(t *testing.T) {
+	t.Run("computeCommittee validators < committee", func(t *testing.T) {
 		committeeSize := 100
 		validatorCount := 10
 		validators, _, err := randomValidators(validatorCount, 30)
 		require.NoError(t, err)
 		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		t.Log(contractAddress)
 		require.NoError(t, err)
 		var header *types.Header
 		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
 		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee_ReadPrecompiled_WriteSolidity")
-		// t.Log("error")
-		// t.Log(err)
-		// t.Log("res")
-		// t.Log(res)
-		// t.Log(string(res))
+		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
 		require.NoError(t, err)
 		voters := make([]common.Address, validatorCount)
-		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee_ReadPrecompiled_WriteSolidity", res)
+		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
 		require.NoError(t, err)
 		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
 		require.NoError(t, err)
@@ -221,63 +215,25 @@ func TestComputeCommittee(t *testing.T) {
 		totalStake := big.NewInt(0)
 		err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
 		require.NoError(t, err)
-		err = isVotersSorted(voters, members, validators, totalStake)
+		err = isVotersSorted(voters, members, validators, totalStake, false)
 		require.NoError(t, err)
 	})
 
-	t.Run("computeCommittee_ReadPrecompiled_WriteSolidity validators == committee", func(t *testing.T) {
-		committeeSize := 100
-		validatorCount := committeeSize
-		validators, _, err := randomValidators(validatorCount, 30)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee_ReadPrecompiled_WriteSolidity")
-		// t.Log("error")
-		// t.Log(err)
-		// t.Log("res")
-		// t.Log(res)
-		// t.Log(string(res))
-		require.NoError(t, err)
-		voters := make([]common.Address, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee_ReadPrecompiled_WriteSolidity", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
-		require.NoError(t, err)
-		members := make([]types.CommitteeMember, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
-		require.NoError(t, err)
-		totalStake := big.NewInt(0)
-		err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
-		require.NoError(t, err)
-		err = isVotersSorted(voters, members, validators, totalStake)
-		require.NoError(t, err)
-	})
-
-	t.Run("computeCommittee_ReadPrecompiled_WriteSolidity validators > committee", func(t *testing.T) {
+	t.Run("computeCommittee validators > committee", func(t *testing.T) {
 		committeeSize := 100
 		validatorCount := 1000
 		validators, _, err := randomValidators(validatorCount, 30)
 		require.NoError(t, err)
 		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		t.Log(contractAddress)
 		require.NoError(t, err)
 		var header *types.Header
 		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
 		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee_ReadPrecompiled_WriteSolidity")
-		// t.Log("error")
-		// t.Log(err)
-		// t.Log("res")
-		// t.Log(res)
-		// t.Log(string(res))
+		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
 		require.NoError(t, err)
 		voters := make([]common.Address, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee_ReadPrecompiled_WriteSolidity", res)
+		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
 		require.NoError(t, err)
 		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
 		require.NoError(t, err)
@@ -289,474 +245,9 @@ func TestComputeCommittee(t *testing.T) {
 		totalStake := big.NewInt(0)
 		err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
 		require.NoError(t, err)
-		err = isVotersSorted(voters, members, validators, totalStake)
+		err = isVotersSorted(voters, members, validators, totalStake, true)
 		require.NoError(t, err)
 
-	})
-
-	t.Run("computeCommittee_FullPrecompiled", func(t *testing.T) {
-		committeeSize := 100
-		validatorCount := 1000
-		validators, _, err := randomValidators(validatorCount, 30)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee_FullPrecompiled")
-		// t.Log("error")
-		// t.Log(err)
-		// t.Log("res")
-		// t.Log(res)
-		// t.Log(string(res))
-		require.NoError(t, err)
-		voters := make([]common.Address, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee_FullPrecompiled", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
-		require.NoError(t, err)
-		members := make([]types.CommitteeMember, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
-		require.NoError(t, err)
-		totalStake := big.NewInt(0)
-		err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
-		require.NoError(t, err)
-		err = isVotersSorted(voters, members, validators, totalStake)
-		require.NoError(t, err)
-	})
-
-	t.Run("computeCommittee_FullPrecompiled_Return", func(t *testing.T) {
-		committeeSize := 100
-		validatorCount := 1000
-		validators, _, err := randomValidators(validatorCount, 30)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee_FullPrecompiled_Return")
-		// t.Log("error")
-		// t.Log(err)
-		// t.Log("res")
-		// t.Log(res)
-		// t.Log(string(res))
-		require.NoError(t, err)
-		voters := make([]common.Address, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee_FullPrecompiled_Return", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
-		require.NoError(t, err)
-		members := make([]types.CommitteeMember, committeeSize)
-		err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
-		require.NoError(t, err)
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
-		require.NoError(t, err)
-		totalStake := big.NewInt(0)
-		err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
-		require.NoError(t, err)
-		err = isVotersSorted(voters, members, validators, totalStake)
-		require.NoError(t, err)
-	})
-}
-
-func BenchmarkComputeCommitteePrecompiled(b *testing.B) {
-	committeeSize := 100
-	validatorCount := 100000
-	validators, _, err := randomValidators(validatorCount, 30)
-	require.NoError(b, err)
-	deployer := common.Address{}
-	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	require.NoError(b, err)
-	var header *types.Header
-	contractAbi := &generated.AutonityTestAbi
-	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	require.NoError(b, err)
-	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getValidatorListSlot")
-	require.NoError(b, err)
-	validatorListSlot := big.NewInt(0)
-	err = contractAbi.UnpackIntoInterface(&validatorListSlot, "getValidatorListSlot", res)
-	require.NoError(b, err)
-	// b.Log(validatorListSlot)
-
-	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getValidatorsSlot")
-	require.NoError(b, err)
-	validatorsSlot := big.NewInt(0)
-	err = contractAbi.UnpackIntoInterface(&validatorsSlot, "getValidatorsSlot", res)
-	require.NoError(b, err)
-	// b.Log(validatorsSlot)
-	input := make([]byte, 64)
-	validatorListSlot.FillBytes(input[0:32])
-	validatorsSlot.FillBytes(input[32:64])
-	precompiledContract := &vm.ComputeCommitteeReadOnly{}
-	// precompiledContractTest := &vm.ComputeCommitteeTest{}
-	// evm := evmContract.evmProvider(header, deployer, stateDB)
-
-	b.Run("precompiledContract", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_, err = precompiledContract.Run(input, 0, stateDB, contractAddress)
-			require.NoError(b, err)
-		}
-	})
-
-	// b.Run("precompiledContractTest", func(b *testing.B) {
-	// 	for i := 0; i < b.N; i++ {
-	// 		_, err = precompiledContractTest.Run(input, 0, evm, contractAddress)
-	// 		require.NoError(b, err)
-	// 	}
-	// })
-}
-
-func TestComputeCommitteePrecompiled(t *testing.T) {
-	committeeSize := 100
-	validatorCount := 1000
-	validators, _, err := randomValidators(validatorCount, 30)
-	require.NoError(t, err)
-
-	// deploy contrac
-	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, common.Address{})
-	require.NoError(t, err)
-	var header *types.Header
-	contractAbi := &generated.AutonityTestAbi
-	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	require.NoError(t, err)
-	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getValidatorListSlot")
-	require.NoError(t, err)
-	validatorListSlot := big.NewInt(0)
-	err = contractAbi.UnpackIntoInterface(&validatorListSlot, "getValidatorListSlot", res)
-	require.NoError(t, err)
-	t.Log(validatorListSlot)
-
-	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getValidatorsSlot")
-	require.NoError(t, err)
-	validatorsSlot := big.NewInt(0)
-	err = contractAbi.UnpackIntoInterface(&validatorsSlot, "getValidatorsSlot", res)
-	require.NoError(t, err)
-	t.Log(validatorsSlot)
-
-	precompiledContract := &vm.ComputeCommitteeReadOnly{}
-	input := make([]byte, 64)
-	validatorListSlot.FillBytes(input[0:32])
-	validatorsSlot.FillBytes(input[32:64])
-	t.Log(input)
-	output, err := precompiledContract.Run(input, 0, stateDB, contractAddress)
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(1), big.NewInt(0).SetBytes(output[0:32]))
-	t.Log(output[32:64])
-	require.Equal(t, big.NewInt(int64(validatorCount)), big.NewInt(0).SetBytes(output[32:64]))
-	require.Equal(t, validatorCount*32+64, len(output))
-	positions := make(map[common.Address]int)
-	for i, validator := range validators {
-		positions[*validator.NodeAddress] = i
-	}
-	var lastStake *big.Int
-	zeroAddress := common.BytesToAddress(make([]byte, 0))
-	for i := 64; i < len(output); i += 32 {
-		address := common.BytesToAddress(output[i : i+32])
-		require.False(t, bytes.Equal(zeroAddress.Bytes(), address.Bytes()))
-		idx, ok := positions[address]
-		require.True(t, ok)
-		if i > 64 {
-			require.True(t, lastStake.Cmp(validators[idx].BondedStake) >= 0)
-		}
-		lastStake = validators[idx].BondedStake
-	}
-}
-
-func TestCommitteeRead(t *testing.T) {
-	committeeSize := 10
-	validatorCount := 10
-	validators, _, err := randomValidators(validatorCount, 30)
-	require.NoError(t, err)
-
-	// for _, validator := range validators {
-	// 	t.Log(validator.NodeAddress)
-	// }
-
-	// deploy contrac
-	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, common.Address{})
-	require.NoError(t, err)
-	var header *types.Header
-	contractAbi := &generated.AutonityTestAbi
-	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
-	require.NoError(t, err)
-
-	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee_ReadPrecompiled_WriteSolidity")
-	// _, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
-	t.Log("error")
-	t.Log(err)
-	t.Log("res")
-	t.Log(res)
-	t.Log(string(res))
-	require.NoError(t, err)
-
-	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommitteeSlot")
-	require.NoError(t, err)
-	committeeSlot := big.NewInt(0)
-	err = contractAbi.UnpackIntoInterface(&committeeSlot, "getCommitteeSlot", res)
-	require.NoError(t, err)
-	t.Log(committeeSlot)
-
-	hash := make([]byte, 32)
-	committeeSlot.FillBytes(hash)
-	t.Log(hash)
-	calculatedSlot := crypto.Keccak256Hash(hash).Big()
-
-	for i := 0; i < committeeSize; i++ {
-		idx := big.NewInt(int64(i))
-		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommitteeMemberSlot", idx)
-		require.NoError(t, err)
-		membmerSlot := big.NewInt(0)
-		err = contractAbi.UnpackIntoInterface(&membmerSlot, "getCommitteeMemberSlot", res)
-		require.NoError(t, err)
-		t.Log(membmerSlot)
-		// t.Log(calculatedSlot)
-		require.Equal(t, calculatedSlot, membmerSlot)
-		calculatedSlot.Add(calculatedSlot, big.NewInt(2))
-
-		// res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommitteeMember", idx)
-		// require.NoError(t, err)
-		// t.Log(res)
-		// membmer := types.CommitteeMember{Address: common.BytesToAddress(make([]byte, 0)), VotingPower: big.NewInt(0)}
-		// err = contractAbi.UnpackIntoInterface(&membmer, "getCommitteeMember", res)
-		// require.NoError(t, err)
-		// t.Log(membmer)
-	}
-
-	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getValidatorsSlot")
-	require.NoError(t, err)
-	validatorsSlot := big.NewInt(0)
-	err = contractAbi.UnpackIntoInterface(&validatorsSlot, "getValidatorsSlot", res)
-	require.NoError(t, err)
-	t.Log(validatorsSlot)
-
-	tester := &vm.TestCommitteeRead{}
-	input := make([]byte, 64)
-	committeeSlot.FillBytes(input[0:32])
-	validatorsSlot.FillBytes(input[32:64])
-	output, err := tester.Run(input, 0, stateDB, contractAddress)
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(1), big.NewInt(0).SetBytes(output))
-}
-
-func TestSorting(t *testing.T) {
-	// Deploy contract for each test
-	contractAbi := &generated.AutonityTestAbi
-	deployer := common.Address{}
-	committeeSize := 100
-	validatorCount := 1000
-
-	t.Run("test sorting with 0% randomness", func(t *testing.T) {
-		validators, _, err := randomValidators(validatorCount, 0)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "testSorting")
-		require.NoError(t, err)
-	})
-
-	t.Run("test sorting with 30% randomness", func(t *testing.T) {
-		validators, _, err := randomValidators(validatorCount, 30)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "testSorting")
-		require.NoError(t, err)
-	})
-
-	t.Run("test sorting with 70% randomness", func(t *testing.T) {
-		validators, _, err := randomValidators(validatorCount, 70)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "testSorting")
-		require.NoError(t, err)
-	})
-
-	t.Run("test sorting with 100% randomness", func(t *testing.T) {
-		validators, _, err := randomValidators(validatorCount, 100)
-		require.NoError(t, err)
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-		require.NoError(t, err)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "testSorting")
-		require.NoError(t, err)
-	})
-}
-
-func TestSortLibrarySliceTable(t *testing.T) {
-	validatorCount := 1000
-	stateDB, _, _, err := initalizeEvm(nil)
-	require.NoError(t, err)
-
-	contracts := make([]vm.PrecompiledContract, 0)
-	contractNames := make([]string, 0)
-	contracts = append(contracts, &vm.SortLibrarySliceStable{})
-	contractNames = append(contractNames, "SortLibrarySliceStable")
-	contracts = append(contracts, &vm.SortLibrarySort{})
-	contractNames = append(contractNames, "SortLibrarySort")
-	contracts = append(contracts, vm.NewQuickSortIterateFast())
-	contractNames = append(contractNames, "QuickSortIterateFast")
-	contracts = append(contracts, vm.NewQuickSortIterate())
-	contractNames = append(contractNames, "QuickSortIterate")
-	contracts = append(contracts, &vm.QuickSortFast{})
-	contractNames = append(contractNames, "QuickSortFast")
-	contracts = append(contracts, &vm.QuickSort{})
-	contractNames = append(contractNames, "QuickSort")
-
-	for i, contract := range contracts {
-		t.Run(contractNames[i], func(t *testing.T) {
-			validators, _, err := randomValidators(validatorCount, 0)
-			require.NoError(t, err)
-			input, err := inputToSort(validators)
-			require.NoError(t, err)
-			output, err := contract.Run(input, 0, stateDB, common.Address{})
-			require.NoError(t, err)
-			require.NoError(t, isOutputSorted(output, validators))
-		})
-
-		t.Run(contractNames[i], func(t *testing.T) {
-			validators, _, err := randomValidators(validatorCount, 30)
-			require.NoError(t, err)
-			input, err := inputToSort(validators)
-			require.NoError(t, err)
-			output, err := contract.Run(input, 0, stateDB, common.Address{})
-			require.NoError(t, err)
-			require.NoError(t, isOutputSorted(output, validators))
-		})
-
-		t.Run(contractNames[i], func(t *testing.T) {
-			validators, _, err := randomValidators(validatorCount, 70)
-			require.NoError(t, err)
-			input, err := inputToSort(validators)
-			require.NoError(t, err)
-			output, err := contract.Run(input, 0, stateDB, common.Address{})
-			require.NoError(t, err)
-			require.NoError(t, isOutputSorted(output, validators))
-		})
-
-		t.Run(contractNames[i], func(t *testing.T) {
-			validators, _, err := randomValidators(validatorCount, 100)
-			require.NoError(t, err)
-			input, err := inputToSort(validators)
-			require.NoError(t, err)
-			output, err := contract.Run(input, 0, stateDB, common.Address{})
-			require.NoError(t, err)
-			require.NoError(t, isOutputSorted(output, validators))
-		})
-	}
-}
-
-func TestStruct(t *testing.T) {
-	contractAbi := &generated.AutonityTestAbi
-	deployer := common.Address{}
-	committeeSize := 100
-	validatorCount := 100
-	validators, _, err := randomValidators(validatorCount, 0)
-	require.NoError(t, err)
-	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	require.NoError(t, err)
-
-	t.Run("test committee struct 1", func(t *testing.T) {
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "testCommitteeStruct", big.NewInt(1))
-		require.NoError(t, err)
-	})
-
-	t.Run("test committee struct 2", func(t *testing.T) {
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "testCommitteeStruct", big.NewInt(2))
-		require.NoError(t, err)
-	})
-
-}
-
-func TestAssemblyProperArrray(t *testing.T) {
-	contractAbi := &generated.AutonityTestAbi
-	deployer := common.Address{}
-	committeeSize := 10
-	validatorCount := 10
-	validators, _, err := randomValidators(validatorCount, 0)
-	require.NoError(t, err)
-	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	require.NoError(t, err)
-
-	t.Run("testAssemblyProperArrray", func(t *testing.T) {
-		var header *types.Header
-		argsPacked, err := contractAbi.Pack("testAssemblyProperArrray")
-		require.NoError(t, err)
-		res, _, err := evmContract.CallContractFunc(stateDB, header, contractAddress, argsPacked)
-		// t.Log("error:")
-		// t.Log(err)
-		// t.Log("res")
-		// t.Log(res)
-		// t.Log(string(res))
-		require.NoError(t, err)
-		// var key common.Address
-		// var mapLocation *big.Int
-		// var location *big.Int
-		// var calculatedLocation *big.Int
-		unpacked, err := contractAbi.Unpack("testAssemblyProperArrray", res)
-		require.NoError(t, err)
-		t.Log(unpacked)
-		t.Log(unpacked...)
-		// baseOffset := crypto.Keccak256Hash(append(key, validatorsSlot...))
-	})
-
-}
-
-func TestStructLocation(t *testing.T) {
-	contractAbi := &generated.AutonityTestAbi
-	deployer := common.Address{}
-	committeeSize := 10
-	validatorCount := 10
-	validators, _, err := randomValidators(validatorCount, 0)
-	require.NoError(t, err)
-	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	require.NoError(t, err)
-
-	t.Run("testStructLocation", func(t *testing.T) {
-		var header *types.Header
-		argsPacked, err := contractAbi.Pack("testStructLocation", big.NewInt(1), big.NewInt(2), big.NewInt(3), big.NewInt(4), big.NewInt(5))
-		require.NoError(t, err)
-		res, _, err := evmContract.CallContractFunc(stateDB, header, contractAddress, argsPacked)
-		t.Log("error:")
-		t.Log(err)
-		t.Log("res")
-		t.Log(res)
-		t.Log(string(res))
-		unpacked, err := contractAbi.Unpack("testStructLocation", res)
-		require.NoError(t, err)
-		// t.Log(unpacked)
-		t.Log(unpacked...)
-		require.NoError(t, err)
-
-		// get item
-		argsPacked, err = contractAbi.Pack("getItem")
-		require.NoError(t, err)
-		res, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, argsPacked)
-		t.Log("error:")
-		t.Log(err)
-		t.Log("res")
-		t.Log(res)
-		t.Log(string(res))
-		unpacked, err = contractAbi.Unpack("getItem", res)
-		require.NoError(t, err)
-		// t.Log(unpacked)
-		t.Log(unpacked...)
-		require.NoError(t, err)
-		// var key common.Address
-		// var mapLocation *big.Int
-		// var location *big.Int
-		// var calculatedLocation *big.Int
-
-		// baseOffset := crypto.Keccak256Hash(append(key, validatorsSlot...))
 	})
 }
 
@@ -1117,7 +608,7 @@ func isOutputSorted(output []byte, validators []params.Validator) error {
 	return nil
 }
 
-func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, totalStake *big.Int) error {
+func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, totalStake *big.Int, checkIfSorted bool) error {
 	if len(voters) > len(validators) {
 		return fmt.Errorf("More voters than validators")
 	}
@@ -1132,24 +623,43 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		positions[validator.OracleAddress] = i
 	}
 	lastStake := big.NewInt(0)
+	minStake := big.NewInt(0)
 	totalStakeCalculated := big.NewInt(0)
 	for i, voter := range voters {
 		idx, ok := positions[voter]
 		if !ok {
 			return fmt.Errorf("voter not found")
 		}
-		if i > 0 && lastStake.Cmp(validators[idx].BondedStake) < 0 {
+		if checkIfSorted && i > 0 && lastStake.Cmp(validators[idx].BondedStake) < 0 {
 			return fmt.Errorf("not sorted")
 		}
 		lastStake = validators[idx].BondedStake
+		if i == 0 {
+			minStake = lastStake
+		} else if minStake.Cmp(lastStake) == 1 {
+			minStake = lastStake
+		}
 		totalStakeCalculated = totalStakeCalculated.Add(totalStakeCalculated, lastStake)
 
 		if !bytes.Equal(committeeMembers[i].Address.Bytes(), validators[idx].NodeAddress.Bytes()) {
 			return fmt.Errorf("Committee member mismatch")
 		}
+		delete(positions, voter)
 	}
 	if totalStakeCalculated.Cmp(totalStake) != 0 {
 		return fmt.Errorf("epochTotalStake mismatch")
+	}
+	nonVoter := 0
+	for _, validator := range validators {
+		if _, ok := positions[validator.OracleAddress]; ok {
+			nonVoter++
+			if validator.BondedStake.Cmp(minStake) == 1 {
+				return fmt.Errorf("Non voter has more stake than voter")
+			}
+		}
+	}
+	if nonVoter+len(voters) != len(validators) {
+		return fmt.Errorf("not all are accounted")
 	}
 	return nil
 }
