@@ -25,146 +25,9 @@ import (
 	"github.com/autonity/autonity/params/generated"
 )
 
-func printArray(array []*types.CommitteeMember) {
-	for i := 0; i < len(array); i++ {
-		fmt.Printf("%v %v\n", array[i].Address, array[i].VotingPower)
-	}
-}
-
-// func TestSlices(t *testing.T) {
-// 	len := 2
-// 	someArray := make([]*types.CommitteeMember, len)
-// 	for i := 0; i < len; i++ {
-// 		someArray[i] = &types.CommitteeMember{
-// 			Address:     common.BytesToAddress([]byte{byte(i + 10)}),
-// 			VotingPower: big.NewInt(int64(i + 10)),
-// 		}
-// 	}
-// 	emptyArray := make([]*types.CommitteeMember, len)
-// 	for i := 0; i < len; i++ {
-// 		emptyArray[i] = &types.CommitteeMember{
-// 			Address:     common.BytesToAddress([]byte{byte(i + 20)}),
-// 			VotingPower: big.NewInt(int64(i + 20)),
-// 		}
-// 	}
-
-// 	fmt.Println("someArray")
-// 	printArray(someArray)
-// 	fmt.Println("emptyArray")
-// 	printArray(emptyArray)
-// 	emptyArray = append(emptyArray, someArray...)
-// 	fmt.Println("someArray")
-// 	printArray(someArray)
-// 	fmt.Println("emptyArray")
-// 	printArray(emptyArray)
-// 	emptyArray[len].VotingPower.Add(emptyArray[len].VotingPower, big.NewInt(1))
-// 	emptyArray[len].Address = common.BigToAddress(emptyArray[len].VotingPower)
-// 	fmt.Println("someArray")
-// 	printArray(someArray)
-// 	fmt.Println("emptyArray")
-// 	printArray(emptyArray)
-// 	someArray[0].VotingPower.Add(someArray[0].VotingPower, big.NewInt(1))
-// 	someArray[0].Address = common.BigToAddress(someArray[0].VotingPower)
-// 	fmt.Println("someArray")
-// 	printArray(someArray)
-// 	fmt.Println("emptyArray")
-// 	printArray(emptyArray)
-// }
-
-func TestAppend(t *testing.T) {
-	a := make([]int, 1, 20)
-	a[0] = 1
-	fmt.Printf("%v %v\n", len(a), cap(a))
-	fmt.Println(a)
-	lenB := 5
-	b := make([]int, lenB)
-	for i := 0; i < lenB; i++ {
-		b[i] = i
-	}
-	b = append(b, a...)
-	fmt.Printf("%v %v\n", len(b), cap(b))
-	fmt.Println(b)
-	b = append(b, a...)
-	fmt.Printf("%v %v\n", len(b), cap(b))
-	fmt.Println(b)
-	b = append(b, a...)
-	fmt.Printf("%v %v\n", len(b), cap(b))
-	fmt.Println(b)
-	b = append(b, a...)
-	fmt.Printf("%v %v\n", len(b), cap(b))
-	fmt.Println(b)
-	b = append(b, a...)
-	fmt.Printf("%v %v\n", len(b), cap(b))
-	fmt.Println(b)
-	b = append(b, a...)
-	fmt.Printf("%v %v\n", len(b), cap(b))
-	fmt.Println(b)
-}
-
-func TestBigInt(t *testing.T) {
-	var a big.Int
-	a = *big.NewInt(2)
-	b := a
-	fmt.Println(a)
-	fmt.Println(b)
-	b.Add(&a, big.NewInt(1))
-	fmt.Println(a)
-	fmt.Println(b)
-	a.Add(&b, big.NewInt(1))
-	fmt.Println(a)
-	fmt.Println(b)
-}
-
-func TestCopy(t *testing.T) {
-	len := 2
-	someArray := make([]*types.CommitteeMember, len)
-	for i := 0; i < len; i++ {
-		someArray[i] = &types.CommitteeMember{
-			Address:     common.BytesToAddress([]byte{byte(i + 10)}),
-			VotingPower: big.NewInt(int64(i + 10)),
-		}
-	}
-	emptyArray := make([]*types.CommitteeMember, 2*len)
-	for i := 0; i < 2*len; i++ {
-		emptyArray[i] = &types.CommitteeMember{
-			Address:     common.BytesToAddress([]byte{byte(i + 20)}),
-			VotingPower: big.NewInt(int64(i + 20)),
-		}
-	}
-	fmt.Println("someArray")
-	printArray(someArray)
-	fmt.Println("emptyArray")
-	printArray(emptyArray)
-	fmt.Println(&someArray[0])
-	fmt.Println(&emptyArray[0])
-	copy(emptyArray[len:], someArray)
-	fmt.Println("someArray")
-	printArray(someArray)
-	fmt.Println("emptyArray")
-	printArray(emptyArray)
-	fmt.Println(&someArray[0])
-	fmt.Println(&emptyArray[0])
-	someArray[0].VotingPower.Add(someArray[0].VotingPower, big.NewInt(1))
-	someArray[0].Address = common.BigToAddress(someArray[0].VotingPower)
-	fmt.Println("someArray")
-	printArray(someArray)
-	fmt.Println("emptyArray")
-	printArray(emptyArray)
-	fmt.Println(&someArray[0])
-	fmt.Println(&emptyArray[0])
-	emptyArray[len].VotingPower.Add(emptyArray[len].VotingPower, big.NewInt(1))
-	emptyArray[len].Address = common.BigToAddress(emptyArray[len].VotingPower)
-	fmt.Println("someArray")
-	printArray(someArray)
-	fmt.Println("emptyArray")
-	printArray(emptyArray)
-	fmt.Println(&someArray[0])
-	fmt.Println(&emptyArray[0])
-}
-
 func BenchmarkComputeCommittee(b *testing.B) {
 
-	validatorCount := 10000
+	validatorCount := 100000
 	validators, _, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
 	contractAbi := &generated.AutonityTestAbi
@@ -525,8 +388,8 @@ func createTestVM(state vm.StateDB) *vm.EVM {
 	return evm
 }
 
-func testEVMProvider() func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
-	return func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
+func testEVMProvider() func(header *types.Header, origin common.Address, stateDB *state.StateDB) *vm.EVM {
+	return func(header *types.Header, origin common.Address, stateDB *state.StateDB) *vm.EVM {
 		vmBlockContext := vm.BlockContext{
 			Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
 			CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
@@ -536,7 +399,7 @@ func testEVMProvider() func(header *types.Header, origin common.Address, statedb
 			Origin:   common.Address{},
 			GasPrice: common.Big0,
 		}
-		evm := vm.NewEVM(vmBlockContext, txContext, statedb, params.TestChainConfig, vm.Config{})
+		evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
 		return evm
 	}
 }
@@ -555,57 +418,6 @@ func benchmarkWithGas(
 		gasUsed += gas - gasLeft
 	}
 	b.Log(1.0 * gasUsed / uint64(b.N))
-}
-
-func inputToSort(validators []params.Validator) ([]byte, error) {
-	validatorCount := len(validators)
-	input := make([]byte, validatorCount*64)
-	for i := 0; i < validatorCount; i++ {
-		copied := copy(input[i*64+12:i*64+32], validators[i].NodeAddress.Bytes())
-		if copied != 20 {
-			return input, fmt.Errorf("Could not copy address")
-		}
-		stake := validators[i].BondedStake.Bytes()
-		if len(stake) > 32 {
-			return input, fmt.Errorf("stake(big.int) size greater than 32")
-		}
-		copied = copy(input[i*64+64-len(stake):i*64+64], stake)
-		if len(stake) != copied {
-			return input, fmt.Errorf("Could not copy stake(big.int)")
-		}
-	}
-	return input, nil
-}
-
-func isOutputSorted(output []byte, validators []params.Validator) error {
-	if output[31] != 1 {
-		return fmt.Errorf("unsuccessful call")
-	}
-	// only addresses in the output
-	if len(validators)+1 != len(output)/32 {
-		return fmt.Errorf("length mismatch")
-	}
-	position := make(map[common.Address]int)
-	for i, validator := range validators {
-		if _, ok := position[*validator.NodeAddress]; ok {
-			return fmt.Errorf("duplicate validator")
-		}
-		position[*validator.NodeAddress] = i
-	}
-	lastStake := big.NewInt(0)
-	for i := 32; i < len(output); i += 32 {
-		address := common.BytesToAddress(output[i : i+32])
-		idx, ok := position[address]
-		if !ok {
-			return fmt.Errorf("validator not found")
-		}
-		stake := validators[idx].BondedStake
-		if i > 32 && lastStake.Cmp(stake) < 0 {
-			return fmt.Errorf("not sorted")
-		}
-		lastStake = stake
-	}
-	return nil
 }
 
 func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, totalStake *big.Int, checkIfSorted bool) error {

@@ -23,13 +23,13 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
-    struct Validator { // 0
-        address payable treasury; //
+    struct Validator {
+        address payable treasury;
         address nodeAddress;
         address oracleAddress;
         string enode; //addr must match provided enode
         uint256 commissionRate;
-        uint256 bondedStake; // base + 5 ( validator.bondedStake - validator.treasury = 5)
+        uint256 bondedStake;
         uint256 unbondingStake;
         uint256 unbondingShares; // not effective - used for accounting purposes
         uint256 selfBondedStake;
@@ -123,10 +123,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     address[] internal validatorList;
 
     // Stake token state transitions happen every epoch.
-    uint256 public epochID; // This occupy storage slot P1
-    mapping(uint256 => uint256) internal blockEpochMap; // This occupy storage slot P2
-    uint256 public lastEpochBlock; // This occupy storage slot P3
-    uint256 public epochTotalBondedStake; //  P4 - opcode SLOAD(storageOffset = P4)
+    uint256 public epochID;
+    mapping(uint256 => uint256) internal blockEpochMap;
+    uint256 public lastEpochBlock;
+    uint256 public epochTotalBondedStake;
 
     CommitteeMember[] internal committee;
     uint256 public totalRedistributed;
@@ -1174,7 +1174,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     /**
      * @dev Sends necessary slots to precompiled contract.
-     * Committee selection and storing the committee in persistent storage is done in precompiled contract
+     * Committee selection and storing the committee and writing it in persistent storage are done in precompiled contract
      */
     function computeCommitteePrecompiled(uint256 _committeeSize) internal returns (address[] memory) {
         require(_committeeSize <= 100, "hardcoded array size 102");
