@@ -2,7 +2,7 @@
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
 
-contract LiquidLogic {
+contract LiquidLogic is IERC20 {
 
     // TODO: Better solution to address the fractional terms in fee
     // computations?
@@ -239,6 +239,32 @@ contract LiquidLogic {
         // when transferring, this value will just be increased
         // again by the same amount.
         supply -= _value;
+    }
+
+    /**
+* @dev See {IERC20-allowance}.
+    */
+    function allowance(address _owner, address _spender)
+    public view override returns (uint256)
+    {
+        return allowances[_owner][_spender];
+    }
+
+    /**
+* @notice Returns the amount of liquid newtons held by the account (ERC-20).
+    */
+    function balanceOf(address _delegator)
+    external view override returns (uint256)
+    {
+        return balances[_delegator];
+    }
+
+    /**
+* @notice Returns the total amount of stake token issued.
+    */
+    function totalSupply() public view override returns (uint256)
+    {
+        return supply;
     }
 
 
