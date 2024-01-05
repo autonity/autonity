@@ -292,12 +292,6 @@ function randomPrivateKey() {
   return bytesToHex(key).substring(2);
 }
 
-function privateKeyToEnode(privateKey) {
-  let key = publicKey(privateKey);
-  key = key.substring(key.length - 128);
-  return publicKeyToEnode(key);
-}
-
 function publicKeyToEnode(publicKey) {
   return "enode://" + publicKey + "@3.209.45.79:30303";
 }
@@ -311,11 +305,6 @@ function publicKey(privateKey, hex = true) {
   return (hex == true) ? publicKey.encode("hex") : new Uint8Array(publicKey.encode());
 }
 
-function publicKeyCompressed(privateKey, hex = true) {
-  let publicKey = publicKeyObject(privateKey);
-  return (hex == true) ? publicKey.encodeCompressed("hex") : new Uint8Array(publicKey.encodeCompressed());
-}
-
 function address(publicKeyUncompressedBytes) {
   return ethers.utils.getAddress("0x" + keccakHash(publicKeyUncompressedBytes.subarray(1)).substring(24));
 }
@@ -327,13 +316,6 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
   return multisig
 }
 
-// enode, oracleAddress, consensusKey, signatures
-// enode generate from node private key or, from a config.
-// oracleAddress generate from private key or, from a config.
-
-// consensusKey, get it from the CLI output.
-// signatures, get it from the CLI output.
-// CLI output, requires: NodeKeyfile, oracle private key, and treasury account.
 async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
   const command = `../../../build/bin/autonity genOwnershipProof --nodekey ${nodeKeyFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
   try {
@@ -350,9 +332,6 @@ async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
   }
 }
 
-// NodeKeyfile generate from genNodeKey CLI command:
-// generateNodeKey generate an Autonity Node key, and save the node key and the consensus key in the specified key file,
-// it returns the corresponding node's address, node's public key and the consensus public key.
 async function generateNodeKey(filePath) {
   try {
     const command = `../../../build/bin/autonity genNodeKey --writeaddress ${filePath}`;
