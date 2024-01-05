@@ -594,6 +594,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 	if currentBlock.Header().CommitteeMember(s.address) != nil {
 		s.miner.Start()
 		s.log.Info("Starting node as validator")
+		updateConsensusEnodes(currentBlock)
 		wasValidating = true
 	}
 
@@ -619,6 +620,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
 				s.miner.Start()
 			}
+			updateConsensusEnodes(ev.Block)
 			wasValidating = true
 		// Err() channel will be closed when unsubscribing.
 		case <-chainHeadSub.Err():

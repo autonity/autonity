@@ -66,12 +66,11 @@ type ConsensusInfo struct {
 
 // protoHandshake is the RLP structure of the protocol handshake.
 type protoHandshake struct {
-	Version       uint64
-	Name          string
-	Caps          []Cap
-	ListenPort    uint64
-	ID            []byte // secp256k1 public key
-	ConsensusInfo ConsensusInfo
+	Version    uint64
+	Name       string
+	Caps       []Cap
+	ListenPort uint64
+	ID         []byte // secp256k1 public key
 
 	// Ignore additional fields (for forward compatibility).
 	Rest []rlp.RawValue `rlp:"tail"`
@@ -441,7 +440,6 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 // the given message code.
 func (p *Peer) getProto(code uint64) (*protoRW, error) {
 	for _, proto := range p.running {
-		//TODO: verify this for consensus messages
 		if code >= proto.offset && code < proto.offset+proto.Length {
 			return proto, nil
 		}
