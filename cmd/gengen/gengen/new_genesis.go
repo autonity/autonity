@@ -3,11 +3,12 @@ package gengen
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"math/big"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
@@ -173,11 +174,6 @@ func ParseUint(str string) (*big.Int, error) {
 	return result, nil
 }
 
-func appendConsensusEndpoint(u *Validator, ens string) string {
-	ens += "?atcep=" + u.AtcIP.String() + ":" + strconv.Itoa(u.AtcPort)
-	return ens
-}
-
 // Generates a slice of params.User along with a corresponding
 // core.GenesisAlloc. Also returns the address of the first user in users as
 // the operatorAddress.
@@ -200,7 +196,7 @@ func generateValidatorState(validators []*Validator) (
 			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
 		}
 		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
-		ens := appendConsensusEndpoint(u, e.String())
+		ens := enode.AppendConsensusEndpoint(u.AtcIP.String(), strconv.Itoa(u.AtcPort), e.String())
 		if u.TreasuryKey == nil {
 			u.TreasuryKey, _ = crypto.GenerateKey()
 		}

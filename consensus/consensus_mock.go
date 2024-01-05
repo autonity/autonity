@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 //
+
 // Package consensus is a generated GoMock package.
 package consensus
 
@@ -554,6 +555,18 @@ func (mr *MockHandlerMockRecorder) SetBroadcaster(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockHandler)(nil).SetBroadcaster), arg0)
 }
 
+// SetEnqueuer mocks base method.
+func (m *MockHandler) SetEnqueuer(arg0 Enqueuer) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetEnqueuer", arg0)
+}
+
+// SetEnqueuer indicates an expected call of SetEnqueuer.
+func (mr *MockHandlerMockRecorder) SetEnqueuer(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEnqueuer", reflect.TypeOf((*MockHandler)(nil).SetEnqueuer), arg0)
+}
+
 // MockPoW is a mock of PoW interface.
 type MockPoW struct {
 	ctrl     *gomock.Controller
@@ -1021,6 +1034,41 @@ func (mr *MockSyncerMockRecorder) SyncPeer(address any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockSyncer)(nil).SyncPeer), address)
 }
 
+// MockEnqueuer is a mock of Enqueuer interface.
+type MockEnqueuer struct {
+	ctrl     *gomock.Controller
+	recorder *MockEnqueuerMockRecorder
+}
+
+// MockEnqueuerMockRecorder is the mock recorder for MockEnqueuer.
+type MockEnqueuerMockRecorder struct {
+	mock *MockEnqueuer
+}
+
+// NewMockEnqueuer creates a new mock instance.
+func NewMockEnqueuer(ctrl *gomock.Controller) *MockEnqueuer {
+	mock := &MockEnqueuer{ctrl: ctrl}
+	mock.recorder = &MockEnqueuerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockEnqueuer) EXPECT() *MockEnqueuerMockRecorder {
+	return m.recorder
+}
+
+// Enqueue mocks base method.
+func (m *MockEnqueuer) Enqueue(id string, block *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Enqueue", id, block)
+}
+
+// Enqueue indicates an expected call of Enqueue.
+func (mr *MockEnqueuerMockRecorder) Enqueue(id, block any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockEnqueuer)(nil).Enqueue), id, block)
+}
+
 // MockBroadcaster is a mock of Broadcaster interface.
 type MockBroadcaster struct {
 	ctrl     *gomock.Controller
@@ -1042,32 +1090,6 @@ func NewMockBroadcaster(ctrl *gomock.Controller) *MockBroadcaster {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBroadcaster) EXPECT() *MockBroadcasterMockRecorder {
 	return m.recorder
-}
-
-// Enqueue mocks base method.
-func (m *MockBroadcaster) Enqueue(id string, block *types.Block) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Enqueue", id, block)
-}
-
-// Enqueue indicates an expected call of Enqueue.
-func (mr *MockBroadcasterMockRecorder) Enqueue(id, block any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockBroadcaster)(nil).Enqueue), id, block)
-}
-
-// FindConsensusPeers mocks base method.
-func (m *MockBroadcaster) FindConsensusPeers(arg0 map[common.Address]struct{}) map[common.Address]ethereum.Peer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindConsensusPeers", arg0)
-	ret0, _ := ret[0].(map[common.Address]ethereum.Peer)
-	return ret0
-}
-
-// FindConsensusPeers indicates an expected call of FindConsensusPeers.
-func (mr *MockBroadcasterMockRecorder) FindConsensusPeers(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindConsensusPeers", reflect.TypeOf((*MockBroadcaster)(nil).FindConsensusPeers), arg0)
 }
 
 // FindPeers mocks base method.

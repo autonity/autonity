@@ -2,11 +2,13 @@ package atc
 
 import (
 	"context"
+
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 )
 
 func (atc *ATC) watchCommittee(ctx context.Context) {
+	atc.wg.Add(1)
 
 	chainHeadCh := make(chan core.ChainHeadEvent)
 	chainHeadSub := atc.chain.SubscribeChainHeadEvent(chainHeadCh)
@@ -17,7 +19,7 @@ func (atc *ATC) watchCommittee(ctx context.Context) {
 			atc.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := atc.chain.ProtocolContracts().CommitteeEnodes(block, state)
+		enodesList, err := atc.chain.ProtocolContracts().CommitteeEnodes(block, state, true)
 		if err != nil {
 			atc.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -34,6 +36,8 @@ func (atc *ATC) watchCommittee(ctx context.Context) {
 	}
 
 	go func() {
+		defer atc.wg.Done()
+		defer chainHeadSub.Unsubscribe()
 		for {
 			select {
 			case ev := <-chainHeadCh:
@@ -50,10 +54,6 @@ func (atc *ATC) watchCommittee(ctx context.Context) {
 					continue
 				}
 				updateConsensusEnodes(ev.Block)
-				// if we were not committee in the past block we need to enable the mining engine.
-				if !wasValidating {
-					atc.log.Info("Local node detected part of the consensus committee, mining started")
-				}
 				wasValidating = true
 			// Err() channel will be closed when unsubscribing.
 			case <-chainHeadSub.Err():

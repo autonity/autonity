@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -23,8 +26,6 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 )
 
 const defaultStake = 100
@@ -73,7 +74,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	return genesis
 }
 
-func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, listenAddr string, atcListenerAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
@@ -90,6 +91,12 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 			ListenAddr:  listenAddr,
 			NoDiscovery: true,
 			MaxPeers:    25,
+			PrivateKey:  nodekey,
+		},
+		ConsensusP2P: p2p.Config{
+			ListenAddr:  atcListenerAddr,
+			NoDiscovery: true,
+			MaxPeers:    10000,
 			PrivateKey:  nodekey,
 		},
 	}

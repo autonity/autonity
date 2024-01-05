@@ -184,8 +184,6 @@ type Enqueuer interface {
 
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer
 type Broadcaster interface {
-	// Enqueue adds a block into fetcher queue
-	//Enqueue(id string, block *types.Block)
 	// FindPeers retrieves connected peers by addresses
 	FindPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
 }
