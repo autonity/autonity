@@ -41,18 +41,18 @@ import (
 	"github.com/autonity/autonity/p2p/netutil"
 )
 
-type ServerTyp int32
+type Network int32
 
 const (
-	EthTx = iota + 1
+	Execution = iota + 1
 	Consensus
 )
 
-func (ser ServerTyp) String() string {
+func (ser Network) String() string {
 	switch ser {
 	case Consensus:
 		return "Consensus"
-	case EthTx:
+	case Execution:
 		return "ethereum"
 	}
 	return "Invalid"
@@ -189,7 +189,7 @@ type Server struct {
 	// Config fields may not be modified while the server is running.
 	Config
 
-	Typ ServerTyp
+	Net Network
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
 	newTransport func(net.Conn, *ecdsa.PublicKey) transport
@@ -420,7 +420,7 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 			}
 		}
 		if !found {
-			log.Debug("Dropping node from static peers", "enode", connectedPeer.String(), "server", srv.Typ.String())
+			log.Debug("Dropping node from static peers", "enode", connectedPeer.String(), "server", srv.Net.String())
 			srv.RemoveTrustedPeer(connectedPeer)
 			srv.dialsched.removeStatic(connectedPeer)
 		}
@@ -637,7 +637,7 @@ func (srv *Server) setupDiscovery() error {
 	}
 
 	// Don't listen on UDP endpoint if DHT is disabled
-	if (srv.NoDiscovery && !srv.DiscoveryV5) || srv.Typ == Consensus {
+	if (srv.NoDiscovery && !srv.DiscoveryV5) || srv.Net == Consensus {
 		return nil
 	}
 
@@ -650,7 +650,7 @@ func (srv *Server) setupDiscovery() error {
 		return err
 	}
 	realaddr := conn.LocalAddr().(*net.UDPAddr)
-	srv.log.Debug("UDP listener up", "addr", realaddr, "type", srv.Typ.String())
+	srv.log.Debug("UDP listener up", "addr", realaddr, "type", srv.Net.String())
 	if srv.NAT != nil {
 		if !realaddr.IP.IsLoopback() {
 			srv.loopWG.Add(1)
@@ -763,7 +763,7 @@ func (srv *Server) setupListening() error {
 		if !tcp.IP.IsLoopback() && srv.NAT != nil {
 			srv.loopWG.Add(1)
 			go func() {
-				nat.Map(srv.NAT, srv.quit, "tcp", tcp.Port, tcp.Port, srv.Typ.String()+" p2p")
+				nat.Map(srv.NAT, srv.quit, "tcp", tcp.Port, tcp.Port, srv.Net.String()+" p2p")
 				srv.loopWG.Done()
 			}()
 		}
@@ -785,7 +785,7 @@ func (srv *Server) doPeerOp(fn peerOpFunc) {
 
 // run is the main loop of the server.
 func (srv *Server) run() {
-	srv.log.Info("Started P2P networking", "self", srv.localnode.Node().URLv4(), "server", srv.Typ.String())
+	srv.log.Info("Started P2P networking", "self", srv.localnode.Node().URLv4(), "server", srv.Net.String())
 	defer srv.loopWG.Done()
 	defer srv.nodedb.Close()
 	defer srv.discmix.Close()
@@ -811,7 +811,7 @@ running:
 		case n := <-srv.addtrusted:
 			// This channel is used by AddTrustedPeer to add a node
 			// to the trusted node set.
-			srv.log.Trace("Adding trusted node", "node", n, "server", srv.Typ.String())
+			srv.log.Trace("Adding trusted node", "node", n, "server", srv.Net.String())
 			srv.trusted.Store(n.ID(), n)
 			if p, ok := peers[n.ID()]; ok {
 				p.rw.set(trustedConn, true)
@@ -820,7 +820,7 @@ running:
 		case n := <-srv.removetrusted:
 			// This channel is used by RemoveTrustedPeer to remove a node
 			// from the trusted node set.
-			srv.log.Trace("Removing trusted node", "node", n, "server", srv.Typ.String())
+			srv.log.Trace("Removing trusted node", "node", n, "server", srv.Net.String())
 			srv.trusted.Delete(n.ID())
 			if p, ok := peers[n.ID()]; ok {
 				p.rw.set(trustedConn, false)
@@ -849,7 +849,7 @@ running:
 				// The handshakes are done and it passed all checks.
 				p := srv.launchPeer(c)
 				peers[c.node.ID()] = p
-				srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", c.flags, "addr", p.RemoteAddr(), "name", p.Name(), "server", srv.Typ.String())
+				srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", c.flags, "addr", p.RemoteAddr(), "name", p.Name(), "server", srv.Net.String())
 				srv.dialsched.peerAdded(c)
 				if p.Inbound() {
 					inboundCount++
@@ -861,7 +861,7 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
-			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err, "server", srv.Typ.String())
+			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err, "server", srv.Net.String())
 			srv.dialsched.peerRemoved(pd.rw)
 			if pd.Inbound() {
 				inboundCount--
@@ -869,7 +869,7 @@ running:
 		}
 	}
 
-	srv.log.Trace("P2P networking is spinning down for ", "server", srv.Typ.String())
+	srv.log.Trace("P2P networking is spinning down for ", "server", srv.Net.String())
 
 	// Terminate discovery. If there is a running lookup it will terminate soon.
 	if srv.ntab != nil {
@@ -905,7 +905,7 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscSelf
 	case srv.jailed.contains(c.node.ID().String()):
 		return DiscJailed
-	case srv.Typ == Consensus && !srv.InCommittee(c.node.ID().String()):
+	case srv.Net == Consensus && !srv.InCommittee(c.node.ID().String()):
 		return DiscPeerNotInCommittee
 	default:
 		return nil
@@ -925,7 +925,7 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
 func (srv *Server) listenLoop() {
-	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr(), "type", srv.Typ.String())
+	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr(), "type", srv.Net.String())
 
 	// The slots channel limits accepts of new connections.
 	tokens := defaultMaxPendingPeers
@@ -959,13 +959,13 @@ func (srv *Server) listenLoop() {
 			fd, err = srv.listener.Accept()
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
-					srv.log.Debug("Temporary read error", "err", err, "server", srv.Typ.String())
+					srv.log.Debug("Temporary read error", "err", err, "server", srv.Net.String())
 					lastLog = time.Now()
 				}
 				time.Sleep(time.Millisecond * 200)
 				continue
 			} else if err != nil {
-				srv.log.Debug("Read error", "err", err, "server", srv.Typ.String())
+				srv.log.Debug("Read error", "err", err, "server", srv.Net.String())
 				slots <- struct{}{}
 				return
 			}
@@ -974,7 +974,7 @@ func (srv *Server) listenLoop() {
 
 		remoteIP := netutil.AddrIP(fd.RemoteAddr())
 		if err := srv.checkInboundConn(remoteIP); err != nil {
-			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err, "server", srv.Typ.String())
+			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err, "server", srv.Net.String())
 			fd.Close()
 			slots <- struct{}{}
 			continue
@@ -985,7 +985,7 @@ func (srv *Server) listenLoop() {
 				addr = tcp
 			}
 			fd = newMeteredConn(fd, true, addr)
-			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr(), "server", srv.Typ.String())
+			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr(), "server", srv.Net.String())
 		}
 		go func() {
 			srv.SetupConn(fd, inboundConn, nil)
@@ -1061,7 +1061,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		dialPubkey := new(ecdsa.PublicKey)
 		if err := dialDest.Load((*enode.Secp256k1)(dialPubkey)); err != nil {
 			err = errors.New("dial destination doesn't have a secp256k1 public key")
-			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err, "server", srv.Typ.String())
+			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err, "server", srv.Net.String())
 			return err
 		}
 	}
@@ -1069,7 +1069,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	// Run the RLPx handshake.
 	remotePubkey, err := c.doEncHandshake(srv.PrivateKey)
 	if err != nil {
-		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "server", srv.Typ.String(), "err", err)
+		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "server", srv.Net.String(), "err", err)
 		return err
 	}
 	if dialDest != nil {
@@ -1080,25 +1080,25 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", c.flags)
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {
-		clog.Trace("Rejected peer", "err", err, "server", srv.Typ.String())
+		clog.Trace("Rejected peer", "err", err, "server", srv.Net.String())
 		return err
 	}
 
 	// Run the capability negotiation handshake.
 	phs, err := c.doProtoHandshake(srv.ourHandshake)
 	if err != nil {
-		clog.Trace("Failed p2p handshake", "err", err, "server", srv.Typ.String())
+		clog.Trace("Failed p2p handshake", "err", err, "server", srv.Net.String())
 		return err
 	}
 	if id := c.node.ID(); !bytes.Equal(crypto.Keccak256(phs.ID), id[:]) {
-		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID), "server", srv.Typ.String())
+		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID), "server", srv.Net.String())
 		return DiscUnexpectedIdentity
 	}
 	c.caps, c.name = phs.Caps, phs.Name
 	// This actually runs the conn and returns when the conn shuts down
 	err = srv.checkpoint(c, srv.checkpointAddPeer)
 	if err != nil {
-		clog.Trace("Rejected peer", "err", err, "server", srv.Typ.String())
+		clog.Trace("Rejected peer", "err", err, "server", srv.Net.String())
 		return err
 	}
 

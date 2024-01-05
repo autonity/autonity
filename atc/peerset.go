@@ -18,9 +18,10 @@ package atc
 
 import (
 	"errors"
+	"sync"
+
 	autonity "github.com/autonity/autonity"
 	"github.com/autonity/autonity/atc/protocol"
-	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
@@ -40,8 +41,7 @@ var (
 	errPeerNotRegistered = errors.New("peer not registered")
 )
 
-// ConsensusPeerSet represents the collection of active peers currently participating in
-// the `eth` protocol, with or without the `snap` extension.
+// PeerSet represents the collection of active peers currently participating in consensus
 type peerSet struct {
 	peers  map[string]*protocol.Peer // Peers connected on the `eth` protocol
 	lock   sync.RWMutex
@@ -55,7 +55,7 @@ func newPeerSet() *peerSet {
 	}
 }
 
-// registerPeer injects a new `eth` peer into the working set, or returns an error
+// registerPeer injects a new `consensus` peer into the working set, or returns an error
 // if the peer is already known.
 func (ps *peerSet) registerPeer(peer *protocol.Peer) error {
 	// Start tracking the new peer
@@ -87,13 +87,7 @@ func (ps *peerSet) unregisterPeer(id string) error {
 	return nil
 }
 
-// peer retrieves the registered peer with the given id.
-func (ps *peerSet) peer(id string) *protocol.Peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-
-	return ps.peers[id]
-}
+// find retrieves the map of registered peer with the given map of ids.
 func (ps *peerSet) find(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
@@ -105,16 +99,6 @@ func (ps *peerSet) find(targets map[common.Address]struct{}) map[common.Address]
 		}
 	}
 	return m
-}
-
-// len returns if the current number of `eth` peers in the set. Since the `snap`
-// peers are tied to the existence of an `eth` connection, that will always be a
-// subset of `eth`.
-func (ps *peerSet) len() int {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-
-	return len(ps.peers)
 }
 
 // close disconnects all peers.

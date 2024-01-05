@@ -1,9 +1,10 @@
 package protocol
 
 import (
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"sync"
+
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"

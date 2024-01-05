@@ -147,6 +147,11 @@ func (sb *Backend) Gossip(committee types.Committee, msg message.Msg) {
 	sb.gossiper.Gossip(committee, msg)
 }
 
+// Gossip implements tendermint.Backend.Gossip
+func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
+	sb.gossiper.UpdateStopChannel(stopCh)
+}
+
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
 	m := make([]common.Hash, 0, sb.knownMessages.Len())
@@ -355,7 +360,7 @@ func (sb *Backend) CommitteeEnodes() []string {
 		sb.logger.Error("Failed to get state", "err", err)
 		return nil
 	}
-	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db, false)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil

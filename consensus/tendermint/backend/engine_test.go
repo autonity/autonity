@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"go.uber.org/mock/gomock"
 )
 
 func TestPrepare(t *testing.T) {
@@ -509,9 +510,12 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
 			core:        tendermintC,
+			gossiper:    g,
 			coreStarted: false,
 			blockchain:  chain,
 		}
@@ -539,8 +543,12 @@ func TestStart(t *testing.T) {
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		chain, _ := newBlockChain(1)
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
+
 		b := &Backend{
 			core:        tendermintC,
+			gossiper:    g,
 			coreStarted: false,
 			blockchain:  chain,
 		}
@@ -561,9 +569,12 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
 			core:        tendermintC,
+			gossiper:    g,
 			coreStarted: false,
 			blockchain:  chain,
 		}
@@ -613,8 +624,12 @@ func TestMultipleRestart(t *testing.T) {
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 	chain, _ := newBlockChain(1)
+	g := interfaces.NewMockGossiper(ctrl)
+	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
+
 	b := &Backend{
 		core:        tendermintC,
+		gossiper:    g,
 		coreStarted: false,
 		blockchain:  chain,
 	}

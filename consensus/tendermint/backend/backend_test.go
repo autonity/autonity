@@ -354,7 +354,8 @@ func TestCommit(t *testing.T) {
 		seals := [][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)}
 
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
-		broadcaster.EXPECT().Enqueue(fetcherID, gomock.Any())
+		enqueuer := consensus.NewMockEnqueuer(ctrl)
+		enqueuer.EXPECT().Enqueue(fetcherID, gomock.Any())
 
 		gossiper := interfaces.NewMockGossiper(ctrl)
 		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
@@ -364,6 +365,7 @@ func TestCommit(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 		}
 		b.SetBroadcaster(broadcaster)
+		b.SetEnqueuer(enqueuer)
 
 		err := b.Commit(newBlock, 0, seals)
 		if err != nil {
