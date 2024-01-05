@@ -344,12 +344,6 @@ func (c *Core) setInitialState(r int64) {
 			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
 			c.committee.SetCommittee(lastBlockMined.Header().Committee)
 		}
-		/*
-			// TODO(lorenzo) deal better with stop start failure
-			if c.EpochHead() == nil {
-				epochHeader := c.backend.BlockChain().GetHeaderByNumber(lastBlockMined.LastEpochBlock().Uint64())
-				c.setEpochHead(epochHeader)
-			}*/
 
 		c.lockedRound = -1
 		c.lockedValue = nil
