@@ -154,10 +154,12 @@ func runTest(t *testing.T, test *testCase) {
 		peer := peer
 		peer.listener[0].Close()
 		peer.listener[1].Close()
+		peer.listener[2].Close()
 
 		rates := test.networkRates[i]
 		peer.nodeConfig, peer.ethConfig = makeNodeConfig(t, genesis, peer.nodeKey, peer.consensusKey,
 			fmt.Sprintf("127.0.0.1:%d", peer.port),
+			fmt.Sprintf("127.0.0.1:%d", peer.atcPort),
 			peer.rpcPort, rates.in, rates.out)
 
 		wg.Go(func() error {
@@ -299,12 +301,14 @@ func (t *Topology) ConnectNodes(nodes map[string]*testNode) error {
 				continue
 			}
 			nodes[nodeKey].node.Server().AddPeer(nodes[k].node.Server().Self())
+			nodes[nodeKey].node.ConsensusServer().AddPeer(nodes[k].node.ConsensusServer().Self())
 		}
 		for k := range m {
 			if _, ok := connectionsList[k]; ok {
 				continue
 			}
 			nodes[nodeKey].node.Server().RemovePeer(nodes[k].node.Server().Self())
+			nodes[nodeKey].node.ConsensusServer().RemovePeer(nodes[k].node.ConsensusServer().Self())
 		}
 	}
 
@@ -494,6 +498,8 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 		fmt.Println("node", index, "removes to", k)
 		nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
 		nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
+		nodes[index].node.ConsensusServer().RemovePeer(nodes[k].node.ConsensusServer().Self())
+		nodes[index].node.ConsensusServer().RemoveTrustedPeer(nodes[k].node.ConsensusServer().Self())
 	}
 
 	for k := range graphConnections {
@@ -503,6 +509,8 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 		fmt.Println("node", index, "connects to", k)
 		nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
 		nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
+		nodes[index].node.ConsensusServer().AddPeer(nodes[k].node.ConsensusServer().Self())
+		nodes[index].node.ConsensusServer().AddTrustedPeer(nodes[k].node.ConsensusServer().Self())
 	}
 
 	return nil
@@ -550,8 +558,15 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 		address: crypto.PubkeyToAddress(privateKey.PublicKey),
 	}
 
-	//port
+	// atc listener
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return netNode{}, err
+	}
+	n.listener = append(n.listener, listener)
+
+	// eth listener
+	listener, err = net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return netNode{}, err
 	}
@@ -564,11 +579,15 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	}
 	n.listener = append(n.listener, listener)
 
-	port := strings.Split(n.listener[0].Addr().String(), ":")[1]
+	atcPort := strings.Split(n.listener[0].Addr().String(), ":")[1]
+	n.atchost = fmt.Sprintf("%s:%s", addr, atcPort)
+	n.atcPort, _ = strconv.Atoi(atcPort)
+
+	port := strings.Split(n.listener[1].Addr().String(), ":")[1]
 	n.host = fmt.Sprintf("%s:%s", addr, port)
 	n.port, _ = strconv.Atoi(port)
 
-	rpcListener := n.listener[1]
+	rpcListener := n.listener[2]
 	rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
 	if innerErr != nil {
 		return netNode{}, fmt.Errorf("incorrect rpc port %w", innerErr)
@@ -576,7 +595,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 
 	n.rpcPort = rpcPort
 
-	if n.port == 0 || n.rpcPort == 0 {
+	if n.port == 0 || n.rpcPort == 0 || n.atcPort == 0 {
 		return netNode{}, fmt.Errorf("on node %s port equals 0", addr)
 	}
 
@@ -586,6 +605,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 		n.port,
 		n.port,
 	)
+	n.url = enode.AppendConsensusEndpoint(addr, strconv.Itoa(n.atcPort), n.url)
 
 	return n, nil
 }

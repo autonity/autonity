@@ -6,6 +6,9 @@ import (
 	"net"
 	"sync"
 
+	"github.com/autonity/autonity/crypto/blst"
+
+	"github.com/autonity/autonity/atc"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
@@ -31,6 +34,7 @@ type testNode struct {
 	ethConfig      *eth.Config
 	enode          *enode.Node
 	service        *eth.Ethereum
+	atcService     *atc.ATC
 	eventChan      chan core.ChainEvent
 	subscription   event.Subscription
 	transactions   map[common.Hash]struct{}
@@ -43,10 +47,12 @@ type testNode struct {
 
 type netNode struct {
 	listener []net.Listener
-	nodeKey  *ecdsa.PrivateKey // used to generate POP in genesis, and p2p messaging.
+	nodeKey  *ecdsa.PrivateKey
 	host     string
+	atchost  string
 	address  common.Address
 	port     int
+	atcPort  int
 	url      string
 	rpcPort  int
 }
@@ -72,6 +78,8 @@ func (validator *testNode) startNode(forceMining bool) error {
 	if err != nil {
 		return err
 	}
+
+	validator.atcService = atc.New(validator.node, validator.service, validator.ethConfig.NetworkID)
 
 	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cannot start a node %s", err)

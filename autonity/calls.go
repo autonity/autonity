@@ -379,13 +379,13 @@ func (c *EVMContract) CallContractFuncAs(statedb vm.StateDB, header *types.Heade
 	return packedResult, err
 }
 
-func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *types.Header) (*types.Nodes, error) {
+func (c *AutonityContract) callGetCommitteeEnodes(state *state.StateDB, header *types.Header, asATC bool) (*types.Nodes, error) {
 	var returnedEnodes []string
 	err := c.AutonityContractCall(state, header, "getCommitteeEnodes", &returnedEnodes)
 	if err != nil {
 		return nil, err
 	}
-	return types.NewNodes(returnedEnodes), nil
+	return types.NewNodes(returnedEnodes, asATC), nil
 }
 
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {

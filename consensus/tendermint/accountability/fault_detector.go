@@ -80,6 +80,7 @@ type FaultDetector struct {
 	transactOps *bind.TransactOpts
 
 	eventReporterCh chan *autonity.AccountabilityEvent
+	stopRetry       chan struct{}
 	// chain event subscriber for rule engine.
 	ruleEngineBlockCh  chan core.ChainEvent
 	ruleEngineBlockSub event.Subscription
@@ -139,6 +140,7 @@ func NewFaultDetector(
 		msgStore:              ms,
 		chainEventCh:          make(chan core.ChainEvent, 300),
 		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
+		stopRetry:             make(chan struct{}),
 		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
 		futureMessages:        make(map[uint64][]message.Msg),
 		futureMessageCount:    0,
@@ -399,6 +401,7 @@ func (fd *FaultDetector) Stop() {
 	fd.chainEventSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	fd.accountabilityEventSub.Unsubscribe()
+	close(fd.stopRetry)
 	close(fd.eventReporterCh)
 	fd.wg.Wait()
 }
