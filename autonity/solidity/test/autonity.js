@@ -2,7 +2,8 @@
 const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
-const liquidContract = artifacts.require("Liquid3")
+const liquidContract = artifacts.require("LiquidState")
+const liquidLogic = artifacts.require("LiquidLogic")
 const toBN = web3.utils.toBN;
 
 
@@ -186,6 +187,7 @@ contract('Autonity', function (accounts) {
       "acuContract" :zeroAddress,
       "supplyControlContract" :zeroAddress,
       "stabilizationContract" :zeroAddress,
+      // "liquidLogicAddress": zeroAddress,
     },
     "protocol": {
       "operatorAccount": operator,

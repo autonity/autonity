@@ -185,7 +185,7 @@ test-contracts-asm:
 # start an autonity network for contract tests
 start-autonity:
 	@echo "starting autonity test network"
-	@cd $(CONTRACTS_TEST_DIR)/autonity/ && nohup ./autonity-start.sh >/dev/null 2>&1 &
+	@cd $(CONTRACTS_TEST_DIR)/autonity/ && nohup ./autonity-start.sh  > ./start-autonity.log 2>&1 &
 	@# give some time for autonity to start
 	@sleep 10
 	@# check that autonity started correctly and is listening on the correct port

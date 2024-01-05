@@ -28,13 +28,12 @@ import (
 
 var (
 	DeployerAddress               = common.Address{}
-	LiquidLogicContractAddress    = crypto.CreateAddress(DeployerAddress, 0)
-	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 1)
-	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 2)
-	OracleContractAddress         = crypto.CreateAddress(DeployerAddress, 3)
-	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 4)
-	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
-	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 6)
+	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 0)
+	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 1)
+	OracleContractAddress         = crypto.CreateAddress(DeployerAddress, 2)
+	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 3)
+	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 4)
+	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
 	AutonityABIKey                = []byte("ABISPEC")
 )
 

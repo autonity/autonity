@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 
 import "./interfaces/IERC20.sol";
 import "./LiquidState.sol";
+import "./LiquidLogic.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
@@ -95,7 +96,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         IACU acuContract;
         ISupplyControl supplyControlContract;
         IStabilization stabilizationContract;
-        address liquidLogicAddress;
+//        address liquidLogicAddress;
     }
 
     struct Policy {
@@ -149,6 +150,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     it only because of testing purposes.
     */
     address public deployer;
+
+    /*
+        Address of current logic contract for Liquid Newton
+    */
+    LiquidLogic public liquidLogicAddress;
+
 
     /* Events */
     event MintedStake(address indexed addr, uint256 amount);
@@ -204,6 +211,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         Config memory _config
     ) internal {
         config = _config;
+
+        liquidLogicAddress = new LiquidLogic(address(this));
 
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
@@ -439,6 +448,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         config.contracts.acuContract.setOperator(_account);
         config.contracts.supplyControlContract.setOperator(_account);
         config.contracts.stabilizationContract.setOperator(_account);
+    }
+
+    /*
+    * @notice Set address of Liquid Newton Logic contract. Restricted to the Operator account.
+      @param _address address of the new contract
+    */
+    function setLiquidNewtonLogicContract(address _address) public onlyOperator {
+        liquidLogicAddress = LiquidLogic(_address);
     }
 
     /*
@@ -983,7 +1000,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         if (address(_validator.liquidContract) == address(0)) {
             string memory stringLength = Helpers.toString(validatorList.length);
             _validator.liquidContract = new LiquidState(
-                config.contracts.liquidLogicAddress,
+                address(liquidLogicAddress),
                 _validator.nodeAddress,
                 _validator.treasury,
                 _validator.commissionRate,
