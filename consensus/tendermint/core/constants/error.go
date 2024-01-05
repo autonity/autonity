@@ -8,6 +8,8 @@ var (
 	ErrNotFromProposer = errors.New("message does not come from proposer")
 	// ErrAlreadyProcessed is returned when a received proposal was already processed in a specific round.
 	ErrAlreadyProcessed = errors.New("proposal was already processed")
+	// ErrHeightClosed is returned when we receive a message for current height, but we already committed a proposal for it.
+	ErrHeightClosed = errors.New("consensus instance already concluded")
 	// ErrFutureHeightMessage is returned when curRoundMessages view is earlier than the
 	// view of the received message.
 	ErrFutureHeightMessage = errors.New("future height message")

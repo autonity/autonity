@@ -251,6 +251,13 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		// Old height messages. Do nothing.
 		return constants.ErrOldHeightMessage // No gossip
 	}
+	// current height message
+
+	// if we already decided on this height block, discard the message. It is useless by now.
+	if c.step == PrecommitDone {
+		return constants.ErrHeightClosed
+	}
+
 	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		c.logger.Error(msg.String())

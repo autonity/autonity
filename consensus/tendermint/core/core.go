@@ -416,13 +416,10 @@ func (c *Core) SetStep(step Step) {
 		case c.step == Prevote && step == PrecommitDone:
 			PrevoteStepTimer.Update(now.Sub(c.stepChange))
 			PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == PrecommitDone && step == PrecommitDone:
-			//this transition can also happen when we already received 2f+1 precommits but we did not start the new round yet.
-			PrecommitDoneStepTimer.Update(now.Sub(c.stepChange))
-			PrecommitDoneStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		default:
-			// TODO(lorenzo) this ideally should be a .Crit but these transitions do actually happen.
-			// see: https://github.com/autonity/autonity/issues/803
+			// Ideally should be a .Crit, however it does not seem right to me because in the same sceneario the node would:
+			// - crash if running the metrics
+			// - keep validating without issues if not
 			c.logger.Warn("Unexpected tendermint state transition", "c.step", c.step, "step", step)
 		}
 	}
