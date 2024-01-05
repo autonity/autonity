@@ -119,7 +119,7 @@ contract LiquidState is IERC20
     function mint(address _account, uint256 _amount) external onlyAutonity
     {
         (bool success,) = liquidLogic.delegatecall(
-            abi.encodeWithSignature("mint(account,uint256)", _account, _amount)
+            abi.encodeWithSignature("mint(address,uint256)", _account, _amount)
         );
         if (!success) {
             revert("call to logic mint failed");
@@ -133,7 +133,7 @@ contract LiquidState is IERC20
     function burn(address _account, uint256 _amount) external onlyAutonity
     {
         (bool success,) = liquidLogic.delegatecall(
-            abi.encodeWithSignature("burn(account,uint256)", _account, _amount)
+            abi.encodeWithSignature("burn(address,uint256)", _account, _amount)
         );
         if (!success) {
             revert("call to logic burn failed");
