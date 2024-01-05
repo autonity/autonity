@@ -150,7 +150,7 @@ contract LiquidState is IERC20
             abi.encodeWithSignature("unclaimedRewards(address)", _account)
         );
         if (!success) {
-            revert("call to logic mint failed");
+            revert("call to logic unclaimedRewards failed");
         }
 
         return abi.decode(data, (uint256));
