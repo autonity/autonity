@@ -3,9 +3,10 @@ package accountability
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"time"
 )
 
 const (
@@ -98,13 +99,17 @@ func (fd *FaultDetector) eventReporter() {
 			if tx, err := fd.protocolContracts.HandleEvent(fd.transactOps, chunkedEvent); err == nil {
 				fd.logger.Warn("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
 				// wait until it get mined before moving to the next one
-
 				attempt := 0
 				for ; attempt < MaxSubmissionAttempts; attempt++ {
-					time.Sleep(SubmissionDelay)
-					_, _, blockNumber, _, _ := fd.ethBackend.GetTransaction(context.Background(), tx.Hash())
-					if blockNumber != 0 {
-						break
+					select {
+					case <-fd.stopRetry:
+						return
+					default:
+						time.Sleep(SubmissionDelay)
+						_, _, blockNumber, _, _ := fd.ethBackend.GetTransaction(context.Background(), tx.Hash())
+						if blockNumber != 0 {
+							break
+						}
 					}
 				}
 				if attempt == MaxSubmissionAttempts {

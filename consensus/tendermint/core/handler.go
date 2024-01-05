@@ -235,6 +235,7 @@ eventLoop:
 		case <-ctx.Done():
 			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop
+
 		}
 	}
 

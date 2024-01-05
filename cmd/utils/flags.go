@@ -1671,7 +1671,7 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 }
 
 func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) *atc.ATC {
-	return atc.New(stack, backend.BlockChain(), netID)
+	return atc.New(stack, backend, netID)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to

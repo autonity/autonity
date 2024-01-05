@@ -18,6 +18,7 @@ package protocol
 
 import (
 	"context"
+
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/forkid"
 	"github.com/autonity/autonity/p2p/enode"

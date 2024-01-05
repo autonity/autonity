@@ -14,10 +14,16 @@ type Nodes struct {
 	StrList []string
 }
 
-func NewNodes(strList []string) *Nodes {
+func NewNodes(strList []string, asATC bool) *Nodes {
 	idx := new(int32)
 	wg := sync.WaitGroup{}
 	errCh := make(chan error, len(strList))
+	var parser func(string) (*enode.Node, error)
+	if asATC {
+		parser = enode.ParseATCV4
+	} else {
+		parser = enode.ParseV4
+	}
 
 	n := &Nodes{
 		make([]*enode.Node, len(strList)),
@@ -29,7 +35,8 @@ func NewNodes(strList []string) *Nodes {
 
 		go func(enodeStr string) {
 			log.Debug("node retrieved", "node", enodeStr)
-			newEnode, err := enode.ParseATCV4(enodeStr)
+
+			newEnode, err := parser(enodeStr)
 			if err != nil {
 				errCh <- err
 			}

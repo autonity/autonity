@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
-	"math/big"
-	"time"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -466,6 +467,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 		return ErrStartedEngine
 	}
 	sb.stopped = make(chan struct{})
+	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 	// Start Tendermint

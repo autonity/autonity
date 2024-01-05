@@ -18,6 +18,11 @@ package atc
 
 import (
 	"context"
+	"math"
+	"sync"
+
+	"github.com/autonity/autonity/eth"
+
 	autonity "github.com/autonity/autonity"
 	"github.com/autonity/autonity/atc/protocol"
 	"github.com/autonity/autonity/common"
@@ -29,15 +34,13 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
-	"math"
-	"sync"
 )
 
 type ATC struct {
 	networkID  uint64
 	peers      *peerSet
 	chain      *core.BlockChain
-	peerWG     sync.WaitGroup
+	wg         sync.WaitGroup
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 	server     *p2p.Server
 	log        log.Logger
@@ -45,12 +48,12 @@ type ATC struct {
 	cancel     context.CancelFunc
 }
 
-func New(stack *node.Node, chain *core.BlockChain, netID uint64) *ATC {
+func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ATC {
 	atc := &ATC{
 		peers:      newPeerSet(),
-		chain:      chain,
+		chain:      backend.BlockChain(),
 		networkID:  netID,
-		forkFilter: forkid.NewFilter(chain),
+		forkFilter: forkid.NewFilter(backend.BlockChain()),
 		server:     stack.ConsensusServer(),
 		log:        log.New(),
 		address:    crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey),
@@ -59,9 +62,11 @@ func New(stack *node.Node, chain *core.BlockChain, netID uint64) *ATC {
 	atc.server.MaxPeers = math.MaxInt
 	stack.RegisterConsensusProtocols(atc.ConsensusProtocols())
 	stack.RegisterLifecycle(atc)
-	if handler, ok := chain.Engine().(consensus.Handler); ok {
+	if handler, ok := atc.chain.Engine().(consensus.Handler); ok {
 		handler.SetBroadcaster(atc)
 	}
+	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
+	backend.FD().SetBroadcaster(atc)
 	return atc
 }
 
@@ -85,8 +90,8 @@ func (atc *ATC) FindPeers(targets map[common.Address]struct{}) map[common.Addres
 // runConsensusPeer registers a `consensus` peer into the consensus peerset and
 // starts handling inbound messages.
 func (atc *ATC) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFunc) error {
-	atc.peerWG.Add(1)
-	defer atc.peerWG.Done()
+	atc.wg.Add(1)
+	defer atc.wg.Done()
 
 	// Execute the Consensus handshake
 	var (
@@ -119,6 +124,8 @@ func (atc *ATC) Stop() error {
 	// will exit when they try to register.
 	atc.cancel()
 	atc.peers.close()
+	atc.wg.Wait()
+
 	return nil
 }
 
@@ -130,7 +137,7 @@ func (atc *ATC) RunPeer(peer *protocol.Peer, hand protocol.HandlerFunc) error {
 }
 
 // PeerInfo retrieves all known `atc` information about a peer.
-func (atc *ATC) PeerInfo(id enode.ID) interface{} {
+func (atc *ATC) PeerInfo(_ enode.ID) interface{} {
 	//TODO
 	return nil
 }

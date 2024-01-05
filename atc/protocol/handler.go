@@ -2,6 +2,9 @@ package protocol
 
 import (
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
@@ -10,8 +13,6 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/enr"
 	"github.com/autonity/autonity/params"
-	"math/big"
-	"time"
 )
 
 // HandlerFunc is a callback to invoke from an outside runner after the boilerplate
