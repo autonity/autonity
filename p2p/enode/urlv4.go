@@ -34,7 +34,6 @@ import (
 
 var (
 	incompleteNodeURL = regexp.MustCompile("(?i)^(?:enode://)?([0-9a-f]+)$")
-	lookupIPFunc      = net.LookupIP
 )
 
 var (
@@ -42,9 +41,7 @@ var (
 	ErrInvalidPublicKey = errors.New("invalid public key")
 	ErrInvalidPort      = errors.New("invalid port")
 	ErrInvalidDisport   = errors.New("invalid discport in query")
-	ErrInvalidATCPort   = errors.New("invalid atcport in query")
 	ErrInvalidHost      = errors.New("invalid host")
-	ErrInvalidATCHost   = errors.New("invalid ATC host")
 
 	// V4ResolveFunc is required only by tests so that they may ovveride the
 	// default resolver.
@@ -214,7 +211,7 @@ func atcProtoParams(u *url.URL) (string, uint64, uint64, error) {
 	qv := u.Query()
 	if qv.Get("atcep") != "" {
 		atcIP, atcPort, err = IPPort(qv.Get("atcep"), DefaultATCPort)
-		return atcIP, atcPort, 0, nil
+		return atcIP, atcPort, 0, err
 	}
 
 	// set same ip as eth for atc protocol
@@ -226,7 +223,7 @@ func atcProtoParams(u *url.URL) (string, uint64, uint64, error) {
 	return atcIP, atcPort, 0, nil
 }
 
-func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error),
+func parseComplete(rawurl string, _ func(host string) ([]net.IP, error),
 	protoParser func(u *url.URL) (string, uint64, uint64, error)) (*Node, error) {
 	var (
 		id *ecdsa.PublicKey
@@ -332,4 +329,9 @@ func PubkeyToIDV4(key *ecdsa.PublicKey) ID {
 	math.ReadBits(key.X, e[:len(e)/2])
 	math.ReadBits(key.Y, e[len(e)/2:])
 	return ID(crypto.Keccak256Hash(e))
+}
+
+func AppendConsensusEndpoint(host, port string, ens string) string {
+	ens += "?atcep=" + host + ":" + port
+	return ens
 }

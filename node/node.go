@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/prometheus/tsdb/fileutil"
+
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/ethdb"
@@ -33,7 +35,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rpc"
-	"github.com/prometheus/tsdb/fileutil"
 )
 
 // Node is a container on which services can be registered.
@@ -103,8 +104,8 @@ func New(conf *Config) (*Node, error) {
 		eventmux:      new(event.TypeMux),
 		log:           conf.Logger,
 		stop:          make(chan struct{}),
-		server:        &p2p.Server{Typ: p2p.EthTx, Config: conf.P2P},
-		atcServer:     &p2p.Server{Typ: p2p.Consensus, Config: conf.ConsensusP2P},
+		server:        &p2p.Server{Net: p2p.Execution, Config: conf.P2P},
+		atcServer:     &p2p.Server{Net: p2p.Consensus, Config: conf.ConsensusP2P},
 		databases:     make(map[*closeTrackingDB]struct{}),
 	}
 
@@ -278,8 +279,8 @@ func (n *Node) openEndpoints() error {
 	err := n.startRPC()
 	if err != nil {
 		n.stopRPC()
-		n.server.Stop()
 		n.atcServer.Stop()
+		n.server.Stop()
 	}
 	return err
 }
@@ -308,8 +309,8 @@ func (n *Node) stopServices(running []Lifecycle) error {
 	}
 
 	// Stop p2p networking.
-	n.server.Stop()
 	n.atcServer.Stop()
+	n.server.Stop()
 
 	if len(failure.Services) > 0 {
 		return failure

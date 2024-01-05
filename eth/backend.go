@@ -284,8 +284,6 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
 		eth.log)
-	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
-	eth.accountability.SetBroadcaster(eth.handler)
 
 	// Setup DNS discovery iterators.
 	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})
@@ -521,6 +519,7 @@ func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
 func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
 func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
+func (s *Ethereum) FD() *accountability.FaultDetector  { return s.accountability }
 func (s *Ethereum) ChainDb() ethdb.Database            { return s.chainDb }
 func (s *Ethereum) IsListening() bool                  { return true } // Always listening
 func (s *Ethereum) Downloader() *downloader.Downloader { return s.handler.downloader }
@@ -576,11 +575,26 @@ func (s *Ethereum) newCommitteeWatcher() {
 	chainHeadCh := make(chan core.ChainHeadEvent)
 	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 
+	updateConsensusEnodes := func(block *types.Block) {
+		state, err := s.blockchain.StateAt(block.Header().Root)
+		if err != nil {
+			s.log.Error("Could not retrieve state at head block", "err", err)
+			return
+		}
+		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
+		if err != nil {
+			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
+			return
+		}
+
+		s.p2pServer.UpdateConsensusEnodes(enodesList.List)
+	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
 	if currentBlock.Header().CommitteeMember(s.address) != nil {
 		s.miner.Start()
 		s.log.Info("Starting node as validator")
+		updateConsensusEnodes(currentBlock)
 		wasValidating = true
 	}
 
@@ -596,6 +610,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				if wasValidating {
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
+					s.p2pServer.UpdateConsensusEnodes(nil)
 					wasValidating = false
 				}
 				continue
@@ -605,6 +620,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
 				s.miner.Start()
 			}
+			updateConsensusEnodes(ev.Block)
 			wasValidating = true
 		// Err() channel will be closed when unsubscribing.
 		case <-chainHeadSub.Err():

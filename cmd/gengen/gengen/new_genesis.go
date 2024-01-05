@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -181,11 +180,6 @@ func ParseUint(str string) (*big.Int, error) {
 		return nil, fmt.Errorf("the nunber defined by %q is not an integer", str)
 	}
 	return result, nil
-}
-
-func appendConsensusEndpoint(u *Validator, ens string) string {
-	ens += "?atcep=" + u.AtcIP.String() + ":" + strconv.Itoa(u.AtcPort)
-	return ens
 }
 
 // Generates a slice of params.User along with a corresponding
