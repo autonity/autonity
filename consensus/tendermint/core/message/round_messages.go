@@ -77,8 +77,7 @@ type RoundMessages struct {
 	sync.RWMutex
 }
 
-// NewRoundMessages creates a new messages instance with the given view and validatorSet
-// we need to keep a reference of proposal in order to propose locked proposal when there is a lock and itself is the proposer
+// we need a reference to proposal also for proposing a proposal with vr!=0 if needed
 func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
 		prevotes:         NewSet[*Prevote](),
