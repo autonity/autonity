@@ -1,5 +1,6 @@
 const truffleAssert = require('truffle-assertions');
-const ValidatorLNEW = artifacts.require("Liquid2")
+const ValidatorLNEW = artifacts.require("LiquidState")
+const LiquidLogic = artifacts.require("LiquidLogic")
 
 const toWei = web3.utils.toWei;
 const toBN = web3.utils.toBN;
@@ -21,12 +22,20 @@ contract("Liquid", accounts => {
 
   // Contract - deployed for each test here
   async function deployLNEW(commissionPercent = 0) {
+
+    //deploy Logic first
+    let liquidLogic = await LiquidLogic.new(rewardSource)
+
+
+
     // Cannot extract this from the ABI, so have to hard-code it.
     let FEE_FACTOR_UNIT_RECIP = toBN("10000");
     let commission =
       FEE_FACTOR_UNIT_RECIP.mul(toBN(commissionPercent)).div(toBN("100"));
-    let lnew = await ValidatorLNEW.new(validator, treasury, commission, "27");
+    let lnew = await ValidatorLNEW.new(liquidLogic.address, validator, treasury, commission, "27");
+
     await lnew.mint(validator, toWei("10000", "ether"));
+
     return lnew;
   };
 
@@ -68,16 +77,22 @@ contract("Liquid", accounts => {
     // Initial state
     assert.equal(await lnew.totalSupply(), toWei("10000", "ether"));
     assert.equal(await lnew.balanceOf(validator), toWei("10000", "ether"));
-    assert.equal(await lnew.unclaimedRewards(validator), "0");
+    assert.equal((await lnew.unclaimedRewards.call(validator)).toNumber(), 0);
     [delegatorA, delegatorB].forEach(async user => {
       assert.equal(await lnew.balanceOf(user), "0");
-      assert.equal(await lnew.unclaimedRewards(user), "0");
+      assert.equal((await lnew.unclaimedRewards.call(user)).toNumber(), 0);
     });
+
+
+    let balance = await web3.eth.getBalance(rewardSource)
+    console.log("jajajaj")
+    console.log(balance)
 
     // Send 10 AUT as a reward.  Perform a call first (not a tx)
     // in order to check the returned value.
     let distributed = toBN(await lnew.redistribute.call(
       {from: rewardSource, value: toWei("10", "ether")}));
+
     assert.isTrue(distributed.lte(toBN(toWei("10", "ether"))));
     assert.isTrue(distributed.gt(toBN(toWei("9.9999", "ether"))));
     await lnew.redistribute.sendTransaction(
