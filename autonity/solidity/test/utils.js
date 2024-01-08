@@ -9,6 +9,7 @@ const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
+const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
@@ -116,7 +117,7 @@ function timeout(ms) {
 }
 
 // set solidity bytecode at arbitrary address address
-async function setCode(addr, code) {
+async function setCode(addr, code, contractName) {
   return new Promise((resolve, reject) => {
     web3.currentProvider.send({
       method: "evm_setAccountCode",
@@ -134,13 +135,27 @@ async function mockEnodePrecompile() {
       console.log("enode verifier mocker address: ", instance.address)
       const code = await web3.eth.getCode(instance.address);
       const verifyEnodeAddr = "0x00000000000000000000000000000000000000ff";
-      await setCode(verifyEnodeAddr, code).then(
+      await setCode(verifyEnodeAddr, code, "enode verifier").then(
         (result) => {
             console.log(result); 
         },
         (error) => {
             console.log(error); 
     });
+}
+
+// mock committee selector precompiled contract
+async function mockCommitteeSelectorPrecompile() {
+  const instance = await mockCommitteeSelector.new();
+  const code = await web3.eth.getCode(instance.address);
+  const contractAddress = "0x00000000000000000000000000000000000000fb";
+  await setCode(contractAddress, code, "committee selector").then(
+    (result) => {
+        console.log(result); 
+    },
+    (error) => {
+        console.log(error); 
+});
 }
 
 // mine an empty block.
@@ -233,6 +248,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
 // deploys protocol contracts
 const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
     // autonity contract
+    await mockCommitteeSelectorPrecompile();
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
     await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonity;
@@ -240,6 +256,7 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+    await mockCommitteeSelectorPrecompile();
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
