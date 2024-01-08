@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
 )
 
@@ -91,8 +93,12 @@ func fuzz(id byte, data []byte) int {
 		return 0
 	}
 	cpy := make([]byte, len(data))
+	stateDB, err := testStateDB()
+	if err != nil {
+		return 0
+	}
 	copy(cpy, data)
-	_, err := precompile.Run(cpy, uint64(0))
+	_, err = precompile.Run(cpy, uint64(0), stateDB, common.Address{})
 	if !bytes.Equal(cpy, data) {
 		panic(fmt.Sprintf("input data modified, precompile %d: %x %x", id, data, cpy))
 	}
@@ -100,4 +106,10 @@ func fuzz(id byte, data []byte) int {
 		return 0
 	}
 	return 1
+}
+
+func testStateDB() (vm.StateDB, error) {
+	ethDb := rawdb.NewMemoryDatabase()
+	db := state.NewDatabase(ethDb)
+	return state.New(common.Hash{}, db, nil)
 }

@@ -20,14 +20,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
+	"github.com/stretchr/testify/require"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.
@@ -100,7 +102,9 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber); err != nil {
+		stateDB, err := testStateDB()
+		require.NoError(t, err)
+		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber, stateDB, common.Address{}); err != nil {
 			t.Error(err)
 		} else if common.Bytes2Hex(res) != test.Expected {
 			t.Errorf("Expected %v, got %v", test.Expected, common.Bytes2Hex(res))
@@ -122,7 +126,9 @@ func testPrecompiledOOG(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in) - 1
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber)
+		stateDB, err := testStateDB()
+		require.NoError(t, err)
+		_, _, err = RunPrecompiledContract(p, in, gas, blockNumber, stateDB, common.Address{})
 		if err.Error() != "out of gas" {
 			t.Errorf("Expected error [out of gas], got [%v]", err)
 		}
@@ -140,7 +146,9 @@ func testPrecompiledFailure(addr string, test precompiledFailureTest, t *testing
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(test.Name, func(t *testing.T) {
-		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber)
+		stateDB, err := testStateDB()
+		require.NoError(t, err)
+		_, _, err = RunPrecompiledContract(p, in, gas, blockNumber, stateDB, common.Address{})
 		if err.Error() != test.ExpectedError {
 			t.Errorf("Expected error [%v], got [%v]", test.ExpectedError, err)
 		}
@@ -171,8 +179,10 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 		start := time.Now()
 		bench.ResetTimer()
 		for i := 0; i < bench.N; i++ {
+			stateDB, err := testStateDB()
+			require.NoError(bench, err)
 			copy(data, in)
-			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber)
+			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber, stateDB, common.Address{})
 		}
 		bench.StopTimer()
 		elapsed := uint64(time.Since(start))
