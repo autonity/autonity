@@ -48,7 +48,7 @@ contract("Liquid", accounts => {
 
   async function withdrawAndCheck(lnew, address, expectFees) {
     const origBalance = toBN(await web3.eth.getBalance(address));
-    assert.equal(expectFees, await lnew.unclaimedRewards(address));
+    assert.equal(expectFees, await lnew.unclaimedRewards.call(address));
 
     // Withdraw
     const txret = await lnew.claimRewards.sendTransaction({from: address});
@@ -61,7 +61,7 @@ contract("Liquid", accounts => {
 
     // Balance should have increased by expectFees, and remaining
     // unclaimed fees should be 0
-    assert.equal(await lnew.unclaimedRewards(address), "0");
+    assert.equal(await lnew.unclaimedRewards.call(address), "0");
     assert.equal(await web3.eth.getBalance(address), expectBalance);
   };
 
@@ -104,7 +104,7 @@ contract("Liquid", accounts => {
     assert.equal(await lnew.unclaimedRewards.call(validator), toWei("10", "ether"));
     [delegatorA, delegatorB].forEach(async user => {
       assert.equal(await lnew.balanceOf(user), "0");
-      assert.equal(await lnew.unclaimedRewards(user), "0");
+      assert.equal(await lnew.unclaimedRewards.call(user), "0");
     });
   });
 
@@ -123,9 +123,9 @@ contract("Liquid", accounts => {
     // Send 20 AUT as a reward and check distribution
     await lnew.redistribute.sendTransaction(
       {from: rewardSource, value: toWei("20", "ether")});
-    assert.equal(await lnew.unclaimedRewards(validator), toWei("10", "ether"));
-    assert.equal(await lnew.unclaimedRewards(delegatorA), toWei("8", "ether"));
-    assert.equal(await lnew.unclaimedRewards(delegatorB), toWei("2", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(validator), toWei("10", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(delegatorA), toWei("8", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(delegatorB), toWei("2", "ether"));
   });
 
   it("transfer LNEW", async () => {
@@ -152,13 +152,13 @@ contract("Liquid", accounts => {
     await lnew.redistribute.sendTransaction(
       {from: rewardSource, value: toWei("20", "ether")});
     // validator has 10 + 10
-    assert.equal(await lnew.unclaimedRewards(validator), toWei("20", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(validator), toWei("20", "ether"));
     // delegatorA has 8 + 5
-    assert.equal(await lnew.unclaimedRewards(delegatorA), toWei("13", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(delegatorA), toWei("13", "ether"));
     // delegatorB has 2 + 2
-    assert.equal(await lnew.unclaimedRewards(delegatorB), toWei("4", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(delegatorB), toWei("4", "ether"));
     // delegatorC has 3
-    assert.equal(await lnew.unclaimedRewards(delegatorC), toWei("3", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(delegatorC), toWei("3", "ether"));
   });
 
   it("burn LNEW", async () => {
@@ -174,8 +174,8 @@ contract("Liquid", accounts => {
     // Send 15 AUT as a reward and check distribution
     await lnew.redistribute.sendTransaction(
       {from: rewardSource, value: toWei("15", "ether")});
-    assert.equal(await lnew.unclaimedRewards(validator), toWei("10", "ether"));
-    assert.equal(await lnew.unclaimedRewards(delegatorA), toWei("5", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(validator), toWei("10", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(delegatorA), toWei("5", "ether"));
   });
 
   it("claiming rewards", async () => {
@@ -225,7 +225,7 @@ contract("Liquid", accounts => {
 
     // Check delegatorA's total fees were 10 + 5 + 10 = 25
     assert.equal(
-      await lnew.unclaimedRewards(delegatorA),
+      await lnew.unclaimedRewards.call(delegatorA),
       toWei("25", "ether"));
   });
 
@@ -264,7 +264,7 @@ contract("Liquid", accounts => {
 
     // Check delegatorA's total fees: 10 + 5 + 10 = 25
     assert.equal(
-      await lnew.unclaimedRewards(delegatorA),
+      await lnew.unclaimedRewards.call(delegatorA),
       toWei("25", "ether"));
   });
 
