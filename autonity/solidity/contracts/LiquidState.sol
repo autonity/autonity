@@ -39,6 +39,10 @@ import {LiquidLogic} from "./LiquidLogic.sol";
 //   These values f_i are referred to a "fee factors" in the
 //   implementation.
 //
+//   Error bubbling for delegated calls
+//   https://medium.com/@ajaotosinserah/mastering-delegatecall-in-solidity-a-comprehensive-guide-with-evm-walkthrough-6ddf027175c7
+//
+//
 
 contract LiquidState is IERC20
 {
@@ -105,8 +109,18 @@ contract LiquidState is IERC20
         (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("redistribute()")
         );
-        if (!success) {
-            revert("call to logic redistribute failed");
+
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'redistribute' reverted");
+            }
         }
 
         return abi.decode(data, (uint256));
@@ -118,11 +132,20 @@ contract LiquidState is IERC20
     */
     function mint(address _account, uint256 _amount) external onlyAutonity
     {
-        (bool success,) = liquidLogic.delegatecall(
+        (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("mint(address,uint256)", _account, _amount)
         );
-        if (!success) {
-            revert("call to logic mint failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'mint' reverted");
+            }
         }
     }
 
@@ -132,11 +155,20 @@ contract LiquidState is IERC20
     */
     function burn(address _account, uint256 _amount) external onlyAutonity
     {
-        (bool success,) = liquidLogic.delegatecall(
+        (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("burn(address,uint256)", _account, _amount)
         );
-        if (!success) {
-            revert("call to logic burn failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'burn' reverted");
+            }
         }
     }
 
@@ -149,8 +181,17 @@ contract LiquidState is IERC20
         (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("unclaimedRewards(address)", _account)
         );
-        if (!success) {
-            revert("call to logic unclaimedRewards failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'unclaimedRewards' reverted");
+            }
         }
 
         return abi.decode(data, (uint256));
@@ -161,11 +202,20 @@ contract LiquidState is IERC20
     */
     function claimRewards() external
     {
-        (bool success,) = liquidLogic.delegatecall(
+        (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("claimRewards()")
         );
-        if (!success) {
-            revert("call to logic claimRewards failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'claimRewards' reverted");
+            }
         }
     }
 
@@ -178,8 +228,17 @@ contract LiquidState is IERC20
         (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("unlockedBalanceOf(address)", _delegator)
         );
-        if (!success) {
-            revert("call to logic unlockedBalanceOf failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'unlockedBalanceOf' reverted");
+            }
         }
 
         return abi.decode(data, (uint256));
@@ -198,8 +257,17 @@ contract LiquidState is IERC20
         (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("transfer(address,uint256)", _to, _amount)
         );
-        if (!success) {
-            revert("call to logic transfer failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'transfer' reverted");
+            }
         }
 
         return abi.decode(data, (bool));
@@ -217,8 +285,17 @@ contract LiquidState is IERC20
         (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("approve(address,uint256)", _spender, _amount)
         );
-        if (!success) {
-            revert("call to logic approve failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'approve' reverted");
+            }
         }
 
         return abi.decode(data, (bool));
@@ -242,8 +319,17 @@ contract LiquidState is IERC20
         (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("transferFrom(address,address,uint256)", _sender, _recipient, _amount)
         );
-        if (!success) {
-            revert("call to logic transferFrom failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'transferFrom' reverted");
+            }
         }
 
         return abi.decode(data, (bool));
@@ -255,11 +341,20 @@ contract LiquidState is IERC20
       */
     function setCommissionRate(uint256 _rate) public onlyAutonity {
 
-        (bool success,) = liquidLogic.delegatecall(
+        (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("setCommissionRate(uint256)", _rate)
         );
-        if (!success) {
-            revert("call to logic setCommissionRate failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'setCommissionRate' reverted");
+            }
         }
     }
 
@@ -296,11 +391,20 @@ contract LiquidState is IERC20
                _amount LNTN amount of tokens to lock.
       */
     function unlock(address _account, uint256 _amount) public onlyAutonity {
-        (bool success,) = liquidLogic.delegatecall(
+        (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("unlock(address,uint256)", _account, _amount)
         );
-        if (!success) {
-            revert("call to logic unlock failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'unlock' reverted");
+            }
         }
     }
 
