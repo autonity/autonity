@@ -105,8 +105,15 @@ func TestCore_Setters(t *testing.T) {
 			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 
+		timeoutDuration := c.timeoutPropose(0)
+		timeoutCallback := func(_ int64, _ *big.Int) {}
+		c.proposeTimeout.ScheduleTimeout(timeoutDuration, 0, common.Big1, timeoutCallback)
+		require.True(t, c.proposeTimeout.TimerStarted())
+
 		c.SetStep(Propose)
 		require.Equal(t, Propose, c.step)
+		// set step should also stop timeouts
+		require.False(t, c.proposeTimeout.TimerStarted())
 	})
 
 	t.Run("setRound", func(t *testing.T) {
