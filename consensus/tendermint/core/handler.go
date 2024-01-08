@@ -90,6 +90,8 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrMovedToNewRound):
 		fallthrough
+	case errors.Is(err, constants.ErrHeightClosed):
+		fallthrough
 	case errors.Is(err, constants.ErrAlreadyProcessed):
 		return false
 	case errors.Is(err, ErrValidatorJailed):
