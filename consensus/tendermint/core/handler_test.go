@@ -47,7 +47,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 			big.NewInt(2),
 			Propose,
 			createPrevote(1, 2),
-			constants.ErrFutureStepMessage,
+			nil,
 			false,
 		},
 		{

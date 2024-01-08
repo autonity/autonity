@@ -107,7 +107,7 @@ func TestAccusationVerifier(t *testing.T) {
 
 	t.Run("Test validate accusation, with wrong rule ID", func(t *testing.T) {
 		var p Proof
-		p.Rule = autonity.InvalidRound + 100
+		p.Rule = autonity.Equivocation + 100
 		assert.False(t, verifyAccusation(&p))
 	})
 

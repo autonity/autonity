@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"reflect"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
@@ -31,10 +33,8 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(1, 2, Propose)
-		if err != nil {
-			t.Fatalf("have %v, want nil", err)
-		}
+		err := c.checkMessage(1, 2)
+		require.NoError(t, err)
 	})
 
 	t.Run("given future height, error returned", func(t *testing.T) {
@@ -43,7 +43,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(2, 4, Propose)
+		err := c.checkMessage(2, 4)
 		if !errors.Is(err, constants.ErrFutureHeightMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureHeightMessage)
 		}
@@ -55,7 +55,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(2, 1, Propose)
+		err := c.checkMessage(2, 1)
 		if !errors.Is(err, constants.ErrOldHeightMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrOldHeightMessage)
 		}
@@ -67,7 +67,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(3),
 		}
 
-		err := c.checkMessageStep(2, 3, Propose)
+		err := c.checkMessage(2, 3)
 		if !errors.Is(err, constants.ErrFutureRoundMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureRoundMessage)
 		}
@@ -79,61 +79,9 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(1, 2, Propose)
+		err := c.checkMessage(1, 2)
 		if !errors.Is(err, constants.ErrOldRoundMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrOldRoundMessage)
-		}
-	})
-
-	t.Run("at propose step, given prevote for same view, error returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Propose,
-		}
-
-		err := c.checkMessageStep(2, 2, Prevote)
-		if !errors.Is(err, constants.ErrFutureStepMessage) {
-			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
-		}
-	})
-
-	t.Run("at propose step, given precommit for same view, error returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Propose,
-		}
-
-		err := c.checkMessageStep(2, 2, Precommit)
-		if !errors.Is(err, constants.ErrFutureStepMessage) {
-			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
-		}
-	})
-
-	t.Run("at prevote step, given precommit for same view, no error returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Prevote,
-		}
-
-		err := c.checkMessageStep(2, 2, Precommit)
-		if err != nil {
-			t.Fatalf("have %v, want %v", err, nil)
-		}
-	})
-
-	t.Run("at precommit step, given prevote for same view, no error returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Precommit,
-		}
-
-		err := c.checkMessageStep(2, 2, Prevote)
-		if err != nil {
-			t.Fatalf("have %v, want %v", err, nil)
 		}
 	})
 }
@@ -255,8 +203,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 	})
 
-	t.Run("valid vote received, processed at prevote step", func(t *testing.T) {
-
+	t.Run("valid vote received", func(t *testing.T) {
 		msg := message.NewPrevote(1, 2, common.Hash{}, defaultSigner)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -276,13 +223,16 @@ func TestProcessBacklog(t *testing.T) {
 		})
 
 		c := &Core{
-			logger:   log.New("backend", "test", "id", 0),
-			backend:  backendMock,
-			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Msg),
-			step:     Propose,
-			round:    1,
-			height:   big.NewInt(2),
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]message.Msg),
+			step:             Propose,
+			round:            1,
+			height:           big.NewInt(2),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
@@ -291,16 +241,6 @@ func TestProcessBacklog(t *testing.T) {
 		c.processBacklog()
 
 		timeout := time.NewTimer(2 * time.Second)
-		//vote should not be processed at propose step
-		select {
-		case ev := <-evChan:
-			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
-		case <-timeout.C:
-		}
-		c.SetStep(Prevote)
-		c.processBacklog()
-
-		timeout = time.NewTimer(2 * time.Second)
 		select {
 		case ev := <-evChan:
 			e, ok := ev.(backlogMessageEvent)
@@ -404,24 +344,30 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		c := &Core{
-			logger:   log.New("backend", "test", "id", 0),
-			backend:  backendMock,
-			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Msg),
-			round:    2,
-			height:   big.NewInt(3),
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]message.Msg),
+			round:            2,
+			height:           big.NewInt(3),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
+			committee:        committeeSet,
+			messages:         message.NewMap(),
 		}
+		c.curRoundMessages = c.messages.GetOrCreate(2)
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)
 		c.storeBacklog(msg2, val.Address)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		c.processBacklog()
 		c.setHeight(big.NewInt(4))
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C
@@ -446,19 +392,25 @@ func TestProcessBacklog(t *testing.T) {
 			backlogUntrusted: map[uint64][]message.Msg{},
 			round:            2,
 			height:           big.NewInt(3),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
+			committee:        committeeSet,
+			messages:         message.NewMap(),
 		}
+		c.curRoundMessages = c.messages.GetOrCreate(2)
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.storeFutureMessage(msg)
 		c.storeFutureMessage(msg2)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		c.processBacklog()
 		c.setHeight(big.NewInt(4))
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.processBacklog()

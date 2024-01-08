@@ -82,13 +82,13 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		fallthrough
-	case errors.Is(err, constants.ErrFutureStepMessage):
-		fallthrough
 	case errors.Is(err, constants.ErrNilPrevoteSent):
 		fallthrough
 	case errors.Is(err, constants.ErrNilPrecommitSent):
 		fallthrough
 	case errors.Is(err, constants.ErrMovedToNewRound):
+		fallthrough
+	case errors.Is(err, constants.ErrHeightClosed):
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyProcessed):
 		return false
@@ -303,9 +303,6 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 			c.storeBacklog(msg, msg.Sender())
 			// decoding must have been successful to return
 			c.handleFutureRoundMsg(ctx, msg, msg.Sender())
-		case errors.Is(err, constants.ErrFutureStepMessage):
-			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, msg.Sender())
 		}
 		return err
 	}
@@ -323,8 +320,8 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
-
-	return constants.ErrInvalidMessage
+	// this should never happen, decoding only returns us propose, prevote or precommit
+	panic("handled message that is not propose, prevote or precommit")
 }
 
 func tryDisconnect(errorCh chan<- error, err error) {

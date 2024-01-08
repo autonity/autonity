@@ -251,8 +251,8 @@ func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
 
-func (c *Core) Commit(round int64, messages *message.RoundMessages) {
-	c.SetStep(PrecommitDone)
+func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundMessages) {
+	c.SetStep(ctx, PrecommitDone)
 	// for metrics
 	start := time.Now()
 	proposal := messages.Proposal()
@@ -301,8 +301,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	c.measureHeightRoundMetrics(round)
 	// Set initial FSM state
 	c.setInitialState(round)
-	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
-	c.SetStep(Propose)
+	c.SetStep(ctx, Propose)
 	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
@@ -314,20 +313,21 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		// they propose a new block.
 		if c.validValue != nil {
 			c.proposer.SendProposal(ctx, c.validValue)
-			return
-		}
-		// send proposal when there is available candidate rather than blocking the Core event loop, the
-		// handleNewCandidateBlockMsg in the Core event loop will send proposal when the available one comes if we
-		// don't have it sent here.
-		newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
-		if ok {
-			c.proposer.SendProposal(ctx, newValue)
+		} else {
+			// send proposal when there is available candidate rather than blocking the Core event loop, the
+			// handleNewCandidateBlockMsg in the Core event loop will send proposal when the available one comes if we
+			// don't have it sent here.
+			newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
+			if ok {
+				c.proposer.SendProposal(ctx, newValue)
+			}
 		}
 	} else {
 		timeoutDuration := c.timeoutPropose(round)
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
+	c.processBacklog()
 }
 
 func (c *Core) setInitialState(r int64) {
@@ -382,7 +382,7 @@ func (c *Core) setInitialState(r int64) {
 		}
 	}
 */
-func (c *Core) SetStep(step Step) {
+func (c *Core) SetStep(ctx context.Context, step Step) {
 	now := time.Now()
 	if metrics.Enabled {
 		switch {
@@ -409,7 +409,7 @@ func (c *Core) SetStep(step Step) {
 		case c.step == Precommit && step == Propose:
 			PrecommitStepTimer.Update(now.Sub(c.stepChange))
 			PrecommitStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		// committing an old round proposal
+		// committing a proposal (old or current) due to receival of quorum precommits
 		case c.step == Propose && step == PrecommitDone:
 			ProposeStepTimer.Update(now.Sub(c.stepChange))
 			ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
@@ -426,7 +426,36 @@ func (c *Core) SetStep(step Step) {
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
 	c.step = step
 	c.stepChange = now
-	c.processBacklog()
+
+	// stop consensus timeouts
+	if err := c.proposeTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "step", step, "err", err)
+	}
+	if err := c.prevoteTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "step", step, "err", err)
+	}
+	if err := c.precommitTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "step", step, "err", err)
+	}
+
+	// we might have already received a quroum of prevotes while still in propose step.
+	// therefore once changing step to prevote, we need to check line 34 and 44
+
+	if c.step == Prevote {
+		// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
+		if c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+			c.precommiter.SendPrecommit(ctx, true)
+			c.SetStep(ctx, Precommit)
+			return // no need to check following conditions as we will be in Precommit step
+		}
+
+		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
+		if !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
+			timeoutDuration := c.timeoutPrevote(c.Round())
+			c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
+			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
+		}
+	}
 }
 
 func (c *Core) setRound(round int64) {

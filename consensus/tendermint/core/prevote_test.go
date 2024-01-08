@@ -202,7 +202,9 @@ func TestHandlePrevote(t *testing.T) {
 			backend:          backendMock,
 			curRoundMessages: curRoundMessage,
 			logger:           log.Root(),
+			proposeTimeout:   NewTimeout(Propose, log.Root()),
 			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
+			precommitTimeout: NewTimeout(Precommit, log.Root()),
 			committee:        committeeSet,
 			round:            2,
 			height:           big.NewInt(3),
@@ -248,8 +250,10 @@ func TestHandlePrevote(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(3),
 			step:             Prevote,
-			prevoteTimeout:   NewTimeout(Prevote, logger),
 			committee:        committeeSet,
+			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
+			precommitTimeout: NewTimeout(Precommit, logger),
 		}
 		c.SetDefaultHandlers()
 		if err := c.prevoter.HandlePrevote(context.Background(), expectedMsg); err != nil {

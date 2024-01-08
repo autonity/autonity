@@ -161,9 +161,12 @@ func TestHandlePrecommit(t *testing.T) {
 			height:           big.NewInt(3),
 			curRoundMessages: curRoundMessages,
 			logger:           log.New("backend", "test", "id", 0),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 		c.SetDefaultHandlers()
-		c.SetStep(Precommit)
+		c.SetStep(context.Background(), Precommit)
 		defer func() {
 			if r := recover(); r == nil {
 				t.Errorf("The code did not panic")
@@ -215,6 +218,8 @@ func TestHandlePrecommit(t *testing.T) {
 			height:           big.NewInt(3),
 			step:             Precommit,
 			committee:        committeeSet,
+			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 		}
 

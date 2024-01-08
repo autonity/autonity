@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -99,11 +100,21 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 func TestCore_Setters(t *testing.T) {
 	t.Run("SetStep", func(t *testing.T) {
 		c := &Core{
-			logger: log.New("addr", "tendermint core"),
+			logger:           log.New("addr", "tendermint core"),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 
-		c.SetStep(Propose)
+		timeoutDuration := c.timeoutPropose(0)
+		timeoutCallback := func(_ int64, _ *big.Int) {}
+		c.proposeTimeout.ScheduleTimeout(timeoutDuration, 0, common.Big1, timeoutCallback)
+		require.True(t, c.proposeTimeout.TimerStarted())
+
+		c.SetStep(context.Background(), Propose)
 		require.Equal(t, Propose, c.step)
+		// set step should also stop timeouts
+		require.False(t, c.proposeTimeout.TimerStarted())
 	})
 
 	t.Run("setRound", func(t *testing.T) {
