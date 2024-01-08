@@ -35,10 +35,10 @@ var (
 	ErrFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
 	// ErrFailedDecodeVote is returned for when PREVOTE or PRECOMMIT is malformed.
 	ErrFailedDecodeVote = errors.New("failed to decode vote")
-	// ErrNilPrevoteSent is returned when timer could be stopped in time
+	// ErrNilPrevoteSent is returned when timer could not be stopped in time
 	ErrNilPrevoteSent = errors.New("timer expired and nil prevote sent")
-	// ErrNilPrecommitSent is returned when timer could be stopped in time
+	// ErrNilPrecommitSent is returned when timer could not be stopped in time
 	ErrNilPrecommitSent = errors.New("timer expired and nil precommit sent")
-	// ErrMovedToNewRound is returned when timer could be stopped in time
+	// ErrMovedToNewRound is returned when timer could not be stopped in time
 	ErrMovedToNewRound = errors.New("timer expired and new round started")
 )

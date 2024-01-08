@@ -689,6 +689,9 @@ func TestOldProposal(t *testing.T) {
 
 		Therefore we had a liveness bug in implementations of Tendermint in commits prior to this one.
 	*/
+
+	/* NOTE: We still need the check for line 28 on receival of an old prevote, HOWEVER the previous analysis is not fully accurate anymore. Indeed when the previous comment was written, the tendermint behaviour was to stop the propose timeout timer once a valid proposal was received. This was **wrong**, the timer should be stopped only when we change height,round or step. Therefore without the line 28 check in prevote.go the algorithm would still be incorrect, but it would not cause a liveness loss (clients would just prevote nil once the timer expires)*/
+
 	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
 		clientIndex := len(members) - 1
 		clientAddr = members[clientIndex].Address
@@ -766,8 +769,8 @@ func TestOldProposal(t *testing.T) {
 		err := c.handleValidMsg(context.Background(), proposal)
 		assert.NoError(t, err)
 
-		// check timer was stopped after receiving the proposal
-		//assert.False(t, c.proposeTimeout.TimerStarted())
+		// check that the propose timeout is still started, as the proposal did not cause a step change
+		assert.True(t, c.proposeTimeout.TimerStarted())
 
 		// now we receive the last old round's prevote MSG to get quorum prevote on vr for value v.
 		// the old round's prevote is accepted into the round state which now have the line 28 condition satisfied.
@@ -782,6 +785,8 @@ func TestOldProposal(t *testing.T) {
 		assert.Equal(t, clientLockedRound, c.lockedRound)
 		assert.Equal(t, clientLockedValue, c.validValue)
 		assert.Equal(t, clientLockedRound, c.validRound)
+		// now the propose timeout should be stopped, since we moved to prevote step
+		assert.False(t, c.proposeTimeout.TimerStarted())
 	})
 }
 

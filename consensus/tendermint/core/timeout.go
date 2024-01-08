@@ -2,11 +2,12 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/log"
 )
 
 const (
@@ -21,8 +22,7 @@ const (
 type TimeoutEvent struct {
 	RoundWhenCalled  int64
 	HeightWhenCalled *big.Int
-	// message type: MsgProposal MsgPrevote	MsgPrecommit
-	Step Step
+	Step             Step // Propose,Prevote,Precommit
 }
 
 type Timeout struct {

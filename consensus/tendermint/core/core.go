@@ -409,7 +409,7 @@ func (c *Core) SetStep(step Step) {
 		case c.step == Precommit && step == Propose:
 			PrecommitStepTimer.Update(now.Sub(c.stepChange))
 			PrecommitStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		// committing an old round proposal
+		// committing a proposal (old or current) due to receival of quorum precommits
 		case c.step == Propose && step == PrecommitDone:
 			ProposeStepTimer.Update(now.Sub(c.stepChange))
 			ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
@@ -426,6 +426,25 @@ func (c *Core) SetStep(step Step) {
 	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
 	c.step = step
 	c.stepChange = now
+
+	// reset started consensus timeout
+	// only one can be started at the same time
+	// there can be no timeout started if we are in precommitDone phase
+	switch {
+	case c.proposeTimeout.TimerStarted():
+		if err := c.proposeTimeout.StopTimer(); err != nil {
+			c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "step", step, "err", err)
+		}
+	case c.prevoteTimeout.TimerStarted():
+		if err := c.prevoteTimeout.StopTimer(); err != nil {
+			c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "step", step, "err", err)
+		}
+	case c.precommitTimeout.TimerStarted():
+		if err := c.precommitTimeout.StopTimer(); err != nil {
+			c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "step", step, "err", err)
+		}
+	}
+
 	c.processBacklog()
 }
 
