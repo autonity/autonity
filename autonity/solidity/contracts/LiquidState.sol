@@ -273,11 +273,20 @@ contract LiquidState is IERC20
       */
     function lock(address _account, uint256 _amount) public onlyAutonity {
 
-        (bool success,) = liquidLogic.delegatecall(
+        (bool success, bytes memory data) = liquidLogic.delegatecall(
             abi.encodeWithSignature("lock(address,uint256)", _account, _amount)
         );
-        if (!success) {
-            revert("call to logic lock failed");
+        if (success == false) {
+            // if there is a return reason string
+            if (data.length > 0) {
+                // bubble up any reason for revert
+                assembly {
+                    let returndata_size := mload(data)
+                    revert(add(32, data), returndata_size)
+                }
+            } else {
+                revert("Function call 'lock' reverted");
+            }
         }
     }
 
