@@ -1177,8 +1177,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      * Committee selection and storing the committee and writing it in persistent storage are done in precompiled contract
      */
     function computeCommitteePrecompiled(uint256 _committeeSize) internal returns (address[] memory) {
-        require(_committeeSize <= 100, "hardcoded array size 102");
-        address[102] memory _returnData;
+        require(_committeeSize <= 1000, "hardcoded array size 1002");
+        address[1002] memory _returnData;
         address to = Precompiled.COMPUTE_COMMITTEE_CONTRACT;
         uint256 _length = 32*5;
         uint256[5] memory input;
@@ -1189,15 +1189,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             mstore(add(input, 0x20), validators.slot)
             mstore(add(input, 0x40), committee.slot)
             mstore(add(input,0x60), epochTotalBondedStake.slot)
-            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), to, input, _length, _returnData, _returnDataLength)) {
+            //delegatecall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(delegatecall(gas(), to, input, _length, _returnData, _returnDataLength)) {
                 revert(0, 0)
             }
         }
 
         require(_returnData[0] == address(1), "unsuccessful call");
         // _returnData[1] has new committee size = length of voters
-        require(_returnData[1] != address(0), "sorting unsuccessful");
         if (_committeeSize > uint256(uint160(_returnData[1]))) {
             _committeeSize = uint256(uint160(_returnData[1]));
         }

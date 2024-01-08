@@ -211,8 +211,7 @@ func deployContract(byteCode []byte, args []byte, deployer common.Address, evm *
 	return contractAddress, err
 }
 
-// Packs the args and then calls the function
-// can also return result if needed
+// Packs the args and then calls the function and returns result
 func callContractFunction(
 	evmContract *EVMContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
 	methodName string, args ...interface{},
