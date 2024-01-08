@@ -269,6 +269,7 @@ func TestHandleProposal(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(1),
 			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 			committee:        committeeSet,
 			step:             Precommit,
@@ -320,6 +321,8 @@ func TestHandleProposal(t *testing.T) {
 			lockedRound:      -1,
 			logger:           logger,
 			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
+			precommitTimeout: NewTimeout(Precommit, logger),
 			validRound:       -1,
 			committee:        committeeSet,
 		}
@@ -364,6 +367,8 @@ func TestHandleProposal(t *testing.T) {
 			lockedValue:      nil,
 			logger:           log.Root(),
 			proposeTimeout:   NewTimeout(Propose, log.Root()),
+			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
+			precommitTimeout: NewTimeout(Precommit, log.Root()),
 			validRound:       0,
 			committee:        committeeSet,
 		}

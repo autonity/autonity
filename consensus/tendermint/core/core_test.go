@@ -99,7 +99,10 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 func TestCore_Setters(t *testing.T) {
 	t.Run("SetStep", func(t *testing.T) {
 		c := &Core{
-			logger: log.New("addr", "tendermint core"),
+			logger:           log.New("addr", "tendermint core"),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 
 		c.SetStep(Propose)

@@ -276,13 +276,16 @@ func TestProcessBacklog(t *testing.T) {
 		})
 
 		c := &Core{
-			logger:   log.New("backend", "test", "id", 0),
-			backend:  backendMock,
-			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Msg),
-			step:     Propose,
-			round:    1,
-			height:   big.NewInt(2),
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]message.Msg),
+			step:             Propose,
+			round:            1,
+			height:           big.NewInt(2),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
@@ -404,12 +407,15 @@ func TestProcessBacklog(t *testing.T) {
 		val, _ := committeeSet.GetByIndex(0)
 
 		c := &Core{
-			logger:   log.New("backend", "test", "id", 0),
-			backend:  backendMock,
-			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Msg),
-			round:    2,
-			height:   big.NewInt(3),
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]message.Msg),
+			round:            2,
+			height:           big.NewInt(3),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
@@ -446,6 +452,9 @@ func TestProcessBacklog(t *testing.T) {
 			backlogUntrusted: map[uint64][]message.Msg{},
 			round:            2,
 			height:           big.NewInt(3),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
