@@ -101,7 +101,7 @@ contract("Liquid", accounts => {
     // Check distribution (only validator should hold this)
     assert.equal(await lnew.totalSupply(), toWei("10000", "ether"));
     assert.equal(await lnew.balanceOf(validator), toWei("10000", "ether"));
-    assert.equal(await lnew.unclaimedRewards(validator), toWei("10", "ether"));
+    assert.equal(await lnew.unclaimedRewards.call(validator), toWei("10", "ether"));
     [delegatorA, delegatorB].forEach(async user => {
       assert.equal(await lnew.balanceOf(user), "0");
       assert.equal(await lnew.unclaimedRewards(user), "0");
