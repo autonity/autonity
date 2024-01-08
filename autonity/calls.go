@@ -172,7 +172,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			MinBaseFee:      new(big.Int).SetUint64(genesisConfig.MinBaseFee),
 			DelegationRate:  new(big.Int).SetUint64(genesisConfig.DelegationRate),
 			UnbondingPeriod: new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
-			TreasuryAccount: genesisConfig.Operator,
+			TreasuryAccount: genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
 			AccountabilityContract: AccountabilityContractAddress,
