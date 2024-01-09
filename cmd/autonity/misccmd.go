@@ -245,8 +245,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf("Failed to generate Autonity POP: %v", err)
 	}
 
-	fmt.Println("Node consensus key:", consensusKey.PublicKey().Hex())
-	fmt.Println("Signatures:", hexutil.Encode(signatures))
+	fmt.Println(hexutil.Encode(signatures))
 	return nil
 }
 
@@ -270,7 +269,7 @@ func genNodeKey(ctx *cli.Context) error {
 	if writeAddr {
 		fmt.Printf("Node address: %s\n", crypto.PubkeyToAddress(nodeKey.PublicKey).String())
 		fmt.Printf("Node public key: 0x%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
-		fmt.Println("Node consensus key:", consensusKey.PublicKey().Hex())
+		fmt.Println("Consensus public key:", consensusKey.PublicKey().Hex())
 	}
 	return nil
 }

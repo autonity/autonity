@@ -324,9 +324,8 @@ async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
       throw new Error(stderr);
     }
     const outputLines = stdout.split('\n');
-    const nodeConsensusKey = outputLines.find(line => line.startsWith('Node consensus key:')).split(':')[1].trim();
-    const signatures = outputLines.find(line => line.startsWith('Signatures:')).split(':')[1].trim();
-    return { nodeConsensusKey, signatures };
+    const signatures = outputLines[0].trim();
+    return { signatures };
   } catch (error) {
     return { error: error.message };
   }
@@ -338,7 +337,7 @@ async function generateNodeKey(filePath) {
     const { stdout, stderr } = await exec(command);
     const nodeAddress = stdout.match(/Node address: (0x[0-9a-fA-F]+)/)[1];
     const nodePublicKey = stdout.match(/Node public key: (0x[0-9a-fA-F]+)/)[1];
-    const nodeConsensusKey = stdout.match(/Node consensus key: (0x[0-9a-fA-F]+)/)[1];
+    const nodeConsensusKey = stdout.match(/Consensus public key: (0x[0-9a-fA-F]+)/)[1];
     return { nodeAddress, nodePublicKey, nodeConsensusKey };
   } catch (error) {
     throw new Error(`Failed to execute command: ${error.message}`);
