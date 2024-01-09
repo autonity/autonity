@@ -260,8 +260,7 @@ function checkUnbondingRequest(request, newtonAmount, share, selfDelegation) {
 
 contract('Protocol', function (accounts) {
     before(async function () {
-      console.log("\tAttempting to mock enode verifier precompile. Will (rightfully) fail if running against Autonity network")
-      await utils.mockEnodePrecompile()
+      await utils.mockPrecompile()
     });
 
   for (let i = 0; i < accounts.length; i++) {

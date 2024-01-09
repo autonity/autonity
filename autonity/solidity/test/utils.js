@@ -126,8 +126,14 @@ async function setCode(addr, code, contractName) {
   });
 }
 
+async function mockPrecompile() {
+  await mockEnodePrecompile();
+  await mockCommitteeSelectorPrecompile();
+}
+
 // mock verify enode precompiled contract
 async function mockEnodePrecompile() {
+      console.log("\tAttempting to mock enode verifier precompile. Will (rightfully) fail if running against Autonity network")
       const instance = await mockEnodeVerifier.new();
       const code = await web3.eth.getCode(instance.address);
       const verifyEnodeAddr = "0x00000000000000000000000000000000000000ff";
@@ -142,6 +148,7 @@ async function mockEnodePrecompile() {
 
 // mock committee selector precompiled contract
 async function mockCommitteeSelectorPrecompile() {
+  console.log("\tAttempting to mock committee selector precompile. Will (rightfully) fail if running against Autonity network")
   const instance = await mockCommitteeSelector.new();
   const code = await web3.eth.getCode(instance.address);
   const contractAddress = "0x00000000000000000000000000000000000000fb";
@@ -151,7 +158,7 @@ async function mockCommitteeSelectorPrecompile() {
     },
     (error) => {
         console.log(error); 
-});
+    });
 }
 
 // mine an empty block.
@@ -244,7 +251,6 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
 // deploys protocol contracts
 const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
     // autonity contract
-    await mockCommitteeSelectorPrecompile();
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
     await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonity;
@@ -252,7 +258,6 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
-    await mockCommitteeSelectorPrecompile();
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
@@ -356,7 +361,7 @@ module.exports.deployContracts = deployContracts;
 module.exports.deployAutonityTestContract = deployAutonityTestContract;
 module.exports.mineEmptyBlock = mineEmptyBlock;
 module.exports.setCode = setCode;
-module.exports.mockEnodePrecompile = mockEnodePrecompile;
+module.exports.mockPrecompile = mockPrecompile;
 module.exports.timeout = timeout;
 module.exports.waitForNewBlock = waitForNewBlock;
 module.exports.endEpoch = endEpoch;

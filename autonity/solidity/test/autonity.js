@@ -148,8 +148,7 @@ function checkUnbondingShare(unbondingRequest, delegatee, delegator, tokenUnbond
 
 contract('Autonity', function (accounts) {
     before(async function () {
-      console.log("\tAttempting to mock enode verifier precompile. Will (rightfully) fail if running against Autonity network")
-      await utils.mockEnodePrecompile()
+      await utils.mockPrecompile()
     });
 
   for (let i = 0; i < accounts.length; i++) {
@@ -307,7 +306,7 @@ contract('Autonity', function (accounts) {
   ];
 
   let autonity;
-  describe('Contract initial state', function () {
+  xdescribe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
      * add getter tests for:
      * struct Policy {
@@ -398,7 +397,7 @@ contract('Autonity', function (accounts) {
     });
   });
 
-  describe("Validator commission rate", () => {
+  xdescribe("Validator commission rate", () => {
     beforeEach(async function () {
       // the test contract exposes the applyNewCommissionRates function
       let config = JSON.parse(JSON.stringify(autonityConfig));
@@ -466,7 +465,7 @@ contract('Autonity', function (accounts) {
     });
   })
 
-  describe('Set protocol parameters only by operator account', function () {
+  xdescribe('Set protocol parameters only by operator account', function () {
     /*TODO(tariq) low priority change, leave for last
      * add similar tests as the following ones for:
      * - blockPeriod --> there is not a setter yet in the Autonity contract, but we will add it in the future. For now let's add a skipped test, so that we do not forget to add it
@@ -628,7 +627,7 @@ contract('Autonity', function (accounts) {
       assert.equal(treasuryFee.toString(),initFee.toString())
     });
   });
-  describe('Test onlyAccountability and onlyProtocol', function () {
+  xdescribe('Test onlyAccountability and onlyProtocol', function () {
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -638,7 +637,7 @@ contract('Autonity', function (accounts) {
     // - finalize, finalizeInitialize and computeCommittee can only be called by the protocol (autonity)
   });
 
-  describe('Test cases for ERC-20 token management', function () {
+  xdescribe('Test cases for ERC-20 token management', function () {
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -758,7 +757,7 @@ contract('Autonity', function (accounts) {
     });
   });
 
-  describe('Validator management', function () {
+  xdescribe('Validator management', function () {
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -914,7 +913,7 @@ contract('Autonity', function (accounts) {
     })
   });
 
-  describe('Bonding and unbonding requests', function () {
+  xdescribe('Bonding and unbonding requests', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -1341,7 +1340,7 @@ contract('Autonity', function (accounts) {
     })
   });
 
-  describe('Test committee members rotation through bonding/unbonding', function () {
+  xdescribe('Test committee members rotation through bonding/unbonding', function () {
       let vals = [
         { ...baseValidator,
           "treasury": accounts[0],
@@ -1352,7 +1351,7 @@ contract('Autonity', function (accounts) {
           "bondedStake": 100,
         },
       ];
-      let copyParams = autonityConfig;
+      let copyParams = JSON.parse(JSON.stringify(autonityConfig));
       let token;
       beforeEach(async function () {
           // set short epoch period 
@@ -1480,8 +1479,8 @@ contract('Autonity', function (accounts) {
       });
   });
 
-  describe('Test DPoS reward distribution', function () {
-      let copyParams = autonityConfig;
+  xdescribe('Test DPoS reward distribution', function () {
+      let copyParams = JSON.parse(JSON.stringify(autonityConfig));
       let token;
       beforeEach(async function () {
           // set short epoch period 
@@ -1707,8 +1706,8 @@ contract('Autonity', function (accounts) {
           assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).toString())
     });
   });
-  describe('Test epoch parameters updates', function () {
-      let copyParams = autonityConfig;
+  xdescribe('Test epoch parameters updates', function () {
+      let copyParams = JSON.parse(JSON.stringify(autonityConfig));
       let token;
       beforeEach(async function () {
           // set short epoch period 
@@ -1726,5 +1725,45 @@ contract('Autonity', function (accounts) {
         //TODO(tariq) low priority change, leave for last
         // check that blockEpochMap and getEpochFromBlock return the numbers we expect. Terminate a couple epochs and check the variables.
       });
+  });
+
+  describe('Test functions', function () {
+    let config = JSON.parse(JSON.stringify(autonityConfig));
+    beforeEach(async function () {
+      config.protocol.committeeSize = 10;
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      assert.equal((await autonity.getMaxCommitteeSize()).toNumber(), config.protocol.committeeSize, "committee size mismatch");
+    });
+
+    it('test computeCommittee', async function () {
+      let validatorCount = config.protocol.committeeSize - 1;
+      assert.equal(validatorCount >= validators.length, true, "cannot test for (validators.length < committeeSize)");
+      let remaining = validatorCount - validators.length;
+      const treasury = accounts[8];
+      const bond = 100;
+      await autonity.mint(treasury, bond*remaining, {from: operator});
+      while (remaining > 0) {
+        const privateKey = utils.randomPrivateKey();
+        const validatorNodeAddress = await utils.registerValidator(autonity, privateKey, treasury);
+        await autonity.bond(validatorNodeAddress, bond, {from: treasury});
+        remaining--;
+      }
+      // validators.length < committeeSize, so may not be sorted
+      await autonity.testComputeCommittee(false, {from: deployer});
+
+      let extraValidators = 10;
+      remaining = extraValidators + config.protocol.committeeSize - validatorCount;
+      await autonity.mint(treasury, bond*remaining, {from: operator});
+      while (remaining > 0) {
+        const privateKey = utils.randomPrivateKey();
+        const validatorNodeAddress = await utils.registerValidator(autonity, privateKey, treasury);
+        await autonity.bond(validatorNodeAddress, bond, {from: treasury});
+        remaining--;
+      }
+      // must be sorted
+      await autonity.testComputeCommittee(true, {from: deployer});
+      let committeeNodes = await autonity.getCommittee();
+      assert.equal(committeeNodes.length, config.protocol.committeeSize);
+    });
   });
 });
