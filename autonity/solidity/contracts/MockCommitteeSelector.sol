@@ -29,7 +29,7 @@ contract MockCommitteeSelector {
         uint256 committeeSize = uint256(bytes32(committeeSizeBytes));
         uint256 validatorCount;
         assembly {
-            validatorCount := sload(validatorListSlot)
+            validatorCount := sload(mload(add(validatorListSlot, 0x20)))
         }
         uint256 validatorListSlotHash = uint256(keccak256(validatorListSlot));
         uint256 threshold = 0;
@@ -56,7 +56,6 @@ contract MockCommitteeSelector {
             }
         }
 
-        // require(count > 0, "count 0");
         Autonity.CommitteeMember[] memory validators = new Autonity.CommitteeMember[](count);
         {
             uint256 j = 0;
@@ -85,7 +84,6 @@ contract MockCommitteeSelector {
             }
         }
 
-        // require(validators.length > 0, "no validator with positive stake");
         if (validators.length > committeeSize) {
             _sortByStake(validators);
         }
@@ -96,12 +94,14 @@ contract MockCommitteeSelector {
         // write committee nodes in persistent storage
         {
             assembly {
-                sstore(committeeSlot, committeeSize)
+                sstore(mload(add(committeeSlot, 0x20)), committeeSize)
             }
             uint256 committeeSlotBase = uint256(keccak256(committeeSlot));
+            uint256 totalStake = 0;
             for (uint256 i = 0 ; i < committeeSize; i++) {
                 uint256 nodeAddress = uint256(uint160(validators[i].addr));
                 uint256 bondedStake = validators[i].votingPower;
+                totalStake += bondedStake;
                 assembly {
                     sstore(committeeSlotBase, nodeAddress)
                 }
@@ -111,10 +111,12 @@ contract MockCommitteeSelector {
                 }
                 committeeSlotBase++;
             }
+            assembly {
+                sstore(mload(add(epochTotalBondedStakeSlot, 0x20)), totalStake)
+            }
         }
 
         // return committeeSize
-        // require(committeeSize > 0, "committeeSize 0");
         bytes memory ret = new bytes(64 + committeeSize*32);
         assembly {
             mstore(add(ret, 0x40), committeeSize)

@@ -53,4 +53,55 @@ contract AutonityTest is Autonity {
      return headUnbondingID;
    }
 
+   function testComputeCommittee(bool checkSort) public {
+      _stakingOperations();
+      address[] memory voters = computeCommittee();
+      address[] memory addresses = new address[](voters.length);
+      uint256 totalStake = 0;
+      uint256 minStake = 0;
+      uint256 lastStake = 0;
+      for (uint256 i = 0; i < committee.length; i++) {
+        address memberAddress = committee[i].addr;
+        require(memberAddress != address(0), "invalid address");
+        addresses[i] = memberAddress;
+        uint256 stake = committee[i].votingPower;
+        require(stake > 0, "0 stake in committee");
+        totalStake += stake;
+        if (i == 0) {
+          minStake = stake;
+        }
+        else if (stake < minStake) {
+          minStake = stake;
+        }
+
+        if (i > 0 && checkSort == true) {
+          require(lastStake >= stake, "committee members not sorted");
+        }
+        lastStake = stake;
+        Validator storage validator = validators[memberAddress];
+        require(validator.nodeAddress == memberAddress, "validator does not exist");
+        require(validator.bondedStake == stake, "stake mismatch");
+        require(validator.oracleAddress == voters[i], "oracle address mismatch");
+      }
+      require(totalStake == epochTotalBondedStake, "total stake mismatch");
+
+      for (uint i = 0; i < validatorList.length; i++) {
+        bool foundMatch = false;
+        for (uint j = 0; j < addresses.length; j++) {
+          if (validatorList[i] == addresses[j]) {
+            foundMatch = true;
+            break;
+          }
+        }
+
+        Validator storage validator = validators[validatorList[i]];
+        if (foundMatch == false) {
+          require(validator.bondedStake <= minStake, "high stake for non-committee member");
+        }
+        else {
+          require(validator.bondedStake >= minStake, "low stake for committee member");
+        }
+      }
+   }
+
 }

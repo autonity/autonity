@@ -1630,6 +1630,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
 
         require(_returnData[0] == address(1), "unsuccessful call");
+        require(_returnData[1] != address(0), "empty committee");
         // _returnData[1] has new committee size = length of voters
         if (_committeeSize > uint256(uint160(_returnData[1]))) {
             _committeeSize = uint256(uint160(_returnData[1]));
