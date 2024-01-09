@@ -427,22 +427,32 @@ func (c *Core) SetStep(step Step) {
 	c.step = step
 	c.stepChange = now
 
-	// reset started consensus timeout
-	// only one can be started at the same time
-	// there can be no timeout started if we are in precommitDone phase
-	switch {
-	case c.proposeTimeout.TimerStarted():
-		if err := c.proposeTimeout.StopTimer(); err != nil {
-			c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "step", step, "err", err)
-		}
-	case c.prevoteTimeout.TimerStarted():
-		if err := c.prevoteTimeout.StopTimer(); err != nil {
-			c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "step", step, "err", err)
-		}
-	case c.precommitTimeout.TimerStarted():
-		if err := c.precommitTimeout.StopTimer(); err != nil {
-			c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "step", step, "err", err)
-		}
+	// stop consensus timeouts
+	if err := c.proposeTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "step", step, "err", err)
+	}
+	if err := c.prevoteTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "step", step, "err", err)
+	}
+	if err := c.precommitTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "step", step, "err", err)
+	}
+
+	// TODO(lorenzo) explain
+
+	// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
+	if c.step == Prevote && c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+		//TODO(lorenzo) fix context
+		c.precommiter.SendPrecommit(nil, true)
+		c.SetStep(Precommit) //TODO(lorenzo) recursion
+	}
+
+	// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
+	// TODO(lorenzo) refine conditions
+	if c.step == Prevote && !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
+		timeoutDuration := c.timeoutPrevote(c.Round())
+		c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
+		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 	}
 
 	c.processBacklog()

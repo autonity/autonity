@@ -69,8 +69,6 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 		curProposal := c.curRoundMessages.Proposal()
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 		if curProposal != nil && c.curRoundMessages.PrevotesPower(curProposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
-			c.logger.Debug("Stopped Scheduled Prevote Timeout")
-
 			if c.step == Prevote {
 				c.lockedValue = curProposal.Block()
 				c.lockedRound = c.Round()

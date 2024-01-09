@@ -82,8 +82,6 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		fallthrough
-	case errors.Is(err, constants.ErrFutureStepMessage):
-		fallthrough
 	case errors.Is(err, constants.ErrNilPrevoteSent):
 		fallthrough
 	case errors.Is(err, constants.ErrNilPrecommitSent):
@@ -305,9 +303,6 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 			c.storeBacklog(msg, msg.Sender())
 			// decoding must have been successful to return
 			c.handleFutureRoundMsg(ctx, msg, msg.Sender())
-		case errors.Is(err, constants.ErrFutureStepMessage):
-			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, msg.Sender())
 		}
 		return err
 	}

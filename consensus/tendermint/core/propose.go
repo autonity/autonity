@@ -152,6 +152,22 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		}
 	}
 
+	// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
+	//TODO(lorenzo) refine conditions
+	if c.step >= Prevote {
+		if c.curRoundMessages.PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
+			if c.step == Prevote {
+				c.lockedValue = proposal.Block()
+				c.lockedRound = c.Round()
+				c.precommiter.SendPrecommit(ctx, false)
+				c.SetStep(Precommit)
+			}
+			c.validValue = proposal.Block()
+			c.validRound = c.Round()
+			c.setValidRoundAndValue = true
+		}
+	}
+
 	return nil
 }
 

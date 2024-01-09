@@ -20,9 +20,6 @@ var (
 	ErrOldRoundMessage = errors.New("same height but old round message")
 	// ErrFutureRoundMessage message is returned when message is of the same Height but form a newer round
 	ErrFutureRoundMessage = errors.New("same height but future round message")
-	// ErrFutureStepMessage message is returned when it's a prevote or precommit message of the same Height same round
-	// while the current step is propose.
-	ErrFutureStepMessage = errors.New("same round but future step message")
 	// ErrInvalidMessage is returned when the message is malformed.
 	ErrInvalidMessage = errors.New("invalid message")
 	// ErrInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
