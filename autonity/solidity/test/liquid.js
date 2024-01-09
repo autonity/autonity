@@ -22,12 +22,6 @@ contract("Liquid", accounts => {
 
   // Contract - deployed for each test here
   async function deployLNEW(commissionPercent = 0) {
-
-    //deploy Logic first
-    let liquidLogic = await LiquidLogic.new(rewardSource)
-
-
-
     // Cannot extract this from the ABI, so have to hard-code it.
     let FEE_FACTOR_UNIT_RECIP = toBN("10000");
     let commission =
@@ -35,7 +29,6 @@ contract("Liquid", accounts => {
     let lnew = await ValidatorLNEW.new(liquidLogic.address, validator, treasury, commission, "27");
 
     await lnew.mint(validator, toWei("10000", "ether"));
-
     return lnew;
   };
 
@@ -83,11 +76,6 @@ contract("Liquid", accounts => {
       assert.equal((await lnew.unclaimedRewards.call(user)).toNumber(), 0);
     });
 
-
-    let balance = await web3.eth.getBalance(rewardSource)
-    console.log("jajajaj")
-    console.log(balance)
-
     // Send 10 AUT as a reward.  Perform a call first (not a tx)
     // in order to check the returned value.
     let distributed = toBN(await lnew.redistribute.call(
@@ -97,7 +85,6 @@ contract("Liquid", accounts => {
     assert.isTrue(distributed.gt(toBN(toWei("9.9999", "ether"))));
     await lnew.redistribute.sendTransaction(
       {from: rewardSource, value: toWei("10", "ether")});
-
     // Check distribution (only validator should hold this)
     assert.equal(await lnew.totalSupply(), toWei("10000", "ether"));
     assert.equal(await lnew.balanceOf(validator), toWei("10000", "ether"));

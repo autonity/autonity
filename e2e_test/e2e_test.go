@@ -68,7 +68,6 @@ func TestProtocolContractCache(t *testing.T) {
 // between validators and stakeholders.
 func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	t.Skip("Is broken with Penalty Absorbing Stake")
-
 	//todo: fix. Genesis validators are no longer issued Liquid Newton. Need to introduce 3rd party delegators.
 	vals, err := Validators(t, 3, "10e18,v,10000,0.0.0.0:%s,%s")
 	require.NoError(t, err)
@@ -114,9 +113,6 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// claimable fees should be 0 before epoch
 	for i := range liquidContracts {
 		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.TransactOpts{}, validators[i].Treasury)
-
-		//UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
-		//require.Equal(t, big.NewInt(0).Bytes(), unclaimed. Bytes())
 		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.Data())
 	}
 

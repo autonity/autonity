@@ -187,7 +187,6 @@ contract('Autonity', function (accounts) {
       "acuContract" :zeroAddress,
       "supplyControlContract" :zeroAddress,
       "stabilizationContract" :zeroAddress,
-      // "liquidLogicAddress": zeroAddress,
     },
     "protocol": {
       "operatorAccount": operator,
@@ -1658,9 +1657,6 @@ contract('Autonity', function (accounts) {
 
           let val0Liquid = await liquidContract.at(val0.liquidContract)
           let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards.call(alice)
-
-          console.log(unclaimedRewardsV0)
-          console.log(unclaimedRewardsV0.toNumber())
 
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
           assert.equal(unclaimedRewardsV0.toNumber(),delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toNumber())

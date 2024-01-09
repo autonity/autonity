@@ -86,7 +86,6 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,Oracle)
 	@$(call gen-contract,,AutonityUpgradeTest)
 	@$(call gen-contract,,Accountability)
-	@$(call gen-contract,,LiquidLogic)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
@@ -185,7 +184,7 @@ test-contracts-asm:
 # start an autonity network for contract tests
 start-autonity:
 	@echo "starting autonity test network"
-	@cd $(CONTRACTS_TEST_DIR)/autonity/ && nohup ./autonity-start.sh  > ./start-autonity.log 2>&1 &
+	@cd $(CONTRACTS_TEST_DIR)/autonity/ && nohup ./autonity-start.sh  > /dev/null 2>&1 &
 	@# give some time for autonity to start
 	@sleep 10
 	@# check that autonity started correctly and is listening on the correct port

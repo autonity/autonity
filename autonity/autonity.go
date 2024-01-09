@@ -407,10 +407,6 @@ type StabilizationContract struct {
 	EVMContract
 }
 
-type LiquidLogicContract struct {
-	EVMContract
-}
-
 func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb *state.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
 	evmProvider := func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
 		if header != nil {
@@ -467,14 +463,6 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb *state
 				chainConfig: chainConfig,
 			},
 		},
-		LiquidLogicContract: LiquidLogicContract{
-			EVMContract{
-				evmProvider: evmProvider,
-				contractABI: &generated.LiquidLogicAbi,
-				db:          db,
-				chainConfig: chainConfig,
-			},
-		},
 		statedb: statedb,
 	}
 }
@@ -486,7 +474,6 @@ type GenesisEVMContracts struct {
 	ACUContract
 	SupplyControlContract
 	StabilizationContract
-	LiquidLogicContract
 
 	statedb *state.StateDB
 }
@@ -552,12 +539,4 @@ func (c *GenesisEVMContracts) DeployStabilizationContract(
 	bytecode []byte,
 ) error {
 	return c.StabilizationContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, stabilizationConfig, autonity, operator, oracle, supplyControl, collateral)
-}
-
-func (c *GenesisEVMContracts) DeployLiquidLogicContract(
-	autonity common.Address,
-	bytecode []byte,
-) error {
-
-	return c.LiquidLogicContract.DeployContract(nil, DeployerAddress, c.statedb, bytecode, autonity)
 }
