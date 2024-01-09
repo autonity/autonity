@@ -141,15 +141,13 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			// lockedValue when it is non nil.
 			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || hash == c.lockedValue.Hash()))
 			c.SetStep(ctx, Prevote)
-			return nil
-		}
-		rs := c.messages.GetOrCreate(vr)
-		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
-			c.SetStep(ctx, Prevote)
-			return nil
+		} else { // vr >= 0 here
+			rs := c.messages.GetOrCreate(vr)
+			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
+			if vr < c.Round() && rs.PrevotesPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+				c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
+				c.SetStep(ctx, Prevote)
+			}
 		}
 	}
 

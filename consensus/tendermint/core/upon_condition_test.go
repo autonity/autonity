@@ -521,6 +521,7 @@ func TestOldProposal(t *testing.T) {
 		c.SetStep(context.Background(), Propose)
 		c.lockedRound = clientLockedRound
 		c.validRound = clientLockedRound
+		c.curRoundMessages = c.messages.GetOrCreate(currentRound)
 		// Although the following is not possible it is required to ensure that c.lockRound <= proposalValidRound is
 		// responsible for sending the prevote for the incoming proposal
 		c.lockedValue = nil
@@ -576,6 +577,7 @@ func TestOldProposal(t *testing.T) {
 		c.validRound = proposalValidRound + 1
 		c.lockedValue = proposal.Block()
 		c.validValue = proposal.Block()
+		c.curRoundMessages = c.messages.GetOrCreate(currentRound)
 		fakePrevote := message.Fake{
 			FakePower:  c.CommitteeSet().Quorum(),
 			FakeValue:  proposal.Block().Hash(),
@@ -620,6 +622,7 @@ func TestOldProposal(t *testing.T) {
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
 		c.SetStep(context.Background(), Propose)
+		c.curRoundMessages = c.messages.GetOrCreate(currentRound)
 
 		c.lockedRound = proposalValidRound + 1
 		c.validRound = proposalValidRound + 1
@@ -817,7 +820,7 @@ func TestProposeTimeout(t *testing.T) {
 		c.SetStep(context.Background(), Propose)
 
 		// propose timer should be started
-		c.proposeTimeout.ScheduleTimeout(1*time.Second, c.Round(), c.Height(), c.onTimeoutPropose)
+		c.proposeTimeout.ScheduleTimeout(2*time.Second, c.Round(), c.Height(), c.onTimeoutPropose)
 		assert.True(t, c.proposeTimeout.TimerStarted())
 
 		err := c.handleValidMsg(context.Background(), proposal)
