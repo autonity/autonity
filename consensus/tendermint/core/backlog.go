@@ -18,8 +18,7 @@ type backlogUntrustedMessageEvent struct {
 	msg message.Msg
 }
 
-// TODO(lorenzo) rename and remove step argument
-func (c *Core) checkMessageStep(round int64, height uint64, _ Step) error {
+func (c *Core) checkMessage(round int64, height uint64) error {
 	h := new(big.Int).SetUint64(height)
 	switch {
 	case round < 0 || round > constants.MaxRound:
@@ -99,7 +98,7 @@ func (c *Core) processBacklog() {
 
 				r := curMsg.R()
 				h := curMsg.H()
-				err := c.checkMessageStep(r, h, Step(curMsg.Code()))
+				err := c.checkMessage(r, h)
 				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) {
 					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue

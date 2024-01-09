@@ -7,7 +7,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +30,7 @@ func (c *malPrevoter) HandlePrevote(ctx context.Context, prevote *message.Prevot
 	}
 	c.Logger().Debug("Stopped Scheduled Prevote Timeout")
 	c.Precommiter().SendPrecommit(ctx, true)
-	c.SetStep(core.Precommit)
+	c.SetStep(ctx, core.Precommit)
 	return nil
 }
 

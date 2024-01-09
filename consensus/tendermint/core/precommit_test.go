@@ -166,7 +166,7 @@ func TestHandlePrecommit(t *testing.T) {
 			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 		c.SetDefaultHandlers()
-		c.SetStep(Precommit)
+		c.SetStep(context.Background(), Precommit)
 		defer func() {
 			if r := recover(); r == nil {
 				t.Errorf("The code did not panic")

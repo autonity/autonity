@@ -31,7 +31,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 }
 
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
-	if err := c.checkMessageStep(precommit.R(), precommit.H(), Precommit); err != nil {
+	if err := c.checkMessage(precommit.R(), precommit.H()); err != nil {
 		if errors.Is(err, constants.ErrOldRoundMessage) {
 			// We are receiving a precommit for an old round. We need to check if we have now a quorum
 			// in this old round.
@@ -46,7 +46,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 						panic("Fatal Safety Error: Quorum on unverifiable proposal")
 					}
 				}
-				c.Commit(precommit.R(), c.curRoundMessages)
+				c.Commit(ctx, precommit.R(), c.curRoundMessages)
 				return nil
 			}
 		}
@@ -64,7 +64,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			c.Commit(c.Round(), c.curRoundMessages)
+			c.Commit(ctx, c.Round(), c.curRoundMessages)
 		}
 
 		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus

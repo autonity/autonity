@@ -11,7 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +93,7 @@ func (c *proposalApprover) HandleProposal(ctx context.Context, proposal *message
 	// Set the proposal for the current round
 	c.CurRoundMessages().SetProposal(proposal, true)
 	c.Prevoter().SendPrevote(ctx, false)
-	c.SetStep(core.Prevote)
+	c.SetStep(ctx, core.Prevote)
 	return nil
 }
 

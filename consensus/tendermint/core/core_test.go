@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -110,7 +111,7 @@ func TestCore_Setters(t *testing.T) {
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, 0, common.Big1, timeoutCallback)
 		require.True(t, c.proposeTimeout.TimerStarted())
 
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		require.Equal(t, Propose, c.step)
 		// set step should also stop timeouts
 		require.False(t, c.proposeTimeout.TimerStarted())

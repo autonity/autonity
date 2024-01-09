@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"reflect"
@@ -32,7 +33,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(1, 2, Propose)
+		err := c.checkMessage(1, 2)
 		require.NoError(t, err)
 	})
 
@@ -42,7 +43,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(2, 4, Propose)
+		err := c.checkMessage(2, 4)
 		if !errors.Is(err, constants.ErrFutureHeightMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureHeightMessage)
 		}
@@ -54,7 +55,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(2, 1, Propose)
+		err := c.checkMessage(2, 1)
 		if !errors.Is(err, constants.ErrOldHeightMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrOldHeightMessage)
 		}
@@ -66,7 +67,7 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(3),
 		}
 
-		err := c.checkMessageStep(2, 3, Propose)
+		err := c.checkMessage(2, 3)
 		if !errors.Is(err, constants.ErrFutureRoundMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrFutureRoundMessage)
 		}
@@ -78,54 +79,10 @@ func TestCheckMessage(t *testing.T) {
 			height: big.NewInt(2),
 		}
 
-		err := c.checkMessageStep(1, 2, Propose)
+		err := c.checkMessage(1, 2)
 		if !errors.Is(err, constants.ErrOldRoundMessage) {
 			t.Fatalf("have %v, want %v", err, constants.ErrOldRoundMessage)
 		}
-	})
-
-	t.Run("at propose step, given prevote for same view, nil returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Propose,
-		}
-
-		err := c.checkMessageStep(2, 2, Prevote)
-		require.NoError(t, err)
-	})
-
-	t.Run("at propose step, given precommit for same view, nil returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Propose,
-		}
-
-		err := c.checkMessageStep(2, 2, Precommit)
-		require.NoError(t, err)
-	})
-
-	t.Run("at prevote step, given precommit for same view, no error returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Prevote,
-		}
-
-		err := c.checkMessageStep(2, 2, Precommit)
-		require.NoError(t, err)
-	})
-
-	t.Run("at precommit step, given prevote for same view, no error returned", func(t *testing.T) {
-		c := &Core{
-			round:  2,
-			height: big.NewInt(2),
-			step:   Precommit,
-		}
-
-		err := c.checkMessageStep(2, 2, Prevote)
-		require.NoError(t, err)
 	})
 }
 
@@ -405,12 +362,12 @@ func TestProcessBacklog(t *testing.T) {
 
 		c.storeBacklog(msg, val.Address)
 		c.storeBacklog(msg2, val.Address)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		c.processBacklog()
 		c.setHeight(big.NewInt(4))
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		c.processBacklog()
 		timeout := time.NewTimer(2 * time.Second)
 		<-timeout.C
@@ -448,12 +405,12 @@ func TestProcessBacklog(t *testing.T) {
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.storeFutureMessage(msg)
 		c.storeFutureMessage(msg2)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		c.processBacklog()
 		c.setHeight(big.NewInt(4))
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
 		c.processBacklog()

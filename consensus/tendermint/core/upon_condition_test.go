@@ -342,7 +342,7 @@ func TestNewProposal(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 
 		// members[currentRound] means that the sender is the proposer for the current round
 		// assume that the message is from a member of committee set and the signature is signing the contents, however,
@@ -386,7 +386,7 @@ func TestNewProposal(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		c.lockedRound = clientLockedRound
 		c.lockedValue = nil
 
@@ -422,7 +422,7 @@ func TestNewProposal(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		c.lockedRound = clientLockedRound
 		c.lockedValue = proposal.Block()
 		c.validRound = clientLockedRound
@@ -463,7 +463,7 @@ func TestNewProposal(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		c.lockedRound = clientLockedRound
 		c.lockedValue = clientLockedValue
 		c.validRound = clientLockedRound
@@ -519,7 +519,7 @@ func TestOldProposal(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		c.lockedRound = clientLockedRound
 		c.validRound = clientLockedRound
 		// Although the following is not possible it is required to ensure that c.lockRound <= proposalValidRound is
@@ -570,7 +570,7 @@ func TestOldProposal(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		// Although the following is not possible it is required to ensure that c.lockedValue = proposal is responsible
 		// for sending the prevote for the incoming proposal
 		c.lockedRound = proposalValidRound + 1
@@ -621,7 +621,7 @@ func TestOldProposal(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 
 		// not possible in practice, but for the sake of testing
 		c.lockedRound = proposalValidRound + 1
@@ -754,7 +754,7 @@ func TestOldProposal(t *testing.T) {
 		// client on new round's step propose.
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		c.lockedRound = clientLockedRound
 		c.validRound = clientLockedRound
 		c.lockedValue = clientLockedValue
@@ -817,7 +817,7 @@ func TestProposeTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 
 		// propose timer should be started
 		c.proposeTimeout.ScheduleTimeout(1*time.Second, c.Round(), c.Height(), c.onTimeoutPropose)
@@ -861,7 +861,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		// create quorum prevote messages however there is no quorum on a specific hash
 		prevote1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -911,7 +911,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 		// create quorum prevote messages however there is no quorum on a specific hash
 		prevote1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -962,7 +962,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 
 		assert.False(t, c.prevoteTimeout.TimerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: currentRound, HeightWhenCalled: currentHeight, Step: Prevote})
@@ -990,7 +990,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Prevote)
+		c.SetStep(context.Background(), Prevote)
 
 		backendMock.EXPECT().Broadcast(committeeSet.Committee(), precommitMsg)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
@@ -1035,7 +1035,7 @@ func TestQuorumPrevote(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(currentStep)
+		c.SetStep(context.Background(), currentStep)
 		c.curRoundMessages.SetProposal(proposal, true)
 		fakePrevote := message.Fake{
 			FakeValue:  proposal.Block().Hash(),
@@ -1088,7 +1088,7 @@ func TestQuorumPrevote(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(currentStep)
+		c.SetStep(context.Background(), currentStep)
 		c.curRoundMessages.SetProposal(proposal, true)
 		fakePrevote := message.Fake{
 			FakeValue:  proposal.Block().Hash(),
@@ -1161,7 +1161,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	c.setHeight(currentHeight)
 	c.setRound(currentRound)
 	c.setCommitteeSet(committeeSet)
-	c.SetStep(Prevote)
+	c.SetStep(context.Background(), Prevote)
 	fakePrevote := message.Fake{
 		FakeValue:  common.Hash{},
 		FakeSender: members[2].Address,
@@ -1208,7 +1208,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		c := New(backendMock, nil)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
-		c.SetStep(Propose)
+		c.SetStep(context.Background(), Propose)
 		c.setCommitteeSet(committeeSet)
 		// create quorum precommit messages however there is no quorum on a specific hash
 		fakePrecommit1 := message.Fake{
@@ -1260,7 +1260,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(Precommit)
+		c.SetStep(context.Background(), Precommit)
 		// create quorum precommit messages however there is no quorum on a specific hash
 		fakePrecommit1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -1317,7 +1317,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setRound(round)
 		c.setCommitteeSet(committeeSet)
 		step := Step(rand.Intn(3))
-		c.SetStep(step)
+		c.SetStep(context.Background(), step)
 		// create quorum prevote messages however there is no quorum on a specific hash
 		fakePrecommit1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -1369,7 +1369,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
 		step := Step(rand.Intn(3))
-		c.SetStep(step)
+		c.SetStep(context.Background(), step)
 
 		assert.False(t, c.precommitTimeout.TimerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: currentRound, HeightWhenCalled: currentHeight, Step: Precommit})
@@ -1401,7 +1401,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
 		step := Step(rand.Intn(3))
-		c.SetStep(step)
+		c.SetStep(context.Background(), step)
 
 		c.handleTimeoutPrecommit(context.Background(), timeoutE)
 
@@ -1444,7 +1444,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	c.setHeight(currentHeight)
 	c.setRound(currentRound)
 	c.setCommitteeSet(committeeSet)
-	c.SetStep(Precommit)
+	c.SetStep(context.Background(), Precommit)
 	c.curRoundMessages.SetProposal(proposal, true)
 	quorumPrecommitMsg := message.Fake{
 		FakeValue:  proposal.Block().Hash(),
@@ -1531,7 +1531,7 @@ func TestFutureRoundChange(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(currentStep)
+		c.SetStep(context.Background(), currentStep)
 
 		err := c.handleValidMsg(context.Background(), msg1)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
@@ -1576,7 +1576,7 @@ func TestFutureRoundChange(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		c.SetStep(currentStep)
+		c.SetStep(context.Background(), currentStep)
 
 		err := c.handleValidMsg(context.Background(), prevoteMsg)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
