@@ -22,6 +22,10 @@ contract("Liquid", accounts => {
 
   // Contract - deployed for each test here
   async function deployLNEW(commissionPercent = 0) {
+
+    //deploy Logic first
+    let liquidLogic = await LiquidLogic.new(rewardSource)
+
     // Cannot extract this from the ABI, so have to hard-code it.
     let FEE_FACTOR_UNIT_RECIP = toBN("10000");
     let commission =
