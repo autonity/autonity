@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
@@ -32,9 +33,7 @@ func TestCheckMessage(t *testing.T) {
 		}
 
 		err := c.checkMessageStep(1, 2, Propose)
-		if err != nil {
-			t.Fatalf("have %v, want nil", err)
-		}
+		require.NoError(t, err)
 	})
 
 	t.Run("given future height, error returned", func(t *testing.T) {
@@ -85,7 +84,7 @@ func TestCheckMessage(t *testing.T) {
 		}
 	})
 
-	t.Run("at propose step, given prevote for same view, error returned", func(t *testing.T) {
+	t.Run("at propose step, given prevote for same view, nil returned", func(t *testing.T) {
 		c := &Core{
 			round:  2,
 			height: big.NewInt(2),
@@ -93,12 +92,10 @@ func TestCheckMessage(t *testing.T) {
 		}
 
 		err := c.checkMessageStep(2, 2, Prevote)
-		if !errors.Is(err, constants.ErrFutureStepMessage) {
-			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
-		}
+		require.NoError(t, err)
 	})
 
-	t.Run("at propose step, given precommit for same view, error returned", func(t *testing.T) {
+	t.Run("at propose step, given precommit for same view, nil returned", func(t *testing.T) {
 		c := &Core{
 			round:  2,
 			height: big.NewInt(2),
@@ -106,9 +103,7 @@ func TestCheckMessage(t *testing.T) {
 		}
 
 		err := c.checkMessageStep(2, 2, Precommit)
-		if !errors.Is(err, constants.ErrFutureStepMessage) {
-			t.Fatalf("have %v, want %v", err, constants.ErrFutureStepMessage)
-		}
+		require.NoError(t, err)
 	})
 
 	t.Run("at prevote step, given precommit for same view, no error returned", func(t *testing.T) {
@@ -119,9 +114,7 @@ func TestCheckMessage(t *testing.T) {
 		}
 
 		err := c.checkMessageStep(2, 2, Precommit)
-		if err != nil {
-			t.Fatalf("have %v, want %v", err, nil)
-		}
+		require.NoError(t, err)
 	})
 
 	t.Run("at precommit step, given prevote for same view, no error returned", func(t *testing.T) {
@@ -132,9 +125,7 @@ func TestCheckMessage(t *testing.T) {
 		}
 
 		err := c.checkMessageStep(2, 2, Prevote)
-		if err != nil {
-			t.Fatalf("have %v, want %v", err, nil)
-		}
+		require.NoError(t, err)
 	})
 }
 
@@ -255,8 +246,7 @@ func TestProcessBacklog(t *testing.T) {
 		}
 	})
 
-	t.Run("valid vote received, processed at prevote step", func(t *testing.T) {
-
+	t.Run("valid vote received", func(t *testing.T) {
 		msg := message.NewPrevote(1, 2, common.Hash{}, defaultSigner)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -294,16 +284,6 @@ func TestProcessBacklog(t *testing.T) {
 		c.processBacklog()
 
 		timeout := time.NewTimer(2 * time.Second)
-		//vote should not be processed at propose step
-		select {
-		case ev := <-evChan:
-			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
-		case <-timeout.C:
-		}
-		c.SetStep(Prevote)
-		c.processBacklog()
-
-		timeout = time.NewTimer(2 * time.Second)
 		select {
 		case ev := <-evChan:
 			e, ok := ev.(backlogMessageEvent)
@@ -416,7 +396,10 @@ func TestProcessBacklog(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
 			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
+			committee:        committeeSet,
+			messages:         message.NewMap(),
 		}
+		c.curRoundMessages = c.messages.GetOrCreate(2)
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
@@ -455,7 +438,10 @@ func TestProcessBacklog(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
 			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
+			committee:        committeeSet,
+			messages:         message.NewMap(),
 		}
+		c.curRoundMessages = c.messages.GetOrCreate(2)
 
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
