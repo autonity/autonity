@@ -104,6 +104,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 		c.SetDefaultHandlers()
 		err := c.proposer.HandleProposal(context.Background(), proposal)
+		require.NoError(t, err)
 		proposal2 := message.NewPropose(round, height, 87, block, signer).MustVerify(stubVerifier)
 		err = c.proposer.HandleProposal(context.Background(), proposal2)
 		if !errors.Is(err, constants.ErrAlreadyProcessed) {
