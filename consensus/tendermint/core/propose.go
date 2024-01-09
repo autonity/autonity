@@ -149,6 +149,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		if vr < c.Round() && rs.PrevotesPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
 			c.SetStep(ctx, Prevote)
+			return nil
 		}
 	}
 

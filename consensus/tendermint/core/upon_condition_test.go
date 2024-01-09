@@ -494,7 +494,6 @@ func TestOldProposal(t *testing.T) {
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
 
-	//TODO(lorenzo) flaky
 	t.Run("receive proposal with vr >= 0 and client's lockedRound <= vr", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound-1)) + 1
@@ -597,7 +596,6 @@ func TestOldProposal(t *testing.T) {
 		assert.Equal(t, proposal.Block(), c.lockedValue)
 		assert.Equal(t, proposal.Block(), c.validValue)
 	})
-	//TODO(lorenzo) flaky
 	t.Run("receive proposal with vr >= 0 and client has lockedRound > vr and lockedValue != proposal", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound-1)) + 1 //+1 to prevent 0 passed to randoms
@@ -623,7 +621,6 @@ func TestOldProposal(t *testing.T) {
 		c.setCommitteeSet(committeeSet)
 		c.SetStep(context.Background(), Propose)
 
-		// not possible in practice, but for the sake of testing
 		c.lockedRound = proposalValidRound + 1
 		c.validRound = proposalValidRound + 1
 		c.lockedValue = clientLockedValue
