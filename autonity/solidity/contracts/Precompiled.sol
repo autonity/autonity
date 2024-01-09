@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
-import "./lib/BytesLib.sol";
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
@@ -61,7 +60,7 @@ library Precompiled {
     // @return 0 for a failure, 1 for a successful check.
     function popVerification(bytes memory _consensusKey, bytes memory _proof, address _treasury) internal view returns (uint256) {
         uint256[1] memory retVal;
-        bytes memory input = BytesLib.concat(BytesLib.concat(_consensusKey, _proof), abi.encodePacked(_treasury));
+        bytes memory input = abi.encodePacked(_consensusKey, _proof, _treasury);
         address to = POP_VERIFIER_CONTRACT;
         // type bytes in solidity consumes the first 32 bytes to save the length of the byte array, thus the memory copy
         // in the static call should take the extra 32 bytes to have all the rlp encoded bytes copied, otherwise the
