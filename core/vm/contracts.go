@@ -206,7 +206,6 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	// validatorListSlot has the size of the array validatorList
 	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
 	baseOffsetArray := crypto.Keccak256Hash(validatorListSlot).Big()
-	validators := make([]*types.CommitteeMember, 0, validatorListSize)
 	threshold := big.NewInt(0)
 
 	// get validators from DB concurrently
@@ -217,17 +216,21 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	}
 	threadCount = validatorListSize / workPerThread
 	task := &sync.WaitGroup{}
-	lock := sync.RWMutex{}
+	// lock := sync.RWMutex{}
+	readValidators := make([][]*types.CommitteeMember, threadCount, threadCount+1)
+	totalValidators := 0
 	for i := 0; i < threadCount; i++ {
 		newOffset := big.NewInt(0).Add(baseOffsetArray, big.NewInt(0))
+		idx := i
 		task.Add(1)
 		go func() {
-			readValidators := a.getValidatorsInfo(
+			readValidators[idx] = a.getValidatorsInfo(
 				validatorsSlot, newOffset, workPerThread, threshold, caller, stateDB,
 			)
-			lock.Lock()
-			validators = append(validators, readValidators...)
-			lock.Unlock()
+			totalValidators += len(readValidators[idx])
+			// lock.Lock()
+			// validators = append(validators, readValidators...)
+			// lock.Unlock()
 			task.Done()
 		}()
 		baseOffsetArray.Add(baseOffsetArray, big.NewInt(int64(workPerThread)))
@@ -237,16 +240,22 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 		newOffset := big.NewInt(0).Add(baseOffsetArray, big.NewInt(0))
 		task.Add(1)
 		go func() {
-			readValidators := a.getValidatorsInfo(
+			readValidators = append(readValidators, a.getValidatorsInfo(
 				validatorsSlot, newOffset, remainingTask, threshold, caller, stateDB,
-			)
-			lock.Lock()
-			validators = append(validators, readValidators...)
-			lock.Unlock()
+			))
+			totalValidators += len(readValidators[threadCount])
+			// lock.Lock()
+			// validators = append(validators, readValidators...)
+			// lock.Unlock()
 			task.Done()
 		}()
 	}
 	task.Wait()
+
+	validators := make([]*types.CommitteeMember, 0, totalValidators)
+	for _, validatorGroup := range readValidators {
+		validators = append(validators, validatorGroup...)
+	}
 	var committeeSize int
 	if configCommitteeLen > len(validators) {
 		committeeSize = len(validators)
@@ -337,6 +346,9 @@ func (a *CommitteeSelector) getValidatorsInfo(
 	return validators
 }
 
+// sorts validators according to their VotingPower in descending order
+// in case more than one valdiator have same VotingPower, the output could be different
+// depending on the positions of the validators, even if the set of validators is same each time
 func quickSort(validators []*types.CommitteeMember, low int32, high int32, task *sync.WaitGroup) {
 	// Set the pivot element in its right sorted index in the array
 	pivot := validators[(high+low)/2].VotingPower
