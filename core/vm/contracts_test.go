@@ -181,6 +181,7 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 			require.NoError(bench, err)
 			copy(data, in)
 			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber, stateDB, common.Address{})
+			require.NoError(bench, err)
 		}
 		bench.StopTimer()
 		elapsed := uint64(time.Since(start))
