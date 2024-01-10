@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"net"
 	"sort"
@@ -599,11 +598,6 @@ func DefaultGoerliGenesisBlock() *Genesis {
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	consensusKey := params.DevModeConsensusKey
-	pop, err := crypto.AutonityPOPProof(faucet.PrivateKey, faucet.PrivateKey, faucet.Address.Hex(), consensusKey)
-	if err != nil {
-		log.Error("Error preparing Autonity POP for DEV mode, err:", err)
-	}
-
 	testAutonityContractConfig := params.AutonityContractGenesis{
 		MaxCommitteeSize: 1,
 		BlockPeriod:      1,
@@ -618,7 +612,6 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			{
 				Treasury:      faucet.Address,
 				OracleAddress: faucet.Address,
-				Pop:           pop,
 				Enode:         validatorEnode.String(),
 				BondedStake:   new(big.Int).SetUint64(1000),
 				ConsensusKey:  consensusKey.PublicKey().Marshal(),

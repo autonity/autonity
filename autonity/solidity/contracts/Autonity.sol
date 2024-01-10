@@ -48,7 +48,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 jailReleaseBlock;
         uint256 provableFaultCount;
         bytes consensusKey;
-        bytes pop;
         ValidatorState state;
     }
 
@@ -312,7 +311,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             0,                       // jail release block
             0,                       // provable faults count
             _consensusKey,           // validator key in bytes
-            _signatures,             // POP
             ValidatorState.active    // state
         );
 

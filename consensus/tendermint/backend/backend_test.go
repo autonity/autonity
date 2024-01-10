@@ -541,18 +541,12 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 		if err != nil {
 			panic(err)
 		}
-		treasuryAddr := nodeAddr
-		pop, err := crypto.AutonityPOPProof(keys[i], oracleKey, treasuryAddr.Hex(), blsKey)
-		if err != nil {
-			panic(err)
-		}
 
 		genesis.Config.AutonityContractConfig.Validators = append(
 			genesis.Config.AutonityContractConfig.Validators,
 			&params.Validator{
 				NodeAddress:   &nodeAddr,
 				OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
-				Pop:           pop,
 				Treasury:      nodeAddr,
 				Enode:         node.URLv4(),
 				BondedStake:   new(big.Int).SetUint64(100),

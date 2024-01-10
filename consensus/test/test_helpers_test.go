@@ -58,13 +58,9 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 		//stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 		if strings.HasPrefix(name, ValidatorPrefix) {
 			nodeAddr := crypto.PubkeyToAddress(nodes[name].nodeKey.PublicKey)
-			treasury := nodeAddr
-			pop, err := crypto.AutonityPOPProof(nodes[name].nodeKey, nodes[name].oracleKey, treasury.Hex(), nodes[name].consensusKey)
-			require.NoError(t, err)
 			validators = append(validators, &params.Validator{
 				NodeAddress:    &nodeAddr,
 				OracleAddress:  crypto.PubkeyToAddress(nodes[name].oracleKey.PublicKey),
-				Pop:            pop,
 				Enode:          nodes[name].url,
 				Treasury:       nodeAddr,
 				BondedStake:    stake,

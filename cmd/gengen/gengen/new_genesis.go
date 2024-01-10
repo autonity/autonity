@@ -201,7 +201,6 @@ func generateValidatorState(validators []*Validator) (
 
 		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
-		pop, err := crypto.AutonityPOPProof(u.NodeKey, u.OracleKey, treasuryAddress.Hex(), u.ConsensusKey)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("cannot generate Autonity POP in gengen")
 		}
@@ -210,7 +209,6 @@ func generateValidatorState(validators []*Validator) (
 			Enode:           e.String(),
 			OracleAddress:   oracleAddress,
 			Treasury:        treasuryAddress, // rewards goes here
-			Pop:             pop,
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
 			ConsensusKey:    u.ConsensusKey.PublicKey().Marshal(),

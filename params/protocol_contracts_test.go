@@ -22,7 +22,6 @@ func TestPrepareAutonityContract(t *testing.T) {
 	enode1 := enode.NewV4(&nodeKey1.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
 	consensusKey1, err := blst.RandKey()
 	require.NoError(t, err)
-	pop1, _ := crypto.AutonityPOPProof(nodeKey1, oracleKey1, crypto.PubkeyToAddress(treasury1.PublicKey).Hex(), consensusKey1)
 
 	treasury2, _ := crypto.GenerateKey()
 	nodeKey2, _ := crypto.GenerateKey()
@@ -31,7 +30,6 @@ func TestPrepareAutonityContract(t *testing.T) {
 	enode2 := enode.NewV4(&nodeKey2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
 	consensusKey2, err := blst.RandKey()
 	require.NoError(t, err)
-	pop2, _ := crypto.AutonityPOPProof(nodeKey2, oracleKey2, crypto.PubkeyToAddress(treasury2.PublicKey).Hex(), consensusKey2)
 
 	contractConfig := AutonityContractGenesis{
 		Operator:         common.HexToAddress("0xff"),
@@ -44,7 +42,6 @@ func TestPrepareAutonityContract(t *testing.T) {
 				OracleAddress: crypto.PubkeyToAddress(oracleKey1.PublicKey),
 				BondedStake:   big.NewInt(1),
 				ConsensusKey:  consensusKey1.PublicKey().Marshal(),
-				Pop:           pop1,
 			},
 			{
 				Treasury:      crypto.PubkeyToAddress(treasury2.PublicKey),
@@ -53,7 +50,6 @@ func TestPrepareAutonityContract(t *testing.T) {
 				OracleAddress: crypto.PubkeyToAddress(oracleKey2.PublicKey),
 				BondedStake:   big.NewInt(1),
 				ConsensusKey:  consensusKey2.PublicKey().Marshal(),
-				Pop:           pop2,
 			},
 		},
 	}
@@ -106,7 +102,6 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	enode := enode.NewV4(&nodeKey.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
 	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
-	pop, _ := crypto.AutonityPOPProof(nodeKey, oracleKey, crypto.PubkeyToAddress(treasury.PublicKey).Hex(), consensusKey)
 
 	contractConfig := &AutonityContractGenesis{
 		MaxCommitteeSize: 21,
@@ -116,7 +111,6 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 				Enode:         enode.String(),
 				OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
 				ConsensusKey:  consensusKey.PublicKey().Marshal(),
-				Pop:           pop,
 				BondedStake:   big.NewInt(1),
 			},
 		},
