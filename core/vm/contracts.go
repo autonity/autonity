@@ -215,9 +215,9 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 		workPerThread = 1
 	}
 	threadCount = validatorListSize / workPerThread
-	task := &sync.WaitGroup{}
-	// lock := sync.RWMutex{}
-	readValidators := make([][]*types.CommitteeMember, threadCount, threadCount+1)
+	task := sync.WaitGroup{}
+	lock := sync.RWMutex{}
+	readValidators := make([][]*types.CommitteeMember, threadCount+1)
 	totalValidators := 0
 	for i := 0; i < threadCount; i++ {
 		newOffset := big.NewInt(0).Add(baseOffsetArray, big.NewInt(0))
@@ -227,10 +227,9 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 			readValidators[idx] = a.getValidatorsInfo(
 				validatorsSlot, newOffset, workPerThread, threshold, caller, stateDB,
 			)
+			lock.Lock()
 			totalValidators += len(readValidators[idx])
-			// lock.Lock()
-			// validators = append(validators, readValidators...)
-			// lock.Unlock()
+			lock.Unlock()
 			task.Done()
 		}()
 		baseOffsetArray.Add(baseOffsetArray, big.NewInt(int64(workPerThread)))
@@ -240,13 +239,12 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 		newOffset := big.NewInt(0).Add(baseOffsetArray, big.NewInt(0))
 		task.Add(1)
 		go func() {
-			readValidators = append(readValidators, a.getValidatorsInfo(
+			readValidators[threadCount] = a.getValidatorsInfo(
 				validatorsSlot, newOffset, remainingTask, threshold, caller, stateDB,
-			))
+			)
+			lock.Lock()
 			totalValidators += len(readValidators[threadCount])
-			// lock.Lock()
-			// validators = append(validators, readValidators...)
-			// lock.Unlock()
+			lock.Unlock()
 			task.Done()
 		}()
 	}
@@ -261,7 +259,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 		committeeSize = len(validators)
 	} else {
 		committeeSize = configCommitteeLen
-		quickSort(validators, 0, int32(len(validators)-1), task)
+		quickSort(validators, 0, int32(len(validators)-1), &task)
 		task.Wait()
 	}
 
