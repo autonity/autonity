@@ -17,9 +17,6 @@ const (
 	InvalidProposal // The value proposed by proposer cannot pass the blockchain's validation.
 	InvalidProposer // A proposal sent from none proposer nodes of the committee.
 	Equivocation    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
-
-	InvalidRound    // message contains invalid round
-	WrongValidRound // proposal contains a wrong valid round number.
 )
 
 type AccountabilityEventType uint8
@@ -54,10 +51,6 @@ func (r Rule) String() string {
 		return "Invalid Proposer"
 	case Equivocation:
 		return "Equivocation"
-	case InvalidRound:
-		return "Invalid Round"
-	case WrongValidRound:
-		return "Wrong Valid Round"
 	default:
 		return "invalid rule"
 	}

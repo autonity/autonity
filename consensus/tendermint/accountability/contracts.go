@@ -185,12 +185,6 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof) []byte {
 		valid = c.validMisbehaviourOfPVO3(p)
 	case autonity.C:
 		valid = c.validMisbehaviourOfC(p)
-	case autonity.InvalidRound:
-		valid = p.Message.R() > constants.MaxRound
-	case autonity.WrongValidRound:
-		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
-			valid = lightProposal.ValidRound() >= lightProposal.R()
-		}
 	case autonity.InvalidProposer:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
 			valid = !isProposerValid(c.chain, lightProposal)

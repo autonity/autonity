@@ -16,7 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
@@ -48,8 +47,6 @@ const (
 )
 
 var (
-	errInvalidRound    = errors.New("invalid round or steps")
-	errWrongValidRound = errors.New("wrong valid-round")
 	errDuplicatedMsg   = errors.New("duplicated msg")
 	errEquivocation    = errors.New("equivocation")
 	errFutureMsg       = errors.New("future height msg")
@@ -1231,12 +1228,6 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 		return errProposer
 	}
 
-	// account for wrong valid round.
-	if proposal.ValidRound() >= proposal.R() {
-		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errWrongValidRound)
-		return errWrongValidRound
-	}
-
 	// account for equivocation
 	equivocated := fd.msgStore.Get(proposal.H(), func(msg message.Msg) bool {
 		// todo(youssef) : again validValue missing here
@@ -1257,10 +1248,6 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 }
 
 func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
-	if m.R() > constants.MaxRound {
-		fd.submitMisbehavior(m, nil, errInvalidRound)
-		return errInvalidRound
-	}
 	// skip process duplicated for votes.
 	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Msg) bool {
 		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() == m.Value()
@@ -1284,10 +1271,6 @@ func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
 func errorToRule(err error) (autonity.Rule, error) {
 	var rule autonity.Rule
 	switch {
-	case errors.Is(err, errWrongValidRound):
-		rule = autonity.WrongValidRound
-	case errors.Is(err, errInvalidRound):
-		rule = autonity.InvalidRound
 	case errors.Is(err, errEquivocation):
 		rule = autonity.Equivocation
 	case errors.Is(err, errProposer):
