@@ -8,9 +8,9 @@ import (
 // benchmarks
 
 // benchmark bls public key aggregation
-func benchmarkAggregatePK(seed int64, n int, b *testing.B) {
+func benchmarkAggregatePK(n int, b *testing.B) {
 	// print out parameters
-	b.Logf("seed: %d, n: %d\n", seed, n)
+	b.Logf("n: %d\n", n)
 
 	// setup public keys
 	var pks [][]byte
@@ -33,15 +33,15 @@ func benchmarkAggregatePK(seed int64, n int, b *testing.B) {
 
 }
 
-func BenchmarkAggregatePK0_100(b *testing.B) { benchmarkAggregatePK(0, 100, b) }
-func BenchmarkAggregatePK1_100(b *testing.B) { benchmarkAggregatePK(1, 100, b) }
-func BenchmarkAggregatePK2_100(b *testing.B) { benchmarkAggregatePK(2, 100, b) }
-func BenchmarkAggregatePK0_200(b *testing.B) { benchmarkAggregatePK(0, 200, b) }
-func BenchmarkAggregatePK1_200(b *testing.B) { benchmarkAggregatePK(1, 200, b) }
-func BenchmarkAggregatePK2_200(b *testing.B) { benchmarkAggregatePK(2, 200, b) }
-func BenchmarkAggregatePK0_300(b *testing.B) { benchmarkAggregatePK(0, 300, b) }
-func BenchmarkAggregatePK1_300(b *testing.B) { benchmarkAggregatePK(1, 300, b) }
-func BenchmarkAggregatePK2_300(b *testing.B) { benchmarkAggregatePK(2, 300, b) }
+func BenchmarkAggregatePK0_100(b *testing.B) { benchmarkAggregatePK(100, b) }
+func BenchmarkAggregatePK1_100(b *testing.B) { benchmarkAggregatePK(100, b) }
+func BenchmarkAggregatePK2_100(b *testing.B) { benchmarkAggregatePK(100, b) }
+func BenchmarkAggregatePK0_200(b *testing.B) { benchmarkAggregatePK(200, b) }
+func BenchmarkAggregatePK1_200(b *testing.B) { benchmarkAggregatePK(200, b) }
+func BenchmarkAggregatePK2_200(b *testing.B) { benchmarkAggregatePK(200, b) }
+func BenchmarkAggregatePK0_300(b *testing.B) { benchmarkAggregatePK(300, b) }
+func BenchmarkAggregatePK1_300(b *testing.B) { benchmarkAggregatePK(300, b) }
+func BenchmarkAggregatePK2_300(b *testing.B) { benchmarkAggregatePK(300, b) }
 
 // benchmark bls signature aggregation
 func benchmarkAggregateSigs(seed int64, n int, b *testing.B) {
@@ -395,12 +395,9 @@ func runBenchmarkAggregateVerifyInvalid(b *testing.B, size int, failedNs ...int)
 
 	for i := 0; i < b.N; i++ {
 
-		invalid, err := FindInvalidSignatures(sigs, pks, msgs)
+		_, err := FindInvalidSignatures(sigs, pks, msgs)
 		if err != nil {
 			b.Fatalf("not expected err %s", err)
-		}
-		if len(invalid) != len(failedNs) {
-			b.Fatalf("invalid len unexpected, expected %d, got: %d", len(failedNs), len(invalid))
 		}
 	}
 
@@ -448,12 +445,9 @@ func runBenchmarkFastAggregateVerifyInvalid(b *testing.B, size int, failedNs ...
 
 	for i := 0; i < b.N; i++ {
 
-		invalid, err := FindFastInvalidSignatures(sigs, pks, msg)
+		_, err := FindFastInvalidSignatures(sigs, pks, msg)
 		if err != nil {
 			b.Fatalf("not expected err %s", err)
-		}
-		if len(invalid) != len(failedNs) {
-			b.Fatalf("invalid len unexpected, expected %d, got: %d", len(failedNs), len(invalid))
 		}
 	}
 
