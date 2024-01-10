@@ -21,6 +21,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 )
@@ -78,7 +79,7 @@ func (t *SecureTrie) Get(key []byte) []byte {
 // The value bytes must not be modified by the caller.
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *SecureTrie) TryGet(key []byte) ([]byte, error) {
-	return t.trie.TryGet(t.hashKey(key))
+	return t.trie.TryGet(crypto.Keccak256Hash(key).Bytes())
 }
 
 // TryGetNode attempts to retrieve a trie node by compact-encoded path. It is not

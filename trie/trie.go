@@ -66,6 +66,7 @@ type Trie struct {
 	// hashing operation. This number will not directly map to the number of
 	// actually unhashed nodes
 	unhashed int
+	lock     sync.RWMutex
 }
 
 // newFlag returns the cache flag value for a newly created node.
@@ -116,9 +117,14 @@ func (t *Trie) Get(key []byte) []byte {
 // The value bytes must not be modified by the caller.
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *Trie) TryGet(key []byte) ([]byte, error) {
-	value, newroot, didResolve, err := t.tryGet(t.root, keybytesToHex(key), 0)
+	t.lock.RLock()
+	root := t.root
+	t.lock.RUnlock()
+	value, newroot, didResolve, err := t.tryGet(root, keybytesToHex(key), 0)
 	if err == nil && didResolve {
+		t.lock.Lock()
 		t.root = newroot
+		t.lock.Unlock()
 	}
 	return value, err
 }

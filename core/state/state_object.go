@@ -150,21 +150,31 @@ func (s *stateObject) touch() {
 }
 
 func (s *stateObject) getTrie(db Database) Trie {
+	if s.trie != nil {
+		return s.trie
+	}
+	return s.tryFetchTrie(db)
+}
+
+func (s *stateObject) tryFetchTrie(db Database) Trie {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	if s.trie != nil {
+		return s.trie
+	}
+	// Try fetching from prefetcher first
+	// We don't prefetch empty tries
+	if s.data.Root != emptyRoot && s.db.prefetcher != nil {
+		// When the miner is creating the pending state, there is no
+		// prefetcher
+		s.trie = s.db.prefetcher.trie(s.data.Root)
+	}
 	if s.trie == nil {
-		// Try fetching from prefetcher first
-		// We don't prefetch empty tries
-		if s.data.Root != emptyRoot && s.db.prefetcher != nil {
-			// When the miner is creating the pending state, there is no
-			// prefetcher
-			s.trie = s.db.prefetcher.trie(s.data.Root)
-		}
-		if s.trie == nil {
-			var err error
-			s.trie, err = db.OpenStorageTrie(s.addrHash, s.data.Root)
-			if err != nil {
-				s.trie, _ = db.OpenStorageTrie(s.addrHash, common.Hash{})
-				s.setError(fmt.Errorf("can't create storage trie: %v", err))
-			}
+		var err error
+		s.trie, err = db.OpenStorageTrie(s.addrHash, s.data.Root)
+		if err != nil {
+			s.trie, _ = db.OpenStorageTrie(s.addrHash, common.Hash{})
+			s.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
 	}
 	return s.trie
