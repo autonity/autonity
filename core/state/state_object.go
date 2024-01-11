@@ -82,6 +82,7 @@ type stateObject struct {
 	code Code // contract bytecode, which gets set when code is loaded
 
 	cacheLock      sync.RWMutex
+	trieLock       sync.Mutex
 	originStorage  Storage // Storage cache of original entries to dedup rewrites, reset for every transaction
 	pendingStorage Storage // Storage entries that need to be flushed to disk, at the end of an entire block
 	dirtyStorage   Storage // Storage entries that have been modified in the current transaction execution
@@ -157,8 +158,8 @@ func (s *stateObject) getTrie(db Database) Trie {
 }
 
 func (s *stateObject) tryFetchTrie(db Database) Trie {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
+	s.trieLock.Lock()
+	defer s.trieLock.Unlock()
 	if s.trie != nil {
 		return s.trie
 	}
@@ -234,11 +235,14 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	// If the snapshot is unavailable or reading from it fails, load from the database.
 	if s.db.snap == nil || err != nil {
+		trie := s.getTrie(db)
+		s.trieLock.Lock()
 		start := time.Now()
-		enc, err = s.getTrie(db).TryGet(key.Bytes())
+		enc, err = trie.TryGet(key.Bytes())
 		if metrics.EnabledExpensive {
 			s.db.StorageReads += time.Since(start)
 		}
+		s.trieLock.Unlock()
 		if err != nil {
 			s.setError(err)
 			return common.Hash{}
