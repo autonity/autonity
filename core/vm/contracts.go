@@ -337,6 +337,7 @@ func (a *CommitteeSelector) getValidatorsInfo(
 ) []*types.CommitteeMember {
 	// fmt.Printf("starting thread %v\n", baseOffsetArray)
 	validators := make([]*types.CommitteeMember, 0, count)
+	activeState := big.NewInt(0)
 	for i := 0; i < count; i++ {
 		address := common.BytesToAddress(stateDB.GetState(caller, common.Hash(baseOffsetArray.Bytes())).Bytes())
 		baseOffsetArray.Add(baseOffsetArray, big.NewInt(1))
@@ -349,8 +350,11 @@ func (a *CommitteeSelector) getValidatorsInfo(
 		// bondedStake is at slot 5
 		baseOffsetMap.Add(baseOffsetMap, big.NewInt(5))
 		bondedStake := stateDB.GetState(caller, common.BytesToHash(baseOffsetMap.Bytes())).Big()
+		// status is at slot 18
+		baseOffsetMap.Add(baseOffsetMap, big.NewInt(13))
+		state := stateDB.GetState(caller, common.BytesToHash(baseOffsetMap.Bytes())).Big()
 		// take validator if the stake is greater than threshold, for now threshold = 0
-		if bondedStake.Cmp(threshold) == 1 {
+		if bondedStake.Cmp(threshold) == 1 && state.Cmp(activeState) == 0 {
 			validators = append(validators, &types.CommitteeMember{
 				Address:     address,
 				VotingPower: bondedStake,
