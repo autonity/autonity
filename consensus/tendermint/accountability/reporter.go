@@ -3,9 +3,10 @@ package accountability
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"time"
 )
 
 const (
@@ -68,7 +69,7 @@ func (fd *FaultDetector) tryReport(ev *autonity.AccountabilityEvent) error {
 			return errPendingReport
 		}
 	}
-	fd.logger.Warn("Reporting faulty validator", "offender", ev.Offender, "rule", ev.Rule, "block", ev.Block)
+	fd.logger.Warn("Reporting faulty validator", "offender", ev.Offender, "rule", autonity.Rule(ev.Rule).String(), "block", ev.Block)
 	fd.eventReporterCh <- ev
 	return nil
 }

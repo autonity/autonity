@@ -405,7 +405,7 @@ var (
 	// Miner settings
 	MiningEnabledFlag = cli.BoolFlag{
 		Name:  "mine",
-		Usage: "Enable mining",
+		Usage: "Enable mining. Will bypass the chain sync check.",
 	}
 	MinerThreadsFlag = cli.IntFlag{
 		Name:  "miner.threads",

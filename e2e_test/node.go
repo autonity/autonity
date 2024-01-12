@@ -239,7 +239,7 @@ func (n *Node) Start() error {
 // Close shuts down the node and releases all resources and removes the datadir
 // unless an error is returned, in which case there is no guarantee that all
 // resources are released.
-func (n *Node) Close() error {
+func (n *Node) Close(deleteDataDir bool) error {
 	if !n.isRunning {
 		return nil
 	}
@@ -257,7 +257,9 @@ func (n *Node) Close() error {
 	if n.Node != nil {
 		err = n.Node.Close() // This also shuts down the Eth service
 	}
-	os.RemoveAll(n.Config.DataDir)
+	if deleteDataDir {
+		os.RemoveAll(n.Config.DataDir)
+	}
 	return err
 }
 
@@ -586,7 +588,7 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 func (nw Network) Shutdown() {
 	for _, node := range nw {
 		if node != nil && node.isRunning {
-			err := node.Close()
+			err := node.Close(true)
 			if err != nil {
 				fmt.Printf("error shutting down node %v: %v", node.Address.String(), err)
 			}

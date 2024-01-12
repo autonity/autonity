@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/log"
 
@@ -98,69 +100,57 @@ func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent)
 	return bc.chainHeadFeed.Subscribe(ch)
 }
 
+// consensus should be started only after `DoneEvent` or `SyncedEvent` are broadcasted
+// then it can continue running regardless of what happens in downloader
 func TestMiner(t *testing.T) {
+	// create miner and start it (as if we are in the committee)
 	miner, mux := createMiner(t)
 	miner.Start()
-	waitForMiningState(t, miner, true)
-	// Start the downloader
+	waitForMiningState(t, miner, false)
+	require.True(t, miner.shouldStart)
+	require.False(t, miner.canStart)
+
+	// Start the downloader (simulate syncing from another peer)
 	mux.Post(downloader.StartEvent{})
 	waitForMiningState(t, miner, false)
+
 	// Stop the downloader and wait for the update loop to run
+	// syncing has failed, so we do not start mining
+	mux.Post(downloader.FailedEvent{})
+	waitForMiningState(t, miner, false)
+
+	// start syncing again
+	mux.Post(downloader.StartEvent{})
+	waitForMiningState(t, miner, false)
+	require.True(t, miner.shouldStart)
+	require.False(t, miner.canStart)
+
+	// Successfully stop the downloader, mining should start
 	mux.Post(downloader.DoneEvent{})
 	waitForMiningState(t, miner, true)
+	require.True(t, miner.shouldStart)
+	require.True(t, miner.canStart)
 
-	// Subsequent downloader events after a successful DoneEvent should not cause the
+	// Subsequent downloader events after mining is started should not cause the
 	// miner to start or stop. This prevents a security vulnerability
 	// that would allow entities to present fake high blocks that would
 	// stop mining operations by causing a downloader sync
 	// until it was discovered they were invalid, whereon mining would resume.
 	mux.Post(downloader.StartEvent{})
 	waitForMiningState(t, miner, true)
-
 	mux.Post(downloader.FailedEvent{})
 	waitForMiningState(t, miner, true)
-}
-
-// TestMinerDownloaderFirstFails tests that mining is only
-// permitted to run indefinitely once the downloader sees a DoneEvent (success).
-// An initial FailedEvent should allow mining to stop on a subsequent
-// downloader StartEvent.
-func TestMinerDownloaderFirstFails(t *testing.T) {
-	miner, mux := createMiner(t)
-	miner.Start()
+	mux.Post(downloader.SyncedEvent{})
 	waitForMiningState(t, miner, true)
-	// Start the downloader
-	mux.Post(downloader.StartEvent{})
-	waitForMiningState(t, miner, false)
-
-	// Stop the downloader and wait for the update loop to run
-	mux.Post(downloader.FailedEvent{})
-	waitForMiningState(t, miner, true)
-
-	// Since the downloader hasn't yet emitted a successful DoneEvent,
-	// we expect the miner to stop on next StartEvent.
-	mux.Post(downloader.StartEvent{})
-	waitForMiningState(t, miner, false)
-
-	// Downloader finally succeeds.
 	mux.Post(downloader.DoneEvent{})
-	waitForMiningState(t, miner, true)
-
-	// Downloader starts again.
-	// Since it has achieved a DoneEvent once, we expect miner
-	// state to be unchanged.
-	mux.Post(downloader.StartEvent{})
-	waitForMiningState(t, miner, true)
-
-	mux.Post(downloader.FailedEvent{})
 	waitForMiningState(t, miner, true)
 }
 
 func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 	miner, mux := createMiner(t)
-
 	miner.Start()
-	waitForMiningState(t, miner, true)
+	waitForMiningState(t, miner, false)
+
 	// Start the downloader
 	mux.Post(downloader.StartEvent{})
 	waitForMiningState(t, miner, false)
@@ -171,6 +161,8 @@ func TestMinerStartStopAfterDownloaderEvents(t *testing.T) {
 
 	miner.Stop()
 	waitForMiningState(t, miner, false)
+	require.False(t, miner.shouldStart)
+	require.True(t, miner.canStart)
 
 	miner.Start()
 	waitForMiningState(t, miner, true)
@@ -183,32 +175,119 @@ func TestStartWhileDownload(t *testing.T) {
 	miner, mux := createMiner(t)
 	waitForMiningState(t, miner, false)
 	miner.Start()
-	waitForMiningState(t, miner, true)
-	// Stop the downloader and wait for the update loop to run
+	waitForMiningState(t, miner, false)
+
+	// Start the downloader and wait for the update loop to run
 	mux.Post(downloader.StartEvent{})
 	waitForMiningState(t, miner, false)
-	// Starting the miner after the downloader should not work
+
+	// Starting the miner while syncing should not work
 	miner.Start()
 	waitForMiningState(t, miner, false)
+	require.True(t, miner.shouldStart)
+	require.False(t, miner.canStart)
 }
 
 func TestStartStopMiner(t *testing.T) {
-	miner, _ := createMiner(t)
+	miner, mux := createMiner(t)
 	waitForMiningState(t, miner, false)
 	miner.Start()
+	waitForMiningState(t, miner, false)
+
+	mux.Post(downloader.SyncedEvent{})
 	waitForMiningState(t, miner, true)
+
 	miner.Stop()
 	waitForMiningState(t, miner, false)
+	require.False(t, miner.shouldStart)
+	require.True(t, miner.canStart)
 }
 
 func TestCloseMiner(t *testing.T) {
-	miner, _ := createMiner(t)
+	miner, mux := createMiner(t)
 	waitForMiningState(t, miner, false)
 	miner.Start()
+	waitForMiningState(t, miner, false)
+
+	mux.Post(downloader.SyncedEvent{})
 	waitForMiningState(t, miner, true)
+
 	// Terminate the miner and wait for the update loop to run
 	miner.Close()
 	waitForMiningState(t, miner, false)
+}
+
+// a node syncs up, then enters the committee
+func TestEnterExitCommittee(t *testing.T) {
+	t.Run("Enter due to DoneEvent", func(t *testing.T) {
+		miner, mux := createMiner(t)
+		waitForMiningState(t, miner, false)
+
+		// first sync attempt fails, 2nd succeeds
+		mux.Post(downloader.StartEvent{})
+		waitForMiningState(t, miner, false)
+		mux.Post(downloader.FailedEvent{})
+		waitForMiningState(t, miner, false)
+		mux.Post(downloader.StartEvent{})
+		waitForMiningState(t, miner, false)
+		mux.Post(downloader.DoneEvent{})
+		waitForMiningState(t, miner, false)
+		require.False(t, miner.shouldStart)
+		require.True(t, miner.canStart)
+
+		// enter committee
+		miner.Start()
+		waitForMiningState(t, miner, true)
+		require.True(t, miner.shouldStart)
+		require.True(t, miner.canStart)
+
+		// misc events, should be ignored
+		mux.Post(downloader.StartEvent{})
+		waitForMiningState(t, miner, true)
+		mux.Post(downloader.FailedEvent{})
+		waitForMiningState(t, miner, true)
+		mux.Post(downloader.SyncedEvent{})
+		waitForMiningState(t, miner, true)
+		mux.Post(downloader.DoneEvent{})
+		waitForMiningState(t, miner, true)
+
+		// exit committee
+		miner.Stop()
+		waitForMiningState(t, miner, false)
+		require.False(t, miner.shouldStart)
+		require.True(t, miner.canStart)
+
+		// misc events, should be ignored
+		mux.Post(downloader.StartEvent{})
+		waitForMiningState(t, miner, false)
+		mux.Post(downloader.FailedEvent{})
+		waitForMiningState(t, miner, false)
+		mux.Post(downloader.SyncedEvent{})
+		waitForMiningState(t, miner, false)
+		mux.Post(downloader.DoneEvent{})
+		waitForMiningState(t, miner, false)
+
+		// enter committee again
+		miner.Start()
+		waitForMiningState(t, miner, true)
+	})
+	t.Run("Enter due to SyncedEvent", func(t *testing.T) {
+		miner, mux := createMiner(t)
+		waitForMiningState(t, miner, false)
+		require.False(t, miner.shouldStart)
+		require.False(t, miner.canStart)
+
+		mux.Post(downloader.SyncedEvent{})
+		waitForMiningState(t, miner, false)
+		require.False(t, miner.shouldStart)
+		require.True(t, miner.canStart)
+
+		// enter committee
+		miner.Start()
+		waitForMiningState(t, miner, true)
+		require.True(t, miner.shouldStart)
+		require.True(t, miner.canStart)
+	})
 }
 
 // waitForMiningState waits until either

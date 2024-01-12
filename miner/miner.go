@@ -20,6 +20,7 @@ package miner
 import (
 	"fmt"
 	"math/big"
+	"reflect"
 	"sync"
 	"time"
 
@@ -34,6 +35,8 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
+
+const maxSyncFailures = 100
 
 // Backend wraps all methods required for mining. Only full node is capable
 // to offer all the functions here.
@@ -59,26 +62,37 @@ type Config struct {
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
-	mux     *event.TypeMux
-	worker  *worker
-	eth     Backend
-	engine  consensus.Engine
-	exitCh  chan struct{}
-	startCh chan struct{}
-	stopCh  chan struct{}
+	mux          *event.TypeMux
+	worker       *worker
+	eth          Backend
+	engine       consensus.Engine
+	exitCh       chan struct{}
+	startCh      chan struct{}
+	stopCh       chan struct{}
+	forceStartCh chan struct{}
 
 	wg sync.WaitGroup
+
+	// used in the miner update loop
+	syncFailures uint64 // counts how many times chain sync failed with remote peers
+	canStart     bool
+	shouldStart  bool
+	events       *event.TypeMuxSubscription // subscription to downloader events()
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(header *types.Header) bool) *Miner {
 	miner := &Miner{
-		eth:     eth,
-		mux:     mux,
-		engine:  engine,
-		exitCh:  make(chan struct{}),
-		startCh: make(chan struct{}),
-		stopCh:  make(chan struct{}),
-		worker:  newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
+		eth:          eth,
+		mux:          mux,
+		engine:       engine,
+		exitCh:       make(chan struct{}),
+		startCh:      make(chan struct{}),
+		stopCh:       make(chan struct{}),
+		forceStartCh: make(chan struct{}),
+		worker:       newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
+		syncFailures: 0,
+		shouldStart:  false,
+		canStart:     false,
 	}
 	miner.wg.Add(1)
 	go miner.update()
@@ -86,22 +100,29 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 }
 
 // update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
-// It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
+// It's entered once and as soon as `DoneEvent` or `SyncedEvent` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
 func (miner *Miner) update() {
 	defer miner.wg.Done()
 
-	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
+	miner.events = miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.SyncedEvent{}, downloader.FailedEvent{})
 	defer func() {
-		if !events.Closed() {
-			events.Unsubscribe()
-		}
+		miner.unsubscribe()
 	}()
 
-	shouldStart := false
-	canStart := true
-	dlEventCh := events.Chan()
+	// miner.shouldStart is set at initialization to false
+	// it will be true when node is a committee member, therefore consensus engine should be started if possible.
+
+	/* miner.canStart is set at initialization to false
+	* miner.canStart = true when consensus engine can be safely started OR if we forced mining start.
+	* It is safe to start the consensus engine when we are reasonably sure to be synced with the head of the chain:
+	* - the first chain sync with our peers terminates, and we conclude that we are synced to the chain head.
+	* - the first chain sync with our peer terminates, and we successfully imported blocks till the head of the chain
+	*
+	* NOTE: This mechanism does not give 100% guarantee that we are synced to the head of the chain before starting consensus. There is always the possibility that we are connected to peers which are behind the "global" chain head.
+	 */
+	dlEventCh := miner.events.Chan()
 	for {
 		select {
 		case ev := <-dlEventCh:
@@ -112,34 +133,46 @@ func (miner *Miner) update() {
 			}
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
-				wasMining := miner.Mining()
-				miner.worker.stop()
-				canStart = false
-				if wasMining {
-					// Resume mining after sync was finished
-					shouldStart = true
-					miner.eth.Logger().Info("Mining aborted due to sync")
-				}
+				miner.eth.Logger().Info("Chain syncing started, waiting for completion to start consensus engine", "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 			case downloader.FailedEvent:
-				canStart = true
-				if shouldStart {
-					miner.worker.start()
+				miner.syncFailures++
+				miner.eth.Logger().Info("Chain syncing failed", "#failures", miner.syncFailures, "shouldStart", miner.shouldStart, "canStart", miner.canStart)
+				// if we fail more than maxSyncFailures times consequently, assume we are under attack
+				if miner.syncFailures >= maxSyncFailures {
+					miner.eth.Logger().Warn("************************** SYNC ATTACK DETECTED **************************")
+					miner.eth.Logger().Warn("Multiple sequential chain sync failures detected", "sync failures", miner.syncFailures)
+					miner.eth.Logger().Warn("Your node is probably under attack by malicious peers, which are preventing your node from syncing")
+					miner.eth.Logger().Warn("Try restarting your node and connecting to a trusted set of peers")
+					miner.eth.Logger().Warn("Reach out to Autonity social media channels for support and additional informations")
+					miner.eth.Logger().Warn("**************************************************************************")
+					panic("sync attack detected")
 				}
-			case downloader.DoneEvent:
-				canStart = true
-				if shouldStart {
-					miner.worker.start()
-				}
+			// `DoneEvent` deals with the normal scenario:
+			// - when starting the node we have some blocks to sync
+			// - once finished syncing we can start consensus
+			// `SyncedEvent` is needed to start mining if we are already synced with the chain head
+			// Example scenario:
+			// The chain halts, and we are restarting our offline validator to make it un-halt.
+			case downloader.DoneEvent, downloader.SyncedEvent:
+				miner.canStart = true
+				miner.eth.Logger().Info("Chain syncing completed, consensus engine can start", "event", reflect.TypeOf(ev.Data), "shouldStart", miner.shouldStart, "canStart", miner.canStart)
+				miner.startWorker()
 				// Stop reacting to downloader events
-				events.Unsubscribe()
+				miner.unsubscribe()
 			}
+		case <-miner.forceStartCh:
+			miner.eth.Logger().Info("Forcing consensus engine start")
+			miner.canStart = true
+			// don't need to react to downloader events anymore, we don't care about sync status
+			miner.unsubscribe()
+			miner.shouldStart = true
+			miner.startWorker()
+		// the committeeWatcher in the Ethereum backend will trigger these codepaths, depending on whether we enter/exit the committee
 		case <-miner.startCh:
-			if canStart {
-				miner.worker.start()
-			}
-			shouldStart = true
+			miner.shouldStart = true
+			miner.startWorker()
 		case <-miner.stopCh:
-			shouldStart = false
+			miner.shouldStart = false
 			miner.worker.stop()
 		case <-miner.exitCh:
 			miner.worker.close()
@@ -148,8 +181,28 @@ func (miner *Miner) update() {
 	}
 }
 
-// Start starts the miner mining, unless it has been paused by the downloader
-// during sync, in which case it will start mining once the sync has completed.
+// unsubscribe from downloader events
+func (miner *Miner) unsubscribe() {
+	if !miner.events.Closed() {
+		miner.events.Unsubscribe()
+	}
+}
+
+func (miner *Miner) startWorker() {
+	if !(miner.shouldStart && miner.canStart) {
+		return
+	}
+	miner.worker.start()
+}
+
+// force the start of the worker, without waiting for chain sync completion
+// this is useful if you want to run a single node network and still do consensus
+func (miner *Miner) ForceStart() {
+	miner.forceStartCh <- struct{}{}
+}
+
+// Start signals that the mining should start
+// mining will actually start once we are synced with the network (unless forcing start)
 func (miner *Miner) Start() {
 	miner.startCh <- struct{}{}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"math"
 	"math/big"
 	"os"
@@ -14,9 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/log"
@@ -24,8 +27,6 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 )
 
 const defaultStake = 100
@@ -93,8 +94,8 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		P2P: p2p.Config{
 			ListenAddr:  listenAddr,
 			NoDiscovery: true,
-			MaxPeers:    25,
 			PrivateKey:  nodekey,
+			MaxPeers:    25,
 		},
 	}
 	nodeConfig.HTTPHost = "127.0.0.1"
