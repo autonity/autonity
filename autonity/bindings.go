@@ -4419,12 +4419,13 @@ type AutonityBondingRejected struct {
 	Delegator common.Address
 	Delegatee common.Address
 	Amount    *big.Int
+	State     uint8
 	Raw       types.Log // Blockchain specific contextual infos
 }
 
-// FilterBondingRejected is a free log retrieval operation binding the contract event 0x14d528d8a5c5378dc43eafa0ea18cefb7d35f17cad6e4ca6062a4f8a71ea3dd9.
+// FilterBondingRejected is a free log retrieval operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 //
-// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount)
+// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
 func (_Autonity *AutonityFilterer) FilterBondingRejected(opts *bind.FilterOpts) (*AutonityBondingRejectedIterator, error) {
 
 	logs, sub, err := _Autonity.contract.FilterLogs(opts, "BondingRejected")
@@ -4434,9 +4435,9 @@ func (_Autonity *AutonityFilterer) FilterBondingRejected(opts *bind.FilterOpts) 
 	return &AutonityBondingRejectedIterator{contract: _Autonity.contract, event: "BondingRejected", logs: logs, sub: sub}, nil
 }
 
-// WatchBondingRejected is a free log subscription operation binding the contract event 0x14d528d8a5c5378dc43eafa0ea18cefb7d35f17cad6e4ca6062a4f8a71ea3dd9.
+// WatchBondingRejected is a free log subscription operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 //
-// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount)
+// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
 func (_Autonity *AutonityFilterer) WatchBondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityBondingRejected) (event.Subscription, error) {
 
 	logs, sub, err := _Autonity.contract.WatchLogs(opts, "BondingRejected")
@@ -4471,9 +4472,9 @@ func (_Autonity *AutonityFilterer) WatchBondingRejected(opts *bind.WatchOpts, si
 	}), nil
 }
 
-// ParseBondingRejected is a log parse operation binding the contract event 0x14d528d8a5c5378dc43eafa0ea18cefb7d35f17cad6e4ca6062a4f8a71ea3dd9.
+// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 //
-// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount)
+// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
 func (_Autonity *AutonityFilterer) ParseBondingRejected(log types.Log) (*AutonityBondingRejected, error) {
 	event := new(AutonityBondingRejected)
 	if err := _Autonity.contract.UnpackLog(event, "BondingRejected", log); err != nil {

@@ -296,6 +296,12 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
             "internalType" : "uint256",
             "name" : "amount",
             "type" : "uint256"
+         },
+         {
+            "indexed" : false,
+            "internalType" : "enum ValidatorState",
+            "name" : "state",
+            "type" : "uint8"
          }
       ],
       "name" : "BondingRejected",
