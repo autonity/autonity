@@ -351,11 +351,10 @@ func (c *AutonityContract) FinalizeInitialization(header *types.Header, statedb 
 // packed result. If there is an error making the evm call it will be returned.
 // Callers should use the autonity contract ABI to pack and unpack the args and
 // result.
-func (c *EVMContract) CallContractFunc(statedb *state.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, error) {
+func (c *EVMContract) CallContractFunc(statedb *state.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, uint64, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, DeployerAddress, statedb)
-	packedResult, _, err := evm.Call(vm.AccountRef(DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
-	return packedResult, err
+	return evm.Call(vm.AccountRef(DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
 }
 
 func (c *EVMContract) CallContractFuncAs(statedb *state.StateDB, header *types.Header, contractAddress common.Address, origin common.Address, packedArgs []byte) ([]byte, error) {

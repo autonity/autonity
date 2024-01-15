@@ -71,7 +71,7 @@ type AutonityContractGenesis struct {
 	Treasury         common.Address `json:"treasury"`
 	TreasuryFee      uint64         `json:"treasuryFee"`
 	DelegationRate   uint64         `json:"delegationRate"`
-	Validators       []*Validator   `json:"validators"`
+	Validators       []*Validator   `json:"validators"` // todo: Can we change that to []Validator
 }
 
 type AccountabilityGenesis struct {

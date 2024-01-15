@@ -337,7 +337,8 @@ func (c *AutonityContract) upgradeAutonityContract(statedb *state.StateDB, heade
 }
 
 func (c *AutonityContract) CallContractFunc(statedb *state.StateDB, header *types.Header, packedArgs []byte) ([]byte, error) {
-	return c.EVMContract.CallContractFunc(statedb, header, AutonityContractAddress, packedArgs)
+	packedResult, _, err := c.EVMContract.CallContractFunc(statedb, header, AutonityContractAddress, packedArgs)
+	return packedResult, err
 }
 
 func (c *AutonityContract) CallContractFuncAs(statedb *state.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {

@@ -21,6 +21,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
+	"sync"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
@@ -29,8 +32,6 @@ import (
 	"github.com/autonity/autonity/crypto/bn256"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
-	"math/big"
-	"sync"
 
 	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
