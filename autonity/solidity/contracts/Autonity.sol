@@ -23,6 +23,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
+
     struct Validator {
         address payable treasury;
         address nodeAddress;
@@ -1178,7 +1179,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      */
     function computeCommitteePrecompiled(uint256 _committeeSize) internal returns (address[] memory) {
         require(_committeeSize <= 1000, "hardcoded array size 1002");
-        address[1002] memory _returnData;
+        address[] memory _returnData;
+
         address to = Precompiled.COMPUTE_COMMITTEE_CONTRACT;
         uint256 _length = 32*5;
         uint256[5] memory input;
@@ -1190,17 +1192,21 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             mstore(add(input, 0x40), committee.slot)
             mstore(add(input,0x60), epochTotalBondedStake.slot)
             //delegatecall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(delegatecall(gas(), to, input, _length, _returnData, _returnDataLength)) {
+            if iszero(delegatecall(gas(), to, input, _length, _returnData, 2)) {
                 revert(0, 0)
             }
+            let outputsize := returndatasize()
+            // we need here to instantiate a memory array with size = outputsize - 2
+            returndatacopy(.....)
         }
 
-        require(_returnData[0] == address(1), "unsuccessful call");
-        require(_returnData[1] != address(0), "empty committee");
+        require(_returnData[0] == address(1), "unsuccessful call"); // <- handled by delegatecall return
+        require(_returnData[1] != address(0), "empty committee"); // <- can be retrieved by outputsize
         // _returnData[1] has new committee size = length of voters
         if (_committeeSize > uint256(uint160(_returnData[1]))) {
             _committeeSize = uint256(uint160(_returnData[1]));
         }
+        // try to avoid this additional copy
         address[] memory addresses = new address[](_committeeSize);
         for (uint i = 0; i < _committeeSize; i++) {
             addresses[i] = _returnData[i+2];

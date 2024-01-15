@@ -27,6 +27,7 @@ import (
 )
 
 var (
+	// youssef : migrates those in params
 	DeployerAddress               = common.Address{}
 	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 0)
 	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 1)
@@ -34,7 +35,8 @@ var (
 	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 3)
 	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 4)
 	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
-	AutonityABIKey                = []byte("ABISPEC")
+	/*----------*/
+	AutonityABIKey = []byte("ABISPEC")
 )
 
 // Errors
