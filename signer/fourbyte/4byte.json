@@ -118,5 +118,8 @@
   "d372c07e": "setAcuContract(address)",
   "cfd19fb9": "setStabilizationContract(address)",
   "b3ecbadd": "setSupplyControlContract(address)",
-  "f5371f4b": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,uint8))"
+  "f5371f4b": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,uint8))",
+  "0c3c6fee": "liquidLogic()",
+  "07b5c33b": "setLiquidNewtonLogicContract(address)",
+  "66d3bd27": "liquidLogicAddress()"
 }

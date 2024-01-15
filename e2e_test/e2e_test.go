@@ -93,11 +93,11 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// Setup Bindings
 	autonityContract, _ := autonity.NewAutonity(AutonityContractAddr, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidContracts := make([]*autonity.Liquid, len(valAddrs))
+	liquidContracts := make([]*autonity.LiquidState, len(valAddrs))
 	validators := make([]autonity.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidContracts[i], _ = autonity.NewLiquid(validators[i].LiquidContract, n.WsClient)
+		liquidContracts[i], _ = autonity.NewLiquidState(validators[i].LiquidContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
 	tx, err := liquidContracts[0].Transfer(
@@ -112,8 +112,8 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	require.NoError(t, err)
 	// claimable fees should be 0 before epoch
 	for i := range liquidContracts {
-		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
-		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.Bytes())
+		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.TransactOpts{}, validators[i].Treasury)
+		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.Data())
 	}
 
 	// wait for epoch
@@ -148,7 +148,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	epochStake := []int64{10000, 10000, 25000}
 	totalStake := int64(45000)
 	for i := range liquidContracts {
-		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
+		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.TransactOpts{}, validators[i].Treasury)
 		totalValRewards := new(big.Int).Div(new(big.Int).Mul(totalRewards, big.NewInt(epochStake[i])), big.NewInt(totalStake))
 		valCommission := new(big.Int).Div(new(big.Int).Mul(totalValRewards, big.NewInt(12)), big.NewInt(100))
 		stakerReward := new(big.Int).Sub(totalValRewards, valCommission)

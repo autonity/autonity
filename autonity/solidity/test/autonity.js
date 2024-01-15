@@ -2,7 +2,8 @@
 const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
-const liquidContract = artifacts.require("Liquid")
+const liquidContract = artifacts.require("LiquidState")
+const liquidLogic = artifacts.require("LiquidLogic")
 const toBN = web3.utils.toBN;
 
 
@@ -1655,9 +1656,10 @@ contract('Autonity', function (accounts) {
           const fee_factor_unit_recip = toBN(1000000000)
 
           let val0Liquid = await liquidContract.at(val0.liquidContract)
-          let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards(alice)
+          let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards.call(alice)
+
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
-          assert.equal(unclaimedRewardsV0.toString(),delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toString())
+          assert.equal(unclaimedRewardsV0.toNumber(),delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toNumber())
           // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV0).add(toBN(1)) 
           
@@ -1668,9 +1670,9 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV0.toString(),_unclaimedRewardsV0.toString())
           
           let val1Liquid = await liquidContract.at(val1.liquidContract)
-          let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards(bob)
+          let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards.call(bob)
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
-          assert.equal(unclaimedRewardsV1.toString(),delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toString())
+          assert.equal(unclaimedRewardsV1.toNumber(),delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toNumber())
           // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV1).add(toBN(1))
           
@@ -1681,8 +1683,8 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV1.toString(),_unclaimedRewardsV1.toString())
 
           let val2Liquid = await liquidContract.at(val2.liquidContract)
-          let unclaimedRewardsV2 = await val2Liquid.unclaimedRewards(alice)
-          assert.equal(unclaimedRewardsV2.toString(),delegatorRewardV2.sub(commissionIncomeV2).toString())
+          let unclaimedRewardsV2 = await val2Liquid.unclaimedRewards.call(alice)
+          assert.equal(unclaimedRewardsV2.toNumber(),delegatorRewardV2.sub(commissionIncomeV2).toNumber())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV2)
           
           // mirror computation in liquid.sol
@@ -1692,8 +1694,8 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV2.toString(),_unclaimedRewardsV2.toString())
           
           let val3Liquid = await liquidContract.at(val3.liquidContract)
-          let unclaimedRewardsV3 = await val3Liquid.unclaimedRewards(bob)
-          assert.equal(unclaimedRewardsV3.toString(),delegatorRewardV3.sub(commissionIncomeV3).toString())
+          let unclaimedRewardsV3 = await val3Liquid.unclaimedRewards.call(bob)
+          assert.equal(unclaimedRewardsV3.toNumber(),delegatorRewardV3.sub(commissionIncomeV3).toNumber())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV3)
           
           // mirror computation in liquid.sol
