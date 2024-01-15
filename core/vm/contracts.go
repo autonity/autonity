@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -225,7 +226,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	threshold := big.NewInt(0)
 
 	// get validators from DB concurrently
-	threadCount := 10000
+	threadCount := runtime.NumCPU()
 	workPerThread := validatorListSize / threadCount
 	if workPerThread == 0 {
 		workPerThread = 1
@@ -338,15 +339,15 @@ func (a *CommitteeSelector) getValidatorsInfo(
 	// fmt.Printf("starting thread %v\n", baseOffsetArray)
 	validators := make([]*types.CommitteeMember, 0, count)
 	activeState := big.NewInt(0)
+	mapKey := make([]byte, 64)
+	copy(mapKey[32:], validatorsSlot)
 	for i := 0; i < count; i++ {
 		address := common.BytesToAddress(stateDB.GetState(caller, common.Hash(baseOffsetArray.Bytes())).Bytes())
 		baseOffsetArray.Add(baseOffsetArray, big.NewInt(1))
 
 		// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
-		key := make([]byte, 64)
-		copy(key[12:32], address.Bytes())
-		copy(key[32:64], validatorsSlot)
-		baseOffsetMap := crypto.Keccak256Hash(key).Big()
+		copy(mapKey[12:32], address.Bytes())
+		baseOffsetMap := crypto.Keccak256Hash(mapKey).Big()
 		// bondedStake is at slot 5
 		baseOffsetMap.Add(baseOffsetMap, big.NewInt(5))
 		bondedStake := stateDB.GetState(caller, common.BytesToHash(baseOffsetMap.Bytes())).Big()

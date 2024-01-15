@@ -30,19 +30,17 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	validatorCount := 100000
 	validators, _, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
-	contractAbi := &generated.AutonityTestAbi
+	contractAbi := &generated.AutonityAbi
 	deployer := common.Address{}
 	committeeSize := 100
 
 	b.Run("computeCommittee", func(b *testing.B) {
-		stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+		stateDB, evmContract, contractAddress, err := deployAutonity(committeeSize, validators, deployer)
 		require.NoError(b, err)
 		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
+		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "finalizeInitialization")
 		require.NoError(b, err)
 		packedArgs, err := contractAbi.Pack("computeCommittee")
-		require.NoError(b, err)
-		_, _, err = evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
 		require.NoError(b, err)
 		benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
 	})
@@ -170,6 +168,25 @@ func generateCommittee(powers []int) types.Committee {
 	}
 	sort.Sort(vals)
 	return vals
+}
+
+func deployAutonity(
+	committeeSize int, validators []params.Validator, deployer common.Address,
+) (*state.StateDB, *EVMContract, common.Address, error) {
+	abi := &generated.AutonityAbi
+	stateDB, evm, evmContract, err := initalizeEvm(abi)
+	if err != nil {
+		return stateDB, evmContract, common.Address{}, err
+	}
+	contractConfig := autonityTestConfig()
+	contractConfig.Protocol.OperatorAccount = common.Address{}
+	contractConfig.Protocol.CommitteeSize = big.NewInt(int64(committeeSize))
+	args, err := abi.Pack("", validators, contractConfig)
+	if err != nil {
+		return stateDB, evmContract, common.Address{}, err
+	}
+	contractAddress, err := deployContract(generated.AutonityTestBytecode, args, deployer, evm)
+	return stateDB, evmContract, contractAddress, err
 }
 
 func deployAutonityTest(
@@ -352,6 +369,7 @@ func testEVMProvider() func(header *types.Header, origin common.Address, stateDB
 	}
 }
 
+// to properly benchmark a contract call, it is expected that the state is same everytime the contract function is run
 func benchmarkWithGas(
 	b *testing.B, evmContract *EVMContract, stateDB *state.StateDB, header *types.Header,
 	contractAddress common.Address, packedArgs []byte,
@@ -406,9 +424,6 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		}
 		delete(positions, voter)
 	}
-	if totalStakeCalculated.Cmp(totalStake) != 0 {
-		return fmt.Errorf("epochTotalStake mismatch")
-	}
 	nonVoter := 0
 	for _, validator := range validators {
 		if _, ok := positions[validator.OracleAddress]; ok {
@@ -421,6 +436,9 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 	if nonVoter+len(voters) != len(validators) {
 		return fmt.Errorf("not all are accounted")
 	}
+	if totalStakeCalculated.Cmp(totalStake) != 0 {
+		return fmt.Errorf("epochTotalStake mismatch")
+	}
 	return nil
 }
 
@@ -430,7 +448,6 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	validators, _, err := randomValidators(validatorCount, 30)
 	require.NoError(t, err)
 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
-	t.Log(contractAddress)
 	require.NoError(t, err)
 	var header *types.Header
 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
