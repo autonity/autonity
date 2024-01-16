@@ -1081,8 +1081,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
 
-        // jailbound validator is jailed permanently, no new bonding can be applied for a jailbound validator
-        if (_validator.state == ValidatorState.jailbound || _validator.state == ValidatorState.jailed) {
+        // no new bonding can be applied for jailbound or jailed or paused validator
+        if (_validator.state != ValidatorState.active) {
             accounts[_bonding.delegator] += _bonding.amount;
             emit BondingRejected(_bonding.delegator, _bonding.delegatee, _bonding.amount, _validator.state);
             return;
