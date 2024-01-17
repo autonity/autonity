@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/stretchr/testify/require"
 )
 
 // TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
@@ -22,14 +23,14 @@ import (
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
 func TestSendingValue(t *testing.T) {
-	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s")
+	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
+	_ = network.WaitToMineNBlocks(80, 120, false)
 }
 
 func TestProtocolContractCache(t *testing.T) {

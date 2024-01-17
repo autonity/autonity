@@ -257,23 +257,20 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	start := time.Now()
 	proposal := messages.Proposal()
 	if proposal == nil {
-		// Should never happen really.
-		c.logger.Error("Core commit called with empty proposal")
+		// Should never happen really. Let's panic to catch bugs.
+		panic("Core commit called with empty proposal")
 		return
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-
 	committedSeals := make([][]byte, 0)
 	for _, v := range messages.PrecommitsFor(proposalHash) {
 		committedSeals = append(committedSeals, v.Signature())
 	}
-
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
-
 	if metrics.Enabled {
 		now := time.Now()
 		CommitTimer.Update(now.Sub(start))
