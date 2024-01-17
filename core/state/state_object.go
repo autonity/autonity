@@ -82,7 +82,8 @@ type stateObject struct {
 	code Code // contract bytecode, which gets set when code is loaded
 
 	cacheLock      sync.RWMutex
-	trieLock       sync.Mutex
+	trieLock       sync.RWMutex
+	metricLock     sync.Mutex
 	originStorage  Storage // Storage cache of original entries to dedup rewrites, reset for every transaction
 	pendingStorage Storage // Storage entries that need to be flushed to disk, at the end of an entire block
 	dirtyStorage   Storage // Storage entries that have been modified in the current transaction execution
@@ -151,31 +152,29 @@ func (s *stateObject) touch() {
 }
 
 func (s *stateObject) getTrie(db Database) Trie {
-	if s.trie != nil {
-		return s.trie
+	s.trieLock.RLock()
+	trie := s.trie
+	s.trieLock.RUnlock()
+	if trie != nil {
+		return trie
 	}
-	return s.tryFetchTrie(db)
-}
-
-func (s *stateObject) tryFetchTrie(db Database) Trie {
 	s.trieLock.Lock()
 	defer s.trieLock.Unlock()
-	if s.trie != nil {
-		return s.trie
-	}
-	// Try fetching from prefetcher first
-	// We don't prefetch empty tries
-	if s.data.Root != emptyRoot && s.db.prefetcher != nil {
-		// When the miner is creating the pending state, there is no
-		// prefetcher
-		s.trie = s.db.prefetcher.trie(s.data.Root)
-	}
 	if s.trie == nil {
-		var err error
-		s.trie, err = db.OpenStorageTrie(s.addrHash, s.data.Root)
-		if err != nil {
-			s.trie, _ = db.OpenStorageTrie(s.addrHash, common.Hash{})
-			s.setError(fmt.Errorf("can't create storage trie: %v", err))
+		// Try fetching from prefetcher first
+		// We don't prefetch empty tries
+		if s.data.Root != emptyRoot && s.db.prefetcher != nil {
+			// When the miner is creating the pending state, there is no
+			// prefetcher
+			s.trie = s.db.prefetcher.trie(s.data.Root)
+		}
+		if s.trie == nil {
+			var err error
+			s.trie, err = db.OpenStorageTrie(s.addrHash, s.data.Root)
+			if err != nil {
+				s.trie, _ = db.OpenStorageTrie(s.addrHash, common.Hash{})
+				s.setError(fmt.Errorf("can't create storage trie: %v", err))
+			}
 		}
 	}
 	return s.trie
@@ -230,7 +229,9 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		start := time.Now()
 		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
 		if metrics.EnabledExpensive {
+			s.metricLock.Lock()
 			s.db.SnapshotStorageReads += time.Since(start)
+			s.metricLock.Unlock()
 		}
 	}
 	// If the snapshot is unavailable or reading from it fails, load from the database.
