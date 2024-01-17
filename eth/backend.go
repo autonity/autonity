@@ -176,6 +176,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
 		config.Miner.Noverify, &vmConfig, evMux, msgStore)
 
+	nodeKey, _ := stack.Config().AutonityKeys()
 	eth := &Ethereum{
 		config:            config,
 		chainDb:           chainDb,
@@ -186,7 +187,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkID,
 		gasPrice:          config.Miner.GasPrice,
-		address:           crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey),
+		address:           crypto.PubkeyToAddress(nodeKey.PublicKey),
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
@@ -280,7 +281,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		eth.blockchain,
 		eth.address,
 		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}),
-		msgStore, eth.txPool, eth.APIBackend, stack.Config().NodeKey(),
+		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
 		eth.log)
 	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.

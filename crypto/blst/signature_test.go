@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/require"
+	blst "github.com/supranational/blst/bindings/go"
 	"testing"
 )
 
@@ -292,7 +293,7 @@ func TestFastAggregateVerify_ReturnsFalseOnEmptyPubKeyList(t *testing.T) {
 	var pubkeys []PublicKey
 	msg := [32]byte{'h', 'e', 'l', 'l', 'o'}
 
-	aggSig := NewAggregateSignature()
+	aggSig := newAggregateSignature()
 	require.Equal(t, false, aggSig.FastAggregateVerify(pubkeys, msg), "Expected FastAggregateVerify to return false with empty input ")
 }
 
@@ -390,4 +391,10 @@ func TestSignature_Hex(t *testing.T) {
 	signatureB, err := SignatureFromBytes(b)
 	require.NoError(t, err)
 	require.Equal(t, true, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
+}
+
+// newAggregateSignature creates a blank aggregate signature.
+func newAggregateSignature() Signature {
+	sig := blst.HashToG2([]byte{'m', 'o', 'c', 'k'}, generalDST).ToAffine()
+	return &BlsSignature{s: sig}
 }

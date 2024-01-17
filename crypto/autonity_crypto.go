@@ -13,26 +13,27 @@ import (
 	"os"
 )
 
-const AutonityPOPLen = 226
-const AutonityNodeKeyLenInChar = 128
-const AutonityNodeKeyLen = 64
 const ECDSAKeyLen = 32
+const AutonityPOPLen = 226
+const ECDSAKeyLenInChar = 64
+const AutonityKeysLenInChar = 128
+const AutonityKeysLen = ECDSAKeyLen + blst.BLSSecretKeyLength
 
 var (
 	ErrorInvalidPOP    = errors.New("invalid Autonity POP")
 	ErrorInvalidSigner = errors.New("mismatched Autonity POP signer")
 )
 
-// SaveNodeKey saves a secp256k1 private key and its derived validator BLS
-// private key to the given file with restrictive permissions. The key data is saved hex-encoded.
-func SaveNodeKey(file string, ecdsaKey *ecdsa.PrivateKey, consensusKey blst.SecretKey) error {
+// SaveAutonityKeys saves a secp256k1 private key and the consensus key to the given file with restrictive permissions.
+// The key data is saved hex-encoded.
+func SaveAutonityKeys(file string, ecdsaKey *ecdsa.PrivateKey, consensusKey blst.SecretKey) error {
 	k := hex.EncodeToString(FromECDSA(ecdsaKey))
 	d := hex.EncodeToString(consensusKey.Marshal())
 	return os.WriteFile(file, []byte(k+d), 0600)
 }
 
-// LoadNodeKey loads a secp256k1 private key and a derived validator BLS private key from the given file.
-func LoadNodeKey(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
+// LoadAutonityKeys loads a secp256k1 private key and a consensus private key from the given file.
+func LoadAutonityKeys(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, nil, err
@@ -40,7 +41,7 @@ func LoadNodeKey(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	defer fd.Close()
 
 	r := bufio.NewReader(fd)
-	buf := make([]byte, AutonityNodeKeyLenInChar)
+	buf := make([]byte, AutonityKeysLenInChar)
 	n, err := readASCII(buf, r)
 	if err != nil {
 		return nil, nil, err
@@ -48,16 +49,16 @@ func LoadNodeKey(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 		return nil, nil, fmt.Errorf("key file too short, want 128 hex characters")
 	}
 
-	if err = checkKeyFileEnd(r, AutonityNodeKeyLenInChar); err != nil {
+	if err = checkKeyFileEnd(r, AutonityKeysLenInChar); err != nil {
 		return nil, nil, err
 	}
 
-	ecdsaKey, err := HexToECDSA(string(buf[0 : AutonityNodeKeyLenInChar/2]))
+	ecdsaKey, err := HexToECDSA(string(buf[0:ECDSAKeyLenInChar]))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	consensusKeyBytes, err := hex.DecodeString(string(buf[AutonityNodeKeyLenInChar/2 : AutonityNodeKeyLenInChar]))
+	consensusKeyBytes, err := hex.DecodeString(string(buf[ECDSAKeyLenInChar:AutonityKeysLenInChar]))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -68,8 +69,8 @@ func LoadNodeKey(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	return ecdsaKey, consensusKey, nil
 }
 
-// HexToNodeKey parse the hex string into a secp256k1 private key and a derived BLS private key.
-func HexToNodeKey(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
+// HexToAutonityKeys parse the hex string into a secp256k1 private key and a derived BLS private key.
+func HexToAutonityKeys(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	b, err := hex.DecodeString(hexKeys)
 	if byteErr, ok := err.(hex.InvalidByteError); ok {
 		return nil, nil, fmt.Errorf("invalid hex character %q in node key", byte(byteErr))
@@ -77,7 +78,7 @@ func HexToNodeKey(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 		return nil, nil, errors.New("invalid hex data for node key")
 	}
 
-	if len(b) != AutonityNodeKeyLen {
+	if len(b) != AutonityKeysLen {
 		return nil, nil, errors.New("invalid length of hex data for node key")
 	}
 
@@ -86,7 +87,7 @@ func HexToNodeKey(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 		return nil, nil, err
 	}
 
-	consensusKey, err := blst.SecretKeyFromBytes(b[ECDSAKeyLen:AutonityNodeKeyLen])
+	consensusKey, err := blst.SecretKeyFromBytes(b[ECDSAKeyLen:AutonityKeysLen])
 	if err != nil {
 		return nil, nil, err
 	}
@@ -113,14 +114,6 @@ func PrivECDSAFromHex(k []byte) (*ecdsa.PrivateKey, error) {
 	return ToECDSA(data)
 }
 
-func PubECDSAFromHex(k []byte) (*ecdsa.PublicKey, error) {
-	data, err := hexDecode(k)
-	if err != nil {
-		return nil, err
-	}
-	return UnmarshalPubkey(data)
-}
-
 func hexEncode(src []byte) []byte {
 	dst := make([]byte, hex.EncodedLen(len(src)))
 	hex.Encode(dst, src)
@@ -133,25 +126,29 @@ func hexDecode(src []byte) ([]byte, error) {
 	return dst, err
 }
 
-// BLSPOPProof generate POP of BLS private key of Autonity protocol, the msg start with a prefix of treasury address and
-// ended with the public key of the secrete key, since we don't want the POP being cloned during the propagation of the
-// on-boarding TX. Thus, this POP generation is different from the spec of BLS, which means we have a compatibility issue
-// with a standard POP generation/verification implementation.
-func BLSPOPProof(priKey blst.SecretKey, msg []byte) ([]byte, error) {
-	// the msg contains treasury address and the public key of private key.
-	m := append(msg, priKey.PublicKey().Marshal()...)
-	proof := priKey.POPProof(Hash(m).Bytes())
+// BLSPOPProof generate POP of BLS private key of Autonity protocol, the hash input start with a prefix of treasury
+// address and ended with the public key of the secrete key, since we don't want the POP being cloned during the
+// propagation of the on-boarding TX. Thus, this POP generation is different from the spec of BLS, which means we have
+// a compatibility issue with a standard POP generation/verification implementation.
+func BLSPOPProof(priKey blst.SecretKey, treasury []byte) ([]byte, error) {
+	// the treasury contains treasury address bytes.
+	var buff []byte
+	copy(buff, treasury)
+	treasuryPubKey := append(buff, priKey.PublicKey().Marshal()...)
+	proof := priKey.POPProof(Hash(treasuryPubKey).Bytes())
 
-	err := BLSPOPVerify(priKey.PublicKey(), proof, msg)
+	err := BLSPOPVerify(priKey.PublicKey(), proof, treasury)
 	if err != nil {
 		return nil, err
 	}
 	return proof.Marshal(), nil
 }
 
-func BLSPOPVerify(pubKey blst.PublicKey, sig blst.Signature, msg []byte) error {
-	m := append(msg, pubKey.Marshal()...)
-	if !sig.POPVerify(pubKey, Hash(m).Bytes()) {
+func BLSPOPVerify(pubKey blst.PublicKey, sig blst.Signature, treasury []byte) error {
+	var buff []byte
+	copy(buff, treasury)
+	treasuryPubKey := append(buff, pubKey.Marshal()...)
+	if !sig.POPVerify(pubKey, Hash(treasuryPubKey).Bytes()) {
 		return fmt.Errorf("cannot verify BLS POP")
 	}
 
@@ -159,13 +156,13 @@ func BLSPOPVerify(pubKey blst.PublicKey, sig blst.Signature, msg []byte) error {
 }
 
 func AutonityPOPProof(nodeKey, oracleKey *ecdsa.PrivateKey, treasuryHex string, consensusKey blst.SecretKey) ([]byte, error) {
-	msg, err := hexutil.Decode(treasuryHex)
+	treasury, err := hexutil.Decode(treasuryHex)
 	if err != nil {
 		return nil, err
 	}
 
-	hash := POPMsgHash(msg)
-	// sign the msg hash with ecdsa node key and oracle key
+	hash := POPMsgHash(treasury)
+	// sign the treasury hash with ecdsa node key and oracle key
 	nodeSignature, err := Sign(hash.Bytes(), nodeKey)
 	if err != nil {
 		return nil, err
@@ -176,60 +173,13 @@ func AutonityPOPProof(nodeKey, oracleKey *ecdsa.PrivateKey, treasuryHex string, 
 	}
 
 	// generate the BLS POP
-	blsPOPProof, err := BLSPOPProof(consensusKey, msg)
+	blsPOPProof, err := BLSPOPProof(consensusKey, treasury)
 	if err != nil {
 		return nil, err
 	}
 
 	signatures := append(append(nodeSignature[:], oracleSignature[:]...), blsPOPProof[:]...)
 	return signatures, nil
-}
-
-func AutonityPOPVerify(signatures []byte, treasuryHex string, nodeAddress, oracleAddress common.Address, consensusKey []byte) error {
-	if len(signatures) != AutonityPOPLen {
-		return ErrorInvalidPOP
-	}
-
-	msg, err := hexutil.Decode(treasuryHex)
-	if err != nil {
-		return err
-	}
-
-	hash := POPMsgHash(msg)
-	if err = ECDSAPOPVerify(signatures[0:common.SealLength], hash, nodeAddress); err != nil {
-		return err
-	}
-
-	blsSigOffset := common.SealLength * 2
-	if err = ECDSAPOPVerify(signatures[common.SealLength:blsSigOffset], hash, oracleAddress); err != nil {
-		return err
-	}
-
-	// check zero signature.
-	validatorSig, err := blst.SignatureFromBytes(signatures[blsSigOffset:])
-	if err != nil {
-		return err
-	}
-
-	// check zero public key.
-	blsPubKey, err := blst.PublicKeyFromBytes(consensusKey)
-	if err != nil {
-		return err
-	}
-	return BLSPOPVerify(blsPubKey, validatorSig, msg)
-}
-
-func ECDSAPOPVerify(sig []byte, hash common.Hash, expectedSigner common.Address) error {
-	signer, err := SigToAddr(hash[:], sig)
-	if err != nil {
-		return err
-	}
-
-	if signer != expectedSigner {
-		return ErrorInvalidSigner
-	}
-
-	return nil
 }
 
 func POPMsgHash(msg []byte) common.Hash {
@@ -240,7 +190,7 @@ func POPMsgHash(msg []byte) common.Hash {
 	return hash
 }
 
-func GenAutonityNodeKey() (*ecdsa.PrivateKey, blst.SecretKey, error) {
+func GenAutonityKeys() (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	nodeKey, err := GenerateKey()
 	if err != nil {
 		return nil, nil, err

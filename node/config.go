@@ -389,13 +389,14 @@ func (c *Config) instanceDir() string {
 	return filepath.Join(c.DataDir, c.name())
 }
 
-// NodeKey retrieves the currently configured private key of the node, checking
-// first any manually set key, falling back to the one found in the configured
-// data folder. If no key can be found, a new one is generated.
-func (c *Config) NodeKey() *ecdsa.PrivateKey {
-	// Use any specifically configured key.
-	if c.P2P.PrivateKey != nil {
-		return c.P2P.PrivateKey
+// AutonityKeys retrieves the currently configured private key of the node and the consensus key of the node, checking
+// first any manually set keys, falling back to the one found in the configured  data folder. If no keys can be found,
+// new ones are generated.
+func (c *Config) AutonityKeys() (*ecdsa.PrivateKey, blst.SecretKey) {
+	// Use any specifically configured key, keys are configured via CLI by flags in key file or in key hex string, at
+	// this point, if any of the keys are not nil, it indicates they were parsed on the flag loading phase, return them.
+	if c.P2P.PrivateKey != nil || c.ConsensusKey != nil {
+		return c.P2P.PrivateKey, c.ConsensusKey
 	}
 
 	// Generate ephemeral key if no datadir is being used.
@@ -405,17 +406,17 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
 
-		if c.ConsensusKey, err = blst.RandKey(); err != nil {
-			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
+		consensusKey, err := blst.RandKey()
+		if err != nil {
+			log.Crit(fmt.Sprintf("Failed to generate ephemeral consensus key: %v", err))
 		}
 
-		return key
+		return key, consensusKey
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, consensusKey, err := crypto.LoadNodeKey(keyfile); err == nil {
-		c.ConsensusKey = consensusKey
-		return key
+	if key, consensusKey, err := crypto.LoadAutonityKeys(keyfile); err == nil {
+		return key, consensusKey
 	}
 
 	// No persistent key found, generate and store a new one.
@@ -426,7 +427,7 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 	instanceDir := filepath.Join(c.DataDir, c.name())
 	if err := os.MkdirAll(instanceDir, 0700); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-		return key
+		return key, nil
 	}
 
 	consensusKey, err := blst.RandKey()
@@ -435,11 +436,10 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 	}
 
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := crypto.SaveNodeKey(keyfile, key, consensusKey); err != nil {
+	if err := crypto.SaveAutonityKeys(keyfile, key, consensusKey); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 	}
-	c.ConsensusKey = consensusKey
-	return key
+	return key, consensusKey
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.

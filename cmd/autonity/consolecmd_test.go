@@ -111,7 +111,7 @@ func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
 
 func getCoinBase(t *testing.T, datadir string) string {
 	keyfile := filepath.Join(datadir, "autonity", "nodekey")
-	key, _, err := crypto.LoadNodeKey(keyfile)
+	key, _, err := crypto.LoadAutonityKeys(keyfile)
 	if err != nil {
 		t.Fatalf("cannot get node key with error: %v", err)
 	}

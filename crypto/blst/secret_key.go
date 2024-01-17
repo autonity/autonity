@@ -94,10 +94,6 @@ func (s *bls12SecretKey) Sign(msg []byte) Signature {
 // Marshal a secret key into a LittleEndian byte slice.
 func (s *bls12SecretKey) Marshal() []byte {
 	keyBytes := s.p.Serialize()
-	if len(keyBytes) < BLSSecretKeyLength {
-		emptyBytes := make([]byte, BLSSecretKeyLength-len(keyBytes))
-		keyBytes = append(emptyBytes, keyBytes...)
-	}
 	return keyBytes
 }
 

@@ -316,8 +316,8 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
   return multisig
 }
 
-async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
-  const command = `../../../build/bin/autonity genOwnershipProof --nodekey ${nodeKeyFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
+async function generateAutonityPOP(autonityKeysFile, oracleKeyHex, treasuryAddress) {
+  const command = `../../../build/bin/autonity genOwnershipProof --autonitykeys ${autonityKeysFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
   try {
     const { stdout, stderr } = await exec(command);
     if (stderr) {
@@ -331,9 +331,9 @@ async function generateAutonityPOP(nodeKeyFile, oracleKeyHex, treasuryAddress) {
   }
 }
 
-async function generateNodeKey(filePath) {
+async function generateAutonityKeys(filePath) {
   try {
-    const command = `../../../build/bin/autonity genNodeKey --writeaddress ${filePath}`;
+    const command = `../../../build/bin/autonity genAutonityKeys --writeaddress ${filePath}`;
     const { stdout, stderr } = await exec(command);
     const nodeAddress = stdout.match(/Node address: (0x[0-9a-fA-F]+)/)[1];
     const nodePublicKey = stdout.match(/Node public key: (0x[0-9a-fA-F]+)/)[1];
@@ -392,7 +392,7 @@ module.exports.randomPrivateKey = randomPrivateKey;
 module.exports.generateMultiSig = generateMultiSig;
 module.exports.ValidatorState = ValidatorState;
 module.exports.generateAutonityPOP = generateAutonityPOP;
-module.exports.generateNodeKey = generateNodeKey;
+module.exports.generateAutonityKeys = generateAutonityKeys;
 module.exports.publicKeyToEnode = publicKeyToEnode;
 module.exports.publicKey = publicKey;
 module.exports.address = address;

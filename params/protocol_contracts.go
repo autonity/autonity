@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"math/big"
 
@@ -316,10 +315,14 @@ func (v *Validator) Validate() error {
 	if v.CommissionRate != nil && v.CommissionRate.Cmp(big.NewInt(0)) != 0 {
 		return fmt.Errorf("commission rate for enode %q not allowed", nodeAddr.String())
 	}
-	_, err = blst.PublicKeyFromBytes(v.ConsensusKey)
-	if err != nil {
-		return errors.New("cannot decode bls public key")
-	}
+
+	// todo: check below logic for the consensusKey of GVs once we use them in consensus engine, it requires update in
+	//  genesis config of Piccadilly and Barkerloo network.
+	/*
+		_, err = blst.PublicKeyFromBytes(v.ConsensusKey)
+		if err != nil {
+			return errors.New("cannot decode bls public key")
+		}*/
 	return nil
 }
 

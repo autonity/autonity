@@ -17,7 +17,7 @@ library Precompiled {
         address to = ENODE_VERIFIER_CONTRACT;
         assembly {
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xff, add(_enode,32), mload(_enode), p, 0x40)) {
+            if iszero(staticcall(gas(), to, add(_enode,32), mload(_enode), p, 0x40)) {
                 revert(0, 0)
             }
             addr :=  div(mload(p), 0x1000000000000000000000000) // abi encoded, shift >> 96

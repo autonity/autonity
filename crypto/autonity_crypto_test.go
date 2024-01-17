@@ -2,6 +2,8 @@ package crypto
 
 import (
 	"encoding/hex"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/stretchr/testify/require"
 	"os"
@@ -23,10 +25,10 @@ func TestSaveNodeKey(t *testing.T) {
 	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	err = SaveNodeKey(file, key, consensusKey)
+	err = SaveAutonityKeys(file, key, consensusKey)
 	require.NoError(t, err)
 
-	loadedKey, loadedDerivedKey, err := LoadNodeKey(file)
+	loadedKey, loadedDerivedKey, err := LoadAutonityKeys(file)
 	require.NoError(t, err)
 
 	require.Equal(t, loadedKey, key)
@@ -43,7 +45,7 @@ func TestHexToNodeKey(t *testing.T) {
 	keyHex := hex.EncodeToString(FromECDSA(key))
 	derivedKeyHex := hex.EncodeToString(consensusKey.Marshal())
 
-	parsedKey, parsedConsensusKey, err := HexToNodeKey(keyHex + derivedKeyHex)
+	parsedKey, parsedConsensusKey, err := HexToAutonityKeys(keyHex + derivedKeyHex)
 	require.NoError(t, err)
 
 	require.Equal(t, key, parsedKey)
@@ -91,14 +93,14 @@ func TestLoadNodeKey(t *testing.T) {
 		f.WriteString(test.input)
 		f.Close()
 
-		_, _, err = LoadNodeKey(filename)
+		_, _, err = LoadAutonityKeys(filename)
 		switch {
 		case err != nil && test.err == "":
 			t.Fatalf("unexpected error for input %q:\n  %v", test.input, err)
 		case err != nil && err.Error() != test.err:
 			t.Fatalf("wrong error for input %q:\n  %v", test.input, err)
 		case err == nil && test.err != "":
-			t.Fatalf("LoadNodeKey did not return error for input %q", test.input)
+			t.Fatalf("LoadAutonityKeys did not return error for input %q", test.input)
 		}
 	}
 }
@@ -106,18 +108,18 @@ func TestLoadNodeKey(t *testing.T) {
 func TestPOPVerifier(t *testing.T) {
 	privKey, err := GenerateKey()
 	require.NoError(t, err)
-	address := PubkeyToAddress(privKey.PublicKey)
+	treasury := PubkeyToAddress(privKey.PublicKey)
 
 	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	proof, err := BLSPOPProof(consensusKey, address.Bytes())
+	proof, err := BLSPOPProof(consensusKey, treasury.Bytes())
 	require.NoError(t, err)
 
 	sig, err := blst.SignatureFromBytes(proof)
 	require.NoError(t, err)
 
-	err = BLSPOPVerify(consensusKey.PublicKey(), sig, address.Bytes())
+	err = BLSPOPVerify(consensusKey.PublicKey(), sig, treasury.Bytes())
 	require.NoError(t, err)
 }
 
@@ -136,6 +138,53 @@ func TestAutonityPOPProof(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, AutonityPOPLen, len(autonityPOP))
 
-	err = AutonityPOPVerify(autonityPOP, msg, PubkeyToAddress(nodeKey.PublicKey), PubkeyToAddress(oracleKey.PublicKey), consensusKey.PublicKey().Marshal())
+	err = autonityPOPVerify(autonityPOP, msg, PubkeyToAddress(nodeKey.PublicKey), PubkeyToAddress(oracleKey.PublicKey), consensusKey.PublicKey().Marshal())
 	require.NoError(t, err)
+}
+
+func autonityPOPVerify(signatures []byte, treasuryHex string, nodeAddress, oracleAddress common.Address, consensusKey []byte) error {
+	if len(signatures) != AutonityPOPLen {
+		return ErrorInvalidPOP
+	}
+
+	msg, err := hexutil.Decode(treasuryHex)
+	if err != nil {
+		return err
+	}
+
+	hash := POPMsgHash(msg)
+	if err = ecdsaPOPVerify(signatures[0:common.SealLength], hash, nodeAddress); err != nil {
+		return err
+	}
+
+	blsSigOffset := common.SealLength * 2
+	if err = ecdsaPOPVerify(signatures[common.SealLength:blsSigOffset], hash, oracleAddress); err != nil {
+		return err
+	}
+
+	// check zero signature.
+	validatorSig, err := blst.SignatureFromBytes(signatures[blsSigOffset:])
+	if err != nil {
+		return err
+	}
+
+	// check zero public key.
+	blsPubKey, err := blst.PublicKeyFromBytes(consensusKey)
+	if err != nil {
+		return err
+	}
+	return BLSPOPVerify(blsPubKey, validatorSig, msg)
+}
+
+func ecdsaPOPVerify(sig []byte, hash common.Hash, expectedSigner common.Address) error {
+	signer, err := SigToAddr(hash[:], sig)
+	if err != nil {
+		return err
+	}
+
+	if signer != expectedSigner {
+		return ErrorInvalidSigner
+	}
+
+	return nil
 }

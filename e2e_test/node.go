@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -174,6 +175,10 @@ func (n *Node) Start() error {
 	}()
 
 	nodeConfigCopy := *n.Config
+	nodeConfigCopy.ConsensusKey, err = blst.SecretKeyFromBytes(n.Config.ConsensusKey.Marshal())
+	if err != nil {
+		return err
+	}
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
 	// copy, since it is not useful for black box testing and it is also not
@@ -207,7 +212,8 @@ func (n *Node) Start() error {
 		return err
 	}
 	// setting EtherBase for miner
-	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(n.Node.Config().NodeKey().PublicKey)
+	nodeKey, _ := n.Node.Config().AutonityKeys()
+	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(nodeKey.PublicKey)
 	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}

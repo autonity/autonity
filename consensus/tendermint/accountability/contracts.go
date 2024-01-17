@@ -24,10 +24,10 @@ import (
 // a part of consensus.
 
 var (
-	checkActivityKeyOwnershipAddress = common.BytesToAddress([]byte{0xfb})
-	checkAccusationAddress           = common.BytesToAddress([]byte{0xfc})
-	checkInnocenceAddress            = common.BytesToAddress([]byte{0xfd})
-	checkMisbehaviourAddress         = common.BytesToAddress([]byte{0xfe})
+	checkPOPAddress          = common.BytesToAddress([]byte{0xfb})
+	checkAccusationAddress   = common.BytesToAddress([]byte{0xfc})
+	checkInnocenceAddress    = common.BytesToAddress([]byte{0xfd})
+	checkMisbehaviourAddress = common.BytesToAddress([]byte{0xfe})
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult   = common.LeftPadBytes([]byte{1}, 32)
 	failure32Byte   = make([]byte, 32)
@@ -51,7 +51,7 @@ func LoadPrecompiles(chain ChainContext) {
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
 	setPrecompiles := func(set map[common.Address]vm.PrecompiledContract) {
-		set[checkActivityKeyOwnershipAddress] = &ov
+		set[checkPOPAddress] = &ov
 		set[checkInnocenceAddress] = &pv
 		set[checkMisbehaviourAddress] = &cv
 		set[checkAccusationAddress] = &av
@@ -67,7 +67,7 @@ func LoadPrecompiles(chain ChainContext) {
 type POPVerifier struct{}
 
 func (b *POPVerifier) RequiredGas(_ []byte) uint64 {
-	return params.AutonityActivityKeyCheckGas
+	return params.POPVerifierGas
 }
 
 func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
