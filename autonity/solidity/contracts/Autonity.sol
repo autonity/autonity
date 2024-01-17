@@ -1605,29 +1605,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         tailUnbondingID = _processedId;
     }
 
-    /**
-     * @dev Sends necessary slots to precompiled contract.
-     * Committee selection and storing the committee and writing it in persistent storage are done in precompiled contract
-     */
-    function computeCommitteePrecompiled(uint256 _committeeSize) internal {
-        uint256[1] memory _returnData;
-        address to = Precompiled.COMPUTE_COMMITTEE_CONTRACT;
-        uint256 _length = 32*5;
-        uint256[5] memory input;
-        input[4] = _committeeSize;
-        uint _returnDataLength = 32;
-        assembly {
-            mstore(input, validatorList.slot)
-            mstore(add(input, 0x20), validators.slot)
-            mstore(add(input, 0x40), committee.slot)
-            mstore(add(input,0x60), epochTotalBondedStake.slot)
-            if iszero(delegatecall(gas(), to, input, _length, _returnData, _returnDataLength)) {
-                revert(0, 0)
-            }
-        }
-        require(_returnData[0] == 1, "unsuccessful call");
-    }
-
     function _removeFromArray(address _address, address[] storage _array) internal {
         require(_array.length > 0);
         for (uint256 i = 0; i < _array.length; i++) {

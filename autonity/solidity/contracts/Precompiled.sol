@@ -25,6 +25,24 @@ library Precompiled {
         return (addr, p[1]);
     }
 
+    /**
+     * @dev Sends necessary slots to precompiled contract.
+     * Committee selection and storing the committee and writing it in persistent storage are done in precompiled contract
+     */
+    function computeCommitteePrecompiled(uint256[5] memory input) internal {
+        uint256[1] memory _returnData;
+        address to = COMPUTE_COMMITTEE_CONTRACT;
+        uint256 _length = 32*5;
+        uint _returnDataLength = 32;
+        assembly {
+            //delegatecall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(delegatecall(gas(), to, input, _length, _returnData, _returnDataLength)) {
+                revert(0, 0)
+            }
+        }
+        require(_returnData[0] == 1, "unsuccessful call");
+    }
+
     // call precompiled contracts with its corresponding contract address and the rlp encoded accountability event.
     // return a tuple that contains the corresponding address of the validator, the consensus msg's hash and the
     // verification result of the corresponding accountability event, the rule id of the event and the corresponding
