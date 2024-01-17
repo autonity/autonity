@@ -72,6 +72,8 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &CommitteeSelector{},
+	// addresses 252 to 254 are reserved for accountability contracts
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 // PrecompiledContractsByzantium contains the default set of pre-compiled Ethereum
@@ -89,6 +91,8 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &CommitteeSelector{},
+	// addresses 252 to 254 are reserved for accountability contracts
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -107,6 +111,8 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &CommitteeSelector{},
+	// addresses 252 to 254 are reserved for accountability contracts
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -125,6 +131,8 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &CommitteeSelector{},
+	// addresses 252 to 254 are reserved for accountability contracts
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -143,6 +151,8 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 	common.BytesToAddress([]byte{251}): &CommitteeSelector{},
+	// addresses 252 to 254 are reserved for accountability contracts
+	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
 var (
@@ -198,7 +208,19 @@ func RunPrecompiledContract(
 	return output, suppliedGas, err
 }
 
-const KB = 1024
+const (
+	KB = 1024
+	// offset constants of Validator struct from Autonity.sol
+	OracleAddressOffset = 2
+	BondedStakeOffset   = 5
+	StateOffset         = 18
+	// Constant Threshold used in CommitteeSelector
+	StakeThreshold = 0
+	ActiveState    = 0
+	DataLen        = 32
+)
+
+var errUnauthorized = errors.New("caller address not authorize")
 
 type CommitteeSelector struct{}
 
@@ -208,78 +230,92 @@ func (a *CommitteeSelector) RequiredGas(input []byte) uint64 {
 }
 
 func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller common.Address) ([]byte, error) {
+	if caller != params.AutonityContractAddress {
+		return nil, errUnauthorized
+	}
 	// input
+	if len(input) < 5*DataLen {
+		return nil, fmt.Errorf("not enough input")
+	}
 	offset := 0
-	validatorListSlot := input[offset : offset+32]
-	offset += 32
-	validatorsSlot := input[offset : offset+32]
-	offset += 32
-	committeeSlot := input[offset : offset+32]
-	offset += 32
-	epochTotalBondedStakeSlot := input[offset : offset+32]
-	offset += 32
-	configCommitteeLen := int(big.NewInt(0).SetBytes(input[offset : offset+32]).Int64())
+	validatorListSlot := input[offset : offset+DataLen]
+	offset += DataLen
+	validatorsSlot := input[offset : offset+DataLen]
+	offset += DataLen
+	committeeSlot := input[offset : offset+DataLen]
+	offset += DataLen
+	epochTotalBondedStakeSlot := input[offset : offset+DataLen]
+	offset += DataLen
+	configCommitteeLen := int(big.NewInt(0).SetBytes(input[offset : offset+DataLen]).Int64())
 
 	// validatorListSlot has the size of the array validatorList
 	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
 	baseOffsetArray := crypto.Keccak256Hash(validatorListSlot).Big()
-	threshold := big.NewInt(0)
+	stakeThreshold := big.NewInt(StakeThreshold)
 
 	// get validators from DB concurrently
-	threadCount := runtime.NumCPU()
-	workPerThread := validatorListSize / threadCount
+	validators := make([]*types.CommitteeMember, validatorListSize)
+	workPerThread := validatorListSize / runtime.NumCPU()
 	if workPerThread == 0 {
 		workPerThread = 1
 	}
-	threadCount = validatorListSize / workPerThread
 	task := sync.WaitGroup{}
-	lock := sync.RWMutex{}
-	readValidators := make([][]*types.CommitteeMember, threadCount+1)
-	totalValidators := 0
-	for i := 0; i < threadCount; i++ {
-		newOffset := big.NewInt(0).Add(baseOffsetArray, big.NewInt(0))
-		idx := i
+	activeState := big.NewInt(ActiveState)
+	increment := big.NewInt(1)
+	for i := 0; i < validatorListSize; i += workPerThread {
+		startIndex := i
+		endIndex := startIndex + workPerThread
+		if endIndex > validatorListSize {
+			endIndex = validatorListSize
+		}
 		task.Add(1)
-		go func() {
-			readValidators[idx] = a.getValidatorsInfo(
-				validatorsSlot, newOffset, workPerThread, threshold, caller, stateDB,
-			)
-			lock.Lock()
-			totalValidators += len(readValidators[idx])
-			lock.Unlock()
+		go func(startIndex, endIndex int) {
+			startOffset := new(big.Int).Add(baseOffsetArray, big.NewInt(int64(startIndex)))
+			mapKey := make([]byte, DataLen*2)
+			copy(mapKey[DataLen:], validatorsSlot)
+			for j := startIndex; j < endIndex; j++ {
+				validators[j] = a.getValidatorInfo(mapKey, startOffset.Bytes(), stakeThreshold, activeState, caller, stateDB)
+				startOffset.Add(startOffset, increment)
+			}
 			task.Done()
-		}()
-		baseOffsetArray.Add(baseOffsetArray, big.NewInt(int64(workPerThread)))
-	}
-	remainingTask := validatorListSize - workPerThread*threadCount
-	if remainingTask > 0 {
-		newOffset := big.NewInt(0).Add(baseOffsetArray, big.NewInt(0))
-		task.Add(1)
-		go func() {
-			readValidators[threadCount] = a.getValidatorsInfo(
-				validatorsSlot, newOffset, remainingTask, threshold, caller, stateDB,
-			)
-			lock.Lock()
-			totalValidators += len(readValidators[threadCount])
-			lock.Unlock()
-			task.Done()
-		}()
+		}(startIndex, endIndex)
 	}
 	task.Wait()
 
-	validators := make([]*types.CommitteeMember, 0, totalValidators)
-	for _, validatorGroup := range readValidators {
-		validators = append(validators, validatorGroup...)
+	// remove nil validators
+	validatorLen := 0
+	for i := 0; i < validatorListSize; i++ {
+		if validators[i] == nil {
+			continue
+		}
+		validators[validatorLen] = validators[i]
+		validatorLen++
 	}
+	if validatorLen == 0 {
+		return nil, fmt.Errorf("no active validators with stake more than %v", stakeThreshold.String())
+	}
+	validators = validators[:validatorLen]
+
 	var committeeSize int
-	if configCommitteeLen > len(validators) {
-		committeeSize = len(validators)
+	if configCommitteeLen > validatorLen {
+		committeeSize = validatorLen
 	} else {
 		committeeSize = configCommitteeLen
-		quickSort(validators, 0, int32(len(validators)-1), &task)
-		task.Wait()
 	}
+	quickSort(validators, 0, int32(validatorLen-1), &task)
+	task.Wait()
 
+	a.updateCommittee(validators, committeeSize, committeeSlot, epochTotalBondedStakeSlot, caller, stateDB)
+	result := make([]byte, DataLen)
+	// call successful
+	result[31] = 1
+	return result, nil
+}
+
+func (a *CommitteeSelector) updateCommittee(
+	validators []*types.CommitteeMember, committeeSize int, committeeSlot []byte,
+	epochTotalBondedStakeSlot []byte, caller common.Address, stateDB StateDB,
+) {
 	// write committee to persistent storage
 	oldCommitteeSize := int(stateDB.GetState(caller, common.BytesToHash(committeeSlot)).Big().Uint64())
 	// 4 for uint32
@@ -288,28 +324,19 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	// save committeeSize in committeeSlot
 	stateDB.SetState(caller, common.BytesToHash(committeeSlot), common.BytesToHash(committeeLenBytes))
 	// put new committee members : type CommitteeMember
-	voters := make([]byte, committeeSize*32)
 	baseOffsetCommittee := crypto.Keccak256Hash(committeeSlot).Big()
 	totalStake := big.NewInt(0)
+	increment := big.NewInt(1)
 	for i := 0; i < committeeSize; i++ {
+		// the order has to be in sync with Committee struct in Autonity.sol
 		// save address
 		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), validators[i].Address.Hash())
-		baseOffsetCommittee.Add(baseOffsetCommittee, big.NewInt(1))
+		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
 		// save voting power
 		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), common.BytesToHash(validators[i].VotingPower.Bytes()))
-		baseOffsetCommittee.Add(baseOffsetCommittee, big.NewInt(1))
+		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
 
 		totalStake = totalStake.Add(totalStake, validators[i].VotingPower)
-
-		// get oracleAddress
-		key := make([]byte, 32)
-		copy(key[12:32], validators[i].Address.Bytes())
-		mapItemOffset := crypto.Keccak256Hash(append(key, validatorsSlot...)).Big()
-		// oracleAddress is at slot 2
-		mapItemOffset.Add(mapItemOffset, big.NewInt(2))
-		oracleAddress := stateDB.GetState(caller, common.BytesToHash(mapItemOffset.Bytes())).Bytes()
-		// voters[i*32:i*32+32] will store oracleAddress of i'th member
-		copy(voters[(i<<5):(i<<5)+32], oracleAddress)
 	}
 	// write epochTotalBondedStake
 	stateDB.SetState(caller, common.BytesToHash(epochTotalBondedStakeSlot), common.BytesToHash(totalStake.Bytes()))
@@ -323,46 +350,30 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), common.Hash{})
 		baseOffsetCommittee.Add(baseOffsetCommittee, big.NewInt(1))
 	}
-
-	result := make([]byte, 64)
-	// call successful
-	result[31] = 1
-	binary.BigEndian.PutUint32(result[60:64], uint32(committeeSize))
-	result = append(result, voters...)
-	return result, nil
 }
 
-func (a *CommitteeSelector) getValidatorsInfo(
-	validatorsSlot []byte, baseOffsetArray *big.Int, count int, threshold *big.Int,
-	caller common.Address, stateDB StateDB,
-) []*types.CommitteeMember {
-	// fmt.Printf("starting thread %v\n", baseOffsetArray)
-	validators := make([]*types.CommitteeMember, 0, count)
-	activeState := big.NewInt(0)
-	mapKey := make([]byte, 64)
-	copy(mapKey[32:], validatorsSlot)
-	for i := 0; i < count; i++ {
-		address := common.BytesToAddress(stateDB.GetState(caller, common.Hash(baseOffsetArray.Bytes())).Bytes())
-		baseOffsetArray.Add(baseOffsetArray, big.NewInt(1))
+// solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
+func (a *CommitteeSelector) getValidatorInfo(
+	mapKey []byte, addressSlot []byte, stakeThreshold *big.Int, expectedState *big.Int, caller common.Address, stateDB StateDB,
+) *types.CommitteeMember {
 
-		// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
-		copy(mapKey[12:32], address.Bytes())
-		baseOffsetMap := crypto.Keccak256Hash(mapKey).Big()
-		// bondedStake is at slot 5
-		baseOffsetMap.Add(baseOffsetMap, big.NewInt(5))
-		bondedStake := stateDB.GetState(caller, common.BytesToHash(baseOffsetMap.Bytes())).Big()
-		// status is at slot 18
-		baseOffsetMap.Add(baseOffsetMap, big.NewInt(13))
-		state := stateDB.GetState(caller, common.BytesToHash(baseOffsetMap.Bytes())).Big()
-		// take validator if the stake is greater than threshold, for now threshold = 0
-		if bondedStake.Cmp(threshold) == 1 && state.Cmp(activeState) == 0 {
-			validators = append(validators, &types.CommitteeMember{
-				Address:     address,
-				VotingPower: bondedStake,
-			})
+	address := common.BytesToAddress(stateDB.GetState(caller, common.Hash(addressSlot)).Bytes())
+	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
+	copy(mapKey[DataLen-common.AddressLength:DataLen], address.Bytes())
+	mapItemSlot := crypto.Keccak256Hash(mapKey).Big()
+	stakeSlot := new(big.Int).Add(mapItemSlot, big.NewInt(BondedStakeOffset)).Bytes()
+	bondedStake := stateDB.GetState(caller, common.BytesToHash(stakeSlot)).Big()
+	stateSlot := new(big.Int).Add(mapItemSlot, big.NewInt(StateOffset)).Bytes()
+	state := stateDB.GetState(caller, common.BytesToHash(stateSlot)).Big()
+	// take validator if the stake is greater than threshold, for now threshold = 0
+	if bondedStake.Cmp(stakeThreshold) == 1 && state.Cmp(expectedState) == 0 {
+		return &types.CommitteeMember{
+			Address:     address,
+			VotingPower: bondedStake,
 		}
+	} else {
+		return nil
 	}
-	return validators
 }
 
 // sorts validators according to their VotingPower in descending order
