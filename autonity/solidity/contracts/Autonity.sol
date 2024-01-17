@@ -25,6 +25,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
 
     struct Validator {
+        // any change in Validator struct must be synced with offset constants in core/evm/contracts.go
         address payable treasury;
         address nodeAddress;
         address oracleAddress;
@@ -48,6 +49,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     struct CommitteeMember {
+        // any change in Validator struct must be synced with CommitteeSelector code to write committee in DB
+        // see CommitteeSelector.updateCommittee function in core/evm/contracts.go
         address addr;
         uint256 votingPower;
     }
@@ -132,6 +135,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     CommitteeMember[] internal committee;
     uint256 public totalRedistributed;
     uint256 public epochReward;
+    string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
 
@@ -619,7 +623,18 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function computeCommittee() public onlyProtocol returns (address[] memory){
         // Left public for testing purposes.
         require(validatorList.length > 0, "There must be validators");
-        return computeCommitteePrecompiled(config.protocol.committeeSize);
+        computeCommitteePrecompiled(config.protocol.committeeSize);
+        // get oracle address of committee members
+        // calculate committeeNodes
+        delete committeeNodes;
+        uint256 committeeSize = committee.length;
+        address[] memory _voters = new address[](committeeSize);
+        for (uint i = 0; i < committeeSize; i++) {
+            Validator storage _member = validators[committee[i].addr];
+            committeeNodes.push(_member.enode);
+            _voters[i] = _member.oracleAddress;
+        }
+        return _voters;
     }
 
 
@@ -727,12 +742,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @return Returns the consensus committee enodes.
     */
     function getCommitteeEnodes() external view returns (string[] memory) {
-        uint256 len = committee.length;
-        string[] memory committeeNodes = new string[](len);
-        for (uint256 i = 0; i < len; i++) {
-            Validator storage validator = validators[committee[i].addr];
-            committeeNodes[i] = validator.enode;
-        }
         return committeeNodes;
     }
 
@@ -1177,41 +1186,23 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      * @dev Sends necessary slots to precompiled contract.
      * Committee selection and storing the committee and writing it in persistent storage are done in precompiled contract
      */
-    function computeCommitteePrecompiled(uint256 _committeeSize) internal returns (address[] memory) {
-        require(_committeeSize <= 1000, "hardcoded array size 1002");
-        address[] memory _returnData;
-
+    function computeCommitteePrecompiled(uint256 _committeeSize) internal {
+        uint256[1] memory _returnData;
         address to = Precompiled.COMPUTE_COMMITTEE_CONTRACT;
         uint256 _length = 32*5;
         uint256[5] memory input;
         input[4] = _committeeSize;
-        uint _returnDataLength = 64 + _committeeSize*32;
+        uint _returnDataLength = 32;
         assembly {
             mstore(input, validatorList.slot)
             mstore(add(input, 0x20), validators.slot)
             mstore(add(input, 0x40), committee.slot)
             mstore(add(input,0x60), epochTotalBondedStake.slot)
-            //delegatecall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(delegatecall(gas(), to, input, _length, _returnData, 2)) {
+            if iszero(delegatecall(gas(), to, input, _length, _returnData, _returnDataLength)) {
                 revert(0, 0)
             }
-            let outputsize := returndatasize()
-            // we need here to instantiate a memory array with size = outputsize - 2
-            returndatacopy(.....)
         }
-
-        require(_returnData[0] == address(1), "unsuccessful call"); // <- handled by delegatecall return
-        require(_returnData[1] != address(0), "empty committee"); // <- can be retrieved by outputsize
-        // _returnData[1] has new committee size = length of voters
-        if (_committeeSize > uint256(uint160(_returnData[1]))) {
-            _committeeSize = uint256(uint160(_returnData[1]));
-        }
-        // try to avoid this additional copy
-        address[] memory addresses = new address[](_committeeSize);
-        for (uint i = 0; i < _committeeSize; i++) {
-            addresses[i] = _returnData[i+2];
-        }
-        return addresses;
+        require(_returnData[0] == 1, "unsuccessful call");
     }
 
     function _removeFromArray(address _address, address[] storage _array) internal {
