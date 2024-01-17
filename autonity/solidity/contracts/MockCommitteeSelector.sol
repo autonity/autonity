@@ -7,9 +7,8 @@ contract MockCommitteeSelector {
     constructor() {}
 
     fallback(bytes calldata input) external returns (bytes memory) {
+        bytes memory ret = new bytes(32);
         if (input.length != 5*32) {
-            bytes memory ret = new bytes(64);
-            ret[31] = bytes1(uint8(1));
             return ret;
         }
         // read slots
@@ -116,28 +115,6 @@ contract MockCommitteeSelector {
             }
         }
 
-        // return committeeSize
-        bytes memory ret = new bytes(64 + committeeSize*32);
-        assembly {
-            mstore(add(ret, 0x40), committeeSize)
-        }
-
-        // return oracle addresses
-        {
-            for (uint256 i = 0 ; i < committeeSize; i++) {
-                uint256 nodeAddress = uint256(uint160(validators[i].addr));
-                bytes memory key = new bytes(64);
-                assembly {
-                    mstore(add(key, 0x20), nodeAddress)
-                    mstore(add(key, 0x40), mload(add(validatorsSlot, 0x20)))
-                }
-                uint256 validatorOracleSlot = uint256(keccak256(key))+2;
-                uint256 indexOffset = 96 + i*32;
-                assembly {
-                    mstore(add(ret, indexOffset), sload(validatorOracleSlot))
-                }
-            }
-        }
         // success
         ret[31] = bytes1(uint8(1));
         return ret;
