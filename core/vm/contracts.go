@@ -371,9 +371,8 @@ func (a *CommitteeSelector) getValidatorInfo(
 			Address:     address,
 			VotingPower: bondedStake,
 		}
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // sorts validators according to their VotingPower in descending order
