@@ -31,7 +31,7 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	validators, _, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
 	contractAbi := &generated.AutonityAbi
-	deployer := common.Address{}
+	deployer := DeployerAddress
 	committeeSize := 100
 
 	b.Run("computeCommittee", func(b *testing.B) {
@@ -386,7 +386,7 @@ func benchmarkWithGas(
 	b.Log(1.0 * gasUsed / uint64(b.N))
 }
 
-func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, totalStake *big.Int, checkIfSorted bool) error {
+func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, totalStake *big.Int) error {
 	if len(voters) > len(validators) {
 		return fmt.Errorf("More voters than validators")
 	}
@@ -408,7 +408,7 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		if !ok {
 			return fmt.Errorf("voter not found")
 		}
-		if checkIfSorted && i > 0 && lastStake.Cmp(validators[idx].BondedStake) < 0 {
+		if i > 0 && lastStake.Cmp(validators[idx].BondedStake) < 0 {
 			return fmt.Errorf("not sorted")
 		}
 		lastStake = validators[idx].BondedStake
@@ -444,7 +444,7 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 
 func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	contractAbi := &generated.AutonityTestAbi
-	deployer := common.Address{}
+	deployer := DeployerAddress
 	validators, _, err := randomValidators(validatorCount, 30)
 	require.NoError(t, err)
 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
@@ -467,6 +467,6 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	totalStake := big.NewInt(0)
 	err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
 	require.NoError(t, err)
-	err = isVotersSorted(voters, members, validators, totalStake, false)
+	err = isVotersSorted(voters, members, validators, totalStake)
 	require.NoError(t, err)
 }
