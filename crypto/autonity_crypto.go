@@ -94,10 +94,6 @@ func HexToAutonityKeys(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error
 	return ecdsaKey, consensusKey, nil
 }
 
-func Hash(data []byte) common.Hash {
-	return blake2b.Sum256(data)
-}
-
 func PrivECDSAToHex(k *ecdsa.PrivateKey) []byte {
 	return hexEncode(FromECDSA(k))
 }
@@ -126,16 +122,22 @@ func hexDecode(src []byte) ([]byte, error) {
 	return dst, err
 }
 
+// Note!: All the functions use by AutonityPOPProof and AutonityPOPVerify should be deterministic, and should be backward
+// compatible since it is used by precompiled contract for on-boarding validators of the whole lifecycle of a blockchain.
+func Hash(data []byte) common.Hash {
+	return blake2b.Sum256(data)
+}
+
 // BLSPOPProof generate POP of BLS private key of Autonity protocol, the hash input start with a prefix of treasury
 // address and ended with the public key of the secrete key, since we don't want the POP being cloned during the
 // propagation of the on-boarding TX. Thus, this POP generation is different from the spec of BLS, which means we have
 // a compatibility issue with a standard POP generation/verification implementation.
 func BLSPOPProof(priKey blst.SecretKey, treasury []byte) ([]byte, error) {
-	// the treasury contains treasury address bytes.
-	var buff []byte
-	copy(buff, treasury)
-	treasuryPubKey := append(buff, priKey.PublicKey().Marshal()...)
-	proof := priKey.POPProof(Hash(treasuryPubKey).Bytes())
+	keyBytes := priKey.PublicKey().Marshal()
+	buff := make([]byte, len(treasury)+len(keyBytes))
+	copy(buff[:], treasury)
+	copy(buff[len(treasury):], keyBytes)
+	proof := priKey.POPProof(Hash(buff).Bytes())
 
 	err := BLSPOPVerify(priKey.PublicKey(), proof, treasury)
 	if err != nil {
@@ -147,10 +149,11 @@ func BLSPOPProof(priKey blst.SecretKey, treasury []byte) ([]byte, error) {
 // BLSPOPVerify verifies the POP provided by an on-boarding validator, it assumes the public key and signature was
 // checked with infinite and group.
 func BLSPOPVerify(pubKey blst.PublicKey, sig blst.Signature, treasury []byte) error {
-	var buff []byte
-	copy(buff, treasury)
-	treasuryPubKey := append(buff, pubKey.Marshal()...)
-	if !sig.POPVerify(pubKey, Hash(treasuryPubKey).Bytes()) {
+	keyBytes := pubKey.Marshal()
+	buff := make([]byte, len(treasury)+len(keyBytes))
+	copy(buff[:], treasury)
+	copy(buff[len(treasury):], keyBytes)
+	if !sig.POPVerify(pubKey, Hash(buff).Bytes()) {
 		return fmt.Errorf("cannot verify BLS POP")
 	}
 
