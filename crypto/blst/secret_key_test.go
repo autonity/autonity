@@ -89,4 +89,7 @@ func TestSecretKey_Hex(t *testing.T) {
 	require.Equal(t, sKey, sk)
 }
 
-// todo: Jason, test IsZero function.
+func TestZeroSecretKey(t *testing.T) {
+	zeroKey := make([]byte, 32)
+	require.Equal(t, true, IsZero(zeroKey))
+}

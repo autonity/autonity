@@ -31,7 +31,6 @@ type SecretKey interface {
 	Sign(msg []byte) Signature
 	POPProof(msg []byte) Signature
 	Marshal() []byte
-	IsZero() bool
 	Hex() string
 }
 
