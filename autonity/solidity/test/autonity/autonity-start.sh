@@ -23,7 +23,7 @@ if [ $? -ne 0 ]; then
   $AUTONITY \
     --genesis genesis-tendermint.json \
     --datadir $DATADIR \
-    --nodekey $NODEKEY \
+    --autonitykeys $NODEKEY \
     --keystore $KEYSTORE \
     --ws \
     --ws.addr $WS_ADDR \
