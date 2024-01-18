@@ -261,7 +261,10 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	copy(mapKey[DataLen:], validatorsSlot)
 	increment := big.NewInt(1)
 	for i := 0; i < validatorListSize; i++ {
-		validators = append(validators, a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB))
+		user := a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB)
+		if user != nil {
+			validators = append(validators, user)
+		}
 		addressOffset.Add(addressOffset, increment)
 	}
 
