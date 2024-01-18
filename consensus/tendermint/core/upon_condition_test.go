@@ -701,20 +701,20 @@ func TestOldProposal(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 
 		// ensure the client is not the proposer for current round
-		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound-1)) + 1
 		for currentRound%int64(clientIndex) == 0 {
-			currentRound = int64(rand.Intn(committeeSizeAndMaxRound))
+			currentRound = int64(rand.Intn(committeeSizeAndMaxRound-1)) + 1
 		}
 
 		// vr >= 0 && vr < round_p
-		proposalValidRound := int64(0)
+		proposalValidRound := int64(0) // 0
 		if currentRound > 0 {
 			proposalValidRound = int64(rand.Intn(int(currentRound)))
 		}
 
 		// -1 <= c.lockedRound < vr, if the client lockedValue = vr then the client had received the prevotes in a
 		// timely manner thus there are no old prevote yet to arrive
-		clientLockedRound := int64(-1)
+		clientLockedRound := int64(-1) // -1
 		if proposalValidRound > 0 {
 			clientLockedRound = int64(rand.Intn(int(proposalValidRound)) - 1)
 		}
