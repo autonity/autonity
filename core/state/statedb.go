@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -123,8 +122,6 @@ type StateDB struct {
 	StorageUpdated int
 	AccountDeleted int
 	StorageDeleted int
-
-	lock sync.Mutex
 }
 
 // New creates a new state from a given trie.
@@ -508,8 +505,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	if obj := s.stateObjects[addr]; obj != nil {
 		return obj
 	}
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	// If no live objects are available, attempt to use snapshots
 	var data *types.StateAccount
 	if s.snap != nil {

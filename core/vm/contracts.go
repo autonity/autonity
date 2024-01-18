@@ -211,9 +211,8 @@ func RunPrecompiledContract(
 const (
 	KB = 1024
 	// offset constants of Validator struct from Autonity.sol
-	OracleAddressOffset = 2
-	BondedStakeOffset   = 5
-	StateOffset         = 18
+	BondedStakeOffset = 5
+	StateOffset       = 18
 	// Constant Threshold used in CommitteeSelector
 	StakeThreshold = 0
 	ActiveState    = 0
@@ -250,37 +249,25 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 
 	// validatorListSlot has the size of the array validatorList
 	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
-	baseOffsetArray := crypto.Keccak256Hash(validatorListSlot).Big()
+	addressOffset := crypto.Keccak256Hash(validatorListSlot).Big()
 	stakeThreshold := big.NewInt(StakeThreshold)
+	activeState := big.NewInt(ActiveState)
 
 	// get validators from DB concurrently
-	validators := make([]*types.CommitteeMember, validatorListSize)
+	validators := make([]*types.CommitteeMember, 0, validatorListSize)
 	workPerThread := validatorListSize / runtime.NumCPU()
 	if workPerThread == 0 {
 		workPerThread = 1
 	}
-	task := sync.WaitGroup{}
-	activeState := big.NewInt(ActiveState)
+	mapKey := make([]byte, DataLen*2)
+	copy(mapKey[DataLen:], validatorsSlot)
 	increment := big.NewInt(1)
+	// scope to improve: read validators from DB concurrently
+	// NOTE: (if read concurrently) the order of the validators in the array after reading is done should not be depenedent on concurrent thread completion (ideally)
 	for i := 0; i < validatorListSize; i += workPerThread {
-		startIndex := i
-		endIndex := startIndex + workPerThread
-		if endIndex > validatorListSize {
-			endIndex = validatorListSize
-		}
-		task.Add(1)
-		go func(startIndex, endIndex int) {
-			startOffset := new(big.Int).Add(baseOffsetArray, big.NewInt(int64(startIndex)))
-			mapKey := make([]byte, DataLen*2)
-			copy(mapKey[DataLen:], validatorsSlot)
-			for j := startIndex; j < endIndex; j++ {
-				validators[j] = a.getValidatorInfo(mapKey, startOffset.Bytes(), stakeThreshold, activeState, caller, stateDB)
-				startOffset.Add(startOffset, increment)
-			}
-			task.Done()
-		}(startIndex, endIndex)
+		validators = append(validators, a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB))
+		addressOffset.Add(addressOffset, increment)
 	}
-	task.Wait()
 
 	// remove nil validators
 	validatorLen := 0
@@ -302,6 +289,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	} else {
 		committeeSize = configCommitteeLen
 	}
+	task := sync.WaitGroup{}
 	quickSort(validators, 0, int32(validatorLen-1), &task)
 	task.Wait()
 
@@ -345,10 +333,10 @@ func (a *CommitteeSelector) updateCommittee(
 	for i := committeeSize; i < oldCommitteeSize; i++ {
 		// delete address
 		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), common.Hash{})
-		baseOffsetCommittee.Add(baseOffsetCommittee, big.NewInt(1))
+		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
 		// delete voting power
 		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), common.Hash{})
-		baseOffsetCommittee.Add(baseOffsetCommittee, big.NewInt(1))
+		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
 	}
 }
 
