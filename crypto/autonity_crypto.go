@@ -14,10 +14,10 @@ import (
 )
 
 const ECDSAKeyLen = 32
-const AutonityPOPLen = 226
 const ECDSAKeyLenInChar = ECDSAKeyLen * 2
-const AutonityKeysLen = ECDSAKeyLen + blst.BLSSecretKeyLength
 const AutonityKeysLenInChar = AutonityKeysLen * 2
+const AutonityKeysLen = ECDSAKeyLen + blst.BLSSecretKeyLength
+const AutonityPOPLen = 2*SignatureLength + blst.BLSSignatureLength
 
 var (
 	ErrorInvalidPOP    = errors.New("invalid Autonity POP")

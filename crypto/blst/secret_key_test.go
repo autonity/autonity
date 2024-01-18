@@ -28,22 +28,22 @@ func TestSecretKeyFromBytes(t *testing.T) {
 	}{
 		{
 			name: "Nil",
-			err:  ErrInvalidSecreteKey,
+			err:  ErrInvalidSecretKey,
 		},
 		{
 			name:  "Empty",
 			input: []byte{},
-			err:   ErrInvalidSecreteKey,
+			err:   ErrInvalidSecretKey,
 		},
 		{
 			name:  "Short",
 			input: []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-			err:   ErrInvalidSecreteKey,
+			err:   ErrInvalidSecretKey,
 		},
 		{
 			name:  "Long",
 			input: []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-			err:   ErrInvalidSecreteKey,
+			err:   ErrInvalidSecretKey,
 		},
 		{
 			name:  "Bad",
@@ -62,7 +62,7 @@ func TestSecretKeyFromBytes(t *testing.T) {
 			res, err := SecretKeyFromBytes(test.input)
 			if test.err != nil {
 				require.NotEqual(t, nil, err, "No error returned")
-				require.Error(t, test.err, err.Error())
+				require.Equal(t, test.err.Error(), err.Error())
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, 0, bytes.Compare(res.Marshal(), test.input))

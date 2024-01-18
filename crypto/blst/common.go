@@ -22,8 +22,8 @@ var ErrSecretUnmarshal = errors.New("could not unmarshal bytes into secret key")
 // ErrInfinitePubKey describes an error due to an infinite public key.
 var ErrInfinitePubKey = errors.New("received an infinite public key")
 
-// ErrInvalidSecreteKey describes an invalid length of bytes of secret blst key
-var ErrInvalidSecreteKey = errors.New("secret key must be 32 bytes")
+// ErrInvalidSecretKey describes an invalid length of bytes of secret blst key
+var ErrInvalidSecretKey = errors.New("secret key must be 32 bytes")
 
 // SecretKey represents a BLS secret or private key.
 type SecretKey interface {
