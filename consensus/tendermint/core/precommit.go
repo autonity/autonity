@@ -22,9 +22,9 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 			return
 		}
 		value = proposal.Block().Hash()
-		c.logger.Info("Precommiting on proposal", "proposal", proposal, "height", c.height.Uint64(), "round", c.round)
+		c.logger.Info("Precommiting on proposal", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
 	} else {
-		c.logger.Info("Precommiting on nil", "height", c.height.Uint64(), "round", c.round)
+		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
 
 	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
@@ -33,6 +33,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	c.Broadcaster().Broadcast(precommit)
 }
 
+// HandlePrecommit process the incoming precommit message.
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
 	if precommit.R() > c.Round() {
 		return constants.ErrFutureRoundMessage

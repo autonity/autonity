@@ -21,9 +21,9 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 			return
 		}
 		value = proposal.Block().Hash()
-		c.logger.Info("Prevoting on proposal", "proposal", value, "height", c.height.Uint64(), "round", c.round)
+		c.logger.Info("Prevoting on proposal", "proposal", value, "round", c.Round(), "height", c.Height().Uint64())
 	} else {
-		c.logger.Info("Prevoting on nil", "height", c.height.Uint64(), "round", c.round)
+		c.logger.Info("Prevoting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
 	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
@@ -39,7 +39,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 		// We only process old rounds while future rounds messages are pushed on to the backlog
 		oldRoundMessages := c.messages.GetOrCreate(prevote.R())
 		oldRoundMessages.AddPrevote(prevote)
-		if c.step == Prevote || c.step == Precommit {
+		if c.step != Propose {
 			return constants.ErrOldRoundMessage
 		}
 		// Current step is Propose

@@ -292,12 +292,18 @@ func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Msg, sender
 func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 	logger := c.logger.New("from", msg.Sender())
 
+	if c.Height().Uint64() > msg.H() {
+		return constants.ErrOldHeightMessage
+	}
+
+	if c.Height().Uint64() < msg.H() {
+		panic("Processing future message")
+	}
+
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
 		switch {
-		case errors.Is(err, constants.ErrFutureHeightMessage):
-			panic("Processed future message as a valid message")
 		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, msg.Sender())

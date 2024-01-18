@@ -72,7 +72,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			c.Commit(ctx, proposal.R(), roundMessages)
 			return nil
 		}
-		return constants.ErrFutureRoundMessage
+		return constants.ErrOldRoundMessage
 	}
 	// Current round is same as proposal's
 	// if we already have processed a proposal in this round we ignore.
