@@ -91,6 +91,10 @@ func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
 		return failure32Byte, err
 	}
 
+	if sig.IsZero() {
+		return failure32Byte, crypto.ErrorInvalidPOP
+	}
+
 	err = crypto.BLSPOPVerify(key, sig, treasuryBytes)
 	if err != nil {
 		return failure32Byte, err

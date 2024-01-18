@@ -15,9 +15,9 @@ import (
 
 const ECDSAKeyLen = 32
 const AutonityPOPLen = 226
-const ECDSAKeyLenInChar = 64
-const AutonityKeysLenInChar = 128
+const ECDSAKeyLenInChar = ECDSAKeyLen * 2
 const AutonityKeysLen = ECDSAKeyLen + blst.BLSSecretKeyLength
+const AutonityKeysLenInChar = AutonityKeysLen * 2
 
 var (
 	ErrorInvalidPOP    = errors.New("invalid Autonity POP")
@@ -144,6 +144,8 @@ func BLSPOPProof(priKey blst.SecretKey, treasury []byte) ([]byte, error) {
 	return proof.Marshal(), nil
 }
 
+// BLSPOPVerify verifies the POP provided by an on-boarding validator, it assumes the public key and signature was
+// checked with infinite and group.
 func BLSPOPVerify(pubKey blst.PublicKey, sig blst.Signature, treasury []byte) error {
 	var buff []byte
 	copy(buff, treasury)

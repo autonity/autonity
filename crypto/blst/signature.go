@@ -56,9 +56,14 @@ func SignatureFromBytes(sig []byte) (Signature, error) {
 	return &BlsSignature{s: signature}, nil
 }
 
-// POPVerify verify a proof of possession.
+// POPVerify verify a proof of possession, it assumes that the zero public key was
+// checked, the group and zero signature were checked.
 func (s *BlsSignature) POPVerify(pubKey PublicKey, msg []byte) bool {
 	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, popDST)
+}
+
+func (s *BlsSignature) IsZero() bool {
+	return !s.s.SigValidate(true)
 }
 
 // Verify a blst signature given a public key, a message.

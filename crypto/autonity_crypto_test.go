@@ -119,6 +119,8 @@ func TestPOPVerifier(t *testing.T) {
 	sig, err := blst.SignatureFromBytes(proof)
 	require.NoError(t, err)
 
+	require.Equal(t, false, sig.IsZero())
+
 	err = BLSPOPVerify(consensusKey.PublicKey(), sig, treasury.Bytes())
 	require.NoError(t, err)
 }

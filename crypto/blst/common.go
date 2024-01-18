@@ -9,9 +9,6 @@ const (
 	BLSPubKeyHexStringLength = 98
 )
 
-// ErrSecretConvert describes an error which happens when generating a BLS secret key with ECDSA secret key.
-var ErrSecretConvert = errors.New("could not generate a blst secret key from ecdsa secret key")
-
 // ErrSecretHex describes an error on the wrong hex string of secrete key
 var ErrSecretHex = errors.New("could not generate a blst secret key from hex")
 
@@ -51,6 +48,7 @@ type PublicKey interface {
 type Signature interface {
 	Verify(pubKey PublicKey, msg []byte) bool
 	POPVerify(pubKey PublicKey, msg []byte) bool
+	IsZero() bool
 	AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool
 	FastAggregateVerify(pubKeys []PublicKey, msg [32]byte) bool
 	Marshal() []byte

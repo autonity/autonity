@@ -292,12 +292,23 @@ function randomPrivateKey() {
   return bytesToHex(key).substring(2);
 }
 
+function privateKeyToEnode(privateKey) {
+  let key = publicKey(privateKey);
+  key = key.substring(key.length - 128);
+  return publicKeyToEnode(key);
+}
+
 function publicKeyToEnode(publicKey) {
   return "enode://" + publicKey + "@3.209.45.79:30303";
 }
 
 function publicKeyObject(privateKey) {
   return ec.keyFromPrivate(privateKey).getPublic();
+}
+
+function publicKeyCompressed(privateKey, hex = true) {
+  let publicKey = publicKeyObject(privateKey);
+  return (hex == true) ? publicKey.encodeCompressed("hex") : new Uint8Array(publicKey.encodeCompressed());
 }
 
 function publicKey(privateKey, hex = true) {
@@ -335,6 +346,9 @@ async function generateAutonityKeys(filePath) {
   try {
     const command = `../../../build/bin/autonity genAutonityKeys --writeaddress ${filePath}`;
     const { stdout, stderr } = await exec(command);
+    if (stderr) {
+      throw new Error(stderr);
+    }
     const nodeAddress = stdout.match(/Node address: (0x[0-9a-fA-F]+)/)[1];
     const nodePublicKey = stdout.match(/Node public key: (0x[0-9a-fA-F]+)/)[1];
     const nodeConsensusKey = stdout.match(/Consensus public key: (0x[0-9a-fA-F]+)/)[1];
@@ -394,6 +408,8 @@ module.exports.ValidatorState = ValidatorState;
 module.exports.generateAutonityPOP = generateAutonityPOP;
 module.exports.generateAutonityKeys = generateAutonityKeys;
 module.exports.publicKeyToEnode = publicKeyToEnode;
+module.exports.privateKeyToEnode = privateKeyToEnode;
+module.exports.publicKeyCompressed = publicKeyCompressed;
 module.exports.publicKey = publicKey;
 module.exports.address = address;
 module.exports.slash = slash;
