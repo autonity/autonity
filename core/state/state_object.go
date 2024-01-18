@@ -193,8 +193,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if value, pending := s.pendingStorage[key]; pending {
 		return value
 	}
-	value, cached := s.originStorage[key]
-	if cached {
+	if value, cached := s.originStorage[key]; cached {
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -230,6 +229,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 			return common.Hash{}
 		}
 	}
+	var value common.Hash
 	if len(enc) > 0 {
 		_, content, _, err := rlp.Split(enc)
 		if err != nil {

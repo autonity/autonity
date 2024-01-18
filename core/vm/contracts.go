@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -247,50 +246,37 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	offset += DataLen
 	configCommitteeLen := int(big.NewInt(0).SetBytes(input[offset : offset+DataLen]).Int64())
 
+	// detailed specifications on how to read state variable from slot: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
 	// validatorListSlot has the size of the array validatorList
 	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(validatorListSlot)).Big().Uint64())
 	addressOffset := crypto.Keccak256Hash(validatorListSlot).Big()
 	stakeThreshold := big.NewInt(StakeThreshold)
 	activeState := big.NewInt(ActiveState)
 
-	// get validators from DB concurrently
+	// get validators from DB
+	// scope to improve: read validators from DB concurrently
+	// NOTE: (if read concurrently) the order of the validators in the array after reading is done should not be depenedent on concurrent thread completion (ideally)
 	validators := make([]*types.CommitteeMember, 0, validatorListSize)
-	workPerThread := validatorListSize / runtime.NumCPU()
-	if workPerThread == 0 {
-		workPerThread = 1
-	}
 	mapKey := make([]byte, DataLen*2)
 	copy(mapKey[DataLen:], validatorsSlot)
 	increment := big.NewInt(1)
-	// scope to improve: read validators from DB concurrently
-	// NOTE: (if read concurrently) the order of the validators in the array after reading is done should not be depenedent on concurrent thread completion (ideally)
-	for i := 0; i < validatorListSize; i += workPerThread {
+	for i := 0; i < validatorListSize; i++ {
 		validators = append(validators, a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB))
 		addressOffset.Add(addressOffset, increment)
 	}
 
-	// remove nil validators
-	validatorLen := 0
-	for i := 0; i < validatorListSize; i++ {
-		if validators[i] == nil {
-			continue
-		}
-		validators[validatorLen] = validators[i]
-		validatorLen++
-	}
-	if validatorLen == 0 {
+	if len(validators) == 0 {
 		return nil, fmt.Errorf("no active validators with stake more than %v", stakeThreshold.String())
 	}
-	validators = validators[:validatorLen]
 
 	var committeeSize int
-	if configCommitteeLen > validatorLen {
-		committeeSize = validatorLen
+	if configCommitteeLen > len(validators) {
+		committeeSize = len(validators)
 	} else {
 		committeeSize = configCommitteeLen
 	}
 	task := sync.WaitGroup{}
-	quickSort(validators, 0, int32(validatorLen-1), &task)
+	quickSort(validators, 0, int32(len(validators)-1), &task)
 	task.Wait()
 
 	a.updateCommittee(validators, committeeSize, committeeSlot, epochTotalBondedStakeSlot, caller, stateDB)
