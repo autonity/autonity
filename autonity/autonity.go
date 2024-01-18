@@ -27,7 +27,6 @@ import (
 )
 
 var (
-	// youssef : migrates those in params
 	DeployerAddress               = params.DeployerAddress
 	AutonityContractAddress       = params.AutonityContractAddress
 	AccountabilityContractAddress = params.AccountabilityContractAddress
@@ -35,8 +34,7 @@ var (
 	ACUContractAddress            = params.ACUContractAddress
 	SupplyControlContractAddress  = params.SupplyControlContractAddress
 	StabilizationContractAddress  = params.StabilizationContractAddress
-	/*----------*/
-	AutonityABIKey = []byte("ABISPEC")
+	AutonityABIKey                = []byte("ABISPEC")
 )
 
 // Errors

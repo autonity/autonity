@@ -44,12 +44,15 @@ contract MockCommitteeSelector {
                     mstore(add(key, 0x40), mload(add(validatorsSlot, 0x20)))
                 }
                 uint256 validatorStakeSlot = uint256(keccak256(key))+5;
+                uint256 validatorStateSlot = uint256(keccak256(key))+18;
                 uint256 bondedStake;
+                ValidatorState state;
                 assembly {
                     bondedStake := sload(validatorStakeSlot)
+                    state := sload(validatorStateSlot)
                 }
 
-                if (bondedStake > threshold) {
+                if (bondedStake > threshold && state == ValidatorState.active) {
                     count++;
                 }
             }
@@ -66,12 +69,15 @@ contract MockCommitteeSelector {
                     mstore(add(key, 0x40), mload(add(validatorsSlot, 0x20)))
                 }
                 uint256 validatorStakeSlot = uint256(keccak256(key))+5;
+                uint256 validatorStateSlot = uint256(keccak256(key))+18;
                 uint256 bondedStake;
+                ValidatorState state;
                 assembly {
                     bondedStake := sload(validatorStakeSlot)
+                    state := sload(validatorStateSlot)
                 }
 
-                if (bondedStake > threshold) {
+                if (bondedStake > threshold && state == ValidatorState.active) {
                     bytes memory addressBytes = new bytes(32);
                     assembly {
                         mstore(add(addressBytes, 0x20), mload(add(key, 0x20)))

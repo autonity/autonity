@@ -180,7 +180,6 @@ contract('Autonity', function (accounts) {
   ];
 
   let autonity;
-
   describe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
      * add getter tests for:
@@ -272,7 +271,7 @@ contract('Autonity', function (accounts) {
     });
   });
 
-  xdescribe("Validator commission rate", () => {
+  describe("Validator commission rate", () => {
     beforeEach(async function () {
       // the test contract exposes the applyNewCommissionRates function
       let config = JSON.parse(JSON.stringify(autonityConfig));
@@ -340,7 +339,7 @@ contract('Autonity', function (accounts) {
     });
   })
 
-  xdescribe('Set protocol parameters only by operator account', function () {
+  describe('Set protocol parameters only by operator account', function () {
     /*TODO(tariq) low priority change, leave for last
      * add similar tests as the following ones for:
      * - blockPeriod --> there is not a setter yet in the Autonity contract, but we will add it in the future. For now let's add a skipped test, so that we do not forget to add it
@@ -502,7 +501,7 @@ contract('Autonity', function (accounts) {
       assert.equal(treasuryFee.toString(),initFee.toString())
     });
   });
-  xdescribe('Test onlyAccountability and onlyProtocol', function () {
+  describe('Test onlyAccountability and onlyProtocol', function () {
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -512,7 +511,7 @@ contract('Autonity', function (accounts) {
     // - finalize, finalizeInitialize and computeCommittee can only be called by the protocol (autonity)
   });
 
-  xdescribe('Test cases for ERC-20 token management', function () {
+  describe('Test cases for ERC-20 token management', function () {
     beforeEach(async function () {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -1286,7 +1285,7 @@ contract('Autonity', function (accounts) {
           assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).toString())
     });
   });
-  xdescribe('Test epoch parameters updates', function () {
+  describe('Test epoch parameters updates', function () {
       let copyParams = JSON.parse(JSON.stringify(autonityConfig));
       let token;
       beforeEach(async function () {
