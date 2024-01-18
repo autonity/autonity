@@ -199,19 +199,13 @@ func TestHandleMsg(t *testing.T) {
 func TestCoreStopDoesntPanic(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	addr := common.HexToAddress("0x0123456789")
-
 	backendMock := interfaces.NewMockBackend(ctrl)
-	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
-	backendMock.EXPECT().Address().AnyTimes().Return(addr)
-
-	logger := log.New("testAddress", "0x0000")
-	eMux := event.NewTypeMuxSilent(nil, logger)
+	eMux := event.NewTypeMuxSilent(nil, log.Root())
 	sub := eMux.Subscribe(events.MessageEvent{})
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	c := New(backendMock, nil)
+	c := New(backendMock, nil, common.HexToAddress("0x0123456789"), log.Root())
 	_, c.cancel = context.WithCancel(context.Background())
 	c.subscribeEvents()
 	c.stopped <- struct{}{}

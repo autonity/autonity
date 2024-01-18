@@ -65,7 +65,7 @@ func New(privateKey *ecdsa.PrivateKey,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend, services)
+	core := tendermintCore.New(backend, services, backend.address, log)
 
 	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
