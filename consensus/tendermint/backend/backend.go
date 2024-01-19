@@ -65,7 +65,7 @@ func New(privateKey *ecdsa.PrivateKey,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend, services)
+	core := tendermintCore.New(backend, services, backend.address, log)
 
 	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
@@ -167,14 +167,12 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 	if err := types.WriteCommittedSeals(h, seals); err != nil {
 		return err
 	}
-
 	if err := types.WriteRound(h, round); err != nil {
 		return err
 	}
 	// update block's header
 	proposal = proposal.WithSeal(h)
-
-	sb.logger.Info("Committed block", "hash", proposal.Hash(), "height", proposal.Number().Uint64())
+	sb.logger.Info("Quorum of Precommits received", "proposal", proposal.Hash(), "round", round, "height", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to resultCh channel, which is being watched inside the worker.ResultLoop() function.
 	// - otherwise, we try to insert the block.
@@ -185,7 +183,6 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 		sb.sendResultChan(proposal)
 		return nil
 	}
-
 	if sb.Broadcaster != nil {
 		sb.Broadcaster.Enqueue(fetcherID, proposal)
 	}

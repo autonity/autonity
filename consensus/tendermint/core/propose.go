@@ -18,53 +18,63 @@ type Proposer struct {
 }
 
 func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
-	// If I'm the proposer and I have the same height with the proposal
-	if c.Height().Cmp(block.Number()) == 0 && c.IsProposer() && !c.sentProposal {
-		proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
-		c.sentProposal = true
-		c.backend.SetProposedBlockHash(block.Hash())
-		if metrics.Enabled {
-			now := time.Now()
-			ProposalSentTimer.Update(now.Sub(c.newRound))
-			ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
-		}
-		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
-		c.Broadcaster().Broadcast(proposal)
+	// Required to have proposal block current and being current proposer
+	// Defensively panic here to catch bugs
+	if c.Height().Cmp(block.Number()) != 0 {
+		panic("proposal block height incorrect")
 	}
+	if !c.IsProposer() {
+		panic("not proposer")
+	}
+	if c.sentProposal {
+		return
+	}
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
+	c.sentProposal = true
+	c.backend.SetProposedBlockHash(block.Hash())
+	if metrics.Enabled {
+		now := time.Now()
+		ProposalSentTimer.Update(now.Sub(c.newRound))
+		ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
+	}
+	c.logger.Info("Proposing new block", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
+	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
+	c.Broadcaster().Broadcast(proposal)
 }
 
 func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose) error {
-	// Ensure we have the same view with the Proposal message
-	if err := c.checkMessage(proposal.R(), proposal.H()); err != nil {
+	if proposal.R() > c.Round() {
 		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the
 		// message to the backlog is fine.
-		if errors.Is(err, constants.ErrOldRoundMessage) {
-			roundMessages := c.messages.GetOrCreate(proposal.R())
-			// if we already have a proposal for this old round - ignore
-			// the first proposal sent by the sender in a round is always the only one we consider.
-			if roundMessages.Proposal() != nil {
-				return constants.ErrAlreadyProcessed
-			}
-
-			if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
-				c.logger.Warn("Ignoring proposal from non-proposer")
-				return constants.ErrNotFromProposer
-			}
-			// Save it, but do not verify the proposal yet unless we have enough precommits for it.
-			roundMessages.SetProposal(proposal, false)
-			if roundMessages.PrecommitsPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-				if _, err2 := c.backend.VerifyProposal(proposal.Block()); err2 != nil {
-					return err2
-				}
-				c.logger.Debug("Committing old round proposal")
-				c.Commit(ctx, proposal.R(), roundMessages)
-				return nil
-			}
-		}
-		return err
+		return constants.ErrFutureRoundMessage
 	}
+	if proposal.R() < c.Round() {
+		roundMessages := c.messages.GetOrCreate(proposal.R())
+		// if we already have a proposal for this old round - ignore
+		// the first proposal sent by the sender in a round is always the only one we consider.
+		if roundMessages.Proposal() != nil {
+			return constants.ErrAlreadyProcessed
+		}
+
+		if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
+			c.logger.Warn("Ignoring proposal from non-proposer")
+			return constants.ErrNotFromProposer
+		}
+		// Save it, but do not verify the proposal yet unless we have enough precommits for it.
+		roundMessages.SetProposal(proposal, false)
+		if roundMessages.PrecommitsPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+			if _, err2 := c.backend.VerifyProposal(proposal.Block()); err2 != nil {
+				return err2
+			}
+			c.logger.Debug("Committing old round proposal")
+			c.Commit(ctx, proposal.R(), roundMessages)
+			return nil
+		}
+		return constants.ErrOldRoundMessage
+	}
+	// Current round is same as proposal's
 	// if we already have processed a proposal in this round we ignore.
 	if c.curRoundMessages.Proposal() != nil {
 		return constants.ErrAlreadyProcessed
@@ -115,9 +125,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			// do not to accept another proposal in current round
 			c.SetStep(ctx, Prevote)
 		}
-
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
-
 		return err
 	}
 
@@ -163,7 +171,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		c.validRound = c.Round()
 		c.setValidRoundAndValue = true
 	}
-
 	return nil
 }
 

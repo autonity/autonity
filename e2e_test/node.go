@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -19,9 +17,11 @@ import (
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
@@ -194,7 +194,7 @@ func (n *Node) Start() error {
 		}
 		return b
 	})))
-	logger.Verbosity(log.LvlDebug)
+	logger.Verbosity(log.LvlInfo)
 
 	nodeConfigCopy.Logger = log.New()
 	nodeConfigCopy.Logger.SetHandler(logger)
