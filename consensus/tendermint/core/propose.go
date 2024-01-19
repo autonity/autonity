@@ -50,43 +50,36 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// message to the backlog is fine.
 		return constants.ErrFutureRoundMessage
 	}
-	if proposal.R() < c.Round() {
-		roundMessages := c.messages.GetOrCreate(proposal.R())
-		// if we already have a proposal for this old round - ignore
-		// the first proposal sent by the sender in a round is always the only one we consider.
-		if roundMessages.Proposal() != nil {
-			return constants.ErrAlreadyProcessed
-		}
 
-		if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
-			c.logger.Warn("Ignoring proposal from non-proposer")
-			return constants.ErrNotFromProposer
-		}
-		// Save it, but do not verify the proposal yet unless we have enough precommits for it.
-		roundMessages.SetProposal(proposal, false)
-		if roundMessages.PrecommitsPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			if _, err2 := c.backend.VerifyProposal(proposal.Block()); err2 != nil {
-				return err2
-			}
-			c.logger.Debug("Committing old round proposal")
-			c.Commit(ctx, proposal.R(), roundMessages)
-			return nil
-		}
-		return constants.ErrOldRoundMessage
-	}
-	// Current round is same as proposal's
-	// if we already have processed a proposal in this round we ignore.
-	if c.curRoundMessages.Proposal() != nil {
-		return constants.ErrAlreadyProcessed
-	}
-	// At this point the local round matches the message round and the current step
-	// could be either Proposal, Prevote, or Precommit.
+	// proposal is either for current round or old round
+	roundMessages := c.messages.GetOrCreate(proposal.R())
 
-	// Check if the message comes from curRoundMessages proposer
-	if !c.IsFromProposer(c.Round(), proposal.Sender()) {
-		c.logger.Warn("Ignore proposal messages from non-proposer")
+	// if we already have a proposal for this round - ignore
+	// the first proposal sent by the sender in a round is always the only one we consider.
+	if roundMessages.Proposal() != nil {
+		return constants.ErrAlreadyHaveProposal
+	}
+
+	// check if proposal comes from the correct proposer for pair (h,r)
+	if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
+		c.logger.Warn("Ignoring proposal from non-proposer", "sender", proposal.Sender())
 		return constants.ErrNotFromProposer
 	}
+
+	if proposal.R() < c.Round() {
+		// old round proposal, check if we have quorum precommits on it
+		// Save it, but do not verify the proposal yet unless we have enough precommits for it.
+		roundMessages.SetProposal(proposal, false)
+
+		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+		// check if we have a quorum of precommits for this proposal
+		_ = c.quorumPrecommitsCheck(ctx, proposal, false)
+
+		return constants.ErrOldRoundMessage
+	}
+
+	// At this point the local round matches the message round (roundMessages == c.curRoundMessages)
+	// current step could be either Proposal, Prevote, or Precommit.
 
 	// received a current round proposal
 	if metrics.Enabled {
@@ -133,44 +126,9 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Sender().String(), c.address.String())
 
-	//l49: Check if we have a quorum of precommits for this proposal
-	hash := proposal.Block().Hash()
-	if c.curRoundMessages.PrecommitsPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		c.Commit(ctx, proposal.R(), c.curRoundMessages)
-		return nil
-	}
+	// check upon conditions for current round proposal
+	c.currentProposalChecks(ctx, proposal)
 
-	if c.step == Propose {
-		vr := proposal.ValidRound()
-		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-		if vr == -1 {
-			// When lockedRound is set to any value other than -1 lockedValue is also
-			// set to a non nil value. So we can be sure that we will only try to access
-			// lockedValue when it is non nil.
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || hash == c.lockedValue.Hash()))
-			c.SetStep(ctx, Prevote)
-		} else { // vr >= 0 here
-			rs := c.messages.GetOrCreate(vr)
-			// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-			if vr < c.Round() && rs.PrevotesPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-				c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
-				c.SetStep(ctx, Prevote)
-			}
-		}
-	}
-
-	// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-	if c.step >= Prevote && c.curRoundMessages.PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
-		if c.step == Prevote {
-			c.lockedValue = proposal.Block()
-			c.lockedRound = c.Round()
-			c.precommiter.SendPrecommit(ctx, false)
-			c.SetStep(ctx, Precommit)
-		}
-		c.validValue = proposal.Block()
-		c.validRound = c.Round()
-		c.setValidRoundAndValue = true
-	}
 	return nil
 }
 

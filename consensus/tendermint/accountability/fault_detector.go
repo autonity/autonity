@@ -1134,7 +1134,6 @@ precommitLoop:
 		// Skip if preCommit is equivocated
 		precommitsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			return m.Sender() == precommit.Sender() && m.Code() == message.PrecommitCode && m.R() == precommit.R()
-
 		})
 		// Due to the for loop there must be at least one preCommit.
 		if len(precommitsForR) > 1 {

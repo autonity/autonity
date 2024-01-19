@@ -57,7 +57,7 @@ func newBlockHeader(height uint64, committee types.Committee) *types.Header {
 	// use random nonce to create different blocks
 	var nonce types.BlockNonce
 	for i := 0; i < len(nonce); i++ {
-		nonce[0] = byte(rand.Intn(256)) //nolint
+		nonce[i] = byte(rand.Intn(256)) //nolint
 	}
 	return &types.Header{
 		Number:    new(big.Int).SetUint64(height),

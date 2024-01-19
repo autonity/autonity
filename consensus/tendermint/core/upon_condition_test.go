@@ -749,7 +749,10 @@ func TestOldProposal(t *testing.T) {
 		// now to take the action of line 28 which was not align with pseudo code before.
 
 		err = c.handleValidMsg(context.Background(), prevoteMsg)
-		assert.NoError(t, err)
+		if !errors.Is(err, constants.ErrOldRoundMessage) {
+			t.Fatalf("Expected %v, got %v", constants.ErrOldRoundMessage, err)
+		}
+		assert.True(t, c.sentPrevote)
 		assert.Equal(t, currentHeight, c.Height())
 		assert.Equal(t, currentRound, c.Round())
 		assert.Equal(t, Prevote, c.step)

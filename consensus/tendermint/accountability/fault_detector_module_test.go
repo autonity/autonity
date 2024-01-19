@@ -861,7 +861,6 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when there is a quorum for V' than what pi precommitted for", func(t *testing.T) {
-		//t.Skip("not stable in CI, but work in local.")
 		fd := testFD()
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(precommitForB)
@@ -891,7 +890,6 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("multiple proofs can be returned from precommits accountability check", func(t *testing.T) {
-		//t.Skip("not stable in CI, but work in local.")
 		fd := testFD()
 		fd.msgStore.Save(precommitForB1In3)
 

@@ -107,8 +107,8 @@ func TestHandleProposal(t *testing.T) {
 		require.NoError(t, err)
 		proposal2 := message.NewPropose(round, height, 87, block, signer).MustVerify(stubVerifier)
 		err = c.proposer.HandleProposal(context.Background(), proposal2)
-		if !errors.Is(err, constants.ErrAlreadyProcessed) {
-			t.Fatalf("Expected %v, got %v", constants.ErrAlreadyProcessed, err)
+		if !errors.Is(err, constants.ErrAlreadyHaveProposal) {
+			t.Fatalf("Expected %v, got %v", constants.ErrAlreadyHaveProposal, err)
 		}
 	})
 
