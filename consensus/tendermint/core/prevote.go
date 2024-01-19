@@ -39,24 +39,16 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 		// We only process old rounds while future rounds messages are pushed on to the backlog
 		oldRoundMessages := c.messages.GetOrCreate(prevote.R())
 		oldRoundMessages.AddPrevote(prevote)
-		if c.step != Propose {
-			return constants.ErrOldRoundMessage
-		}
-		// Current step is Propose
-		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus.
-		// ProposalBlock would be nil if node haven't received the proposal yet.
+
+		// Proposal would be nil if node haven't received the proposal yet.
 		proposal := c.curRoundMessages.Proposal()
 		if proposal == nil {
 			return constants.ErrOldRoundMessage
 		}
-		vr := proposal.ValidRound()
-		h := proposal.Block().Hash()
-		rs := c.messages.GetOrCreate(vr)
-		if vr >= 0 && vr < c.Round() && rs.PrevotesPower(h).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			c.SendPrevote(ctx, !(c.lockedRound <= vr || h == c.lockedValue.Hash()))
-			c.SetStep(ctx, Prevote)
-			return nil
-		}
+
+		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus.
+		// check if we have quorum prevotes on vr
+		c.oldProposalCheck(ctx, proposal)
 		return constants.ErrOldRoundMessage
 	}
 
@@ -66,33 +58,9 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	// votes from other nodes.
 	c.curRoundMessages.AddPrevote(prevote)
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Sender().String(), c.address.String())
-	if c.step == Propose {
-		return nil
-	}
-	// We are at step Prevote or Precommit from here
-	// Now we can add the preVote to our current round state
-	curProposal := c.curRoundMessages.Proposal()
-	// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
-	if curProposal != nil && c.curRoundMessages.PrevotesPower(curProposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
-		if c.step == Prevote {
-			c.lockedValue = curProposal.Block()
-			c.lockedRound = c.Round()
-			c.precommiter.SendPrecommit(ctx, false)
-			c.SetStep(ctx, Precommit)
-		}
-		c.validValue = curProposal.Block()
-		c.validRound = c.Round()
-		c.setValidRoundAndValue = true
-		// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if c.step == Prevote && c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		c.precommiter.SendPrecommit(ctx, true)
-		c.SetStep(ctx, Precommit)
-		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if c.step == Prevote && !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		timeoutDuration := c.timeoutPrevote(c.Round())
-		c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
-		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
-	}
+
+	// check upon conditions for current round proposal
+	c.currentPrevoteChecks(ctx)
 	return nil
 }
 

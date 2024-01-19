@@ -420,38 +420,34 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 			c.logger.Warn("Unexpected tendermint state transition", "c.step", c.step, "step", step)
 		}
 	}
-	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
+	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round())
 	c.step = step
 	c.stepChange = now
 
 	// stop consensus timeouts
+	c.stopAllTimeouts()
+
+	// if we are moving from propose to prevote step we need to check again line 34,36 and 44
+	// NOTE: this call to stepChangeChecks can cause recursion in the SetStep function.
+	// This can happen if the checks cause a transition to Precommit step. It is expected behaviour.
+	// If we want to remove this recursion possibility, we could post an Event that signals a step change,
+	// which will then be processed in the MainEventLoop
+	if c.step == Prevote {
+		c.stepChangeChecks(ctx)
+	}
+
+}
+
+// tries to stop all consensus timeouts
+func (c *Core) stopAllTimeouts() {
 	if err := c.proposeTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "step", step, "err", err)
+		c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "err", err)
 	}
 	if err := c.prevoteTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "step", step, "err", err)
+		c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "err", err)
 	}
 	if err := c.precommitTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "step", step, "err", err)
-	}
-
-	// we might have already received a quroum of prevotes while still in propose step.
-	// therefore once changing step to prevote, we need to check line 34 and 44
-
-	if c.step == Prevote {
-		// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
-		if c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			c.precommiter.SendPrecommit(ctx, true)
-			c.SetStep(ctx, Precommit)
-			return // no need to check following conditions as we will be in Precommit step
-		}
-
-		// Line 34 in Algorithm 1 of The latest gossip on BFT consensus
-		if !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			timeoutDuration := c.timeoutPrevote(c.Round())
-			c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
-			c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
-		}
+		c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "err", err)
 	}
 }
 
