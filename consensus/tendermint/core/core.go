@@ -18,13 +18,13 @@ import (
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
 		blockPeriod:            1, // todo: retrieve it from contract
-		address:                backend.Address(),
-		logger:                 backend.Logger(),
+		address:                address,
+		logger:                 logger,
 		backend:                backend,
 		backlogs:               make(map[common.Address][]message.Msg),
 		backlogUntrusted:       make(map[uint64][]message.Msg),
@@ -36,9 +36,9 @@ func New(backend interfaces.Backend, services *interfaces.Services) *Core {
 		lockedRound:            -1,
 		validRound:             -1,
 		curRoundMessages:       roundMessage,
-		proposeTimeout:         NewTimeout(Propose, backend.Logger()),
-		prevoteTimeout:         NewTimeout(Prevote, backend.Logger()),
-		precommitTimeout:       NewTimeout(Precommit, backend.Logger()),
+		proposeTimeout:         NewTimeout(Propose, logger),
+		prevoteTimeout:         NewTimeout(Prevote, logger),
+		precommitTimeout:       NewTimeout(Precommit, logger),
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
@@ -257,23 +257,20 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	start := time.Now()
 	proposal := messages.Proposal()
 	if proposal == nil {
-		// Should never happen really.
-		c.logger.Error("Core commit called with empty proposal")
+		// Should never happen really. Let's panic to catch bugs.
+		panic("Core commit called with empty proposal")
 		return
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-
 	committedSeals := make([][]byte, 0)
 	for _, v := range messages.PrecommitsFor(proposalHash) {
 		committedSeals = append(committedSeals, v.Signature())
 	}
-
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
-
 	if metrics.Enabled {
 		now := time.Now()
 		CommitTimer.Update(now.Sub(start))
@@ -356,7 +353,7 @@ func (c *Core) setInitialState(r int64) {
 	c.proposeTimeout.Reset(Propose)
 	c.prevoteTimeout.Reset(Prevote)
 	c.precommitTimeout.Reset(Precommit)
-	c.curRoundMessages = c.messages.GetOrCreate(r)
+
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
@@ -462,6 +459,7 @@ func (c *Core) setRound(round int64) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.round = round
+	c.curRoundMessages = c.messages.GetOrCreate(round)
 }
 
 func (c *Core) setHeight(height *big.Int) {

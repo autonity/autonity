@@ -425,23 +425,14 @@ func TestProcessBacklog(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(0)
-
 		committeeSet := NewTestCommitteeSet(2)
 		val, err := committeeSet.GetByIndex(0)
-		if err != nil {
-			t.Fatalf("have %v, want nil", err)
-		}
+		require.NoError(t, err)
 
-		c := &Core{
-			logger:   log.New("backend", "test", "id", 0),
-			backend:  backendMock,
-			address:  common.HexToAddress("0x1234567890"),
-			backlogs: make(map[common.Address][]message.Msg),
-			step:     Prevote,
-			round:    1,
-			height:   big.NewInt(4),
-		}
-
+		c := New(backendMock, nil, common.HexToAddress("0x1234567890"), log.Root())
+		c.setRound(1)
+		c.setHeight(big.NewInt(4))
+		c.step = Prevote
 		c.setLastHeader(&types.Header{Committee: committeeSet.Committee()})
 
 		c.storeBacklog(msg, val.Address)

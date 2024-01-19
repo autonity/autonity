@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"reflect"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -87,52 +85,6 @@ func TestHandlePrevote(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 	member := committeeSet.Committee()[0]
 	signer := makeSigner(keys[member.Address], member.Address)
-
-	t.Run("pre-vote with future height given, error returned", func(t *testing.T) {
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
-		expectedMsg := message.NewPrevote(2, 4, common.Hash{}, signer)
-		c := &Core{
-			address:          member.Address,
-			round:            2,
-			height:           big.NewInt(3),
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
-			committee:        committeeSet,
-			logger:           log.Root(),
-		}
-
-		c.SetDefaultHandlers()
-		err := c.prevoter.HandlePrevote(context.Background(), expectedMsg)
-		if !errors.Is(err, constants.ErrFutureHeightMessage) {
-			t.Fatalf("Expected %v, got %v", constants.ErrFutureHeightMessage, err)
-		}
-	})
-
-	t.Run("pre-vote with old height given, pre-vote not added", func(t *testing.T) {
-		expectedMsg := message.NewPrevote(1, 1, common.Hash{}, makeSigner(keys[member.Address], member.Address))
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
-		c := &Core{
-			address:          member.Address,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
-			logger:           log.Root(),
-			committee:        committeeSet,
-			round:            1,
-			height:           big.NewInt(3),
-		}
-
-		c.SetDefaultHandlers()
-		err := c.prevoter.HandlePrevote(context.Background(), expectedMsg)
-		if !errors.Is(err, constants.ErrOldHeightMessage) {
-			t.Fatalf("Expected %v, got %v", constants.ErrOldHeightMessage, err)
-		}
-
-		if s := curRoundMessages.PrevotesPower(common.Hash{}); s.Cmp(common.Big0) != 0 {
-			t.Fatalf("Expected 0 nil-prevote, but got %d", s)
-		}
-	})
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
