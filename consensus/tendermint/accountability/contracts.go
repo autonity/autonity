@@ -14,8 +14,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -24,34 +22,26 @@ import (
 // a part of consensus.
 
 var (
-	checkPOPAddress          = common.BytesToAddress([]byte{0xfb})
 	checkAccusationAddress   = common.BytesToAddress([]byte{0xfc})
 	checkInnocenceAddress    = common.BytesToAddress([]byte{0xfd})
 	checkMisbehaviourAddress = common.BytesToAddress([]byte{0xfe})
 	// error codes of the execution of precompiled contract to verify the input Proof.
 	successResult   = common.LeftPadBytes([]byte{1}, 32)
-	failure32Byte   = make([]byte, 32)
 	failureReturn   = make([]byte, 128)
 	errBadHeight    = errors.New("height invalid")
 	errMaxEvidences = errors.New("above max evidence threshold")
 )
 
-const (
-	KB            = 1024
-	ArrayLenBytes = 32
-	POPBytes      = 164
-)
+const KB = 1024
 
 // LoadPrecompiles init the instances of Fault Detector contracts, and register them into EVM's context
 func LoadPrecompiles(chain ChainContext) {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
-	ov := POPVerifier{}
 	pv := InnocenceVerifier{chain: chain}
 	cv := MisbehaviourVerifier{chain: chain}
 	av := AccusationVerifier{chain: chain}
 	setPrecompiles := func(set map[common.Address]vm.PrecompiledContract) {
-		set[checkPOPAddress] = &ov
 		set[checkInnocenceAddress] = &pv
 		set[checkMisbehaviourAddress] = &cv
 		set[checkAccusationAddress] = &av
@@ -61,45 +51,6 @@ func LoadPrecompiles(chain ChainContext) {
 	setPrecompiles(vm.PrecompiledContractsIstanbul)
 	setPrecompiles(vm.PrecompiledContractsBerlin)
 	setPrecompiles(vm.PrecompiledContractsBLS)
-}
-
-// POPVerifier verifies the proof of possession of validator key.
-type POPVerifier struct{}
-
-func (b *POPVerifier) RequiredGas(_ []byte) uint64 {
-	return params.POPVerifierGas
-}
-
-func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
-	totalBytes := ArrayLenBytes + POPBytes
-	if len(input) != totalBytes {
-		return failure32Byte, fmt.Errorf("invalid proof - empty")
-	}
-
-	signatureOffset := ArrayLenBytes + blst.BLSPubkeyLength
-	treasuryOffset := signatureOffset + blst.BLSSignatureLength
-	keyBytes := input[ArrayLenBytes:signatureOffset]
-	sigBytes := input[signatureOffset:treasuryOffset]
-	treasuryBytes := input[treasuryOffset:]
-
-	key, err := blst.PublicKeyFromBytes(keyBytes)
-	if err != nil {
-		return failure32Byte, err
-	}
-	sig, err := blst.SignatureFromBytes(sigBytes)
-	if err != nil {
-		return failure32Byte, err
-	}
-
-	if sig.IsZero() {
-		return failure32Byte, crypto.ErrorInvalidPOP
-	}
-
-	err = crypto.BLSPOPVerify(key, sig, treasuryBytes)
-	if err != nil {
-		return failure32Byte, err
-	}
-	return successResult, nil
 }
 
 // AccusationVerifier implemented as a native contract to validate if an accusation is valid

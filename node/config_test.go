@@ -18,6 +18,8 @@ package node
 
 import (
 	"bytes"
+	"github.com/autonity/autonity/crypto/blst"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -105,9 +107,9 @@ func TestIPCPathResolution(t *testing.T) {
 	}
 }
 
-// Tests that node keys can be correctly created, persisted, loaded and/or made
+// Tests that autonity keys can be correctly created, persisted, loaded and/or made
 // ephemeral.
-func TestNodeKeyPersistency(t *testing.T) {
+func TestAutonityKeysPersistency(t *testing.T) {
 	// Create a temporary folder and make sure no key is present
 	dir, err := ioutil.TempDir("", "node-test")
 	if err != nil {
@@ -122,7 +124,11 @@ func TestNodeKeyPersistency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate one-shot node key: %v", err)
 	}
-	config := &Config{Name: "unit-test", DataDir: dir, P2P: p2p.Config{PrivateKey: key}}
+
+	consensusKey, err := blst.RandKey()
+	require.NoError(t, err)
+
+	config := &Config{ConsensusKey: consensusKey, Name: "unit-test", DataDir: dir, P2P: p2p.Config{PrivateKey: key}}
 	config.AutonityKeys()
 	if _, err := os.Stat(filepath.Join(keyfile)); err == nil {
 		t.Fatalf("one-shot node key persisted to data directory")

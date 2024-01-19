@@ -26,6 +26,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blake2b"
 	"github.com/autonity/autonity/crypto/bls12381"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/crypto/bn256"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
@@ -36,8 +37,18 @@ import (
 	"golang.org/x/crypto/ripemd160"
 )
 
-// PrecompiledContractRWMutex to fix the race condition of precompiled contracts loading on the start-up phase.
-var PrecompiledContractRWMutex = sync.RWMutex{}
+const (
+	ArrayLenBytes = 32
+	POPBytes      = 164
+)
+
+var (
+	// PrecompiledContractRWMutex to fix the race condition of precompiled contracts loading on the start-up phase.
+	PrecompiledContractRWMutex = sync.RWMutex{}
+	failure32Byte              = make([]byte, 32)
+	// error codes of the execution of precompiled contract to verify the input Proof.
+	successResult = common.LeftPadBytes([]byte{1}, 32)
+)
 
 // PrecompiledContract is the basic interface for native Go contracts. The implementation
 // requires a deterministic gas count based on the input size of the Run method of the
@@ -55,6 +66,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
+	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -70,6 +82,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
+	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -86,6 +99,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -102,6 +116,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -118,6 +133,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{17}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
+	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	common.BytesToAddress([]byte{255}): &checkEnode{},
 }
 
@@ -1083,4 +1099,43 @@ func (c checkEnode) Run(input []byte, blockNumber uint64) ([]byte, error) {
 	copy(out, address.Bytes())
 	copy(out[32:], false32Byte)
 	return out, nil
+}
+
+// POPVerifier verifies the proof of possession of consensus key.
+type POPVerifier struct{}
+
+func (b *POPVerifier) RequiredGas(_ []byte) uint64 {
+	return params.POPVerifierGas
+}
+
+func (b *POPVerifier) Run(input []byte, _ uint64) ([]byte, error) {
+	totalBytes := ArrayLenBytes + POPBytes
+	if len(input) != totalBytes {
+		return failure32Byte, fmt.Errorf("invalid proof - empty")
+	}
+
+	signatureOffset := ArrayLenBytes + blst.BLSPubkeyLength
+	treasuryOffset := signatureOffset + blst.BLSSignatureLength
+	keyBytes := input[ArrayLenBytes:signatureOffset]
+	sigBytes := input[signatureOffset:treasuryOffset]
+	treasuryBytes := input[treasuryOffset:]
+
+	key, err := blst.PublicKeyFromBytes(keyBytes)
+	if err != nil {
+		return failure32Byte, err
+	}
+	sig, err := blst.SignatureFromBytes(sigBytes)
+	if err != nil {
+		return failure32Byte, err
+	}
+
+	if sig.IsZero() {
+		return failure32Byte, crypto.ErrorInvalidPOP
+	}
+
+	err = crypto.BLSPOPVerify(key, sig, treasuryBytes)
+	if err != nil {
+		return failure32Byte, err
+	}
+	return successResult, nil
 }

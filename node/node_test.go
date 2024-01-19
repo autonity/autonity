@@ -19,6 +19,7 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"io"
 	"io/ioutil"
 	"net"
@@ -37,13 +38,15 @@ import (
 )
 
 var (
-	testNodeKey, _ = crypto.GenerateKey()
+	testNodeKey, _      = crypto.GenerateKey()
+	testConsensusKey, _ = blst.RandKey()
 )
 
 func testNodeConfig() *Config {
 	return &Config{
-		Name: "test node",
-		P2P:  p2p.Config{PrivateKey: testNodeKey},
+		ConsensusKey: testConsensusKey,
+		Name:         "test node",
+		P2P:          p2p.Config{PrivateKey: testNodeKey},
 	}
 }
 

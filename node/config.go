@@ -395,7 +395,10 @@ func (c *Config) instanceDir() string {
 func (c *Config) AutonityKeys() (*ecdsa.PrivateKey, blst.SecretKey) {
 	// Use any specifically configured key, keys are configured via CLI by flags in key file or in key hex string, at
 	// this point, if any of the keys are not nil, it indicates they were parsed on the flag loading phase, return them.
-	if c.P2P.PrivateKey != nil || c.ConsensusKey != nil {
+	if c.P2P.PrivateKey != nil {
+		if c.ConsensusKey == nil {
+			log.Crit("Failed to get the configured consensus key of antonity keys, it should not happen!")
+		}
 		return c.P2P.PrivateKey, c.ConsensusKey
 	}
 
