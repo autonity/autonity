@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"math"
 	"net"
 	"sync"
@@ -91,7 +92,14 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 		return nil, err
 	}
 
+	// in the p2p simulation test framework, we generate random consensus key for node setup.
+	consensusKey, err := blst.RandKey()
+	if err != nil {
+		return nil, err
+	}
+
 	n, err := node.New(&node.Config{
+		ConsensusKey: consensusKey,
 		P2P: p2p.Config{
 			PrivateKey:      config.PrivateKey,
 			MaxPeers:        math.MaxInt32,
