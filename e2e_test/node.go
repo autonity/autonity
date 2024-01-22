@@ -174,11 +174,13 @@ func (n *Node) Start() error {
 		}
 	}()
 
-	nodeConfigCopy := *n.Config
-	nodeConfigCopy.ConsensusKey, err = blst.SecretKeyFromBytes(n.Config.ConsensusKey.Marshal())
+	copyConsensusKey, err := blst.SecretKeyFromBytes(n.Config.ConsensusKey.Marshal())
 	if err != nil {
 		return err
 	}
+	nodeConfigCopy := *n.Config
+	nodeConfigCopy.ConsensusKey = copyConsensusKey
+
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
 	// copy, since it is not useful for black box testing and it is also not
