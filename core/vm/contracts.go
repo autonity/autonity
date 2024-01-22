@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -279,9 +280,11 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 	} else {
 		committeeSize = configCommitteeLen
 	}
-	task := sync.WaitGroup{}
-	quickSort(validators, 0, int32(len(validators)-1), &task)
-	task.Wait()
+	// sort validators according to their voting power in descending order
+	// stable sort keeps the original order of equal elements
+	slices.SortStableFunc(validators, func(a, b *types.CommitteeMember) int {
+		return b.VotingPower.Cmp(a.VotingPower)
+	})
 
 	a.updateCommittee(validators, committeeSize, committeeSlot, epochTotalBondedStakeSlot, caller, stateDB)
 	result := make([]byte, DataLen)
@@ -355,64 +358,6 @@ func (a *CommitteeSelector) getValidatorInfo(
 		}
 	}
 	return nil
-}
-
-// sorts validators according to their VotingPower in descending order
-// in case more than one valdiator have same VotingPower, the output could be different
-// depending on the positions of the validators, even if the set of validators is same each time
-func quickSort(validators []*types.CommitteeMember, low int32, high int32, task *sync.WaitGroup) {
-	// Set the pivot element in its right sorted index in the array
-	pivot := validators[(high+low)/2].VotingPower
-	// isLeftSorted stores if the left subarray with indexes [left, i-1] sorted or not
-	isLeftSorted := true
-	// isRightSorted stores if the right subarray with indexes [j+1, right] sorted or not
-	isRightSorted := true
-	i := low
-	j := high
-	for i <= j {
-		for validators[i].VotingPower.Cmp(pivot) == 1 {
-			i++
-			// check if elements at (i-1) and (i-2) are sorted or not
-			if isLeftSorted && i-1 > low {
-				isLeftSorted = validators[i-2].VotingPower.Cmp(validators[i-1].VotingPower) >= 0
-			}
-		}
-		for pivot.Cmp(validators[j].VotingPower) == 1 {
-			j--
-			// check if elements at (j+1) and (j+2) are sorted or not
-			if isRightSorted && j+1 < high {
-				isRightSorted = validators[j+1].VotingPower.Cmp(validators[j+2].VotingPower) >= 0
-			}
-		}
-		if i <= j {
-			validators[i], validators[j] = validators[j], validators[i]
-			i++
-			j--
-			if isLeftSorted && i-1 > low {
-				isLeftSorted = validators[i-2].VotingPower.Cmp(validators[i-1].VotingPower) >= 0
-			}
-			if isRightSorted && j+1 < high {
-				isRightSorted = validators[j+1].VotingPower.Cmp(validators[j+2].VotingPower) >= 0
-			}
-		}
-	}
-
-	if !isLeftSorted && low < j {
-		task.Add(1)
-		go func() {
-			// Recursion call in the left partition of the array
-			quickSort(validators, low, j, task)
-			task.Done()
-		}()
-	}
-	if !isRightSorted && i < high {
-		task.Add(1)
-		go func() {
-			// Recursion call in the right partition
-			quickSort(validators, i, high, task)
-			task.Done()
-		}()
-	}
 }
 
 // ECRECOVER implemented as a native contract.

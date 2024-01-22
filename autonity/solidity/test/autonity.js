@@ -1328,7 +1328,7 @@ contract('Autonity', function (accounts) {
         remaining--;
       }
       // validators.length < committeeSize, so may not be sorted
-      await autonity.testComputeCommittee(false, {from: deployer});
+      await autonity.testComputeCommittee({from: deployer});
 
       let extraValidators = 10;
       remaining = extraValidators + config.protocol.committeeSize - validatorCount;
@@ -1340,7 +1340,7 @@ contract('Autonity', function (accounts) {
         remaining--;
       }
       // must be sorted
-      await autonity.testComputeCommittee(true, {from: deployer});
+      await autonity.testComputeCommittee({from: deployer});
       let committeeNodes = await autonity.getCommittee();
       assert.equal(committeeNodes.length, config.protocol.committeeSize);
     });

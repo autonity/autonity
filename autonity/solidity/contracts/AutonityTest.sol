@@ -53,7 +53,7 @@ contract AutonityTest is Autonity {
      return headUnbondingID;
    }
 
-   function testComputeCommittee(bool checkSort) public {
+   function testComputeCommittee() public {
       _stakingOperations();
       address[] memory voters = computeCommittee();
       address[] memory addresses = new address[](voters.length);
@@ -74,7 +74,7 @@ contract AutonityTest is Autonity {
           minStake = stake;
         }
 
-        if (i > 0 && checkSort == true) {
+        if (i > 0) {
           require(lastStake >= stake, "committee members not sorted");
         }
         lastStake = stake;
