@@ -1570,6 +1570,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		_, devAccKey, _ := ks.GetDecryptedKey(developer, passphrase)
 		cfg.Genesis = core.DeveloperGenesisBlock(ctx.Uint64(DeveloperGasLimitFlag.Name), devAccKey)
 		stack.Config().P2P.PrivateKey = devAccKey.PrivateKey
+		stack.Config().ConsensusKey = params.DevModeConsensusKey
 	}
 }
 

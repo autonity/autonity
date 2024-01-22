@@ -161,8 +161,6 @@ To exit, press ctrl-d or type exit
 }
 
 func TestDevMode(t *testing.T) {
-	//dir, jsonFile := tmpDataDirWithGenesisFile(t)
-	//defer os.RemoveAll(dir)
 	ws := tmpdir(t)
 	defer os.RemoveAll(ws)
 	ipc := filepath.Join(ws, "autonity.ipc")
