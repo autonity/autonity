@@ -89,12 +89,10 @@ contract MockCommitteeSelector {
             }
         }
 
-        if (validators.length > committeeSize) {
-            _sortByStake(validators);
-        }
-        else {
+        if (committeeSize > validators.length) {
             committeeSize = validators.length;
         }
+        _sortByStake(validators);
 
         // write committee nodes in persistent storage
         {
