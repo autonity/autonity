@@ -402,7 +402,7 @@ func TestUDPv4_successfulPing(t *testing.T) {
 
 	// The ping is replied to.
 	test.waitPacketOut(func(p *v4wire.Pong, to *net.UDPAddr, hash []byte) {
-		pinghash := test.sent[0][:32]
+		pinghash := test.sent[0][3 : 32+3]
 		if !bytes.Equal(p.ReplyTok, pinghash) {
 			t.Errorf("got pong.ReplyTok %x, want %x", p.ReplyTok, pinghash)
 		}
