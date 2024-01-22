@@ -265,6 +265,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, stateDB StateDB, caller 
 		if user != nil {
 			validators = append(validators, user)
 		}
+		// goto next slot
 		addressOffset.Add(addressOffset, increment)
 	}
 
@@ -301,17 +302,19 @@ func (a *CommitteeSelector) updateCommittee(
 	// save committeeSize in committeeSlot
 	stateDB.SetState(caller, common.BytesToHash(committeeSlot), common.BytesToHash(committeeLenBytes))
 	// put new committee members : type CommitteeMember
-	baseOffsetCommittee := crypto.Keccak256Hash(committeeSlot).Big()
+	committeeOffset := crypto.Keccak256Hash(committeeSlot).Big()
 	totalStake := big.NewInt(0)
 	increment := big.NewInt(1)
 	for i := 0; i < committeeSize; i++ {
 		// the order has to be in sync with Committee struct in Autonity.sol
 		// save address
-		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), validators[i].Address.Hash())
-		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
+		stateDB.SetState(caller, common.Hash(committeeOffset.Bytes()), validators[i].Address.Hash())
+		// goto next slot
+		committeeOffset.Add(committeeOffset, increment)
 		// save voting power
-		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), common.BytesToHash(validators[i].VotingPower.Bytes()))
-		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
+		stateDB.SetState(caller, common.Hash(committeeOffset.Bytes()), common.BytesToHash(validators[i].VotingPower.Bytes()))
+		// goto next slot
+		committeeOffset.Add(committeeOffset, increment)
 
 		totalStake = totalStake.Add(totalStake, validators[i].VotingPower)
 	}
@@ -321,11 +324,13 @@ func (a *CommitteeSelector) updateCommittee(
 	// delete old committee members, if any
 	for i := committeeSize; i < oldCommitteeSize; i++ {
 		// delete address
-		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), common.Hash{})
-		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
+		stateDB.SetState(caller, common.Hash(committeeOffset.Bytes()), common.Hash{})
+		// goto next slot
+		committeeOffset.Add(committeeOffset, increment)
 		// delete voting power
-		stateDB.SetState(caller, common.Hash(baseOffsetCommittee.Bytes()), common.Hash{})
-		baseOffsetCommittee.Add(baseOffsetCommittee, increment)
+		stateDB.SetState(caller, common.Hash(committeeOffset.Bytes()), common.Hash{})
+		// goto next slot
+		committeeOffset.Add(committeeOffset, increment)
 	}
 }
 
