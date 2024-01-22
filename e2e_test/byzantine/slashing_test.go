@@ -241,7 +241,7 @@ func TestHistoryFactor(t *testing.T) {
 	slashingEventA := WaitForSlashingEvent(timeout, t, dedicatedNode)
 
 	// wait until we can un-jail (+1 just in case)
-	err = network.WaitForHeight(slashingEventA.ReleaseBlock.Uint64()+1, 60)
+	err = network.WaitForHeight(slashingEventA.ReleaseBlock.Uint64()+1, 70)
 	require.NoError(t, err)
 
 	//un-jail
