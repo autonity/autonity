@@ -58,10 +58,6 @@ func TestGenesisCommand(t *testing.T) {
 func TestEncodeDecodeConsistency(t *testing.T) {
 	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
-	// Set one of the validators to have a publick key, just to cover more code
-	// branches.
-	k := validators[0].NodeKey
-	validators[0].NodeKey = k
 	g, err := NewGenesis(validators)
 	require.NoError(t, err)
 	encoded, err := json.Marshal(g)
