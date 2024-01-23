@@ -69,7 +69,7 @@ func LoadAutonityKeys(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	return ecdsaKey, consensusKey, nil
 }
 
-// HexToAutonityKeys parse the hex string into a secp256k1 private key and a derived BLS private key.
+// HexToAutonityKeys parse the hex string into a secp256k1 private key and a BLS private key.
 func HexToAutonityKeys(hexKeys string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	b, err := hex.DecodeString(hexKeys)
 	if byteErr, ok := err.(hex.InvalidByteError); ok {
