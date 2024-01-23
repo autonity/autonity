@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/atc"
+	"github.com/autonity/autonity/consensus/network/acn"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/crypto/blst"
 
@@ -87,7 +87,7 @@ type Node struct {
 	isRunning bool
 	Config    *node.Config
 	Eth       *eth.Ethereum
-	Atc       *atc.ATC
+	Acn       *acn.ACN
 	EthConfig *ethconfig.Config
 	WsClient  *ethclient.Client
 	Nonce     uint64
@@ -230,7 +230,7 @@ func (n *Node) Start() error {
 	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}
-	n.Atc = atc.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
+	n.Acn = acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
 	if _, _, err = core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis); err != nil {
 		return fmt.Errorf("cannot setup genesis block: %w", err)
 	}

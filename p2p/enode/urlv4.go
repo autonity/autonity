@@ -56,8 +56,8 @@ var (
 const (
 	DefaultETHPort    = ":30303"
 	DefaultETHPortInt = 30303
-	DefaultATCPort    = ":20202"
-	DefaultATCPortInt = 20202
+	DefaultACNPort    = ":20202"
+	DefaultACNPortInt = 20202
 )
 
 // MustParseV4 parses a node URL. It panics if the URL is not valid.
@@ -97,9 +97,9 @@ func ParseV4(rawurl string) (*Node, error) {
 	return ParseV4CustomResolve(rawurl, V4ResolveFunc)
 }
 
-// enode://<hex node id>@10.3.58.6:30303?discport=30301?atcep=10.3.58.5:20202
-func ParseATCV4(rawurl string) (*Node, error) {
-	return parseComplete(rawurl, V4ResolveFunc, atcProtoParams)
+// enode://<hex node id>@10.3.58.6:30303?discport=30301?acnep=10.3.58.5:20202
+func ParseACNV4(rawurl string) (*Node, error) {
+	return parseComplete(rawurl, V4ResolveFunc, acnProtoParams)
 }
 
 // ParseV4NoResolve returns a node object without attempting to resolve. Useful to manipulate
@@ -200,27 +200,27 @@ func ethProtoParams(u *url.URL) (string, uint64, uint64, error) {
 	return host, tcpPort, udpPort, nil
 }
 
-func atcProtoParams(u *url.URL) (string, uint64, uint64, error) {
+func acnProtoParams(u *url.URL) (string, uint64, uint64, error) {
 	var (
-		atcPort uint64
-		atcIP   string
+		acnPort uint64
+		acnIP   string
 		err     error
 	)
 
 	// Parse the IP address.
 	qv := u.Query()
-	if qv.Get("atcep") != "" {
-		atcIP, atcPort, err = IPPort(qv.Get("atcep"), DefaultATCPort)
-		return atcIP, atcPort, 0, err
+	if qv.Get("acnep") != "" {
+		acnIP, acnPort, err = IPPort(qv.Get("acnep"), DefaultACNPort)
+		return acnIP, acnPort, 0, err
 	}
 
-	// set same ip as eth for atc protocol
-	atcIP, _, _, err = ethProtoParams(u)
+	// set same ip as eth for acn protocol
+	acnIP, _, _, err = ethProtoParams(u)
 	if err != nil {
 		return "", 0, 0, err
 	}
-	atcPort = uint64(DefaultATCPortInt)
-	return atcIP, atcPort, 0, nil
+	acnPort = uint64(DefaultACNPortInt)
+	return acnIP, acnPort, 0, nil
 }
 
 func parseComplete(rawurl string, _ func(host string) ([]net.IP, error),
@@ -332,6 +332,6 @@ func PubkeyToIDV4(key *ecdsa.PublicKey) ID {
 }
 
 func AppendConsensusEndpoint(host, port string, ens string) string {
-	ens += "?atcep=" + host + ":" + port
+	ens += "?acnep=" + host + ":" + port
 	return ens
 }
