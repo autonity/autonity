@@ -14,17 +14,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package atc
+package acn
 
 import (
 	"context"
 	"math"
 	"sync"
 
+	"github.com/autonity/autonity/consensus/network/acn/protocol"
 	"github.com/autonity/autonity/eth"
 
 	autonity "github.com/autonity/autonity"
-	"github.com/autonity/autonity/atc/protocol"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
@@ -36,7 +36,7 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
-type ATC struct {
+type ACN struct {
 	networkID  uint64
 	peers      *peerSet
 	chain      *core.BlockChain
@@ -48,8 +48,8 @@ type ATC struct {
 	cancel     context.CancelFunc
 }
 
-func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ATC {
-	atc := &ATC{
+func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ACN {
+	acn := &ACN{
 		peers:      newPeerSet(),
 		chain:      backend.BlockChain(),
 		networkID:  netID,
@@ -59,85 +59,85 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ATC {
 		address:    crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey),
 	}
 
-	atc.server.MaxPeers = math.MaxInt
-	stack.RegisterConsensusProtocols(atc.ConsensusProtocols())
-	stack.RegisterLifecycle(atc)
-	if handler, ok := atc.chain.Engine().(consensus.Handler); ok {
-		handler.SetBroadcaster(atc)
+	acn.server.MaxPeers = math.MaxInt
+	stack.RegisterConsensusProtocols(acn.Protocols())
+	stack.RegisterLifecycle(acn)
+	if handler, ok := acn.chain.Engine().(consensus.Handler); ok {
+		handler.SetBroadcaster(acn)
 	}
 	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
-	backend.FD().SetBroadcaster(atc)
-	return atc
+	backend.FD().SetBroadcaster(acn)
+	return acn
 }
 
-func (atc *ATC) Start() error {
+func (acn *ACN) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
-	atc.watchCommittee(ctx)
-	protocol.StartENRUpdater(ctx, atc.chain, atc.server.LocalNode())
-	atc.cancel = cancel
+	acn.watchCommittee(ctx)
+	protocol.StartENRUpdater(ctx, acn.chain, acn.server.LocalNode())
+	acn.cancel = cancel
 	return nil
 }
 
-func (atc *ATC) ConsensusProtocols() []p2p.Protocol {
-	protos := protocol.MakeProtocols(atc, atc.networkID)
+func (acn *ACN) Protocols() []p2p.Protocol {
+	protos := protocol.MakeProtocols(acn, acn.networkID)
 	return protos
 }
 
-func (atc *ATC) FindPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
-	return atc.peers.find(targets)
+func (acn *ACN) FindPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
+	return acn.peers.find(targets)
 }
 
 // runConsensusPeer registers a `consensus` peer into the consensus peerset and
 // starts handling inbound messages.
-func (atc *ATC) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFunc) error {
-	atc.wg.Add(1)
-	defer atc.wg.Done()
+func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFunc) error {
+	acn.wg.Add(1)
+	defer acn.wg.Done()
 
 	// Execute the Consensus handshake
 	var (
-		genesis = atc.chain.Genesis()
-		head    = atc.chain.CurrentHeader()
+		genesis = acn.chain.Genesis()
+		head    = acn.chain.CurrentHeader()
 		hash    = head.Hash()
 		number  = head.Number.Uint64()
-		td      = atc.chain.GetTd(hash, number)
+		td      = acn.chain.GetTd(hash, number)
 	)
-	forkID := forkid.NewID(atc.chain.Config(), atc.chain.Genesis().Hash(), atc.chain.CurrentHeader().Number.Uint64())
-	if err := peer.Handshake(atc.networkID, td, hash, genesis.Hash(), forkID, atc.forkFilter); err != nil {
+	forkID := forkid.NewID(acn.chain.Config(), acn.chain.Genesis().Hash(), acn.chain.CurrentHeader().Number.Uint64())
+	if err := peer.Handshake(acn.networkID, td, hash, genesis.Hash(), forkID, acn.forkFilter); err != nil {
 		peer.Log().Debug("Consensus handshake failed", "err", err)
 		return err
 	}
 
-	if err := atc.peers.registerPeer(peer); err != nil {
+	if err := acn.peers.register(peer); err != nil {
 		peer.Log().Error("Snapshot extension registration failed", "err", err)
 		return err
 	}
 	//TODO: checkpoint hash and required blocks check not done on consensus channel
 	// Do we need it here
-	defer atc.peers.unregisterPeer(peer.ID())
+	defer acn.peers.unregister(peer.ID())
 	return handler(peer)
 }
 
-func (atc *ATC) Stop() error {
+func (acn *ACN) Stop() error {
 	// Disconnect existing sessions.
 	// This also closes the gate for any new registrations on the peer set.
 	// sessions which are already established but not added to h.peers yet
 	// will exit when they try to register.
-	atc.cancel()
-	atc.peers.close()
-	atc.wg.Wait()
+	acn.cancel()
+	acn.peers.close()
+	acn.wg.Wait()
 
 	return nil
 }
 
-func (atc *ATC) Chain() *core.BlockChain { return atc.chain }
+func (acn *ACN) Chain() *core.BlockChain { return acn.chain }
 
 // RunPeer is invoked when a peer joins on the `snap` protocol.
-func (atc *ATC) RunPeer(peer *protocol.Peer, hand protocol.HandlerFunc) error {
-	return atc.runConsensusPeer(peer, hand)
+func (acn *ACN) RunPeer(peer *protocol.Peer, hand protocol.HandlerFunc) error {
+	return acn.runConsensusPeer(peer, hand)
 }
 
-// PeerInfo retrieves all known `atc` information about a peer.
-func (atc *ATC) PeerInfo(_ enode.ID) interface{} {
+// PeerInfo retrieves all known `acn` information about a peer.
+func (acn *ACN) PeerInfo(_ enode.ID) interface{} {
 	//TODO
 	return nil
 }

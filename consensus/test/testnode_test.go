@@ -8,8 +8,8 @@ import (
 
 	"github.com/autonity/autonity/crypto/blst"
 
-	"github.com/autonity/autonity/atc"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/network/acn"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth"
@@ -33,7 +33,7 @@ type testNode struct {
 	ethConfig      *eth.Config
 	enode          *enode.Node
 	service        *eth.Ethereum
-	atcService     *atc.ATC
+	atcService     *acn.ACN
 	eventChan      chan core.ChainEvent
 	subscription   event.Subscription
 	transactions   map[common.Hash]struct{}
@@ -78,7 +78,7 @@ func (validator *testNode) startNode() error {
 		return err
 	}
 
-	validator.atcService = atc.New(validator.node, validator.service, validator.ethConfig.NetworkID)
+	validator.atcService = acn.New(validator.node, validator.service, validator.ethConfig.NetworkID)
 
 	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cannot start a node %s", err)
