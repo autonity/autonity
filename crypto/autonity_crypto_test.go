@@ -164,10 +164,14 @@ func autonityPOPVerify(signatures []byte, treasuryHex string, nodeAddress, oracl
 		return err
 	}
 
-	// check zero signature.
 	validatorSig, err := blst.SignatureFromBytes(signatures[blsSigOffset:])
 	if err != nil {
 		return err
+	}
+
+	// check zero signature.
+	if validatorSig.IsZero() {
+		return ErrorInvalidPOP
 	}
 
 	// check zero public key.
