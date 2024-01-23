@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package atc
+package acn
 
 import (
 	"errors"
 	"sync"
 
 	autonity "github.com/autonity/autonity"
-	"github.com/autonity/autonity/atc/protocol"
+	"github.com/autonity/autonity/consensus/network/acn/protocol"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
@@ -55,9 +55,9 @@ func newPeerSet() *peerSet {
 	}
 }
 
-// registerPeer injects a new `consensus` peer into the working set, or returns an error
+// register injects a new `consensus` peer into the working set, or returns an error
 // if the peer is already known.
-func (ps *peerSet) registerPeer(peer *protocol.Peer) error {
+func (ps *peerSet) register(peer *protocol.Peer) error {
 	// Start tracking the new peer
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
@@ -73,9 +73,9 @@ func (ps *peerSet) registerPeer(peer *protocol.Peer) error {
 	return nil
 }
 
-// unregisterPeer removes a remote peer from the active set, disabling any further
+// unregister removes a remote peer from the active set, disabling any further
 // actions to/from that particular entity.
-func (ps *peerSet) unregisterPeer(id string) error {
+func (ps *peerSet) unregister(id string) error {
 	ps.lock.Lock()
 	defer ps.lock.Unlock()
 

@@ -20,7 +20,7 @@ func NewNodes(strList []string, asATC bool) *Nodes {
 	errCh := make(chan error, len(strList))
 	var parser func(string) (*enode.Node, error)
 	if asATC {
-		parser = enode.ParseATCV4
+		parser = enode.ParseACNV4
 	} else {
 		parser = enode.ParseV4
 	}

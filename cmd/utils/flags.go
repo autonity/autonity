@@ -33,9 +33,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/autonity/autonity/atc"
-
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/consensus/network/acn"
 	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/eth/ethconfig"
@@ -1670,8 +1669,8 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 	return backend.APIBackend, backend
 }
 
-func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) *atc.ATC {
-	return atc.New(stack, backend, netID)
+func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) *acn.ACN {
+	return acn.New(stack, backend, netID)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
