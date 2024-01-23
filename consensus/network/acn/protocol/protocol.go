@@ -10,21 +10,21 @@ import (
 
 // Constants to match up protocol versions and messages
 const (
-	ATCv1 = 1
+	ACNv1 = 1
 )
 
 // TODO: better name for protocol
 // ProtocolName is the official short name of the `snap` protocol used during
 // devp2p capability negotiation.
-const ProtocolName = "atc"
+const ProtocolName = "acn"
 
 // ProtocolVersions are the supported versions of the `snap` protocol (first
 // is primary).
-var ProtocolVersions = []uint{ATCv1}
+var ProtocolVersions = []uint{ACNv1}
 
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-var protocolLengths = map[uint]uint64{ATCv1: 22}
+var protocolLengths = map[uint]uint64{ACNv1: 22}
 
 // MaxMessageSize is the maximum cap on the size of a consensus protocol message.
 const MaxMessageSize = 10 * 1024 * 1024

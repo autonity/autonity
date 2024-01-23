@@ -20,7 +20,6 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/atc"
 	"io"
 	"io/ioutil"
 	"math"
@@ -35,6 +34,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/consensus/network/acn"
 
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/tracers"
@@ -1662,8 +1662,8 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 	return backend.APIBackend, backend
 }
 
-func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) *atc.ATC {
-	return atc.New(stack, backend, netID)
+func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) *acn.ACN {
+	return acn.New(stack, backend, netID)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
