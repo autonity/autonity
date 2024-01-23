@@ -53,7 +53,7 @@ func (ser Network) String() string {
 	case Consensus:
 		return "Consensus"
 	case Execution:
-		return "ethereum"
+		return "execution"
 	}
 	return "Invalid"
 }
