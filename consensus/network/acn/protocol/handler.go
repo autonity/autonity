@@ -25,9 +25,9 @@ type Backend interface {
 	// Chain retrieves the blockchain object to serve data.
 	Chain() *core.BlockChain
 
-	// RunPeer is invoked when a peer joins on the `consensus` protocol. The ATC
+	// RunPeer is invoked when a peer joins on the `consensus` protocol. The ACN
 	// should do any peer maintenance work, handshakes and validations. If all
-	// is passed, control should be given back to the `ATC` to process the
+	// is passed, control should be given back to the `ACN` to process the
 	// inbound messages going forward.
 	RunPeer(peer *Peer, handler HandlerFunc) error
 
@@ -35,7 +35,7 @@ type Backend interface {
 	PeerInfo(id enode.ID) interface{}
 }
 
-// NodeInfo represents a short summary of the `atc` protocol metadata
+// NodeInfo represents a short summary of the `ACN` protocol metadata
 // known about the host peer.
 type NodeInfo struct {
 	Network    uint64              `json:"network"`    // Ethereum network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
@@ -120,7 +120,7 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 	}
 	defer msg.Discard()
 
-	// Track the amount of time it takes to serve the request and run the ATC
+	// Track the amount of time it takes to serve the request and run the ACN
 	if metrics.Enabled {
 		h := fmt.Sprintf("%s/%s/%d/%#02x", p2p.HandleHistName, ProtocolName, peer.Version(), msg.Code)
 		defer func(start time.Time) {
