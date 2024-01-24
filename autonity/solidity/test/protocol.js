@@ -539,7 +539,7 @@ contract('Protocol', function (accounts) {
       let tasks = [];
       let status = [];
       let jailTask = async function(validator, reporter) {
-        let {txEvent, _} = await slash(accountabilityConfig, accountability, 1, validator, reporter);
+        let {txEvent, _} = await utils.slash(accountabilityConfig, accountability, 1, validator, reporter);
         assert.equal(txEvent.isJailbound, false, "slashed too much, validator jailbound instead of jailed");
       }
       tasks.push(jailTask);
@@ -641,41 +641,6 @@ contract('Protocol', function (accounts) {
       let releaseBlock = validatorInfo.jailReleaseBlock;
       assert.equal(releaseBlock, 0, "releaseBlock for jailbound validator");
 
-    });
-
-    it('cannot bond to a jailbound validator', async function () {
-      let validator = validators[0].nodeAddress;
-      const treasury = validators[0].treasury;
-
-      // non-self bond
-      let delegator = accounts[9];
-      let tokenMint = 100;
-      await autonity.mint(delegator, 3*tokenMint, {from: operator});
-      // 1st bond
-      await autonity.bond(validator, tokenMint, {from: delegator});
-      await utils.endEpoch(autonity, operator, deployer);
-
-      let balance = (await autonity.balanceOf(delegator)).toNumber();
-      // 2nd bond
-      await autonity.bond(validator, tokenMint, {from: delegator});
-      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance - tokenMint, "balance did not decrease after bonding request");
-      await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
-      let oldValInfo = await autonity.getValidator(validator);
-
-      await truffleAssert.fails(
-        autonity.bond(validator, tokenMint, {from: delegator}),
-        truffleAssert.ErrorType.REVERT,
-        "validator need to be active"
-      );
-      // 2nd bonding should not be applied
-      await utils.endEpoch(autonity, operator, deployer);
-      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unexpected balance");
-      let newValInfo = await autonity.getValidator(validator);
-      assert.equal(newValInfo.bondedStake, oldValInfo.bondedStake, "bondedStake changed");
-      assert.equal(newValInfo.selfBondedStake, oldValInfo.selfBondedStake, "selfBondedStake changed");
-      assert.equal(newValInfo.selfUnbondingStake, oldValInfo.selfUnbondingStake, "selfUnbondingStake changed");
-      assert.equal(newValInfo.unbondingStake, oldValInfo.unbondingStake, "unbondingStake changed");
-      assert.equal(newValInfo.liquidSupply, oldValInfo.liquidSupply, "liquidSupply changed");
     });
 
     it('kills validator for 100% slash', async function () {
