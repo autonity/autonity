@@ -160,7 +160,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     event MintedStake(address indexed addr, uint256 amount);
     event BurnedStake(address indexed addr, uint256 amount);
     event CommissionRateChange(address indexed validator, uint256 rate);
-    event BondingRejected(address delegator, address delegatee, uint256 amount);
+    event BondingRejected(address delegator, address delegatee, uint256 amount, ValidatorState state);
 
     /** @notice This event is emitted when a bonding request to a validator node has been registered.
     * This request will only be effective at the end of the current epoch however the stake will be
@@ -1081,10 +1081,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
 
-        // jailbound validator is jailed permanently, no new bonding can be applied for a jailbound validator
-        if (_validator.state == ValidatorState.jailbound) {
+        // no new bonding can be applied for jailbound or jailed or paused validator
+        if (_validator.state != ValidatorState.active) {
             accounts[_bonding.delegator] += _bonding.amount;
-            emit BondingRejected(_bonding.delegator, _bonding.delegatee, _bonding.amount);
+            emit BondingRejected(_bonding.delegator, _bonding.delegatee, _bonding.amount, _validator.state);
             return;
         }
 
