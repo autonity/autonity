@@ -19,6 +19,7 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 
@@ -64,6 +65,7 @@ var (
 	bigPrecisionFactor   = big.NewInt(1_000_000_000_000_000_000)
 	bigBondedStake       = big.NewInt(0).Mul(bigBondedStakeNewton, bigPrecisionFactor)
 
+	// PiccaddillyChainConfig todo: ask Raj to generate validator key for validators in the PiccaddillyChainConfig
 	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
 	PiccaddillyChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_100_001),
@@ -144,6 +146,7 @@ var (
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
+	// BakerlooChainConfig todo: ask Raj to generate validator key for validators in the BakerlooChainConfig
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
 	BakerlooChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_010_001),
@@ -421,9 +424,14 @@ var (
 	// adding flags to the config to also have to set these fields.
 	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}}
 
-	ValidatorKey, _            = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	ValidatorAddress           = crypto.PubkeyToAddress(ValidatorKey.PublicKey)
-	ValidatorEnode             = enode.NewV4(&ValidatorKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	ValidatorNodeKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	ValidatorAddress    = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
+	ValidatorEnode      = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+
+	OracleAddress          = ValidatorAddress
+	DevModeConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
+	Key                    = DevModeConsensusKey.PublicKey().Marshal()
+
 	TestAutonityContractConfig = AutonityContractGenesis{
 		MinBaseFee:       0,
 		EpochPeriod:      5,
@@ -435,11 +443,13 @@ var (
 		TreasuryFee:      0,
 		Validators: []*Validator{
 			{
-				Treasury:       common.Address{},
+				Treasury:       ValidatorAddress,
 				NodeAddress:    &ValidatorAddress,
+				OracleAddress:  OracleAddress,
 				Enode:          ValidatorEnode.URLv4(),
 				CommissionRate: new(big.Int).SetUint64(0),
 				BondedStake:    new(big.Int).SetUint64(1000),
+				ConsensusKey:   Key,
 			},
 		},
 	}

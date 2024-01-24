@@ -53,8 +53,10 @@ var genesisTest = struct {
 					"epochPeriod": 30,
 					"validators" : [ 
 						{
-							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
-							"treasury": "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
+							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
+							"treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
+							"consensusKey": "0xa5b7ba3a6abd4e6d2859733447e39996b8bb4d284aefc8e0f7a909d51873c13fa5c60246c96705a5ae239153f366f188",
+							"oracleAddress": "0x342dbBAF7e5E41078Cb83905793CC28D3B7f5AD9",
 							"bondedStake" : 1
 						}
 					]
@@ -108,8 +110,10 @@ var genesisTest = struct {
 					"minBaseFee":100000000,
 					"validators" : [ 
 						{
-							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
-							"treasury": "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
+							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
+							"treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
+							"consensusKey": "0xa5b7ba3a6abd4e6d2859733447e39996b8bb4d284aefc8e0f7a909d51873c13fa5c60246c96705a5ae239153f366f188",
+							"oracleAddress": "0x342dbBAF7e5E41078Cb83905793CC28D3B7f5AD9",
 							"bondedStake" : 2
 						}
 					]
@@ -141,8 +145,10 @@ var genesisTest = struct {
 					"maxCommitteeSize":7,
 					"validators" : [ 
 						{
-							"enode" : "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@localhost:3",
-							"treasury": "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
+							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
+							"treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
+							"consensusKey": "0xa5b7ba3a6abd4e6d2859733447e39996b8bb4d284aefc8e0f7a909d51873c13fa5c60246c96705a5ae239153f366f188",
+							"oracleAddress": "0x342dbBAF7e5E41078Cb83905793CC28D3B7f5AD9",
 							"bondedStake" : 1
 						}
 					]

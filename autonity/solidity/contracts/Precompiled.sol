@@ -4,16 +4,20 @@ pragma solidity ^0.8.3;
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
-    address constant public INNOCENCE_CONTRACT = address(0xfd);
+    uint256 constant public SUCCESS = 1;
+    address constant public POP_VERIFIER_CONTRACT = address(0xfb);
     address constant public ACCUSATION_CONTRACT = address(0xfc);
+    address constant public INNOCENCE_CONTRACT = address(0xfd);
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
+    address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
 
     function parseEnode(string memory _enode) internal view returns (address, uint) {
         uint[2] memory p;
         address addr;
+        address to = ENODE_VERIFIER_CONTRACT;
         assembly {
             //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(staticcall(gas(), 0xff, add(_enode,32), mload(_enode), p, 0x40)) {
+            if iszero(staticcall(gas(), to, add(_enode,32), mload(_enode), p, 0x40)) {
                 revert(0, 0)
             }
             addr :=  div(mload(p), 0x1000000000000000000000000) // abi encoded, shift >> 96
@@ -47,5 +51,27 @@ library Precompiled {
         _ruleId = _returnData[2];
         _block = _returnData[3];
         _msgHash = _returnData[4];
+    }
+
+    // @dev verify the proof of possession of validator key in a precompiled contract.
+    // @param _consensusKey is a "0x" prefix hex string of the validator's BLS public key.
+    // @param _proof is a "0x" prefix hex string of the proof generated together with the bls public key.
+    // @param _treasury is a "0x" prefix hex string of the validator's treasury account.
+    // @return 0 for a failure, 1 for a successful check.
+    function popVerification(bytes memory _consensusKey, bytes memory _proof, address _treasury) internal view returns (uint256) {
+        uint256[1] memory retVal;
+        bytes memory input = abi.encodePacked(_consensusKey, _proof, _treasury);
+        address to = POP_VERIFIER_CONTRACT;
+        // type bytes in solidity consumes the first 32 bytes to save the length of the byte array, thus the memory copy
+        // in the static call should take the extra 32 bytes to have all the rlp encoded bytes copied, otherwise the
+        // decoding of rlp would fail.
+        uint length = input.length + 32;
+        assembly {
+        //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, input, length, retVal, 32)) {
+                revert(0, 0)
+            }
+        }
+        return retVal[0];
     }
 }

@@ -1,4 +1,6 @@
 const assert = require('assert');
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
 const Oracle = artifacts.require("Oracle")
@@ -11,6 +13,7 @@ const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
 const ethers = require('ethers');
+const truffleAssert = require('truffle-assertions');
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
@@ -119,8 +122,8 @@ async function setCode(addr, code) {
       method: "evm_setAccountCode",
       params: [addr, code]
     }, (err, res) => {
-      if (res?.result) { resolve("\tSuccessfully mocked enode verifier precompile."); }
-      else { reject("\tError while mocking enode verifier precompile."); }
+      if (res?.result) { resolve("\tSuccessfully mocked verifier precompile."); }
+      else { reject("\tError while mocking verifier precompile."); }
     });
   });
 }
@@ -128,6 +131,7 @@ async function setCode(addr, code) {
 // mock verify enode precompiled contract
 async function mockEnodePrecompile() {
       const instance = await mockEnodeVerifier.new();
+      console.log("enode verifier mocker address: ", instance.address)
       const code = await web3.eth.getCode(instance.address);
       const verifyEnodeAddr = "0x00000000000000000000000000000000000000ff";
       await setCode(verifyEnodeAddr, code).then(
@@ -302,14 +306,14 @@ function publicKeyObject(privateKey) {
   return ec.keyFromPrivate(privateKey).getPublic();
 }
 
-function publicKey(privateKey, hex = true) {
-  let publicKey = publicKeyObject(privateKey);
-  return (hex == true) ? publicKey.encode("hex") : new Uint8Array(publicKey.encode());
-}
-
 function publicKeyCompressed(privateKey, hex = true) {
   let publicKey = publicKeyObject(privateKey);
   return (hex == true) ? publicKey.encodeCompressed("hex") : new Uint8Array(publicKey.encodeCompressed());
+}
+
+function publicKey(privateKey, hex = true) {
+  let publicKey = publicKeyObject(privateKey);
+  return (hex == true) ? publicKey.encode("hex") : new Uint8Array(publicKey.encode());
 }
 
 function address(publicKeyUncompressedBytes) {
@@ -323,16 +327,63 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
   return multisig
 }
 
-async function registerValidator(autonity, validatorPrivateKey, treasuryAddr) {
-  let multisig = generateMultiSig(validatorPrivateKey, validatorPrivateKey, treasuryAddr);
-  let oracleAddress = address(publicKey(validatorPrivateKey, false));
-  let enode = privateKeyToEnode(validatorPrivateKey);
-  await autonity.registerValidator(enode, oracleAddress, multisig, {from: treasuryAddr});
-  return oracleAddress;
+async function generateAutonityPOP(autonityKeysFile, oracleKeyHex, treasuryAddress) {
+  const command = `../../../build/bin/autonity genOwnershipProof --autonitykeys ${autonityKeysFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
+  try {
+    const { stdout, stderr } = await exec(command);
+    if (stderr) {
+      throw new Error(stderr);
+    }
+    const outputLines = stdout.split('\n');
+    const signatures = outputLines[0].trim();
+    return { signatures };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function generateAutonityKeys(filePath) {
+  try {
+    const command = `../../../build/bin/autonity genAutonityKeys --writeaddress ${filePath}`;
+    const { stdout, stderr } = await exec(command);
+    if (stderr) {
+      throw new Error(stderr);
+    }
+    const nodeAddress = stdout.match(/Node address: (0x[0-9a-fA-F]+)/)[1];
+    const nodePublicKey = stdout.match(/Node public key: (0x[0-9a-fA-F]+)/)[1];
+    const nodeConsensusKey = stdout.match(/Consensus public key: (0x[0-9a-fA-F]+)/)[1];
+    return { nodeAddress, nodePublicKey, nodeConsensusKey };
+  } catch (error) {
+    throw new Error(`Failed to execute command: ${error.message}`);
+  }
 }
 
 function keccakHash(input) {
   return keccak256(Buffer.from(input)).toString('hex');
+}
+
+async function slash(config, accountability, epochOffenceCount, offender, reporter) {
+  const event = {
+    "chunks": 1,
+    "chunkId": 1,
+    "eventType": 0,
+    "rule": 0, // PN rule --> severity mid
+    "reporter": reporter,
+    "offender": offender,
+    "rawProof": [],
+    "block": 1,
+    "epoch": 0,
+    "reportingBlock": 2,
+    "messageHash": 0,
+  }
+  let tx = await accountability.slash(event, epochOffenceCount);
+  let txEvent;
+  truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
+    txEvent = ev;
+    return ev.amount.toNumber() > 0;
+  });
+  let slashingRate = ruleToRate(config, event.rule) / config.slashingRatePrecision;
+  return {txEvent, slashingRate};
 }
 
 module.exports.deployContracts = deployContracts;
@@ -353,5 +404,12 @@ module.exports.signAndSendTransaction = signAndSendTransaction;
 module.exports.bytesToHex = bytesToHex;
 module.exports.randomPrivateKey = randomPrivateKey;
 module.exports.generateMultiSig = generateMultiSig;
-module.exports.registerValidator = registerValidator;
 module.exports.ValidatorState = ValidatorState;
+module.exports.generateAutonityPOP = generateAutonityPOP;
+module.exports.generateAutonityKeys = generateAutonityKeys;
+module.exports.publicKeyToEnode = publicKeyToEnode;
+module.exports.privateKeyToEnode = privateKeyToEnode;
+module.exports.publicKeyCompressed = publicKeyCompressed;
+module.exports.publicKey = publicKey;
+module.exports.address = address;
+module.exports.slash = slash;

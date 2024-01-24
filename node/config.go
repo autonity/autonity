@@ -19,6 +19,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -47,6 +48,9 @@ const (
 // P2P network layer of a protocol stack. These values can be further extended by
 // all registered services.
 type Config struct {
+	// ConsensusKey, it is used by consensus engine.
+	ConsensusKey blst.SecretKey
+
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of autonity is "autonity". If no
 	// value is specified, the basename of the current executable is used.
@@ -385,27 +389,39 @@ func (c *Config) instanceDir() string {
 	return filepath.Join(c.DataDir, c.name())
 }
 
-// NodeKey retrieves the currently configured private key of the node, checking
-// first any manually set key, falling back to the one found in the configured
-// data folder. If no key can be found, a new one is generated.
-func (c *Config) NodeKey() *ecdsa.PrivateKey {
-	// Use any specifically configured key.
-	if c.P2P.PrivateKey != nil {
-		return c.P2P.PrivateKey
+// AutonityKeys retrieves the currently configured private key of the node and the consensus key of the node, checking
+// first any manually set keys, falling back to the one found in the configured  data folder. If no keys can be found,
+// new ones are generated.
+func (c *Config) AutonityKeys() (*ecdsa.PrivateKey, blst.SecretKey) {
+	// Use any specifically configured key, keys are configured via CLI by flags in key file or in key hex string, at
+	// this point, if any of the keys are not nil, it indicates they were parsed on the flag loading phase, return them.
+	if (c.P2P.PrivateKey != nil && c.ConsensusKey == nil) || (c.P2P.PrivateKey == nil && c.ConsensusKey != nil) {
+		log.Crit("Failed to get the configured Antonity keys, one of the keys is missing, this shouldn't happen!")
 	}
+	if c.P2P.PrivateKey != nil && c.ConsensusKey != nil {
+		return c.P2P.PrivateKey, c.ConsensusKey
+	}
+
 	// Generate ephemeral key if no datadir is being used.
 	if c.DataDir == "" {
 		key, err := crypto.GenerateKey()
 		if err != nil {
 			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
 		}
-		return key
+
+		consensusKey, err := blst.RandKey()
+		if err != nil {
+			log.Crit(fmt.Sprintf("Failed to generate ephemeral consensus key: %v", err))
+		}
+
+		return key, consensusKey
 	}
 
 	keyfile := c.ResolvePath(datadirPrivateKey)
-	if key, err := crypto.LoadECDSA(keyfile); err == nil {
-		return key
+	if key, consensusKey, err := crypto.LoadAutonityKeys(keyfile); err == nil {
+		return key, consensusKey
 	}
+
 	// No persistent key found, generate and store a new one.
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -414,13 +430,19 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 	instanceDir := filepath.Join(c.DataDir, c.name())
 	if err := os.MkdirAll(instanceDir, 0700); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-		return key
+		return key, nil
 	}
+
+	consensusKey, err := blst.RandKey()
+	if err != nil {
+		log.Error(fmt.Sprintf("Failed to derive validator key: %v", err))
+	}
+
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := crypto.SaveECDSA(keyfile, key); err != nil {
+	if err := crypto.SaveAutonityKeys(keyfile, key, consensusKey); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 	}
-	return key
+	return key, consensusKey
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.

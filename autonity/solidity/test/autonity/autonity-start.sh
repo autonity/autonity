@@ -10,7 +10,7 @@ if [ $? -ne 0 ]; then
 
   DATADIR=data
   KEYSTORE=keystore
-  NODEKEY=nodekey1
+  AUTONITYKEYS=autonitykeys1
   WS_PORT=8645
   WS_ADDR=127.0.0.1
   WS_API="tendermint,eth,web3,admin,debug,miner,personal,txpool,net"
@@ -23,7 +23,7 @@ if [ $? -ne 0 ]; then
   $AUTONITY \
     --genesis genesis-tendermint.json \
     --datadir $DATADIR \
-    --nodekey $NODEKEY \
+    --autonitykeys $AUTONITYKEYS \
     --keystore $KEYSTORE \
     --ws \
     --ws.addr $WS_ADDR \

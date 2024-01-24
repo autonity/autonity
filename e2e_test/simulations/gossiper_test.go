@@ -95,7 +95,7 @@ func (cg *customGossiper) AskSync(_ *types.Header) {
 // this test just has the purpose of verifying that the customGossiper works as intended
 func TestCustomGossiper(t *testing.T) {
 	t.Skip("Flacky in CI, remove SKIP only locally.")
-	vals, err := e2e.Validators(t, 10, "10e18,v,100,0.0.0.0:%s,%s")
+	vals, err := e2e.Validators(t, 10, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	for _, val := range vals {

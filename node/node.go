@@ -124,7 +124,7 @@ func New(conf *Config) (*Node, error) {
 	node.accman = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: conf.InsecureUnlockAllowed})
 
 	// Initialize the p2p server. This creates the node key and discovery databases.
-	node.server.Config.PrivateKey = node.config.NodeKey()
+	node.server.Config.PrivateKey, _ = node.config.AutonityKeys()
 	node.server.Config.Name = node.config.NodeName()
 	node.server.Config.Logger = node.log
 	if node.server.Config.StaticNodes == nil {

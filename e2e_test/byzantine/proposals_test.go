@@ -40,7 +40,7 @@ func (c *duplicateProposalSender) SendProposal(_ context.Context, p *types.Block
 
 // TestDuplicateProposal broadcasts two proposals with same round and same height but different validround
 func TestDuplicateProposal(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -99,7 +99,7 @@ func (c *proposalApprover) HandleProposal(ctx context.Context, proposal *message
 
 func TestNonProposerWithFaultyApprover(t *testing.T) {
 	t.Skip("a malicious proposer will be kicked out from network now, this test is no more valid")
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -120,7 +120,7 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 }
 
 func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -169,7 +169,7 @@ func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) 
 }
 
 func TestPartialProposal(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -232,7 +232,7 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 
 func TestInvalidBlockProposal(t *testing.T) {
 	//for i := 0; i < 20; i++ {
-	users, err := e2e.Validators(t, 4, "10e18,v,100,0.0.0.0:%s,%s")
+	users, err := e2e.Validators(t, 4, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender

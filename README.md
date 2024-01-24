@@ -98,6 +98,7 @@ make build-docker-image
 
 This generates the Autonity Go Client Docker image and manifest.
 
+
 ## Run a node
 
 Quick-start connecting to an Autonity testnet by using a testnet flag in the command line to set the genesis config for that network when starting the client. For example, to connect to the Piccadilly Testnet:

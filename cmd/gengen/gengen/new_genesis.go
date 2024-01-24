@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 	"time"
@@ -30,12 +31,20 @@ type Validator struct {
 	NodeIP net.IP
 	// NodePort is the port that this user's node can be reached at.
 	NodePort int
-	// Key is either a public or private key for the validator node.
-	Key interface{}
-	// Key is either a public or private key for the treasury account.
+	// NodeKey is a private key for the validator node.
+	NodeKey *ecdsa.PrivateKey
+	// OracleKey is a private key for the oracle node.
+	OracleKey *ecdsa.PrivateKey
+	// TreasuryKey is a private key for the treasury account.
 	TreasuryKey *ecdsa.PrivateKey
-	// KeyPath is the file path at which the key is stored.
-	KeyPath string
+	// ConsensusKey is the BLS key for validator who participate in consensus.
+	ConsensusKey blst.SecretKey
+	// NodeKeyPath is the file path at which the node key is stored.
+	NodeKeyPath string
+	// OracleKeyPath is the file path at which the oracle key is stored.
+	OracleKeyPath string
+	// TreasuryKeyPath is the file path at which the treasury account key is stored.
+	TreasuryKeyPath string
 	// TendermintServices is an optional familly of consensus hooks used for testing purposes.
 	TendermintServices *interfaces.Services
 }
@@ -180,35 +189,37 @@ func generateValidatorState(validators []*Validator) (
 	genesisValidators = make([]*params.Validator, len(validators))
 	genesisAlloc = make(core.GenesisAlloc, len(validators))
 	for i, u := range validators {
-		var pk *ecdsa.PublicKey
-		switch k := u.Key.(type) {
-		case *ecdsa.PublicKey:
-			pk = k
-		case *ecdsa.PrivateKey:
-			pk = &k.PublicKey
-		default:
-			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
-		}
-		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
-		if u.TreasuryKey == nil {
-			u.TreasuryKey, _ = crypto.GenerateKey()
-		}
-		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		if u.SelfBondedStake > u.Stake {
 			return nil, nil, nil, fmt.Errorf("selfBondedStake (%d) cannot be higher than total stake (%d)", u.SelfBondedStake, u.Stake)
 		}
+
+		if u.NodeKey == nil || u.ConsensusKey == nil || u.OracleKey == nil || u.TreasuryKey == nil {
+			return nil, nil, nil, fmt.Errorf("validator had nil key")
+		}
+
+		e := enode.NewV4(&u.NodeKey.PublicKey, u.NodeIP, u.NodePort, u.NodePort)
+
+		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
+		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("cannot generate Autonity POP in gengen")
+		}
+
 		gu := params.Validator{
 			Enode:           e.String(),
+			OracleAddress:   oracleAddress,
 			Treasury:        treasuryAddress, // rewards goes here
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
+			ConsensusKey:    u.ConsensusKey.PublicKey().Marshal(),
 		}
-		err := gu.Validate()
+		err = gu.Validate()
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("invalid user: %v", err)
 		}
+
 		genesisValidators[i] = &gu
-		userAddress := crypto.PubkeyToAddress(*pk)
+		userAddress := crypto.PubkeyToAddress(u.NodeKey.PublicKey)
 		if i == 0 {
 			operatorAddress = &userAddress
 		}

@@ -3,6 +3,7 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/crypto/blst"
 	"net"
 	"sync"
 
@@ -22,6 +23,8 @@ type networkRate struct {
 
 type testNode struct {
 	netNode
+	consensusKey   blst.SecretKey    // used to generate POP in genesis, and will be used by consensus engine
+	oracleKey      *ecdsa.PrivateKey // used to generate POP in genesis.
 	isRunning      bool
 	node           *node.Node
 	nodeConfig     *node.Config
@@ -39,17 +42,17 @@ type testNode struct {
 }
 
 type netNode struct {
-	listener   []net.Listener
-	privateKey *ecdsa.PrivateKey
-	host       string
-	address    common.Address
-	port       int
-	url        string
-	rpcPort    int
+	listener []net.Listener
+	nodeKey  *ecdsa.PrivateKey // used to generate POP in genesis, and p2p messaging.
+	host     string
+	address  common.Address
+	port     int
+	url      string
+	rpcPort  int
 }
 
 func (n *netNode) EthAddress() common.Address {
-	return crypto.PubkeyToAddress(n.privateKey.PublicKey)
+	return crypto.PubkeyToAddress(n.nodeKey.PublicKey)
 }
 
 type block struct {

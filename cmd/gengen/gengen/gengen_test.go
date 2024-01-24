@@ -1,8 +1,8 @@
 package gengen
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	validValidators = []string{"1e12,v,1,:6789,key1", "1e12,p,1,:6780,key3"}
+	validValidators = []string{"1e12,v,1,:6789,nodeKey1,oracleKey1,treasuryKey1", "1e12,p,1,:6780,nodeKey3,oracleKey3,treasuryKey3"}
 )
 
 // This test runs the command and checks that the output is can be json
@@ -24,28 +24,9 @@ func TestGenesisCommand(t *testing.T) {
 	out, cleanup := tempFile(t)
 	defer cleanup()
 
-	keyfile1, cleanup := tempFile(t)
-	// We delete this file immediately so that a key is genrated for this validator,
-	// but we use the temp path as the destination.
-	cleanup()
-	defer cleanup()
-
-	// We fill the following 2 key files with a public and private key.
-	keyfile2, cleanup := tempFile(t)
-	defer cleanup()
-	k, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	err = ioutil.WriteFile(keyfile2, crypto.PrivECDSAToHex(k), os.ModePerm)
-	require.NoError(t, err)
-
-	keyfile3, cleanup := tempFile(t)
-	defer cleanup()
-	err = ioutil.WriteFile(keyfile3, crypto.PubECDSAToHex(&k.PublicKey), os.ModePerm)
-	require.NoError(t, err)
-
-	validator1 := "1e12,v,1,:6789," + keyfile1
-	validator2 := "1e12,s,1,:6799," + keyfile2
-	validator3 := "1e12,p,1,:6780," + keyfile3
+	validator1 := "1e12,v,1,:6789,/tmp/autonityKeys1,/tmp/oracleKey1,/tmp/treasuryKey1"
+	validator2 := "1e12,s,1,:6799,/tmp/autonityKeys2,/tmp/oracleKey2,/tmp/treasuryKey2"
+	validator3 := "1e12,p,1,:6780,/tmp/autonityKeys3,/tmp/oracleKey3,/tmp/treasuryKey3"
 
 	args := []string{
 		"",
@@ -61,7 +42,7 @@ func TestGenesisCommand(t *testing.T) {
 
 	c := NewCmd()
 	c.SetArgs(args)
-	err = c.Execute()
+	err := c.Execute()
 	require.NoError(t, err)
 
 	// Now try to load the genesis from disk
@@ -77,11 +58,6 @@ func TestGenesisCommand(t *testing.T) {
 func TestEncodeDecodeConsistency(t *testing.T) {
 	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
-	// Set one of the validators to have a publick key, just to cover more code
-	// branches.
-	k, ok := validators[0].Key.(*ecdsa.PrivateKey)
-	require.True(t, ok, "key should be an *ecdsa.PrivateKey")
-	validators[0].Key = &k.PublicKey
 	g, err := NewGenesis(validators)
 	require.NoError(t, err)
 	encoded, err := json.Marshal(g)
@@ -101,22 +77,10 @@ func TestGenesisCreationErrors(t *testing.T) {
 	// Validator with nil key
 	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
-	validators[0].Key = nil
+	validators[0].NodeKey = nil
 
 	_, err = NewGenesis(validators)
 	assert.Error(t, err, "validator had nil key")
-
-	// Validator with key of invalid type
-	validators, err = parseValidators(validValidators)
-	require.NoError(t, err)
-	validators[0].Key = "I am not a key"
-
-	_, err = NewGenesis(validators)
-	assert.Error(t, err, "validator had invalid type of key")
-
-	// Invalid validator type
-	validators, err = parseValidators(validValidators)
-	require.NoError(t, err)
 }
 
 // Checks that errors are thrown appropriately in the case of invalid validators.
@@ -182,20 +146,18 @@ func TestValidatorParsingErrors(t *testing.T) {
 
 // Checks that when there is no file provided the keys are generated for validators.
 func TestKeyRandomGeneration(t *testing.T) {
-	validator := "1e12,v,1,:6789,key"
+	validator := "1e12,v,1,:6789,nodeKey,oracleKey,treasuryKey"
 
 	u, err := ParseValidator(validator)
 	require.NoError(t, err)
 
 	// We expect key to have been generated because the file 'key' does not
 	// exist.
-	key1, ok := u.Key.(*ecdsa.PrivateKey)
-	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
+	key1 := u.NodeKey
 
 	u, err = ParseValidator(validator)
 	require.NoError(t, err)
-	key2, ok := u.Key.(*ecdsa.PrivateKey)
-	require.True(t, ok, "expecting key of type *ecdsa.PrivateKey")
+	key2 := u.NodeKey
 
 	// We expect subsequent runs to generate a different (random) key.
 	assert.NotEqual(t, key1, key2)
@@ -208,34 +170,19 @@ func TestKeysLoadedFromFile(t *testing.T) {
 	keyFile1, cleanup := tempFile(t)
 	defer cleanup()
 
-	keyFile2, cleanup := tempFile(t)
-	defer cleanup()
-
 	// Store keys to files
 	key1, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	key2, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
 	// Store private key in key1File
 	err = ioutil.WriteFile(keyFile1, crypto.PrivECDSAToHex(key1), os.ModePerm)
 	require.NoError(t, err)
 
-	// Store public key in key2File
-	err = ioutil.WriteFile(keyFile2, crypto.PubECDSAToHex(&key2.PublicKey), os.ModePerm)
-	require.NoError(t, err)
-
 	// Check private key loaded from file
-	validator := "1e12,v,1,:6789," + keyFile1
+	validator := fmt.Sprintf("1e12,v,1,:6789,nodeKey,oracleKey,%s", keyFile1)
 	u, err := ParseValidator(validator)
 	assert.NoError(t, err)
-	assert.Equal(t, key1, u.Key)
-
-	// Check public key loaded from file
-	validator = "1e12,v,1,:6789," + keyFile2
-	u, err = ParseValidator(validator)
-	assert.NoError(t, err)
-	assert.Equal(t, &key2.PublicKey, u.Key)
+	assert.Equal(t, key1, u.TreasuryKey)
 }
 
 // Checks that errors are thrown appropriately in the case of invalid validator
@@ -250,7 +197,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err := ioutil.WriteFile(keyFile, []byte("kjcld"), os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = readKey(keyFile)
+	_, _, err = readAutonityKeys(keyFile)
 	assert.Error(t, err, "garbage provided in key file")
 
 	// Write a private key missing the last hex char
@@ -260,7 +207,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err = ioutil.WriteFile(keyFile, data[:len(data)-1], os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = readKey(keyFile)
+	_, _, err = readAutonityKeys(keyFile)
 	assert.Error(t, err, "invalid key provided in key file")
 
 	// Write a public key missing the last hex char
@@ -268,7 +215,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err = ioutil.WriteFile(keyFile, data[:len(data)-1], os.ModePerm)
 	require.NoError(t, err)
 
-	_, err = readKey(keyFile)
+	_, _, err = readAutonityKeys(keyFile)
 	assert.Error(t, err, "invalid key provided in key file")
 }
 

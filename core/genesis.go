@@ -433,8 +433,9 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 	var committee types.Committee
 	for _, v := range validators {
 		member := types.CommitteeMember{
-			Address:     *v.NodeAddress,
-			VotingPower: v.BondedStake,
+			Address:      *v.NodeAddress,
+			VotingPower:  v.BondedStake,
+			ConsensusKey: v.ConsensusKey,
 		}
 		committee = append(committee, member)
 	}
@@ -596,6 +597,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	consensusKey := params.DevModeConsensusKey
 	testAutonityContractConfig := params.AutonityContractGenesis{
 		MaxCommitteeSize: 1,
 		BlockPeriod:      1,
@@ -608,9 +610,11 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		Treasury:         faucet.Address,
 		Validators: []*params.Validator{
 			{
-				Treasury:    faucet.Address,
-				Enode:       validatorEnode.String(),
-				BondedStake: new(big.Int).SetUint64(1000),
+				Treasury:      faucet.Address,
+				OracleAddress: faucet.Address,
+				Enode:         validatorEnode.String(),
+				BondedStake:   new(big.Int).SetUint64(1000),
+				ConsensusKey:  consensusKey.PublicKey().Marshal(),
 			},
 		},
 	}

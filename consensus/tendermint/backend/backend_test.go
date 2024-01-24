@@ -13,19 +13,21 @@ import (
 	"testing"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint"
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto/blst"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
+	lru "github.com/hashicorp/golang-lru"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -529,16 +531,26 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 	}
 
 	for i := range keys {
-		addr := crypto.PubkeyToAddress(keys[i].PublicKey)
+		nodeAddr := crypto.PubkeyToAddress(keys[i].PublicKey)
 		node := enode.NewV4(&keys[i].PublicKey, nil, 0, 0)
-		genesis.Config.AutonityContractConfig.Validators = append(
+		blsKey, err := blst.RandKey()
+		if err != nil {
+			panic(err)
+		}
+		oracleKey, err := crypto.GenerateKey()
+		if err != nil {
+			panic(err)
+		}
 
+		genesis.Config.AutonityContractConfig.Validators = append(
 			genesis.Config.AutonityContractConfig.Validators,
 			&params.Validator{
-				NodeAddress: &addr,
-				Treasury:    addr,
-				Enode:       node.URLv4(),
-				BondedStake: new(big.Int).SetUint64(100),
+				NodeAddress:   &nodeAddr,
+				OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
+				Treasury:      nodeAddr,
+				Enode:         node.URLv4(),
+				BondedStake:   new(big.Int).SetUint64(100),
+				ConsensusKey:  blsKey.PublicKey().Marshal(),
 			})
 	}
 }
