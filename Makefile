@@ -163,7 +163,7 @@ test-contracts-pre:
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
 
-APE_VERSION := 0.6.19
+APE_VERSION := 0.6.26
 test-contracts-asm:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }

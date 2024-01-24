@@ -605,10 +605,6 @@ var (
 		Usage: "NAT port mapping mechanism for consensus channel (any|none|upnp|pmp|extip:<IP>)",
 		Value: "any",
 	}
-	ConsensusNetrestrictFlag = cli.StringFlag{
-		Name:  "consensus.netrestrict",
-		Usage: "Restricts network communication to the given IP networks (CIDR masks) for consensus server",
-	}
 	// Network Settings
 	MaxPeersFlag = cli.IntFlag{
 		Name:  "maxpeers",

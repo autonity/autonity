@@ -22,10 +22,11 @@ import (
 	"io"
 	"sort"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/internal/debug"
 	"github.com/autonity/autonity/internal/flags"
-	"gopkg.in/urfave/cli.v1"
 )
 
 // AppHelpFlagGroups is the application flags, grouped by functionality.
@@ -141,7 +142,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.OracleKeyHexFlag,
 			utils.ConsensusListenPortFlag,
 			utils.ConsensusNATFlag,
-			utils.ConsensusNetrestrictFlag,
 		},
 	},
 	{
