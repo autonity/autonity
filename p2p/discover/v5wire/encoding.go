@@ -94,7 +94,7 @@ const (
 	randomPacketMsgSize = 20
 )
 
-var protocolID = [6]byte{'d', 'i', 's', 'c', 'v', '5'}
+var protocolID = [6]byte{'a', 'u', 't', 'd', 'v', '5'}
 
 // Errors.
 var (
