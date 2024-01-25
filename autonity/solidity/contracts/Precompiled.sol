@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
     uint256 constant public SUCCESS = 1;
+    address constant public COMPUTE_COMMITTEE_CONTRACT = address(0xfa);
     address constant public POP_VERIFIER_CONTRACT = address(0xfb);
     address constant public ACCUSATION_CONTRACT = address(0xfc);
     address constant public INNOCENCE_CONTRACT = address(0xfd);
@@ -30,17 +31,15 @@ library Precompiled {
      * Committee selection and storing the committee and writing it in persistent storage are done in precompiled contract
      */
     function computeCommitteePrecompiled(uint256[5] memory input) internal {
-        uint256[1] memory _returnData;
         address to = COMPUTE_COMMITTEE_CONTRACT;
         uint256 _length = 32*5;
-        uint _returnDataLength = 32;
         assembly {
             //delegatecall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            if iszero(delegatecall(gas(), to, input, _length, _returnData, _returnDataLength)) {
-                revert(0, 0)
+            if iszero(delegatecall(gas(), to, input, _length, 0, 0)) {
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
             }
         }
-        require(_returnData[0] == 1, "unsuccessful call");
     }
 
     // call precompiled contracts with its corresponding contract address and the rlp encoded accountability event.

@@ -82,6 +82,8 @@ contract AutonityTest is Autonity {
         require(validator.nodeAddress == memberAddress, "validator does not exist");
         require(validator.bondedStake == stake, "stake mismatch");
         require(validator.oracleAddress == voters[i], "oracle address mismatch");
+        require(keccak256(abi.encodePacked(validator.enode)) == keccak256(abi.encodePacked(committeeNodes[i])), "enode mismatch");
+        require(keccak256(abi.encodePacked(validator.consensusKey)) == keccak256(abi.encodePacked(committee[i].consensusKey)), "consensus key mismatch");
       }
       require(totalStake == epochTotalBondedStake, "total stake mismatch");
 
