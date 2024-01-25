@@ -32,10 +32,10 @@ type Validator struct {
 	NodeIP net.IP
 	// NodePort is the port that this user's node can be reached at.
 	NodePort int
-	// atcIP is the ip that this user's consensus channel is running at
-	AtcIP net.IP
-	// AtcPort is the port that this user's consensus channel is listening at
-	AtcPort int
+	// AcnIP is the ip that this user's consensus channel is running at
+	AcnIP net.IP
+	// AcnPort is the port that this user's consensus channel is listening at
+	AcnPort int
 	// Key is either a public or private key for the validator node.
 	Key interface{}
 	// Key is either a public or private key for the treasury account.
@@ -196,7 +196,7 @@ func generateValidatorState(validators []*Validator) (
 			return nil, nil, nil, fmt.Errorf("expecting ecdsa public or private key, instead got %T", u.Key)
 		}
 		e := enode.NewV4(pk, u.NodeIP, u.NodePort, u.NodePort)
-		ens := enode.AppendConsensusEndpoint(u.AtcIP.String(), strconv.Itoa(u.AtcPort), e.String())
+		ens := enode.AppendConsensusEndpoint(u.AcnIP.String(), strconv.Itoa(u.AcnPort), e.String())
 		if u.TreasuryKey == nil {
 			u.TreasuryKey, _ = crypto.GenerateKey()
 		}

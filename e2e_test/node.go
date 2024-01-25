@@ -123,7 +123,7 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
 	c.ConsensusP2P.PrivateKey = u.Key.(*ecdsa.PrivateKey)
-	c.ConsensusP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.AtcPort)
+	c.ConsensusP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.AcnPort)
 
 	// Set rpc ports
 	c.HTTPPort = freeport.GetOne(t)
@@ -646,8 +646,8 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 			return nil, err
 		}
 		//add port ip for consensus channel
-		u.AtcIP = u.NodeIP
-		u.AtcPort = freeport.GetOne(t)
+		u.AcnIP = u.NodeIP
+		u.AcnPort = freeport.GetOne(t)
 		u.TreasuryKey, _ = crypto.GenerateKey()
 		validators = append(validators, u)
 	}
