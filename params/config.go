@@ -422,7 +422,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}, false}
 
 	ValidatorNodeKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	ValidatorAddress    = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
@@ -497,6 +497,7 @@ var (
 			StabilizationContractConfig: DefaultStabilizationGenesis,
 			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
+		false,
 	}
 
 	TestRules = TestChainConfig.Rules(new(big.Int), false)
@@ -597,6 +598,9 @@ type ChainConfig struct {
 	OracleContractConfig   *OracleContractGenesis   `json:"oracle,omitempty"`
 
 	ASM AsmConfig `json:"asm,omitempty"`
+
+	// true if run in testmode, false by default
+	TestMode bool `json:"testMode,omitempty"`
 }
 
 type AsmConfig struct {
