@@ -36,10 +36,10 @@ type Validator struct {
 	NodeKey *ecdsa.PrivateKey
 	// OracleKey is a private key for the oracle node.
 	OracleKey *ecdsa.PrivateKey
-	// atcIP is the ip that this user's consensus channel is running at
-	AtcIP net.IP
-	// AtcPort is the port that this user's consensus channel is listening at
-	AtcPort int
+	// AcnIP is the ip that this user's consensus channel is running at
+	AcnIP net.IP
+	// AcnPort is the port that this user's consensus channel is listening at
+	AcnPort int
 	// Key is either a public or private key for the treasury account.
 	TreasuryKey *ecdsa.PrivateKey
 	// ConsensusKey is the BLS key for validator who participate in consensus.
