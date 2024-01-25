@@ -24,7 +24,6 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 			acn.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
-
 		acn.server.UpdateConsensusEnodes(enodesList.List)
 	}
 

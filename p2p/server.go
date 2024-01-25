@@ -422,7 +422,7 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 		if !found {
 			log.Debug("Dropping node from static peers", "enode", connectedPeer.String(), "server", srv.Net.String())
 			srv.RemoveTrustedPeer(connectedPeer)
-			srv.dialsched.removeStatic(connectedPeer)
+			srv.RemovePeer(connectedPeer)
 		}
 	}
 
