@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"crypto/ecdsa"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,7 +87,7 @@ func TestAccusationVerifier(t *testing.T) {
 	// Todo(youssef): add integration tests for the precompile Run function
 	height := uint64(100)
 	proposal := newProposalMessage(height, 3, 0, signer, committee, nil)
-	stateDB, err := testStateDB()
+	evm, err := testEVM()
 	require.NoError(t, err)
 	// vm.ActivateableEips()
 
@@ -97,7 +98,7 @@ func TestAccusationVerifier(t *testing.T) {
 
 	t.Run("Test accusation verifier run with nil bytes", func(t *testing.T) {
 		av := AccusationVerifier{}
-		ret, err := av.Run(nil, height, stateDB, common.Address{})
+		ret, err := av.Run(nil, height, evm, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -105,7 +106,7 @@ func TestAccusationVerifier(t *testing.T) {
 	t.Run("Test accusation verifier run with invalid rlp bytes", func(t *testing.T) {
 		wrongBytes := failureReturn
 		av := AccusationVerifier{}
-		ret, err := av.Run(wrongBytes, height, stateDB, common.Address{})
+		ret, err := av.Run(wrongBytes, height, evm, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -206,7 +207,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	chainMock := NewMockChainContext(ctrl)
 	chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
-	stateDB, err := testStateDB()
+	evm, err := testEVM()
 	require.NoError(t, err)
 
 	t.Run("Test misbehaviour verifier required gas", func(t *testing.T) {
@@ -216,7 +217,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	t.Run("Test misbehaviour verifier run with nil bytes", func(t *testing.T) {
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret, err := mv.Run(nil, height, stateDB, common.Address{})
+		ret, err := mv.Run(nil, height, evm, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -224,7 +225,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	t.Run("Test misbehaviour verifier run with invalid rlp bytes", func(t *testing.T) {
 		wrongBytes := failureReturn
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret, err := mv.Run(wrongBytes, height, stateDB, common.Address{})
+		ret, err := mv.Run(wrongBytes, height, evm, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -739,7 +740,7 @@ func TestInnocenceVerifier(t *testing.T) {
 	lastHeader := newBlockHeader(lastHeight, committee)
 	chainMock := NewMockChainContext(ctrl)
 	chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
-	stateDB, err := testStateDB()
+	evm, err := testEVM()
 	require.NoError(t, err)
 
 	t.Run("Test innocence verifier required gas", func(t *testing.T) {
@@ -749,7 +750,7 @@ func TestInnocenceVerifier(t *testing.T) {
 
 	t.Run("Test innocence verifier run with nil bytes", func(t *testing.T) {
 		iv := InnocenceVerifier{chain: nil}
-		ret, err := iv.Run(nil, height, stateDB, common.Address{})
+		ret, err := iv.Run(nil, height, evm, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -763,7 +764,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
-		ret, err := iv.Run(append(make([]byte, 32), raw...), height, stateDB, common.Address{})
+		ret, err := iv.Run(append(make([]byte, 32), raw...), height, evm, common.Address{})
 		require.NoError(t, err)
 		assert.Equal(t, failureReturn, ret)
 	})
@@ -781,7 +782,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
-		ret, err := iv.Run(append(make([]byte, 32), raw...), height, stateDB, common.Address{})
+		ret, err := iv.Run(append(make([]byte, 32), raw...), height, evm, common.Address{})
 		require.NoError(t, err)
 		assert.Equal(t, failureReturn, ret)
 	})
@@ -1125,8 +1126,24 @@ func stubVerifier(address common.Address) *types.CommitteeMember {
 	}
 }
 
-func testStateDB() (vm.StateDB, error) {
+func testEVM() (*vm.EVM, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
-	return state.New(common.Hash{}, db, nil)
+	stateDB, err := state.New(common.Hash{}, db, nil)
+	if err != nil {
+		return nil, err
+	}
+	vmBlockContext := vm.BlockContext{
+		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
+		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
+		BlockNumber: common.Big0,
+	}
+
+	txContext := vm.TxContext{
+		Origin:   common.Address{},
+		GasPrice: common.Big0,
+	}
+
+	evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
+	return evm, nil
 }

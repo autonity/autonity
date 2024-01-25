@@ -9,6 +9,10 @@ const config = require('./config.js')
 
 contract('Autonity', function (accounts) {
 
+    before(async function () {
+        await utils.mockCommitteeSelectorPrecompile();
+    });
+
     for (let i = 0; i < accounts.length; i++) {
         console.log("account: ", i, accounts[i]);
     }

@@ -147,8 +147,7 @@ function checkUnbondingShare(unbondingRequest, delegatee, delegator, tokenUnbond
 
 contract('Autonity', function (accounts) {
     before(async function () {
-      console.log("\tAttempting to mock verifier precompile. Will (rightfully) fail if running against Autonity network")
-      await utils.mockEnodePrecompile()
+      await utils.mockPrecompile()
     });
 
   for (let i = 0; i < accounts.length; i++) {
@@ -1308,41 +1307,20 @@ contract('Autonity', function (accounts) {
 
   describe('Test functions', function () {
     let config = JSON.parse(JSON.stringify(autonityConfig));
-    beforeEach(async function () {
-      config.protocol.committeeSize = 10;
+
+    it('test computeCommittee (committeeSize > validator count)', async function () {
+      config.protocol.committeeSize = validators.length + 2;
       autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
       assert.equal((await autonity.getMaxCommitteeSize()).toNumber(), config.protocol.committeeSize, "committee size mismatch");
+      await autonity.testComputeCommittee({from: deployer});
     });
 
-    it('test computeCommittee', async function () {
-      let validatorCount = config.protocol.committeeSize - 1;
-      assert.equal(validatorCount >= validators.length, true, "cannot test for (validators.length < committeeSize)");
-      let remaining = validatorCount - validators.length;
-      const treasury = accounts[8];
-      const bond = 100;
-      await autonity.mint(treasury, bond*remaining, {from: operator});
-      while (remaining > 0) {
-        const privateKey = utils.randomPrivateKey();
-        const validatorNodeAddress = await utils.registerValidator(autonity, privateKey, treasury);
-        await autonity.bond(validatorNodeAddress, bond, {from: treasury});
-        remaining--;
-      }
-      // validators.length < committeeSize, so may not be sorted
+    it('test computeCommittee (committeeSize < validator count)', async function () {
+      config.protocol.committeeSize = validators.length - 2;
+      assert.equal(config.protocol.committeeSize > 0, true, "committeeSize negative");
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      assert.equal((await autonity.getMaxCommitteeSize()).toNumber(), config.protocol.committeeSize, "committee size mismatch");
       await autonity.testComputeCommittee({from: deployer});
-
-      let extraValidators = 10;
-      remaining = extraValidators + config.protocol.committeeSize - validatorCount;
-      await autonity.mint(treasury, bond*remaining, {from: operator});
-      while (remaining > 0) {
-        const privateKey = utils.randomPrivateKey();
-        const validatorNodeAddress = await utils.registerValidator(autonity, privateKey, treasury);
-        await autonity.bond(validatorNodeAddress, bond, {from: treasury});
-        remaining--;
-      }
-      // must be sorted
-      await autonity.testComputeCommittee({from: deployer});
-      let committeeNodes = await autonity.getCommittee();
-      assert.equal(committeeNodes.length, config.protocol.committeeSize);
     });
   });
 });

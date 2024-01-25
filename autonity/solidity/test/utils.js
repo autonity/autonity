@@ -123,8 +123,8 @@ async function setCode(addr, code, contractName) {
       method: "evm_setAccountCode",
       params: [addr, code]
     }, (err, res) => {
-      if (res?.result) { resolve("\tSuccessfully mocked verifier precompile."); }
-      else { reject("\tError while mocking verifier precompile."); }
+      if (res?.result) { resolve(`\tSuccessfully mocked ${contractName} precompile.`); }
+      else { reject(`\tError while mocking ${contractName} precompile.`); }
     });
   });
 }
@@ -154,8 +154,9 @@ async function mockEnodePrecompile() {
 async function mockCommitteeSelectorPrecompile() {
   console.log("\tAttempting to mock committee selector precompile. Will (rightfully) fail if running against Autonity network")
   const instance = await mockCommitteeSelector.new();
+  console.log("committee selector mocker address: ", instance.address)
   const code = await web3.eth.getCode(instance.address);
-  const contractAddress = "0x00000000000000000000000000000000000000fb";
+  const contractAddress = "0x00000000000000000000000000000000000000fa";
   await setCode(contractAddress, code, "committee selector").then(
     (result) => {
         console.log(result); 
@@ -413,6 +414,7 @@ module.exports.deployAutonityTestContract = deployAutonityTestContract;
 module.exports.mineEmptyBlock = mineEmptyBlock;
 module.exports.setCode = setCode;
 module.exports.mockPrecompile = mockPrecompile;
+module.exports.mockCommitteeSelectorPrecompile = mockCommitteeSelectorPrecompile;
 module.exports.timeout = timeout;
 module.exports.waitForNewBlock = waitForNewBlock;
 module.exports.endEpoch = endEpoch;

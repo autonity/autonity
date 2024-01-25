@@ -21,6 +21,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 )
@@ -28,7 +29,7 @@ import (
 func BenchmarkComputeCommittee(b *testing.B) {
 
 	validatorCount := 100000
-	validators, _, err := randomValidators(validatorCount, 30)
+	validators, _, _, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
 	contractAbi := &generated.AutonityAbi
 	deployer := DeployerAddress
@@ -241,9 +242,9 @@ func callContractFunction(
 	return res, err
 }
 
-func randomValidators(count int, randomPercentage int) ([]params.Validator, []*ecdsa.PrivateKey, error) {
+func randomValidators(count int, randomPercentage int) ([]params.Validator, []*ecdsa.PrivateKey, []*blst.SecretKey, error) {
 	if count == 0 {
-		return []params.Validator{}, []*ecdsa.PrivateKey{}, nil
+		return []params.Validator{}, []*ecdsa.PrivateKey{}, []*blst.SecretKey{}, nil
 	}
 
 	bondedStake := make([]int64, count)
@@ -255,14 +256,16 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 			return bondedStake[i] > bondedStake[j]
 		})
 		if count > 1 && bondedStake[0] < bondedStake[1] {
-			return []params.Validator{}, []*ecdsa.PrivateKey{}, errors.New("Not sorted")
+			return []params.Validator{}, []*ecdsa.PrivateKey{}, []*blst.SecretKey{}, errors.New("Not sorted")
 		}
 	}
 
 	validatorList := make([]params.Validator, count)
-	privateKeyList := make([]*ecdsa.PrivateKey, count)
+	ecdsaSecretKeyList := make([]*ecdsa.PrivateKey, count)
+	blsSecretKeyList := make([]*blst.SecretKey, count)
 	for i := 0; i < count; i++ {
 		var privateKey *ecdsa.PrivateKey
+		var secretKey blst.SecretKey
 		var err error
 		for {
 			privateKey, err = crypto.GenerateKey()
@@ -270,7 +273,15 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 				break
 			}
 		}
-		privateKeyList[i] = privateKey
+		for {
+			secretKey, err = blst.RandKey()
+			if err == nil {
+				break
+			}
+		}
+		ecdsaSecretKeyList[i] = privateKey
+		blsSecretKeyList[i] = &secretKey
+		consensusKey := secretKey.PublicKey()
 		publicKey := privateKey.PublicKey
 		enode := "enode://" + string(crypto.PubECDSAToHex(&publicKey)[2:]) + "@3.209.45.79:30303"
 		address := crypto.PubkeyToAddress(publicKey)
@@ -279,15 +290,16 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 			Enode:         enode,
 			BondedStake:   big.NewInt(bondedStake[i]),
 			OracleAddress: address,
+			ConsensusKey:  consensusKey.Marshal(),
 		}
 		err = validatorList[i].Validate()
 		if err != nil {
-			return []params.Validator{}, []*ecdsa.PrivateKey{}, err
+			return []params.Validator{}, []*ecdsa.PrivateKey{}, []*blst.SecretKey{}, err
 		}
 	}
 
 	if randomPercentage == 0 || randomPercentage == 100 {
-		return validatorList, privateKeyList, nil
+		return validatorList, ecdsaSecretKeyList, blsSecretKeyList, nil
 	}
 
 	randomValidatorCount := count * randomPercentage / 100
@@ -307,7 +319,7 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 		validatorList[idx].BondedStake = new(big.Int).Add(stake, big.NewInt(int64(rand.Uint64()>>1)))
 		randomIndex[idx] = true
 	}
-	return validatorList, privateKeyList, nil
+	return validatorList, ecdsaSecretKeyList, blsSecretKeyList, nil
 }
 
 func autonityTestConfig() AutonityConfig {
@@ -386,12 +398,15 @@ func benchmarkWithGas(
 	b.Log(1.0 * gasUsed / uint64(b.N))
 }
 
-func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, totalStake *big.Int) error {
+func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, enodes []string, totalStake *big.Int) error {
 	if len(voters) > len(validators) {
 		return fmt.Errorf("More voters than validators")
 	}
 	if len(voters) != len(committeeMembers) {
 		return fmt.Errorf("Committee size not equal to voter size")
+	}
+	if len(enodes) != len(committeeMembers) {
+		return fmt.Errorf("not enough enodes")
 	}
 	positions := make(map[common.Address]int)
 	for i, validator := range validators {
@@ -420,7 +435,16 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		totalStakeCalculated = totalStakeCalculated.Add(totalStakeCalculated, lastStake)
 
 		if !bytes.Equal(committeeMembers[i].Address.Bytes(), validators[idx].NodeAddress.Bytes()) {
-			return fmt.Errorf("Committee member mismatch")
+			return fmt.Errorf("Committee member address mismatch")
+		}
+		if committeeMembers[i].VotingPower.Cmp(validators[idx].BondedStake) != 0 {
+			return fmt.Errorf("Committee member stake mismatch")
+		}
+		if !bytes.Equal(committeeMembers[i].ConsensusKey, validators[idx].ConsensusKey) {
+			return fmt.Errorf("Committee member consensus key mismatch")
+		}
+		if enodes[i] != validators[idx].Enode {
+			return fmt.Errorf("Committee member enode mismatch")
 		}
 		delete(positions, voter)
 	}
@@ -445,7 +469,7 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	contractAbi := &generated.AutonityTestAbi
 	deployer := DeployerAddress
-	validators, _, err := randomValidators(validatorCount, 30)
+	validators, _, _, err := randomValidators(validatorCount, 30)
 	require.NoError(t, err)
 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
 	require.NoError(t, err)
@@ -454,19 +478,24 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	require.NoError(t, err)
 	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
 	require.NoError(t, err)
-	voters := make([]common.Address, validatorCount)
+	voters := make([]common.Address, committeeSize)
 	err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
 	require.NoError(t, err)
 	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
 	require.NoError(t, err)
-	members := make([]types.CommitteeMember, validatorCount)
+	members := make([]types.CommitteeMember, committeeSize)
 	err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
+	require.NoError(t, err)
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommitteeEnodes")
+	require.NoError(t, err)
+	enodes := make([]string, committeeSize)
+	err = contractAbi.UnpackIntoInterface(&enodes, "getCommitteeEnodes", res)
 	require.NoError(t, err)
 	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
 	require.NoError(t, err)
 	totalStake := big.NewInt(0)
 	err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
 	require.NoError(t, err)
-	err = isVotersSorted(voters, members, validators, totalStake)
+	err = isVotersSorted(voters, members, validators, enodes, totalStake)
 	require.NoError(t, err)
 }
