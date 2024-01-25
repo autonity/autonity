@@ -14,12 +14,12 @@ type Nodes struct {
 	StrList []string
 }
 
-func NewNodes(strList []string, asATC bool) *Nodes {
+func NewNodes(strList []string, asACN bool) *Nodes {
 	idx := new(int32)
 	wg := sync.WaitGroup{}
 	errCh := make(chan error, len(strList))
 	var parser func(string) (*enode.Node, error)
-	if asATC {
+	if asACN {
 		parser = enode.ParseACNV4
 	} else {
 		parser = enode.ParseV4
