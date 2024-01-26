@@ -20,13 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/common/mclock"
 	"math/rand"
 	"net"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/common/mclock"
 
 	"github.com/autonity/autonity/internal/testlog"
 	"github.com/autonity/autonity/log"
