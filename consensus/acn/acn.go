@@ -21,7 +21,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/autonity/autonity/consensus/network/acn/protocol"
+	"github.com/autonity/autonity/consensus/acn/protocol"
 	"github.com/autonity/autonity/eth"
 
 	autonity "github.com/autonity/autonity"
