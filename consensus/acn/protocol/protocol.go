@@ -13,8 +13,7 @@ const (
 	ACNv1 = 1
 )
 
-// TODO: better name for protocol
-// ProtocolName is the official short name of the `snap` protocol used during
+// ProtocolName is the official short name of the autonity consensus network protocol used during
 // devp2p capability negotiation.
 const ProtocolName = "acn"
 
@@ -29,7 +28,6 @@ var protocolLengths = map[uint]uint64{ACNv1: 22}
 // MaxMessageSize is the maximum cap on the size of a consensus protocol message.
 const MaxMessageSize = 10 * 1024 * 1024
 
-// TODO: fix below constants numbering
 const (
 	StatusMsg = 0x00
 )
