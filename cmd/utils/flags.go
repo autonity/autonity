@@ -34,7 +34,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/consensus/network/acn"
+	"github.com/autonity/autonity/consensus/acn"
 
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/tracers"

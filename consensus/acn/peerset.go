@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	autonity "github.com/autonity/autonity"
-	"github.com/autonity/autonity/consensus/network/acn/protocol"
+	"github.com/autonity/autonity/consensus/acn/protocol"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"

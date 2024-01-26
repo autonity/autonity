@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/network/acn"
+	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 
 	"github.com/hashicorp/consul/sdk/freeport"
