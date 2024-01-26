@@ -311,6 +311,16 @@ func (api *publicAdminAPI) Peers() ([]*p2p.PeerInfo, error) {
 	return server.PeersInfo(), nil
 }
 
+// AcnPeers retrieves all the information we know about each individual peer at the
+// consensus protocol.
+func (api *publicAdminAPI) AcnPeers() ([]*p2p.PeerInfo, error) {
+	server := api.node.ConsensusServer()
+	if server == nil {
+		return nil, ErrNodeStopped
+	}
+	return server.PeersInfo(), nil
+}
+
 // NodeInfo retrieves all the information we know about the host node at the
 // protocol granularity.
 func (api *publicAdminAPI) NodeInfo() (*p2p.NodeInfo, error) {

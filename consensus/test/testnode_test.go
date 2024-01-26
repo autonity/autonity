@@ -9,7 +9,7 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/network/acn"
+	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
