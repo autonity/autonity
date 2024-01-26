@@ -716,6 +716,7 @@ func (srv *Server) setupDialScheduler() {
 		dialer:         srv.Dialer,
 		clock:          srv.clock,
 		trusted:        &srv.trusted,
+		net:            srv.Net,
 	}
 	if srv.ntab != nil {
 		config.resolver = srv.ntab
@@ -984,7 +985,7 @@ func (srv *Server) listenLoop() {
 			if tcp, ok := fd.RemoteAddr().(*net.TCPAddr); ok {
 				addr = tcp
 			}
-			fd = newMeteredConn(fd, true, addr)
+			fd = newMeteredConn(fd, true, addr, srv.Net)
 			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr(), "server", srv.Net.String())
 		}
 		go func() {
