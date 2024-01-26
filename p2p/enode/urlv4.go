@@ -332,6 +332,12 @@ func PubkeyToIDV4(key *ecdsa.PublicKey) ID {
 }
 
 func AppendConsensusEndpoint(host, port string, ens string) string {
-	ens += "?acnep=" + host + ":" + port
-	return ens
+	u, err := url.Parse(ens)
+	if err != nil {
+		return ens
+	}
+	q := u.Query()
+	q.Add("acnep", host+":"+port)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
