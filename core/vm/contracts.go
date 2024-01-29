@@ -218,7 +218,9 @@ const (
 
 var errUnauthorized = errors.New("caller address not authorize")
 
-type CommitteeSelector struct {
+type CommitteeSelector struct{}
+
+type CommitteeInput struct {
 	validatorListSlot         []byte
 	validatorsSlot            []byte
 	committeeSlot             []byte
@@ -240,22 +242,23 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	if len(input) < 5*DataLen {
 		return nil, fmt.Errorf("not enough input")
 	}
+	inputs := &CommitteeInput{}
 	offset := 0
-	a.validatorListSlot = input[offset : offset+DataLen]
+	inputs.validatorListSlot = input[offset : offset+DataLen]
 	offset += DataLen
-	a.validatorsSlot = input[offset : offset+DataLen]
+	inputs.validatorsSlot = input[offset : offset+DataLen]
 	offset += DataLen
-	a.committeeSlot = input[offset : offset+DataLen]
+	inputs.committeeSlot = input[offset : offset+DataLen]
 	offset += DataLen
-	a.epochTotalBondedStakeSlot = input[offset : offset+DataLen]
+	inputs.epochTotalBondedStakeSlot = input[offset : offset+DataLen]
 	offset += DataLen
-	a.configCommitteeLen = int(big.NewInt(0).SetBytes(input[offset : offset+DataLen]).Int64())
+	inputs.configCommitteeLen = int(big.NewInt(0).SetBytes(input[offset : offset+DataLen]).Int64())
 
 	stateDB := evm.StateDB
 	// detailed specifications on how to read state variable from slot: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
 	// validatorListSlot has the size of the array validatorList
-	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(a.validatorListSlot)).Big().Uint64())
-	addressOffset := crypto.Keccak256Hash(a.validatorListSlot).Big()
+	validatorListSize := int(stateDB.GetState(caller, common.BytesToHash(inputs.validatorListSlot)).Big().Uint64())
+	addressOffset := crypto.Keccak256Hash(inputs.validatorListSlot).Big()
 	stakeThreshold := big.NewInt(StakeThreshold)
 	activeState := big.NewInt(ActiveState)
 
@@ -264,7 +267,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	// NOTE: (if read concurrently) the order of the validators in the array after reading is done should not be depenedent on concurrent thread completion (ideally)
 	validators := make([]*types.CommitteeMember, 0, validatorListSize)
 	mapKey := make([]byte, DataLen*2)
-	copy(mapKey[DataLen:], a.validatorsSlot)
+	copy(mapKey[DataLen:], inputs.validatorsSlot)
 	increment := big.NewInt(1)
 	for i := 0; i < validatorListSize; i++ {
 		user := a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB)
@@ -280,10 +283,10 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	}
 
 	var committeeSize int
-	if a.configCommitteeLen > len(validators) {
+	if inputs.configCommitteeLen > len(validators) {
 		committeeSize = len(validators)
 	} else {
-		committeeSize = a.configCommitteeLen
+		committeeSize = inputs.configCommitteeLen
 	}
 	// sort validators according to their voting power in descending order
 	// stable sort keeps the original order of equal elements
@@ -291,26 +294,26 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 		return b.VotingPower.Cmp(a.VotingPower)
 	})
 
-	a.updateCommittee(validators, committeeSize, caller, stateDB)
+	a.updateCommittee(inputs, validators, committeeSize, caller, stateDB)
 	return nil, nil
 }
 
 func (a *CommitteeSelector) updateCommittee(
-	validators []*types.CommitteeMember, committeeSize int, caller common.Address, stateDB StateDB,
+	inputs *CommitteeInput, validators []*types.CommitteeMember, committeeSize int, caller common.Address, stateDB StateDB,
 ) {
 	// write committee to persistent storage
-	oldCommitteeSize := int(stateDB.GetState(caller, common.BytesToHash(a.committeeSlot)).Big().Uint64())
+	oldCommitteeSize := int(stateDB.GetState(caller, common.BytesToHash(inputs.committeeSlot)).Big().Uint64())
 	// 4 for uint32
 	committeeLenBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(committeeLenBytes, uint32(committeeSize))
 	// save committeeSize in committeeSlot
-	stateDB.SetState(caller, common.BytesToHash(a.committeeSlot), common.BytesToHash(committeeLenBytes))
+	stateDB.SetState(caller, common.BytesToHash(inputs.committeeSlot), common.BytesToHash(committeeLenBytes))
 	// put new committee members : type CommitteeMember
-	committeeOffset := crypto.Keccak256Hash(a.committeeSlot).Big()
+	committeeOffset := crypto.Keccak256Hash(inputs.committeeSlot).Big()
 	totalStake := big.NewInt(0)
 	increment := big.NewInt(1)
 	mapKey := make([]byte, DataLen*2)
-	copy(mapKey[DataLen:], a.validatorsSlot)
+	copy(mapKey[DataLen:], inputs.validatorsSlot)
 	for i := 0; i < committeeSize; i++ {
 		// the order has to be in sync with Committee struct in Autonity.sol
 		// save address
@@ -351,7 +354,7 @@ func (a *CommitteeSelector) updateCommittee(
 		totalStake = totalStake.Add(totalStake, validators[i].VotingPower)
 	}
 	// write epochTotalBondedStake
-	stateDB.SetState(caller, common.BytesToHash(a.epochTotalBondedStakeSlot), common.BytesToHash(totalStake.Bytes()))
+	stateDB.SetState(caller, common.BytesToHash(inputs.epochTotalBondedStakeSlot), common.BytesToHash(totalStake.Bytes()))
 
 	// delete old committee members, if any
 	for i := committeeSize; i < oldCommitteeSize; i++ {

@@ -29,7 +29,7 @@ import (
 func BenchmarkComputeCommittee(b *testing.B) {
 
 	validatorCount := 100000
-	validators, _, _, err := randomValidators(validatorCount, 30)
+	validators, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
 	contractAbi := &generated.AutonityAbi
 	deployer := DeployerAddress
@@ -242,9 +242,9 @@ func callContractFunction(
 	return res, err
 }
 
-func randomValidators(count int, randomPercentage int) ([]params.Validator, []*ecdsa.PrivateKey, []*blst.SecretKey, error) {
+func randomValidators(count int, randomPercentage int) ([]params.Validator, error) {
 	if count == 0 {
-		return []params.Validator{}, []*ecdsa.PrivateKey{}, []*blst.SecretKey{}, nil
+		return []params.Validator{}, nil
 	}
 
 	bondedStake := make([]int64, count)
@@ -256,13 +256,13 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 			return bondedStake[i] > bondedStake[j]
 		})
 		if count > 1 && bondedStake[0] < bondedStake[1] {
-			return []params.Validator{}, []*ecdsa.PrivateKey{}, []*blst.SecretKey{}, errors.New("Not sorted")
+			return []params.Validator{}, errors.New("Not sorted")
 		}
 	}
 
 	validatorList := make([]params.Validator, count)
-	ecdsaSecretKeyList := make([]*ecdsa.PrivateKey, count)
-	blsSecretKeyList := make([]*blst.SecretKey, count)
+	// ecdsaSecretKeyList := make([]*ecdsa.PrivateKey, count)
+	// blsSecretKeyList := make([]*blst.SecretKey, count)
 	for i := 0; i < count; i++ {
 		var privateKey *ecdsa.PrivateKey
 		var secretKey blst.SecretKey
@@ -279,8 +279,8 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 				break
 			}
 		}
-		ecdsaSecretKeyList[i] = privateKey
-		blsSecretKeyList[i] = &secretKey
+		// ecdsaSecretKeyList[i] = privateKey
+		// blsSecretKeyList[i] = &secretKey
 		consensusKey := secretKey.PublicKey()
 		publicKey := privateKey.PublicKey
 		enode := "enode://" + string(crypto.PubECDSAToHex(&publicKey)[2:]) + "@3.209.45.79:30303"
@@ -294,12 +294,12 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 		}
 		err = validatorList[i].Validate()
 		if err != nil {
-			return []params.Validator{}, []*ecdsa.PrivateKey{}, []*blst.SecretKey{}, err
+			return []params.Validator{}, err
 		}
 	}
 
 	if randomPercentage == 0 || randomPercentage == 100 {
-		return validatorList, ecdsaSecretKeyList, blsSecretKeyList, nil
+		return validatorList, nil
 	}
 
 	randomValidatorCount := count * randomPercentage / 100
@@ -319,7 +319,7 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 		validatorList[idx].BondedStake = new(big.Int).Add(stake, big.NewInt(int64(rand.Uint64()>>1)))
 		randomIndex[idx] = true
 	}
-	return validatorList, ecdsaSecretKeyList, blsSecretKeyList, nil
+	return validatorList, nil
 }
 
 func autonityTestConfig() AutonityConfig {
@@ -469,7 +469,7 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	contractAbi := &generated.AutonityTestAbi
 	deployer := DeployerAddress
-	validators, _, _, err := randomValidators(validatorCount, 30)
+	validators, err := randomValidators(validatorCount, 30)
 	require.NoError(t, err)
 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
 	require.NoError(t, err)
