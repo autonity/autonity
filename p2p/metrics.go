@@ -56,7 +56,7 @@ type meteredConn struct {
 // newMeteredConn creates a new metered connection, bumps the ingress or egress
 // connection meter and also increases the metered peer count. If the metrics
 // system is disabled, function returns the original connection.
-func newMeteredConn(conn net.Conn, ingress bool, addr *net.TCPAddr, net Network) net.Conn {
+func newMeteredConn(conn net.Conn, ingress bool, _ *net.TCPAddr, net Network) net.Conn {
 	// Short circuit if metrics are disabled
 	if !metrics.Enabled {
 		return conn
