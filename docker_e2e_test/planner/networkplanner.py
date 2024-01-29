@@ -72,6 +72,7 @@ class NetworkPlanner(object):
             for index, client in enumerate(self.clients):
                 # sync template data to client instance.
                 client.p2p_port = node_template["p2pPort"]
+                client.acn_port = node_template["acnPort"]
                 client.rpc_port = node_template["rpcPort"]
                 client.ws_port = node_template["wsPort"]
                 client.net_interface = node_template["ethernetInterfaceID"]
@@ -87,6 +88,7 @@ class NetworkPlanner(object):
                 node["name"] = client.host
                 node["coinBase"] = "0x{}".format(client.coin_base)
                 node["p2pPort"] = client.p2p_port
+                node["acnPort"] = client.acn_port
                 node["rpcPort"] = client.rpc_port
                 node["wsPort"] = client.ws_port
                 node["ethernetInterfaceID"] = client.net_interface
@@ -123,16 +125,26 @@ class NetworkPlanner(object):
         genesis = {
             "config": {
                 "chainId": 1,
-                "autonityContract": {
-                    "bytecode": "",
-                    "abi": "",
+                "autonity": {
                     "minBaseFee": 5000,
+                    "delegationRate": 1000,
                     "blockPeriod": 1,
+                    "maxCommitteeSize": 7,
                     "unbondingPeriod": 120,
                     "epochPeriod": 30,
                     "treasuryFee": 150000000,
                     "validators": [],
-                }
+                },
+                "oracle": {"votePeriod": 10},
+                "accountability": {
+                    "innocenceProofSubmissionWindow": 30,
+                    "baseSlashingRateLow": 500,
+                    "baseSlashingRateMid": 1000,
+                    "collusionFactor": 550,
+                    "historyFactor": 750,
+                    "jailFactor": 60,
+                    "slashingRatePrecision": 10000
+                },
             },
             "nonce": "0x0",
             "timestamp": "0x0",
@@ -149,20 +161,19 @@ class NetworkPlanner(object):
         # Default balance
         starting_balance = "0x000000000000000000100000000000000000000000000000000000000000000"
         genesis["alloc"] = {}
-        genesis["config"]["autonityContract"]["operator"] = "0x{}".format(self.clients[0].coin_base)
-        genesis["config"]["autonityContract"]["treasury"] = "0x{}".format(self.clients[0].coin_base)
+        genesis["config"]["autonity"]["operator"] = "0x{}".format(self.clients[0].coin_base)
+        genesis["config"]["autonity"]["treasury"] = "0x{}".format(self.clients[0].coin_base)
 
         for index, client in enumerate(self.clients):
             coinbase = "0x{}".format(client.coin_base)
             validator = {
-                "treasury": coinbase,
                 "enode": client.e_node,
+                "treasury": coinbase,
+                "oracleAddress": coinbase,
                 "bondedStake": 10000  if client.role  == "validator" else 5000,
-                "commissionRate": 10000,
-                "extra": "",
             }
             genesis["alloc"][coinbase] = {"balance": starting_balance}
-            genesis["config"]["autonityContract"]["validators"].append(validator)
+            genesis["config"]["autonity"]["validators"].append(validator)
 
         with open("./network-data/genesis.json", 'w') as out:
             out.write(json.dumps(genesis, indent=4) + '\n')

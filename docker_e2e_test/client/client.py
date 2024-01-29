@@ -59,13 +59,14 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 
 
 class Client(object):
-    def __init__(self, host=None, p2p_port=None, rpc_port=None, ws_port=None, net_interface=None,
+    def __init__(self, host=None, p2p_port=None, acn_port=None, rpc_port=None, ws_port=None, net_interface=None,
                  coin_base=None, ssh_user=None, ssh_pass=None, ssh_key=None, sudo_pass=None, autonity_path=None,
                  bootnode_path=None, role=None, index=None, e_node=None):
         self.autonity_path = autonity_path
         self.bootnode_path = bootnode_path
         self.host = host
         self.p2p_port = p2p_port
+        self.acn_port = acn_port
         self.rpc_port = rpc_port
         self.ws_port = ws_port
         self.net_interface = net_interface
@@ -119,7 +120,9 @@ class Client(object):
         pub_key = \
             utility.execute("{} -writeaddress -nodekey ./network-data/{}/boot.key".
                             format(self.bootnode_path, folder))[0].rstrip()
-        self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
+        #self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
+        # new patern: "enode://pubKey:host:port?discPort=30303&acnep=host:port"
+        self.e_node = "enode://{}@{}:{}?discPort={}&acnep={}:{}".format(pub_key, self.host, self.p2p_port, self.p2p_port, self.host, self.acn_port)
         return self.e_node
 
     def generate_system_service_file(self):
@@ -128,12 +131,12 @@ class Client(object):
                    "After=syslog.target network.target\n" \
                    "[Service]\n" \
                    "Type=simple\n" \
-                   "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} " \
+                   "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} --consensus.port {} " \
                    "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' "\
                    "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                    "--allow-insecure-unlock --graphql " \
                    "--unlock 0x{} --password {} " \
-                   "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000 --miner.gastarget 100000000000 --metrics --pprof \n" \
+                   "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000 \n" \
                    "KillMode=process\n" \
                    "KillSignal=SIGINT\n" \
                    "TimeoutStopSec=1\n" \
@@ -151,12 +154,13 @@ class Client(object):
         data_dir = CHAIN_DATA_DIR.format(self.ssh_user, folder)
         boot_key_file = BOOT_KEY_FILE.format(self.ssh_user, folder)
         p2p_port = self.p2p_port
+        acn_port = self.acn_port
         rpc_port = self.rpc_port
         ws_port = self.ws_port
         coin_base = self.coin_base
         password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
 
-        content = template_remote.format(bin_path, genesis_path, data_dir, boot_key_file, p2p_port, rpc_port, ws_port,
+        content = template_remote.format(bin_path, genesis_path, data_dir, boot_key_file, p2p_port, acn_port, rpc_port, ws_port,
                                          coin_base, password_file)
         with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
             out.write(content)
