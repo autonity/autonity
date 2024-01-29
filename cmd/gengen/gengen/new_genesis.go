@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -165,7 +166,7 @@ func generateValidatorState(validators []*Validator) (
 		}
 
 		e := enode.NewV4(&u.NodeKey.PublicKey, u.NodeIP, u.NodePort, u.NodePort)
-		ens := appendConsensusEndpoint(u, e.String())
+		ens := enode.AppendConsensusEndpoint(u.AcnIP.String(), strconv.Itoa(u.AcnPort), e.String())
 
 		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
