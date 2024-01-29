@@ -20,10 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"math"
 	"net"
 	"sync"
+
+	"github.com/autonity/autonity/crypto/blst"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -32,7 +35,6 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/simulations/pipes"
 	"github.com/autonity/autonity/rpc"
-	"github.com/gorilla/websocket"
 )
 
 // SimAdapter is a NodeAdapter which creates in-memory simulation nodes and
@@ -101,6 +103,13 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 	n, err := node.New(&node.Config{
 		ConsensusKey: consensusKey,
 		P2P: p2p.Config{
+			PrivateKey:      config.PrivateKey,
+			MaxPeers:        math.MaxInt32,
+			NoDiscovery:     true,
+			Dialer:          s,
+			EnableMsgEvents: config.EnableMsgEvents,
+		},
+		ConsensusP2P: p2p.Config{
 			PrivateKey:      config.PrivateKey,
 			MaxPeers:        math.MaxInt32,
 			NoDiscovery:     true,
