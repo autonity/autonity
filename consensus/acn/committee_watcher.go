@@ -7,6 +7,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
+// TODO: watch for epoch rotation event instead
 func (acn *ACN) watchCommittee(ctx context.Context) {
 	acn.wg.Add(1)
 
