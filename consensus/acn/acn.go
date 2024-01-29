@@ -56,7 +56,7 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ACN {
 		forkFilter: forkid.NewFilter(backend.BlockChain()),
 		server:     stack.ConsensusServer(),
 		log:        log.New(),
-		address:    crypto.PubkeyToAddress(stack.Config().NodeKey().PublicKey),
+		address:    crypto.PubkeyToAddress(stack.Config().ConsensusP2P.PrivateKey.PublicKey),
 	}
 
 	acn.server.MaxPeers = math.MaxInt
