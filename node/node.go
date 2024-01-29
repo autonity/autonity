@@ -141,7 +141,7 @@ func New(conf *Config) (*Node, error) {
 	}
 
 	//Initializing consensus server
-	node.acnServer.Config.PrivateKey = node.config.NodeKey()
+	node.acnServer.Config.PrivateKey = node.config.ConsensusP2P.PrivateKey
 	node.acnServer.Config.Name = node.config.NodeName()
 	node.acnServer.Config.Logger = node.log
 	// Check HTTP/WS prefixes are valid.
