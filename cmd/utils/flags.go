@@ -619,12 +619,12 @@ var (
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
-		Usage: "Network listening port",
+		Usage: "Network listening port for execution channel",
 		Value: node.DefaultETHPortInt,
 	}
 	NATFlag = cli.StringFlag{
 		Name:  "nat",
-		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",
+		Usage: "NAT port mapping mechanism for execution channel (any|none|upnp|pmp|extip:<IP>)",
 		Value: "any",
 	}
 	BootnodesFlag = cli.StringFlag{
