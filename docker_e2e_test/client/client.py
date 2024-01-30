@@ -302,7 +302,7 @@ class Client(object):
         except Exception as e:
             self.logger.error('Exception happens. %s', e)
 
-    def collect_system_log(self, log_folder):
+    def download_system_log(self, log_folder):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
                 #"key_filename": self.ssh_key,
@@ -312,9 +312,9 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                # dump log at remote node.
+                # dump log from previous boot at remote node.
                 file_name = "./{}.log".format(self.host)
-                cmd = 'sudo journalctl -u autonity.service -b > {}'.format(file_name)
+                cmd = 'sudo journalctl -u autonity.service -b -1 > {}'.format(file_name)
                 result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('log was dump on host: %s', self.host)

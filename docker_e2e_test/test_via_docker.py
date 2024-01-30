@@ -19,7 +19,7 @@ NODE_NAME = "Node{}_{}"
 ENGINE_NAME = "Engine{}"
 VALIDATOR_IP_LIST_FILE = "./etc/validator.ip"
 COMMAND_START_TEST = "python3 e2etestengine.py ./bin/autonity"
-FAILED_TEST_LOGS = "./JOB_{}.tar"
+JOB_LOGS = "./JOB_{}_LOGS.tar"
 SYSTEM_LOG_PATH = "/system_log"
 JOB_ID = ""
 
@@ -231,10 +231,10 @@ def clean_up(job_id):
     remove_test_engine_image(job_id)
 
 
-def thread_func_copy_system_logs(job_id, path):
+def thread_dump_system_logs(job_id, path):
     try:
         print("***: start collecting logs from test engine container.")
-        with open(FAILED_TEST_LOGS.format(job_id), 'wb') as f:
+        with open(JOB_LOGS.format(job_id), 'wb') as f:
             bits, stat = container.get_archive(path)
             print(stat)
             for chunk in bits:
@@ -242,7 +242,7 @@ def thread_func_copy_system_logs(job_id, path):
     except Exception as e:
         print("***: collecting system logs failed. ", e)
     finally:
-        print("***: log was collected at: ", FAILED_TEST_LOGS.format(job_id))
+        print("***: log was collected at: ", JOB_LOGS.format(job_id))
 
 
 def receive_signal(signal_number, frame):
@@ -304,15 +304,18 @@ if __name__ == "__main__":
             thd = None
             for line in container.logs(stdout=True, stderr=True, stream=True):
                 print(line.decode())
+                # dump both passed and failed test case's system logs at the end of test.
                 if line == b"INFO - [TEST PASSED]\n":
                     exit_code = 0
+                    thd = threading.Thread(target=thread_dump_system_logs, args=(job_id, SYSTEM_LOG_PATH))
+                    thd.start()
                 if line == b"INFO - [TEST FAILED]\n":
                     exit_code = 1
-                    thd = threading.Thread(target=thread_func_copy_system_logs, args=(job_id, SYSTEM_LOG_PATH))
+                    thd = threading.Thread(target=thread_dump_system_logs, args=(job_id, SYSTEM_LOG_PATH))
                     thd.start()
             # wait if log collecting is not finished.
             if thd is not None:
-                thd.join(timeout=300)
+                thd.join(timeout=60*10)
 
     except Exception as e:
         print("e2e testing failed: ", e)

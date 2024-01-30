@@ -14,13 +14,14 @@ BLOCK_CONSISTENT_CHECKING_DURATION = 2
 ENGINE_STATE_CHECKING_DURATION = 60
 TEST_CASE_CONTEXT_FILE_NAME = './system_log/{}/test_case_context.log'
 SYSTEM_LOG_DIR = './system_log/'
-TEST_CASE_SYSTEM_LOG_DIR = './system_log/{}'
+TEST_CASE_SYSTEM_LOG_DIR = './system_log/testcase_{}'
 
 
 class TestCase:
     """A TestCase define the meta data of test case, includes condition, input, output."""
 
-    def __init__(self, test_case_conf, clients: List[Client]):
+    def __init__(self, id, test_case_conf, clients: List[Client]):
+        self.id = id
         self.test_case_conf = test_case_conf
         self.logger = log.get_logger()
         self.clients = {}
@@ -266,8 +267,11 @@ class TestCase:
     def start_test(self):
         if self.run() is False:
             self.collect_test_case_context_log()
-            self.collect_system_log()
+            self.prints_system_log()
             return False
+        else:
+            # save autonity clients logs as well for passed test case.
+            self.save_system_log()
         return True
 
     def run(self):
@@ -349,7 +353,7 @@ class TestCase:
         try:
             # try to create dirs
             os.makedirs(SYSTEM_LOG_DIR, exist_ok=True)  # It never fail even if the dir is existed.
-            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time), exist_ok=True)
+            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.id), exist_ok=True)
 
             self.test_case_conf['testcase_start_time'] = time.ctime(self.start_time)
             self.test_case_conf['testcase_start_height'] = self.start_chain_height
@@ -397,20 +401,26 @@ class TestCase:
         self.logger.warning('Disaster recovering timeout. 5 minutes!')
         return False
 
-    def collect_system_log(self):
+    def save_system_log(self):
         try:
             # try to create dirs
             os.makedirs(SYSTEM_LOG_DIR, exist_ok=True)  # It never fail even if the dir is existed.
-            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time), exist_ok=True)
+            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.id), exist_ok=True)
             for index, client in self.clients.items():
-                client.collect_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time))
+                client.download_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.id))
         except Exception as e:
             self.logger.error('Cannot fetch logs from node. %s.', e)
             return None
+        return True
+
+    def prints_system_log(self):
+        if self.save_system_log() is None:
+            return None
+
+        # redirect autonity client logs into test engine's logger, this is used for github CI to dump logs in report.
         try:
-            # redirect client logs into test engine's logger.
             for index, client in self.clients.items():
-                client.redirect_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time))
+                client.redirect_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.id))
         except Exception as e:
             self.logger.error('Cannot redirect system logs from client into test engine log file %s.', e)
             return None
