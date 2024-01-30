@@ -10,7 +10,6 @@ import time
 
 LG = log.get_logger()
 
-
 if __name__ == '__main__':
     LG.debug("##########################################")
     LG.debug("")
@@ -19,7 +18,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help='Autonity Binary Path')
-    parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
+    parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool,
+                        default=True)
     parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
     args = parser.parse_args()
 
@@ -52,10 +52,13 @@ if __name__ == '__main__':
             test_bed = conf.get_test_bed_conf()
             try:
                 for node in test_bed["targetNetwork"]["nodes"]:
-                    client = Client(host=node["name"], p2p_port=node["p2pPort"], rpc_port=node["rpcPort"], ws_port=node["wsPort"],
+                    client = Client(host=node["name"], p2p_port=node["p2pPort"], rpc_port=node["rpcPort"],
+                                    ws_port=node["wsPort"],
                                     net_interface=node["ethernetInterfaceID"], coin_base=node["coinBase"][2:],
-                                    ssh_user=node["sshCredential"]["sshUser"], ssh_pass=node["sshCredential"]["sshPass"],
-                                    ssh_key=node["sshCredential"]["sshKey"], sudo_pass=node["sshCredential"]["sudoPass"],
+                                    ssh_user=node["sshCredential"]["sshUser"],
+                                    ssh_pass=node["sshCredential"]["sshPass"],
+                                    ssh_key=node["sshCredential"]["sshKey"],
+                                    sudo_pass=node["sshCredential"]["sudoPass"],
                                     role=node["role"], index=node["index"])
                     clients.append(client)
             except Exception as e:
@@ -66,12 +69,14 @@ if __name__ == '__main__':
             # load test case view, and start testing one by one.
             test_set = conf.get_test_case_conf()
             num_of_cases = len(test_set["playbook"]["testcases"])
-            for id, test_case in test_set["playbook"]["testcases"]:
+            case_id = 0
+            for test_case in test_set["playbook"]["testcases"]:
                 playbook = conf.get_test_case_conf()
                 if playbook["playbook"]["stop"] is True:
                     LG.info("Playbook is stopped by user configuration: testcaseconf.yml/playbook/stop: true.")
                     break
-                test = TestCase(id, test_case, clients)
+                case_id += 1
+                test = TestCase(case_id, test_case, clients)
                 LG.debug("")
                 LG.debug("")
                 LG.info("start test case: %s", test_case)
