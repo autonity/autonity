@@ -314,7 +314,7 @@ class Client(object):
                 )
                 # dump log from previous boot at remote node.
                 file_name = "./{}.log".format(self.host)
-                cmd = 'sudo journalctl -u autonity.service -b -1 > {}'.format(file_name)
+                cmd = 'sudo journalctl -u autonity.service -b > {}'.format(file_name)
                 result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('log was dump on host: %s', self.host)
