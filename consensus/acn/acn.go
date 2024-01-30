@@ -49,6 +49,7 @@ type ACN struct {
 }
 
 func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ACN {
+	nodeKey, _ := stack.Config().AutonityKeys()
 	acn := &ACN{
 		peers:      newPeerSet(),
 		chain:      backend.BlockChain(),
@@ -56,7 +57,7 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ACN {
 		forkFilter: forkid.NewFilter(backend.BlockChain()),
 		server:     stack.ConsensusServer(),
 		log:        log.New(),
-		address:    crypto.PubkeyToAddress(stack.Config().ConsensusP2P.PrivateKey.PublicKey),
+		address:    crypto.PubkeyToAddress(nodeKey.PublicKey),
 	}
 
 	acn.server.MaxPeers = math.MaxInt
