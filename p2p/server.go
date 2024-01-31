@@ -785,7 +785,10 @@ func (srv *Server) doPeerOp(fn peerOpFunc) {
 
 // run is the main loop of the server.
 func (srv *Server) run() {
-	srv.log.Info("Started P2P networking", "self", srv.localnode.Node().URLv4(), "server", srv.Net.String())
+	srv.log.Info("Started P2P networking", "server", srv.Net.String())
+	if srv.Net == Execution {
+		srv.log.Info("self", "enode", srv.localnode.Node().URLv4())
+	}
 	defer srv.loopWG.Done()
 	defer srv.nodedb.Close()
 	defer srv.discmix.Close()
