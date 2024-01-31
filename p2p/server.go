@@ -587,14 +587,13 @@ func (srv *Server) setupLocalNode() error {
 
 	sort.Sort(capsByNameAndVersion(srv.ourHandshake.Caps))
 
-	//TODO: (Review)We are creating a memoryDB for consensus server
-	// by passig an empty nodedatabase path, do we really need db for consensus server
-	// Create the local node.
+	// We are creating a memoryDB for consensus server by passing an empty NodeDatabase path
 	db, err := enode.OpenDB(srv.Config.NodeDatabase)
 	if err != nil {
 		return err
 	}
 	srv.nodedb = db
+	// Create the local node.
 	srv.localnode = enode.NewLocalNode(db, srv.PrivateKey, srv.log)
 	srv.localnode.SetFallbackIP(net.IP{127, 0, 0, 1})
 	for _, p := range srv.Protocols {

@@ -196,6 +196,8 @@ func (ps *ethPeerSet) peer(id string) *ethPeer {
 
 	return ps.peers[id]
 }
+
+// findPeers retrieves the map of registered peers with matching id map
 func (ps *ethPeerSet) findPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
