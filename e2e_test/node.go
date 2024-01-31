@@ -85,7 +85,6 @@ type Node struct {
 	isRunning bool
 	Config    *node.Config
 	Eth       *eth.Ethereum
-	Acn       *acn.ACN
 	EthConfig *ethconfig.Config
 	WsClient  *ethclient.Client
 	Nonce     uint64
@@ -228,7 +227,7 @@ func (n *Node) Start() error {
 	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}
-	n.Acn = acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
+	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
 	if _, _, err = core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis); err != nil {
 		return fmt.Errorf("cannot setup genesis block: %w", err)
 	}

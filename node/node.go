@@ -543,7 +543,7 @@ func (n *Node) Server() *p2p.Server {
 	return n.server
 }
 
-// Server retrieves the currently running P2P network layer. This method is meant
+// ConsensusServer retrieves the currently running P2P network layer. This method is meant
 // only to inspect fields of the currently running server. Callers should not
 // start or stop the returned server.
 func (n *Node) ConsensusServer() *p2p.Server {
