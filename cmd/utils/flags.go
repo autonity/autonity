@@ -1197,9 +1197,8 @@ func setConsensusP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.ListenAddr = fmt.Sprintf(":%d", ctx.GlobalInt(ConsensusListenPortFlag.Name))
 	}
 
-	//TODO: fix these values later
-	cfg.MaxPeers = 10000
-	cfg.MaxPendingPeers = 10000
+	cfg.MaxPeers = math.MaxInt
+	cfg.MaxPendingPeers = 100 // current max committee size
 	if netrestrict := ctx.GlobalString(NetrestrictFlag.Name); netrestrict != "" {
 		list, err := netutil.ParseNetlist(netrestrict)
 		if err != nil {

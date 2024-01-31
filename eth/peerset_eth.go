@@ -18,9 +18,10 @@ package eth
 
 import (
 	"errors"
-	autonity "github.com/autonity/autonity"
 	"math/big"
 	"sync"
+
+	autonity "github.com/autonity/autonity"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/eth/protocols/eth"
@@ -195,6 +196,8 @@ func (ps *ethPeerSet) peer(id string) *ethPeer {
 
 	return ps.peers[id]
 }
+
+// findPeers retrieves the map of registered peers with matching id map
 func (ps *ethPeerSet) findPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()

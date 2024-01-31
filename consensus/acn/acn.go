@@ -136,7 +136,9 @@ func (acn *ACN) RunPeer(peer *protocol.Peer, hand protocol.HandlerFunc) error {
 }
 
 // PeerInfo retrieves all known `acn` information about a peer.
-func (acn *ACN) PeerInfo(_ enode.ID) interface{} {
-	//TODO
+func (acn *ACN) PeerInfo(id enode.ID) interface{} {
+	if p := acn.peers.peer(id.String()); p != nil {
+		return p.Info()
+	}
 	return nil
 }
