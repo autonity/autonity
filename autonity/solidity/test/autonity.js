@@ -1305,7 +1305,7 @@ contract('Autonity', function (accounts) {
       });
   });
 
-  describe('Test functions', function () {
+  describe('Test computeCommittee', function () {
     let config = JSON.parse(JSON.stringify(autonityConfig));
 
     it('test computeCommittee (committeeSize > validator count)', async function () {
