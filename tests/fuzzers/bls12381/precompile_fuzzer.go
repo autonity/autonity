@@ -19,13 +19,9 @@ package bls
 import (
 	"bytes"
 	"fmt"
-	"math/big"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/rawdb"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/params"
 )
 
 const (
@@ -95,12 +91,8 @@ func fuzz(id byte, data []byte) int {
 		return 0
 	}
 	cpy := make([]byte, len(data))
-	evm, err := testEVM()
-	if err != nil {
-		return 0
-	}
 	copy(cpy, data)
-	_, err = precompile.Run(cpy, uint64(0), evm, common.Address{})
+	_, err := precompile.Run(cpy, uint64(0), nil, common.Address{})
 	if !bytes.Equal(cpy, data) {
 		panic(fmt.Sprintf("input data modified, precompile %d: %x %x", id, data, cpy))
 	}
@@ -108,26 +100,4 @@ func fuzz(id byte, data []byte) int {
 		return 0
 	}
 	return 1
-}
-
-func testEVM() (*vm.EVM, error) {
-	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(ethDb)
-	stateDB, err := state.New(common.Hash{}, db, nil)
-	if err != nil {
-		return nil, err
-	}
-	vmBlockContext := vm.BlockContext{
-		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
-		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
-		BlockNumber: common.Big0,
-	}
-
-	txContext := vm.TxContext{
-		Origin:   common.Address{},
-		GasPrice: common.Big0,
-	}
-
-	evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
-	return evm, nil
 }

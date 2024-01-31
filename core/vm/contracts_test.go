@@ -21,16 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/rawdb"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
 )
 
@@ -104,9 +100,7 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		evm, err := testEVM()
-		require.NoError(t, err)
-		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber, evm, common.Address{}); err != nil {
+		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{}); err != nil {
 			t.Error(err)
 		} else if common.Bytes2Hex(res) != test.Expected {
 			t.Errorf("Expected %v, got %v", test.Expected, common.Bytes2Hex(res))
@@ -128,9 +122,7 @@ func testPrecompiledOOG(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in) - 1
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		evm, err := testEVM()
-		require.NoError(t, err)
-		_, _, err = RunPrecompiledContract(p, in, gas, blockNumber, evm, common.Address{})
+		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{})
 		if err.Error() != "out of gas" {
 			t.Errorf("Expected error [out of gas], got [%v]", err)
 		}
@@ -148,9 +140,7 @@ func testPrecompiledFailure(addr string, test precompiledFailureTest, t *testing
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(test.Name, func(t *testing.T) {
-		evm, err := testEVM()
-		require.NoError(t, err)
-		_, _, err = RunPrecompiledContract(p, in, gas, blockNumber, evm, common.Address{})
+		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{})
 		if err.Error() != test.ExpectedError {
 			t.Errorf("Expected error [%v], got [%v]", test.ExpectedError, err)
 		}
@@ -181,10 +171,8 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 		start := time.Now()
 		bench.ResetTimer()
 		for i := 0; i < bench.N; i++ {
-			evm, err := testEVM()
-			require.NoError(bench, err)
 			copy(data, in)
-			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber, evm, common.Address{})
+			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber, nil, common.Address{})
 			require.NoError(bench, err)
 		}
 		bench.StopTimer()
@@ -428,39 +416,15 @@ func TestPOPVerifier(t *testing.T) {
 	copy(input[ArrayLenBytes:signatureOffset], key.PublicKey().Marshal())
 	copy(input[signatureOffset:treasuryOffset], proof)
 	copy(input[treasuryOffset:ArrayLenBytes+POPBytes], treasuryAddress.Bytes())
-	evm, err := testEVM()
-	require.NoError(t, err)
 
-	ret, err := popVerifier.Run(input, 0, evm, common.Address{})
+	ret, err := popVerifier.Run(input, 0, nil, common.Address{})
 	require.NoError(t, err)
 	require.Equal(t, successResult, ret)
 
 	wrongKey, err := blst.RandKey()
 	require.NoError(t, err)
 	copy(input[32:80], wrongKey.PublicKey().Marshal())
-	ret, err = popVerifier.Run(input, 0, evm, common.Address{})
+	ret, err = popVerifier.Run(input, 0, nil, common.Address{})
 	require.NotNil(t, err)
 	require.Equal(t, failure32Byte, ret)
-}
-
-func testEVM() (*EVM, error) {
-	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(ethDb)
-	stateDB, err := state.New(common.Hash{}, db, nil)
-	if err != nil {
-		return nil, err
-	}
-	vmBlockContext := BlockContext{
-		Transfer:    func(StateDB, common.Address, common.Address, *big.Int) {},
-		CanTransfer: func(StateDB, common.Address, *big.Int) bool { return true },
-		BlockNumber: common.Big0,
-	}
-
-	txContext := TxContext{
-		Origin:   common.Address{},
-		GasPrice: common.Big0,
-	}
-
-	evm := NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, Config{})
-	return evm, nil
 }
