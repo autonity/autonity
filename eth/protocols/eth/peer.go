@@ -17,16 +17,18 @@
 package eth
 
 import (
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"math/rand"
 	"sync"
+
+	"github.com/autonity/autonity/crypto"
+
+	mapset "github.com/deckarep/golang-set"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
-	mapset "github.com/deckarep/golang-set"
 )
 
 const (
@@ -77,8 +79,6 @@ type Peer struct {
 	head common.Hash // Latest advertised head block hash
 	td   *big.Int    // Latest advertised head block total difficulty
 
-	//TODO: should be removed from here, these will be handled through
-	// consensus peer now
 	knownBlocks     *knownCache            // Set of block hashes known to be known by this peer
 	queuedBlocks    chan *blockPropagation // Queue of blocks to broadcast to the peer
 	queuedBlockAnns chan *types.Block      // Queue of blocks to announce to the peer
