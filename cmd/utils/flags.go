@@ -1479,7 +1479,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	}
 	// Ensure Go's GC ignores the database cache for trigger percentage
 	cache := ctx.GlobalInt(CacheFlag.Name)
-	gogc := math.Max(20, math.Min(500, 500/(float64(cache)/1024)))
+	gogc := math.Max(20, math.Min(100, 100/(float64(cache)/1024)))
 
 	log.Debug("Sanitizing Go's GC trigger", "percent", int(gogc))
 	godebug.SetGCPercent(int(gogc))
@@ -1665,8 +1665,8 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 	return backend.APIBackend, backend
 }
 
-func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) *acn.ACN {
-	return acn.New(stack, backend, netID)
+func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) {
+	acn.New(stack, backend, netID)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to

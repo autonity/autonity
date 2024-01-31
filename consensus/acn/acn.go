@@ -48,7 +48,7 @@ type ACN struct {
 	cancel     context.CancelFunc
 }
 
-func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ACN {
+func New(stack *node.Node, backend *eth.Ethereum, netID uint64) {
 	nodeKey, _ := stack.Config().AutonityKeys()
 	acn := &ACN{
 		peers:      newPeerSet(),
@@ -68,7 +68,6 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ACN {
 	}
 	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
 	backend.FD().SetBroadcaster(acn)
-	return acn
 }
 
 func (acn *ACN) Start() error {
