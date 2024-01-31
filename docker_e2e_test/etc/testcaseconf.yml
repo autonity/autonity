@@ -569,7 +569,7 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
-    - name: "TC-28: Network partition. 6 break into 3 and 3, then the two slices connected by bridge, engine recovers too."
+    - name: "TC-26: Network partition. 6 break into 3 and 3, then the two slices connected by bridge, engine recovers too."
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
@@ -588,7 +588,7 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
-    - name: "TC-29: Network partition. 6 break to 3 full mesh plus 1 node, and 2 nodes of bus line, recover with 3 nodes of full mesh plus a 3 nodes of bus line."
+    - name: "TC-27: Network partition. 6 break to 3 full mesh plus 1 node, and 2 nodes of bus line, recover with 3 nodes of full mesh plus a 3 nodes of bus line."
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:

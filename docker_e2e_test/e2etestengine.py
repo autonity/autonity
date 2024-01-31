@@ -69,14 +69,13 @@ if __name__ == '__main__':
             # load test case view, and start testing one by one.
             test_set = conf.get_test_case_conf()
             num_of_cases = len(test_set["playbook"]["testcases"])
-            case_id = 0
             for test_case in test_set["playbook"]["testcases"]:
                 playbook = conf.get_test_case_conf()
                 if playbook["playbook"]["stop"] is True:
                     LG.info("Playbook is stopped by user configuration: testcaseconf.yml/playbook/stop: true.")
                     break
-                case_id += 1
-                test = TestCase(case_id, test_case, clients)
+
+                test = TestCase(test_case, clients)
                 LG.debug("")
                 LG.debug("")
                 LG.info("start test case: %s", test_case)

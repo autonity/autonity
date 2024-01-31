@@ -20,9 +20,9 @@ TEST_CASE_SYSTEM_LOG_DIR = './system_log/testcase_{}'
 class TestCase:
     """A TestCase define the meta data of test case, includes condition, input, output."""
 
-    def __init__(self, id, test_case_conf, clients: List[Client]):
-        self.id = id
+    def __init__(self, test_case_conf, clients: List[Client]):
         self.test_case_conf = test_case_conf
+        self.id = test_case_conf['name'].split(':')[0]
         self.logger = log.get_logger()
         self.clients = {}
         for client in clients:
@@ -267,12 +267,14 @@ class TestCase:
     def start_test(self):
         if self.run() is False:
             self.collect_test_case_context_log()
-            self.prints_system_log()
+            # save system log for failed case, do not print them into engine's std output.
+            self.save_system_log()
+            #self.prints_system_log()
             return False
         else:
             # save autonity clients logs as well for passed test case.
             self.save_system_log()
-        return True
+            return True
 
     def run(self):
         """run the test case, and tear down the test case with network recovery."""
