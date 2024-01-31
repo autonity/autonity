@@ -99,8 +99,8 @@ func (p *Peer) SetHead(hash common.Hash, td *big.Int) {
 	p.td.Set(td)
 }
 
-// info gathers and returns some `eth` protocol metadata known about a peer.
-func (p *Peer) info() *peerInfo {
+// ConsensusPeerInfo gathers and returns some `acn` protocol metadata known about a peer.
+func (p *Peer) ConsensusPeerInfo() *peerInfo {
 	hash, td := p.Head()
 
 	return &peerInfo{
