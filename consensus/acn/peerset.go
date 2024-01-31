@@ -101,6 +101,14 @@ func (ps *peerSet) find(targets map[common.Address]struct{}) map[common.Address]
 	return m
 }
 
+// peer retrieves the registered peer with the given id.
+func (ps *peerSet) peer(id string) *protocol.Peer {
+	ps.RLock()
+	defer ps.RUnlock()
+
+	return ps.peers[id]
+}
+
 // close disconnects all peers.
 func (ps *peerSet) close() {
 	ps.Lock()

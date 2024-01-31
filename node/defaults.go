@@ -17,6 +17,7 @@
 package node
 
 import (
+	"math"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -57,7 +58,7 @@ var DefaultConfig = Config{
 	},
 	ConsensusP2P: p2p.Config{
 		ListenAddr: DefaultATCPort,
-		MaxPeers:   100000,
+		MaxPeers:   math.MaxInt,
 		NAT:        nat.Any(),
 	},
 }
