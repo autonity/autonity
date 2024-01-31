@@ -12,15 +12,16 @@ HEAL_TIME_OUT = 60 * 5  # 5 minutes
 TX_HISTORY_FILE = './TXs_Per_TC_{}'
 BLOCK_CONSISTENT_CHECKING_DURATION = 2
 ENGINE_STATE_CHECKING_DURATION = 60
-TEST_CASE_CONTEXT_FILE_NAME = './system_log/{}/test_case_context.log'
+TEST_CASE_CONTEXT_FILE_NAME = './system_log/failed_{}_context/test_case_context.log'
 SYSTEM_LOG_DIR = './system_log/'
-TEST_CASE_SYSTEM_LOG_DIR = './system_log/testcase_{}'
+TEST_CASE_SYSTEM_LOG_DIR = './system_log/testcase_{}_{}'
 
 
 class TestCase:
     """A TestCase define the meta data of test case, includes condition, input, output."""
 
     def __init__(self, test_case_conf, clients: List[Client]):
+        self.passed = False
         self.test_case_conf = test_case_conf
         self.id = test_case_conf['name'].split(':')[0]
         self.logger = log.get_logger()
@@ -265,7 +266,8 @@ class TestCase:
         return True
 
     def start_test(self):
-        if self.run() is False:
+        self.passed = self.run()
+        if self.passed is False:
             self.collect_test_case_context_log()
             # save system log for failed case, do not print them into engine's std output.
             self.save_system_log()
@@ -314,7 +316,7 @@ class TestCase:
             return True
 
         self.scheduler.try_join()
-        self.logger.warning('Recovering timeout happens.')
+        self.logger.info('Recovering timeout happens.')
         return False
 
     def generate_report(self):
@@ -355,7 +357,8 @@ class TestCase:
         try:
             # try to create dirs
             os.makedirs(SYSTEM_LOG_DIR, exist_ok=True)  # It never fail even if the dir is existed.
-            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.id), exist_ok=True)
+            log_dir = TEST_CASE_SYSTEM_LOG_DIR.format(self.id, "passed" if self.passed else "failed")
+            os.makedirs(log_dir, exist_ok=True)
 
             self.test_case_conf['testcase_start_time'] = time.ctime(self.start_time)
             self.test_case_conf['testcase_start_height'] = self.start_chain_height
@@ -365,7 +368,7 @@ class TestCase:
             for index, client in self.clients.items():
                 self.test_case_conf['ip_mapping'].append("{}:{}".format(index, client.host))
 
-            ret = conf.write_yaml(TEST_CASE_CONTEXT_FILE_NAME.format(self.start_time), self.test_case_conf)
+            ret = conf.write_yaml(TEST_CASE_CONTEXT_FILE_NAME.format(self.id), self.test_case_conf)
             if ret is not True:
                 self.logger.warning('cannot save test case context.')
 
@@ -407,9 +410,10 @@ class TestCase:
         try:
             # try to create dirs
             os.makedirs(SYSTEM_LOG_DIR, exist_ok=True)  # It never fail even if the dir is existed.
-            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.id), exist_ok=True)
+            log_dir = TEST_CASE_SYSTEM_LOG_DIR.format(self.id, "passed" if self.passed else "failed")
+            os.makedirs(log_dir, exist_ok=True)
             for index, client in self.clients.items():
-                client.download_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.id))
+                client.download_system_log(log_dir)
         except Exception as e:
             self.logger.error('Cannot fetch logs from node. %s.', e)
             return None
@@ -422,7 +426,8 @@ class TestCase:
         # redirect autonity client logs into test engine's logger, this is used for github CI to dump logs in report.
         try:
             for index, client in self.clients.items():
-                client.redirect_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.id))
+                log_dir = TEST_CASE_SYSTEM_LOG_DIR.format(self.id, "passed" if self.passed else "failed")
+                client.redirect_system_log(log_dir)
         except Exception as e:
             self.logger.error('Cannot redirect system logs from client into test engine log file %s.', e)
             return None
