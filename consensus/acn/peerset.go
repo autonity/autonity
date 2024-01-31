@@ -43,8 +43,8 @@ var (
 
 // PeerSet represents the collection of active peers currently participating in consensus
 type peerSet struct {
-	peers  map[string]*protocol.Peer // Peers connected on the `eth` protocol
-	lock   sync.RWMutex
+	peers map[string]*protocol.Peer // Peers connected on the `acn` protocol
+	sync.RWMutex
 	closed bool
 }
 
@@ -59,8 +59,8 @@ func newPeerSet() *peerSet {
 // if the peer is already known.
 func (ps *peerSet) register(peer *protocol.Peer) error {
 	// Start tracking the new peer
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.Lock()
+	defer ps.Unlock()
 
 	if ps.closed {
 		return errPeerSetClosed
@@ -76,8 +76,8 @@ func (ps *peerSet) register(peer *protocol.Peer) error {
 // unregister removes a remote peer from the active set, disabling any further
 // actions to/from that particular entity.
 func (ps *peerSet) unregister(id string) error {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.Lock()
+	defer ps.Unlock()
 
 	_, ok := ps.peers[id]
 	if !ok {
@@ -89,8 +89,8 @@ func (ps *peerSet) unregister(id string) error {
 
 // find retrieves the map of registered peer with the given map of ids.
 func (ps *peerSet) find(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+	ps.RLock()
+	defer ps.RUnlock()
 	m := make(map[common.Address]autonity.Peer)
 	for _, p := range ps.peers {
 		addr := p.Address()
@@ -103,8 +103,8 @@ func (ps *peerSet) find(targets map[common.Address]struct{}) map[common.Address]
 
 // close disconnects all peers.
 func (ps *peerSet) close() {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.Lock()
+	defer ps.Unlock()
 
 	for _, p := range ps.peers {
 		p.Disconnect(p2p.DiscQuitting)
