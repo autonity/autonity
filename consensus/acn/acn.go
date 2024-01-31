@@ -74,7 +74,6 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) *ACN {
 func (acn *ACN) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	acn.watchCommittee(ctx)
-	protocol.StartENRUpdater(ctx, acn.chain, acn.server.LocalNode())
 	acn.cancel = cancel
 	return nil
 }
