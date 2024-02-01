@@ -27,13 +27,13 @@ import (
 )
 
 var (
-	DeployerAddress               = common.Address{}
-	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress         = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
+	DeployerAddress               = params.DeployerAddress
+	AutonityContractAddress       = params.AutonityContractAddress
+	AccountabilityContractAddress = params.AccountabilityContractAddress
+	OracleContractAddress         = params.OracleContractAddress
+	ACUContractAddress            = params.ACUContractAddress
+	SupplyControlContractAddress  = params.SupplyControlContractAddress
+	StabilizationContractAddress  = params.StabilizationContractAddress
 	AutonityABIKey                = []byte("ABISPEC")
 )
 

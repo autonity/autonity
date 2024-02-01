@@ -9,6 +9,7 @@ const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
+const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
@@ -116,30 +117,52 @@ function timeout(ms) {
 }
 
 // set solidity bytecode at arbitrary address address
-async function setCode(addr, code) {
+async function setCode(addr, code, contractName) {
   return new Promise((resolve, reject) => {
     web3.currentProvider.send({
       method: "evm_setAccountCode",
       params: [addr, code]
     }, (err, res) => {
-      if (res?.result) { resolve("\tSuccessfully mocked verifier precompile."); }
-      else { reject("\tError while mocking verifier precompile."); }
+      if (res?.result) { resolve(`\tSuccessfully mocked ${contractName} precompile.`); }
+      else { reject(`\tError while mocking ${contractName} precompile.`); }
     });
   });
 }
 
+async function mockPrecompile() {
+  await mockEnodePrecompile();
+  await mockCommitteeSelectorPrecompile();
+}
+
 // mock verify enode precompiled contract
 async function mockEnodePrecompile() {
+      console.log("\tAttempting to mock enode verifier precompile. Will (rightfully) fail if running against Autonity network")
       const instance = await mockEnodeVerifier.new();
       console.log("enode verifier mocker address: ", instance.address)
       const code = await web3.eth.getCode(instance.address);
       const verifyEnodeAddr = "0x00000000000000000000000000000000000000ff";
-      await setCode(verifyEnodeAddr, code).then(
+      await setCode(verifyEnodeAddr, code, "enode verifier").then(
         (result) => {
             console.log(result); 
         },
         (error) => {
             console.log(error); 
+    });
+}
+
+// mock committee selector precompiled contract
+async function mockCommitteeSelectorPrecompile() {
+  console.log("\tAttempting to mock committee selector precompile. Will (rightfully) fail if running against Autonity network")
+  const instance = await mockCommitteeSelector.new();
+  console.log("committee selector mocker address: ", instance.address)
+  const code = await web3.eth.getCode(instance.address);
+  const contractAddress = "0x00000000000000000000000000000000000000fa";
+  await setCode(contractAddress, code, "committee selector").then(
+    (result) => {
+        console.log(result); 
+    },
+    (error) => {
+        console.log(error); 
     });
 }
 
@@ -390,7 +413,8 @@ module.exports.deployContracts = deployContracts;
 module.exports.deployAutonityTestContract = deployAutonityTestContract;
 module.exports.mineEmptyBlock = mineEmptyBlock;
 module.exports.setCode = setCode;
-module.exports.mockEnodePrecompile = mockEnodePrecompile;
+module.exports.mockPrecompile = mockPrecompile;
+module.exports.mockCommitteeSelectorPrecompile = mockCommitteeSelectorPrecompile;
 module.exports.timeout = timeout;
 module.exports.waitForNewBlock = waitForNewBlock;
 module.exports.endEpoch = endEpoch;

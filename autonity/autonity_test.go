@@ -1,8 +1,10 @@
 package autonity
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"log"
 	"math/big"
 	"math/rand"
@@ -19,41 +21,45 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 )
 
 func BenchmarkComputeCommittee(b *testing.B) {
-	// Deploy contract
-	stateDb, evm, evmContract, err := initalizeEvm(&generated.AutonityTestAbi)
-	require.NoError(b, err)
 
 	validatorCount := 100000
-	validators, _, err := randomValidators(validatorCount, 30)
+	validators, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
-	contractAbi := &generated.AutonityTestAbi
-	deployer := common.Address{}
+	contractAbi := &generated.AutonityAbi
+	deployer := DeployerAddress
 	committeeSize := 100
-	contractAddress, err := deployContract(contractAbi, generated.AutonityTestBytecode, deployer, validators, evm, committeeSize)
-	require.NoError(b, err)
-	var header *types.Header
-	err = callContractFunction(evmContract, contractAddress, stateDb, header, contractAbi, "applyStakingOperations")
-	require.NoError(b, err)
-	packedArgs, err := contractAbi.Pack("computeCommittee")
-	require.NoError(b, err)
-	// the first run is different from the rest, because the db is empty and the function will write committee members in db
-	_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
-	require.NoError(b, err)
-	gas := uint64(math.MaxUint64)
-	var gasUsed uint64
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, gasLeft, err := evmContract.CallContractFunc(stateDb, header, contractAddress, packedArgs)
+	b.Run("computeCommittee", func(b *testing.B) {
+		stateDB, evmContract, contractAddress, err := deployAutonity(committeeSize, validators, deployer)
 		require.NoError(b, err)
-		gasUsed += gas - gasLeft
-	}
-	b.Log(1.0 * gasUsed / uint64(b.N))
+		var header *types.Header
+		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "finalizeInitialization")
+		require.NoError(b, err)
+		packedArgs, err := contractAbi.Pack("computeCommittee")
+		require.NoError(b, err)
+		benchmarkWithGas(b, evmContract, stateDB, header, contractAddress, packedArgs)
+	})
+}
+
+func TestComputeCommittee(t *testing.T) {
+
+	t.Run("computeCommittee validators < committee", func(t *testing.T) {
+		committeeSize := 100
+		validatorCount := 10
+		testComputeCommittee(committeeSize, validatorCount, t)
+	})
+
+	t.Run("computeCommittee validators > committee", func(t *testing.T) {
+		committeeSize := 100
+		validatorCount := 1000
+		testComputeCommittee(committeeSize, validatorCount, t)
+	})
 }
 
 func TestElectProposer(t *testing.T) {
@@ -165,6 +171,44 @@ func generateCommittee(powers []int) types.Committee {
 	return vals
 }
 
+func deployAutonity(
+	committeeSize int, validators []params.Validator, deployer common.Address,
+) (*state.StateDB, *EVMContract, common.Address, error) {
+	abi := &generated.AutonityAbi
+	stateDB, evm, evmContract, err := initalizeEvm(abi)
+	if err != nil {
+		return stateDB, evmContract, common.Address{}, err
+	}
+	contractConfig := autonityTestConfig()
+	contractConfig.Protocol.OperatorAccount = common.Address{}
+	contractConfig.Protocol.CommitteeSize = big.NewInt(int64(committeeSize))
+	args, err := abi.Pack("", validators, contractConfig)
+	if err != nil {
+		return stateDB, evmContract, common.Address{}, err
+	}
+	contractAddress, err := deployContract(generated.AutonityTestBytecode, args, deployer, evm)
+	return stateDB, evmContract, contractAddress, err
+}
+
+func deployAutonityTest(
+	committeeSize int, validators []params.Validator, deployer common.Address,
+) (*state.StateDB, *EVMContract, common.Address, error) {
+	abi := &generated.AutonityTestAbi
+	stateDB, evm, evmContract, err := initalizeEvm(abi)
+	if err != nil {
+		return stateDB, evmContract, common.Address{}, err
+	}
+	contractConfig := autonityTestConfig()
+	contractConfig.Protocol.OperatorAccount = common.Address{}
+	contractConfig.Protocol.CommitteeSize = big.NewInt(int64(committeeSize))
+	args, err := abi.Pack("", validators, contractConfig)
+	if err != nil {
+		return stateDB, evmContract, common.Address{}, err
+	}
+	contractAddress, err := deployContract(generated.AutonityTestBytecode, args, deployer, evm)
+	return stateDB, evmContract, contractAddress, err
+}
+
 func initalizeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *EVMContract, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
@@ -177,42 +221,30 @@ func initalizeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *EVMContract, error) {
 	return stateDB, evm, evmContract, nil
 }
 
-func deployContract(
-	abi *abi.ABI, byteCode []byte, deployer common.Address, validators []params.Validator, evm *vm.EVM, committeeSize int,
-) (common.Address, error) {
+func deployContract(byteCode []byte, args []byte, deployer common.Address, evm *vm.EVM) (common.Address, error) {
 	gas := uint64(math.MaxUint64)
 	value := common.Big0
-	contractConfig := autonityTestConfig()
-	contractConfig.Protocol.CommitteeSize = big.NewInt(int64(committeeSize))
-	args, err := abi.Pack("", validators, contractConfig)
-	if err != nil {
-		return common.Address{}, err
-	}
 	data := append(byteCode, args...)
 	_, contractAddress, _, err := evm.Create(vm.AccountRef(deployer), data, gas, value)
-	if err != nil {
-		return common.Address{}, err
-	}
-	return contractAddress, nil
+	return contractAddress, err
 }
 
-// Packs the args and then calls the function
-// can also return result if needed
+// Packs the args and then calls the function and returns result
 func callContractFunction(
-	evmContract *EVMContract, contractAddress common.Address, stateDb *state.StateDB, header *types.Header, abi *abi.ABI,
+	evmContract *EVMContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
 	methodName string, args ...interface{},
-) error {
+) ([]byte, error) {
 	argsPacked, err := abi.Pack(methodName, args...)
 	if err != nil {
-		return err
+		return make([]byte, 0), err
 	}
-	_, _, err = evmContract.CallContractFunc(stateDb, header, contractAddress, argsPacked)
-	return err
+	res, _, err := evmContract.CallContractFunc(stateDB, header, contractAddress, argsPacked)
+	return res, err
 }
 
-func randomValidators(count int, randomPercentage int) ([]params.Validator, []*ecdsa.PrivateKey, error) {
+func randomValidators(count int, randomPercentage int) ([]params.Validator, error) {
 	if count == 0 {
-		return []params.Validator{}, []*ecdsa.PrivateKey{}, nil
+		return []params.Validator{}, nil
 	}
 
 	bondedStake := make([]int64, count)
@@ -223,15 +255,17 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 		sort.SliceStable(bondedStake, func(i, j int) bool {
 			return bondedStake[i] > bondedStake[j]
 		})
-		if bondedStake[0] < bondedStake[1] {
-			return []params.Validator{}, []*ecdsa.PrivateKey{}, errors.New("Not sorted")
+		if count > 1 && bondedStake[0] < bondedStake[1] {
+			return []params.Validator{}, errors.New("Not sorted")
 		}
 	}
 
 	validatorList := make([]params.Validator, count)
-	privateKeyList := make([]*ecdsa.PrivateKey, count)
+	// ecdsaSecretKeyList := make([]*ecdsa.PrivateKey, count)
+	// blsSecretKeyList := make([]*blst.SecretKey, count)
 	for i := 0; i < count; i++ {
 		var privateKey *ecdsa.PrivateKey
+		var secretKey blst.SecretKey
 		var err error
 		for {
 			privateKey, err = crypto.GenerateKey()
@@ -239,23 +273,33 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 				break
 			}
 		}
-		privateKeyList[i] = privateKey
+		for {
+			secretKey, err = blst.RandKey()
+			if err == nil {
+				break
+			}
+		}
+		// ecdsaSecretKeyList[i] = privateKey
+		// blsSecretKeyList[i] = &secretKey
+		consensusKey := secretKey.PublicKey()
 		publicKey := privateKey.PublicKey
 		enode := "enode://" + string(crypto.PubECDSAToHex(&publicKey)[2:]) + "@3.209.45.79:30303"
 		address := crypto.PubkeyToAddress(publicKey)
 		validatorList[i] = params.Validator{
-			Treasury:    address,
-			Enode:       enode,
-			BondedStake: big.NewInt(bondedStake[i]),
+			Treasury:      address,
+			Enode:         enode,
+			BondedStake:   big.NewInt(bondedStake[i]),
+			OracleAddress: address,
+			ConsensusKey:  consensusKey.Marshal(),
 		}
 		err = validatorList[i].Validate()
 		if err != nil {
-			return []params.Validator{}, []*ecdsa.PrivateKey{}, err
+			return []params.Validator{}, err
 		}
 	}
 
 	if randomPercentage == 0 || randomPercentage == 100 {
-		return validatorList, privateKeyList, nil
+		return validatorList, nil
 	}
 
 	randomValidatorCount := count * randomPercentage / 100
@@ -275,7 +319,7 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, []*e
 		validatorList[idx].BondedStake = new(big.Int).Add(stake, big.NewInt(int64(rand.Uint64()>>1)))
 		randomIndex[idx] = true
 	}
-	return validatorList, privateKeyList, nil
+	return validatorList, nil
 }
 
 func autonityTestConfig() AutonityConfig {
@@ -321,8 +365,8 @@ func createTestVM(state vm.StateDB) *vm.EVM {
 	return evm
 }
 
-func testEVMProvider() func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
-	return func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
+func testEVMProvider() func(header *types.Header, origin common.Address, stateDB *state.StateDB) *vm.EVM {
+	return func(header *types.Header, origin common.Address, stateDB *state.StateDB) *vm.EVM {
 		vmBlockContext := vm.BlockContext{
 			Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
 			CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
@@ -332,7 +376,132 @@ func testEVMProvider() func(header *types.Header, origin common.Address, statedb
 			Origin:   common.Address{},
 			GasPrice: common.Big0,
 		}
-		evm := vm.NewEVM(vmBlockContext, txContext, statedb, params.TestChainConfig, vm.Config{})
+		evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
 		return evm
 	}
+}
+
+// to properly benchmark a contract call, it is expected that the state is same everytime the contract function is run
+func benchmarkWithGas(
+	b *testing.B, evmContract *EVMContract, stateDB *state.StateDB, header *types.Header,
+	contractAddress common.Address, packedArgs []byte,
+) {
+	gas := uint64(math.MaxUint64)
+	var gasUsed uint64
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, gasLeft, err := evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
+		require.NoError(b, err)
+		gasUsed += gas - gasLeft
+	}
+	b.Log(1.0 * gasUsed / uint64(b.N))
+}
+
+func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, enodes []string, totalStake *big.Int) error {
+	if len(voters) > len(validators) {
+		return fmt.Errorf("More voters than validators")
+	}
+	if len(voters) != len(committeeMembers) {
+		return fmt.Errorf("Committee size not equal to voter size")
+	}
+	if len(enodes) != len(committeeMembers) {
+		return fmt.Errorf("not enough enodes")
+	}
+	positions := make(map[common.Address]int)
+	for i, validator := range validators {
+		if _, ok := positions[*validator.NodeAddress]; ok {
+			return fmt.Errorf("duplicate validator")
+		}
+		positions[*validator.NodeAddress] = i
+	}
+	lastStake := big.NewInt(0)
+	totalStakeCalculated := big.NewInt(0)
+	for i, member := range committeeMembers {
+		idx, ok := positions[member.Address]
+		if !ok {
+			return fmt.Errorf("committee member not found")
+		}
+		if i > 0 && lastStake.Cmp(validators[idx].BondedStake) < 0 {
+			return fmt.Errorf("not sorted")
+		}
+		lastStake = validators[idx].BondedStake
+		totalStakeCalculated = totalStakeCalculated.Add(totalStakeCalculated, lastStake)
+
+		if !bytes.Equal(member.Address.Bytes(), validators[idx].NodeAddress.Bytes()) {
+			return fmt.Errorf("Committee member address mismatch")
+		}
+		if member.VotingPower.Cmp(validators[idx].BondedStake) != 0 {
+			return fmt.Errorf("Committee member stake mismatch")
+		}
+		if !bytes.Equal(member.ConsensusKey, validators[idx].ConsensusKey) {
+			return fmt.Errorf("Committee member consensus key mismatch")
+		}
+		if enodes[i] != validators[idx].Enode {
+			return fmt.Errorf("Committee member enode mismatch")
+		}
+		if voters[i] != validators[idx].OracleAddress {
+			return fmt.Errorf("Oracle address mismatch")
+		}
+		if *validators[idx].State != uint8(0) {
+			return fmt.Errorf("Committee member not active")
+		}
+		delete(positions, member.Address)
+	}
+	nonVoter := 0
+	for _, validator := range validators {
+		if _, ok := positions[*validator.NodeAddress]; ok {
+			nonVoter++
+			if validator.BondedStake.Cmp(lastStake) == 1 {
+				return fmt.Errorf("Non voter has more stake than voter")
+			}
+		}
+	}
+	if nonVoter+len(voters) != len(validators) {
+		return fmt.Errorf("not all are accounted")
+	}
+	if totalStakeCalculated.Cmp(totalStake) != 0 {
+		return fmt.Errorf("epochTotalStake mismatch")
+	}
+	return nil
+}
+
+func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
+	contractAbi := &generated.AutonityTestAbi
+	deployer := DeployerAddress
+	validators, err := randomValidators(validatorCount, 30)
+	require.NoError(t, err)
+	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+	require.NoError(t, err)
+	var header *types.Header
+	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
+	require.NoError(t, err)
+	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
+	require.NoError(t, err)
+	voters := make([]common.Address, committeeSize)
+	err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
+	require.NoError(t, err)
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
+	require.NoError(t, err)
+	members := make([]types.CommitteeMember, committeeSize)
+	err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
+	require.NoError(t, err)
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getMaxCommitteeSize")
+	require.NoError(t, err)
+	var maxCommitteeSize *big.Int
+	err = contractAbi.UnpackIntoInterface(&maxCommitteeSize, "getMaxCommitteeSize", res)
+	require.NoError(t, err)
+	require.Equal(t, true, maxCommitteeSize.Cmp(big.NewInt(int64(len(members)))) >= 0, "committee size exceeds MaxCommitteeSize")
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommitteeEnodes")
+	require.NoError(t, err)
+	enodes := make([]string, committeeSize)
+	err = contractAbi.UnpackIntoInterface(&enodes, "getCommitteeEnodes", res)
+	require.NoError(t, err)
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getEpochTotalBondedStake")
+	require.NoError(t, err)
+	totalStake := big.NewInt(0)
+	err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
+	require.NoError(t, err)
+	err = isVotersSorted(voters, members, validators, enodes, totalStake)
+	require.NoError(t, err)
 }

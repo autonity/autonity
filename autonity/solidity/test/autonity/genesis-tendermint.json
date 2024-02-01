@@ -32,7 +32,8 @@
       "historyFactor": 750,
       "jailFactor": 60,
       "slashingRatePrecision": 10000
-    }
+    },
+    "testMode": true
   },
   "nonce": "0x0",
   "timestamp": "0x0",

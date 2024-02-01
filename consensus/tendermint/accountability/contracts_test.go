@@ -92,7 +92,7 @@ func TestAccusationVerifier(t *testing.T) {
 
 	t.Run("Test accusation verifier run with nil bytes", func(t *testing.T) {
 		av := AccusationVerifier{}
-		ret, err := av.Run(nil, height)
+		ret, err := av.Run(nil, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -100,7 +100,7 @@ func TestAccusationVerifier(t *testing.T) {
 	t.Run("Test accusation verifier run with invalid rlp bytes", func(t *testing.T) {
 		wrongBytes := failureReturn
 		av := AccusationVerifier{}
-		ret, err := av.Run(wrongBytes, height)
+		ret, err := av.Run(wrongBytes, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -209,7 +209,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	t.Run("Test misbehaviour verifier run with nil bytes", func(t *testing.T) {
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret, err := mv.Run(nil, height)
+		ret, err := mv.Run(nil, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -217,7 +217,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	t.Run("Test misbehaviour verifier run with invalid rlp bytes", func(t *testing.T) {
 		wrongBytes := failureReturn
 		mv := MisbehaviourVerifier{chain: chainMock}
-		ret, err := mv.Run(wrongBytes, height)
+		ret, err := mv.Run(wrongBytes, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -740,7 +740,7 @@ func TestInnocenceVerifier(t *testing.T) {
 
 	t.Run("Test innocence verifier run with nil bytes", func(t *testing.T) {
 		iv := InnocenceVerifier{chain: nil}
-		ret, err := iv.Run(nil, height)
+		ret, err := iv.Run(nil, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
 	})
@@ -754,7 +754,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
-		ret, err := iv.Run(append(make([]byte, 32), raw...), height)
+		ret, err := iv.Run(append(make([]byte, 32), raw...), height, nil, common.Address{})
 		require.NoError(t, err)
 		assert.Equal(t, failureReturn, ret)
 	})
@@ -772,7 +772,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
-		ret, err := iv.Run(append(make([]byte, 32), raw...), height)
+		ret, err := iv.Run(append(make([]byte, 32), raw...), height, nil, common.Address{})
 		require.NoError(t, err)
 		assert.Equal(t, failureReturn, ret)
 	})

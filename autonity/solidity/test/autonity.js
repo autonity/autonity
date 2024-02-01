@@ -147,8 +147,7 @@ function checkUnbondingShare(unbondingRequest, delegatee, delegator, tokenUnbond
 
 contract('Autonity', function (accounts) {
     before(async function () {
-      console.log("\tAttempting to mock verifier precompile. Will (rightfully) fail if running against Autonity network")
-      await utils.mockEnodePrecompile()
+      await utils.mockPrecompile()
     });
 
   for (let i = 0; i < accounts.length; i++) {
@@ -180,7 +179,6 @@ contract('Autonity', function (accounts) {
   ];
 
   let autonity;
-
   describe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
      * add getter tests for:
@@ -1287,7 +1285,7 @@ contract('Autonity', function (accounts) {
     });
   });
   describe('Test epoch parameters updates', function () {
-      let copyParams = autonityConfig;
+      let copyParams = JSON.parse(JSON.stringify(autonityConfig));
       let token;
       beforeEach(async function () {
           // set short epoch period 
@@ -1305,5 +1303,24 @@ contract('Autonity', function (accounts) {
         //TODO(tariq) low priority change, leave for last
         // check that blockEpochMap and getEpochFromBlock return the numbers we expect. Terminate a couple epochs and check the variables.
       });
+  });
+
+  describe('Test computeCommittee', function () {
+    let config = JSON.parse(JSON.stringify(autonityConfig));
+
+    it('test computeCommittee (committeeSize > validator count)', async function () {
+      config.protocol.committeeSize = validators.length + 2;
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      assert.equal((await autonity.getMaxCommitteeSize()).toNumber(), config.protocol.committeeSize, "committee size mismatch");
+      await autonity.testComputeCommittee({from: deployer});
+    });
+
+    it('test computeCommittee (committeeSize < validator count)', async function () {
+      config.protocol.committeeSize = validators.length - 2;
+      assert.equal(config.protocol.committeeSize > 0, true, "committeeSize negative");
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      assert.equal((await autonity.getMaxCommitteeSize()).toNumber(), config.protocol.committeeSize, "committee size mismatch");
+      await autonity.testComputeCommittee({from: deployer});
+    });
   });
 });

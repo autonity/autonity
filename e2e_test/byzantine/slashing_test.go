@@ -163,7 +163,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 }
 
 func TestSimpleSlashing(t *testing.T) {
-	runSlashingTest(context.TODO(), t, 4, 40, 0, 100, []int{2}, 1, 0, 1)
+	runSlashingTest(context.TODO(), t, 4, 60, 0, 100, []int{2}, 1, 0, 1)
 }
 
 func TestPenaltyAbsorbingStake(t *testing.T) {
@@ -214,7 +214,7 @@ func TestHistoryFactor(t *testing.T) {
 
 	// creates a network of 4 validators and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *core2.Genesis) {
-		genesis.Config.AutonityContractConfig.EpochPeriod = 50
+		genesis.Config.AutonityContractConfig.EpochPeriod = 60
 		genesis.Config.AccountabilityConfig.JailFactor = 1
 		chainID = genesis.Config.ChainID
 	})
@@ -241,7 +241,7 @@ func TestHistoryFactor(t *testing.T) {
 	slashingEventA := WaitForSlashingEvent(timeout, t, dedicatedNode)
 
 	// wait until we can un-jail (+1 just in case)
-	err = network.WaitForHeight(slashingEventA.ReleaseBlock.Uint64()+1, 60)
+	err = network.WaitForHeight(slashingEventA.ReleaseBlock.Uint64()+1, 70)
 	require.NoError(t, err)
 
 	//un-jail
