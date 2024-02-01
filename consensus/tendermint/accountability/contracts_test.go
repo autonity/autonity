@@ -84,7 +84,6 @@ func TestAccusationVerifier(t *testing.T) {
 	// Todo(youssef): add integration tests for the precompile Run function
 	height := uint64(100)
 	proposal := newProposalMessage(height, 3, 0, signer, committee, nil)
-	// vm.ActivateableEips()
 
 	t.Run("Test accusation verifier required gas", func(t *testing.T) {
 		av := AccusationVerifier{}

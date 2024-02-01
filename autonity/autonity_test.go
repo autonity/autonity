@@ -410,49 +410,49 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 	}
 	positions := make(map[common.Address]int)
 	for i, validator := range validators {
-		if _, ok := positions[validator.OracleAddress]; ok {
+		if _, ok := positions[*validator.NodeAddress]; ok {
 			return fmt.Errorf("duplicate validator")
 		}
-		positions[validator.OracleAddress] = i
+		positions[*validator.NodeAddress] = i
 	}
 	lastStake := big.NewInt(0)
-	minStake := big.NewInt(0)
 	totalStakeCalculated := big.NewInt(0)
-	for i, voter := range voters {
-		idx, ok := positions[voter]
+	for i, member := range committeeMembers {
+		idx, ok := positions[member.Address]
 		if !ok {
-			return fmt.Errorf("voter not found")
+			return fmt.Errorf("committee member not found")
 		}
 		if i > 0 && lastStake.Cmp(validators[idx].BondedStake) < 0 {
 			return fmt.Errorf("not sorted")
 		}
 		lastStake = validators[idx].BondedStake
-		if i == 0 {
-			minStake = lastStake
-		} else if minStake.Cmp(lastStake) == 1 {
-			minStake = lastStake
-		}
 		totalStakeCalculated = totalStakeCalculated.Add(totalStakeCalculated, lastStake)
 
-		if !bytes.Equal(committeeMembers[i].Address.Bytes(), validators[idx].NodeAddress.Bytes()) {
+		if !bytes.Equal(member.Address.Bytes(), validators[idx].NodeAddress.Bytes()) {
 			return fmt.Errorf("Committee member address mismatch")
 		}
-		if committeeMembers[i].VotingPower.Cmp(validators[idx].BondedStake) != 0 {
+		if member.VotingPower.Cmp(validators[idx].BondedStake) != 0 {
 			return fmt.Errorf("Committee member stake mismatch")
 		}
-		if !bytes.Equal(committeeMembers[i].ConsensusKey, validators[idx].ConsensusKey) {
+		if !bytes.Equal(member.ConsensusKey, validators[idx].ConsensusKey) {
 			return fmt.Errorf("Committee member consensus key mismatch")
 		}
 		if enodes[i] != validators[idx].Enode {
 			return fmt.Errorf("Committee member enode mismatch")
 		}
-		delete(positions, voter)
+		if voters[i] != validators[idx].OracleAddress {
+			return fmt.Errorf("Oracle address mismatch")
+		}
+		if *validators[idx].State != uint8(0) {
+			return fmt.Errorf("Committee member not active")
+		}
+		delete(positions, member.Address)
 	}
 	nonVoter := 0
 	for _, validator := range validators {
-		if _, ok := positions[validator.OracleAddress]; ok {
+		if _, ok := positions[*validator.NodeAddress]; ok {
 			nonVoter++
-			if validator.BondedStake.Cmp(minStake) == 1 {
+			if validator.BondedStake.Cmp(lastStake) == 1 {
 				return fmt.Errorf("Non voter has more stake than voter")
 			}
 		}
@@ -486,6 +486,12 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	members := make([]types.CommitteeMember, committeeSize)
 	err = contractAbi.UnpackIntoInterface(&members, "getCommittee", res)
 	require.NoError(t, err)
+	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getMaxCommitteeSize")
+	require.NoError(t, err)
+	var maxCommitteeSize *big.Int
+	err = contractAbi.UnpackIntoInterface(&maxCommitteeSize, "getMaxCommitteeSize", res)
+	require.NoError(t, err)
+	require.Equal(t, true, maxCommitteeSize.Cmp(big.NewInt(int64(len(members)))) >= 0, "committee size exceeds MaxCommitteeSize")
 	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommitteeEnodes")
 	require.NoError(t, err)
 	enodes := make([]string, committeeSize)

@@ -217,7 +217,15 @@ const (
 	DataLen = common.HashLength
 )
 
-var errUnauthorized = errors.New("caller address not authorize")
+// error variables for committee selector
+var (
+	errUnauthorized       = errors.New("caller address not authorize")
+	errBadInput           = errors.New("not enough input")
+	errBadCommitteeSize   = errors.New("invalid max committee size")
+	errBadValidatorSize   = errors.New("invalid size of validator list")
+	errNoActiveValidator  = errors.New("no active validators with positive stake")
+	errBadConsensusKeyLen = errors.New("invalid consensus key length")
+)
 
 type CommitteeSelector struct{}
 
@@ -241,7 +249,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	}
 	// input
 	if len(input) < 5*DataLen {
-		return nil, fmt.Errorf("not enough input")
+		return nil, errBadInput
 	}
 	inputs := &CommitteeInput{}
 	offset := 0
@@ -253,9 +261,9 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	offset += DataLen
 	inputs.epochTotalBondedStakeSlot = input[offset : offset+DataLen]
 	offset += DataLen
-	maxCommitteeSize := common.Big0.SetBytes(input[offset : offset+DataLen])
+	maxCommitteeSize := big.NewInt(0).SetBytes(input[offset : offset+DataLen])
 	if !maxCommitteeSize.IsUint64() {
-		return nil, fmt.Errorf("invalid committee size")
+		return nil, errBadCommitteeSize
 	}
 	inputs.maxCommitteeSize = maxCommitteeSize.Uint64()
 
@@ -264,7 +272,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	// validatorListSlot has the size of the array validatorList
 	validatorListSizeBig := stateDB.GetState(caller, common.BytesToHash(inputs.validatorListSlot)).Big()
 	if !validatorListSizeBig.IsUint64() {
-		return nil, fmt.Errorf("invalid size of validatorList")
+		return nil, errBadValidatorSize
 	}
 	validatorListSize := int(validatorListSizeBig.Uint64())
 	addressOffset := crypto.Keccak256Hash(inputs.validatorListSlot).Big()
@@ -277,18 +285,17 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	validators := make([]*types.CommitteeMember, 0, validatorListSize)
 	mapKey := make([]byte, DataLen*2)
 	copy(mapKey[DataLen:], inputs.validatorsSlot)
-	increment := common.Big1
 	for i := 0; i < validatorListSize; i++ {
 		user := a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB)
 		if user != nil {
 			validators = append(validators, user)
 		}
 		// goto next slot
-		addressOffset.Add(addressOffset, increment)
+		addressOffset.Add(addressOffset, common.Big1)
 	}
 
 	if len(validators) == 0 {
-		return nil, fmt.Errorf("no active validators with stake more than %v", stakeThreshold.String())
+		return nil, errNoActiveValidator
 	}
 
 	committeeSize := min(len(validators), int(inputs.maxCommitteeSize))
@@ -315,7 +322,6 @@ func (a *CommitteeSelector) updateCommittee(
 	// put new committee members : type CommitteeMember
 	committeeOffset := crypto.Keccak256Hash(inputs.committeeSlot).Big()
 	totalStake := big.NewInt(0)
-	increment := big.NewInt(1)
 	mapKey := make([]byte, DataLen*2)
 	copy(mapKey[DataLen:], inputs.validatorsSlot)
 	for i := 0; i < committeeSize; i++ {
@@ -323,11 +329,11 @@ func (a *CommitteeSelector) updateCommittee(
 		// save address
 		stateDB.SetState(caller, common.BigToHash(committeeOffset), validators[i].Address.Hash())
 		// goto next slot
-		committeeOffset.Add(committeeOffset, increment)
+		committeeOffset.Add(committeeOffset, common.Big1)
 		// save voting power
 		stateDB.SetState(caller, common.BigToHash(committeeOffset), common.BytesToHash(validators[i].VotingPower.Bytes()))
 		// goto next slot
-		committeeOffset.Add(committeeOffset, increment)
+		committeeOffset.Add(committeeOffset, common.Big1)
 
 		// read and then save consensus key (bytes)
 		copy(mapKey[DataLen-common.AddressLength:DataLen], validators[i].Address.Bytes())
@@ -340,7 +346,7 @@ func (a *CommitteeSelector) updateCommittee(
 		if (consensusKeyBytes[DataLen-1] & 1) == 1 {
 			keyLenBig := new(big.Int).SetBytes(consensusKeyBytes)
 			if !keyLenBig.IsUint64() {
-				return fmt.Errorf("invalid consensus key length")
+				return errBadConsensusKeyLen
 			}
 			keyLen := int(keyLenBig.Int64()-1) / 2
 			bytesSlot := make([]byte, DataLen)
@@ -351,12 +357,12 @@ func (a *CommitteeSelector) updateCommittee(
 			for j := 0; j < keyLen; j += 32 {
 				keyChunk := stateDB.GetState(caller, common.BigToHash(readOffset))
 				stateDB.SetState(caller, common.BigToHash(writeOffset), keyChunk)
-				readOffset.Add(readOffset, increment)
-				writeOffset.Add(writeOffset, increment)
+				readOffset.Add(readOffset, common.Big1)
+				writeOffset.Add(writeOffset, common.Big1)
 			}
 		}
 		// goto next slot
-		committeeOffset.Add(committeeOffset, increment)
+		committeeOffset.Add(committeeOffset, common.Big1)
 
 		totalStake = totalStake.Add(totalStake, validators[i].VotingPower)
 	}
@@ -368,11 +374,11 @@ func (a *CommitteeSelector) updateCommittee(
 		// delete address
 		stateDB.SetState(caller, common.BigToHash(committeeOffset), common.Hash{})
 		// goto next slot
-		committeeOffset.Add(committeeOffset, increment)
+		committeeOffset.Add(committeeOffset, common.Big1)
 		// delete voting power
 		stateDB.SetState(caller, common.BigToHash(committeeOffset), common.Hash{})
 		// goto next slot
-		committeeOffset.Add(committeeOffset, increment)
+		committeeOffset.Add(committeeOffset, common.Big1)
 		// delete consensus key
 		// read its length first
 		consensusKeyBytes := stateDB.GetState(caller, common.BigToHash(committeeOffset)).Bytes()
@@ -381,7 +387,7 @@ func (a *CommitteeSelector) updateCommittee(
 			// consens key is a big bytes data, stored in different slots
 			keyLenBig := new(big.Int).SetBytes(consensusKeyBytes)
 			if !keyLenBig.IsUint64() {
-				return fmt.Errorf("invalid consensus key length")
+				return errBadConsensusKeyLen
 			}
 			keyLen := int(keyLenBig.Int64()-1) / 2
 			bytesSlot := make([]byte, DataLen)
@@ -390,11 +396,11 @@ func (a *CommitteeSelector) updateCommittee(
 			// bytes1 is only 1 byte long, so 32 elements are compacted in a single slot
 			for j := 0; j < keyLen; j += 32 {
 				stateDB.SetState(caller, common.BigToHash(keyChunkOffset), common.Hash{})
-				keyChunkOffset.Add(keyChunkOffset, increment)
+				keyChunkOffset.Add(keyChunkOffset, common.Big1)
 			}
 		}
 		// goto next slot
-		committeeOffset.Add(committeeOffset, increment)
+		committeeOffset.Add(committeeOffset, common.Big1)
 	}
 	return nil
 }

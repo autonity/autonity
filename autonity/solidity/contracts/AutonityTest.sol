@@ -58,8 +58,8 @@ contract AutonityTest is Autonity {
       address[] memory voters = computeCommittee();
       address[] memory addresses = new address[](voters.length);
       uint256 totalStake = 0;
-      uint256 minStake = 0;
       uint256 lastStake = 0;
+      require(committee.length <= config.protocol.committeeSize, "committee size exceeds MaxCommitteeSize");
       for (uint256 i = 0; i < committee.length; i++) {
         address memberAddress = committee[i].addr;
         require(memberAddress != address(0), "invalid address");
@@ -67,13 +67,6 @@ contract AutonityTest is Autonity {
         uint256 stake = committee[i].votingPower;
         require(stake > 0, "0 stake in committee");
         totalStake += stake;
-        if (i == 0) {
-          minStake = stake;
-        }
-        else if (stake < minStake) {
-          minStake = stake;
-        }
-
         if (i > 0) {
           require(lastStake >= stake, "committee members not sorted");
         }
@@ -82,6 +75,7 @@ contract AutonityTest is Autonity {
         require(validator.nodeAddress == memberAddress, "validator does not exist");
         require(validator.bondedStake == stake, "stake mismatch");
         require(validator.oracleAddress == voters[i], "oracle address mismatch");
+        require(validator.state == ValidatorState.active, "validator not active");
         require(keccak256(abi.encodePacked(validator.enode)) == keccak256(abi.encodePacked(committeeNodes[i])), "enode mismatch");
         require(keccak256(abi.encodePacked(validator.consensusKey)) == keccak256(abi.encodePacked(committee[i].consensusKey)), "consensus key mismatch");
       }
@@ -98,10 +92,7 @@ contract AutonityTest is Autonity {
 
         Validator storage validator = validators[validatorList[i]];
         if (foundMatch == false) {
-          require(validator.bondedStake <= minStake, "high stake for non-committee member");
-        }
-        else {
-          require(validator.bondedStake >= minStake, "low stake for committee member");
+          require(validator.bondedStake <= lastStake, "high stake for non-committee member");
         }
       }
    }
