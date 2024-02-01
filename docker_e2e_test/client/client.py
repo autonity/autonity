@@ -115,7 +115,9 @@ class Client(object):
             encrypted_key = keyfile.read()
             account_private_key = w3.eth.account.decrypt(encrypted_key, "123").hex()[2:]
         with open("./network-data/{}/boot.key".format(folder), "w") as bootkey:
-            bootkey.write(account_private_key)
+            ## todo, generate autonity keys from cli, now it used a fix key for testing.
+            autonity_keys = account_private_key + "3ab975b09167b550d25f8f0b31f4e3ebaf5ea73b3cc0eb1ca2c0957a5331de2d"
+            bootkey.write(autonity_keys)
 
         pub_key = \
             utility.execute("{} -writeaddress -nodekey ./network-data/{}/boot.key".
@@ -131,7 +133,7 @@ class Client(object):
                    "After=syslog.target network.target\n" \
                    "[Service]\n" \
                    "Type=simple\n" \
-                   "ExecStart={} --genesis {} --datadir {} --nodekey {} --syncmode 'full' --port {} --consensus.port {} " \
+                   "ExecStart={} --genesis {} --datadir {} --autonitykeys {} --syncmode 'full' --port {} --consensus.port {} " \
                    "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' "\
                    "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                    "--allow-insecure-unlock --graphql " \
