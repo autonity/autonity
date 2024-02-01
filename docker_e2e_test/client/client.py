@@ -115,16 +115,17 @@ class Client(object):
             encrypted_key = keyfile.read()
             account_private_key = w3.eth.account.decrypt(encrypted_key, "123").hex()[2:]
         with open("./network-data/{}/boot.key".format(folder), "w") as bootkey:
-            ## todo, generate autonity keys from cli, now it used a fix key for testing.
-            autonity_keys = account_private_key + "3ab975b09167b550d25f8f0b31f4e3ebaf5ea73b3cc0eb1ca2c0957a5331de2d"
-            bootkey.write(autonity_keys)
-
+            bootkey.write(account_private_key)
         pub_key = \
             utility.execute("{} -writeaddress -nodekey ./network-data/{}/boot.key".
                             format(self.bootnode_path, folder))[0].rstrip()
-        #self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
+        # self.e_node = "enode://{}@{}:{}".format(pub_key, self.host, self.p2p_port)
         # new patern: "enode://pubKey:host:port?discPort=30303&acnep=host:port"
         self.e_node = "enode://{}@{}:{}?discPort={}&acnep={}:{}".format(pub_key, self.host, self.p2p_port, self.p2p_port, self.host, self.acn_port)
+
+        # append a tmp consensus key at boot.key, todo: refine this.
+        with open("./network-data/{}/boot.key".format(folder), "a") as bootkey:
+            bootkey.write("3ab975b09167b550d25f8f0b31f4e3ebaf5ea73b3cc0eb1ca2c0957a5331de2d")
         return self.e_node
 
     def generate_system_service_file(self):
