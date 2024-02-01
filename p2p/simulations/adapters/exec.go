@@ -113,13 +113,13 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 	conf.Stack.WSPort = 0
 	conf.Stack.WSOrigins = []string{"*"}
 	conf.Stack.WSExposeAll = true
-	conf.Stack.P2P.EnableMsgEvents = config.EnableMsgEvents
-	conf.Stack.P2P.NoDiscovery = true
-	conf.Stack.P2P.NAT = nil
+	conf.Stack.ExecutionP2P.EnableMsgEvents = config.EnableMsgEvents
+	conf.Stack.ExecutionP2P.NoDiscovery = true
+	conf.Stack.ExecutionP2P.NAT = nil
 
 	// Listen on a localhost port, which we set when we
 	// initialise NodeConfig (usually a random port)
-	conf.Stack.P2P.ListenAddr = fmt.Sprintf(":%d", config.Port)
+	conf.Stack.ExecutionP2P.ListenAddr = fmt.Sprintf(":%d", config.Port)
 
 	node := &ExecNode{
 		ID:      config.ID,
@@ -424,7 +424,7 @@ func execP2PNode() {
 		status.Err = stackErr.Error()
 	} else {
 		status.WSEndpoint = stack.WSEndpoint()
-		status.NodeInfo = stack.Server().NodeInfo()
+		status.NodeInfo = stack.ExecutionServer().NodeInfo()
 	}
 
 	// Send status to the host.
@@ -463,12 +463,12 @@ func startExecNodeStack() (*node.Node, error) {
 	}
 
 	// create enode record
-	nodeTcpConn, _ := net.ResolveTCPAddr("tcp", conf.Stack.P2P.ListenAddr)
+	nodeTcpConn, _ := net.ResolveTCPAddr("tcp", conf.Stack.ExecutionP2P.ListenAddr)
 	if nodeTcpConn.IP == nil {
 		nodeTcpConn.IP = net.IPv4(127, 0, 0, 1)
 	}
 	conf.Node.initEnode(nodeTcpConn.IP, nodeTcpConn.Port, nodeTcpConn.Port)
-	conf.Stack.P2P.PrivateKey = conf.Node.PrivateKey
+	conf.Stack.ExecutionP2P.PrivateKey = conf.Node.PrivateKey
 	conf.Stack.Logger = log.New("node.id", conf.Node.ID.String())
 
 	// initialize the devp2p stack

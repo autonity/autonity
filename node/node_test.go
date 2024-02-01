@@ -46,7 +46,7 @@ func testNodeConfig() *Config {
 	return &Config{
 		ConsensusKey: testConsensusKey,
 		Name:         "test node",
-		P2P:          p2p.Config{PrivateKey: testNodeKey},
+		ExecutionP2P: p2p.Config{PrivateKey: testNodeKey},
 	}
 }
 
@@ -144,7 +144,7 @@ func TestRegisterProtocols(t *testing.T) {
 	}
 
 	for _, protocol := range fs.Protocols() {
-		if !containsProtocol(stack.server.Protocols, protocol) {
+		if !containsProtocol(stack.executionServer.Protocols, protocol) {
 			t.Fatalf("protocol %v was not successfully registered", protocol)
 		}
 	}
@@ -388,8 +388,8 @@ func TestLifecycleTerminationGuarantee(t *testing.T) {
 		delete(stopped, id)
 	}
 
-	stack.server = &p2p.Server{}
-	stack.server.PrivateKey = testNodeKey
+	stack.executionServer = &p2p.Server{}
+	stack.executionServer.PrivateKey = testNodeKey
 }
 
 // Tests whether a handler can be successfully mounted on the canonical HTTP server

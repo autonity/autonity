@@ -251,7 +251,7 @@ func TestStartRPC(t *testing.T) {
 			// Apply some sane defaults.
 			config := test.cfg
 			// config.Logger = testlog.Logger(t, log.LvlDebug)
-			config.P2P.NoDiscovery = true
+			config.ExecutionP2P.NoDiscovery = true
 
 			// Create Node.
 			stack, err := New(&config)

@@ -51,7 +51,7 @@ const (
 func (ser Network) String() string {
 	switch ser {
 	case Consensus:
-		return "Consensus"
+		return "consensus"
 	case Execution:
 		return "execution"
 	}
@@ -447,11 +447,11 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 	srv.enodeMu.Unlock()
 }
 
-func (srv *Server) InCommittee(id string) bool {
+func (srv *Server) InCommittee(id enode.ID) bool {
 	srv.enodeMu.RLock()
 	defer srv.enodeMu.RUnlock()
 	for _, node := range srv.consensusNodes {
-		if id == node.ID().String() {
+		if id == node.ID() {
 			return true
 		}
 	}
@@ -858,6 +858,7 @@ running:
 					inboundCount++
 				}
 			}
+
 			c.cont <- err
 
 		case pd := <-srv.delpeer:
@@ -908,7 +909,7 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscSelf
 	case srv.jailed.contains(c.node.ID().String()):
 		return DiscJailed
-	case srv.Net == Consensus && !srv.InCommittee(c.node.ID().String()):
+	case srv.Net == Consensus && !srv.InCommittee(c.node.ID()):
 		return DiscPeerNotInCommittee
 	default:
 		return nil

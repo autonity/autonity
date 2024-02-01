@@ -190,7 +190,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		address:           crypto.PubkeyToAddress(nodeKey.PublicKey),
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
-		p2pServer:         stack.Server(),
+		p2pServer:         stack.ExecutionServer(),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
 

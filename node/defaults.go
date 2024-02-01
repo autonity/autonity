@@ -51,7 +51,7 @@ var DefaultConfig = Config{
 	WSPort:              DefaultWSPort,
 	WSModules:           []string{"net", "web3", "aut", "tendermint"},
 	GraphQLVirtualHosts: []string{"localhost"},
-	P2P: p2p.Config{
+	ExecutionP2P: p2p.Config{
 		ListenAddr: DefaultETHPort,
 		MaxPeers:   50,
 		NAT:        nat.Any(),

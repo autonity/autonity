@@ -93,7 +93,7 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 		LondonBlock:         big.NewInt(0),
 		ArrowGlacierBlock:   big.NewInt(0),
 		AutonityContractConfig: &params.AutonityContractGenesis{
-			MaxCommitteeSize: 21,
+			MaxCommitteeSize: 100,
 			BlockPeriod:      1,
 			UnbondingPeriod:  120,
 			EpochPeriod:      30,   //seconds

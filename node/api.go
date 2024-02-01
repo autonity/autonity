@@ -65,7 +65,7 @@ type privateAdminAPI struct {
 // connection at all times, even reconnecting if it is lost.
 func (api *privateAdminAPI) AddPeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
-	server := api.node.Server()
+	server := api.node.ExecutionServer()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
@@ -81,7 +81,7 @@ func (api *privateAdminAPI) AddPeer(url string) (bool, error) {
 // RemovePeer disconnects from a remote node if the connection exists
 func (api *privateAdminAPI) RemovePeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
-	server := api.node.Server()
+	server := api.node.ExecutionServer()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
@@ -97,7 +97,7 @@ func (api *privateAdminAPI) RemovePeer(url string) (bool, error) {
 // AddTrustedPeer allows a remote node to always connect, even if slots are full
 func (api *privateAdminAPI) AddTrustedPeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
-	server := api.node.Server()
+	server := api.node.ExecutionServer()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
@@ -113,7 +113,7 @@ func (api *privateAdminAPI) AddTrustedPeer(url string) (bool, error) {
 // does not disconnect it automatically.
 func (api *privateAdminAPI) RemoveTrustedPeer(url string) (bool, error) {
 	// Make sure the server is running, fail otherwise
-	server := api.node.Server()
+	server := api.node.ExecutionServer()
 	if server == nil {
 		return false, ErrNodeStopped
 	}
@@ -129,7 +129,7 @@ func (api *privateAdminAPI) RemoveTrustedPeer(url string) (bool, error) {
 // node's p2p.Server
 func (api *privateAdminAPI) PeerEvents(ctx context.Context) (*rpc.Subscription, error) {
 	// Make sure the server is running, fail otherwise
-	server := api.node.Server()
+	server := api.node.ExecutionServer()
 	if server == nil {
 		return nil, ErrNodeStopped
 	}
@@ -304,7 +304,7 @@ type publicAdminAPI struct {
 // Peers retrieves all the information we know about each individual peer at the
 // protocol granularity.
 func (api *publicAdminAPI) Peers() ([]*p2p.PeerInfo, error) {
-	server := api.node.Server()
+	server := api.node.ExecutionServer()
 	if server == nil {
 		return nil, ErrNodeStopped
 	}
@@ -324,7 +324,7 @@ func (api *publicAdminAPI) AcnPeers() ([]*p2p.PeerInfo, error) {
 // NodeInfo retrieves all the information we know about the host node at the
 // protocol granularity.
 func (api *publicAdminAPI) NodeInfo() (*p2p.NodeInfo, error) {
-	server := api.node.Server()
+	server := api.node.ExecutionServer()
 	if server == nil {
 		return nil, ErrNodeStopped
 	}
@@ -343,7 +343,7 @@ type publicWeb3API struct {
 
 // ClientVersion returns the node name
 func (s *publicWeb3API) ClientVersion() string {
-	return s.stack.Server().Name
+	return s.stack.ExecutionServer().Name
 }
 
 // Sha3 applies the ethereum sha3 implementation on the input.

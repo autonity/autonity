@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +31,36 @@ func TestSendingValue(t *testing.T) {
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
+}
+
+func TestLargeNetwork(t *testing.T) {
+	//t.Skip("only on demand")
+	// Kernel doesn't allow to have that many TCP connections required for running locally large networks
+	// as we would need roughly count*count connections for consensus + half of it for execution.
+	// We need to switch to an adapter for in-memory dialing using pipes.
+	// 100 validators works for me on a 14th gen Intel CPU with 28 total threads.
+	validators, _ := Validators(t, 100, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewInMemoryNetwork(t, validators, true)
+	require.NoError(t, err)
+	defer network.Shutdown()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	go func() {
+		for range ticker.C {
+			fmt.Println("connection count", "execution", network[0].ExecutionServer().PeerCount(), "consensus", network[0].ConsensusServer().PeerCount())
+			fmt.Println("go routine count", "c", runtime.NumGoroutine())
+			fmt.Println("current state", "h", network[0].Eth.BlockChain().CurrentHeader().Number.Uint64())
+		}
+	}()
+
+	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
+	require.NoError(t, err)
+
+	_ = network.WaitToMineNBlocks(100, 150, false)
+
 }
 
 func TestProtocolContractCache(t *testing.T) {

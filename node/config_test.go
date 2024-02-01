@@ -128,7 +128,7 @@ func TestAutonityKeysPersistency(t *testing.T) {
 	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	config := &Config{ConsensusKey: consensusKey, Name: "unit-test", DataDir: dir, P2P: p2p.Config{PrivateKey: key}}
+	config := &Config{ConsensusKey: consensusKey, Name: "unit-test", DataDir: dir, ExecutionP2P: p2p.Config{PrivateKey: key}}
 	config.AutonityKeys()
 	if _, err := os.Stat(filepath.Join(keyfile)); err == nil {
 		t.Fatalf("one-shot node key persisted to data directory")
