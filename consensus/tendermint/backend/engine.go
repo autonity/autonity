@@ -29,8 +29,8 @@ import (
 
 const (
 	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 40
-	inmemoryMessages  = 1024
+	inmemoryPeers     = 150
+	inmemoryMessages  = 8192
 )
 
 // ErrStartedEngine is returned if the engine is already started
