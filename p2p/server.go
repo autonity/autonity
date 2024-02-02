@@ -406,12 +406,13 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 // a node belonging to the consensus committee is fully connected
 // to the other consensus committee nodes.
 func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
-	var currEnodes []*enode.Node
-	srv.enodeMu.RLock()
-	currEnodes = append(currEnodes, srv.consensusNodes...)
-	srv.enodeMu.RUnlock()
+	currentNodes := make([]*enode.Node, len(srv.consensusNodes))
+	srv.enodeMu.Lock()
+	copy(currentNodes, srv.consensusNodes)
+	srv.consensusNodes = enodes
+	srv.enodeMu.Unlock()
 	// Check for peers that needs to be disconnected
-	for _, connectedPeer := range currEnodes {
+	for _, connectedPeer := range currentNodes {
 		found := false
 		for _, whitelistedEnode := range enodes {
 			if connectedPeer.ID() == whitelistedEnode.ID() {
@@ -429,7 +430,7 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 	// Check for peers that needs to be connected
 	for _, whitelistedEnode := range enodes {
 		found := false
-		for _, oldEnode := range currEnodes {
+		for _, oldEnode := range currentNodes {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
@@ -442,9 +443,6 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 		}
 	}
 
-	srv.enodeMu.Lock()
-	srv.consensusNodes = enodes
-	srv.enodeMu.Unlock()
 }
 
 func (srv *Server) InCommittee(id enode.ID) bool {
