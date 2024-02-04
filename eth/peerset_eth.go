@@ -99,20 +99,6 @@ func (ps *ethPeerSet) registerSnapExtension(peer *snap.Peer) error {
 	return nil
 }
 
-// EthHandshakeStatus returns if eth handshake was successfully done
-func (ps *ethPeerSet) EthHandshakeStatus(peer *eth.Peer) bool {
-	// Ensure nobody can double connect
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
-
-	id := peer.ID()
-	if _, ok := ps.peers[id]; ok {
-		ps.lock.Unlock()
-		return true
-	}
-	return false
-}
-
 // waitExtensions blocks until all satellite protocols are connected and tracked
 // by the peerset.
 func (ps *ethPeerSet) waitSnapExtension(peer *eth.Peer) (*snap.Peer, error) {
