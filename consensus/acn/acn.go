@@ -110,8 +110,6 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		peer.Log().Error("Snapshot extension registration failed", "err", err)
 		return err
 	}
-	//TODO: checkpoint hash and required blocks check not done on consensus channel
-	// Do we need it here
 	defer acn.peers.unregister(peer.ID())
 	return handler(peer)
 }

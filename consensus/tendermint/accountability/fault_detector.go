@@ -378,7 +378,11 @@ loop:
 // the epoch limit. Also the contract side enforcement is missing.
 func (fd *FaultDetector) canReport(height uint64) bool {
 
-	committee := fd.blockchain.GetHeaderByNumber(height - 1).Committee
+	hdr := fd.blockchain.GetHeaderByNumber(height - 1)
+	if hdr == nil {
+		return false
+	}
+	committee := hdr.Committee
 
 	// each reporting slot contains ReportingSlotPeriod block period that a unique and deterministic validator is asked to
 	// be the reporter of that slot period, then at the end block of that slot, the reporter reports
