@@ -186,8 +186,8 @@ func (c *Cache) MinimumBaseFee() *big.Int {
 	return new(big.Int).Set(c.minBaseFee.Load())
 }
 
-func (c *AutonityContract) CommitteeEnodes(block *types.Block, db *state.StateDB, asATC bool) (*types.Nodes, error) {
-	return c.callGetCommitteeEnodes(db, block.Header(), asATC)
+func (c *AutonityContract) CommitteeEnodes(block *types.Block, db *state.StateDB, asACN bool) (*types.Nodes, error) {
+	return c.callGetCommitteeEnodes(db, block.Header(), asACN)
 }
 
 func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*big.Int, error) {
