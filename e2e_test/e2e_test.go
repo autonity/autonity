@@ -618,7 +618,7 @@ func updateRlimit() {
 
 func TestLargeTCPNetwork(t *testing.T) {
 
-	//t.Skip("only on demand")
+	t.Skip("only on demand")
 	updateRlimit()
 	validators, _ := Validators(t, 50, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 
