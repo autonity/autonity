@@ -92,7 +92,7 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		Name:         "autonity",
 		Version:      params.Version,
 		DataDir:      datadir,
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			ListenAddr:  listenAddr,
 			NoDiscovery: true,
 			MaxPeers:    25,
@@ -109,9 +109,9 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 	nodeConfig.HTTPPort = rpcPort
 
 	if inRate != 0 || outRate != 0 {
-		nodeConfig.P2P.IsRated = true
-		nodeConfig.P2P.InRate = inRate
-		nodeConfig.P2P.OutRate = outRate
+		nodeConfig.ExecutionP2P.IsRated = true
+		nodeConfig.ExecutionP2P.InRate = inRate
+		nodeConfig.ExecutionP2P.OutRate = outRate
 	}
 
 	ethConfig := &ethconfig.Config{

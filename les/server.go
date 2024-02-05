@@ -108,7 +108,7 @@ func NewLesServer(node *node.Node, e ethBackend, config *ethconfig.Config) (*Les
 		servingQueue: newServingQueue(int64(time.Millisecond*10), float64(config.LightServ)/100),
 		threadsBusy:  config.LightServ/100 + 1,
 		threadsIdle:  threads,
-		p2pSrv:       node.Server(),
+		p2pSrv:       node.ExecutionServer(),
 	}
 	issync := e.Synced
 	if config.LightNoSyncServe {

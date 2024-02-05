@@ -610,12 +610,12 @@ var (
 	MaxPeersFlag = cli.IntFlag{
 		Name:  "maxpeers",
 		Usage: "Maximum number of network peers (network disabled if set to 0)",
-		Value: node.DefaultConfig.P2P.MaxPeers,
+		Value: node.DefaultConfig.ExecutionP2P.MaxPeers,
 	}
 	MaxPendingPeersFlag = cli.IntFlag{
 		Name:  "maxpendpeers",
 		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
-		Value: node.DefaultConfig.P2P.MaxPendingPeers,
+		Value: node.DefaultConfig.ExecutionP2P.MaxPendingPeers,
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
@@ -816,14 +816,14 @@ func setAutonityKeys(ctx *cli.Context, cfg *node.Config) {
 			Fatalf("Option %q: %v", AutonityKeysFileFlag.Name, err)
 		}
 		cfg.ConsensusKey = consensusKey
-		cfg.P2P.PrivateKey = key
+		cfg.ExecutionP2P.PrivateKey = key
 		cfg.ConsensusP2P.PrivateKey = key
 	case hex != "":
 		if key, consensusKey, err = crypto.HexToAutonityKeys(hex); err != nil {
 			Fatalf("Option %q: %v", AutonityKeysHexFlag.Name, err)
 		}
 		cfg.ConsensusKey = consensusKey
-		cfg.P2P.PrivateKey = key
+		cfg.ExecutionP2P.PrivateKey = key
 		cfg.ConsensusP2P.PrivateKey = key
 	}
 }
@@ -1220,7 +1220,7 @@ func setConsensusP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setAutonityKeys(ctx, cfg)
-	setP2PConfig(ctx, &cfg.P2P)
+	setP2PConfig(ctx, &cfg.ExecutionP2P)
 	setConsensusP2PConfig(ctx, &cfg.ConsensusP2P)
 	setIPC(ctx, cfg)
 	setHTTP(ctx, cfg)
