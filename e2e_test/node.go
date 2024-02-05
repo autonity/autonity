@@ -36,6 +36,10 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
+const (
+	addrAny = "0.0.0.0"
+)
+
 var (
 	baseNodeConfig = &node.Config{
 		Name:    "autonity",
@@ -46,8 +50,8 @@ var (
 		ConsensusP2P: p2p.Config{
 			MaxPeers: 100000,
 		},
-		HTTPHost: "0.0.0.0",
-		WSHost:   "0.0.0.0",
+		HTTPHost: addrAny,
+		WSHost:   addrAny,
 	}
 
 	baseEthConfig = &eth.Config{
@@ -120,12 +124,12 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 
 	// p2p key and address
 	c.ExecutionP2P.PrivateKey = u.NodeKey
-	c.ExecutionP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
+	c.ExecutionP2P.ListenAddr = addrAny + ":" + strconv.Itoa(u.NodePort)
 
 	// consensus key used by consensus engine.
 	c.ConsensusKey = u.ConsensusKey
 	c.ConsensusP2P.PrivateKey = u.NodeKey
-	c.ConsensusP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.AcnPort)
+	c.ConsensusP2P.ListenAddr = addrAny + ":" + strconv.Itoa(u.AcnPort)
 
 	// Set rpc ports
 	c.HTTPPort = freeport.GetOne(t)
