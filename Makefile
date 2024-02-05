@@ -189,7 +189,7 @@ test-contracts-asm-pre:
 		exit 1;\
 	}
 	@echo "check and install hardhat"
-	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat > /dev/null || npm install hardhat
+	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
 

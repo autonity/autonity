@@ -73,9 +73,12 @@ type Config struct {
 
 	// Configuration of peer-to-peer networking.
 	ExecutionP2P p2p.Config
+<<<<<<< HEAD
 
 	// Configuration of peer-to-peer networking on consensus
 	ConsensusP2P p2p.Config
+=======
+>>>>>>> f6f282ee6 (incorporate various review comments and ACN refinemetns)
 
 	// Configuration of peer-to-peer networking on consensus
 	ConsensusP2P p2p.Config
