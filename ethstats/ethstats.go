@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/mclock"
@@ -44,7 +46,6 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rpc"
-	"github.com/gorilla/websocket"
 )
 
 const (
@@ -102,13 +103,14 @@ type Service struct {
 // websocket.
 //
 // From Gorilla websocket docs:
-//   Connections support one concurrent reader and one concurrent writer.
-//   Applications are responsible for ensuring that no more than one goroutine calls the write methods
-//     - NextWriter, SetWriteDeadline, WriteMessage, WriteJSON, EnableWriteCompression, SetCompressionLevel
-//   concurrently and that no more than one goroutine calls the read methods
-//     - NextReader, SetReadDeadline, ReadMessage, ReadJSON, SetPongHandler, SetPingHandler
-//   concurrently.
-//   The Close and WriteControl methods can be called concurrently with all other methods.
+//
+//	Connections support one concurrent reader and one concurrent writer.
+//	Applications are responsible for ensuring that no more than one goroutine calls the write methods
+//	  - NextWriter, SetWriteDeadline, WriteMessage, WriteJSON, EnableWriteCompression, SetCompressionLevel
+//	concurrently and that no more than one goroutine calls the read methods
+//	  - NextReader, SetReadDeadline, ReadMessage, ReadJSON, SetPongHandler, SetPingHandler
+//	concurrently.
+//	The Close and WriteControl methods can be called concurrently with all other methods.
 type connWrapper struct {
 	conn *websocket.Conn
 
@@ -176,7 +178,7 @@ func New(node *node.Node, backend backend, engine consensus.Engine, url string) 
 	ethstats := &Service{
 		backend: backend,
 		engine:  engine,
-		server:  node.Server(),
+		server:  node.ExecutionServer(),
 		node:    parts[0],
 		pass:    parts[1],
 		host:    parts[2],

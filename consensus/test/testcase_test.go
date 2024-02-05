@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/crypto/blst"
+
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
@@ -295,19 +297,19 @@ func (t *Topology) ConnectNodes(nodes map[string]*testNode) error {
 	edges := t.getEdges(maxNumOfBlockMum(nodes))
 	connections := t.getPeerConnections(edges)
 	for nodeKey, connectionsList := range connections {
-		m := t.transformPeerListToMap(nodes[nodeKey].node.Server().Peers(), nodes)
+		m := t.transformPeerListToMap(nodes[nodeKey].node.ExecutionServer().Peers(), nodes)
 		for k := range connectionsList {
 			if _, ok := m[k]; ok {
 				continue
 			}
-			nodes[nodeKey].node.Server().AddPeer(nodes[k].node.Server().Self())
+			nodes[nodeKey].node.ExecutionServer().AddPeer(nodes[k].node.ExecutionServer().Self())
 			nodes[nodeKey].node.ConsensusServer().AddPeer(nodes[k].node.ConsensusServer().Self())
 		}
 		for k := range m {
 			if _, ok := connectionsList[k]; ok {
 				continue
 			}
-			nodes[nodeKey].node.Server().RemovePeer(nodes[k].node.Server().Self())
+			nodes[nodeKey].node.ExecutionServer().RemovePeer(nodes[k].node.ExecutionServer().Self())
 			nodes[nodeKey].node.ConsensusServer().RemovePeer(nodes[k].node.ConsensusServer().Self())
 		}
 	}
@@ -319,7 +321,7 @@ func (t *Topology) transformPeerListToMap(peers []*p2p.Peer, nodes map[string]*t
 	m := make(map[string]struct{})
 	mapper := make(map[enode.ID]string, len(nodes))
 	for index, n := range nodes {
-		mapper[n.node.Server().Self().ID()] = index
+		mapper[n.node.ExecutionServer().Self().ID()] = index
 	}
 	for _, v := range peers {
 		index, ok := mapper[v.Node().ID()]
@@ -393,7 +395,7 @@ func (t *Topology) CheckTopology(nodes map[string]*testNode) error {
 	connections := t.getPeerConnections(edges)
 
 	for i, v := range connections {
-		peers := nodes[i].node.Server().Peers()
+		peers := nodes[i].node.ExecutionServer().Peers()
 		m := t.transformPeerListToMap(peers, nodes)
 		for j := range v {
 			if _, ok := v[j]; !ok {
@@ -413,7 +415,7 @@ func (t *Topology) CheckTopology(nodes map[string]*testNode) error {
 func (t *Topology) FullTopology(nodes map[string]*testNode) map[string]map[string]struct{} {
 	m := make(map[string]map[string]struct{})
 	for i, v := range nodes {
-		peers := v.node.Server().Peers()
+		peers := v.node.ExecutionServer().Peers()
 		byPeer := t.transformPeerListToMap(peers, nodes)
 		m[i] = byPeer
 	}
@@ -457,7 +459,7 @@ func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNod
 	fmt.Println("check started", index, blockNum)
 	allConnections := t.getPeerConnections(edges)
 	indexConnections := allConnections[index]
-	peers := node.node.Server().Peers()
+	peers := node.node.ExecutionServer().Peers()
 	m := t.transformPeerListToMap(peers, nodes)
 	for i := range indexConnections {
 		if _, ok := m[i]; !ok {
@@ -489,15 +491,15 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 	graphConnections := allConnections[index]
 	fmt.Println(dumpConnections(index, graphConnections))
 	fmt.Println()
-	peers := nodes[index].node.Server().Peers()
+	peers := nodes[index].node.ExecutionServer().Peers()
 	currentConnections := t.transformPeerListToMap(peers, nodes)
 	for k := range currentConnections {
 		if _, ok := graphConnections[k]; ok {
 			continue
 		}
 		fmt.Println("node", index, "removes to", k)
-		nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
+		nodes[index].node.ExecutionServer().RemovePeer(nodes[k].node.ExecutionServer().Self())
+		nodes[index].node.ExecutionServer().RemoveTrustedPeer(nodes[k].node.ExecutionServer().Self())
 		nodes[index].node.ConsensusServer().RemovePeer(nodes[k].node.ConsensusServer().Self())
 		nodes[index].node.ConsensusServer().RemoveTrustedPeer(nodes[k].node.ConsensusServer().Self())
 	}
@@ -507,8 +509,8 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 			continue
 		}
 		fmt.Println("node", index, "connects to", k)
-		nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
+		nodes[index].node.ExecutionServer().AddPeer(nodes[k].node.ExecutionServer().Self())
+		nodes[index].node.ExecutionServer().AddTrustedPeer(nodes[k].node.ExecutionServer().Self())
 		nodes[index].node.ConsensusServer().AddPeer(nodes[k].node.ConsensusServer().Self())
 		nodes[index].node.ConsensusServer().AddTrustedPeer(nodes[k].node.ConsensusServer().Self())
 	}

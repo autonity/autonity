@@ -267,7 +267,7 @@ tendermintMsgLoop:
 				if h <= curHeight {
 					for _, m := range messages {
 						if err := fd.processMsg(m); err != nil {
-							fd.logger.Error("Fault detector: error while processing consensus msg", "err", err)
+							fd.logger.Warn("Fault detector: processing consensus msg", "result", err)
 						}
 					}
 					// once messages are processed, delete it from buffer.

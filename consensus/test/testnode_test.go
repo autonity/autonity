@@ -89,7 +89,7 @@ func (validator *testNode) startNode(forceMining bool) error {
 	}
 
 	// Start tracking the node and it's enode
-	validator.enode = validator.node.Server().Self()
+	validator.enode = validator.node.ExecutionServer().Self()
 	return nil
 }
 
