@@ -164,6 +164,7 @@ test-contracts-pre:
 	@npx truffle version
 
 APE_VERSION := 0.6.26
+HARDHAT_VERSION := 2.19.1
 test-contracts-asm:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
