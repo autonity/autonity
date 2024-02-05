@@ -162,7 +162,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 		Address:     address,
 		VotingPower: big.NewInt(2),
 	}
-	lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
+	lastHeader := &types.Header{Number: new(big.Int).SetUint64(2), Committee: []types.CommitteeMember{*validator}}
 	messages := []Msg{
 		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), signer).MustVerify(stubVerifier),
 		NewPrevote(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),
