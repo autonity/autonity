@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	syscall "golang.org/x/sys/unix"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/stretchr/testify/require"
 )
 
 // TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
@@ -470,4 +473,57 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	// Verify network is not on hold anymore and producing blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func updateRlimit() {
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting Rlimit ", err)
+	}
+	fmt.Println(rLimit)
+	rLimit.Max = 999999
+	rLimit.Cur = 999999
+	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Setting Rlimit ", err)
+	}
+	err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting Rlimit ", err)
+	}
+	fmt.Println("Rlimit Final", rLimit)
+
+}
+
+func TestLargeNetwork(t *testing.T) {
+
+	//t.Skip("only on demand")
+	// Kernel doesn't allow to have that many TCP connections required for running locally large networks
+	// as we would need roughly count*count connections for consensus + half of it for execution.
+	// We need to switch to an adapter for in-memory dialing using pipes.
+	// 100 validators works for me on a 14th gen Intel CPU with 28 total threads.
+	updateRlimit()
+	validators, _ := Validators(t, 50, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetworkFromValidators(t, validators, true)
+	require.NoError(t, err)
+	defer network.Shutdown()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	go func() {
+		for range ticker.C {
+			fmt.Println("connection count", "execution", network[0].Server().PeerCount(), "consensus", network[0].ConsensusServer().PeerCount())
+			fmt.Println("go routine count", "c", runtime.NumGoroutine())
+			fmt.Println("current state", "h", network[0].Eth.BlockChain().CurrentHeader().Number.Uint64())
+		}
+	}()
+
+	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
+	require.NoError(t, err)
+
+	err = network.WaitToMineNBlocks(50, 300, false)
+	require.NoError(t, err)
 }

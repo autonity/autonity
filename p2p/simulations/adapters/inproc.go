@@ -102,7 +102,7 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 
 	n, err := node.New(&node.Config{
 		ConsensusKey: consensusKey,
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			PrivateKey:      config.PrivateKey,
 			MaxPeers:        math.MaxInt32,
 			NoDiscovery:     true,
@@ -344,7 +344,7 @@ func (sn *SimNode) ServiceMap() map[string]node.Lifecycle {
 
 // Server returns the underlying p2p.Server
 func (sn *SimNode) Server() *p2p.Server {
-	return sn.node.Server()
+	return sn.node.ExecutionServer()
 }
 
 // SubscribeEvents subscribes the given channel to peer events from the

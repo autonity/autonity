@@ -51,7 +51,7 @@ const (
 func (ser Network) String() string {
 	switch ser {
 	case Consensus:
-		return "Consensus"
+		return "consensus"
 	case Execution:
 		return "execution"
 	}
@@ -406,12 +406,14 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 // a node belonging to the consensus committee is fully connected
 // to the other consensus committee nodes.
 func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
-	var currEnodes []*enode.Node
-	srv.enodeMu.RLock()
-	currEnodes = append(currEnodes, srv.consensusNodes...)
-	srv.enodeMu.RUnlock()
+
+	srv.enodeMu.Lock()
+	currentNodes := make([]*enode.Node, len(srv.consensusNodes))
+	copy(currentNodes, srv.consensusNodes)
+	srv.consensusNodes = enodes
+	srv.enodeMu.Unlock()
 	// Check for peers that needs to be disconnected
-	for _, connectedPeer := range currEnodes {
+	for _, connectedPeer := range currentNodes {
 		found := false
 		for _, whitelistedEnode := range enodes {
 			if connectedPeer.ID() == whitelistedEnode.ID() {
@@ -429,7 +431,7 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 	// Check for peers that needs to be connected
 	for _, whitelistedEnode := range enodes {
 		found := false
-		for _, oldEnode := range currEnodes {
+		for _, oldEnode := range currentNodes {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
@@ -442,16 +444,13 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 		}
 	}
 
-	srv.enodeMu.Lock()
-	srv.consensusNodes = enodes
-	srv.enodeMu.Unlock()
 }
 
-func (srv *Server) InCommittee(id string) bool {
+func (srv *Server) InCommittee(id enode.ID) bool {
 	srv.enodeMu.RLock()
 	defer srv.enodeMu.RUnlock()
 	for _, node := range srv.consensusNodes {
-		if id == node.ID().String() {
+		if id == node.ID() {
 			return true
 		}
 	}
@@ -908,7 +907,7 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscSelf
 	case srv.jailed.contains(c.node.ID().String()):
 		return DiscJailed
-	case srv.Net == Consensus && !srv.InCommittee(c.node.ID().String()):
+	case srv.Net == Consensus && !srv.InCommittee(c.node.ID()):
 		return DiscPeerNotInCommittee
 	default:
 		return nil

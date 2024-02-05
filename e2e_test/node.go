@@ -14,20 +14,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
+
 	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/crypto/blst"
 
-	"github.com/hashicorp/consul/sdk/freeport"
-
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
@@ -42,7 +40,7 @@ var (
 	baseNodeConfig = &node.Config{
 		Name:    "autonity",
 		Version: params.Version,
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			MaxPeers: 100,
 		},
 		ConsensusP2P: p2p.Config{
@@ -121,8 +119,8 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	}
 
 	// p2p key and address
-	c.P2P.PrivateKey = u.NodeKey
-	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
+	c.ExecutionP2P.PrivateKey = u.NodeKey
+	c.ExecutionP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
 
 	// consensus key used by consensus engine.
 	c.ConsensusKey = u.ConsensusKey
@@ -204,7 +202,7 @@ func (n *Node) Start() error {
 		}
 		return b
 	})))
-	logger.Verbosity(log.LvlInfo)
+	logger.Verbosity(log.LvlError)
 
 	nodeConfigCopy.Logger = log.New()
 	nodeConfigCopy.Logger.SetHandler(logger)
@@ -547,6 +545,10 @@ func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, star
 	network := make([]*Node, len(validators))
 	for i, u := range validators {
 		n, err := NewNode(t, u, g, i)
+		if len(validators) > 21 {
+			n.EthConfig.DatabaseCache = 16
+			n.EthConfig.DatabaseHandles = 8
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to build node for network: %v", err)
 		}
@@ -690,8 +692,8 @@ func copyNodeConfig(source, dest *node.Config) error {
 	s.Config = *source
 
 	p := MarshalableP2PConfig{}
-	p.Config = source.P2P
-	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.P2P.PrivateKey)
+	p.Config = source.ExecutionP2P
+	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.ExecutionP2P.PrivateKey)
 	s.P2P = p
 
 	cns := MarshalableP2PConfig{}
@@ -709,9 +711,9 @@ func copyNodeConfig(source, dest *node.Config) error {
 		return err
 	}
 	*dest = u.Config
-	dest.P2P = u.P2P.Config
+	dest.ExecutionP2P = u.P2P.Config
 	dest.ConsensusP2P = u.ConsensusP2P.Config
-	dest.P2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
+	dest.ExecutionP2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
 	dest.ConsensusP2P.PrivateKey = (*ecdsa.PrivateKey)(u.ConsensusP2P.PrivateKey)
 	return nil
 }

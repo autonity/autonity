@@ -59,11 +59,6 @@ const (
 	pongMsg      = 0x03
 )
 
-type ConsensusInfo struct {
-	Port uint64
-	IP   string
-}
-
 // protoHandshake is the RLP structure of the protocol handshake.
 type protoHandshake struct {
 	Version    uint64

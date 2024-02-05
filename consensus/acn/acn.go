@@ -107,7 +107,7 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 	}
 
 	if err := acn.peers.register(peer); err != nil {
-		peer.Log().Error("Snapshot extension registration failed", "err", err)
+		peer.Log().Error("peer registration failed", "err", err)
 		return err
 	}
 	defer acn.peers.unregister(peer.ID())
@@ -128,7 +128,7 @@ func (acn *ACN) Stop() error {
 
 func (acn *ACN) Chain() *core.BlockChain { return acn.chain }
 
-// RunPeer is invoked when a peer joins on the `snap` protocol.
+// RunPeer is invoked when a peer joins on the `acn` protocol.
 func (acn *ACN) RunPeer(peer *protocol.Peer, hand protocol.HandlerFunc) error {
 	return acn.runConsensusPeer(peer, hand)
 }
