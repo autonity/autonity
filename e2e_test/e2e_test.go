@@ -616,15 +616,12 @@ func updateRlimit() {
 
 }
 
-func TestLargeNetwork(t *testing.T) {
+func TestLargeTCPNetwork(t *testing.T) {
 
 	//t.Skip("only on demand")
-	// Kernel doesn't allow to have that many TCP connections required for running locally large networks
-	// as we would need roughly count*count connections for consensus + half of it for execution.
-	// We need to switch to an adapter for in-memory dialing using pipes.
-	// 100 validators works for me on a 14th gen Intel CPU with 28 total threads.
 	updateRlimit()
 	validators, _ := Validators(t, 50, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+
 	network, err := NewNetworkFromValidators(t, validators, true)
 	require.NoError(t, err)
 	defer network.Shutdown()
@@ -635,7 +632,7 @@ func TestLargeNetwork(t *testing.T) {
 	defer ticker.Stop()
 	go func() {
 		for range ticker.C {
-			fmt.Println("connection count", "execution", network[0].Server().PeerCount(), "consensus", network[0].ConsensusServer().PeerCount())
+			fmt.Println("connection count", "execution", network[0].ExecutionServer().PeerCount(), "consensus", network[0].ConsensusServer().PeerCount())
 			fmt.Println("go routine count", "c", runtime.NumGoroutine())
 			fmt.Println("current state", "h", network[0].Eth.BlockChain().CurrentHeader().Number.Uint64())
 		}
