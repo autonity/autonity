@@ -9,6 +9,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/metrics"
 )
@@ -109,6 +110,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 				})
 			})
 			return err
+		} else if errors.Is(err, core.ErrKnownBlock) {
+			return constants.ErrAlreadyHaveProposal
 		}
 		// Proposal is invalid here, we need to prevote nil.
 		// However, we may have already sent a prevote nil in the past without having processed the proposal

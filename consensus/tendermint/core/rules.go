@@ -2,10 +2,12 @@ package core
 
 import (
 	"context"
+	"errors"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
 )
 
 // Line 22 in Algorithm 1 of The latest gossip on BFT consensus
@@ -123,6 +125,9 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 	// if there is a quorum, verify the proposal if needed
 	if !verified {
 		if _, err := c.backend.VerifyProposal(proposal.Block()); err != nil {
+			if errors.Is(err, core.ErrKnownBlock) {
+				return true
+			}
 			// Impossible with the BFT assumptions of 1/3rd honest.
 			panic("Fatal Safety Error: Quorum on unverifiable proposal")
 		}
