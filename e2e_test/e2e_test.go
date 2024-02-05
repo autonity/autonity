@@ -530,8 +530,8 @@ func updateRlimit() {
 		fmt.Println("Error Getting Rlimit ", err)
 	}
 	fmt.Println(rLimit)
-	rLimit.Max = 999999
-	rLimit.Cur = 999999
+	rLimit.Max = 65536
+	rLimit.Cur = 65536
 	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	if err != nil {
 		fmt.Println("Error Setting Rlimit ", err)
