@@ -213,7 +213,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// NOTE: this function execution is not atomic, the block could be not included at the time of this check
 	// and become included right after we passed the check.
 	if sb.blockchain.HasHeader(proposal.Hash(), proposal.NumberU64()) {
-		return constants.ErrAlreadyHaveBlock
+		return 0, constants.ErrAlreadyHaveBlock
 	}
 
 	// verify the header of proposed proposal
