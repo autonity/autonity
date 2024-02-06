@@ -424,10 +424,14 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 		if !found {
 			log.Debug("Dropping node from static peers", "enode", connectedPeer.String(), "server", srv.Net.String())
 			srv.RemoveTrustedPeer(connectedPeer)
-			srv.RemovePeer(connectedPeer)
+			switch srv.Net {
+			case Execution:
+				srv.dialsched.removeStatic(connectedPeer)
+			case Consensus:
+				srv.RemovePeer(connectedPeer)
+			}
 		}
 	}
-
 	// Check for peers that needs to be connected
 	for _, whitelistedEnode := range enodes {
 		found := false

@@ -178,11 +178,12 @@ type Syncer interface {
 	ResetPeerCache(address common.Address)
 }
 
+// Enqueuer defines the interface to enqueue blocks to fetcher
 type Enqueuer interface {
 	Enqueue(id string, block *types.Block)
 }
 
-// Broadcaster defines the interface to enqueue blocks to fetcher and find peer
+// Broadcaster defines the interface to find peer
 type Broadcaster interface {
 	// FindPeers retrieves connected peers by addresses
 	FindPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
