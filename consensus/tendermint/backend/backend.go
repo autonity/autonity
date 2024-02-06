@@ -304,6 +304,13 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
 	}
+
+	// Here we are considering this proposal invalid because we pruned the parent's state
+	// however this is our local node fault, not the remote proposer fault.
+	if errors.Is(err, consensus.ErrPrunedAncestor) {
+		sb.logger.Error("Rejecting a proposal because local node has pruned parent's state")
+		sb.logger.Error("Please check your pruning settings")
+	}
 	return 0, err
 }
 
