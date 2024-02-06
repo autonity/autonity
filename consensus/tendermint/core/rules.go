@@ -135,7 +135,7 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 				return true
 			}
 			// Impossible with the BFT assumptions of 1/3rd honest.
-			sb.logger.Error("Failed verification of committed proposal", "err", err)
+			c.logger.Error("Failed verification of committed proposal", "err", err)
 			panic("Fatal Safety Error: Quorum on unverifiable proposal")
 		}
 	}
