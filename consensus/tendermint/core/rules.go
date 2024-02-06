@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
 )
@@ -125,7 +126,12 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 	// if there is a quorum, verify the proposal if needed
 	if !verified {
 		if _, err := c.backend.VerifyProposal(proposal.Block()); err != nil {
-			if errors.Is(err, core.ErrKnownBlock) {
+			// This can happen if while we are processing the proposal,
+			// we actually receive the finalized proposed block from p2p block propagation (other peers already reached quorum on it)
+			// In this case we can just consider the proposal as committed.
+			if errors.Is(err, core.ErrKnownBlock) || errors.Is(err, constants.ErrAlreadyHaveBlock) {
+				c.logger.Info("Verified proposal that was already in our local chain", "err", err)
+				c.SetStep(ctx, PrecommitDone) // we do not need to process any more consensus messages for this height
 				return true
 			}
 			// Impossible with the BFT assumptions of 1/3rd honest.

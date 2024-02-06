@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 
@@ -204,6 +205,15 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 	if sb.HasBadProposal(proposal.Hash()) {
 		return 0, core.ErrBannedHash
+	}
+
+	// verify if the proposal block is already included in the node's local chain.
+	// This scenario can happen when we are processing a proposal, but in the meantime other peers already reached quorum on it,
+	// therefore we already received the finalized block through p2p block propagation.
+	// NOTE: this function execution is not atomic, the block could be not included at the time of this check
+	// and become included right after we passed the check.
+	if sb.blockchain.HasHeader(proposal.Hash(), proposal.NumberU64()) {
+		return constants.ErrAlreadyHaveBlock
 	}
 
 	// verify the header of proposed proposal
