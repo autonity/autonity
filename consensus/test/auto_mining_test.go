@@ -31,8 +31,8 @@ func TestAutoMiningForCommitteeMembers(t *testing.T) {
 	runTest(t, testCase)
 }
 
-// test none-committee member validators should not start the mining workers.
-func TestAutoMiningForNoneCommitteeValidator(t *testing.T) {
+// test non-committee member validators should not start the mining workers.
+func TestAutoMiningForNonCommitteeValidator(t *testing.T) {
 	numOfValidators := 2
 	testCase := &testCase{
 		name:          "Auto mining test, none committee member should not start mining",
