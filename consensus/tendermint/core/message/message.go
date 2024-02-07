@@ -204,6 +204,9 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	if ext.Height == 0 {
 		return constants.ErrInvalidMessage
 	}
+	if ext.Height != ext.ProposalBlock.NumberU64() {
+		return constants.ErrInvalidMessage
+	}
 	if ext.IsValidRoundNil {
 		if ext.ValidRound != 0 {
 			return constants.ErrInvalidMessage

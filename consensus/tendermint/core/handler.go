@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -86,6 +87,10 @@ func shouldDisconnectSender(err error) bool {
 	case errors.Is(err, constants.ErrMovedToNewRound):
 		fallthrough
 	case errors.Is(err, constants.ErrHeightClosed):
+		fallthrough
+	case errors.Is(err, constants.ErrAlreadyHaveBlock):
+		fallthrough
+	case errors.Is(err, consensus.ErrPrunedAncestor):
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false

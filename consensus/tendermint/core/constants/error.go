@@ -8,6 +8,8 @@ var (
 	ErrNotFromProposer = errors.New("message does not come from proposer")
 	// ErrAlreadyHaveProposal is returned when we receive a proposal but we previously already processed one.
 	ErrAlreadyHaveProposal = errors.New("a proposal was already processed in the round")
+	// ErrAlreadyHaveBlock is returned when we are processing a proposal but we already included the proposed block in our local chain.
+	ErrAlreadyHaveBlock = errors.New("proposed block is already in our local chain")
 	// ErrHeightClosed is returned when we receive a message for current height, but we already committed a proposal for it.
 	ErrHeightClosed = errors.New("consensus instance already concluded")
 	// ErrFutureHeightMessage is returned when curRoundMessages view is earlier than the

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 
@@ -206,6 +207,15 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		return 0, core.ErrBannedHash
 	}
 
+	// verify if the proposal block is already included in the node's local chain.
+	// This scenario can happen when we are processing a proposal, but in the meantime other peers already reached quorum on it,
+	// therefore we already received the finalized block through p2p block propagation.
+	// NOTE: this function execution is not atomic, the block could be not included at the time of this check
+	// and become included right after we passed the check.
+	if sb.blockchain.HasHeader(proposal.Hash(), proposal.NumberU64()) {
+		return 0, constants.ErrAlreadyHaveBlock
+	}
+
 	// verify the header of proposed proposal
 	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
 	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
@@ -293,6 +303,13 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
+	}
+
+	// Here we are considering this proposal invalid because we pruned the parent's state
+	// however this is our local node fault, not the remote proposer fault.
+	if errors.Is(err, consensus.ErrPrunedAncestor) {
+		sb.logger.Error("Rejecting a proposal because local node has pruned parent's state")
+		sb.logger.Error("Please check your pruning settings")
 	}
 	return 0, err
 }

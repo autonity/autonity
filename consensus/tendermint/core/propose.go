@@ -9,6 +9,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/metrics"
 )
@@ -109,6 +110,12 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 				})
 			})
 			return err
+		}
+		// if the proposal block is already in the chain, no need to prevote for nil
+		if errors.Is(err, core.ErrKnownBlock) || errors.Is(err, constants.ErrAlreadyHaveBlock) {
+			c.logger.Info("Verified proposal that was already in our local chain", "err", err, "duration", duration)
+			c.SetStep(ctx, PrecommitDone) // we do not need to process any more consensus messages for this height
+			return constants.ErrAlreadyHaveBlock
 		}
 		// Proposal is invalid here, we need to prevote nil.
 		// However, we may have already sent a prevote nil in the past without having processed the proposal
