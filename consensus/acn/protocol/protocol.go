@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/forkid"
@@ -49,8 +48,6 @@ var (
 type StatusPacket struct {
 	ProtocolVersion uint32
 	NetworkID       uint64
-	TD              *big.Int
-	Head            common.Hash
 	Genesis         common.Hash
 	ForkID          forkid.ID
 }
