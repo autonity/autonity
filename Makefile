@@ -51,6 +51,9 @@ autonity:
 bindings:
 	@echo Generating protocol contracts bindings
 	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol "$(CONTRACTS_DIR)/bindings.sol" --out ./autonity/bindings.go
+	@echo Generating internal testing bindings
+	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/tests/bindings.go
+
 
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
 # glibc for solc.
@@ -88,6 +91,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,Accountability)
 	@$(call gen-contract,,AutonityTest)
 	@$(call gen-contract,,AccountabilityTest)
+	@$(call gen-contract,,UpgradeManager)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
@@ -97,6 +101,8 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	# Generate go bindings
 	@echo Generating protocol contracts bindings
 	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/bindings.go
+	@echo Generating internal testing bindings
+	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/tests/bindings.go
 
 
 $(SOLC_BINARY):

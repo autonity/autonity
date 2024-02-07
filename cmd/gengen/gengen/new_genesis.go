@@ -3,16 +3,16 @@ package gengen
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 	"time"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 )
@@ -67,54 +67,14 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 		return nil, fmt.Errorf("failed to construct initial user state: %v", err)
 	}
 
-	chainID := big.NewInt(1234)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random chainID: %v", err)
 	}
 
-	config := &params.ChainConfig{
-		ChainID:             chainID,
-		HomesteadBlock:      big.NewInt(0),
-		EIP150Block:         big.NewInt(0),
-		EIP155Block:         big.NewInt(0),
-		EIP158Block:         big.NewInt(0),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: big.NewInt(0),
-		PetersburgBlock:     big.NewInt(0),
-		IstanbulBlock:       big.NewInt(0),
-		MuirGlacierBlock:    big.NewInt(0),
-		BerlinBlock:         big.NewInt(0),
-		LondonBlock:         big.NewInt(0),
-		ArrowGlacierBlock:   big.NewInt(0),
-		AutonityContractConfig: &params.AutonityContractGenesis{
-			MaxCommitteeSize: 21,
-			BlockPeriod:      1,
-			UnbondingPeriod:  120,
-			EpochPeriod:      30,   //seconds
-			DelegationRate:   1200, // 12%
-			Treasury:         common.Address{120},
-			TreasuryFee:      1500000000000000, // 0.15%,
-			MinBaseFee:       10000000000,
-			Operator:         *operatorAddress,
-			Validators:       genesisValidators,
-		},
-		AccountabilityConfig: &params.AccountabilityGenesis{
-			InnocenceProofSubmissionWindow: 30,
-			BaseSlashingRateLow:            500,  // 5%
-			BaseSlashingRateMid:            1000, // 10%
-			CollusionFactor:                500,  // 5%
-			HistoryFactor:                  750,  // 7.5%
-			JailFactor:                     60,   // two epochs
-			SlashingRatePrecision:          10_000,
-		},
-		OracleContractConfig: &params.OracleContractGenesis{},
-		ASM: params.AsmConfig{
-			ACUContractConfig:           params.DefaultAcuContractGenesis,
-			StabilizationContractConfig: params.DefaultStabilizationGenesis,
-			SupplyControlConfig:         params.DefaultSupplyControlGenesis,
-		},
-	}
-
+	config := params.TestChainConfig
+	config.AutonityContractConfig.Operator = *operatorAddress
+	config.AutonityContractConfig.Validators = genesisValidators
+	config.Ethash = nil
 	genesis := &core.Genesis{
 
 		Timestamp: uint64(time.Now().Unix()),

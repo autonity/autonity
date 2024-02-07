@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
+
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
@@ -30,7 +32,6 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
-	"github.com/hashicorp/consul/sdk/freeport"
 )
 
 var (

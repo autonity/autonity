@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
     uint256 constant public SUCCESS = 1;
+    address constant public UPGRADER_CONTRACT = address(0xf9);
     address constant public COMPUTE_COMMITTEE_CONTRACT = address(0xfa);
     address constant public POP_VERIFIER_CONTRACT = address(0xfb);
     address constant public ACCUSATION_CONTRACT = address(0xfc);

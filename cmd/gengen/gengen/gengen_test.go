@@ -7,10 +7,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/crypto"
 )
 
 var (
@@ -59,6 +60,7 @@ func TestEncodeDecodeConsistency(t *testing.T) {
 	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
 	g, err := NewGenesis(validators)
+	g.Config.AutonityContractConfig.ABI = nil
 	require.NoError(t, err)
 	encoded, err := json.Marshal(g)
 	require.NoError(t, err)

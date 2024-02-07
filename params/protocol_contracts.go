@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/influxdata/influxdb/pkg/deep"
 	"math/big"
+
+	"github.com/influxdata/influxdb/pkg/deep"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
@@ -17,15 +18,10 @@ import (
 )
 
 var (
-	//Global default protocol parameters
-	GovernanceOperator = common.HexToAddress("0x1336000000000000000000000000000000000000")
-
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
 	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USD", "NTN-USD", "NTN-ATN"}
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
-		Bytecode:   generated.OracleBytecode,
-		ABI:        &generated.OracleAbi,
 		Symbols:    OracleInitialSymbols,
 		VotePeriod: OracleVotePeriod,
 	}
@@ -67,6 +63,7 @@ var (
 	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 3)
 	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 4)
 	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
+	UpgradeManagerContractAddress = crypto.CreateAddress(DeployerAddress, 6)
 )
 
 type AutonityContractGenesis struct {
@@ -104,9 +101,6 @@ func (g *AutonityContractGenesis) Prepare() error {
 	if g.Bytecode == nil && g.ABI == nil {
 		g.ABI = &generated.AutonityAbi
 		g.Bytecode = generated.AutonityBytecode
-	}
-	if g.Operator == (common.Address{}) {
-		g.Operator = GovernanceOperator
 	}
 	if g.MaxCommitteeSize == 0 {
 		return errors.New("invalid max committee size")
@@ -348,16 +342,13 @@ func (g *OracleContractGenesis) SetDefaults() error {
 	if g.Bytecode == nil && g.ABI != nil || g.Bytecode != nil && g.ABI == nil {
 		return errors.New("it is an error to set only of oracle contract abi or bytecode")
 	}
-
 	if g.Bytecode == nil && g.ABI == nil {
 		g.ABI = &generated.OracleAbi
 		g.Bytecode = generated.OracleBytecode
 	}
-
 	if len(g.Symbols) == 0 {
 		g.Symbols = OracleInitialSymbols
 	}
-
 	if g.VotePeriod == 0 {
 		g.VotePeriod = OracleVotePeriod
 	}

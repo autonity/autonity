@@ -1,0 +1,84 @@
+package generated
+
+import "strings"
+import "github.com/autonity/autonity/accounts/abi"
+import "github.com/autonity/autonity/common"
+
+var UpgradeManagerBytecode = common.Hex2Bytes("608060405234801561001057600080fd5b5060405161054e38038061054e83398101604081905261002f9161007c565b600080546001600160a01b039384166001600160a01b031991821617909155600180549290931691161790556100af565b80516001600160a01b038116811461007757600080fd5b919050565b6000806040838503121561008f57600080fd5b61009883610060565b91506100a660208401610060565b90509250929050565b610490806100be6000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c806355463ceb14610051578063570ca7351461009a5780636e3d9ff0146100ba578063b3ab15fb146100cf575b600080fd5b6000546100719073ffffffffffffffffffffffffffffffffffffffff1681565b60405173ffffffffffffffffffffffffffffffffffffffff909116815260200160405180910390f35b6001546100719073ffffffffffffffffffffffffffffffffffffffff1681565b6100cd6100c83660046102fa565b6100e2565b005b6100cd6100dd3660046103da565b6101b4565b60015473ffffffffffffffffffffffffffffffffffffffff163314610168576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f63616c6c6572206973206e6f7420746865206f70657261746f7200000000000060448201526064015b60405180910390fd5b60405160f99060009061018190859085906020016103fc565b6040516020818303038152906040529050600080825160208401855af43d6000803e8080156101af573d6000f35b3d6000fd5b60005473ffffffffffffffffffffffffffffffffffffffff16331461025b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602360248201527f63616c6c6572206973206e6f7420746865204175746f6e69747920636f6e747260448201527f6163740000000000000000000000000000000000000000000000000000000000606482015260840161015f565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b803573ffffffffffffffffffffffffffffffffffffffff811681146102c657600080fd5b919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6000806040838503121561030d57600080fd5b610316836102a2565b9150602083013567ffffffffffffffff8082111561033357600080fd5b818501915085601f83011261034757600080fd5b813581811115610359576103596102cb565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f0116810190838211818310171561039f5761039f6102cb565b816040528281528860208487010111156103b857600080fd5b8260208601602083013760006020848301015280955050505050509250929050565b6000602082840312156103ec57600080fd5b6103f5826102a2565b9392505050565b7fffffffffffffffffffffffffffffffffffffffff0000000000000000000000008360601b1681526000825160005b81811015610448576020818601810151601486840101520161042b565b5060009201601401918252509291505056fea264697066735822122078e72e131c8d0aeeff0cedc7d1377a5ec43f5ad1f2a78052913d94197b273ec564736f6c63430008150033")
+
+var UpgradeManagerAbi, _ = abi.JSON(strings.NewReader(`[
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_autonity",
+            "type" : "address"
+         },
+         {
+            "internalType" : "address",
+            "name" : "_operator",
+            "type" : "address"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "constructor"
+   },
+   {
+      "inputs" : [],
+      "name" : "autonity",
+      "outputs" : [
+         {
+            "internalType" : "address",
+            "name" : "",
+            "type" : "address"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [],
+      "name" : "operator",
+      "outputs" : [
+         {
+            "internalType" : "address",
+            "name" : "",
+            "type" : "address"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_account",
+            "type" : "address"
+         }
+      ],
+      "name" : "setOperator",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_target",
+            "type" : "address"
+         },
+         {
+            "internalType" : "string",
+            "name" : "_data",
+            "type" : "string"
+         }
+      ],
+      "name" : "upgrade",
+      "outputs" : [],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   }
+]
+`))

@@ -126,5 +126,9 @@
   "c13974e1": "ENODE_VERIFIER_CONTRACT()",
   "d0a6d1a6": "SUCCESS()",
   "32f33a37": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,uint8))",
-  "2090a442": "COMPUTE_COMMITTEE_CONTRACT()"
+  "2090a442": "COMPUTE_COMMITTEE_CONTRACT()",
+  "a4ad5d91": "UPGRADER_CONTRACT()",
+  "55463ceb": "autonity()",
+  "570ca735": "operator()",
+  "6e3d9ff0": "upgrade(address,string)"
 }

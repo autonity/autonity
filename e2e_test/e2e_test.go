@@ -10,10 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/stretchr/testify/require"
+	"github.com/autonity/autonity/params"
 )
 
 // TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
@@ -32,6 +34,53 @@ func TestSendingValue(t *testing.T) {
 	_ = network.WaitToMineNBlocks(80, 120, false)
 }
 
+func TestProtocolContractsDeployment(t *testing.T) {
+	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown()
+	// Autonity Contract
+	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityConfig, err := autonityContract.Config(nil)
+	require.NoError(t, err)
+	require.Equal(t, params.TestAutonityContractConfig.Operator, autonityConfig.Protocol.OperatorAccount)
+	require.Equal(t, params.TestAutonityContractConfig.BlockPeriod, autonityConfig.Protocol.BlockPeriod.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.EpochPeriod, autonityConfig.Protocol.EpochPeriod.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.MaxCommitteeSize, autonityConfig.Protocol.CommitteeSize.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.DelegationRate, autonityConfig.Policy.DelegationRate.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.MinBaseFee, autonityConfig.Policy.MinBaseFee.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.Treasury, autonityConfig.Policy.TreasuryAccount)
+	require.Equal(t, params.TestAutonityContractConfig.TreasuryFee, autonityConfig.Policy.TreasuryFee.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.UnbondingPeriod, autonityConfig.Policy.UnbondingPeriod.Uint64())
+	require.Equal(t, params.UpgradeManagerContractAddress, autonityConfig.Contracts.UpgradeManagerContract)
+	require.Equal(t, params.AccountabilityContractAddress, autonityConfig.Contracts.AccountabilityContract)
+	require.Equal(t, params.ACUContractAddress, autonityConfig.Contracts.AcuContract)
+	require.Equal(t, params.StabilizationContractAddress, autonityConfig.Contracts.StabilizationContract)
+	require.Equal(t, params.OracleContractAddress, autonityConfig.Contracts.OracleContract)
+	require.Equal(t, params.SupplyControlContractAddress, autonityConfig.Contracts.SupplyControlContract)
+	// Accountability Contract
+	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
+	accountabilityConfig, err := accountabilityContract.Config(nil)
+	require.NoError(t, err)
+	require.Equal(t, params.DefaultAccountabilityConfig.SlashingRatePrecision, accountabilityConfig.SlashingRatePrecision.Uint64())
+	require.Equal(t, params.DefaultAccountabilityConfig.HistoryFactor, accountabilityConfig.HistoryFactor.Uint64())
+	require.Equal(t, params.DefaultAccountabilityConfig.CollusionFactor, accountabilityConfig.CollusionFactor.Uint64())
+	require.Equal(t, params.DefaultAccountabilityConfig.JailFactor, accountabilityConfig.JailFactor.Uint64())
+	require.Equal(t, params.DefaultAccountabilityConfig.BaseSlashingRateMid, accountabilityConfig.BaseSlashingRateMid.Uint64())
+	require.Equal(t, params.DefaultAccountabilityConfig.BaseSlashingRateLow, accountabilityConfig.BaseSlashingRateLow.Uint64())
+	require.Equal(t, params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow, accountabilityConfig.InnocenceProofSubmissionWindow.Uint64())
+	// Oracle Contract -- todo
+	// ACU Contract -- todo
+	// Supply Control Contract -- todo
+	// Stabilization Contract -- todo
+	// Upgrade Manager Contract
+	upgradeManagerContract, _ := autonity.NewUpgradeManager(params.UpgradeManagerContractAddress, network[0].WsClient)
+	upgradeManagerAutonityAddress, err := upgradeManagerContract.Autonity(nil)
+	require.NoError(t, err)
+	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
+	err = network.WaitToMineNBlocks(2, 10, false)
+	require.NoError(t, err)
+}
+
 func TestProtocolContractCache(t *testing.T) {
 	t.Run("If minimum base fee is updated, cached value is updated as well", func(t *testing.T) {
 		network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
@@ -40,14 +89,14 @@ func TestProtocolContractCache(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
-		initialMinBaseFee, _ := new(big.Int).SetString("10000000000", 10)
+		initialMinBaseFee := new(big.Int).SetUint64(uint64(params.InitialBaseFee))
 		require.Equal(t, initialMinBaseFee.Bytes(), network[0].Eth.BlockChain().MinBaseFee().Bytes())
 		require.Equal(t, initialMinBaseFee.Bytes(), network[1].Eth.BlockChain().MinBaseFee().Bytes())
 
 		// update min base fee
 		updatedMinBaseFee, _ := new(big.Int).SetString("30000000000", 10)
-		autonityContract, _ := autonity.NewAutonity(AutonityContractAddr, network[0].WsClient)
-		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, big.NewInt(1234))
+		autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 		tx, err := autonityContract.SetMinimumBaseFee(transactOpts, updatedMinBaseFee)
 		require.NoError(t, err)
 		err = network.AwaitTransactions(ctx, tx)
@@ -91,7 +140,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// redeem fees
 
 	// Setup Bindings
-	autonityContract, _ := autonity.NewAutonity(AutonityContractAddr, n.WsClient)
+	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
 	liquidContracts := make([]*autonity.Liquid, len(valAddrs))
 	validators := make([]autonity.AutonityValidator, len(valAddrs))
@@ -132,7 +181,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	treasuryRewards := new(big.Int).Div(new(big.Int).Mul(totalFees, new(big.Int).SetUint64(15)), big.NewInt(10000))
 	totalRewards := new(big.Int).Sub(totalFees, treasuryRewards)
 
-	balanceBeforeEpoch, _ := n.WsClient.BalanceAt(context.Background(), AutonityContractAddr, nil)
+	balanceBeforeEpoch, _ := n.WsClient.BalanceAt(context.Background(), params.AutonityContractAddress, nil)
 	require.Equal(t, totalFees, balanceBeforeEpoch)
 
 	err = network.WaitToMineNBlocks(30, 90, false)

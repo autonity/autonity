@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/consensus/misc"
@@ -21,8 +24,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	lru "github.com/hashicorp/golang-lru"
 
@@ -555,13 +556,13 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 	}
 }
 
-func makeHeader(parent *types.Block) *types.Header {
+func makeHeader(parent *types.Block, feeGetter misc.BaseFeeGetter) *types.Header {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
 		GasLimit:   core.CalcGasLimit(parent.GasLimit(), 8000000),
 		GasUsed:    0,
-		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent.Header(), nil),
+		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent.Header(), feeGetter),
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(1)).Uint64(),
 		Difficulty: defaultDifficulty,
@@ -587,7 +588,7 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 }
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
-	header := makeHeader(parent)
+	header := makeHeader(parent, chain)
 	_ = engine.Prepare(chain, header)
 
 	state, errS := chain.StateAt(parent.Root())

@@ -76,6 +76,7 @@ function autonityConfig(operator, treasuryAccount) {
             "acuContract" :ZERO_ADDRESS,
             "supplyControlContract" :ZERO_ADDRESS,
             "stabilizationContract" :ZERO_ADDRESS,
+            "upgradeManagerContract" :"0x3C368B86AF00565Df7a3897Cfa9195B9434A59f9", // fixed at genesis
         },
         "protocol": {
             "operatorAccount": operator,

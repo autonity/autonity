@@ -1,18 +1,18 @@
 package backend
 
 import (
-	"github.com/autonity/autonity/params/generated"
-	"go.uber.org/mock/gomock"
 	"math/big"
 	"testing"
 
-	"github.com/autonity/autonity/autonity"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/autonity/autonity/rpc"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCommittee(t *testing.T) {
@@ -88,18 +88,11 @@ func TestGetCommitteeAtHash(t *testing.T) {
 }
 
 func TestAPIGetContractABI(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
-	assert.Nil(t, err)
-	_, err = chain.InsertChain(types.Blocks{block})
-	assert.Nil(t, err)
-
-	want := generated.AutonityAbi
-
+	_, engine := newBlockChain(1)
 	api := &API{
 		tendermint: engine,
 	}
-
+	want := generated.AutonityAbi
 	got := *api.GetContractABI()
 	assert.Equal(t, want, got)
 }
@@ -111,7 +104,7 @@ func TestAPIGetContractAddress(t *testing.T) {
 	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)
 
-	want := autonity.AutonityContractAddress
+	want := params.AutonityContractAddress
 
 	API := &API{
 		tendermint: engine,
