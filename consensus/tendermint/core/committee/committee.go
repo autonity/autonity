@@ -134,7 +134,6 @@ type WeightedRandomSamplingCommittee struct {
 	bc                     *ethcore.BlockChain // Todo : remove this dependency
 	autonityContract       *autonity.ProtocolContracts
 	previousBlockStateRoot common.Hash
-	cachedProposer         map[int64]types.CommitteeMember
 }
 
 func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityContract *autonity.ProtocolContracts, bc *ethcore.BlockChain) *WeightedRandomSamplingCommittee {
@@ -143,7 +142,6 @@ func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityCont
 		bc:                     bc,
 		autonityContract:       autonityContract,
 		previousBlockStateRoot: previousBlock.Root(),
-		cachedProposer:         make(map[int64]types.CommitteeMember),
 	}
 }
 
@@ -155,7 +153,6 @@ func (w *WeightedRandomSamplingCommittee) Committee() types.Committee {
 func (w *WeightedRandomSamplingCommittee) SetLastHeader(header *types.Header) {
 	w.previousHeader = header
 	w.previousBlockStateRoot = header.Root
-	w.cachedProposer = make(map[int64]types.CommitteeMember)
 }
 
 // Get validator by index
@@ -187,7 +184,6 @@ func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 		log.Error("cannot load state from block chain.")
 		return types.CommitteeMember{}
 	}
-	// todo(youssef): This seems like we have two caches here being used...
 	proposer := w.autonityContract.Proposer(w.previousHeader, statedb, w.previousHeader.Number.Uint64(), round)
 	member := w.previousHeader.CommitteeMember(proposer)
 	if member == nil {
@@ -195,7 +191,6 @@ func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) types.Committ
 		log.Error("cannot find proposer")
 		return types.CommitteeMember{}
 	}
-	w.cachedProposer[round] = *member
 	return *member
 	// TODO make this return an error
 }

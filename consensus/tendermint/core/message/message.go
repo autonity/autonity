@@ -49,7 +49,7 @@ type Msg interface {
 	// R returns the message round.
 	R() int64
 
-	// H returns the mesage height.
+	// H returns the message height.
 	H() uint64
 
 	// Value returns the block hash being voted for.

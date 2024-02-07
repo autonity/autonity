@@ -6,14 +6,15 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
+	e2e "github.com/autonity/autonity/e2e_test"
 )
 
 func runTest(t *testing.T, services *interfaces.Services, eventType autonity.AccountabilityEventType, rule autonity.Rule, period uint64) {
@@ -32,7 +33,8 @@ func runTest(t *testing.T, services *interfaces.Services, eventType autonity.Acc
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(period, 500, false) // nolint
+	err = network.WaitToMineNBlocks(period, 500, false)
+	require.NoError(t, err)
 
 	// check if the misbehaviour is presented for faulty node #0
 	faultyAddress := network[faultyNode].Address

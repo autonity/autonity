@@ -21,10 +21,12 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
@@ -214,7 +216,49 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 		stakerReward := new(big.Int).Sub(totalValRewards, valCommission)
 		require.Equal(t, new(big.Int).Div(new(big.Int).Mul(stakerReward, big.NewInt(stake[i])), big.NewInt(epochStake[i])), unclaimed)
 	}
+}
 
+// a node is verifying a proposal, but while he is verifying the finalized block is injected from p2p layer
+func TestNodeAlreadyHasProposedBlock(t *testing.T) {
+	vals, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	// trick to get a handle to Proposer of node 0
+	var proposer interfaces.Proposer
+	vals[0].TendermintServices = &interfaces.Services{Proposer: func(c interfaces.Core) interfaces.Proposer {
+		proposer = &core.Proposer{Core: c.(*core.Core)}
+		return proposer
+	}}
+
+	// start the network
+	network, err := NewNetworkFromValidators(t, vals, true)
+	require.NoError(t, err)
+	defer network.Shutdown()
+
+	// mine a couple blocks
+	err = network.WaitToMineNBlocks(3, 60, false)
+	require.NoError(t, err)
+
+	// stop consensus engine of node 0, this will halt the network
+	node := network[0]
+	err = node.Eth.Engine().Close()
+	require.NoError(t, err)
+
+	// get latest inserted block and generate proposal out of it
+	block := node.Eth.BlockChain().CurrentBlock()
+	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) ([]byte, common.Address) {
+		out, _ := crypto.Sign(hash[:], node.Key)
+		return out, common.Address{}
+	}).MustVerify(func(address common.Address) *types.CommitteeMember {
+		return &types.CommitteeMember{
+			Address:     common.Address{},
+			VotingPower: common.Big1,
+		}
+	})
+
+	// handle the proposal
+	err = proposer.HandleProposal(context.TODO(), proposal)
+	require.True(t, errors.Is(err, constants.ErrAlreadyHaveBlock))
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
@@ -302,14 +346,16 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
-	network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, err)
 
 	// Stop node 0, he will need to sync up once restarted
 	err = network[0].Close(false)
 	require.NoError(t, err)
 	network[0].Wait()
 
-	network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, err)
 
 	// Stop node 1. This will make the network lose liveness and halt
 	err = network[1].Close(false)
@@ -329,7 +375,8 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// give time for node 1 to come back up
-	network.WaitToMineNBlocks(15, 60, false)
+	err = network.WaitToMineNBlocks(15, 60, false)
+	require.NoError(t, err)
 
 	// restart node 0. He should sync up and not send old consensus messages
 	chainHeight = network[2].GetChainHeight()
@@ -338,7 +385,8 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// give time for node 0 to come back up
-	network.WaitToMineNBlocks(15, 60, false)
+	err = network.WaitToMineNBlocks(15, 60, false)
+	require.NoError(t, err)
 
 }
 
