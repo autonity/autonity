@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -136,7 +135,7 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 				return true
 			}
 			// Impossible with the BFT assumptions of 1/3rd honest.
-			panic(fmt.Sprintf("Fatal Safety Error: Quorum on unverifiable proposal. err: %s", err.Error()))
+			panic("Fatal Safety Error: Quorum on unverifiable proposal. err: " + err.Error())
 		}
 	}
 
