@@ -89,6 +89,7 @@ func (fd *FaultDetector) eventReporter() {
 				EventType:      ev.EventType,
 				Rule:           ev.Rule,
 				Reporter:       ev.Reporter,
+				Id:             common.Big0, // not required for submission
 				Block:          common.Big0, // not required for submission
 				Epoch:          common.Big0, // not required for submission
 				ReportingBlock: common.Big0, // not required for submission

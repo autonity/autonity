@@ -178,8 +178,6 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof) []byte {
 		valid = c.validMisbehaviourOfPVO(p)
 	case autonity.PVO12:
 		valid = c.validMisbehaviourOfPVO12(p)
-	case autonity.PVO3:
-		valid = c.validMisbehaviourOfPVO3(p)
 	case autonity.C:
 		valid = c.validMisbehaviourOfC(p)
 	case autonity.InvalidProposer:
@@ -440,28 +438,6 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	}
 
 	return lastRoundForNotV > lastRoundForV
-}
-
-// check if the proof of challenge of PVO3 is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPVO3(p *Proof) bool {
-	if len(p.Evidences) != 1 {
-		return false
-	}
-	prevote := p.Message
-	if prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
-		return false
-	}
-
-	// check if the corresponding proposal of preVote is presented, and it contains an invalid validRound.
-	correspondingProposal := p.Evidences[0]
-	if correspondingProposal.Code() != message.LightProposalCode ||
-		correspondingProposal.H() != prevote.H() ||
-		correspondingProposal.R() != prevote.R() ||
-		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.(*message.LightProposal).ValidRound() < correspondingProposal.R() {
-		return false
-	}
-	return true
 }
 
 // check if the Proof of challenge of C is valid.

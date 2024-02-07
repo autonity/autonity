@@ -29,6 +29,7 @@ async function killValidatorWithSlash(config, accountability, offender, reporter
     "reporter": reporter,
     "offender": offender,
     "rawProof": [], 
+    "id": 0,
     "block": 1,
     "epoch": 0,
     "reportingBlock": 2,
