@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"math/big"
 	"sync"
 
 	"github.com/autonity/autonity/crypto"
@@ -19,9 +18,6 @@ type Peer struct {
 	rw        p2p.MsgReadWriter // Input/output streams for snap
 	version   uint              // Protocol version negotiated
 
-	head common.Hash // Latest advertised head block hash
-	td   *big.Int    // Latest advertised head block total difficulty
-
 	term chan struct{} // Termination channel to stop the broadcasters
 	lock sync.RWMutex  // Mutex protecting the internal fields
 }
@@ -29,9 +25,7 @@ type Peer struct {
 // peerInfo represents a short summary of the `acn` protocol metadata known
 // about a connected peer.
 type peerInfo struct {
-	Version    uint     `json:"version"`    // Acn protocol version negotiated
-	Difficulty *big.Int `json:"difficulty"` // Total difficulty of the peer's blockchain
-	Head       string   `json:"head"`       // Hex hash of the peer's best owned block
+	Version uint `json:"version"` // Acn protocol version negotiated
 }
 
 // NewPeer create a wrapper for a network connection and negotiated  protocol
@@ -81,31 +75,9 @@ func (p *Peer) Version() uint {
 	return p.version
 }
 
-// Head retrieves the current head hash and total difficulty of the peer.
-func (p *Peer) Head() (hash common.Hash, td *big.Int) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	copy(hash[:], p.head[:])
-	return hash, new(big.Int).Set(p.td)
-}
-
-// SetHead updates the head hash and total difficulty of the peer.
-func (p *Peer) SetHead(hash common.Hash, td *big.Int) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	copy(p.head[:], hash[:])
-	p.td.Set(td)
-}
-
 // ConsensusPeerInfo gathers and returns some `acn` protocol metadata known about a peer.
 func (p *Peer) ConsensusPeerInfo() *peerInfo {
-	hash, td := p.Head()
-
 	return &peerInfo{
-		Version:    p.Version(),
-		Difficulty: td,
-		Head:       hash.Hex(),
+		Version: p.Version(),
 	}
 }
