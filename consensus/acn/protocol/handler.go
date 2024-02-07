@@ -12,7 +12,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
-	"github.com/autonity/autonity/p2p/enr"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -102,7 +101,7 @@ func MakeProtocols(backend Backend, network uint64) []p2p.Protocol {
 			PeerInfo: func(id enode.ID) interface{} {
 				return backend.PeerInfo(id)
 			},
-			Attributes:     []enr.Entry{currentENREntry(backend.Chain())},
+			Attributes:     nil,
 			DialCandidates: nil,
 		}
 	}
