@@ -7,6 +7,7 @@ import "./Liquid.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
+import "./UpgradeManager.sol";
 import "./lib/BytesLib.sol";
 import "./asm/IACU.sol";
 import "./asm/ISupplyControl.sol";
@@ -106,6 +107,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         IACU acuContract;
         ISupplyControl supplyControlContract;
         IStabilization stabilizationContract;
+        UpgradeManager upgradeManagerContract;
     }
 
     struct Policy {
@@ -454,6 +456,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         config.contracts.acuContract.setOperator(_account);
         config.contracts.supplyControlContract.setOperator(_account);
         config.contracts.stabilizationContract.setOperator(_account);
+        config.contracts.upgradeManagerContract.setOperator(_account);
     }
 
     /*

@@ -17,11 +17,11 @@ contract AutonityTest is Autonity {
 
     }
 
-   function applyNewCommissionRates() public onlyProtocol {
+    function applyNewCommissionRates() public onlyProtocol {
         Autonity._applyNewCommissionRates();
-   }
+    }
 
-   function applyStakingOperations() public {
+    function applyStakingOperations() public {
        _stakingOperations();
    }
 

@@ -24,6 +24,8 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/log"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus"
@@ -35,7 +37,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
-	"golang.org/x/crypto/sha3"
 )
 
 // TestStateProcessorErrors tests the output from the 'core' errors
@@ -58,8 +59,8 @@ func TestStateProcessorErrors(t *testing.T) {
 			BerlinBlock:            big.NewInt(0),
 			LondonBlock:            big.NewInt(0),
 			Ethash:                 new(params.EthashConfig),
-			AutonityContractConfig: &params.TestAutonityContractConfig,
-			AccountabilityConfig:   &params.TestAccountabilityConfig,
+			AutonityContractConfig: params.TestAutonityContractConfig,
+			AccountabilityConfig:   params.DefaultAccountabilityConfig,
 			OracleContractConfig:   params.DefaultGenesisOracleConfig,
 		}
 		signer  = types.LatestSigner(config)
@@ -232,8 +233,8 @@ func TestStateProcessorErrors(t *testing.T) {
 					MuirGlacierBlock:       big.NewInt(0),
 					BerlinBlock:            big.NewInt(1000),
 					LondonBlock:            big.NewInt(1000),
-					AutonityContractConfig: &params.TestAutonityContractConfig,
-					AccountabilityConfig:   &params.TestAccountabilityConfig,
+					AutonityContractConfig: params.TestAutonityContractConfig,
+					AccountabilityConfig:   params.DefaultAccountabilityConfig,
 					OracleContractConfig:   params.DefaultGenesisOracleConfig,
 				},
 				Alloc: GenesisAlloc{

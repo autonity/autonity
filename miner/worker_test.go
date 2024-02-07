@@ -17,12 +17,6 @@
 package miner
 
 import (
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/core/state"
-	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/p2p/enode"
 	"math/big"
 	"math/rand"
 	"os"
@@ -30,18 +24,23 @@ import (
 	"testing"
 	"time"
 
-	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
-
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/ethash"
+	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
+	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 )
 

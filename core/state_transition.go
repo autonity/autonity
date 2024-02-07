@@ -21,7 +21,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/common"
@@ -266,7 +265,7 @@ func (st *StateTransition) preCheck() error {
 
 // check if it is a vote transaction of the oracle Contract
 func isOracleVote(msg Message) bool {
-	if (msg.To() != nil) && (*msg.To() != autonity.OracleContractAddress) {
+	if (msg.To() != nil) && (*msg.To() != params.OracleContractAddress) {
 		return false
 	}
 	method, err := generated.OracleAbi.MethodById(msg.Data())
@@ -364,7 +363,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if london && !oracleVote {
 		effectiveTip := cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 		st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
-		st.state.AddBalance(autonity.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
+		st.state.AddBalance(params.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))
 	}
 
 	return &ExecutionResult{

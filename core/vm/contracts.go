@@ -69,6 +69,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
+	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	// addresses 252 to 254 are reserved for accountability contracts
@@ -87,6 +88,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
+	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	// addresses 252 to 254 are reserved for accountability contracts
@@ -106,6 +108,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	// addresses 252 to 254 are reserved for accountability contracts
@@ -125,6 +128,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	// addresses 252 to 254 are reserved for accountability contracts
@@ -144,6 +148,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{17}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
+	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
 	// addresses 252 to 254 are reserved for accountability contracts
@@ -227,6 +232,25 @@ var (
 	errBadConsensusKeyLen = errors.New("invalid consensus key length")
 )
 
+type Upgrader struct{}
+
+func (u *Upgrader) RequiredGas(_ []byte) uint64 {
+	return params.ProtocolOnlyBaseGas
+}
+
+func (u *Upgrader) Run(input []byte, _ uint64, evm *EVM, caller common.Address) ([]byte, error) {
+	if caller != params.UpgradeManagerContractAddress {
+		return nil, errUnauthorized
+	}
+	if len(input) < common.AddressLength+1 {
+		return nil, errBadInput
+	}
+	targetContract := common.Address(input[:common.AddressLength])
+	// input is TARGET_ADDRESS + DEPLOY_CALLDATA
+	_, _, _, err := evm.Replace(AccountRef(params.DeployerAddress), input[common.AddressLength:], targetContract)
+	return nil, err
+}
+
 type CommitteeSelector struct{}
 
 type CommitteeInput struct {
@@ -238,8 +262,7 @@ type CommitteeInput struct {
 }
 
 func (a *CommitteeSelector) RequiredGas(input []byte) uint64 {
-	times := uint64(len(input)/KB + 1)
-	return params.AutonityCommitteeGasPerKB * times
+	return params.ProtocolOnlyBaseGas
 }
 
 func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.Address) ([]byte, error) {
