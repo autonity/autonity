@@ -99,10 +99,9 @@ type Backend struct {
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
 
-	// interface to enqueue blocks to fetcher and find peers
+	// interface to find peers
 	Broadcaster consensus.Broadcaster
-
-	// interface to enqueue blocks to fetcher and find peers
+	// interface to enqueue blocks to fetcher
 	Enqueuer consensus.Enqueuer
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
@@ -147,7 +146,7 @@ func (sb *Backend) Gossip(committee types.Committee, msg message.Msg) {
 	sb.gossiper.Gossip(committee, msg)
 }
 
-// Gossip implements tendermint.Backend.Gossip
+// UpdateStopChannel implements tendermint.Backend.Gossip
 func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
 	sb.gossiper.UpdateStopChannel(stopCh)
 }
