@@ -16,8 +16,11 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
 )
 
@@ -206,7 +209,48 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 		stakerReward := new(big.Int).Sub(totalValRewards, valCommission)
 		require.Equal(t, new(big.Int).Div(new(big.Int).Mul(stakerReward, big.NewInt(stake[i])), big.NewInt(epochStake[i])), unclaimed)
 	}
+}
 
+// a node is verifying a proposal, but while he is verifying the finalized block is injected from p2p layer
+func TestNodeAlreadyHasProposedBlock(t *testing.T) {
+	// create 1 node network
+	vals, err := Validators(t, 1, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	network, err := NewNetworkFromValidators(t, vals, false)
+	require.NoError(t, err)
+
+	// trick to get a handle to Proposer
+	node := network[0]
+	var proposer interfaces.Proposer
+	node.CustHandler = &interfaces.Services{Proposer: func(c interfaces.Core) interfaces.Proposer {
+		proposer = &core.Proposer{Core: c.(*core.Core)}
+		return proposer
+	}}
+
+	// start the network and mine a couple blocks
+	node.Start()
+	defer network.Shutdown()
+	network.WaitToMineNBlocks(3, 60, false)
+
+	// stop consensus engine
+	err = node.Eth.Engine().Close()
+	require.NoError(t, err)
+
+	// get latest inserted block and generate proposal out of it
+	block := node.Eth.BlockChain().CurrentBlock()
+	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) ([]byte, common.Address) {
+		out, _ := crypto.Sign(hash[:], node.Key)
+		return out, common.Address{}
+	}).MustVerify(func(address common.Address) *types.CommitteeMember {
+		return &types.CommitteeMember{
+			Address:     common.Address{},
+			VotingPower: common.Big1,
+		}
+	})
+
+	// handle the proposal
+	err = proposer.HandleProposal(context.TODO(), proposal)
+	require.True(t, errors.Is(err, constants.ErrAlreadyHaveBlock))
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
