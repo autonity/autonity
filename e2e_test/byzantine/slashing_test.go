@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -15,7 +17,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/ethclient"
-	"github.com/stretchr/testify/require"
+	"github.com/autonity/autonity/params"
 )
 
 // *** e2e tests to write ***:
@@ -88,7 +90,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	dedicatedNode := network[1].WsClient
 
-	autonityContract, err := autonity.NewAutonity(autonity.AutonityContractAddress, dedicatedNode)
+	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
 	treasuryAccount, err := autonityContract.GetTreasuryAccount(nil)
@@ -223,10 +225,10 @@ func TestHistoryFactor(t *testing.T) {
 
 	dedicatedNode := network[1].WsClient
 
-	autonityContract, err := autonity.NewAutonity(autonity.AutonityContractAddress, dedicatedNode)
+	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
-	accountabilityContract, err := autonity.NewAccountability(autonity.AccountabilityContractAddress, dedicatedNode)
+	accountabilityContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
 	treasuryAccount, err := autonityContract.GetTreasuryAccount(nil)
@@ -309,7 +311,7 @@ func TestHistoryFactor(t *testing.T) {
 // Wait for N AccountabilitySlashingEvent to appear on all the nodes in the network
 func WaitForSlashingEvents(ctx context.Context, t *testing.T, n int, client *ethclient.Client) []*autonity.AccountabilitySlashingEvent {
 
-	accountabilityContract, err := autonity.NewAccountability(autonity.AccountabilityContractAddress, client)
+	accountabilityContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, client)
 	require.NoError(t, err)
 
 	// wait for slashing event

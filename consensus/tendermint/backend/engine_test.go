@@ -10,18 +10,19 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"go.uber.org/mock/gomock"
 )
 
 func TestPrepare(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	header := makeHeader(chain.Genesis())
+	header := makeHeader(chain.Genesis(), chain)
 	err := engine.Prepare(chain, header)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)

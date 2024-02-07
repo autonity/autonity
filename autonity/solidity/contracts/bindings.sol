@@ -13,3 +13,7 @@ import "./Liquid.sol";
 import "./Oracle.sol";
 import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";
+import "./asm/SupplyControl.sol";
+import "./AutonityUpgradeTest.sol";
+import "./Tests.sol";
+import "./UpgradeManager.sol";

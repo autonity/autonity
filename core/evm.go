@@ -17,12 +17,12 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	"math/big"
 )
 
 // ChainContext supports retrieving headers and consensus parameters from the
@@ -69,8 +69,8 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 }
 
 // Used by the Autonity Contract
-func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
-	return func(header *types.Header, origin common.Address, statedb *state.StateDB) *vm.EVM {
+func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
+	return func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		evmContext := vm.BlockContext{
 			CanTransfer: CanTransfer,
 			Transfer:    Transfer,

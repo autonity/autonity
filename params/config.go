@@ -19,9 +19,10 @@ package params
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
+
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/p2p/enode"
@@ -424,49 +425,33 @@ var (
 	// adding flags to the config to also have to set these fields.
 	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}, false}
 
-	ValidatorNodeKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	ValidatorAddress    = crypto.PubkeyToAddress(ValidatorNodeKey.PublicKey)
-	ValidatorEnode      = enode.NewV4(&ValidatorNodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+	TestNodeKeys = []string{
+		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
+		"a4b489752489e0f47e410b8e8cbb1ac1b56770d202ffd45b346ca8355c602c91",
+		"3cfb95a9d463ee29b8470742a9718ef3298e04b367b7c796fe67cc693587d746",
+		"193f20ab2451ea4e4ba0aaf83b4cff335df716247359c98562f8da68e07f7c1d",
+	}
+	TestConsensusKeys = []string{
+		"0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb",
+		"3f0e004faa78fde4627834285760652f71a85942f10b354b67dc55ea494c4e8f",
+		"497409f62556016749f7518d154b01baaa0c6a34b1694a3ed55bbffed9a6f30d",
+		"5d1a359c9f81b2b199e4cd972990ddf101d03ab5e44d7313b4da06d7dfc06b87",
+	}
+	TestValidatorBase = Validator{
+		BondedStake: bigBondedStake,
+	}
+	TestValidatorConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
 
-	OracleAddress          = ValidatorAddress
-	DevModeConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
-	Key                    = DevModeConsensusKey.PublicKey().Marshal()
-
-	TestAutonityContractConfig = AutonityContractGenesis{
-		MinBaseFee:       0,
-		EpochPeriod:      5,
-		MaxCommitteeSize: 7,
-		UnbondingPeriod:  5,
+	TestAutonityContractConfig = &AutonityContractGenesis{
+		MaxCommitteeSize: 21,
 		BlockPeriod:      1,
+		UnbondingPeriod:  120,
+		EpochPeriod:      30,
+		DelegationRate:   1200, // 12%
+		Treasury:         common.Address{120},
+		TreasuryFee:      1500000000000000, // 0.15%,
+		MinBaseFee:       InitialBaseFee,
 		Operator:         common.Address{},
-		Treasury:         common.Address{},
-		TreasuryFee:      0,
-		Validators: []*Validator{
-			{
-				Treasury:       ValidatorAddress,
-				NodeAddress:    &ValidatorAddress,
-				OracleAddress:  OracleAddress,
-				Enode:          ValidatorEnode.URLv4(),
-				CommissionRate: new(big.Int).SetUint64(0),
-				BondedStake:    new(big.Int).SetUint64(1000),
-				ConsensusKey:   Key,
-			},
-		},
-	}
-
-	TestAccountabilityConfig = AccountabilityGenesis{
-		InnocenceProofSubmissionWindow: 30,
-		BaseSlashingRateLow:            500,  // 5%
-		BaseSlashingRateMid:            1000, // 10%
-		CollusionFactor:                550,  // 5%
-		HistoryFactor:                  750,  // 7.5%
-		JailFactor:                     60,   // two epochs
-		SlashingRatePrecision:          10_000,
-	}
-
-	TestOracleContractConfig = OracleContractGenesis{
-		VotePeriod: OracleVotePeriod,
-		Symbols:    []string{"NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY", "NTN-SEK"},
 	}
 
 	TestChainConfig = &ChainConfig{
@@ -489,8 +474,8 @@ var (
 		nil,
 		nil,
 		new(EthashConfig),
-		&TestAutonityContractConfig,
-		&TestAccountabilityConfig,
+		TestAutonityContractConfig,
+		DefaultAccountabilityConfig,
 		DefaultGenesisOracleConfig,
 		AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
@@ -499,11 +484,22 @@ var (
 		},
 		false,
 	}
-
-	TestRules = TestChainConfig.Rules(new(big.Int), false)
 )
 
 func init() {
+	// Setup the validators in TestAutonityContractConfig
+	for i := range TestNodeKeys {
+		validator := TestValidatorBase
+		nodeKey, _ := crypto.HexToECDSA(TestNodeKeys[i])
+		address := crypto.PubkeyToAddress(nodeKey.PublicKey)
+		validator.NodeAddress = &address
+		validator.Treasury = address
+		validator.OracleAddress = address
+		validator.Enode = enode.NewV4(&nodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0).URLv4()
+		consensusKey, _ := blst.SecretKeyFromHex(TestConsensusKeys[i])
+		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
+		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)
+	}
 	TestAutonityContractConfig.Prepare()
 	PiccaddillyChainConfig.AutonityContractConfig.Prepare()
 	BakerlooChainConfig.AutonityContractConfig.Prepare()

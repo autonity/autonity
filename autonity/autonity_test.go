@@ -32,7 +32,7 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	validators, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
 	contractAbi := &generated.AutonityAbi
-	deployer := DeployerAddress
+	deployer := params.DeployerAddress
 	committeeSize := 100
 
 	b.Run("computeCommittee", func(b *testing.B) {
@@ -332,11 +332,12 @@ func autonityTestConfig() AutonityConfig {
 			TreasuryAccount: params.TestAutonityContractConfig.Operator,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract: AccountabilityContractAddress,
-			OracleContract:         OracleContractAddress,
-			AcuContract:            ACUContractAddress,
-			SupplyControlContract:  SupplyControlContractAddress,
-			StabilizationContract:  StabilizationContractAddress,
+			AccountabilityContract: params.AccountabilityContractAddress,
+			OracleContract:         params.OracleContractAddress,
+			AcuContract:            params.ACUContractAddress,
+			SupplyControlContract:  params.SupplyControlContractAddress,
+			StabilizationContract:  params.StabilizationContractAddress,
+			UpgradeManagerContract: params.UpgradeManagerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: params.TestAutonityContractConfig.Operator,
@@ -355,18 +356,16 @@ func createTestVM(state vm.StateDB) *vm.EVM {
 		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
 		BlockNumber: common.Big0,
 	}
-
 	txContext := vm.TxContext{
 		Origin:   common.Address{},
 		GasPrice: common.Big0,
 	}
-
 	evm := vm.NewEVM(vmBlockContext, txContext, state, params.TestChainConfig, vm.Config{})
 	return evm
 }
 
-func testEVMProvider() func(header *types.Header, origin common.Address, stateDB *state.StateDB) *vm.EVM {
-	return func(header *types.Header, origin common.Address, stateDB *state.StateDB) *vm.EVM {
+func testEVMProvider() func(header *types.Header, origin common.Address, stateDB vm.StateDB) *vm.EVM {
+	return func(header *types.Header, origin common.Address, stateDB vm.StateDB) *vm.EVM {
 		vmBlockContext := vm.BlockContext{
 			Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
 			CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
@@ -383,7 +382,7 @@ func testEVMProvider() func(header *types.Header, origin common.Address, stateDB
 
 // to properly benchmark a contract call, it is expected that the state is same everytime the contract function is run
 func benchmarkWithGas(
-	b *testing.B, evmContract *EVMContract, stateDB *state.StateDB, header *types.Header,
+	b *testing.B, evmContract *EVMContract, stateDB vm.StateDB, header *types.Header,
 	contractAddress common.Address, packedArgs []byte,
 ) {
 	gas := uint64(math.MaxUint64)
@@ -468,7 +467,7 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 
 func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	contractAbi := &generated.AutonityTestAbi
-	deployer := DeployerAddress
+	deployer := params.DeployerAddress
 	validators, err := randomValidators(validatorCount, 30)
 	require.NoError(t, err)
 	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
