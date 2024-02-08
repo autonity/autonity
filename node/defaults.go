@@ -37,8 +37,8 @@ const (
 	DefaultGraphQLPort = 8547        // Default TCP port for the GraphQL server
 	DefaultETHPort     = ":30303"
 	DefaultETHPortInt  = 30303
-	DefaultATCPort     = ":20202"
-	DefaultATCPortInt  = 20202
+	DefaultATCPort     = ":20203"
+	DefaultATCPortInt  = 20203
 )
 
 // DefaultConfig contains reasonable default settings.
