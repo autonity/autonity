@@ -42,7 +42,6 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
-	"github.com/stretchr/testify/require"
 )
 
 // Verify that Client implements the ethereum interfaces.

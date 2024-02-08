@@ -708,7 +708,10 @@ func (s *Ethereum) similarDigitCount(a, b, base, digitCount uint) uint {
 
 // Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
 // for everyone, connecting to only adjacentNodes will create a connected graph with diameter = 2
-func (s *Ethereum) AdjacentNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+func (s *Ethereum) RequestedNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+	if len(nodes) < 25 {
+		return nodes
+	}
 	myIdx := -1
 	for i, node := range nodes {
 		if bytes.Equal(node.ID().Bytes(), localNode.ID().Bytes()) {
