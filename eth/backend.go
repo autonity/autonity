@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -672,4 +673,62 @@ func (s *Ethereum) Stop() error {
 
 func (s *Ethereum) Logger() log.Logger {
 	return s.log
+}
+
+func (s *Ethereum) squareRootUInt(n uint) uint {
+	if n == 0 {
+		return 0
+	}
+	// return x (uint) such that x*x >= n and (x-1)*(x-1) < n where x > 0
+	var low uint = 1
+	high := n
+	for low < high {
+		mid := (low + high) / 2
+		if mid >= n/mid {
+			high = mid
+		} else {
+			low = mid + 1
+		}
+	}
+	return high
+}
+
+func (s *Ethereum) similarDigitCount(a, b, base, digitCount uint) uint {
+	var count uint
+	for digitCount > 0 {
+		if a%base == b%base {
+			count++
+		}
+		a /= base
+		b /= base
+		digitCount--
+	}
+	return count
+}
+
+// Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
+// for everyone, connecting to only adjacentNodes will create a connected graph with diameter = 2
+func (s *Ethereum) RequestedNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+	if len(nodes) < 25 {
+		return nodes
+	}
+	myIdx := -1
+	for i, node := range nodes {
+		if bytes.Equal(node.ID().Bytes(), localNode.ID().Bytes()) {
+			myIdx = i
+			break
+		}
+	}
+	if myIdx == -1 {
+		return nil
+	}
+	b := s.squareRootUInt(uint(len(nodes)))
+	connections := make([]*enode.Node, 0, len(nodes))
+	var diameter uint = 2
+	for i, node := range nodes {
+		if s.similarDigitCount(uint(i), uint(myIdx), b, diameter) == 1 {
+			connections = append(connections, node)
+		}
+	}
+	return connections
 }

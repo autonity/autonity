@@ -86,7 +86,9 @@ func bfs(
 }
 
 func TestEthExecutionLayerGraph(t *testing.T) {
-	ethServer := &eth.Ethereum{}
+	tSelector := &eth.NetworkTopology{}
+	tSelector.SetDiameter(2)
+	tSelector.SetMinNodes(25)
 	db, err := enode.OpenDB("")
 	require.NoError(t, err)
 	nodeCount := int(max(100, params.TestAutonityContractConfig.MaxCommitteeSize))
@@ -115,7 +117,7 @@ func TestEthExecutionLayerGraph(t *testing.T) {
 		for _, node := range nodes {
 			// check if max distance from node to any other node in the graph is targetDiameter
 			dis := make(map[*enode.Node]int)
-			bfs(node, dis, localNodes, nodes, ethServer.RequestSubset)
+			bfs(node, dis, localNodes, nodes, tSelector.RequestSubset)
 			for _, peer := range nodes {
 				if d, ok := dis[peer]; !ok || d < 0 {
 					t.Fatalf("Graph with %v nodes not connected", n)
