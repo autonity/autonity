@@ -582,13 +582,20 @@ func (s *Ethereum) newCommitteeWatcher() {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
+		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
+		// option 1
+		// Total execution peer = 50 <- max global peers / default value which can be modified via --maxPeer flag
+		// if current node is committee member:
+		//	- REQUESTED peers @execution are other committee members
+		//  - "MaxPeers - len(Requested)" peers @execution are _not_ committee members and should be discovered organically though disc
+		// if current node is _not_ committee member:
+		//	- 50 peers discovered organically
 
-		s.p2pServer.UpdateConsensusEnodes(s.AdjacentNodes(enodesList.List, s.p2pServer.LocalNode()))
+		s.p2pServer.UpdateConsensusEnodes(s.RequestedNodes(committee.List, s.p2pServer.LocalNode()), committee.List)
 	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
@@ -611,7 +618,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				if wasValidating {
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
-					s.p2pServer.UpdateConsensusEnodes(nil)
+					s.p2pServer.UpdateConsensusEnodes(nil, nil)
 					wasValidating = false
 				}
 				continue
@@ -693,7 +700,10 @@ func (s *Ethereum) similarDigitCount(a, b, base, digitCount uint) uint {
 
 // Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
 // for everyone, connecting to only adjacentNodes will create a connected graph with diameter = 2
-func (s *Ethereum) AdjacentNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+func (s *Ethereum) RequestedNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+	if len(nodes) < 25 {
+		return nodes
+	}
 	myIdx := -1
 	for i, node := range nodes {
 		if bytes.Equal(node.ID().Bytes(), localNode.ID().Bytes()) {

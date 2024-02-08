@@ -71,6 +71,7 @@ const (
 	DiscReadTimeout
 	DiscJailed
 	DiscPeerNotInCommittee
+	DiscMaxDiscoveredPeers
 	DiscSubprotocolError = 0x10
 )
 
@@ -89,6 +90,7 @@ var discReasonToString = [...]string{
 	DiscReadTimeout:         "read timeout",
 	DiscJailed:              "jailed node",
 	DiscPeerNotInCommittee:  "validator is not part of committee",
+	DiscMaxDiscoveredPeers:  "reached maximum discoverable peers",
 	DiscSubprotocolError:    "subprotocol error",
 }
 

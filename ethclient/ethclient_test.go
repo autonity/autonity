@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -40,7 +42,6 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
-	"github.com/stretchr/testify/require"
 )
 
 // Verify that Client implements the ethereum interfaces.
@@ -114,7 +115,7 @@ func TestEthExecutionLayerGraph(t *testing.T) {
 		for _, node := range nodes {
 			// check if max distance from node to any other node in the graph is targetDiameter
 			dis := make(map[*enode.Node]int)
-			bfs(node, dis, localNodes, nodes, ethServer.AdjacentNodes)
+			bfs(node, dis, localNodes, nodes, ethServer.RequestedNodes)
 			for _, peer := range nodes {
 				if d, ok := dis[peer]; !ok || d < 0 {
 					t.Fatalf("Graph with %v nodes not connected", n)
