@@ -211,6 +211,9 @@ func acnProtoParams(u *url.URL) (string, uint64, uint64, error) {
 	qv := u.Query()
 	if qv.Get("acnep") != "" {
 		acnIP, acnPort, err = IPPort(qv.Get("acnep"), DefaultACNPort)
+		if acnIP == "" {
+			acnIP, _, _, err = ethProtoParams(u)
+		}
 		return acnIP, acnPort, 0, err
 	}
 
