@@ -22,6 +22,16 @@ env:
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
   GO_VERSION: "1.21" # 1.15 seems to cause tests to fail
+  TRUFFLE_TESTS: |
+    [
+      "autonity.js",
+      "oracle.js",
+      "liquid.js",
+      "accountability.js",
+      "protocol.js",
+      "refund.js",
+      "validator_management.js"
+    ]
 
 jobs:
 
@@ -79,7 +89,6 @@ jobs:
                  [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
                  [ tendermint-tests, ./consensus/tendermint/... -timeout 15m -race ],
                  [ integration-tests, ./consensus/test/... -v -timeout 60m ],
-                 [ byzantine-tests, ./e2e_test/byzantine/... -v -timeout 40m],
                  [ new-e2e-tests, ./e2e_test -v -race ]
         ]
 
@@ -102,6 +111,116 @@ jobs:
 
       - name: Run tests
         run: go test ${{ matrix.tests[1] }}
+
+  prepare-byzantine:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - id: set-matrix
+        name: fetch test lists
+        run: |
+          matrix=$(go test ./e2e_test/byzantine/...  -list=. | grep -v "ok" | jq -R -s -c 'split("\n")[:-1]')
+          echo "matrix=${matrix}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+
+  byzantine:
+    needs: prepare-byzantine
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-byzantine.outputs.matrix) }}
+    name: ${{ matrix.tests }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/...
+
+  prepare-contracts:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: find tests
+        id: set-matrix
+        run:  |
+          cd ./autonity/solidity/test
+          # Temporary file to hold JSON objects
+          temp_json_file=$(mktemp)
+          for file in $(echo $TRUFFLE_TESTS | jq -r '.[]'); do
+            grep 'describe(' "$file" | while IFS= read -r line; do
+              describe_name=$(echo "$line" | sed -E "s/^[[:space:]]*describe\([\'\"](.+)[\'\"],.*/\1/")
+              json_object=$(jq -n --arg file_name "$file" --arg describe_name "$describe_name" '{file_name: $file_name, describe_name: $describe_name}')
+              echo "$json_object" >> "$temp_json_file"
+              echo "$json_object"
+            done
+          done
+          jq -s '.' "$temp_json_file" | jq -r tostring | while read -r json_array; do echo "matrix=$json_array" >> $GITHUB_OUTPUT; done
+          cat $GITHUB_OUTPUT
+
+  # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
+  contracts:
+    needs: prepare-contracts
+    runs-on: ubuntu-latest
+    env:
+      # helps prevent '[failed to restore the stack]' messages when race detected.
+      GORACE: "history_size=7"
+    strategy:
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-contracts.outputs.matrix) }}
+
+    name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
+
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: make autonity
+        run: make autonity
+      - name: install js dependencies
+        run: make test-contracts-pre
+      - name: start autonity
+        run: make start-autonity
+      - name: test contract
+        run: |
+          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+
 
   # tendermint-coverage runs the tendermint tests and collects the coverage, it
   # can't be part of the matrix tests since we need to use the codecov action,
@@ -160,34 +279,7 @@ jobs:
         run: make lint-ci
         shell: bash
 
-  # contract-tests runs:
-  # - truffle tests against an autonity node (slow, run only when PR is not draft)
-  contract-tests:
-    if: '! github.event.pull_request.draft'
-    runs-on: ubuntu-latest
-    needs: prepare-cache
-    steps:
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '18.12.1'
 
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Run contract tests
-        run: make test-contracts-truffle
-  
   # contract-tests-fast runs:
   # - truffle tests against a ganache node
   contract-tests-fast:
@@ -212,7 +304,7 @@ jobs:
 
       - name: Run contract tests
         run: make test-contracts-truffle-fast
-  
+
   # contract-tests-asm runs the ASM test using the APE framework
   contract-tests-asm:
     runs-on: ubuntu-latest
