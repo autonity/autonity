@@ -92,16 +92,9 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 	acn.wg.Add(1)
 	defer acn.wg.Done()
 
-	// Execute the Consensus handshake
-	var (
-		genesis = acn.chain.Genesis()
-		head    = acn.chain.CurrentHeader()
-		hash    = head.Hash()
-		number  = head.Number.Uint64()
-		td      = acn.chain.GetTd(hash, number)
-	)
+	genesis := acn.chain.Genesis()
 	forkID := forkid.NewID(acn.chain.Config(), acn.chain.Genesis().Hash(), acn.chain.CurrentHeader().Number.Uint64())
-	if err := peer.Handshake(acn.networkID, td, hash, genesis.Hash(), forkID, acn.forkFilter); err != nil {
+	if err := peer.Handshake(acn.networkID, genesis.Hash(), forkID, acn.forkFilter); err != nil {
 		peer.Log().Debug("Consensus handshake failed", "err", err)
 		return err
 	}
