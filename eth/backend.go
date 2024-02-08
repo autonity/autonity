@@ -18,7 +18,6 @@
 package eth
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -63,6 +62,12 @@ import (
 	"github.com/autonity/autonity/rpc"
 )
 
+const (
+	// txChanSize is the size of channel listening to NewTxsEvent.
+	// The number is referenced from the size of tx pool.
+	maxInCommitteePeers = 25
+)
+
 // Config contains the configuration options of the ETH protocol.
 // Deprecated: use ethconfig.Config instead.
 type Config = ethconfig.Config
@@ -98,7 +103,8 @@ type Ethereum struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	p2pServer *p2p.Server
+	p2pServer        *p2p.Server
+	topologySelector NetworkTopology
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and address)
 
@@ -192,6 +198,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.ExecutionServer(),
+		topologySelector:  NetworkTopology{2, maxInCommitteePeers},
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
 
@@ -595,7 +602,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 		// if current node is _not_ committee member:
 		//	- 50 peers discovered organically
 
-		s.p2pServer.UpdateConsensusEnodes(s.RequestedNodes(committee.List, s.p2pServer.LocalNode()), committee.List)
+		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, s.p2pServer.LocalNode()), committee.List)
 	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
@@ -665,62 +672,4 @@ func (s *Ethereum) Stop() error {
 
 func (s *Ethereum) Logger() log.Logger {
 	return s.log
-}
-
-func (s *Ethereum) squareRootUInt(n uint) uint {
-	if n == 0 {
-		return 0
-	}
-	// return x (uint) such that x*x >= n and (x-1)*(x-1) < n where x > 0
-	var low uint = 1
-	high := n
-	for low < high {
-		mid := (low + high) / 2
-		if mid >= n/mid {
-			high = mid
-		} else {
-			low = mid + 1
-		}
-	}
-	return high
-}
-
-func (s *Ethereum) similarDigitCount(a, b, base, digitCount uint) uint {
-	var count uint
-	for digitCount > 0 {
-		if a%base == b%base {
-			count++
-		}
-		a /= base
-		b /= base
-		digitCount--
-	}
-	return count
-}
-
-// Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
-// for everyone, connecting to only adjacentNodes will create a connected graph with diameter = 2
-func (s *Ethereum) RequestedNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
-	if len(nodes) < 25 {
-		return nodes
-	}
-	myIdx := -1
-	for i, node := range nodes {
-		if bytes.Equal(node.ID().Bytes(), localNode.ID().Bytes()) {
-			myIdx = i
-			break
-		}
-	}
-	if myIdx == -1 {
-		return nil
-	}
-	b := s.squareRootUInt(uint(len(nodes)))
-	connections := make([]*enode.Node, 0, len(nodes))
-	var diameter uint = 2
-	for i, node := range nodes {
-		if s.similarDigitCount(uint(i), uint(myIdx), b, diameter) == 1 {
-			connections = append(connections, node)
-		}
-	}
-	return connections
 }

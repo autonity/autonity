@@ -25,7 +25,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 			acn.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
-		acn.server.UpdateConsensusEnodes(enodesList.List)
+		acn.server.UpdateConsensusEnodes(enodesList.List, enodesList.List)
 	}
 
 	wasValidating := false
@@ -48,7 +48,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 					// there is no longer the need to retain the full connections and the
 					// consensus engine enabled.
 					if wasValidating {
-						acn.server.UpdateConsensusEnodes(nil)
+						acn.server.UpdateConsensusEnodes(nil, nil)
 						wasValidating = false
 					}
 					continue

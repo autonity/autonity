@@ -115,7 +115,7 @@ func TestEthExecutionLayerGraph(t *testing.T) {
 		for _, node := range nodes {
 			// check if max distance from node to any other node in the graph is targetDiameter
 			dis := make(map[*enode.Node]int)
-			bfs(node, dis, localNodes, nodes, ethServer.RequestedNodes)
+			bfs(node, dis, localNodes, nodes, ethServer.RequestSubset)
 			for _, peer := range nodes {
 				if d, ok := dis[peer]; !ok || d < 0 {
 					t.Fatalf("Graph with %v nodes not connected", n)

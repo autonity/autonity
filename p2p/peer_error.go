@@ -72,6 +72,7 @@ const (
 	DiscJailed
 	DiscPeerNotInCommittee
 	DiscMaxDiscoveredPeers
+	DiscPeerOutsideTopology
 	DiscSubprotocolError = 0x10
 )
 
@@ -91,6 +92,7 @@ var discReasonToString = [...]string{
 	DiscJailed:              "jailed node",
 	DiscPeerNotInCommittee:  "validator is not part of committee",
 	DiscMaxDiscoveredPeers:  "reached maximum discoverable peers",
+	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSubprotocolError:    "subprotocol error",
 }
 
