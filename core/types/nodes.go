@@ -29,9 +29,10 @@ func NewNodes(strList []string, asACN bool) *Nodes {
 	}
 
 	for i, enodeStr := range strList {
+		idx := i
 		wg.Add(1)
 
-		go func(enodeStr string) {
+		go func(enodeStr string, idx int) {
 			log.Debug("node retrieved", "node", enodeStr)
 
 			newEnode, err := parser(enodeStr)
@@ -39,11 +40,11 @@ func NewNodes(strList []string, asACN bool) *Nodes {
 				errCh <- err
 			}
 
-			n.List[i] = newEnode
-			n.StrList[i] = enodeStr
+			n.List[idx] = newEnode
+			n.StrList[idx] = enodeStr
 
 			wg.Done()
-		}(enodeStr)
+		}(enodeStr, idx)
 	}
 
 	wg.Wait()

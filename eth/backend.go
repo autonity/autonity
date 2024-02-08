@@ -588,7 +588,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 			return
 		}
 
-		s.p2pServer.UpdateConsensusEnodes(s.adjacentNodes(enodesList.List, s.p2pServer.LocalNode()))
+		s.p2pServer.UpdateConsensusEnodes(s.AdjacentNodes(enodesList.List, s.p2pServer.LocalNode()))
 	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
@@ -666,7 +666,7 @@ func (s *Ethereum) squareRootUInt(n uint) uint {
 	}
 	// return x (uint) such that x*x >= n and (x-1)*(x-1) < n where x > 0
 	var low uint = 1
-	var high uint = n
+	high := n
 	for low < high {
 		mid := (low + high) / 2
 		if mid >= n/mid {
@@ -679,7 +679,7 @@ func (s *Ethereum) squareRootUInt(n uint) uint {
 }
 
 func (s *Ethereum) similarDigitCount(a, b, base, digitCount uint) uint {
-	var count uint = 0
+	var count uint
 	for digitCount > 0 {
 		if a%base == b%base {
 			count++
@@ -693,7 +693,7 @@ func (s *Ethereum) similarDigitCount(a, b, base, digitCount uint) uint {
 
 // Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
 // for everyone, connecting to only adjacentNodes will create a connected graph with diameter = 2
-func (s *Ethereum) adjacentNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+func (s *Ethereum) AdjacentNodes(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
 	myIdx := -1
 	for i, node := range nodes {
 		if bytes.Equal(node.ID().Bytes(), localNode.ID().Bytes()) {
