@@ -56,8 +56,8 @@ var (
 const (
 	DefaultETHPort    = ":30303"
 	DefaultETHPortInt = 30303
-	DefaultACNPort    = ":20202"
-	DefaultACNPortInt = 20202
+	DefaultACNPort    = ":20203"
+	DefaultACNPortInt = 20203
 )
 
 // MustParseV4 parses a node URL. It panics if the URL is not valid.
@@ -97,7 +97,7 @@ func ParseV4(rawurl string) (*Node, error) {
 	return ParseV4CustomResolve(rawurl, V4ResolveFunc)
 }
 
-// enode://<hex node id>@10.3.58.6:30303?discport=30301?acnep=10.3.58.5:20202
+// enode://<hex node id>@10.3.58.6:30303?discport=30301?acn=10.3.58.5:20203
 func ParseACNV4(rawurl string) (*Node, error) {
 	return parseComplete(rawurl, V4ResolveFunc, acnProtoParams)
 }
@@ -209,8 +209,8 @@ func acnProtoParams(u *url.URL) (string, uint64, uint64, error) {
 
 	// Parse the IP address.
 	qv := u.Query()
-	if qv.Get("acnep") != "" {
-		acnIP, acnPort, err = IPPort(qv.Get("acnep"), DefaultACNPort)
+	if qv.Get("acn") != "" {
+		acnIP, acnPort, err = IPPort(qv.Get("acn"), DefaultACNPort)
 		if acnIP == "" {
 			acnIP, _, _, err = ethProtoParams(u)
 		}
@@ -340,7 +340,7 @@ func AppendConsensusEndpoint(host, port string, ens string) string {
 		return ens
 	}
 	q := u.Query()
-	q.Add("acnep", host+":"+port)
+	q.Add("acn", host+":"+port)
 	u.RawQuery = q.Encode()
 	return u.String()
 }
