@@ -3,6 +3,7 @@ const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
+const UpgradeManager = artifacts.require("UpgradeManager");
 const Oracle = artifacts.require("Oracle")
 const Acu = artifacts.require("ACU")
 const SupplyControl = artifacts.require("SupplyControl")
@@ -241,7 +242,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
     "targetPrice" : 0,
   }
   const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
-
+  const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
   // setters
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
   
@@ -250,6 +251,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setSupplyControlContract(acu.address, {from: operator});
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
+  await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
 }
 

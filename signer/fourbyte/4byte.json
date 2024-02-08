@@ -130,5 +130,6 @@
   "a4ad5d91": "UPGRADER_CONTRACT()",
   "55463ceb": "autonity()",
   "570ca735": "operator()",
-  "6e3d9ff0": "upgrade(address,string)"
+  "6e3d9ff0": "upgrade(address,string)",
+  "ceaad455": "setUpgradeManagerContract(address)"
 }
