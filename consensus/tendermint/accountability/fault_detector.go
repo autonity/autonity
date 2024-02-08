@@ -382,7 +382,6 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	hdr := fd.blockchain.GetHeaderByNumber(height - 1)
 	if hdr == nil {
 		panic("must not happen, height:" + strconv.Itoa(int(height)))
-		return false
 	}
 	committee := hdr.Committee
 
