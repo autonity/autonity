@@ -179,6 +179,7 @@ contract('Autonity', function (accounts) {
   ];
 
   let autonity;
+
   describe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
      * add getter tests for:

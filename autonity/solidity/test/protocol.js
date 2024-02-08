@@ -268,11 +268,11 @@ contract('Protocol', function (accounts) {
 
   let autonity;
   let accountability;
-  describe('After effects of slashing', function () {
+  describe('After effects of slashing 1', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
-      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+      await autonity.setAccountabilityContract(accountability.address, {from: operator});
     });
 
     it('unbondingShares:unbondingStake conversion ratio', async function () {
@@ -281,7 +281,7 @@ contract('Protocol', function (accounts) {
 
 
       accountability = await modifiedSlashingFeeAccountability(autonity, accountabilityConfig, operator, deployer);
-      
+
       let delegatee = [];
       let delegators = [];
       let tokenBondArray = []
@@ -310,7 +310,14 @@ contract('Protocol', function (accounts) {
       // repeat
       await unbondAndSlash(accountabilityConfig, autonity, accountability, delegators, validator, tokenUnbond, operator, deployer, 1);
     });
+  });
 
+  describe('After effects of slashing 2', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('selfUnbondingShares:selfUnbondingStake conversion ratio', async function () {
       // issue multiple unbonding requests (selfBonded) in different epochs, interleaved with slashing events
@@ -341,6 +348,14 @@ contract('Protocol', function (accounts) {
       await selfUnbondAndSlash(accountabilityConfig, autonity, accountability, delegator, validator, tokenUnbond, maxCount, operator, deployer);
 
     });
+  });
+
+  describe('After effects of slashing 3', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('unbondingShares:unbondingStake 100% slash edge case', async function () {
       // unbonding period needs to be increased for this test to work
@@ -365,6 +380,14 @@ contract('Protocol', function (accounts) {
       await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
       await utils.endEpoch(autonity, operator, deployer);
       assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "balance increased after 100% slash");
+    });
+  });
+
+  describe('After effects of slashing 4', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('LNTN:NTN conversion ratio', async function () {
@@ -403,6 +426,14 @@ contract('Protocol', function (accounts) {
       roundingFactor = roundingFactor * (1 - slashingRate);
       await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * roundingFactor, tokenUnbond, operator, deployer);
     });
+  });
+
+  describe('After effects of slashing 5', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('LNTN:NTN 100% slash edge case', async function () {
       const validator = validators[0].nodeAddress;
@@ -424,6 +455,14 @@ contract('Protocol', function (accounts) {
       assert.equal(unbondingRequest.unbondingShare, 0, "unexpected unbondingShare");
       assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "balance increased after 100% slash");
 
+    });
+  });
+
+  describe('After effects of slashing 6', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('jailed validator rewards go to proof reporter', async function () {
@@ -463,6 +502,14 @@ contract('Protocol', function (accounts) {
         validatorReward + reporterReward + reporterTreasuryBalance,
         "reporter did not get reward from jailed validator"
       );
+    });
+  });
+
+  describe('After effects of slashing 7', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('jailbound validator rewards go to proof reporter', async function () {
@@ -506,6 +553,14 @@ contract('Protocol', function (accounts) {
         "reporter did not get reward from jailbound validator"
       );
     });
+  });
+
+  describe('After effects of slashing 8', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('jailed validator cannot be activated', async function () {
       const validator = validators[0].nodeAddress;
@@ -531,6 +586,14 @@ contract('Protocol', function (accounts) {
         return ev.treasury === treasury && ev.addr === validator;
       });
 
+    });
+  });
+
+  describe('After effects of slashing 9', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('cannot bond to a non-active validator', async function () {
@@ -615,6 +678,14 @@ contract('Protocol', function (accounts) {
         assert.equal(newValInfo.state, oldValInfo[i].state, "validator status mismatch");
       }
     });
+  });
+
+  describe('After effects of slashing 10', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('jailbound validator cannot be activated', async function () {
       const validator = validators[0].nodeAddress;
@@ -640,6 +711,14 @@ contract('Protocol', function (accounts) {
       let releaseBlock = validatorInfo.jailReleaseBlock;
       assert.equal(releaseBlock, 0, "releaseBlock for jailbound validator");
 
+    });
+  });
+
+  describe('After effects of slashing 11', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('kills validator for 100% slash', async function () {
