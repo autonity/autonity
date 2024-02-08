@@ -8,12 +8,10 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/forkid"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/rlp"
 )
 
 // HandlerFunc is a callback to invoke from an outside runner after the boilerplate
@@ -55,26 +53,6 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 		Genesis:    chain.Genesis().Hash(),
 		Config:     chain.Config(),
 		Head:       head.Hash(),
-	}
-}
-
-// enrEntry is the ENR entry which advertises `acn` protocol on the discovery.
-type enrEntry struct {
-	ForkID forkid.ID // Fork identifier per EIP-2124
-
-	// Ignore additional fields (for forward compatibility).
-	Rest []rlp.RawValue `rlp:"tail"`
-}
-
-// ENRKey implements enr.Entry.
-func (e enrEntry) ENRKey() string {
-	return "acn"
-}
-
-// currentENREntry constructs an `acn` ENR entry based on the current state of the chain.
-func currentENREntry(chain *core.BlockChain) *enrEntry {
-	return &enrEntry{
-		ForkID: forkid.NewID(chain.Config(), chain.Genesis().Hash(), chain.CurrentHeader().Number.Uint64()),
 	}
 }
 

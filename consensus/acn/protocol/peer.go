@@ -1,8 +1,6 @@
 package protocol
 
 import (
-	"sync"
-
 	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
@@ -18,8 +16,6 @@ type Peer struct {
 	rw        p2p.MsgReadWriter // Input/output streams for snap
 	version   uint              // Protocol version negotiated
 
-	term chan struct{} // Termination channel to stop the broadcasters
-	lock sync.RWMutex  // Mutex protecting the internal fields
 }
 
 // peerInfo represents a short summary of the `acn` protocol metadata known
@@ -37,19 +33,13 @@ func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 		Peer:    p,
 		rw:      rw,
 		version: version,
-		term:    make(chan struct{}),
 	}
-	// Start up all the broadcasters
-	// no block broadcasting for consensus Peers
-	//go peer.broadcastBlocks()
 	return peer
 }
 
-// Close signals the broadcast goroutine to terminate. Only ever call this if
-// you created the peer yourself via NewPeer, Otherwise let whoever created it
-// clean it up!
+// Close can be used to do peer related clean up, nothing for now
 func (p *Peer) Close() {
-	close(p.term)
+	// nothing to do
 }
 
 // ID retrieves the peer's unique identifier.
