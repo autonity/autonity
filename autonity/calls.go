@@ -379,7 +379,7 @@ func (c *EVMContract) CallContractFuncAs(statedb vm.StateDB, header *types.Heade
 	return packedResult, err
 }
 
-func (c *AutonityContract) callGetCommitteeEnodes(state *state.StateDB, header *types.Header, asACN bool) (*types.Nodes, error) {
+func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *types.Header, asACN bool) (*types.Nodes, error) {
 	var returnedEnodes []string
 	err := c.AutonityContractCall(state, header, "getCommitteeEnodes", &returnedEnodes)
 	if err != nil {
