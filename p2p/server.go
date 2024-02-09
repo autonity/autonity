@@ -913,7 +913,7 @@ running:
 }
 
 func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
-	if srv.Net == Consensus || srv.PeerCount() <= srv.MaxPeers {
+	if srv.Net == Consensus || len(peers) <= srv.MaxPeers {
 		return
 	}
 	for _, p := range peers {
