@@ -305,10 +305,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if g.Difficulty.Cmp(big.NewInt(0)) != 0 {
 		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 0, instead got %v", g.Difficulty)
 	}
-	committee, err := extractCommittee(g.Config.AutonityContractConfig.Validators)
-	if err != nil {
-		return nil, err
-	}
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
@@ -337,6 +333,11 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
 
+	genesisCommittee, err := evmContracts.AutonityContract.Committee(nil, statedb)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
+	}
+
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
@@ -352,7 +353,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Coinbase:   g.Coinbase,
 		Root:       root,
 		Round:      0,
-		Committee:  committee,
+		Committee:  genesisCommittee,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
@@ -374,7 +375,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 }
 
 func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
-
 	evmContext := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -385,12 +385,10 @@ func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 		GasLimit:    genesis.GasLimit,
 		Difficulty:  genesis.Difficulty,
 	}
-
 	txContext := vm.TxContext{
 		Origin:   params.DeployerAddress,
 		GasPrice: new(big.Int).SetUint64(0x0),
 	}
-
 	return vm.NewEVM(evmContext, txContext, statedb, genesis.Config, vm.Config{})
 }
 
@@ -445,7 +443,7 @@ func extractCommittee(validators []*params.Validator) (types.Committee, error) {
 	}
 
 	sort.Sort(committee)
-	log.Info("Starting DPoS-BFT protocol", "genesis_committee", committee)
+
 	return committee, nil
 }
 
