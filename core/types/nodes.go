@@ -32,7 +32,7 @@ func NewNodes(strList []string, asACN bool) *Nodes {
 		idx := i
 		wg.Add(1)
 
-		go func(enodeStr string, idx int) {
+		go func(enodeStr string) {
 			log.Debug("node retrieved", "node", enodeStr)
 
 			newEnode, err := parser(enodeStr)
@@ -44,7 +44,7 @@ func NewNodes(strList []string, asACN bool) *Nodes {
 			n.StrList[idx] = enodeStr
 
 			wg.Done()
-		}(enodeStr, idx)
+		}(enodeStr)
 	}
 
 	wg.Wait()
