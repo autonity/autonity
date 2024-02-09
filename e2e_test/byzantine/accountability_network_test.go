@@ -300,7 +300,8 @@ func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testP
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 20, false) // nolint
+	err = network.WaitToMineNBlocks(testPeriod, 20, false)
+	require.NoError(t, err)
 
 	// the challenger should get no peer connection left.
 	n := network[1]
@@ -327,7 +328,8 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 500, false) // nolint
+	err = network.WaitToMineNBlocks(testPeriod, 500, false)
+	require.NoError(t, err)
 
 	// accusation of PVN shouldn't be submitted on chain by challenger.
 	challengerAddress := network[challenger].Address
