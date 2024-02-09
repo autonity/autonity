@@ -107,10 +107,6 @@ func (g *Gossiper) AskSync(header *types.Header) {
 				t := time.NewTimer(retryPeriod * time.Millisecond)
 				select {
 				case <-t.C:
-					/*
-						if _, ok := <-g.stopped; !ok {
-							return
-						}*/
 					continue
 				case <-g.stopped:
 					return
