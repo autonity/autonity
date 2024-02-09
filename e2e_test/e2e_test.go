@@ -80,7 +80,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	upgradeManagerAutonityAddress, err := upgradeManagerContract.Autonity(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
-	err = network.WaitToMineNBlocks(2, 10, false)
+	err = network.WaitToMineNBlocks(2, 15, false)
 	require.NoError(t, err)
 }
 
