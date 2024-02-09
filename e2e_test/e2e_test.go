@@ -620,10 +620,14 @@ func TestLargeTCPNetwork(t *testing.T) {
 
 	t.Skip("only on demand")
 	updateRlimit()
-	validators, _ := Validators(t, 50, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
-
-	network, err := NewNetworkFromValidators(t, validators, true)
+	validators, _ := Validators(t, 40, "10e18,v,1000,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetworkFromValidators(t, validators, false)
 	require.NoError(t, err)
+	for i, n := range network {
+		network[i].EthConfig.Genesis.Config.AutonityContractConfig.MaxCommitteeSize = 100
+		err = n.Start()
+		require.NoError(t, err)
+	}
 	defer network.Shutdown()
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Second)
 	defer cancel()
