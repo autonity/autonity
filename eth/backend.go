@@ -62,6 +62,12 @@ import (
 	"github.com/autonity/autonity/rpc"
 )
 
+const (
+	// txChanSize is the size of channel listening to NewTxsEvent.
+	// The number is referenced from the size of tx pool.
+	maxInCommitteePeers = 20
+)
+
 // Config contains the configuration options of the ETH protocol.
 // Deprecated: use ethconfig.Config instead.
 type Config = ethconfig.Config
@@ -97,7 +103,8 @@ type Ethereum struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	p2pServer *p2p.Server
+	p2pServer        *p2p.Server
+	topologySelector NetworkTopology
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and address)
 
@@ -191,6 +198,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.ExecutionServer(),
+		topologySelector:  NetworkTopology{2, maxInCommitteePeers},
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
 
@@ -583,13 +591,13 @@ func (s *Ethereum) newCommitteeWatcher() {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
+		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
 
-		s.p2pServer.UpdateConsensusEnodes(enodesList.List)
+		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, s.p2pServer.LocalNode()), committee.List)
 	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
@@ -612,7 +620,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 				if wasValidating {
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
-					s.p2pServer.UpdateConsensusEnodes(nil)
+					s.p2pServer.UpdateConsensusEnodes(nil, nil)
 					wasValidating = false
 				}
 				continue

@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity"
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"

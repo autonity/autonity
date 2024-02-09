@@ -226,9 +226,10 @@ type Server struct {
 	inboundHistory expHeap
 	jailed         safeExpHeap
 
-	consensusNodes []*enode.Node
-	enodeMu        sync.RWMutex
-	trusted        sync.Map
+	committee       []*enode.Node
+	committeeSubset []*enode.Node
+	enodeMu         sync.RWMutex
+	trusted         sync.Map
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -405,17 +406,17 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 // UpdateConsensusEnodes is responsible to make sure that
 // a node belonging to the consensus committee is fully connected
 // to the other consensus committee nodes.
-func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
-
+func (srv *Server) UpdateConsensusEnodes(committeeSubset []*enode.Node, committee []*enode.Node) {
 	srv.enodeMu.Lock()
-	currentNodes := make([]*enode.Node, len(srv.consensusNodes))
-	copy(currentNodes, srv.consensusNodes)
-	srv.consensusNodes = enodes
+	currentlyRequested := make([]*enode.Node, len(srv.committeeSubset))
+	copy(currentlyRequested, srv.committeeSubset)
+	srv.committee = committee
+	srv.committeeSubset = committeeSubset
 	srv.enodeMu.Unlock()
 	// Check for peers that needs to be disconnected
-	for _, connectedPeer := range currentNodes {
+	for _, connectedPeer := range currentlyRequested {
 		found := false
-		for _, whitelistedEnode := range enodes {
+		for _, whitelistedEnode := range committeeSubset {
 			if connectedPeer.ID() == whitelistedEnode.ID() {
 				found = true
 				break
@@ -433,9 +434,9 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 		}
 	}
 	// Check for peers that needs to be connected
-	for _, whitelistedEnode := range enodes {
+	for _, whitelistedEnode := range committeeSubset {
 		found := false
-		for _, oldEnode := range currentNodes {
+		for _, oldEnode := range currentlyRequested {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
@@ -453,7 +454,18 @@ func (srv *Server) UpdateConsensusEnodes(enodes []*enode.Node) {
 func (srv *Server) InCommittee(id enode.ID) bool {
 	srv.enodeMu.RLock()
 	defer srv.enodeMu.RUnlock()
-	for _, node := range srv.consensusNodes {
+	for _, node := range srv.committee {
+		if id == node.ID() {
+			return true
+		}
+	}
+	return false
+}
+
+func (srv *Server) inCommitteeSubset(id enode.ID) bool {
+	srv.enodeMu.RLock()
+	defer srv.enodeMu.RUnlock()
+	for _, node := range srv.committeeSubset {
 		if id == node.ID() {
 			return true
 		}
@@ -860,6 +872,8 @@ running:
 				if p.Inbound() {
 					inboundCount++
 				}
+				// disconnect superfluous peers
+				srv.enforcePeersLimit(peers)
 			}
 			c.cont <- err
 
@@ -898,6 +912,17 @@ running:
 	}
 }
 
+func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
+	if srv.Net == Consensus || len(peers) <= srv.MaxPeers {
+		return
+	}
+	for _, p := range peers {
+		if !srv.InCommittee(p.ID()) {
+			p.Disconnect(DiscTooManyPeers)
+		}
+	}
+}
+
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
 	srv.jailed.expire(srv.clock.Now(), nil)
 	switch {
@@ -913,6 +938,8 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscJailed
 	case srv.Net == Consensus && !srv.InCommittee(c.node.ID()):
 		return DiscPeerNotInCommittee
+	case srv.Net == Execution && srv.InCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
+		return DiscPeerOutsideTopology
 	default:
 		return nil
 	}
