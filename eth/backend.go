@@ -62,6 +62,10 @@ import (
 	"github.com/autonity/autonity/rpc"
 )
 
+const (
+	maxFullMeshPeers = 20
+)
+
 // Config contains the configuration options of the ETH protocol.
 // Deprecated: use ethconfig.Config instead.
 type Config = ethconfig.Config
@@ -97,7 +101,8 @@ type Ethereum struct {
 	networkID     uint64
 	netRPCService *ethapi.PublicNetAPI
 
-	p2pServer *p2p.Server
+	p2pServer        *p2p.Server
+	topologySelector networkTopology
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and address)
 
@@ -190,7 +195,8 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		address:           crypto.PubkeyToAddress(nodeKey.PublicKey),
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
-		p2pServer:         stack.Server(),
+		p2pServer:         stack.ExecutionServer(),
+		topologySelector:  NewGraphTopology(2, maxFullMeshPeers),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
 
@@ -284,8 +290,6 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
 		eth.log)
-	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
-	eth.accountability.SetBroadcaster(eth.handler)
 
 	// Setup DNS discovery iterators.
 	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})
@@ -523,6 +527,7 @@ func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
 func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
 func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
+func (s *Ethereum) FD() *accountability.FaultDetector  { return s.accountability }
 func (s *Ethereum) ChainDb() ethdb.Database            { return s.chainDb }
 func (s *Ethereum) IsListening() bool                  { return true } // Always listening
 func (s *Ethereum) Downloader() *downloader.Downloader { return s.handler.downloader }
@@ -584,14 +589,14 @@ func (s *Ethereum) newCommitteeWatcher() {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state)
+		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
-		s.p2pServer.UpdateConsensusEnodes(enodesList.List)
-	}
 
+		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, s.p2pServer.LocalNode()), committee.List)
+	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
 	if currentBlock.Header().CommitteeMember(s.address) != nil {
@@ -611,9 +616,9 @@ func (s *Ethereum) newCommitteeWatcher() {
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
 				if wasValidating {
-					s.p2pServer.UpdateConsensusEnodes(nil)
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
+					s.p2pServer.UpdateConsensusEnodes(nil, nil)
 					wasValidating = false
 				}
 				continue

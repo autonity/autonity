@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	syscall "golang.org/x/sys/unix"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
@@ -591,4 +593,58 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	// Verify network is not on hold anymore and producing blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func updateRlimit() {
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting Rlimit ", err)
+	}
+	fmt.Println(rLimit)
+	rLimit.Max = 65536
+	rLimit.Cur = 65536
+	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Setting Rlimit ", err)
+	}
+	err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting Rlimit ", err)
+	}
+	fmt.Println("Rlimit Final", rLimit)
+
+}
+
+func TestLargeTCPNetwork(t *testing.T) {
+
+	t.Skip("only on demand")
+	updateRlimit()
+	validators, _ := Validators(t, 40, "10e18,v,1000,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetworkFromValidators(t, validators, false)
+	require.NoError(t, err)
+	for i, n := range network {
+		network[i].EthConfig.Genesis.Config.AutonityContractConfig.MaxCommitteeSize = 100
+		err = n.Start()
+		require.NoError(t, err)
+	}
+	defer network.Shutdown()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	go func() {
+		for range ticker.C {
+			fmt.Println("connection count", "execution", network[0].ExecutionServer().PeerCount(), "consensus", network[0].ConsensusServer().PeerCount())
+			fmt.Println("go routine count", "c", runtime.NumGoroutine())
+			fmt.Println("current state", "h", network[0].Eth.BlockChain().CurrentHeader().Number.Uint64())
+		}
+	}()
+
+	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
+	require.NoError(t, err)
+
+	err = network.WaitToMineNBlocks(50, 300, false)
+	require.NoError(t, err)
 }

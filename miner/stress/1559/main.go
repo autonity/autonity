@@ -79,16 +79,16 @@ func main() {
 		}
 		defer stack.Close()
 
-		for stack.Server().NodeInfo().Ports.Listener == 0 {
+		for stack.ExecutionServer().NodeInfo().Ports.Listener == 0 {
 			time.Sleep(250 * time.Millisecond)
 		}
 		// Connect the node to all the previous ones
 		for _, n := range enodes {
-			stack.Server().AddPeer(n)
+			stack.ExecutionServer().AddPeer(n)
 		}
 		// Start tracking the node and its enode
 		nodes = append(nodes, ethBackend)
-		enodes = append(enodes, stack.Server().Self())
+		enodes = append(enodes, stack.ExecutionServer().Self())
 	}
 
 	// Iterate over all the nodes and start mining
@@ -228,7 +228,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 		Name:    "geth",
 		Version: params.Version,
 		DataDir: datadir,
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			ListenAddr:  "0.0.0.0:0",
 			NoDiscovery: true,
 			MaxPeers:    25,

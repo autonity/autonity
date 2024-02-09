@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -80,6 +81,7 @@ type FaultDetector struct {
 	transactOps *bind.TransactOpts
 
 	eventReporterCh chan *autonity.AccountabilityEvent
+	stopRetry       chan struct{}
 	// chain event subscriber for rule engine.
 	ruleEngineBlockCh  chan core.ChainEvent
 	ruleEngineBlockSub event.Subscription
@@ -139,6 +141,7 @@ func NewFaultDetector(
 		msgStore:              ms,
 		chainEventCh:          make(chan core.ChainEvent, 300),
 		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
+		stopRetry:             make(chan struct{}),
 		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
 		futureMessages:        make(map[uint64][]message.Msg),
 		futureMessageCount:    0,
@@ -265,7 +268,7 @@ tendermintMsgLoop:
 				if h <= curHeight {
 					for _, m := range messages {
 						if err := fd.processMsg(m); err != nil {
-							fd.logger.Error("Fault detector: error while processing consensus msg", "err", err)
+							fd.logger.Warn("Fault detector: processing consensus msg", "result", err)
 						}
 					}
 					// once messages are processed, delete it from buffer.
@@ -376,7 +379,11 @@ loop:
 // the epoch limit. Also the contract side enforcement is missing.
 func (fd *FaultDetector) canReport(height uint64) bool {
 
-	committee := fd.blockchain.GetHeaderByNumber(height - 1).Committee
+	hdr := fd.blockchain.GetHeaderByNumber(height - 1)
+	if hdr == nil {
+		panic("must not happen, height:" + strconv.Itoa(int(height)))
+	}
+	committee := hdr.Committee
 
 	// each reporting slot contains ReportingSlotPeriod block period that a unique and deterministic validator is asked to
 	// be the reporter of that slot period, then at the end block of that slot, the reporter reports
@@ -399,6 +406,7 @@ func (fd *FaultDetector) Stop() {
 	fd.chainEventSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	fd.accountabilityEventSub.Unsubscribe()
+	close(fd.stopRetry)
 	close(fd.eventReporterCh)
 	fd.wg.Wait()
 }

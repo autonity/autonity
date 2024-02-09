@@ -467,6 +467,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 		return ErrStartedEngine
 	}
 	sb.stopped = make(chan struct{})
+	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 	// Start Tendermint

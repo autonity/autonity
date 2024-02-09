@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
@@ -43,10 +44,12 @@ type testNode struct {
 
 type netNode struct {
 	listener []net.Listener
-	nodeKey  *ecdsa.PrivateKey // used to generate POP in genesis, and p2p messaging.
+	nodeKey  *ecdsa.PrivateKey
 	host     string
+	acnhost  string
 	address  common.Address
 	port     int
+	acnPort  int
 	url      string
 	rpcPort  int
 }
@@ -73,6 +76,8 @@ func (validator *testNode) startNode(forceMining bool) error {
 		return err
 	}
 
+	acn.New(validator.node, validator.service, validator.ethConfig.NetworkID)
+
 	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cannot start a node %s", err)
 	}
@@ -82,7 +87,7 @@ func (validator *testNode) startNode(forceMining bool) error {
 	}
 
 	// Start tracking the node and it's enode
-	validator.enode = validator.node.Server().Self()
+	validator.enode = validator.node.ExecutionServer().Self()
 	return nil
 }
 

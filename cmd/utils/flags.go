@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/eth/ethconfig"
@@ -594,21 +595,37 @@ var (
 		Usage: "Allow for unprotected (non EIP155 signed) transactions to be submitted via RPC",
 	}
 
+	//Consensus Network settings
+	ConsensusListenPortFlag = cli.IntFlag{
+		Name:  "consensus.port",
+		Usage: "Network listening port for consensus channel",
+		Value: node.DefaultATCPortInt,
+	}
+	ConsensusNATFlag = cli.StringFlag{
+		Name:  "consensus.nat",
+		Usage: "NAT port mapping mechanism for consensus channel (any|none|upnp|pmp|extip:<IP>)",
+		Value: "any",
+	}
 	// Network Settings
 	MaxPeersFlag = cli.IntFlag{
 		Name:  "maxpeers",
 		Usage: "Maximum number of network peers (network disabled if set to 0)",
-		Value: node.DefaultConfig.P2P.MaxPeers,
+		Value: node.DefaultConfig.ExecutionP2P.MaxPeers,
 	}
 	MaxPendingPeersFlag = cli.IntFlag{
 		Name:  "maxpendpeers",
 		Usage: "Maximum number of pending connection attempts (defaults used if set to 0)",
-		Value: node.DefaultConfig.P2P.MaxPendingPeers,
+		Value: node.DefaultConfig.ExecutionP2P.MaxPendingPeers,
 	}
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
-		Usage: "Network listening port",
-		Value: 30303,
+		Usage: "Network listening port for execution channel",
+		Value: node.DefaultETHPortInt,
+	}
+	NATFlag = cli.StringFlag{
+		Name:  "nat",
+		Usage: "NAT port mapping mechanism for execution channel (any|none|upnp|pmp|extip:<IP>)",
+		Value: "any",
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -634,11 +651,6 @@ var (
 	WriteAddrFlag = cli.BoolFlag{
 		Name:  "writeaddress",
 		Usage: "writes out the node's public key on stdout",
-	}
-	NATFlag = cli.StringFlag{
-		Name:  "nat",
-		Usage: "NAT port mapping mechanism (any|none|upnp|pmp|extip:<IP>)",
-		Value: "any",
 	}
 	NoDiscoverFlag = cli.BoolFlag{
 		Name:  "nodiscover",
@@ -804,13 +816,15 @@ func setAutonityKeys(ctx *cli.Context, cfg *node.Config) {
 			Fatalf("Option %q: %v", AutonityKeysFileFlag.Name, err)
 		}
 		cfg.ConsensusKey = consensusKey
-		cfg.P2P.PrivateKey = key
+		cfg.ExecutionP2P.PrivateKey = key
+		cfg.ConsensusP2P.PrivateKey = key
 	case hex != "":
 		if key, consensusKey, err = crypto.HexToAutonityKeys(hex); err != nil {
 			Fatalf("Option %q: %v", AutonityKeysHexFlag.Name, err)
 		}
 		cfg.ConsensusKey = consensusKey
-		cfg.P2P.PrivateKey = key
+		cfg.ExecutionP2P.PrivateKey = key
+		cfg.ConsensusP2P.PrivateKey = key
 	}
 }
 
@@ -1170,10 +1184,44 @@ func setP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
+func setConsensusP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
+	if ctx.GlobalIsSet(ConsensusNATFlag.Name) {
+		natif, err := nat.Parse(ctx.GlobalString(ConsensusNATFlag.Name))
+		if err != nil {
+			Fatalf("Option %s: %v", ConsensusNATFlag.Name, err)
+		}
+		cfg.NAT = natif
+	}
+	// set listener
+	if ctx.GlobalIsSet(ConsensusListenPortFlag.Name) {
+		cfg.ListenAddr = fmt.Sprintf(":%d", ctx.GlobalInt(ConsensusListenPortFlag.Name))
+	}
+
+	cfg.MaxPeers = math.MaxInt
+	cfg.MaxPendingPeers = 100 // current max committee size
+	if netrestrict := ctx.GlobalString(NetrestrictFlag.Name); netrestrict != "" {
+		list, err := netutil.ParseNetlist(netrestrict)
+		if err != nil {
+			Fatalf("Option %q: %v", NetrestrictFlag.Name, err)
+		}
+		cfg.NetRestrict = list
+	}
+
+	if ctx.Bool(DeveloperFlag.Name) {
+		// --dev mode can't use p2p networking.
+		cfg.MaxPeers = 0
+		cfg.ListenAddr = ""
+		cfg.NoDial = true
+		cfg.NoDiscovery = true
+		cfg.DiscoveryV5 = false
+	}
+}
+
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setAutonityKeys(ctx, cfg)
-	setP2PConfig(ctx, &cfg.P2P)
+	setP2PConfig(ctx, &cfg.ExecutionP2P)
+	setConsensusP2PConfig(ctx, &cfg.ConsensusP2P)
 	setIPC(ctx, cfg)
 	setHTTP(ctx, cfg)
 	setGraphQL(ctx, cfg)
@@ -1569,7 +1617,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		cfg.Miner.Etherbase = developer.Address
 		_, devAccKey, _ := ks.GetDecryptedKey(developer, passphrase)
 		cfg.Genesis = core.DeveloperGenesisBlock(ctx.Uint64(DeveloperGasLimitFlag.Name), devAccKey)
-		stack.Config().P2P.PrivateKey = devAccKey.PrivateKey
+		stack.Config().ExecutionP2P.PrivateKey = devAccKey.PrivateKey
 		stack.Config().ConsensusKey = params.TestValidatorConsensusKey
 	}
 }
@@ -1614,6 +1662,10 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 	}
 	stack.RegisterAPIs(tracers.APIs(backend.APIBackend))
 	return backend.APIBackend, backend
+}
+
+func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) {
+	acn.New(stack, backend, netID)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to

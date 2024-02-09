@@ -13,13 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/crypto/blst"
+
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/log"
@@ -77,7 +78,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	return genesis
 }
 
-func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, consensusKey blst.SecretKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, consensusKey blst.SecretKey, listenAddr, acnListenerAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
@@ -91,20 +92,26 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		Name:         "autonity",
 		Version:      params.Version,
 		DataDir:      datadir,
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			ListenAddr:  listenAddr,
 			NoDiscovery: true,
 			PrivateKey:  nodekey,
 			MaxPeers:    25,
+		},
+		ConsensusP2P: p2p.Config{
+			ListenAddr:  acnListenerAddr,
+			NoDiscovery: true,
+			MaxPeers:    10000,
+			PrivateKey:  nodekey,
 		},
 	}
 	nodeConfig.HTTPHost = "127.0.0.1"
 	nodeConfig.HTTPPort = rpcPort
 
 	if inRate != 0 || outRate != 0 {
-		nodeConfig.P2P.IsRated = true
-		nodeConfig.P2P.InRate = inRate
-		nodeConfig.P2P.OutRate = outRate
+		nodeConfig.ExecutionP2P.IsRated = true
+		nodeConfig.ExecutionP2P.InRate = inRate
+		nodeConfig.ExecutionP2P.OutRate = outRate
 	}
 
 	ethConfig := &ethconfig.Config{

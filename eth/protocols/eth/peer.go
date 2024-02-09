@@ -17,16 +17,18 @@
 package eth
 
 import (
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"math/rand"
 	"sync"
+
+	"github.com/autonity/autonity/crypto"
+
+	mapset "github.com/deckarep/golang-set"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
-	mapset "github.com/deckarep/golang-set"
 )
 
 const (

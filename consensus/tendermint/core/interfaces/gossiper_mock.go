@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 //
+
 // Package interfaces is a generated GoMock package.
 package interfaces
 
@@ -132,4 +133,16 @@ func (m *MockGossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
 func (mr *MockGossiperMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockGossiper)(nil).SetBroadcaster), broadcaster)
+}
+
+// UpdateStopChannel mocks base method.
+func (m *MockGossiper) UpdateStopChannel(arg0 chan struct{}) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UpdateStopChannel", arg0)
+}
+
+// UpdateStopChannel indicates an expected call of UpdateStopChannel.
+func (mr *MockGossiperMockRecorder) UpdateStopChannel(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStopChannel", reflect.TypeOf((*MockGossiper)(nil).UpdateStopChannel), arg0)
 }

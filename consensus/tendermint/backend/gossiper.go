@@ -53,6 +53,10 @@ func (g *Gossiper) Address() common.Address {
 	return g.address
 }
 
+func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
+	g.stopped = stopCh
+}
+
 func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 	hash := message.Hash()
 	g.knownMessages.Add(hash, true)

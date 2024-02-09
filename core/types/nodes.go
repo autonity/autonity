@@ -3,7 +3,6 @@ package types
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
@@ -14,29 +13,35 @@ type Nodes struct {
 	StrList []string
 }
 
-func NewNodes(strList []string) *Nodes {
-	idx := new(int32)
+func NewNodes(strList []string, asACN bool) *Nodes {
 	wg := sync.WaitGroup{}
 	errCh := make(chan error, len(strList))
+	var parser func(string) (*enode.Node, error)
+	if asACN {
+		parser = enode.ParseACNV4
+	} else {
+		parser = enode.ParseV4
+	}
 
 	n := &Nodes{
 		make([]*enode.Node, len(strList)),
 		make([]string, len(strList)),
 	}
 
-	for _, enodeStr := range strList {
+	for i, enodeStr := range strList {
+		idx := i
 		wg.Add(1)
 
 		go func(enodeStr string) {
 			log.Debug("node retrieved", "node", enodeStr)
-			newEnode, err := enode.ParseV4(enodeStr)
+
+			newEnode, err := parser(enodeStr)
 			if err != nil {
 				errCh <- err
 			}
 
-			currentIdx := atomic.AddInt32(idx, 1) - 1
-			n.List[currentIdx] = newEnode
-			n.StrList[currentIdx] = enodeStr
+			n.List[idx] = newEnode
+			n.StrList[idx] = enodeStr
 
 			wg.Done()
 		}(enodeStr)

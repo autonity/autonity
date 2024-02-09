@@ -70,6 +70,8 @@ const (
 	DiscSelf
 	DiscReadTimeout
 	DiscJailed
+	DiscPeerNotInCommittee
+	DiscPeerOutsideTopology
 	DiscSubprotocolError = 0x10
 )
 
@@ -87,6 +89,8 @@ var discReasonToString = [...]string{
 	DiscSelf:                "connected to self",
 	DiscReadTimeout:         "read timeout",
 	DiscJailed:              "jailed node",
+	DiscPeerNotInCommittee:  "validator is not part of committee",
+	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSubprotocolError:    "subprotocol error",
 }
 

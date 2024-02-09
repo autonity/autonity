@@ -36,35 +36,50 @@ const (
 )
 
 var (
-	ingressConnectMeter = metrics.NewRegisteredMeter("p2p/serves", nil)
-	ingressTrafficMeter = metrics.NewRegisteredMeter(ingressMeterName, nil)
-	egressConnectMeter  = metrics.NewRegisteredMeter("p2p/dials", nil)
-	egressTrafficMeter  = metrics.NewRegisteredMeter(egressMeterName, nil)
-	activePeerGauge     = metrics.NewRegisteredGauge("p2p/peers", nil)
+	ingressConnectMeter    = metrics.NewRegisteredMeter("p2p/serves", nil)
+	egressConnectMeter     = metrics.NewRegisteredMeter("p2p/dials", nil)
+	activePeerGauge        = metrics.NewRegisteredGauge("p2p/peers", nil)
+	ingressConnectAcnMeter = metrics.NewRegisteredMeter("p2p/acn/serves", nil)
+	egressConnectAcnMeter  = metrics.NewRegisteredMeter("p2p/acn/dials", nil)
+	activePeerAcnGauge     = metrics.NewRegisteredGauge("p2p/acn/peers", nil)
+	egressTrafficMeter     = metrics.NewRegisteredMeter(egressMeterName, nil)
+	ingressTrafficMeter    = metrics.NewRegisteredMeter(ingressMeterName, nil)
 )
 
 // meteredConn is a wrapper around a net.Conn that meters both the
 // inbound and outbound network traffic.
 type meteredConn struct {
 	net.Conn
+	net Network
 }
 
 // newMeteredConn creates a new metered connection, bumps the ingress or egress
 // connection meter and also increases the metered peer count. If the metrics
 // system is disabled, function returns the original connection.
-func newMeteredConn(conn net.Conn, ingress bool, addr *net.TCPAddr) net.Conn {
+func newMeteredConn(conn net.Conn, ingress bool, _ *net.TCPAddr, net Network) net.Conn {
 	// Short circuit if metrics are disabled
 	if !metrics.Enabled {
 		return conn
 	}
-	// Bump the connection counters and wrap the connection
-	if ingress {
-		ingressConnectMeter.Mark(1)
-	} else {
-		egressConnectMeter.Mark(1)
+
+	switch net {
+	case Execution:
+		// Bump the connection counters and wrap the connection
+		if ingress {
+			ingressConnectMeter.Mark(1)
+		} else {
+			egressConnectMeter.Mark(1)
+		}
+		activePeerGauge.Inc(1)
+	case Consensus:
+		if ingress {
+			ingressConnectAcnMeter.Mark(1)
+		} else {
+			egressConnectAcnMeter.Mark(1)
+		}
+		activePeerAcnGauge.Inc(1)
 	}
-	activePeerGauge.Inc(1)
-	return &meteredConn{Conn: conn}
+	return &meteredConn{Conn: conn, net: net}
 }
 
 // Read delegates a network read to the underlying connection, bumping the common
@@ -87,8 +102,14 @@ func (c *meteredConn) Write(b []byte) (n int, err error) {
 // the peer from the traffic registries and emits close event.
 func (c *meteredConn) Close() error {
 	err := c.Conn.Close()
-	if err == nil {
+	if err != nil {
+		return err
+	}
+	switch c.net {
+	case Execution:
 		activePeerGauge.Dec(1)
+	case Consensus:
+		activePeerAcnGauge.Dec(1)
 	}
 	return err
 }

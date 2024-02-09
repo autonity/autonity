@@ -99,8 +99,10 @@ type Backend struct {
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
 
-	// interface to enqueue blocks to fetcher and find peers
+	// interface to find peers
 	Broadcaster consensus.Broadcaster
+	// interface to enqueue blocks to fetcher
+	Enqueuer consensus.Enqueuer
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
@@ -144,6 +146,11 @@ func (sb *Backend) Gossip(committee types.Committee, msg message.Msg) {
 	sb.gossiper.Gossip(committee, msg)
 }
 
+// UpdateStopChannel implements tendermint.Backend.Gossip
+func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
+	sb.gossiper.UpdateStopChannel(stopCh)
+}
+
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
 	m := make([]common.Hash, 0, sb.knownMessages.Len())
@@ -184,8 +191,9 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 		sb.sendResultChan(proposal)
 		return nil
 	}
-	if sb.Broadcaster != nil {
-		sb.Broadcaster.Enqueue(fetcherID, proposal)
+
+	if sb.Enqueuer != nil {
+		sb.Enqueuer.Enqueue(fetcherID, proposal)
 	}
 	return nil
 }
@@ -351,7 +359,7 @@ func (sb *Backend) CommitteeEnodes() []string {
 		sb.logger.Error("Failed to get state", "err", err)
 		return nil
 	}
-	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db)
+	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db, false)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil

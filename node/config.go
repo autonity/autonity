@@ -19,13 +19,14 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -71,7 +72,10 @@ type Config struct {
 	DataDir string
 
 	// Configuration of peer-to-peer networking.
-	P2P p2p.Config
+	ExecutionP2P p2p.Config
+
+	// Configuration of peer-to-peer networking on consensus
+	ConsensusP2P p2p.Config
 
 	// KeyStoreDir is the file system folder that contains private keys. The directory can
 	// be specified as a relative path, in which case it is resolved relative to the
@@ -395,11 +399,11 @@ func (c *Config) instanceDir() string {
 func (c *Config) AutonityKeys() (*ecdsa.PrivateKey, blst.SecretKey) {
 	// Use any specifically configured key, keys are configured via CLI by flags in key file or in key hex string, at
 	// this point, if any of the keys are not nil, it indicates they were parsed on the flag loading phase, return them.
-	if (c.P2P.PrivateKey != nil && c.ConsensusKey == nil) || (c.P2P.PrivateKey == nil && c.ConsensusKey != nil) {
+	if (c.ExecutionP2P.PrivateKey != nil && c.ConsensusKey == nil) || (c.ExecutionP2P.PrivateKey == nil && c.ConsensusKey != nil) {
 		log.Crit("Failed to get the configured Antonity keys, one of the keys is missing, this shouldn't happen!")
 	}
-	if c.P2P.PrivateKey != nil && c.ConsensusKey != nil {
-		return c.P2P.PrivateKey, c.ConsensusKey
+	if c.ExecutionP2P.PrivateKey != nil && c.ConsensusKey != nil {
+		return c.ExecutionP2P.PrivateKey, c.ConsensusKey
 	}
 
 	// Generate ephemeral key if no datadir is being used.

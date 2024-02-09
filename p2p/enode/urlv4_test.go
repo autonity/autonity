@@ -22,9 +22,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enr"
-	"github.com/stretchr/testify/assert"
 )
 
 var parseNodeTests = []struct {
@@ -191,5 +192,74 @@ func TestNodeString(t *testing.T) {
 				t.Errorf("test %d: Node.String() mismatch:\ngot:  %s\nwant: %s", i, str, test.input)
 			}
 		}
+	}
+}
+
+var parseACNNodeTest = []struct {
+	input      string
+	expected   string
+	wantError  string
+	wantResult *Node
+}{
+	{
+		input:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150?discport=22334",
+		expected: "",
+		wantResult: NewV4(
+			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			net.IP{0x7f, 0x0, 0x0, 0x1},
+			20203,
+			0,
+		),
+	},
+	{
+		input:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150?discport=22334&acn=:52151",
+		expected: "",
+		wantResult: NewV4(
+			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			net.IP{0x7f, 0x0, 0x0, 0x1},
+			52151,
+			0,
+		),
+	},
+	{
+		input:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150?acn=127.0.1.1:23210",
+		expected: "",
+		wantResult: NewV4(
+			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			net.IP{0x7f, 0x0, 0x1, 0x1},
+			23210,
+			0,
+		),
+	},
+	{
+		input:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1:52150?discport=21&acn=127.0.1.1:23210",
+		expected: "",
+		wantResult: NewV4(
+			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			net.IP{0x7f, 0x0, 0x1, 0x1},
+			23210,
+			0,
+		),
+	},
+	{
+		input:    "enode://1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439@127.0.0.1",
+		expected: "",
+		wantResult: NewV4(
+			hexPubkey("1dd9d65c4552b5eb43d5ad55a2ee3f56c6cbc1c64a5c8d659f51fcd51bace24351232b8d7821617d2b29b54b81cdefb9b3e9c37d7fd5f63270bcc9e1a6f6a439"),
+			net.IP{0x7f, 0x0, 0x0, 0x1},
+			20203,
+			0,
+		),
+	},
+}
+
+func TestParseACNNode(t *testing.T) {
+	for _, test := range parseACNNodeTest {
+		n, err := ParseACNV4(test.input)
+		if err != nil {
+			t.Errorf("test %q:\n  unexpected error: %v", test.input, err)
+			continue
+		}
+		assert.Equal(t, test.wantResult, n)
 	}
 }

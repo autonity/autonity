@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -35,7 +36,11 @@ type Validator struct {
 	NodeKey *ecdsa.PrivateKey
 	// OracleKey is a private key for the oracle node.
 	OracleKey *ecdsa.PrivateKey
-	// TreasuryKey is a private key for the treasury account.
+	// AcnIP is the ip that this user's consensus channel is running at
+	AcnIP net.IP
+	// AcnPort is the port that this user's consensus channel is listening at
+	AcnPort int
+	// Key is either a public or private key for the treasury account.
 	TreasuryKey *ecdsa.PrivateKey
 	// ConsensusKey is the BLS key for validator who participate in consensus.
 	ConsensusKey blst.SecretKey
@@ -158,6 +163,7 @@ func generateValidatorState(validators []*Validator) (
 		}
 
 		e := enode.NewV4(&u.NodeKey.PublicKey, u.NodeIP, u.NodePort, u.NodePort)
+		ens := enode.AppendConsensusEndpoint(u.AcnIP.String(), strconv.Itoa(u.AcnPort), e.String())
 
 		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
@@ -166,8 +172,8 @@ func generateValidatorState(validators []*Validator) (
 		}
 
 		gu := params.Validator{
-			Enode:           e.String(),
 			OracleAddress:   oracleAddress,
+			Enode:           ens,
 			Treasury:        treasuryAddress, // rewards goes here
 			BondedStake:     new(big.Int).SetUint64(u.Stake),
 			SelfBondedStake: new(big.Int).SetUint64(u.SelfBondedStake),
