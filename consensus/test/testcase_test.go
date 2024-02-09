@@ -160,7 +160,7 @@ func runTest(t *testing.T, test *testCase) {
 		rates := test.networkRates[i]
 		peer.nodeConfig, peer.ethConfig = makeNodeConfig(t, genesis, peer.nodeKey, peer.consensusKey,
 			fmt.Sprintf("127.0.0.1:%d", peer.port),
-			fmt.Sprintf("127.0.0.1:%d", peer.atcPort),
+			fmt.Sprintf("127.0.0.1:%d", peer.acnPort),
 			peer.rpcPort, rates.in, rates.out)
 
 		wg.Go(func() error {
@@ -579,9 +579,9 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	}
 	n.listener = append(n.listener, listener)
 
-	atcPort := strings.Split(n.listener[0].Addr().String(), ":")[1]
-	n.atchost = fmt.Sprintf("%s:%s", addr, atcPort)
-	n.atcPort, _ = strconv.Atoi(atcPort)
+	acnPort := strings.Split(n.listener[0].Addr().String(), ":")[1]
+	n.acnhost = fmt.Sprintf("%s:%s", addr, acnPort)
+	n.acnPort, _ = strconv.Atoi(acnPort)
 
 	port := strings.Split(n.listener[1].Addr().String(), ":")[1]
 	n.host = fmt.Sprintf("%s:%s", addr, port)
@@ -595,7 +595,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 
 	n.rpcPort = rpcPort
 
-	if n.port == 0 || n.rpcPort == 0 || n.atcPort == 0 {
+	if n.port == 0 || n.rpcPort == 0 || n.acnPort == 0 {
 		return netNode{}, fmt.Errorf("on node %s port equals 0", addr)
 	}
 
@@ -605,7 +605,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 		n.port,
 		n.port,
 	)
-	n.url = enode.AppendConsensusEndpoint(addr, strconv.Itoa(n.atcPort), n.url)
+	n.url = enode.AppendConsensusEndpoint(addr, strconv.Itoa(n.acnPort), n.url)
 
 	return n, nil
 }

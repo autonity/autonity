@@ -78,7 +78,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	return genesis
 }
 
-func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, consensusKey blst.SecretKey, listenAddr, atcListenerAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, consensusKey blst.SecretKey, listenAddr, acnListenerAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 			PrivateKey:  nodekey,
 		},
 		ConsensusP2P: p2p.Config{
-			ListenAddr:  atcListenerAddr,
+			ListenAddr:  acnListenerAddr,
 			NoDiscovery: true,
 			MaxPeers:    10000,
 			PrivateKey:  nodekey,
