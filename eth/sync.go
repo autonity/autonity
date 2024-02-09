@@ -161,7 +161,6 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 	// We have enough peers, check TD
 	peer := cs.handler.peers.peerWithHighestTD()
 	if peer == nil {
-		// we should never end up here
 		return nil
 	}
 	mode, ourTD := cs.modeAndLocalHead()

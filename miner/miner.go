@@ -74,10 +74,8 @@ type Miner struct {
 	wg sync.WaitGroup
 
 	// used in the miner update loop
-	syncFailures uint64 // counts how many times chain sync failed with remote peers
-	canStart     bool
-	shouldStart  bool
-	events       *event.TypeMuxSubscription // subscription to downloader events()
+	canStart    bool
+	shouldStart bool
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(header *types.Header) bool) *Miner {
@@ -90,7 +88,6 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 		stopCh:       make(chan struct{}),
 		forceStartCh: make(chan struct{}),
 		worker:       newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
-		syncFailures: 0,
 		shouldStart:  false,
 		canStart:     false,
 	}
@@ -106,9 +103,11 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 func (miner *Miner) update() {
 	defer miner.wg.Done()
 
-	miner.events = miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.SyncedEvent{}, downloader.FailedEvent{})
+	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.SyncedEvent{}, downloader.FailedEvent{})
 	defer func() {
-		miner.unsubscribe()
+		if !events.Closed() {
+			events.Unsubscribe()
+		}
 	}()
 
 	// miner.shouldStart is set at initialization to false
@@ -122,7 +121,11 @@ func (miner *Miner) update() {
 	*
 	* NOTE: This mechanism does not give 100% guarantee that we are synced to the head of the chain before starting consensus. There is always the possibility that we are connected to peers which are behind the "global" chain head.
 	 */
-	dlEventCh := miner.events.Chan()
+
+	// keeps track of subsequent sync failures at startup sync
+	syncFailures := 0
+
+	dlEventCh := events.Chan()
 	for {
 		select {
 		case ev := <-dlEventCh:
@@ -135,12 +138,12 @@ func (miner *Miner) update() {
 			case downloader.StartEvent:
 				miner.eth.Logger().Info("Chain syncing started, waiting for completion to start consensus engine", "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 			case downloader.FailedEvent:
-				miner.syncFailures++
-				miner.eth.Logger().Info("Chain syncing failed", "#failures", miner.syncFailures, "shouldStart", miner.shouldStart, "canStart", miner.canStart)
+				syncFailures++
+				miner.eth.Logger().Info("Chain syncing failed", "#failures", syncFailures, "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 				// if we fail more than maxSyncFailures times consequently, assume we are under attack
-				if miner.syncFailures >= maxSyncFailures {
+				if syncFailures >= maxSyncFailures {
 					miner.eth.Logger().Warn("************************** SYNC ATTACK DETECTED **************************")
-					miner.eth.Logger().Warn("Multiple sequential chain sync failures detected", "sync failures", miner.syncFailures)
+					miner.eth.Logger().Warn("Multiple sequential chain sync failures detected", "sync failures", syncFailures)
 					miner.eth.Logger().Warn("Your node is probably under attack by malicious peers, which are preventing your node from syncing")
 					miner.eth.Logger().Warn("Try restarting your node and connecting to a trusted set of peers")
 					miner.eth.Logger().Warn("Reach out to Autonity social media channels for support and additional informations")
@@ -158,13 +161,17 @@ func (miner *Miner) update() {
 				miner.eth.Logger().Info("Chain syncing completed, consensus engine can start", "event", reflect.TypeOf(ev.Data), "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 				miner.startWorker()
 				// Stop reacting to downloader events
-				miner.unsubscribe()
+				if !events.Closed() {
+					events.Unsubscribe()
+				}
 			}
 		case <-miner.forceStartCh:
 			miner.eth.Logger().Info("Forcing consensus engine start")
 			miner.canStart = true
 			// don't need to react to downloader events anymore, we don't care about sync status
-			miner.unsubscribe()
+			if !events.Closed() {
+				events.Unsubscribe()
+			}
 			miner.shouldStart = true
 			miner.startWorker()
 		// the committeeWatcher in the Ethereum backend will trigger these codepaths, depending on whether we enter/exit the committee
@@ -178,13 +185,6 @@ func (miner *Miner) update() {
 			miner.worker.close()
 			return
 		}
-	}
-}
-
-// unsubscribe from downloader events
-func (miner *Miner) unsubscribe() {
-	if !miner.events.Closed() {
-		miner.events.Unsubscribe()
 	}
 }
 
