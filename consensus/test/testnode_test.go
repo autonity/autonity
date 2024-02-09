@@ -48,10 +48,10 @@ type netNode struct {
 	listener []net.Listener
 	nodeKey  *ecdsa.PrivateKey
 	host     string
-	atchost  string
+	acnhost  string
 	address  common.Address
 	port     int
-	atcPort  int
+	acnPort  int
 	url      string
 	rpcPort  int
 }
