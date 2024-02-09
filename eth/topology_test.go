@@ -6,10 +6,11 @@ import (
 	"math"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
 )
 
 func bfs(
@@ -40,7 +41,7 @@ func bfs(
 
 func TestEthExecutionLayerGraph(t *testing.T) {
 	const targetDiameter = 2
-	tSelector := &NetworkTopology{}
+	tSelector := &networkTopology{}
 	tSelector.SetDiameter(targetDiameter)
 	tSelector.SetMinNodes(0)
 	db, err := enode.OpenDB("")

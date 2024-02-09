@@ -63,9 +63,7 @@ import (
 )
 
 const (
-	// txChanSize is the size of channel listening to NewTxsEvent.
-	// The number is referenced from the size of tx pool.
-	maxInCommitteePeers = 20
+	maxFullMeshPeers = 20
 )
 
 // Config contains the configuration options of the ETH protocol.
@@ -104,7 +102,7 @@ type Ethereum struct {
 	netRPCService *ethapi.PublicNetAPI
 
 	p2pServer        *p2p.Server
-	topologySelector NetworkTopology
+	topologySelector networkTopology
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and address)
 
@@ -198,7 +196,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.ExecutionServer(),
-		topologySelector:  NetworkTopology{2, maxInCommitteePeers},
+		topologySelector:  NewGraphTopology(2, maxFullMeshPeers),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
 

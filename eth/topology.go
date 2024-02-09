@@ -6,34 +6,40 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
-type NetworkTopology struct {
+type networkTopology struct {
 	diameter uint
 	minNodes int
 }
 
-// Only diameter = 2, to support diameter > 2, ComputeBase function has to be modified
-func NewGraphTopology(diameter uint, minNodes int) *NetworkTopology {
-	return &NetworkTopology{
+func NewGraphTopology(diameter uint, minNodes int) networkTopology {
+	// Only diameter = 2, to support diameter > 2, ComputeBase function has to be modified
+	if diameter != 2 {
+		panic("diameter value must be 2")
+	}
+	return networkTopology{
 		diameter: diameter,
 		minNodes: minNodes,
 	}
 }
 
-func (g *NetworkTopology) SetDiameter(d uint) {
+func (g *networkTopology) SetDiameter(d uint) {
+	if d != 2 {
+		panic("diameter value must be 2")
+	}
 	g.diameter = d
 }
 
-func (g *NetworkTopology) SetMinNodes(n int) {
+func (g *networkTopology) SetMinNodes(n int) {
 	g.minNodes = n
 }
 
-func (g *NetworkTopology) computeSquareRoot(n uint) uint {
+func (g *networkTopology) computeSquareRoot(n uint) uint {
 	return uint(math.Ceil(math.Sqrt(float64(n))))
 }
 
 // Returns the number of matching digits in i and j for g.diameter least significant digits
 // Both i and j are considered to be in b-base number system
-func (g *NetworkTopology) countMatchingDigits(i, j, b uint) uint {
+func (g *networkTopology) countMatchingDigits(i, j, b uint) uint {
 	var count uint
 	digitCount := g.diameter
 	for digitCount > 0 {
@@ -49,13 +55,13 @@ func (g *NetworkTopology) countMatchingDigits(i, j, b uint) uint {
 
 // compute b such that b^d >= n and (b-1)^d < n where d = g.diameter
 // for now only g.diameter = 2 is supported
-func (g *NetworkTopology) ComputeBase(n uint) uint {
+func (g *networkTopology) ComputeBase(n uint) uint {
 	return g.computeSquareRoot(n)
 }
 
 // Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
 // for everyone, connecting to only adjacentNodes will create a connected graph with diameter = g.diameter
-func (g *NetworkTopology) RequestSubset(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+func (g *networkTopology) RequestSubset(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
 	if len(nodes) < g.minNodes {
 		// connect to all nodes
 		return nodes
