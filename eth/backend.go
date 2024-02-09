@@ -594,22 +594,15 @@ func (s *Ethereum) newCommitteeWatcher() {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
 		}
-		// option 1
-		// Total execution peer = 50 <- max global peers / default value which can be modified via --maxPeer flag
-		// if current node is committee member:
-		//	- REQUESTED peers @execution are other committee members
-		//  - "MaxPeers - len(Requested)" peers @execution are _not_ committee members and should be discovered organically though disc
-		// if current node is _not_ committee member:
-		//	- 50 peers discovered organically
 
 		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, s.p2pServer.LocalNode()), committee.List)
 	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
 	if currentBlock.Header().CommitteeMember(s.address) != nil {
+		updateConsensusEnodes(currentBlock)
 		s.miner.Start()
 		s.log.Info("Starting node as validator")
-		updateConsensusEnodes(currentBlock)
 		wasValidating = true
 	}
 
@@ -630,12 +623,12 @@ func (s *Ethereum) newCommitteeWatcher() {
 				}
 				continue
 			}
+			updateConsensusEnodes(ev.Block)
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
 				s.miner.Start()
 			}
-			updateConsensusEnodes(ev.Block)
 			wasValidating = true
 		// Err() channel will be closed when unsubscribing.
 		case <-chainHeadSub.Err():

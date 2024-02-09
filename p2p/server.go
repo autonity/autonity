@@ -406,7 +406,6 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 // UpdateConsensusEnodes is responsible to make sure that
 // a node belonging to the consensus committee is fully connected
 // to the other consensus committee nodes.
-// Note that peers is a subset of committee.
 func (srv *Server) UpdateConsensusEnodes(committeeSubset []*enode.Node, committee []*enode.Node) {
 	srv.enodeMu.Lock()
 	currentlyRequested := make([]*enode.Node, len(srv.committeeSubset))
