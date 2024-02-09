@@ -3,13 +3,13 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"net"
 	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/node"
@@ -60,7 +60,7 @@ type block struct {
 	txs  int
 }
 
-func (validator *testNode) startNode() error {
+func (validator *testNode) startNode(forceMining bool) error {
 	// Start the node and configure a full Ethereum node on it
 	var err error
 	validator.node, err = node.New(validator.nodeConfig)
@@ -75,6 +75,10 @@ func (validator *testNode) startNode() error {
 
 	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cannot start a node %s", err)
+	}
+
+	if forceMining {
+		validator.service.StartMining(0)
 	}
 
 	// Start tracking the node and it's enode

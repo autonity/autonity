@@ -464,6 +464,8 @@ func (s *Ethereum) shouldPreserve(header *types.Header) bool {
 // StartMining starts the miner with the given number of CPU threads. If mining
 // is already running, this method adjust the number of threads allowed to use
 // and updates the minimum price required by the transaction pool.
+// NOTE: this method bypasses the out-of-sync mining prevention check.
+// The node will start mining even if not sure on whether he is synced with the chain head
 func (s *Ethereum) StartMining(threads int) error {
 	// Update the thread count within the consensus engine
 	type threaded interface {
@@ -494,7 +496,7 @@ func (s *Ethereum) StartMining(threads int) error {
 		// introduced to speed sync times.
 		atomic.StoreUint32(&s.handler.acceptTxs, 1)
 
-		go s.miner.Start()
+		go s.miner.ForceStart()
 	}
 	return nil
 }

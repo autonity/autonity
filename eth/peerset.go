@@ -18,10 +18,10 @@ package eth
 
 import (
 	"errors"
-	ethereum "github.com/autonity/autonity"
 	"math/big"
 	"sync"
 
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/eth/protocols/snap"

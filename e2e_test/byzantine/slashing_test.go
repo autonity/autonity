@@ -48,7 +48,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	// set Malicious validators
 	for _, faultyNodeIndex := range faultyNodes {
-		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposalBroadcaster}
+		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 	}
 
 	validatorsBefore := make([]autonity.AutonityValidator, len(faultyNodes))
@@ -101,11 +101,16 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	extraEpochsSlashed := uint64(0)
 
+	// used to scale timeout based on how many faulty nodes are in the network
+	// the more faulty nodes --> the lower the block mining rate
+	faultyFactor := 1 + (float32(len(faultyNodes)) / float32(nodesCount))
+
+	// consensus engine now takes ~10 second to start, since it waits for block sync success
+	consensusEngineOffset := float32(10)
+
 	// run extra epochs
 	for i := 1; i < epochs; i++ {
-		// scale timeout with extra 10% of expected time
-
-		timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.1)*time.Second)
+		timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
 		defer cancel()
 		slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -121,7 +126,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		validatorsBefore[i] = validatorBefore
 	}
 
-	timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.1)*time.Second)
+	timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
 	defer cancel()
 	slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -210,7 +215,7 @@ func TestHistoryFactor(t *testing.T) {
 
 	// set Malicious validators
 	faultyNode := 2
-	validators[faultyNode].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposalBroadcaster}
+	validators[faultyNode].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 
 	var chainID *big.Int
 

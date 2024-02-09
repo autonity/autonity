@@ -15,6 +15,9 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/params"
 )
 
@@ -77,7 +80,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	upgradeManagerAutonityAddress, err := upgradeManagerContract.Autonity(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
-	err = network.WaitToMineNBlocks(2, 10, false)
+	err = network.WaitToMineNBlocks(2, 15, false)
 	require.NoError(t, err)
 }
 
@@ -217,7 +220,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
 	// Stop a node
-	err = network[1].Close()
+	err = network[1].Close(true)
 	network[1].Wait()
 	require.NoError(t, err)
 	// Send a tx to see that the network is working
@@ -227,7 +230,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Stop a node
-	err = network[2].Close()
+	err = network[2].Close(true)
 	network[2].Wait()
 	require.NoError(t, err)
 	// We have now stopped more than F nodes, so we expect tx processing to time out.
@@ -260,6 +263,75 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Send a tx to see that the network is still working
 	err = n.SendAUTtracked(context.Background(), network[1].Address, 10)
 	require.NoError(t, err)
+}
+
+func NewBroadcasterWithCheck(currentHeight uint64, stopped bool) func(c interfaces.Core) interfaces.Broadcaster {
+	return func(c interfaces.Core) interfaces.Broadcaster {
+		return &broadcasterWithCheck{c.(*core.Core), currentHeight, stopped}
+	}
+}
+
+type broadcasterWithCheck struct {
+	*core.Core
+	currentHeight uint64
+	stopped       bool
+}
+
+func (s *broadcasterWithCheck) Broadcast(msg message.Msg) {
+	logger := s.Logger().New("step", s.Step())
+	logger.Debug("Broadcasting", "message", msg.String())
+
+	if s.stopped && msg.H() <= s.currentHeight {
+		panic("stopped node sent old consensus message once he came back up")
+	}
+
+	s.BroadcastAll(msg)
+}
+
+// Tests that a stopped node, once restarted, will sync up to chain head before sending consensus messages
+func TestWaitForChainSyncAfterStop(t *testing.T) {
+	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown()
+
+	network.WaitToMineNBlocks(10, 60, false)
+
+	// Stop node 0, he will need to sync up once restarted
+	err = network[0].Close(false)
+	require.NoError(t, err)
+	network[0].Wait()
+
+	network.WaitToMineNBlocks(10, 60, false)
+
+	// Stop node 1. This will make the network lose liveness and halt
+	err = network[1].Close(false)
+	require.NoError(t, err)
+	network[1].Wait()
+
+	// network should be stalled now
+	err = network.WaitToMineNBlocks(1, 5, false)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expecting %q, instead got: %v ", context.DeadlineExceeded.Error(), err)
+	}
+
+	// restart node 1. He will rightfully send a consensus message for the consensus instance he stopped at (chainHeight+1)
+	chainHeight := network[2].GetChainHeight()
+	network[1].CustHandler = &interfaces.Services{Broadcaster: NewBroadcasterWithCheck(chainHeight, true)}
+	err = network[1].Start()
+	require.NoError(t, err)
+
+	// give time for node 1 to come back up
+	network.WaitToMineNBlocks(15, 60, false)
+
+	// restart node 0. He should sync up and not send old consensus messages
+	chainHeight = network[2].GetChainHeight()
+	network[0].CustHandler = &interfaces.Services{Broadcaster: NewBroadcasterWithCheck(chainHeight, true)}
+	err = network[0].Start()
+	require.NoError(t, err)
+
+	// give time for node 0 to come back up
+	network.WaitToMineNBlocks(15, 60, false)
+
 }
 
 // Test details
@@ -310,7 +382,7 @@ func TestTendermintQuorum2(t *testing.T) {
 	for i, n := range network {
 		// stop last 3 nodes
 		if i > 2 {
-			err = n.Close()
+			err = n.Close(true)
 			n.Wait()
 			require.NoError(t, err)
 		}
@@ -354,7 +426,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	i := 0
 	for i < 2 {
 		// stop 1st and 2nd node
-		err = network[i].Close()
+		err = network[i].Close(true)
 		require.NoError(t, err)
 		network[i].Wait()
 		i++
@@ -365,7 +437,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	// shutting down 3rd and 4th node
 	for i < 4 {
 		// stop 1st and 2nd node
-		err = network[i].Close()
+		err = network[i].Close(true)
 		require.NoError(t, err)
 		network[i].Wait()
 		i++
@@ -409,7 +481,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	// bring down 5th and 6th node
 	for i < 6 {
 		// stop 1st and 2nd node
-		err = network[i].Close()
+		err = network[i].Close(true)
 		require.NoError(t, err)
 		network[i].Wait()
 		i++
@@ -479,7 +551,7 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 				if !nodeStatus.status {
 					return
 				}
-				e := network[i].Close()
+				e := network[i].Close(true)
 				require.NoError(t, e)
 				network[i].Wait()
 				nodeStatus.status = false

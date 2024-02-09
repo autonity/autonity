@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"net"
 	"os"
 	"strconv"
@@ -13,19 +12,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+	"go.uber.org/goleak"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/autonity/autonity/common/fdlimit"
 	"github.com/autonity/autonity/common/graph"
 	"github.com/autonity/autonity/common/keygenerator"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
-	"github.com/davecgh/go-spew/spew"
-	"go.uber.org/goleak"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -160,7 +161,8 @@ func runTest(t *testing.T, test *testCase) {
 			peer.rpcPort, rates.in, rates.out)
 
 		wg.Go(func() error {
-			return peer.startNode()
+			// if we have only a single validator, force mining start to bypass sync check
+			return peer.startNode(nodesNum == 1)
 		})
 	}
 

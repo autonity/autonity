@@ -62,11 +62,12 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 
 // chainSyncer coordinates blockchain sync components.
 type chainSyncer struct {
-	handler     *handler
-	force       *time.Timer
-	forced      bool // true when force timer fired
-	peerEventCh chan struct{}
-	doneCh      chan error // non-nil when sync is running
+	handler         *handler
+	force           *time.Timer
+	forced          bool // true when force timer fired
+	peerEventCh     chan struct{}
+	doneCh          chan error // non-nil when sync is running
+	syncedEventSent bool       // true when the downloader.SyncedEvent has been sent (we are synced with our current peerset)
 }
 
 // chainSyncOp is a scheduled sync operation.
@@ -80,8 +81,9 @@ type chainSyncOp struct {
 // newChainSyncer creates a chainSyncer.
 func newChainSyncer(handler *handler) *chainSyncer {
 	return &chainSyncer{
-		handler:     handler,
-		peerEventCh: make(chan struct{}),
+		handler:         handler,
+		peerEventCh:     make(chan struct{}),
+		syncedEventSent: false,
 	}
 }
 
@@ -145,6 +147,7 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 	if cs.doneCh != nil {
 		return nil // Sync already running.
 	}
+
 	// Ensure we're at minimum peer count.
 	minPeers := defaultMinSyncPeers
 	if cs.forced {
@@ -164,9 +167,20 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 
 	op := peerToSyncOp(mode, peer)
 	if op.td.Cmp(ourTD) <= 0 {
-		return nil // We're in sync.
+		// we are synced with our current peerset
+		// notify miner about it if not yet done (so consensus can be started if needed)
+		cs.postSyncedEvent()
+		return nil
 	}
 	return op
+}
+
+func (cs *chainSyncer) postSyncedEvent() {
+	if cs.syncedEventSent {
+		return
+	}
+	cs.handler.eventMux.Post(downloader.SyncedEvent{})
+	cs.syncedEventSent = true
 }
 
 func peerToSyncOp(mode downloader.SyncMode, p *eth.Peer) *chainSyncOp {
