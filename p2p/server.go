@@ -918,7 +918,6 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 			p.Disconnect(DiscTooManyPeers)
 		}
 	}
-	return
 }
 
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
