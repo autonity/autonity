@@ -406,17 +406,17 @@ func (srv *Server) RemoveTrustedPeer(node *enode.Node) {
 // UpdateConsensusEnodes is responsible to make sure that
 // a node belonging to the consensus committee is fully connected
 // to the other consensus committee nodes.
-func (srv *Server) UpdateConsensusEnodes(committeeSubset []*enode.Node, committee []*enode.Node) {
+func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCommittee []*enode.Node) {
 	srv.enodeMu.Lock()
-	currentlyRequested := make([]*enode.Node, len(srv.committeeSubset))
-	copy(currentlyRequested, srv.committeeSubset)
-	srv.committee = committee
-	srv.committeeSubset = committeeSubset
+	currentCommitteeSubset := make([]*enode.Node, len(srv.committeeSubset))
+	copy(currentCommitteeSubset, srv.committeeSubset)
+	srv.committee = newCommittee
+	srv.committeeSubset = newCommitteeSubset
 	srv.enodeMu.Unlock()
 	// Check for peers that needs to be disconnected
-	for _, connectedPeer := range currentlyRequested {
+	for _, connectedPeer := range currentCommitteeSubset {
 		found := false
-		for _, whitelistedEnode := range committeeSubset {
+		for _, whitelistedEnode := range newCommitteeSubset {
 			if connectedPeer.ID() == whitelistedEnode.ID() {
 				found = true
 				break
@@ -434,9 +434,9 @@ func (srv *Server) UpdateConsensusEnodes(committeeSubset []*enode.Node, committe
 		}
 	}
 	// Check for peers that needs to be connected
-	for _, whitelistedEnode := range committeeSubset {
+	for _, whitelistedEnode := range newCommitteeSubset {
 		found := false
-		for _, oldEnode := range currentlyRequested {
+		for _, oldEnode := range currentCommitteeSubset {
 			if oldEnode.ID() == whitelistedEnode.ID() {
 				found = true
 				break
