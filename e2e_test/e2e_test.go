@@ -215,13 +215,13 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 // a node is verifying a proposal, but while he is verifying the finalized block is injected from p2p layer
 func TestNodeAlreadyHasProposedBlock(t *testing.T) {
-	// create 1 node network
-	vals, err := Validators(t, 1, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	// create 2 node network
+	vals, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 	network, err := NewNetworkFromValidators(t, vals, false)
 	require.NoError(t, err)
 
-	// trick to get a handle to Proposer
+	// trick to get a handle to Proposer of node 0
 	node := network[0]
 	var proposer interfaces.Proposer
 	node.CustHandler = &interfaces.Services{Proposer: func(c interfaces.Core) interfaces.Proposer {
@@ -231,10 +231,12 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 
 	// start the network and mine a couple blocks
 	node.Start()
+	network[1].Start()
 	defer network.Shutdown()
-	network.WaitToMineNBlocks(3, 60, false)
+	err = network.WaitToMineNBlocks(3, 60, false)
+	require.NoError(t, err)
 
-	// stop consensus engine
+	// stop consensus engine of node 0, this will halt the network
 	err = node.Eth.Engine().Close()
 	require.NoError(t, err)
 
@@ -340,14 +342,16 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
-	network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, err)
 
 	// Stop node 0, he will need to sync up once restarted
 	err = network[0].Close(false)
 	require.NoError(t, err)
 	network[0].Wait()
 
-	network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, err)
 
 	// Stop node 1. This will make the network lose liveness and halt
 	err = network[1].Close(false)
@@ -367,7 +371,8 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// give time for node 1 to come back up
-	network.WaitToMineNBlocks(15, 60, false)
+	err = network.WaitToMineNBlocks(15, 60, false)
+	require.NoError(t, err)
 
 	// restart node 0. He should sync up and not send old consensus messages
 	chainHeight = network[2].GetChainHeight()
@@ -376,7 +381,8 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// give time for node 0 to come back up
-	network.WaitToMineNBlocks(15, 60, false)
+	err = network.WaitToMineNBlocks(15, 60, false)
+	require.NoError(t, err)
 
 }
 
