@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/crypto/blst"
-
 	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
