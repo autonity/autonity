@@ -309,6 +309,10 @@ jobs:
   contract-tests-asm:
     runs-on: ubuntu-latest
     needs: prepare-cache
+    strategy:
+      matrix:
+        tests: ["acu","stabilization","supply_control"]
+    name: ASM - ${{ matrix.tests }}
     steps:
       - uses: actions/setup-node@v1
         with:
@@ -326,8 +330,10 @@ jobs:
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Run contract tests
-        run: make test-contracts-asm
+      - name: Install dependencies
+        run: make test-contracts-asm-pre
+      - name: run test
+        run: cd ./autonity/solidity && ape --verbosity WARNING test --network ::hardhat ./test/asm/${{ matrix.tests }}
 
   # These are the end to end tests run with a block time of 1 second, they are
   # only run on merges to develop.

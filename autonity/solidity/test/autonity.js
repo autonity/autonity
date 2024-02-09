@@ -631,7 +631,7 @@ contract('Autonity', function (accounts) {
     });
   });
 
-  describe('Bonding and unbonding requests', function () {
+  describe('Bonding and unbonding requests - 1', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -730,7 +730,13 @@ contract('Autonity', function (accounts) {
         "validator not registered"
       );
     });
-    
+  });
+
+  describe('Bonding and unbonding requests - 2', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+    });
+
     it("can't bond to a paused validator", async function () {
       await autonity.pauseValidator(validators[0].nodeAddress, {from: validators[0].treasury});
       
@@ -847,6 +853,12 @@ contract('Autonity', function (accounts) {
 
      
     });
+  });
+
+  describe('Bonding and unbonding requests - 3', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+    });
 
     it('does not unbond from not registered validator', async function () {
       let unRegisteredVal = anyAccount;
@@ -937,6 +949,12 @@ contract('Autonity', function (accounts) {
       assert.equal(unstaking.delegator, validators[0].treasury, "delegator addr is not expected");
       assert.equal(unstaking.delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
       assert.equal(unstaking.unlocked, false, "pending unbonding request unlocked");
+    });
+  });
+
+  describe('Bonding and unbonding requests - 4', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
 
     it('test unbonding shares logic', async function () {
