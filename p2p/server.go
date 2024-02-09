@@ -451,7 +451,7 @@ func (srv *Server) UpdateConsensusEnodes(committeeSubset []*enode.Node, committe
 
 }
 
-func (srv *Server) InCommittee(id enode.ID) bool {
+func (srv *Server) inCommittee(id enode.ID) bool {
 	srv.enodeMu.RLock()
 	defer srv.enodeMu.RUnlock()
 	for _, node := range srv.committee {
@@ -917,7 +917,7 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 		return
 	}
 	for _, p := range peers {
-		if !srv.InCommittee(p.ID()) {
+		if !srv.inCommittee(p.ID()) {
 			p.Disconnect(DiscTooManyPeers)
 		}
 	}
@@ -936,9 +936,9 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscSelf
 	case srv.jailed.contains(c.node.ID().String()):
 		return DiscJailed
-	case srv.Net == Consensus && !srv.InCommittee(c.node.ID()):
+	case srv.Net == Consensus && !srv.inCommittee(c.node.ID()):
 		return DiscPeerNotInCommittee
-	case srv.Net == Execution && srv.InCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
+	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
 		return DiscPeerOutsideTopology
 	default:
 		return nil
