@@ -171,7 +171,14 @@ test-contracts-pre:
 
 APE_VERSION := 0.6.26
 HARDHAT_VERSION := 2.19.1
-test-contracts-asm:
+test-contracts-asm: test-contracts-asm-pre
+	@echo "run tests for the asm contracts"
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/acu
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/stabilization
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/supply_control
+
+.PHONY: test-contracts-asm-pre
+test-contracts-asm-pre:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
 	@echo "check ape framework version"
@@ -185,8 +192,6 @@ test-contracts-asm:
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
-	@echo "run tests for the asm contracts"
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm
 
 # start an autonity network for contract tests
 start-autonity:
