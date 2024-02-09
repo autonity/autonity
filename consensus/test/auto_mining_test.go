@@ -35,7 +35,7 @@ func TestAutoMiningForCommitteeMembers(t *testing.T) {
 func TestAutoMiningForNonCommitteeValidator(t *testing.T) {
 	numOfValidators := 2
 	testCase := &testCase{
-		name:          "Auto mining test, none committee member should not start mining",
+		name:          "Auto mining test, non committee member should not start mining",
 		numValidators: numOfValidators,
 		numBlocks:     15,
 		genesisHook: func(g *core.Genesis) *core.Genesis {
