@@ -19,6 +19,14 @@ func NewGraphTopology(diameter uint, minNodes int) *NetworkTopology {
 	}
 }
 
+func (g *NetworkTopology) SetDiameter(d uint) {
+	g.diameter = d
+}
+
+func (g *NetworkTopology) SetMinNodes(n int) {
+	g.minNodes = n
+}
+
 func (g *NetworkTopology) computeSquareRoot(n uint) uint {
 	return uint(math.Ceil(math.Sqrt(float64(n))))
 }

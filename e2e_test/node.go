@@ -16,7 +16,6 @@ import (
 
 	"github.com/hashicorp/consul/sdk/freeport"
 
-	"github.com/autonity/autonity/atc"
 	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/crypto/blst"
@@ -90,7 +89,6 @@ type Node struct {
 	isRunning bool
 	Config    *node.Config
 	Eth       *eth.Ethereum
-	Atc       *atc.ATC
 	EthConfig *ethconfig.Config
 	WsClient  *ethclient.Client
 	Nonce     uint64

@@ -171,7 +171,6 @@ test-contracts-pre:
 
 APE_VERSION := 0.6.26
 HARDHAT_VERSION := 2.19.1
-<<<<<<< HEAD
 test-contracts-asm: test-contracts-asm-pre
 	@echo "run tests for the asm contracts"
 	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/acu
@@ -180,9 +179,6 @@ test-contracts-asm: test-contracts-asm-pre
 
 .PHONY: test-contracts-asm-pre
 test-contracts-asm-pre:
-=======
-test-contracts-asm:
->>>>>>> 9ae2a201e (fix hardhat version)
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
 	@echo "check ape framework version"

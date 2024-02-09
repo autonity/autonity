@@ -6,7 +6,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/autonity/autonity/atc"
 	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common"
@@ -34,7 +33,6 @@ type testNode struct {
 	ethConfig      *eth.Config
 	enode          *enode.Node
 	service        *eth.Ethereum
-	atcService     *atc.ATC
 	eventChan      chan core.ChainEvent
 	subscription   event.Subscription
 	transactions   map[common.Hash]struct{}
