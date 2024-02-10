@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"os"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
+	"text/tabwriter"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	syscall "golang.org/x/sys/unix"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
@@ -20,6 +23,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	ccore "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
 
@@ -595,6 +600,8 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
+/*
+// UNSUPPORTED ON NON UNIX DEV ENV
 func updateRlimit() {
 	var rLimit syscall.Rlimit
 	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
@@ -613,38 +620,67 @@ func updateRlimit() {
 		fmt.Println("Error Getting Rlimit ", err)
 	}
 	fmt.Println("Rlimit Final", rLimit)
-
 }
+*/
 
-func TestLargeTCPNetwork(t *testing.T) {
-
-	t.Skip("only on demand")
-	updateRlimit()
-	validators, _ := Validators(t, 40, "10e18,v,1000,0.0.0.0:%s,%s,%s,%s")
-	network, err := NewNetworkFromValidators(t, validators, false)
+func TestLargeNetwork(t *testing.T) {
+	//t.Skip("only on demand")
+	log.DefaultVerbosity = log.LvlError
+	params.TestAutonityContractConfig.EpochPeriod = 5
+	peerCount := 150
+	validators, _ := Validators(t, peerCount, "10e18,v,1000,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewInMemoryNetwork(t, validators, false, func(genesis *ccore.Genesis) {
+		genesis.Config.AutonityContractConfig.MaxCommitteeSize = 50
+	})
 	require.NoError(t, err)
-	for i, n := range network {
-		network[i].EthConfig.Genesis.Config.AutonityContractConfig.MaxCommitteeSize = 100
+	for _, n := range network {
 		err = n.Start()
 		require.NoError(t, err)
 	}
 	defer network.Shutdown()
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Second)
-	defer cancel()
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+
+	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
+
+	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)
+	tickCount := 0
 	go func() {
 		for range ticker.C {
-			fmt.Println("connection count", "execution", network[0].ExecutionServer().PeerCount(), "consensus", network[0].ConsensusServer().PeerCount())
-			fmt.Println("go routine count", "c", runtime.NumGoroutine())
-			fmt.Println("current state", "h", network[0].Eth.BlockChain().CurrentHeader().Number.Uint64())
+			tickCount += 1
+			fmt.Println("-------------", tickCount, "---------------")
+			if tickCount%15 == 0 {
+				maxCommittee := rand.Intn(50) + 1
+				autonityContract.SetCommitteeSize(transactOpts, big.NewInt(int64(maxCommittee)))
+				fmt.Println("new committee size:", maxCommittee)
+			}
+
+			var peersBuf strings.Builder
+			peersBuf.WriteString("n\t")
+			var execCountBuf strings.Builder
+			execCountBuf.WriteString("e\t")
+			var consCountBuf strings.Builder
+			consCountBuf.WriteString("c\t")
+			var stateBuf strings.Builder
+			stateBuf.WriteString("b\t")
+			for i, node := range network {
+				peersBuf.WriteString(strconv.Itoa(i) + "\t")
+				execCountBuf.WriteString(strconv.Itoa(node.ExecutionServer().PeerCount()) + "\t")
+				consCountBuf.WriteString(strconv.Itoa(node.ConsensusServer().PeerCount()) + "\t")
+				stateBuf.WriteString(strconv.Itoa(int(node.Eth.BlockChain().CurrentHeader().Number.Uint64())) + "\t")
+			}
+			fmt.Fprintln(w, peersBuf.String())
+			fmt.Fprintln(w, execCountBuf.String())
+			fmt.Fprintln(w, consCountBuf.String())
+			fmt.Fprintln(w, stateBuf.String())
+
+			w.Flush()
+			fmt.Println("go routines:", runtime.NumGoroutine())
 		}
 	}()
 
-	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
-	require.NoError(t, err)
-
-	err = network.WaitToMineNBlocks(50, 300, false)
+	err = network.WaitToMineNBlocks(10, 300, false)
 	require.NoError(t, err)
 }
