@@ -322,22 +322,18 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 
 	genesisBonds := g.Alloc.ToGenesisBonds()
-
 	evmProvider := func(statedb vm.StateDB) *vm.EVM {
 		return genesisEVM(g, statedb)
 	}
 
 	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
-
 	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
 		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
-
 	genesisCommittee, err := evmContracts.AutonityContract.Committee(nil, statedb)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}
-
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
