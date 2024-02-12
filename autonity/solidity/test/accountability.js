@@ -553,6 +553,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 0, // does not matter
         "messageHash": 0, // must match accusation's one
+        "id": 0,
       }
       await accountability.handleValidInnocenceProof(proof);
 

@@ -720,15 +720,15 @@ func TestRuleEngine(t *testing.T) {
 		quorum := bft.Quorum(totalPower)
 
 		header := newBlockHeader(height, committee)
-		round := int64(2)
-		err := types.WriteRound(header, round)
+		r := int64(2)
+		err := types.WriteRound(header, r)
 		require.NoError(t, err)
 		block := types.NewBlockWithHeader(header)
 		// block was committed at same round! --> no accusation should be raised
 		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(block)
 
 		// simulate an old proposal at r: 2, with v and vr: 0.
-		oldProposal := newProposalMessage(height, round, 0, signer, committee, block).MustVerify(stubVerifier)
+		oldProposal := newProposalMessage(height, r, 0, signer, committee, block).MustVerify(stubVerifier)
 		fd.msgStore.Save(oldProposal)
 
 		// run rule engine.
