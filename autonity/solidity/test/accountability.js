@@ -387,7 +387,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter.treasury,
         "offender": offender.nodeAddress,
         "rawProof": [],
-        "id":0,
+        "id": 0,
         "block": 10,
         "epoch": 0,
         "reportingBlock": 11,
@@ -585,6 +585,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 0, // does not matter
         "messageHash": 0, // must match accusation's one
+        "id" : 0,
       }
       await truffleAssert.fails(
         accountability.handleValidInnocenceProof(proof2),
