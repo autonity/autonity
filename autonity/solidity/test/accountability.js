@@ -644,6 +644,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
       let balance = web3.utils.toWei("10", "ether");
       await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
