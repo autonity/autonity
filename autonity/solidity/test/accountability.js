@@ -699,6 +699,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
 
       // cannot submit transaction from reporter because the address is not unlocked and will require signing
@@ -730,6 +731,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
       let rawProof = [];
       rawProof.push(20);
@@ -791,6 +793,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
 
       let currentProof = "0x";
@@ -849,6 +852,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id":0,
       };
 
       let request = (await accountability.handleEvent.request(event, {from: reporter}));
