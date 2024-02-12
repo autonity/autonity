@@ -423,14 +423,16 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 			}
 		}
 		if !found {
-			log.Debug("Dropping node from static peers", "enode", connectedPeer.String(), "server", srv.Net.String())
-			srv.RemoveTrustedPeer(connectedPeer)
-			switch srv.Net {
-			case Execution:
-				srv.dialsched.removeStatic(connectedPeer)
-			case Consensus:
-				srv.RemovePeer(connectedPeer)
-			}
+			go func(peer *enode.Node) {
+				log.Debug("Dropping node from static peers", "enode", peer.String(), "server", srv.Net.String())
+				srv.RemoveTrustedPeer(peer)
+				switch srv.Net {
+				case Execution:
+					srv.dialsched.removeStatic(peer)
+				case Consensus:
+					srv.RemovePeer(peer)
+				}
+			}(connectedPeer)
 		}
 	}
 	// Check for peers that needs to be connected
@@ -443,9 +445,11 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 			}
 		}
 		if !found {
-			log.Debug("Connecting to validator", "enode", whitelistedEnode.String())
-			srv.AddTrustedPeer(whitelistedEnode)
-			srv.AddPeer(whitelistedEnode)
+			go func(peer *enode.Node) {
+				log.Debug("Connecting to validator", "enode", peer.String())
+				srv.AddTrustedPeer(peer)
+				srv.AddPeer(peer)
+			}(whitelistedEnode)
 		}
 	}
 

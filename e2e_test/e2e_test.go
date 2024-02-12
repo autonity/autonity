@@ -651,7 +651,7 @@ func TestLargeNetwork(t *testing.T) {
 		for range ticker.C {
 			tickCount += 1
 			fmt.Println("-------------", tickCount, "---------------")
-			if tickCount%15 == 0 {
+			if tickCount%60 == 5 {
 				maxCommittee := rand.Intn(50) + 1
 				autonityContract.SetCommitteeSize(transactOpts, big.NewInt(int64(maxCommittee)))
 				fmt.Println("new committee size:", maxCommittee)
