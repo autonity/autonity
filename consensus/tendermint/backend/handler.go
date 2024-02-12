@@ -66,11 +66,6 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return false, nil
 	}
 
-	// TODO(lorenzo) should we ignore also sync messages from jailed validators?
-	//								- also even if we do not ignore, I think we need some sort of rate limitation mechanism for it
-	// Should we ignore also offchain accountability messages from jailed validators? If so, we should also ignore their accusation on chain
-	//								- for this one we already have rate limitation
-
 	sb.coreMu.Lock()
 	defer sb.coreMu.Unlock()
 

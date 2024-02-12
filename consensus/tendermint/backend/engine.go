@@ -549,8 +549,6 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				explanation := autonity.Rule(event.Rule).Explanation()
 				sb.logger.Warn("Your validator has been found guilty of consensus misbehaviour", "address", event.Offender, "event id", ev.Id.Uint64(), "event type", eventType, "rule", rule, "block", event.Block.Uint64(), "epoch", event.Epoch.Uint64(), "faulty message hash", common.BigToHash(event.MessageHash))
 				sb.logger.Warn(explanation)
-				//TODO(lorenzo) does it make sense to jail ourselves? or is better just to stop consensus?
-				// also it is weird that nodes will still send messages to us, so we can still finalize and propagate a block while jailed
 			}
 			sb.jailedLock.Lock()
 			// a 0 value means that the validator is in a perpetual jailed state
@@ -562,7 +560,6 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			// local node got slashed, print out information about the slashing that can be correlated with the information about the fault proof above.
 			if ev.Validator == sb.address {
 				sb.logger.Warn("Your validator has been slashed", "amount", ev.Amount.Uint64(), "jail release block", ev.ReleaseBlock.Uint64(), "jailbound", ev.IsJailbound, "event id", ev.EventId.Uint64())
-				//TODO(lorenzo) same as before, does it make sense to jail ourselves
 			}
 			sb.jailedLock.Lock()
 			if ev.IsJailbound {
