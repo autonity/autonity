@@ -257,10 +257,10 @@ func TestOffChainAccusationManagement(t *testing.T) {
 	})
 
 	t.Run("get expired off chain accusation", func(t *testing.T) {
-		currentHeight := uint64(31)
 		msgHeight := uint64(10)
 		msgRound := int64(1)
 		validRound := int64(0)
+		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
 		proposal := newProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
@@ -296,10 +296,10 @@ func TestOffChainAccusationManagement(t *testing.T) {
 	})
 
 	t.Run("escalateExpiredAccusations", func(t *testing.T) {
-		currentHeight := uint64(31)
 		msgHeight := uint64(10)
 		msgRound := int64(1)
 		validRound := int64(0)
+		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
 
 		proposal := newProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		var accusationPO = Proof{

@@ -31,14 +31,6 @@ import (
 	"github.com/autonity/autonity/rpc"
 )
 
-// Todo: find a better spot than here for those constants
-// TODO(lorenzo) this should be in fault_detector.go
-const (
-	ReportingSlotPeriod       = 20  // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
-	DeltaBlocks               = 10  // Wait until the GST + delta blocks to start accounting.
-	AccountabilityHeightRange = 256 // Default msg buffer range for AFD.
-)
-
 // ChainHeaderReader defines a small collection of methods needed to access the local
 // blockchain during header verification.
 type ChainHeaderReader interface {

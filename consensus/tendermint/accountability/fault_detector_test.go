@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -112,7 +111,7 @@ func TestRunRuleEngine(t *testing.T) {
 	round := int64(3)
 	t.Run("test run rules with malicious behaviour should be detected", func(t *testing.T) {
 		chainHead := uint64(100)
-		checkPointHeight := chainHead - uint64(proto.DeltaBlocks)
+		checkPointHeight := chainHead - uint64(DeltaBlocks)
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(checkPointHeight - 1), Committee: committee}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()

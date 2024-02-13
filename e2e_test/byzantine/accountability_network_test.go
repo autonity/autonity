@@ -8,7 +8,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -36,7 +35,7 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 	}
 
 	// simulate accusation over height 7
-	height := currentHeight - proto.DeltaBlocks + 2
+	height := currentHeight - accountability.DeltaBlocks + 2
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
 		panic("cannot simulate off chain accusation PVN")
@@ -85,7 +84,8 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 	}
 
 	// simulate accusation over height 7
-	height := currentHeight - proto.DeltaBlocks + 2
+	height := currentHeight - accountability.DeltaBlocks + 2
+
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
 		panic("cannot simulate off chain accusation C1")
@@ -134,7 +134,7 @@ func (s *GarbageOffChainAccusation) Broadcast(msg message.Msg) {
 		panic("cannot simulate duplicated off chain accusation")
 	}
 
-	committee := s.Core.Committee().Committee()
+	committee := s.Core.CommitteeSet().Committee()
 
 	for _, c := range committee {
 		if c.Address == s.Address() {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -82,7 +81,7 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 	// prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
 	// corresponding to an old height, while at each Pi, they only buffer specific heights of message in msg store, thus
 	// Pi can never provide a valid proof of innocence anymore, making the malicious accusation be valid for slashing.
-	if blockNumber > p.Message.H() && (blockNumber-p.Message.H() >= consensus.AccountabilityHeightRange) {
+	if blockNumber > p.Message.H() && (blockNumber-p.Message.H() >= accountabilityHeightRange) {
 		return failureReturn, nil
 	}
 	if verifyAccusation(p) {

@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -24,6 +23,11 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
+
+// "soft minimum" cache size for the proposer cache.
+// "soft minimum" because we can have less entries in it, but once we reach `thresholdSize` we want to keep having at least `thresholdSize`.
+// ensure it is >= accountability.accountabilityHeightRange to ensure reduced performance overhead in case of old proposal spamming
+const thresholdSize = 256
 
 var (
 	AutonityABIKey = []byte("ABISPEC")
@@ -99,7 +103,7 @@ type AutonityContract struct {
 	EVMContract
 	*AutonityFilterer // allows to watch for Autonity Contract events
 
-	proposers map[uint64]map[int64]common.Address
+	proposers map[uint64]map[int64]common.Address // map[height][round] --> proposer
 }
 
 type ProtocolContracts struct {
@@ -197,6 +201,7 @@ func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*
 	return c.callGetMinimumBaseFee(db, block)
 }
 
+// TODO(lorenzo) maybe improve this func
 func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height uint64, round int64) common.Address {
 	c.Lock()
 	defer c.Unlock()
@@ -206,7 +211,7 @@ func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height u
 		roundMap = make(map[int64]common.Address)
 		roundMap[round] = p
 		c.proposers[height] = roundMap
-		// since the growing of blockchain height, so most of the case we can use the latest buffered height to gc the buffer.
+		// since the chain monotonically grows towards higher heights, we can use the lastest buffered height to gc the buffer
 		c.trimProposerCache(height)
 		return p
 	}
@@ -251,11 +256,23 @@ func (c *AutonityContract) electProposer(parentHeader *types.Header, height uint
 	return parentHeader.Committee[round%int64(len(parentHeader.Committee))].Address
 }
 
+/* the Proposer election function is called from core and from the fault detector.
+*
+* Core calls it only on current height messages, therefore we don't need to retain old (h,r) proposers for it
+* note that it is still good to have a cache for current height, because core will call multiple times the Proposer function for the same (h,r)
+*
+* The fault detector calls it when checking a proposal and when validating an InvalidProposer fault. For the proposal checking, we will accepts messages that
+* are in [currentHeight - accountability.accountabilityHeightRange, currentHeight]. However, I think that it will be rare to process old messages, unless there is
+* a malicious peer which is spamming old height messages.
+* For proof validation instead, there is no height boundary (could be a proof for a very old height).
+ */
 func (c *AutonityContract) trimProposerCache(height uint64) {
-	if len(c.proposers) > consensus.AccountabilityHeightRange*2 && height > consensus.AccountabilityHeightRange*2 {
-		gcFrom := height - consensus.AccountabilityHeightRange*2
-		// keep at least consensus.AccountabilityHeightRange heights in the buffer.
-		for i := uint64(0); i < consensus.AccountabilityHeightRange; i++ {
+	// TODO(lorenzo) I think we can improve this mechanism by using a priority queue to store heights (could be used for the msgStore as well?)
+	// Also this might leave behind some heights that we might never delete
+	if len(c.proposers) > thresholdSize*2 && height > thresholdSize*2 {
+		gcFrom := height - thresholdSize*2
+		// keep at least thresholdSize heights in the buffer.
+		for i := uint64(0); i < thresholdSize; i++ {
 			gcHeight := gcFrom + i
 			delete(c.proposers, gcHeight)
 		}

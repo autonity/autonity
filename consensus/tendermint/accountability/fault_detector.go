@@ -45,6 +45,9 @@ const (
 	maxAccusationRatePerHeight    = 4       // max number of accusation can be produced by rule engine over a height against to a validator. //TODO(lorenzo) not really accurate
 	maxNumOfInnocenceProofCached  = 120 * 4 // 120 blocks with 4 on each height that rule engine can produce totally over a height. //TODO(lorenzo) use const
 	maxFutureHeightMsgs           = 1000    // max num of msg buffer for the future heights.
+	reportingSlotPeriod           = 20      // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
+	accountabilityHeightRange     = 256     // Default msg buffer range for AFD.
+	DeltaBlocks                   = 10      // Wait until the GST + delta blocks to start accounting.
 )
 
 var (
@@ -180,7 +183,7 @@ func (fd *FaultDetector) Start() {
 }
 
 func (fd *FaultDetector) isMsgExpired(headHeight uint64, msgHeight uint64) bool {
-	return headHeight > consensus.AccountabilityHeightRange && msgHeight < headHeight-consensus.AccountabilityHeightRange
+	return headHeight > accountabilityHeightRange && msgHeight < headHeight-accountabilityHeightRange
 }
 
 func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
@@ -304,8 +307,8 @@ tendermintMsgLoop:
 // check to GC msg store for those msgs out of buffering window on every 60 blocks.
 // todo(youssef): this might tbe unsufficient and lead to a DDOS OOM attack
 func (fd *FaultDetector) checkMsgStoreGC(height uint64) {
-	if height > consensus.AccountabilityHeightRange && height%msgGCInterval == 0 {
-		threshold := height - consensus.AccountabilityHeightRange
+	if height > accountabilityHeightRange && height%msgGCInterval == 0 {
+		threshold := height - accountabilityHeightRange
 		fd.msgStore.DeleteOlds(threshold)
 	}
 }
@@ -324,8 +327,8 @@ loop:
 			fd.escalateExpiredAccusations(ev.Block.NumberU64())
 
 			// run rule engine over a specific height.
-			if ev.Block.NumberU64() > uint64(consensus.DeltaBlocks) {
-				checkpoint := ev.Block.NumberU64() - uint64(consensus.DeltaBlocks)
+			if ev.Block.NumberU64() > uint64(DeltaBlocks) {
+				checkpoint := ev.Block.NumberU64() - uint64(DeltaBlocks)
 				if events := fd.runRuleEngine(checkpoint); len(events) > 0 {
 					fd.pendingEvents = append(fd.pendingEvents, events...)
 				}
@@ -396,16 +399,16 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	}
 	committee := hdr.Committee
 
-	// each reporting slot contains ReportingSlotPeriod block period that a unique and deterministic validator is asked to
+	// each reporting slot contains reportingSlotPeriod block period that a unique and deterministic validator is asked to
 	// be the reporter of that slot period, then at the end block of that slot, the reporter reports
 	// available events. Thus, between each reporting slot, we have 5 block period to wait for
 	// accountability events to be mined by network, and it is also disaster friendly that if the last
 	// reporter fails, the next reporter will continue to report missing events.
-	reporterIndex := (height / consensus.ReportingSlotPeriod) % uint64(len(committee))
+	reporterIndex := (height / reportingSlotPeriod) % uint64(len(committee))
 
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
-	if height%consensus.ReportingSlotPeriod != 0 {
+	if height%reportingSlotPeriod != 0 {
 		return false
 	}
 	// todo(youssef): this seems like a non-committee member can't send a proof/ do we want that?
@@ -1327,6 +1330,8 @@ func errorToRule(err error) (autonity.Rule, error) {
 	return rule, nil
 }
 
+// TODO(lorenzo) it would be cool to just have the reference to the committee here (same we have in core)
+// but maybe is overkill, since the proposer cache is already shared anyways
 func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
 	parentHeader := chain.GetHeaderByNumber(h - 1)
 	// to prevent the panic on node shutdown.

@@ -6,7 +6,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/protocols/eth"
@@ -295,7 +294,7 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 	for _, proof := range fd.offChainAccusations {
 		// NOTE: accusations for message at height h is generated at height h + delta by the fault detector
 		// then we have up to h + delta + offchainWindow to resolve it offchain
-		if currentChainHeight-proof.Message.H() > (consensus.DeltaBlocks + offChainAccusationProofWindow) {
+		if currentChainHeight-proof.Message.H() > (DeltaBlocks + offChainAccusationProofWindow) {
 			expiredOnes = append(expiredOnes, proof)
 		}
 	}
