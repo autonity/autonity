@@ -126,7 +126,7 @@ func (fd *FaultDetector) eventReporter() {
 					break
 				}
 			} else {
-				fd.logger.Error("Accountability transaction", "err", err)
+				fd.logger.Error("Cannot submit accountability transaction", "err", err)
 			}
 		}
 	}

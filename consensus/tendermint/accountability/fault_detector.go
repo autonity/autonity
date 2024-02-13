@@ -39,15 +39,17 @@ type ChainContext interface {
 	Validator() core.Validator
 }
 
+// TODO(lorenzo) maxAccusationRatePerHeight is not really accurate, as we can have 4 accusations per round (PO,PVN,PVO,C)
+
 const (
-	msgGCInterval                 = 60      // every 60 blocks to GC msg store. //TODO(lorenzo) verify if interferes with extended offchain window
-	offChainAccusationProofWindow = 60      // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
-	maxAccusationRatePerHeight    = 4       // max number of accusation can be produced by rule engine over a height against to a validator. //TODO(lorenzo) not really accurate
-	maxNumOfInnocenceProofCached  = 120 * 4 // 120 blocks with 4 on each height that rule engine can produce totally over a height. //TODO(lorenzo) use const
-	maxFutureHeightMsgs           = 1000    // max num of msg buffer for the future heights.
-	reportingSlotPeriod           = 20      // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
-	accountabilityHeightRange     = 256     // Default msg buffer range for AFD.
-	DeltaBlocks                   = 10      // Wait until the GST + delta blocks to start accounting.
+	msgGCInterval                 = 60                               // every 60 blocks to GC msg store.
+	offChainAccusationProofWindow = 30                               // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
+	maxAccusationRatePerHeight    = 4                                // max number of accusation can be produced by rule engine over a height against to a validator.
+	maxNumOfInnocenceProofCached  = 120 * maxAccusationRatePerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
+	maxFutureHeightMsgs           = 1000                             // max num of msg buffer for the future heights.
+	reportingSlotPeriod           = 20                               // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
+	accountabilityHeightRange     = 256                              // Default msg buffer range for AFD.
+	DeltaBlocks                   = 10                               // Wait until the GST + delta blocks to start accounting.
 )
 
 var (
@@ -182,6 +184,7 @@ func (fd *FaultDetector) Start() {
 	go fd.consensusMsgHandlerLoop()
 }
 
+// TODO(lorenzo) more like is height expired / too old
 func (fd *FaultDetector) isMsgExpired(headHeight uint64, msgHeight uint64) bool {
 	return headHeight > accountabilityHeightRange && msgHeight < headHeight-accountabilityHeightRange
 }
@@ -264,26 +267,23 @@ tendermintMsgLoop:
 				break tendermintMsgLoop
 			}
 
+			// TODO(lorenzo) should we use the height of the event or the `curHeight` as currentHeight?
+
 			// on every 60 blocks, reset Peer Justified Accusations and height accusations counters.
 			if e.Block.NumberU64()%msgGCInterval == 0 {
 				fd.rateLimiter.resetHeightRateLimiter()
 				fd.rateLimiter.resetPeerJustifiedAccusations()
 			}
-			//TODO(lorenzo) resolve
-			/* THIS HAS BEEN DELETED TODO VERIFY
-			height := e.block.NumberU64()
-			if fd.isMsgExpired(curHeight, height) {
-				fd.logger.Info("fault detector: discarding old height messages", "height", height)
-				fd.deleteFutureHeightMsg(height)
-				continue tendermintMsgLoop
-			}
-			*/
 
 			for h, messages := range fd.futureMessages {
 				if h <= curHeight {
-					for _, m := range messages {
-						if err := fd.processMsg(m); err != nil {
-							fd.logger.Warn("Fault detector: processing consensus msg", "result", err)
+					// process msgs only if they did not expire
+					// they were saved as future messages but we might have jumped to a higher height (e.g. chain sync)
+					if !fd.isMsgExpired(curHeight, h) {
+						for _, m := range messages {
+							if err := fd.processMsg(m); err != nil {
+								fd.logger.Warn("Fault detector: processing consensus msg", "result", err)
+							}
 						}
 					}
 					// once messages are processed, delete it from buffer.
@@ -1330,8 +1330,9 @@ func errorToRule(err error) (autonity.Rule, error) {
 	return rule, nil
 }
 
-// TODO(lorenzo) it would be cool to just have the reference to the committee here (same we have in core)
-// but maybe is overkill, since the proposer cache is already shared anyways
+// TODO: this function basically reimplements committee.GetProposer
+// it would be better to use that function but it requires sharing the CommitteeSet between Core and the FD.
+// It would reduce code repetition, however the proposer cache is already shared so it would not improve performance.
 func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
 	parentHeader := chain.GetHeaderByNumber(h - 1)
 	// to prevent the panic on node shutdown.

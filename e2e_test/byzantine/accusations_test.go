@@ -125,13 +125,13 @@ func TestAccusationFlow(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationPO}
 		tp := autonity.Accusation
 		rule := autonity.PO
-		runTest(t, handler, tp, rule, 150)
+		runTest(t, handler, tp, rule, 120)
 	})
 	t.Run("AccusationRulePVN", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationPVN}
 		tp := autonity.Accusation
 		rule := autonity.PVN
-		runTest(t, handler, tp, rule, 150)
+		runTest(t, handler, tp, rule, 120)
 	})
 	/*
 		Not supported, require more complicated setup
@@ -147,6 +147,6 @@ func TestAccusationFlow(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationC1}
 		tp := autonity.Accusation
 		rule := autonity.C1
-		runTest(t, handler, tp, rule, 150)
+		runTest(t, handler, tp, rule, 80)
 	})
 }
