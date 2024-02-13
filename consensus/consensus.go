@@ -32,6 +32,7 @@ import (
 )
 
 // Todo: find a better spot than here for those constants
+// TODO(lorenzo) this should be in fault_detector.go
 const (
 	ReportingSlotPeriod       = 20  // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
 	DeltaBlocks               = 10  // Wait until the GST + delta blocks to start accounting.

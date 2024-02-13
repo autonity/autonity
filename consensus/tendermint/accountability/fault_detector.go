@@ -40,10 +40,10 @@ type ChainContext interface {
 }
 
 const (
-	msgGCInterval                 = 60      // every 60 blocks to GC msg store.
-	offChainAccusationProofWindow = 10      // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
-	maxNumOfInnocenceProofCached  = 120 * 4 // 120 blocks with 4 on each height that rule engine can produce totally over a height.
-	maxAccusationRatePerHeight    = 4       // max number of accusation can be produced by rule engine over a height against to a validator.
+	msgGCInterval                 = 60      // every 60 blocks to GC msg store. //TODO(lorenzo) verify if interferes with extended offchain window
+	offChainAccusationProofWindow = 60      // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
+	maxAccusationRatePerHeight    = 4       // max number of accusation can be produced by rule engine over a height against to a validator. //TODO(lorenzo) not really accurate
+	maxNumOfInnocenceProofCached  = 120 * 4 // 120 blocks with 4 on each height that rule engine can produce totally over a height. //TODO(lorenzo) use const
 	maxFutureHeightMsgs           = 1000    // max num of msg buffer for the future heights.
 )
 
@@ -266,6 +266,7 @@ tendermintMsgLoop:
 				fd.rateLimiter.resetHeightRateLimiter()
 				fd.rateLimiter.resetPeerJustifiedAccusations()
 			}
+			//TODO(lorenzo) resolve
 			/* THIS HAS BEEN DELETED TODO VERIFY
 			height := e.block.NumberU64()
 			if fd.isMsgExpired(curHeight, height) {

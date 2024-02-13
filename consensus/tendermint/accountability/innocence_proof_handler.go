@@ -293,10 +293,9 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 	defer fd.offChainAccusationsMu.RUnlock()
 	var expiredOnes []*Proof
 	for _, proof := range fd.offChainAccusations {
-		// since it already get delta block passed through when the accusation was being generated, so current head
-		// comparing to the msg height should count delta block, besides this, we counter extra 10 block as the off
-		// chain proof window.
-		if currentChainHeight-proof.Message.H() > (offChainAccusationProofWindow + consensus.DeltaBlocks) {
+		// NOTE: accusations for message at height h is generated at height h + delta by the fault detector
+		// then we have up to h + delta + offchainWindow to resolve it offchain
+		if currentChainHeight-proof.Message.H() > (consensus.DeltaBlocks + offChainAccusationProofWindow) {
 			expiredOnes = append(expiredOnes, proof)
 		}
 	}
