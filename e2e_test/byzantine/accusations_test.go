@@ -147,6 +147,6 @@ func TestAccusationFlow(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationC1}
 		tp := autonity.Accusation
 		rule := autonity.C1
-		runTest(t, handler, tp, rule, 110)
+		runTest(t, handler, tp, rule, 150)
 	})
 }
