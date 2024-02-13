@@ -201,26 +201,28 @@ func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*
 	return c.callGetMinimumBaseFee(db, block)
 }
 
-// TODO(lorenzo) maybe improve this func
-func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height uint64, round int64) common.Address {
+func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
 	c.Lock()
 	defer c.Unlock()
+
+	needsTrimming := false
+
 	roundMap, ok := c.proposers[height]
 	if !ok {
-		p := c.electProposer(header, height, round)
-		roundMap = make(map[int64]common.Address)
-		roundMap[round] = p
-		c.proposers[height] = roundMap
-		// since the chain monotonically grows towards higher heights, we can use the lastest buffered height to gc the buffer
-		c.trimProposerCache(height)
-		return p
+		c.proposers[height] = make(map[int64]common.Address)
+		needsTrimming = true // cannot trim here, we might delete the entry we just created if it is for a very old height
 	}
 
-	proposer, ok := roundMap[round]
+	proposer, ok = roundMap[round]
 	if !ok {
-		p := c.electProposer(header, height, round)
-		c.proposers[height][round] = p
-		return p
+		proposer = c.electProposer(header, height, round)
+		c.proposers[height][round] = proposer
+	}
+
+	if needsTrimming {
+		// since the chain monotonically grows towards higher heights, we can use the latest buffered height to trim the cache
+		// NOTE: this is not 100% accurate because we could be computing Proposer for a very old height. But it works anyways.
+		c.trimProposerCache(height)
 	}
 
 	return proposer
@@ -267,14 +269,14 @@ func (c *AutonityContract) electProposer(parentHeader *types.Header, height uint
 * For proof validation instead, there is no height boundary (could be a proof for a very old height).
  */
 func (c *AutonityContract) trimProposerCache(height uint64) {
-	// TODO(lorenzo) I think we can improve this mechanism by using a priority queue to store heights (could be used for the msgStore as well?)
-	// Also this might leave behind some heights that we might never delete
-	if len(c.proposers) > thresholdSize*2 && height > thresholdSize*2 {
-		gcFrom := height - thresholdSize*2
-		// keep at least thresholdSize heights in the buffer.
-		for i := uint64(0); i < thresholdSize; i++ {
-			gcHeight := gcFrom + i
-			delete(c.proposers, gcHeight)
+	// we trim the cache only when the size is double `thresholdSize`
+	if height <= thresholdSize*2 || len(c.proposers) <= thresholdSize*2 {
+		return
+	}
+
+	for h := range c.proposers {
+		if h < height-thresholdSize {
+			delete(c.proposers, h)
 		}
 	}
 }

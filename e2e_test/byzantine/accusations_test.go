@@ -7,7 +7,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 )
 
 type AccusationPO struct {
@@ -114,7 +114,7 @@ func (s *AccusationC1) Broadcast(msg message.Msg) {
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	if s.IsProposer() { // youssef: probably not needed
 		preCommit := message.NewPrecommit(nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign)
-		s.Logger().Info("C1 accusation rule simulation ,.")
+		s.Logger().Info("C1 accusation rule simulation")
 		s.BroadcastAll(preCommit)
 	}
 	s.BroadcastAll(proposal)
@@ -125,13 +125,13 @@ func TestAccusationFlow(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationPO}
 		tp := autonity.Accusation
 		rule := autonity.PO
-		runTest(t, handler, tp, rule, 100)
+		runTest(t, handler, tp, rule, 150)
 	})
 	t.Run("AccusationRulePVN", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationPVN}
 		tp := autonity.Accusation
 		rule := autonity.PVN
-		runTest(t, handler, tp, rule, 100)
+		runTest(t, handler, tp, rule, 150)
 	})
 	/*
 		Not supported, require more complicated setup
@@ -147,6 +147,6 @@ func TestAccusationFlow(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationC1}
 		tp := autonity.Accusation
 		rule := autonity.C1
-		runTest(t, handler, tp, rule, 60)
+		runTest(t, handler, tp, rule, 110)
 	})
 }
