@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p"
 )
 
@@ -108,23 +109,16 @@ func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
-	if !sb.coreStarted {
-		// We copy the message here as it can't be saved directly due
-		// to a call to Discard in the eth handler which is going to empty this buffer.
-		buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
-		if _, err := io.Copy(buffer, p2pMsg.Payload); err != nil {
-			return true, errDecodeFailed
-		}
-		savedMsg := p2pMsg
-		savedMsg.Payload = bytes.NewReader(buffer.Bytes())
-		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: savedMsg})
-		return true, nil // return nil to avoid shutting down connection during block sync.
-	}
-	msg := PT(new(T))
-	if err := p2pMsg.Decode(msg); err != nil {
-		sb.logger.Error("Error decoding consensus message", "err", err)
+	buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
+	if _, err := io.Copy(buffer, p2pMsg.Payload); err != nil {
 		return true, err
 	}
+	p2pMsg.Payload = bytes.NewReader(buffer.Bytes())
+	if !sb.coreStarted {
+		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
+		return true, nil // return nil to avoid shutting down connection during block sync.
+	}
+	hash := crypto.Hash(buffer.Bytes())
 	// Mark peer's message as known.
 	ms, ok := sb.recentMessages.Get(sender)
 	var m *lru.ARCCache
@@ -134,12 +128,17 @@ func handleConsensusMsg[T any, PT interface {
 		m, _ = lru.NewARC(inmemoryMessages)
 		sb.recentMessages.Add(sender, m)
 	}
-	m.Add(msg.Hash(), true)
+	m.Add(hash, true)
 	// Mark the message known for ourselves
-	if _, ok := sb.knownMessages.Get(msg.Hash()); ok {
+	if _, ok := sb.knownMessages.Get(hash); ok {
 		return true, nil
 	}
-	sb.knownMessages.Add(msg.Hash(), true)
+	sb.knownMessages.Add(hash, true)
+	msg := PT(new(T))
+	if err := p2pMsg.Decode(msg); err != nil {
+		sb.logger.Error("Error decoding consensus message", "err", err)
+		return true, err
+	}
 	go sb.Post(events.MessageEvent{
 		Message: msg,
 		ErrCh:   errCh,
