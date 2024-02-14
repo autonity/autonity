@@ -7,12 +7,12 @@ import (
 )
 
 type networkTopology struct {
-	diameter uint
+	diameter int
 	minNodes int
 }
 
-func NewGraphTopology(diameter uint, minNodes int) networkTopology {
-	// Only diameter = 2, to support diameter > 2, ComputeBase function has to be modified
+func NewGraphTopology(diameter int, minNodes int) networkTopology {
+	// Only diameter = 2, to support diameter > 2, ComputeBase and adjacentNodesIdx function has to be modified
 	if diameter != 2 {
 		panic("diameter value must be 2")
 	}
@@ -22,7 +22,7 @@ func NewGraphTopology(diameter uint, minNodes int) networkTopology {
 	}
 }
 
-func (g *networkTopology) SetDiameter(d uint) {
+func (g *networkTopology) SetDiameter(d int) {
 	if d != 2 {
 		panic("diameter value must be 2")
 	}
@@ -33,14 +33,14 @@ func (g *networkTopology) SetMinNodes(n int) {
 	g.minNodes = n
 }
 
-func (g *networkTopology) computeSquareRoot(n uint) uint {
-	return uint(math.Ceil(math.Sqrt(float64(n))))
+func (g *networkTopology) computeSquareRoot(n int) int {
+	return int(math.Ceil(math.Sqrt(float64(n))))
 }
 
 // Returns the number of matching digits in i and j for g.diameter least significant digits
 // Both i and j are considered to be in b-base number system
-func (g *networkTopology) countMatchingDigits(i, j, b uint) uint {
-	var count uint
+func (g *networkTopology) countMatchingDigits(i, j, b int) int {
+	count := 0
 	digitCount := g.diameter
 	for digitCount > 0 {
 		if i%b == j%b {
@@ -55,8 +55,40 @@ func (g *networkTopology) countMatchingDigits(i, j, b uint) uint {
 
 // compute b such that b^d >= n and (b-1)^d < n where d = g.diameter
 // for now only g.diameter = 2 is supported
-func (g *networkTopology) ComputeBase(n uint) uint {
+func (g *networkTopology) ComputeBase(n int) int {
 	return g.computeSquareRoot(n)
+}
+
+// maximum number of degree of each node = d*(b-1)^(d-1), where b = base, d = diameter
+func (g *networkTopology) MaxDegree(totalNodeCount int) int {
+	b := g.ComputeBase(totalNodeCount)
+	d := g.diameter
+	return d * int(math.Pow(float64(b-1), float64(d-1)))
+}
+
+// maximum number of degree for each node = d*(b-1)^(d-1) where d = g.diameter
+// it constructs array of them by keeping one digit of myIdx fix and changing all the rest
+func (g *networkTopology) adjacentNodesIdx(myIdx, totalNodes int) []int {
+	b := g.ComputeBase(totalNodes)
+
+	// the following part supports only g.diameter = 2 for ease of coding,
+	// it needs to change to support g.diameter > 2 (which may not be necessary)
+	lsb := myIdx % b
+	msb := (myIdx / b) * b
+	adjacentNodes := make([]int, 0, 2*(b-1))
+	// fix msb and change lsb
+	for i := 0; i < b; i++ {
+		if i != lsb && msb+i < totalNodes {
+			adjacentNodes = append(adjacentNodes, msb+i)
+		}
+	}
+	// fix lsb and change msg
+	for i := 0; i < b*b; i += b {
+		if i != msb && i+lsb < totalNodes {
+			adjacentNodes = append(adjacentNodes, i+lsb)
+		}
+	}
+	return adjacentNodes
 }
 
 // Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
@@ -87,12 +119,10 @@ func (g *networkTopology) RequestSubset(nodes []*enode.Node, localNode *enode.Lo
 
 	// for now only diameter = 2 is supported
 	// b is chosen with the following property len(nodes) <= b*b and len(nodes) > (b-1)*(b-1)
-	b := g.ComputeBase(uint(len(nodes)))
-	connections := make([]*enode.Node, 0, len(nodes))
-	for i, node := range nodes {
-		if g.countMatchingDigits(uint(i), uint(myIdx), b) == 1 {
-			connections = append(connections, node)
-		}
+	adjacentNodes := g.adjacentNodesIdx(myIdx, len(nodes))
+	connections := make([]*enode.Node, 0, len(adjacentNodes))
+	for _, idx := range adjacentNodes {
+		connections = append(connections, nodes[idx])
 	}
 	return connections
 }
