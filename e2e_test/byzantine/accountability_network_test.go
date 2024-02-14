@@ -34,8 +34,8 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 		return
 	}
 
-	// simulate accusation over height 7
-	height := currentHeight - accountability.DeltaBlocks + 2
+	// simulate accusation over height 13 (will be scanned at height 23)
+	height := currentHeight - accountability.DeltaBlocks + 8
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
 		panic("cannot simulate off chain accusation PVN")
@@ -62,7 +62,7 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 			}
 		}
 	}
-	s.Logger().Info("Off chain Accusation of PVN rule is simulated")
+	s.Logger().Info("MsgStore manipulated to cause accusation of PVN rule to be raised later on", "accusationHeight", height)
 }
 
 func newC1OffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
@@ -77,14 +77,15 @@ type C1OffChainAccusation struct {
 // client, thus, the client will rise accusation C1 over those client who precommit for the corresponding proposal that
 // there were no quorum prevotes of it.
 func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
+	//TODO(lorenzo) fix this test. C1 accusation will not be raised anymore because the block has been mined
 	s.BroadcastAll(msg)
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
 		return
 	}
 
-	// simulate accusation over height 7
-	height := currentHeight - accountability.DeltaBlocks + 2
+	// simulate accusation over height 13 (will be scanned at height 23)
+	height := currentHeight - accountability.DeltaBlocks + 8
 
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
@@ -111,7 +112,7 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 			}
 		}
 	}
-	s.Logger().Info("Off chain Accusation of C1 rule is simulated")
+	s.Logger().Info("MsgStore manipulated to cause accusation of C1 rule to be raised later on", "accusationHeight", height)
 }
 
 func newGarbageOffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
@@ -248,6 +249,8 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 }
 
 func TestOffChainAccusation(t *testing.T) {
+	// TODO(lorenzo) we should add a check that an offchain accountability message is actually sent
+	// if changes prevent this from happening, this tests keep passing because no proof is raised
 	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newC1OffChainAccusation}
 		tp := autonity.Accusation

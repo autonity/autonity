@@ -43,7 +43,7 @@ type ChainContext interface {
 
 const (
 	msgGCInterval                 = 60                               // every 60 blocks to GC msg store.
-	offChainAccusationProofWindow = 30                               // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
+	offChainAccusationProofWindow = 10                               // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
 	maxAccusationRatePerHeight    = 4                                // max number of accusation can be produced by rule engine over a height against to a validator.
 	maxNumOfInnocenceProofCached  = 120 * maxAccusationRatePerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
 	maxFutureHeightMsgs           = 1000                             // max num of msg buffer for the future heights.
