@@ -24,6 +24,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
@@ -625,25 +626,59 @@ func updateRlimit() {
 
 func TestLargeNetwork(t *testing.T) {
 	//t.Skip("only on demand")
+	//
+	//------ Config section -------
+	//
+
+	// DefaultVerbosity will set the log levels for the main components: consensus, eth, blockchain..
 	log.DefaultVerbosity = log.LvlError
+	//Set the root logger level for everything else.
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	// Fast epoch to see changes in committee reflected fast
 	params.TestAutonityContractConfig.EpochPeriod = 5
-	peerCount := 150
-	validators, _ := Validators(t, peerCount, "10e18,v,1000,0.0.0.0:%s,%s,%s,%s")
-	network, err := NewInMemoryNetwork(t, validators, false, func(genesis *ccore.Genesis) {
-		genesis.Config.AutonityContractConfig.MaxCommitteeSize = 50
+	// total peers to be deployed
+	const peerCount = 150
+	// peers above max commitee are participants
+	const maxCommittee = 50
+
+	//
+	//----End config -------------
+	//
+
+	validators, _ := Validators(t, peerCount, "10e18,v,1000,127.0.0.1:%s,%s,%s,%s")
+	network, err := NewInMemoryNetwork(t, validators, true, func(genesis *ccore.Genesis) {
+		genesis.Config.AutonityContractConfig.MaxCommitteeSize = maxCommittee
 	})
 	require.NoError(t, err)
-	for _, n := range network {
-		err = n.Start()
-		require.NoError(t, err)
-	}
 	defer network.Shutdown()
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
-	transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
+	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+
+	getNetworkState := func() (height uint64, committee types.Committee) {
+		for _, n := range network {
+			nodeHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
+			if nodeHeight > height {
+				height = nodeHeight
+				committee = n.Eth.BlockChain().CurrentHeader().Committee
+			}
+		}
+		return
+	}
+
+	inCommittee := func(address common.Address, committee types.Committee) bool {
+		for i := range committee {
+			if committee[i].Address == address {
+				return true
+			}
+		}
+		return false
+	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)
 	tickCount := 0
@@ -651,18 +686,23 @@ func TestLargeNetwork(t *testing.T) {
 		for range ticker.C {
 			tickCount += 1
 			fmt.Println("-------------", tickCount, "---------------")
-			if tickCount%60 == 5 {
-				maxCommittee := rand.Intn(50) + 1
-				autonityContract.SetCommitteeSize(transactOpts, big.NewInt(int64(maxCommittee)))
-				fmt.Println("new committee size:", maxCommittee)
-			}
 
+			if tickCount%10 == 4 {
+				newMaxCommittee := rand.Intn(50) + 1
+				autonityContract.SetCommitteeSize(transactOpts, big.NewInt(int64(newMaxCommittee)))
+				fmt.Println("new committee size:", newMaxCommittee)
+			}
+			maxHeight, committee := getNetworkState()
+			fmt.Println("max height:", maxHeight)
+			fmt.Println("go routines:", runtime.NumGoroutine())
 			var peersBuf strings.Builder
 			peersBuf.WriteString("n\t")
+			var committeeBuf strings.Builder
+			committeeBuf.WriteString("c\t")
 			var execCountBuf strings.Builder
-			execCountBuf.WriteString("e\t")
+			execCountBuf.WriteString("en\t")
 			var consCountBuf strings.Builder
-			consCountBuf.WriteString("c\t")
+			consCountBuf.WriteString("cn\t")
 			var stateBuf strings.Builder
 			stateBuf.WriteString("b\t")
 			for i, node := range network {
@@ -670,17 +710,21 @@ func TestLargeNetwork(t *testing.T) {
 				execCountBuf.WriteString(strconv.Itoa(node.ExecutionServer().PeerCount()) + "\t")
 				consCountBuf.WriteString(strconv.Itoa(node.ConsensusServer().PeerCount()) + "\t")
 				stateBuf.WriteString(strconv.Itoa(int(node.Eth.BlockChain().CurrentHeader().Number.Uint64())) + "\t")
+				if inCommittee(node.Address, committee) {
+					committeeBuf.WriteString("X" + "\t")
+				} else {
+					committeeBuf.WriteString(" " + "\t")
+				}
 			}
 			fmt.Fprintln(w, peersBuf.String())
+			fmt.Fprintln(w, committeeBuf.String())
 			fmt.Fprintln(w, execCountBuf.String())
 			fmt.Fprintln(w, consCountBuf.String())
 			fmt.Fprintln(w, stateBuf.String())
-
 			w.Flush()
-			fmt.Println("go routines:", runtime.NumGoroutine())
 		}
 	}()
 
-	err = network.WaitToMineNBlocks(10, 300, false)
+	err = network.WaitToMineNBlocks(600, 600, false)
 	require.NoError(t, err)
 }

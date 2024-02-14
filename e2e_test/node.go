@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	addrAny = "0.0.0.0"
+	localhost = "127.0.0.1"
 )
 
 var (
@@ -48,8 +48,8 @@ var (
 		ConsensusP2P: p2p.Config{
 			MaxPeers: 100000,
 		},
-		HTTPHost: addrAny,
-		WSHost:   addrAny,
+		HTTPHost: localhost,
+		WSHost:   localhost,
 	}
 
 	baseEthConfig = &eth.Config{
@@ -118,12 +118,12 @@ func NewNode(t *testing.T, validator *gengen.Validator, genesis *core.Genesis, i
 
 	// p2p key and address
 	nodeConfig.ExecutionP2P.PrivateKey = validator.NodeKey
-	nodeConfig.ExecutionP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(validator.NodePort)
+	nodeConfig.ExecutionP2P.ListenAddr = "127.0.0.1:" + strconv.Itoa(validator.NodePort)
 
 	// consensus key used by consensus engine.
 	nodeConfig.ConsensusKey = validator.ConsensusKey
 	nodeConfig.ConsensusP2P.PrivateKey = validator.NodeKey
-	nodeConfig.ConsensusP2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(validator.AcnPort)
+	nodeConfig.ConsensusP2P.ListenAddr = "127.0.0.1:" + strconv.Itoa(validator.AcnPort)
 
 	// Set rpc ports
 	//c.HTTPPort = freeport.GetOne(t)
@@ -599,7 +599,7 @@ func (p *pipeDialer) Dial(ctx context.Context, dest *enode.Node) (conn net.Conn,
 	}
 	n, ok := p.manager.nodes.Load(dest.ID())
 	if !ok || !n.(*Node).Running() {
-		// try again a bit later
+		// try again a bit later, the node may not have started yet
 		<-time.After(10 * time.Millisecond)
 		n, ok = p.manager.nodes.Load(dest.ID())
 		if !ok || !n.(*Node).Running() {
@@ -607,14 +607,15 @@ func (p *pipeDialer) Dial(ctx context.Context, dest *enode.Node) (conn net.Conn,
 			return nil, fmt.Errorf("node not running: %s", dest.ID())
 		}
 	}
-	// SimAdapter.pipe is net.Pipe (NewSimAdapter)
 	pipe1, pipe2 := net.Pipe()
-	switch p.manager.network {
-	case p2p.Execution:
-		go n.(*Node).Node.ExecutionServer().SetupConn(pipe1, 0, nil)
-	case p2p.Consensus:
-		go n.(*Node).Node.ConsensusServer().SetupConn(pipe1, 0, nil)
-	}
+	go func() {
+		switch p.manager.network {
+		case p2p.Execution:
+			n.(*Node).Node.ExecutionServer().SetupConn(pipe1, 4, nil)
+		case p2p.Consensus:
+			n.(*Node).Node.ConsensusServer().SetupConn(pipe1, 4, nil)
+		}
+	}()
 	return pipe2, nil
 }
 
@@ -626,8 +627,8 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 	network := make([]*Node, len(validators))
 	executionManager := newPipeManager(p2p.Execution)
 	consensusManager := newPipeManager(p2p.Consensus)
-	baseNodeConfig.ExecutionP2P.NoDiscovery = true
-	baseNodeConfig.ConsensusP2P.NoDiscovery = true
+	bootnode1, _ := enode.Parse(enode.ValidSchemes, g.Config.AutonityContractConfig.Validators[0].Enode)
+	baseNodeConfig.ExecutionP2P.BootstrapNodes = []*enode.Node{bootnode1}
 
 	wg := sync.WaitGroup{}
 	for i, u := range validators {
@@ -647,12 +648,21 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 		}(i, u)
 	}
 	wg.Wait()
+
+	startCh := make(chan struct{})
 	if start {
 		for _, n := range network {
-			if err = n.Start(); err != nil {
-				return nil, fmt.Errorf("failed to start node for network: %v", err)
-			}
+			n := n
+			go func() {
+				if err = n.Start(); err != nil {
+					t.Fatalf("failed to start node for network: %v", err)
+				}
+				startCh <- struct{}{}
+			}()
 		}
+	}
+	for range network {
+		<-startCh
 	}
 
 	go communicatePort(network[0].Config.WSPort)
