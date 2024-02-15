@@ -232,13 +232,12 @@ contract Accountability is IAccountability {
     }
 
     function _handleAccusation(Event memory _ev) internal {
-        // Validate the accusation proof
+        // Validate the accusation proof. It also does height related checks 
         (bool _success, address _offender, uint256 _ruleId, uint256 _block, uint256 _messageHash) =
             Precompiled.verifyAccountabilityEvent(Precompiled.ACCUSATION_CONTRACT, _ev.rawProof);
         require(_success, "failed accusation verification");
         require(_offender == _ev.offender, "offender mismatch");
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
-        require(_block < block.number, "can't be in the future");
 
         uint256 _epoch = autonity.getEpochFromBlock(_block);
 

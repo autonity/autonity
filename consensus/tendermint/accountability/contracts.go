@@ -74,16 +74,25 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 	if err != nil {
 		return failureReturn, nil
 	}
+
+	// do height related checks before signature verification
+	accusationHeight := p.Message.H()
+	// TODO(lorenzo) should we enforce delta blocks on verification side?
+	// cannot be in the future or for current block
+	if accusationHeight >= blockNumber {
+		return failureReturn, nil
+	}
+	// cannot be too old. Otherwise this could be exploited by a malicious peer to raise an undefendable accusation.
+	// additionally we allocate accountabilityHeightRange/4 more blocks as buffer time to avoid race conditions
+	// between msgStore garbage collection and innocence proof generation
+	if (blockNumber - accusationHeight) >= (AccountabilityHeightRange - (AccountabilityHeightRange / 4)) {
+		return failureReturn, nil
+	}
+
 	if err := verifyProofSignatures(a.chain, p); err != nil {
 		return failureReturn, nil
 	}
 
-	// prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
-	// corresponding to an old height, while at each Pi, they only buffer specific heights of message in msg store, thus
-	// Pi can never provide a valid proof of innocence anymore, making the malicious accusation be valid for slashing.
-	if blockNumber > p.Message.H() && (blockNumber-p.Message.H() >= accountabilityHeightRange) {
-		return failureReturn, nil
-	}
 	if verifyAccusation(p) {
 		return validReturn(p.Message, p.Rule), nil
 	}
@@ -666,9 +675,6 @@ func decodeRawProof(b []byte) (*Proof, error) {
 // checkMsgSignature checks if the consensus message is from valid member of the committee.
 func verifyProofSignatures(chain ChainContext, p *Proof) error {
 	h := p.Message.H()
-	if h == 0 {
-		return errBadHeight
-	}
 	lastHeader := chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
 		return errFutureMsg

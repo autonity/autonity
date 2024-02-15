@@ -48,8 +48,9 @@ const (
 	maxNumOfInnocenceProofCached  = 120 * maxAccusationRatePerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
 	maxFutureHeightMsgs           = 1000                             // max num of msg buffer for the future heights.
 	reportingSlotPeriod           = 20                               // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
-	accountabilityHeightRange     = 256                              // Default msg buffer range for AFD.
-	DeltaBlocks                   = 10                               // Wait until the GST + delta blocks to start accounting.
+	// TODO(lorenzo) maybe rename accountability is redundant
+	AccountabilityHeightRange = 256 // Default msg buffer range for AFD.
+	DeltaBlocks               = 10  // Wait until the GST + delta blocks to start accounting.
 )
 
 var (
@@ -177,7 +178,7 @@ func (fd *FaultDetector) Start() {
 
 // TODO(lorenzo) more like is height expired / too old
 func (fd *FaultDetector) isMsgExpired(headHeight uint64, msgHeight uint64) bool {
-	return headHeight > accountabilityHeightRange && msgHeight < headHeight-accountabilityHeightRange
+	return headHeight > AccountabilityHeightRange && msgHeight < headHeight-AccountabilityHeightRange
 }
 
 func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
@@ -298,8 +299,8 @@ tendermintMsgLoop:
 // check to GC msg store for those msgs out of buffering window on every 60 blocks.
 // todo(youssef): this might tbe unsufficient and lead to a DDOS OOM attack
 func (fd *FaultDetector) checkMsgStoreGC(height uint64) {
-	if height > accountabilityHeightRange && height%msgGCInterval == 0 {
-		threshold := height - accountabilityHeightRange
+	if height > AccountabilityHeightRange && height%msgGCInterval == 0 {
+		threshold := height - AccountabilityHeightRange
 		fd.msgStore.DeleteOlds(threshold)
 	}
 }
