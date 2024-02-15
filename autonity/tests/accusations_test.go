@@ -38,8 +38,8 @@ func stubVerifier(address common.Address) *types.CommitteeMember {
 	}
 }
 
-func NewAccusationEvent(height uint64) AccountabilityEvent {
-	prevote := message.NewPrevote(0, height, common.Hash{}, signer).MustVerify(stubVerifier)
+func NewAccusationEvent(height uint64, value common.Hash) AccountabilityEvent {
+	prevote := message.NewPrevote(0, height, value, signer).MustVerify(stubVerifier)
 
 	p := &accountability.Proof{
 		Type:    autonity.Accusation,
@@ -68,6 +68,29 @@ func NewAccusationEvent(height uint64) AccountabilityEvent {
 func TestAccusation(t *testing.T) {
 	r := setup(t, nil)
 
+	// load the accountability precompiles into the EVM
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	chainMock := accountability.NewMockChainContext(ctrl)
+	chainMock.EXPECT().GetHeaderByNumber(gomock.Any()).AnyTimes().Return(header)
+	accountability.LoadPrecompiles(chainMock)
+
+	// setup current height
+	currentHeight := uint64(1024)
+	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
+
+	r.run("PVN accusation with prevote nil should revert", func(r *runner) {
+		accusationHeight := currentHeight - accountability.DeltaBlocks
+
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
+		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+	})
+	// TODO(lorenzo) add similar tests for PVO and C1
+}
+
+func TestAccusationTiming(t *testing.T) {
+	r := setup(t, nil)
+
 	// TODO(lorenzo) Integrate this into the `setup` function
 	// if possible enable snapshotting of EXPECT() on the mocks as well
 	// e.g. if I do here
@@ -88,37 +111,37 @@ func TestAccusation(t *testing.T) {
 	r.run("submit accusation at height = currentHeight - delta (valid)", func(r *runner) {
 		accusationHeight := currentHeight - accountability.DeltaBlocks
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})
 	r.run("submit accusation at height = currentHeight (future)", func(r *runner) {
 		accusationHeight := currentHeight
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = currentHeight + 5 (future)", func(r *runner) {
 		accusationHeight := currentHeight + 5
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = currentHeight - AccountabilityHeightRange (too old)", func(r *runner) {
 		accusationHeight := currentHeight - accountability.AccountabilityHeightRange
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = currentHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4)  (too old)", func(r *runner) {
 		accusationHeight := currentHeight - accountability.AccountabilityHeightRange + (accountability.AccountabilityHeightRange / 4)
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = currentHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *runner) {
 		accusationHeight := currentHeight - accountability.AccountabilityHeightRange + (accountability.AccountabilityHeightRange / 4) + 1
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})
 }

@@ -109,15 +109,16 @@ func verifyAccusation(p *Proof) bool {
 			return false
 		}
 	case autonity.PVN:
-		if p.Message.Code() != message.PrevoteCode {
+		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
 			return false
 		}
 	case autonity.PVO:
+		// no need to check that prevote is non-nil, as we will check later on that prevote.value == proposal.value
 		if p.Message.Code() != message.PrevoteCode {
 			return false
 		}
 	case autonity.C1:
-		if p.Message.Code() != message.PrecommitCode {
+		if p.Message.Code() != message.PrecommitCode || p.Message.Value == nilValue {
 			return false
 		}
 	default:
