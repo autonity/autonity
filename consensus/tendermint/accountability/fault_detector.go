@@ -81,10 +81,9 @@ type FaultDetector struct {
 	wg               sync.WaitGroup
 	tendermintMsgSub *event.TypeMuxSubscription
 
-	txPool          *core.TxPool
-	ethBackend      ethapi.Backend
-	txOpts          *bind.TransactOpts // transactor options for accusation and misbehavior events
-	innocenceTxOpts *bind.TransactOpts // transactor options for innocence proofs
+	txPool     *core.TxPool
+	ethBackend ethapi.Backend
+	txOpts     *bind.TransactOpts // transactor options for accountability events
 
 	eventReporterCh chan *autonity.AccountabilityEvent
 	stopRetry       chan struct{}
@@ -127,19 +126,12 @@ func NewFaultDetector(
 	protocolContracts *autonity.ProtocolContracts,
 	logger log.Logger) *FaultDetector {
 
-	// transactor for accusations and misbehavior. We set the tip to 0 since we do not care much about the timing.
 	txOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chain.Config().ChainID)
 	if err != nil {
 		logger.Crit("Critical error building transactor", "err", err)
 	}
-	txOpts.GasTipCap = common.Big0
-
-	// for innocence proofs we leave GasTipCap = nil --> will be assigned by the gas price oracle
-	// this is because we want innocence proofs to be as timely as possible
-	innocenceTxOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chain.Config().ChainID)
-	if err != nil {
-		logger.Crit("Critical error building transactor", "err", err)
-	}
+	// tip needs to be >=1, otherwise accountability tx will not be broadcasted due to the txpool logic (validateTx function)
+	txOpts.GasTipCap = common.Big1
 
 	fd := &FaultDetector{
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
@@ -148,7 +140,6 @@ func NewFaultDetector(
 		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,
-		innocenceTxOpts:       innocenceTxOpts,
 		tendermintMsgSub:      sub,
 		ruleEngineBlockCh:     make(chan core.ChainEvent, 300),
 		accountabilityEventCh: make(chan *autonity.AccountabilityNewAccusation),

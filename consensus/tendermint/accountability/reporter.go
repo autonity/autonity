@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 )
@@ -98,14 +97,7 @@ func (fd *FaultDetector) eventReporter() {
 				Offender:       ev.Offender,
 				RawProof:       ev.RawProof[i*ChunkProofSize : min((i+1)*ChunkProofSize, len(ev.RawProof))],
 			}
-			// select the correct transaction options based on the event type
-			var txOpts *bind.TransactOpts
-			if autonity.AccountabilityEventType(ev.EventType) == autonity.Innocence {
-				txOpts = fd.innocenceTxOpts
-			} else {
-				txOpts = fd.txOpts
-			}
-			if tx, err := fd.protocolContracts.HandleEvent(txOpts, chunkedEvent); err == nil {
+			if tx, err := fd.protocolContracts.HandleEvent(fd.txOpts, chunkedEvent); err == nil {
 				fd.logger.Warn("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
 				// wait until it get mined before moving to the next one
 				attempt := 0
