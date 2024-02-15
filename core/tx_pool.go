@@ -252,11 +252,12 @@ type TxPool struct {
 	locals  *accountSet // Set of local transaction to exempt from eviction rules
 	journal *txJournal  // Journal of local transaction to back up to disk
 
-	pending map[common.Address]*txList   // All currently processable transactions
-	queue   map[common.Address]*txList   // Queued but non-processable transactions
-	beats   map[common.Address]time.Time // Last heartbeat from each known account
-	all     *txLookup                    // All transactions to allow lookups
-	priced  *txPricedList                // All transactions sorted by price
+	totalPending atomic.Int64
+	pending      map[common.Address]*txList   // All currently processable transactions
+	queue        map[common.Address]*txList   // Queued but non-processable transactions
+	beats        map[common.Address]time.Time // Last heartbeat from each known account
+	all          *txLookup                    // All transactions to allow lookups
+	priced       *txPricedList                // All transactions sorted by price
 
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
@@ -840,6 +841,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	} else {
 		// Nothing was replaced, bump the pending counter
 		pendingGauge.Inc(1)
+		pool.totalPending.Add(1)
 	}
 	// Set the potentially new pending nonce and notify any subsystems of the new tx
 	pool.pendingNonces.set(addr, tx.Nonce()+1)
@@ -1029,6 +1031,7 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 			pool.pendingNonces.setIfLower(addr, tx.Nonce())
 			// Reduce the pending counter
 			pendingGauge.Dec(int64(1 + len(invalids)))
+			pool.totalPending.Add(-int64(1 + len(invalids)))
 			return
 		}
 	}
@@ -1431,6 +1434,7 @@ func (pool *TxPool) truncatePending() {
 					}
 					pool.priced.Removed(len(caps))
 					pendingGauge.Dec(int64(len(caps)))
+					pool.totalPending.Add(-int64(len(caps)))
 					if pool.locals.contains(offenders[i]) {
 						localGauge.Dec(int64(len(caps)))
 					}
@@ -1458,6 +1462,7 @@ func (pool *TxPool) truncatePending() {
 				}
 				pool.priced.Removed(len(caps))
 				pendingGauge.Dec(int64(len(caps)))
+				pool.totalPending.Add(-int64(len(caps)))
 				if pool.locals.contains(addr) {
 					localGauge.Dec(int64(len(caps)))
 				}
@@ -1549,6 +1554,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.enqueueTx(hash, tx, false, false) // nolint
 		}
 		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+		pool.totalPending.Add(-int64(len(olds) + len(drops) + len(invalids)))
 		if pool.locals.contains(addr) {
 			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
 		}
@@ -1563,6 +1569,7 @@ func (pool *TxPool) demoteUnexecutables() {
 				pool.enqueueTx(hash, tx, false, false) // nolint
 			}
 			pendingGauge.Dec(int64(len(gapped)))
+			pool.totalPending.Add(-int64(len(gapped)))
 			// This might happen in a reorg, so log it to the metering
 			blockReorgInvalidatedTx.Mark(int64(len(gapped)))
 		}
