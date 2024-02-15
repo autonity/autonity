@@ -115,11 +115,11 @@ func verifyAccusation(p *Proof) bool {
 	case autonity.PVO:
 		// theoretically we do not need the non-nil check, since we will check later that prevote.value == proposal.value
 		// however added for simplicity of understanding
-		if p.Message.Code() != message.PrevoteCode || p.Message.value() == nilValue {
+		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
 			return false
 		}
 	case autonity.C1:
-		if p.Message.Code() != message.PrecommitCode || p.Message.Value == nilValue {
+		if p.Message.Code() != message.PrecommitCode || p.Message.Value() == nilValue {
 			return false
 		}
 	default:
@@ -678,6 +678,7 @@ func decodeRawProof(b []byte) (*Proof, error) {
 func verifyProofSignatures(chain ChainContext, p *Proof) error {
 	h := p.Message.H()
 	lastHeader := chain.GetHeaderByNumber(h - 1)
+	// TODO(lorenzo) don't think this can happen at this point
 	if lastHeader == nil {
 		return errFutureMsg
 	}
