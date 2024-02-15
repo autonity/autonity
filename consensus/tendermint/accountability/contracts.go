@@ -113,8 +113,9 @@ func verifyAccusation(p *Proof) bool {
 			return false
 		}
 	case autonity.PVO:
-		// no need to check that prevote is non-nil, as we will check later on that prevote.value == proposal.value
-		if p.Message.Code() != message.PrevoteCode {
+		// theoretically we do not need the non-nil check, since we will check later that prevote.value == proposal.value
+		// however added for simplicity of understanding
+		if p.Message.Code() != message.PrevoteCode || p.Message.value() == nilValue {
 			return false
 		}
 	case autonity.C1:
