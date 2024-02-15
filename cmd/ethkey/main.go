@@ -18,8 +18,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/internal/flags"
 	"os"
+
+	"github.com/autonity/autonity/internal/flags"
 
 	"gopkg.in/urfave/cli.v1"
 )
@@ -42,6 +43,7 @@ func init() {
 		commandChangePassphrase,
 		commandSignMessage,
 		commandVerifyMessage,
+		commandVerifyPOP,
 	}
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
 }

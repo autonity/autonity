@@ -92,10 +92,10 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 		// unmarshals to an empty slice.
 		ExtraData: []byte{},
 
-		GasLimit: 30_000_000, // gas limit setting in piccadilly network.
+		GasLimit: 1_000_000_000, // gas limit setting in piccadilly network.
 		//GasLimit: 10000000000, // gas limit in e2e test framework.
 
-		BaseFee: big.NewInt(15000000000),
+		BaseFee: new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
 
 		// Autonity relies on the difficulty always being 1 so that we can
 		// compare chain length by comparing total difficulty during peer

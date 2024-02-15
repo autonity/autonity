@@ -42,7 +42,7 @@ func TestSendingValue(t *testing.T) {
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
-	_ = network.WaitToMineNBlocks(80, 120, false)
+	_ = network.WaitToMineNBlocks(20, 30, false)
 }
 
 func TestProtocolContractsDeployment(t *testing.T) {
@@ -624,6 +624,8 @@ func updateRlimit() {
 }
 */
 
+// TestLargeNetwork test internally +100 nodes setups. This will be moved later
+// in its own cmd package.
 func TestLargeNetwork(t *testing.T) {
 	t.Skip("only on demand")
 	//
@@ -638,7 +640,7 @@ func TestLargeNetwork(t *testing.T) {
 	params.TestAutonityContractConfig.EpochPeriod = 5
 	// total peers to be deployed
 	const peerCount = 150
-	// peers above max commitee are participants
+	// peers above max committee are participants
 	const maxCommittee = 50
 
 	//
@@ -727,4 +729,50 @@ func TestLargeNetwork(t *testing.T) {
 
 	err = network.WaitToMineNBlocks(20, 30, false)
 	require.NoError(t, err)
+}
+
+func TestLoad(t *testing.T) {
+	t.Skip("only on demand")
+	peerCount := 7
+	targetTPS := 1000
+	validators, _ := Validators(t, peerCount, "10e18,v,1000,127.0.0.1:%s,%s,%s,%s")
+	network, err := NewInMemoryNetwork(t, validators, true)
+	require.NoError(t, err)
+	gasFeeCap := new(big.Int).SetUint64(network[0].EthConfig.Genesis.Config.AutonityContractConfig.MinBaseFee)
+	//err = network[0].Eth.StartMining(1)
+	require.NoError(t, err)
+	fmt.Println(network[0].Eth.BlockChain().CurrentHeader().Number)
+	closeCh := make(chan struct{})
+	for j := 0; j < peerCount; j++ {
+		go func(id int) {
+			timer := time.NewTicker(time.Second)
+			defer timer.Stop()
+			nonce := 0
+			for {
+				select {
+				case <-timer.C:
+					for i := 0; i < targetTPS/peerCount; i++ {
+						rawTx := types.NewTx(&types.DynamicFeeTx{
+							Nonce:     uint64(nonce),
+							GasTipCap: common.Big1,
+							GasFeeCap: new(big.Int).Mul(gasFeeCap, common.Big2),
+							Gas:       21000,
+							To:        &common.Address{},
+							Value:     common.Big1,
+							Data:      nil,
+						})
+						signed, err := types.SignTx(rawTx, types.LatestSigner(network[0].EthConfig.Genesis.Config), network[id].Key)
+						require.NoError(t, err)
+						network[id].Eth.TxPool().AddLocal(signed)
+						nonce++
+					}
+				case <-closeCh:
+					return
+				}
+			}
+		}(j)
+	}
+	err = network.WaitToMineNBlocks(1800, 2300, false)
+	require.NoError(t, err)
+	close(closeCh)
 }

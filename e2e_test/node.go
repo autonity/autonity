@@ -16,6 +16,7 @@ import (
 
 	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/p2p/enode"
 
 	ethereum "github.com/autonity/autonity"
@@ -25,7 +26,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth"
-	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/log"
@@ -52,12 +52,7 @@ var (
 		WSHost:   localhost,
 	}
 
-	baseEthConfig = &eth.Config{
-		SyncMode:        downloader.FullSync,
-		DatabaseCache:   256,
-		DatabaseHandles: 256,
-		TxPool:          core.DefaultTxPoolConfig,
-	}
+	baseEthConfig = ethconfig.Defaults
 
 	terminalColors = []struct {
 		foreground string
@@ -108,8 +103,6 @@ type Node struct {
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
 func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
-	var err error
-
 	address := crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
@@ -131,16 +124,19 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 
 	nodeConfig.DataDir = ""
 
-	// copy the base eth config, so we can modify it without 92amaging the
+	// copy the base eth config, so we can modify it without damaging the
 	// original.
 	ethConfig := &ethconfig.Config{}
-	if err := copyConfig(baseEthConfig, ethConfig); err != nil {
+	ethconfig.Defaults.SyncMode = downloader.FullSync
+	ethconfig.Defaults.Miner.Recommit = time.Second
+	if err := copyConfig(&ethconfig.Defaults, ethConfig); err != nil {
 		return nil, err
 	}
 	// Set the min gas price on the mining pool config, otherwise the miner
 	// starts with a default min gas price. Which causes transactions to be
 	// dropped.
 	ethConfig.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinBaseFee)
+	ethConfig.Miner.Etherbase = crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 	ethConfig.Genesis = genesis
 	ethConfig.NetworkID = genesis.Config.ChainID.Uint64()
 
@@ -175,27 +171,6 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 		ID:          id,
 	}
 
-	if n.Node, err = node.New(n.Config); err != nil {
-		return nil, err
-	}
-
-	// This registers the ethereum service on the n.Node, so that calling
-	// n.Node.Stop will also close the eth service. Again we provide a copy of
-	// the EthConfig so that we can use our copy for black box testing.
-	ethConfigCopy := &ethconfig.Config{}
-	if err := copyConfig(n.EthConfig, ethConfigCopy); err != nil {
-		return nil, err
-	}
-	// setting EtherBase for miner
-	nodeKey, _ := n.Node.Config().AutonityKeys()
-	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(nodeKey.PublicKey)
-	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
-		return nil, fmt.Errorf("cannot create new eth: %w", err)
-	}
-	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
-	if _, _, err := core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis); err != nil {
-		return nil, fmt.Errorf("cannot setup genesis block: %w", err)
-	}
 	return n, nil
 }
 
@@ -207,7 +182,6 @@ func (n *Node) Start() error {
 	if n.isRunning {
 		return nil
 	}
-
 	var err error
 	defer func() {
 		if err == nil {
@@ -215,6 +189,14 @@ func (n *Node) Start() error {
 		}
 	}()
 
+	if n.Node, err = node.New(n.Config); err != nil {
+		return err
+	}
+	if n.Eth, err = eth.New(n.Node, n.EthConfig); err != nil {
+		return fmt.Errorf("cannot create new eth: %w", err)
+	}
+
+	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
 	if err = n.Node.Start(); err != nil {
 		return fmt.Errorf("failed to start a node: %w", err)
 	}
@@ -639,8 +621,8 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 				n.Config.WSPort = freeport.GetOne(t)
 			}
 			nodeID := enode.PubkeyToIDV4(&val.NodeKey.PublicKey)
-			n.ConsensusServer().Config.Dialer = consensusManager.createPipeDialer(n)
-			n.ExecutionServer().Config.Dialer = executionManager.createPipeDialer(n)
+			n.Config.ConsensusP2P.Dialer = consensusManager.createPipeDialer(n)
+			n.Config.ExecutionP2P.Dialer = executionManager.createPipeDialer(n)
 			executionManager.nodes.Store(nodeID, n)
 			consensusManager.nodes.Store(nodeID, n)
 			network[id] = n
@@ -649,20 +631,20 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 	}
 	wg.Wait()
 
-	startCh := make(chan struct{})
+	startCh := make(chan error)
 	if start {
 		for _, n := range network {
 			n := n
 			go func() {
-				if err = n.Start(); err != nil {
-					t.Fatalf("failed to start node for network: %v", err)
-				}
-				startCh <- struct{}{}
+				startCh <- n.Start()
 			}()
 		}
 	}
 	for range network {
-		<-startCh
+		err := <-startCh
+		if err != nil {
+			t.Fatalf("failed to start node with error %v", err)
+		}
 	}
 
 	go communicatePort(network[0].Config.WSPort)
