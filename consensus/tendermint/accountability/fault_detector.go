@@ -384,7 +384,6 @@ loop:
 // todo(youssef): this needs to be thoroughly verified accounting for edge cases scenarios at
 // the epoch limit. Also the contract side enforcement is missing.
 func (fd *FaultDetector) canReport(height uint64) bool {
-
 	hdr := fd.blockchain.GetHeaderByNumber(height - 1)
 	if hdr == nil {
 		panic("must not happen, height:" + strconv.Itoa(int(height)))
@@ -807,12 +806,17 @@ oldProposalLoop:
 		})
 
 		if engineCore.OverQuorumVotes(prevotes, quorum) == nil {
-			// we do not have a quorum of prevotes for valid round here. However if we (or another node in case of p2p block propagation)
-			// committed the block at the proposal round, skip the accusation.
-			// It means at least quorum voting power actually saw the quorum of prevotes at valid round.
-			// this helps reducing the number of accusation sent on-chain.
+			/* We do not have a quorum of prevotes for valid round here.
+			* However if the propose was for a value that got committed, we do not send the accusation.
+			* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
+			* however we assume the risk of ignoring a potentially malicious committee member.
+			* Indeed the fact that the same value got committed does not rule out the fact that the suspected
+			* node was misbehaving. We can just infer that if he was misbehaving, he did so in line with the decision of the network.
+			* The only way to rule out misbehaviour would be to check also that the value was committed at the propose round.
+			* However the commit round is not deterministic between all nodes.
+			 */
 			propose := proposal.(*message.Propose)
-			if !fd.proposalCommitted(propose) {
+			if fd.blockchain.GetBlock(propose.Value(), propose.H()) == nil {
 				// proposal was not committed --> send accusation
 				accusation := &Proof{
 					Type:    autonity.Accusation,
@@ -825,12 +829,6 @@ oldProposalLoop:
 		}
 	}
 	return proofs
-}
-
-// checks if the passed proposal was committed **in the proposal round**
-func (fd *FaultDetector) proposalCommitted(proposal *message.Propose) bool {
-	committedBlock := fd.blockchain.GetBlock(proposal.Block().Hash(), proposal.Block().NumberU64())
-	return committedBlock != nil && int64(committedBlock.Round()) == proposal.R()
 }
 
 func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.Int) (proofs []*Proof) {
@@ -860,7 +858,6 @@ prevotesLoop:
 		})
 
 		if len(correspondingProposals) == 0 {
-
 			// if there are over quorum prevotes for this corresponding proposal's value, then it indicates current
 			// peer just did not receive it. So we can skip the rising of such accusation.
 			preVts := fd.msgStore.Get(height, func(m message.Msg) bool {
@@ -868,17 +865,26 @@ prevotesLoop:
 			})
 
 			if engineCore.OverQuorumVotes(preVts, quorum) == nil {
-				// The rule for this accusation could be PVO as well since we don't have the corresponding proposal.
-				// we cannot infer anything from an (eventually) committed block at the same round.
-				accusation := &Proof{
-					Type:    autonity.Accusation,
-					Rule:    autonity.PVN,
-					Message: prevote,
+				/* The rule for this accusation could be PVO as well since we don't have the corresponding proposal.
+				* If the prevote was for a value that got committed, we do not send the accusation.
+				* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
+				* however we assume the risk of ignoring a potentially malicious committee member.
+				* Indeed the fact that the same value got committed does not rule out the fact that the suspected
+				* node was misbehaving. We can just infer that if he was misbehaving, he did so in line with the decision of the network.
+				* The only way to rule out misbehaviour would be to check also that the value was committed at the prevote round.
+				* However the commit round is not deterministic between all nodes.
+				 */
+				if fd.blockchain.GetBlock(prevote.Value(), prevote.H()) == nil {
+					accusation := &Proof{
+						Type:    autonity.Accusation,
+						Rule:    autonity.PVN,
+						Message: prevote,
+					}
+					proofs = append(proofs, accusation)
+					fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", prevote.Sender())
 				}
-				proofs = append(proofs, accusation)
-				fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", prevote.Sender())
-				continue prevotesLoop
 			}
+			continue prevotesLoop // we have no corresponding proposal, so we cannot check new and old prevote rules
 		}
 
 		// We need to ensure that we keep all proposals in the message store, so that we have the maximum chance of
@@ -1132,11 +1138,16 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 
 	// if there is no misbehaviour of the prevote msg addressed, then we lastly check accusation.
 	if overQuorumPrevotesForVFromValidRound == nil {
-		// we do not have a quorum of prevotes for valid round here. However if we (or another node in case of p2p block propagation)
-		// committed the block at the corresponding proposal round, skip the accusation.
-		// It means at least quorum voting power actually saw the quorum of prevotes at valid round.
-		// this helps reducing the number of accusation sent on-chain.
-		if !fd.proposalCommitted(correspondingProposal) {
+		/* We do not have a quorum of prevotes for valid round here.
+		* However if the prevote was for a value that got committed, we do not send the accusation.
+		* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
+		* however we assume the risk of ignoring a potentially malicious committee member.
+		* Indeed the fact that the same value got committed does not rule out the fact that the suspected
+		* node was misbehaving. We can just infer that if he was misbehaving, he did so in line with the decision of the network.
+		* The only way to rule out misbehaviour would be to check also that the value was committed at the prevote round.
+		* However the commit round is not deterministic between all nodes.
+		 */
+		if fd.blockchain.GetBlock(prevote.Value(), prevote.H()) == nil {
 			fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVO", "suspect", prevote.Sender())
 			return &Proof{
 				Type:      autonity.Accusation,
@@ -1209,15 +1220,16 @@ precommitLoop:
 		})
 
 		if engineCore.OverQuorumVotes(prevotes, quorum) == nil {
-			// We don't have a quorum of prevotes for this precommit to be justified.
-			// However if we (or another node in case of p2p block propagation) committed the block the precommit is for in the same round,
-			// it means that at least quorum voting power precommited for the same value, which in turn
-			// means at least quorum voting power actually saw the quorum of prevotes at the current round
-			// this helps reducing the number of accusation sent on-chain.
-			// the downside is: someone could freeload on precommits if he sees that a quorum of precommits have been sent by other nodes.
-			// then he can precommit for the same value even if he does not have the required quorum of prevotes
-			committedBlock := fd.blockchain.GetBlock(precommit.Value(), precommit.H())
-			if committedBlock == nil || int64(committedBlock.Round()) != precommit.R() {
+			/* We do not have a quorum of prevotes for this precommit to be justified.
+			* However if the precommit was for a value that got committed, we do not send the accusation.
+			* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
+			* however we assume the risk of ignoring a potentially malicious committee member.
+			* Indeed the fact that the same value got committed does not rule out the fact that the suspected
+			* node was misbehaving. We can just infer that if he was misbehaving, he did so in line with the decision of the network.
+			* The only way to rule out misbehaviour would be to check also that the value was committed at the precommit round.
+			* However the commit round is not deterministic between all nodes.
+			 */
+			if fd.blockchain.GetBlock(precommit.Value(), precommit.H()) == nil {
 				accusation := &Proof{
 					Type:    autonity.Accusation,
 					Rule:    autonity.C1,

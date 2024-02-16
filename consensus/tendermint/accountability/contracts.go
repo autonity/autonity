@@ -89,6 +89,11 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 		return failureReturn, nil
 	}
 
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation
+	if a.GetBlock(p.Message.Value(), p.Message.H()) != nil {
+		return failureReturn, nil
+	}
+
 	if err := verifyProofSignatures(a.chain, p); err != nil {
 		return failureReturn, nil
 	}
