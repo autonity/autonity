@@ -188,6 +188,8 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	if lastHeader == nil {
 		return errNoParentHeader
 	}
+	// TODO(lorenzo) verify if this can be remvoed. It is checked again in `verifyProofSignatures` but maybe
+	// we need it also here for the rate limiting
 	memberShip := lastHeader.CommitteeMember(sender)
 	if memberShip == nil {
 		return errAccusationFromNoneValidator
@@ -218,6 +220,11 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	// if the suspected msg's sender is not current peer, then it would be a DoS attack, drop the peer with an error returned.
 	if accusation.Message.Sender() != fd.address {
 		return errInvalidAccusation
+	}
+
+	// TODO(lorenzo) decide whether to disconnect and whether to merge 1st and 3rd param
+	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()); err != nil {
+		return nil
 	}
 
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.

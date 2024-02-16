@@ -25,10 +25,12 @@ var (
 	checkInnocenceAddress    = common.BytesToAddress([]byte{0xfd})
 	checkMisbehaviourAddress = common.BytesToAddress([]byte{0xfe})
 	// error codes of the execution of precompiled contract to verify the input Proof.
-	successResult   = common.LeftPadBytes([]byte{1}, 32)
-	failureReturn   = make([]byte, 128)
-	errBadHeight    = errors.New("height invalid")
-	errMaxEvidences = errors.New("above max evidence threshold")
+	successResult       = common.LeftPadBytes([]byte{1}, 32)
+	failureReturn       = make([]byte, 128)
+	errBadHeight        = errors.New("height invalid")
+	errMaxEvidences     = errors.New("above max evidence threshold")
+	errTooOldAccusation = errors.New("accusation is too old")
+	errValueCommitted   = errors.New("accusation is for a committed value")
 )
 
 const KB = 1024
@@ -63,6 +65,28 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 	return params.AutonityAFDContractGasPerKB * times
 }
 
+// executes checks that can be done before even verifying signatures
+func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64) error {
+	accusationHeight := m.H()
+	// TODO(lorenzo) should we enforce delta blocks on verification side?
+	// cannot be in the future or for current block
+	if accusationHeight >= currentHeight {
+		return errFutureMsg
+	}
+	// cannot be too old. Otherwise this could be exploited by a malicious peer to raise an undefendable accusation.
+	// additionally we allocate accountabilityHeightRange/4 more blocks as buffer time to avoid race conditions
+	// between msgStore garbage collection and innocence proof generation
+	if (currentHeight - accusationHeight) >= (AccountabilityHeightRange - (AccountabilityHeightRange / 4)) {
+		return errTooOldAccusation
+	}
+
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation
+	if chain.GetBlock(m.Value(), m.H()) != nil {
+		return errValueCommitted
+	}
+	return nil
+}
+
 // Run take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
@@ -75,22 +99,8 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 		return failureReturn, nil
 	}
 
-	// do height related checks before signature verification
-	accusationHeight := p.Message.H()
-	// TODO(lorenzo) should we enforce delta blocks on verification side?
-	// cannot be in the future or for current block
-	if accusationHeight >= blockNumber {
-		return failureReturn, nil
-	}
-	// cannot be too old. Otherwise this could be exploited by a malicious peer to raise an undefendable accusation.
-	// additionally we allocate accountabilityHeightRange/4 more blocks as buffer time to avoid race conditions
-	// between msgStore garbage collection and innocence proof generation
-	if (blockNumber - accusationHeight) >= (AccountabilityHeightRange - (AccountabilityHeightRange / 4)) {
-		return failureReturn, nil
-	}
-
-	// if the suspicious message is for a value that got committed in the same height --> reject accusation
-	if a.chain.GetBlock(p.Message.Value(), p.Message.H()) != nil {
+	// preliminary checks that do not rely on signature correctness
+	if err := preVerifyAccusation(a.chain, p.Message, blockNumber); err != nil {
 		return failureReturn, nil
 	}
 

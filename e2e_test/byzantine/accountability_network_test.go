@@ -28,6 +28,7 @@ type PVNOffChainAccusation struct {
 // PVN accusation is simulated by the removal of proposal and those corresponding quorum prevotes from msg store on a
 // client, such client will rise accusation PVN over those client who prevote for the removed proposal.
 func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
+	//TODO(lorenzo) fix this test. PVN accusation will not be raised anymore because the block has been mined
 	s.BroadcastAll(msg)
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
@@ -250,7 +251,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 
 func TestOffChainAccusation(t *testing.T) {
 	// TODO(lorenzo) we should add a check that an offchain accountability message is actually sent
-	// if changes prevent this from happening, this tests keep passing because no proof is raised
+	// if something prevents this from happening, these tests will keep passing because no proof is ever raised
 	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newC1OffChainAccusation}
 		tp := autonity.Accusation
