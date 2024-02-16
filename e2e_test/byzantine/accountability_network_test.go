@@ -266,6 +266,7 @@ func TestOffChainAccusation(t *testing.T) {
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
+	// TODO(lorenzo) attempt to restore
 	// Following in belows, there are 3 testcases to observe if those malicious off-chain challenger's peer is dropped
 	// due to the DoS protection of off chain accusation protocol. Due to the re-dail scheduler in P2P layer, those
 	// dropped peer are reconnected after a short while which making the tests unstable from e2e point of view. So skip

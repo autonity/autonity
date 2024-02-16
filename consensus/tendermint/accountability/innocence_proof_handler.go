@@ -189,7 +189,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		return errNoParentHeader
 	}
 	// TODO(lorenzo) verify if this can be remvoed. It is checked again in `verifyProofSignatures` but maybe
-	// we need it also here for the rate limiting
+	// we need it also here for the rate limiting. Actually sender here is the p2p sender?
 	memberShip := lastHeader.CommitteeMember(sender)
 	if memberShip == nil {
 		return errAccusationFromNoneValidator
