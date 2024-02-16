@@ -10,7 +10,12 @@ import (
 )
 
 const (
-	ChunkProofSize        = 1024 // 1KB is around 800k gas
+	/* 1KB is around 800_000 gas
+	* current gas limit = 20_000_000
+	* 20_000_000 / 800_000 = 25Kb
+	* set chunk size to 2KB
+	 */
+	ChunkProofSize        = 2048
 	MaxSubmissionAttempts = 100
 	SubmissionDelay       = 1 * time.Second
 	MaxChunks             = 10
