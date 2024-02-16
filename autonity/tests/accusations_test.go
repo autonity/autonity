@@ -79,6 +79,7 @@ func TestAccusation(t *testing.T) {
 	currentHeight := uint64(1024)
 	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
 
+	// TODO(lorenzo) add similar tests for PVO and C1
 	r.run("PVN accusation with prevote nil should revert", func(r *runner) {
 		accusationHeight := currentHeight - accountability.DeltaBlocks
 
@@ -87,7 +88,14 @@ func TestAccusation(t *testing.T) {
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
-	// TODO(lorenzo) add similar tests for PVO and C1
+	r.run("accusation for committed value should revert", func(r *runner) {
+		accusationHeight := currentHeight - accountability.DeltaBlocks
+
+		chainMock.EXPECT().GetBlock(common.Hash{0xca, 0xfe}, accusationHeight).Return(&types.Block{})
+
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+	})
 }
 
 func TestAccusationTiming(t *testing.T) {
