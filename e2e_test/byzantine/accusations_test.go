@@ -1,12 +1,15 @@
 package byzantine
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
 )
 
@@ -18,7 +21,7 @@ func newAccusationPO(c interfaces.Core) interfaces.Broadcaster {
 	return &AccusationPO{c.(*core.Core)}
 }
 
-// simulate an old proposal which refer to less quorum preVotes to trigger the accusation of rule PO
+// simulate an old proposal not backed by a quorum preVotes to trigger the accusation of rule PO
 func (s *AccusationPO) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal {
@@ -28,7 +31,16 @@ func (s *AccusationPO) Broadcast(msg message.Msg) {
 	// find a next proposing round.
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	vR := nPR - 1
-	invalidProposal := message.NewPropose(nPR, msg.H(), vR, proposal.Block(), s.Backend().Sign)
+
+	// change header nonce to a random value to have a different block hash
+	header := proposal.Block().Header()
+	var nonce types.BlockNonce
+	for i := 0; i < len(nonce); i++ {
+		nonce[i] = byte(rand.Intn(256)) //nolint
+	}
+	header.Nonce = nonce
+	block := types.NewBlockWithHeader(header)
+	invalidProposal := message.NewPropose(nPR, msg.H(), vR, block, s.Backend().Sign)
 
 	s.Logger().Info("PO Accusation rule simulation")
 	s.BroadcastAll(proposal)
@@ -43,7 +55,7 @@ func newAccusationPVN(c interfaces.Core) interfaces.Broadcaster {
 	return &AccusationPVN{c.(*core.Core)}
 }
 
-// simulate an accusation context that node preVote for a value that the corresponding proposal is missing.
+// simulate an accusation where the node preVotes for a value but the corresponding proposal is missing.
 func (s *AccusationPVN) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
 	if !isProposal || !s.IsProposer() {
@@ -113,7 +125,7 @@ func (s *AccusationC1) Broadcast(msg message.Msg) {
 	}
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	if s.IsProposer() { // youssef: probably not needed
-		preCommit := message.NewPrecommit(nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign)
+		preCommit := message.NewPrecommit(nPR, msg.H(), common.Hash{0xca, 0xfe}, s.Backend().Sign)
 		s.Logger().Info("C1 accusation rule simulation")
 		s.BroadcastAll(preCommit)
 	}

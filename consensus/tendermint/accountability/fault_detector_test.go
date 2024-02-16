@@ -718,16 +718,13 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		quorum := bft.Quorum(totalPower)
 
+		// block was committed --> no accusation should be raised
 		header := newBlockHeader(height, committee)
-		r := int64(2)
-		err := types.WriteRound(header, r)
-		require.NoError(t, err)
 		block := types.NewBlockWithHeader(header)
-		// block was committed at same round! --> no accusation should be raised
 		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(block)
 
 		// simulate an old proposal at r: 2, with v and vr: 0.
-		oldProposal := newProposalMessage(height, r, 0, signer, committee, block).MustVerify(stubVerifier)
+		oldProposal := newProposalMessage(height, 2, 0, signer, committee, block).MustVerify(stubVerifier)
 		fd.msgStore.Save(oldProposal)
 
 		// run rule engine.
@@ -735,7 +732,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, 0, len(onChainProofs))
 	})
 
-	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote", func(t *testing.T) {
+	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote and value not committed", func(t *testing.T) {
 		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 		// To address below accusation scenario:
 		// If there exist a preVote for a non nil value, then there must be a corresponding proposal at the same round,
@@ -754,6 +751,7 @@ func TestRuleEngine(t *testing.T) {
 		// simulate a preVote for v at round, let's make the corresponding proposal missing.
 		preVote := message.NewPrevote(round, height, noneNilValue, makeSigner(keys[1], committee[1])).MustVerify(stubVerifier)
 		fd.msgStore.Save(preVote)
+		chainMock.EXPECT().GetBlock(preVote.Value(), preVote.H()).Return(nil)
 
 		// run rule engine.
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -761,6 +759,35 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
 		assert.Equal(t, autonity.PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature(), onChainProofs[0].Message.Signature())
+	})
+	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote BUT value committed", func(t *testing.T) {
+		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
+		// To address below accusation scenario:
+		// If there exist a preVote for a non nil value, then there must be a corresponding proposal at the same round,
+		// otherwise an accusation of PVN should rise.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
+		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		quorum := bft.Quorum(totalPower)
+
+		// block was committed --> no accusation should be raised
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(block)
+
+		// simulate a preVote for v at round, let's make the corresponding proposal missing.
+		preVote := message.NewPrevote(round, height, block.Hash(), makeSigner(keys[1], committee[1])).MustVerify(stubVerifier)
+		fd.msgStore.Save(preVote)
+
+		// run rule engine.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 0, len(onChainProofs))
 	})
 
 	t.Run("RunRule address the misbehaviour of PVN, node prevotes for V with previous precommits={V1,nil,V}. No misbehaviour raised", func(t *testing.T) {
@@ -948,7 +975,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, 0, len(onChainProofs))
 	})
 
-	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round and proposal committed at subsequent round", func(t *testing.T) {
+	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round and proposal not committed", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
@@ -961,12 +988,9 @@ func TestRuleEngine(t *testing.T) {
 		quorum := bft.Quorum(totalPower)
 
 		header := newBlockHeader(height, committee)
-		// block was committed, but at a following round
-		round := int64(5)
-		err := types.WriteRound(header, round)
-		require.NoError(t, err)
+		// block was not committed --> accusation raised
 		block := types.NewBlockWithHeader(header)
-		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).MaxTimes(2).Return(block)
+		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).MaxTimes(2).Return(nil)
 
 		// simulate a proposal at r: 3, and vr: 1, with v.
 		oldProposal := newProposalMessage(height, 3, 1, signer, committee, block).MustVerify(stubVerifier)
@@ -1000,11 +1024,8 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		quorum := bft.Quorum(totalPower)
 
+		// block was committed --> no accusations
 		header := newBlockHeader(height, committee)
-		// block was committed at same round --> no accusations
-		round := int64(3)
-		err := types.WriteRound(header, round)
-		require.NoError(t, err)
 		block := types.NewBlockWithHeader(header)
 		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).MaxTimes(2).Return(block)
 
@@ -1217,10 +1238,8 @@ func TestRuleEngine(t *testing.T) {
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		quorum := bft.Quorum(totalPower)
 		header := newBlockHeader(height, committee)
-		round := int64(0)
-		err := types.WriteRound(header, round)
-		require.NoError(t, err)
 		block := types.NewBlockWithHeader(header)
+		round := int64(0)
 
 		// simulate an init proposal at r: 0, with v.
 		initProposal := newProposalMessage(height, round, -1, signer, committee, block).MustVerify(stubVerifier)

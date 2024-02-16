@@ -82,6 +82,8 @@ func TestAccusation(t *testing.T) {
 	r.run("PVN accusation with prevote nil should revert", func(r *runner) {
 		accusationHeight := currentHeight - accountability.DeltaBlocks
 
+		chainMock.EXPECT().GetBlock(common.Hash{}, accusationHeight).Return(nil)
+
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
@@ -102,6 +104,8 @@ func TestAccusationTiming(t *testing.T) {
 	defer ctrl.Finish()
 	chainMock := accountability.NewMockChainContext(ctrl)
 	chainMock.EXPECT().GetHeaderByNumber(gomock.Any()).AnyTimes().Return(header)
+	// set value to not committed for all tests, here we want to really tests only the height related checks
+	chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 	accountability.LoadPrecompiles(chainMock)
 
 	// setup current height
