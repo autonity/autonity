@@ -153,6 +153,7 @@ func (i *InnocenceProofBuffer) getInnocenceProofFromCache(challengeHash common.H
 
 // this function take accountability events: an accusation or an innocence proof event to handle off chain accusation
 // protocol. It returns error to freeze remote peer for 30s by according to dev p2p protocol to prevent from DoS attack.
+// NOTE: sender is the p2p sender of the offchain accountability message
 func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sender common.Address) error {
 	// drop peer if the accusation exceed the rate limit during the last 1 seconds.
 	err := fd.rateLimiter.validAccusationRate(sender)
@@ -182,14 +183,13 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		return err
 	}
 
-	// drop peer if the event is not from validator node.
+	// drop peer if the p2p message is not from validator node.
+	// TODO(lorenzo) not sure this can still happen due to acn network
 	msgHeight := proof.Message.H()
 	lastHeader := fd.blockchain.GetHeaderByNumber(msgHeight - 1)
 	if lastHeader == nil {
 		return errNoParentHeader
 	}
-	// TODO(lorenzo) verify if this can be remvoed. It is checked again in `verifyProofSignatures` but maybe
-	// we need it also here for the rate limiting. Actually sender here is the p2p sender?
 	memberShip := lastHeader.CommitteeMember(sender)
 	if memberShip == nil {
 		return errAccusationFromNoneValidator
@@ -222,8 +222,8 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 		return errInvalidAccusation
 	}
 
-	// TODO(lorenzo) decide whether to disconnect and whether to merge 1st and 3rd param
-	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()); err != nil {
+	// last param represent the current height for which we are doing consensus (lastBlock + 1)
+	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
 		return nil
 	}
 
