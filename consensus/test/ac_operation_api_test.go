@@ -55,12 +55,13 @@ func TestACPublicWritters(t *testing.T) {
 	require.NoError(t, err)
 	newValidatorAddr := crypto.PubkeyToAddress(newValidator.PublicKey)
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
-	msg := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
+
+	treasury := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
 
 	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
 
-	consensusKeyProof, err := crypto.BLSPOPProof(consensusKey, msg)
+	consensusKeyProof, err := crypto.BLSPOPProof(consensusKey, treasury)
 	require.NoError(t, err)
 
 	oracleAccount, err := makeAccount()

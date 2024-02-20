@@ -116,9 +116,9 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 		engine:          ethconfig.CreateConsensusEngine(stack, chainConfig, config, nil, false, &vm.Config{}, nil, nil),
 		bloomRequests:   make(chan chan *bloombits.Retrieval),
 		bloomIndexer:    core.NewBloomIndexer(chainDb, params.BloomBitsBlocksClient, params.HelperTrieConfirmations),
-		p2pServer:       stack.Server(),
-		p2pConfig:       &stack.Config().P2P,
-		udpEnabled:      stack.Config().P2P.DiscoveryV5,
+		p2pServer:       stack.ExecutionServer(),
+		p2pConfig:       &stack.Config().ExecutionP2P,
+		udpEnabled:      stack.Config().ExecutionP2P.DiscoveryV5,
 		shutdownTracker: shutdowncheck.NewShutdownTracker(chainDb),
 	}
 

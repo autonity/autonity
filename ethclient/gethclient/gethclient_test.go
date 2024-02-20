@@ -19,10 +19,10 @@ package gethclient
 import (
 	"bytes"
 	"context"
-	ethereum "github.com/autonity/autonity"
 	"math/big"
 	"testing"
 
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"

@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/prometheus/tsdb/fileutil"
+
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/ethdb"
@@ -33,22 +35,22 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rpc"
-	"github.com/prometheus/tsdb/fileutil"
 )
 
 // Node is a container on which services can be registered.
 type Node struct {
-	eventmux      *event.TypeMux
-	config        *Config
-	accman        *accounts.Manager
-	log           log.Logger
-	keyDir        string            // key store directory
-	keyDirTemp    bool              // If true, key directory will be removed by Stop
-	dirLock       fileutil.Releaser // prevents concurrent use of instance directory
-	stop          chan struct{}     // Channel to wait for termination notifications
-	server        *p2p.Server       // Currently running P2P networking layer
-	startStopLock sync.Mutex        // Start/Stop are protected by an additional lock
-	state         int               // Tracks state of node lifecycle
+	eventmux        *event.TypeMux
+	config          *Config
+	accman          *accounts.Manager
+	log             log.Logger
+	keyDir          string            // key store directory
+	keyDirTemp      bool              // If true, key directory will be removed by Stop
+	dirLock         fileutil.Releaser // prevents concurrent use of instance directory
+	stop            chan struct{}     // Channel to wait for termination notifications
+	executionServer *p2p.Server       // Currently running P2P networking layer
+	consensusServer *p2p.Server       // Currently running P2P networking layer for consensus
+	startStopLock   sync.Mutex        // Start/Stop are protected by an additional lock
+	state           int               // Tracks state of node lifecycle
 
 	lock          sync.Mutex
 	lifecycles    []Lifecycle // All registered backends, services, and auxiliary services that have a lifecycle
@@ -97,13 +99,14 @@ func New(conf *Config) (*Node, error) {
 	}
 
 	node := &Node{
-		config:        conf,
-		inprocHandler: rpc.NewServer(),
-		eventmux:      new(event.TypeMux),
-		log:           conf.Logger,
-		stop:          make(chan struct{}),
-		server:        &p2p.Server{Config: conf.P2P},
-		databases:     make(map[*closeTrackingDB]struct{}),
+		config:          conf,
+		inprocHandler:   rpc.NewServer(),
+		eventmux:        new(event.TypeMux),
+		log:             conf.Logger,
+		stop:            make(chan struct{}),
+		executionServer: &p2p.Server{Net: p2p.Execution, Config: conf.ExecutionP2P},
+		consensusServer: &p2p.Server{Net: p2p.Consensus, Config: conf.ConsensusP2P},
+		databases:       make(map[*closeTrackingDB]struct{}),
 	}
 
 	// Register built-in APIs.
@@ -124,19 +127,23 @@ func New(conf *Config) (*Node, error) {
 	node.accman = accounts.NewManager(&accounts.Config{InsecureUnlockAllowed: conf.InsecureUnlockAllowed})
 
 	// Initialize the p2p server. This creates the node key and discovery databases.
-	node.server.Config.PrivateKey = node.config.NodeKey()
-	node.server.Config.Name = node.config.NodeName()
-	node.server.Config.Logger = node.log
-	if node.server.Config.StaticNodes == nil {
-		node.server.Config.StaticNodes = node.config.StaticNodes()
+	node.executionServer.Config.PrivateKey, _ = node.config.AutonityKeys()
+	node.executionServer.Config.Name = node.config.NodeName()
+	node.executionServer.Config.Logger = node.log
+	if node.executionServer.Config.StaticNodes == nil {
+		node.executionServer.Config.StaticNodes = node.config.StaticNodes()
 	}
-	if node.server.Config.TrustedNodes == nil {
-		node.server.Config.TrustedNodes = node.config.TrustedNodes()
+	if node.executionServer.Config.TrustedNodes == nil {
+		node.executionServer.Config.TrustedNodes = node.config.TrustedNodes()
 	}
-	if node.server.Config.NodeDatabase == "" {
-		node.server.Config.NodeDatabase = node.config.NodeDB()
+	if node.executionServer.Config.NodeDatabase == "" {
+		node.executionServer.Config.NodeDatabase = node.config.NodeDB()
 	}
 
+	//Initializing consensus server
+	node.consensusServer.Config.PrivateKey, _ = node.config.AutonityKeys()
+	node.consensusServer.Config.Name = node.config.NodeName()
+	node.consensusServer.Config.Logger = node.log
 	// Check HTTP/WS prefixes are valid.
 	if err := validatePrefix("HTTP", conf.HTTPPathPrefix); err != nil {
 		return nil, err
@@ -261,15 +268,19 @@ func (n *Node) doClose(errs []error) error {
 // openEndpoints starts all network and RPC endpoints.
 func (n *Node) openEndpoints() error {
 	// start networking endpoints
-	n.log.Info("Starting peer-to-peer node", "instance", n.server.Name)
-	if err := n.server.Start(); err != nil {
+	n.log.Info("Starting peer-to-peer node", "instance", n.executionServer.Name)
+	if err := n.consensusServer.Start(); err != nil {
+		return convertFileLockError(err)
+	}
+	if err := n.executionServer.Start(); err != nil {
 		return convertFileLockError(err)
 	}
 	// start RPC endpoints
 	err := n.startRPC()
 	if err != nil {
 		n.stopRPC()
-		n.server.Stop()
+		n.consensusServer.Stop()
+		n.executionServer.Stop()
 	}
 	return err
 }
@@ -289,6 +300,10 @@ func containsLifecycle(lfs []Lifecycle, l Lifecycle) bool {
 func (n *Node) stopServices(running []Lifecycle) error {
 	n.stopRPC()
 
+	// Stop p2p networking.
+	n.consensusServer.Stop()
+	n.executionServer.Stop()
+
 	// Stop running lifecycles in reverse order.
 	failure := &StopError{Services: make(map[reflect.Type]error)}
 	for i := len(running) - 1; i >= 0; i-- {
@@ -296,9 +311,6 @@ func (n *Node) stopServices(running []Lifecycle) error {
 			failure.Services[reflect.TypeOf(running[i])] = err
 		}
 	}
-
-	// Stop p2p networking.
-	n.server.Stop()
 
 	if len(failure.Services) > 0 {
 		return failure
@@ -450,7 +462,18 @@ func (n *Node) RegisterProtocols(protocols []p2p.Protocol) {
 	if n.state != initializingState {
 		panic("can't register protocols on running/stopped node")
 	}
-	n.server.Protocols = append(n.server.Protocols, protocols...)
+	n.executionServer.Protocols = append(n.executionServer.Protocols, protocols...)
+}
+
+// RegisterConsensusProtocols adds backend's protocols to the node's p2p server.
+func (n *Node) RegisterConsensusProtocols(protocols []p2p.Protocol) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	if n.state != initializingState {
+		panic("can't register protocols on running/stopped node")
+	}
+	n.consensusServer.Protocols = append(n.consensusServer.Protocols, protocols...)
 }
 
 // RegisterAPIs registers the APIs a service provides on the node.
@@ -485,11 +508,11 @@ func (n *Node) Attach() (*rpc.Client, error) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	if n.server == nil {
+	if n.executionServer == nil {
 		return nil, ErrNodeStopped
 	}
-	if n.config.P2P.IsRated {
-		return rpc.DialInProcWithRate(n.inprocHandler, n.config.P2P.InRate, n.config.P2P.OutRate), nil
+	if n.config.ExecutionP2P.IsRated {
+		return rpc.DialInProcWithRate(n.inprocHandler, n.config.ExecutionP2P.InRate, n.config.ExecutionP2P.OutRate), nil
 	}
 	return rpc.DialInProc(n.inprocHandler), nil
 }
@@ -510,14 +533,24 @@ func (n *Node) Config() *Config {
 	return n.config
 }
 
-// Server retrieves the currently running P2P network layer. This method is meant
+// ExecutionServer retrieves the currently running P2P network layer. This method is meant
 // only to inspect fields of the currently running server. Callers should not
 // start or stop the returned server.
-func (n *Node) Server() *p2p.Server {
+func (n *Node) ExecutionServer() *p2p.Server {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	return n.server
+	return n.executionServer
+}
+
+// ConsensusServer retrieves the currently running P2P network layer. This method is meant
+// only to inspect fields of the currently running server. Callers should not
+// start or stop the returned server.
+func (n *Node) ConsensusServer() *p2p.Server {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	return n.consensusServer
 }
 
 // DataDir retrieves the current datadir used by the protocol stack.

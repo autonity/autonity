@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"crypto/rand"
+	"github.com/autonity/autonity/params"
 	"reflect"
 	"testing"
 
@@ -10,10 +11,8 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/crypto"
 )
 
-var AutonityContractAddr = crypto.CreateAddress(common.Address{}, 0)
 var NonNilValue = common.Hash{0x1}
 
 // GenerateRandomBytes returns securely generated random bytes.
@@ -74,7 +73,7 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 	rule autonity.Rule, network Network) bool {
 
 	n := network[1]
-	autonityContract, _ := autonity.NewAccountability(autonity.AccountabilityContractAddress, n.WsClient)
+	autonityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
 	var events []autonity.AccountabilityEvent
 	if eventType == autonity.Misbehaviour {
 		faults, err := autonityContract.GetValidatorFaults(nil, faultyValidator)

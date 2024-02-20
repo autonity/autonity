@@ -9,6 +9,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/metrics"
 )
@@ -18,59 +19,68 @@ type Proposer struct {
 }
 
 func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
-	// If I'm the proposer and I have the same height with the proposal
-	if c.Height().Cmp(block.Number()) == 0 && c.IsProposer() && !c.sentProposal {
-		proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
-		c.sentProposal = true
-		c.backend.SetProposedBlockHash(block.Hash())
-		if metrics.Enabled {
-			now := time.Now()
-			ProposalSentTimer.Update(now.Sub(c.newRound))
-			ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
-		}
-		c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
-		c.Broadcaster().Broadcast(proposal)
+	// Required to have proposal block current and being current proposer
+	// Defensively panic here to catch bugs
+	if c.Height().Cmp(block.Number()) != 0 {
+		panic("proposal block height incorrect")
 	}
+	if !c.IsProposer() {
+		panic("not proposer")
+	}
+	if c.sentProposal {
+		return
+	}
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
+	c.sentProposal = true
+	c.backend.SetProposedBlockHash(block.Hash())
+	if metrics.Enabled {
+		now := time.Now()
+		ProposalSentTimer.Update(now.Sub(c.newRound))
+		ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
+	}
+	c.logger.Info("Proposing new block", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
+	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
+	c.Broadcaster().Broadcast(proposal)
 }
 
 func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose) error {
-	// Ensure we have the same view with the Proposal message
-	if err := c.checkMessageStep(proposal.R(), proposal.H(), Propose); err != nil {
+	if proposal.R() > c.Round() {
 		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
 		// meaning that a future roundchange will happen before, as such, pushing the
 		// message to the backlog is fine.
-		if errors.Is(err, constants.ErrOldRoundMessage) {
-			roundMessages := c.messages.GetOrCreate(proposal.R())
-			// if we already have a proposal then it must be different than the current one
-			// it can't happen unless someone's byzantine.
-			if roundMessages.Proposal() != nil {
-				return err // do not gossip, TODO: accountability
-			}
-
-			if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
-				c.logger.Warn("Ignoring proposal from non-proposer")
-				return constants.ErrNotFromProposer
-			}
-			// We do not verify the proposal in this case.
-			roundMessages.SetProposal(proposal, false)
-			if roundMessages.PrecommitsPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-				if _, err2 := c.backend.VerifyProposal(proposal.Block()); err2 != nil {
-					return err2
-				}
-				c.logger.Debug("Committing old round proposal")
-				c.Commit(proposal.R(), roundMessages)
-				return nil
-			}
-		}
-		return err
+		return constants.ErrFutureRoundMessage
 	}
 
-	// Check if the message comes from curRoundMessages proposer
-	if !c.IsFromProposer(c.Round(), proposal.Sender()) {
-		c.logger.Warn("Ignore proposal messages from non-proposer")
+	// proposal is either for current round or old round
+	roundMessages := c.messages.GetOrCreate(proposal.R())
+
+	// if we already have a proposal for this round - ignore
+	// the first proposal sent by the sender in a round is always the only one we consider.
+	if roundMessages.Proposal() != nil {
+		return constants.ErrAlreadyHaveProposal
+	}
+
+	// check if proposal comes from the correct proposer for pair (h,r)
+	if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
+		c.logger.Warn("Ignoring proposal from non-proposer", "sender", proposal.Sender())
 		return constants.ErrNotFromProposer
 	}
+
+	if proposal.R() < c.Round() {
+		// old round proposal, check if we have quorum precommits on it
+		// Save it, but do not verify the proposal yet unless we have enough precommits for it.
+		roundMessages.SetProposal(proposal, false)
+
+		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+		// check if we have a quorum of precommits for this proposal
+		_ = c.quorumPrecommitsCheck(ctx, proposal, false)
+
+		return constants.ErrOldRoundMessage
+	}
+
+	// At this point the local round matches the message round (roundMessages == c.curRoundMessages)
+	// current step could be either Proposal, Prevote, or Precommit.
 
 	// received a current round proposal
 	if metrics.Enabled {
@@ -90,9 +100,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	if err != nil {
-		if timeoutErr := c.proposeTimeout.StopTimer(); timeoutErr != nil {
-			return timeoutErr
-		}
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if errors.Is(err, consensus.ErrFutureTimestampBlock) {
@@ -104,12 +111,21 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			})
 			return err
 		}
-		c.prevoter.SendPrevote(ctx, true)
-		// do not to accept another proposal in current round
-		c.SetStep(Prevote)
-
+		// if the proposal block is already in the chain, no need to prevote for nil
+		if errors.Is(err, core.ErrKnownBlock) || errors.Is(err, constants.ErrAlreadyHaveBlock) {
+			c.logger.Info("Verified proposal that was already in our local chain", "err", err, "duration", duration)
+			c.SetStep(ctx, PrecommitDone) // we do not need to process any more consensus messages for this height
+			return constants.ErrAlreadyHaveBlock
+		}
+		// Proposal is invalid here, we need to prevote nil.
+		// However, we may have already sent a prevote nil in the past without having processed the proposal
+		// because of a timeout, so we need to check if we are still in the Propose step.
+		if c.step == Propose {
+			c.prevoter.SendPrevote(ctx, true)
+			// do not to accept another proposal in current round
+			c.SetStep(ctx, Prevote)
+		}
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
-
 		return err
 	}
 
@@ -117,35 +133,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Sender().String(), c.address.String())
 
-	//l49: Check if we have a quorum of precommits for this proposal
-	hash := proposal.Block().Hash()
-	if c.curRoundMessages.PrecommitsPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		c.Commit(proposal.R(), c.curRoundMessages)
-		return nil
-	}
-
-	if c.step == Propose {
-		if err := c.proposeTimeout.StopTimer(); err != nil {
-			return err
-		}
-		vr := proposal.ValidRound()
-		// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
-		if vr == -1 {
-			// When lockedRound is set to any value other than -1 lockedValue is also
-			// set to a non nil value. So we can be sure that we will only try to access
-			// lockedValue when it is non nil.
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || hash == c.lockedValue.Hash()))
-			c.SetStep(Prevote)
-			return nil
-		}
-		rs := c.messages.GetOrCreate(vr)
-		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
-		// vr >= 0 here
-		if vr < c.Round() && rs.PrevotesPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-			c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
-			c.SetStep(Prevote)
-		}
-	}
+	// check upon conditions for current round proposal
+	c.currentProposalChecks(ctx, proposal)
 
 	return nil
 }

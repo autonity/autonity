@@ -9,13 +9,16 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/autonity/autonity/params"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethclient"
-	"github.com/stretchr/testify/require"
 )
 
 // interact is the starting point to constructing a tool to interact with
@@ -37,7 +40,7 @@ func interact(rpcPort int) *interactor {
 		return i
 	}
 
-	instance, err := autonity.NewAutonity(autonity.AutonityContractAddress, client)
+	instance, err := autonity.NewAutonity(params.AutonityContractAddress, client)
 	if err != nil {
 		i.err = err
 		return i

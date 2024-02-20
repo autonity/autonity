@@ -18,11 +18,11 @@ package backend
 
 import (
 	"github.com/autonity/autonity/accounts/abi"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
 )
 
@@ -61,7 +61,7 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (*types.Committee, error) {
 
 // Get Autonity contract address
 func (api *API) GetContractAddress() common.Address {
-	return autonity.AutonityContractAddress
+	return params.AutonityContractAddress
 }
 
 // Get Autonity contract ABI

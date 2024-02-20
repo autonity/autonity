@@ -52,7 +52,6 @@ const BASE_VALIDATOR = {
         "unbondingStake": 0,
         "unbondingShares": 0,
         "consensusKey": "0x00",
-        "pop": "0x00",
     };
 
 const GENESIS_PRIVATE_KEYS = [
@@ -77,6 +76,7 @@ function autonityConfig(operator, treasuryAccount) {
             "acuContract" :ZERO_ADDRESS,
             "supplyControlContract" :ZERO_ADDRESS,
             "stabilizationContract" :ZERO_ADDRESS,
+            "upgradeManagerContract" :ZERO_ADDRESS,
         },
         "protocol": {
             "operatorAccount": operator,

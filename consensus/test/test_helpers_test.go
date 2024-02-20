@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"math"
 	"math/big"
 	"os"
@@ -13,6 +12,11 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/crypto/blst"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -24,8 +28,6 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 )
 
 const defaultStake = 100
@@ -58,13 +60,10 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 		//stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 		if strings.HasPrefix(name, ValidatorPrefix) {
 			nodeAddr := crypto.PubkeyToAddress(nodes[name].nodeKey.PublicKey)
-			treasury := nodeAddr
-			pop, err := crypto.AutonityPOPProof(nodes[name].nodeKey, nodes[name].oracleKey, treasury.Hex(), nodes[name].consensusKey)
-			require.NoError(t, err)
+
 			validators = append(validators, &params.Validator{
 				NodeAddress:    &nodeAddr,
 				OracleAddress:  crypto.PubkeyToAddress(nodes[name].oracleKey.PublicKey),
-				Pop:            pop,
 				Enode:          nodes[name].url,
 				Treasury:       nodeAddr,
 				BondedStake:    stake,
@@ -80,7 +79,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	return genesis
 }
 
-func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, consensusKey blst.SecretKey, listenAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
+func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateKey, consensusKey blst.SecretKey, listenAddr, acnListenerAddr string, rpcPort int, inRate, outRate int64) (*node.Config, *ethconfig.Config) {
 	// Define the basic configurations for the Ethereum node
 	datadir, err := os.MkdirTemp("", "")
 	require.NoError(t, err)
@@ -94,10 +93,16 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 		Name:         "autonity",
 		Version:      params.Version,
 		DataDir:      datadir,
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			ListenAddr:  listenAddr,
 			NoDiscovery: true,
+			PrivateKey:  nodekey,
 			MaxPeers:    25,
+		},
+		ConsensusP2P: p2p.Config{
+			ListenAddr:  acnListenerAddr,
+			NoDiscovery: true,
+			MaxPeers:    10000,
 			PrivateKey:  nodekey,
 		},
 	}
@@ -105,9 +110,9 @@ func makeNodeConfig(t *testing.T, genesis *core.Genesis, nodekey *ecdsa.PrivateK
 	nodeConfig.HTTPPort = rpcPort
 
 	if inRate != 0 || outRate != 0 {
-		nodeConfig.P2P.IsRated = true
-		nodeConfig.P2P.InRate = inRate
-		nodeConfig.P2P.OutRate = outRate
+		nodeConfig.ExecutionP2P.IsRated = true
+		nodeConfig.ExecutionP2P.InRate = inRate
+		nodeConfig.ExecutionP2P.OutRate = outRate
 	}
 
 	ethConfig := &ethconfig.Config{

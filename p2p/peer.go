@@ -19,13 +19,14 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto"
 	"io"
 	"net"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/event"

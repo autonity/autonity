@@ -79,6 +79,38 @@ func TestHandleProposal(t *testing.T) {
 	round := int64(3)
 	signer := makeSigner(keys[addr], addr)
 
+	t.Run("2 proposals received, only first one is accepted", func(t *testing.T) {
+		block := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(1),
+		})
+
+		messages := message.NewMap()
+		curRoundMessages := messages.GetOrCreate(round)
+		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(stubVerifier)
+
+		ctrl := gomock.NewController(t)
+		backendMock := interfaces.NewMockBackend(ctrl)
+		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		c := &Core{
+			address:          addr,
+			messages:         messages,
+			committee:        committeeSet,
+			curRoundMessages: curRoundMessages,
+			logger:           log.Root(),
+			round:            round,
+			height:           new(big.Int).SetUint64(height),
+			backend:          backendMock,
+		}
+		c.SetDefaultHandlers()
+		err := c.proposer.HandleProposal(context.Background(), proposal)
+		require.NoError(t, err)
+		proposal2 := message.NewPropose(round, height, 87, block, signer).MustVerify(stubVerifier)
+		err = c.proposer.HandleProposal(context.Background(), proposal2)
+		if !errors.Is(err, constants.ErrAlreadyHaveProposal) {
+			t.Fatalf("Expected %v, got %v", constants.ErrAlreadyHaveProposal, err)
+		}
+	})
+
 	t.Run("old proposal given, error returned", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
@@ -268,6 +300,7 @@ func TestHandleProposal(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(1),
 			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 			committee:        committeeSet,
 			step:             Precommit,
@@ -319,6 +352,8 @@ func TestHandleProposal(t *testing.T) {
 			lockedRound:      -1,
 			logger:           logger,
 			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
+			precommitTimeout: NewTimeout(Precommit, logger),
 			validRound:       -1,
 			committee:        committeeSet,
 		}
@@ -363,6 +398,8 @@ func TestHandleProposal(t *testing.T) {
 			lockedValue:      nil,
 			logger:           log.Root(),
 			proposeTimeout:   NewTimeout(Propose, log.Root()),
+			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
+			precommitTimeout: NewTimeout(Precommit, log.Root()),
 			validRound:       0,
 			committee:        committeeSet,
 		}

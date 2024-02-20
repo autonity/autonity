@@ -118,8 +118,8 @@ var (
 		utils.NoDiscoverFlag,
 		utils.DiscoveryV5Flag,
 		utils.NetrestrictFlag,
-		utils.NodeKeyFileFlag,
-		utils.NodeKeyHexFlag,
+		utils.AutonityKeysFileFlag,
+		utils.AutonityKeysHexFlag,
 		utils.OracleKeyFileFlag,
 		utils.OracleKeyHexFlag,
 		utils.WriteAddrFlag,
@@ -138,6 +138,8 @@ var (
 		utils.MinerNotifyFullFlag,
 		utils.PiccadillyFlag,
 		utils.BakerlooFlag,
+		utils.ConsensusListenPortFlag,
+		utils.ConsensusNATFlag,
 		configFileFlag,
 	}
 
@@ -208,7 +210,7 @@ func init() {
 		versionCommand,
 		licenseCommand,
 		ownershipProofCommand,
-		genKeyCommand,
+		genAutonityKeysCommand,
 		// See config.go
 		dumpConfigCommand,
 		// see dbcmd.go

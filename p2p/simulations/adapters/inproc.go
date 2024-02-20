@@ -24,6 +24,10 @@ import (
 	"net"
 	"sync"
 
+	"github.com/autonity/autonity/crypto/blst"
+
+	"github.com/gorilla/websocket"
+
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/node"
@@ -31,7 +35,6 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/simulations/pipes"
 	"github.com/autonity/autonity/rpc"
-	"github.com/gorilla/websocket"
 )
 
 // SimAdapter is a NodeAdapter which creates in-memory simulation nodes and
@@ -91,8 +94,22 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 		return nil, err
 	}
 
+	// in the p2p simulation test framework, we generate random consensus key for node setup.
+	consensusKey, err := blst.RandKey()
+	if err != nil {
+		return nil, err
+	}
+
 	n, err := node.New(&node.Config{
-		P2P: p2p.Config{
+		ConsensusKey: consensusKey,
+		ExecutionP2P: p2p.Config{
+			PrivateKey:      config.PrivateKey,
+			MaxPeers:        math.MaxInt32,
+			NoDiscovery:     true,
+			Dialer:          s,
+			EnableMsgEvents: config.EnableMsgEvents,
+		},
+		ConsensusP2P: p2p.Config{
 			PrivateKey:      config.PrivateKey,
 			MaxPeers:        math.MaxInt32,
 			NoDiscovery:     true,
@@ -327,7 +344,7 @@ func (sn *SimNode) ServiceMap() map[string]node.Lifecycle {
 
 // Server returns the underlying p2p.Server
 func (sn *SimNode) Server() *p2p.Server {
-	return sn.node.Server()
+	return sn.node.ExecutionServer()
 }
 
 // SubscribeEvents subscribes the given channel to peer events from the

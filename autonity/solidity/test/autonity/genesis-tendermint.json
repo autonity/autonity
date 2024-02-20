@@ -16,7 +16,6 @@
           "enode": "enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.11:30303",
           "treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
           "consensusKey": "0x87d9b1ece0ad65d41a3ae80c7bd0669f8b7c54ebcaf5a80d8ab452cf8ebcb3092491ce1336a1407eee313f69582361f3",
-          "pop": "0x435418e50274a9a30271b1bd469bf1f1766fb316a84bb7bd3aa3d2f136abc843796f01e9e72cc2b75199e32303d21902a2a7167a59d9cd9fa5dd40ffb9f06e7400f31cf2d4a6189a96cf5b0a00cf1ad7f6479e9ef5890896c38dcc22a4abb53fe41a46ddfa00804921dc106d7c7695bc4b6770a1dc0422ec460059bc8aadd4983f00a949215b77e2cc31c569a6c4840d9ae3361ad383ce043b52c9a3b7248c26812378eecb02bd38c659773709441c07e9770c3dd691a2bc12261474ea1194adcf0a91ae46b7525c9d1adf33850bc7a14f7cae4566194fac71edae7fd52a82a623de",
           "oracleAddress": "0xDE03B7806f885Ae79d2aa56568b77caDB0de073E",
           "bondedStake": 10000
         }
@@ -33,7 +32,8 @@
       "historyFactor": 750,
       "jailFactor": 60,
       "slashingRatePrecision": 10000
-    }
+    },
+    "testMode": true
   },
   "nonce": "0x0",
   "timestamp": "0x0",

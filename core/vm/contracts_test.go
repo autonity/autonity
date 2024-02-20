@@ -25,6 +25,9 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
+	"github.com/stretchr/testify/require"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.
@@ -97,7 +100,7 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber); err != nil {
+		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{}); err != nil {
 			t.Error(err)
 		} else if common.Bytes2Hex(res) != test.Expected {
 			t.Errorf("Expected %v, got %v", test.Expected, common.Bytes2Hex(res))
@@ -119,7 +122,7 @@ func testPrecompiledOOG(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in) - 1
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber)
+		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{})
 		if err.Error() != "out of gas" {
 			t.Errorf("Expected error [out of gas], got [%v]", err)
 		}
@@ -137,7 +140,7 @@ func testPrecompiledFailure(addr string, test precompiledFailureTest, t *testing
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(test.Name, func(t *testing.T) {
-		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber)
+		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{})
 		if err.Error() != test.ExpectedError {
 			t.Errorf("Expected error [%v], got [%v]", test.ExpectedError, err)
 		}
@@ -169,7 +172,8 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 		bench.ResetTimer()
 		for i := 0; i < bench.N; i++ {
 			copy(data, in)
-			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber)
+			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber, nil, common.Address{})
+			require.NoError(bench, err)
 		}
 		bench.StopTimer()
 		elapsed := uint64(time.Since(start))
@@ -392,4 +396,35 @@ func BenchmarkPrecompiledBLS12381G2MultiExpWorstCase(b *testing.B) {
 		NoBenchmark: false,
 	}
 	benchmarkPrecompiled("0f", testcase, b)
+}
+
+func TestPOPVerifier(t *testing.T) {
+	key1, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	treasuryAddress := crypto.PubkeyToAddress(key1.PublicKey)
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+
+	proof, err := crypto.BLSPOPProof(key, treasuryAddress.Bytes())
+	require.NoError(t, err)
+
+	popVerifier := &POPVerifier{}
+	input := make([]byte, ArrayLenBytes+POPBytes)
+	signatureOffset := ArrayLenBytes + blst.BLSPubkeyLength
+	treasuryOffset := signatureOffset + blst.BLSSignatureLength
+	copy(input[ArrayLenBytes:signatureOffset], key.PublicKey().Marshal())
+	copy(input[signatureOffset:treasuryOffset], proof)
+	copy(input[treasuryOffset:ArrayLenBytes+POPBytes], treasuryAddress.Bytes())
+
+	ret, err := popVerifier.Run(input, 0, nil, common.Address{})
+	require.NoError(t, err)
+	require.Equal(t, successResult, ret)
+
+	wrongKey, err := blst.RandKey()
+	require.NoError(t, err)
+	copy(input[32:80], wrongKey.PublicKey().Marshal())
+	ret, err = popVerifier.Run(input, 0, nil, common.Address{})
+	require.NotNil(t, err)
+	require.Equal(t, failure32Byte, ret)
 }

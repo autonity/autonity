@@ -170,12 +170,12 @@ func readKey(keyFile string) (*ecdsa.PrivateKey, error) {
 	return crypto.PrivECDSAFromHex(content)
 }
 
-// readNodeKey reads the file and returns the node key and the consensus key.
-func readNodeKey(keyFile string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
+// readAutonityKeys reads the file and returns the node key and the consensus key.
+func readAutonityKeys(keyFile string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	_, err := os.Stat(keyFile)
 	if os.IsNotExist(err) {
 		// Generate non existent key
-		k, consensusKey, err := crypto.GenAutonityNodeKey()
+		k, consensusKey, err := crypto.GenAutonityKeys()
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to generate key for file %q : %v", keyFile, err)
 		}
@@ -183,7 +183,7 @@ func readNodeKey(keyFile string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	}
 
 	// Read the keys from the file
-	return crypto.LoadNodeKey(keyFile)
+	return crypto.LoadAutonityKeys(keyFile)
 }
 
 // writeKeys writes the key to file at path.
@@ -192,7 +192,7 @@ func writeKeys(validators []*Validator) error {
 		return fmt.Errorf("failed to write key to %q: %v", file, err)
 	}
 	for _, u := range validators {
-		if err := crypto.SaveNodeKey(u.NodeKeyPath, u.NodeKey, u.ConsensusKey); err != nil {
+		if err := crypto.SaveAutonityKeys(u.NodeKeyPath, u.NodeKey, u.ConsensusKey); err != nil {
 			return writeErr(u.NodeKeyPath, err)
 		}
 		if err := os.WriteFile(u.OracleKeyPath, crypto.PrivECDSAToHex(u.OracleKey), os.ModePerm); err != nil {
@@ -284,7 +284,8 @@ func ParseValidator(u string) (*Validator, error) {
 	}
 
 	nodeKeyPath := fields[4]
-	nodeKey, consensusKey, err := readNodeKey(nodeKeyPath)
+
+	nodeKey, consensusKey, err := readAutonityKeys(nodeKeyPath)
 	if err != nil {
 		return nil, err
 	}

@@ -59,19 +59,23 @@ The output of this command is supposed to be machine-readable.
 		Name:   "genOwnershipProof",
 		Usage:  "Generate enode proof",
 		Flags: []cli.Flag{
-			utils.NodeKeyFileFlag,
-			utils.NodeKeyHexFlag,
+			utils.AutonityKeysFileFlag,
+			utils.AutonityKeysHexFlag,
 			utils.OracleKeyFileFlag,
 			utils.OracleKeyHexFlag,
 		},
 		Description: `
     	autonity genOwnershipProof
-		Generates a proof, given a node private key, oracle private key and the 
-		treasury address. Proof is printed on stdout in hex string format. This 
-		must be copied as it is and passed to registerValidator.
+		Generates a ownership proof, given a node key file which contains the 
+		node key and with or without the node consensus key appending at the file,
+		oracle private key file and the treasury address. Proof is printed on 
+		stdout in hex string format. This must be copied as it is and passed to 
+		registerValidator. Note that, if the consensus key is missing from the node
+		key file, a new consensus key will be generated and append to the input node
+		key file.
 		There are two ways to pass node private key:
-			1. --nodekey <node key file name> 
-			2. --nodekeyhex <node key in hex>
+			1. --autonitykeys <Autonity keys file name> 
+			2. --autonitykeyshex <node keys in hex>
 		Similarly there are two ways to pass oracle private key:
 			1. --oraclekey <oracle key file name>
 			2. --oraclekeyhex <oracle key in hex>`,
@@ -79,17 +83,18 @@ The output of this command is supposed to be machine-readable.
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
 
-	genKeyCommand = cli.Command{
-		Action: utils.MigrateFlags(genNodeKey),
-		Name:   "genNodeKey",
-		Usage:  "Generate node key",
+	genAutonityKeysCommand = cli.Command{
+		Action: utils.MigrateFlags(genAutonityKeys),
+		Name:   "genAutonityKeys",
+		Usage:  "Generate autonity keys",
 		Flags: []cli.Flag{
 			utils.WriteAddrFlag,
 		},
 		Description: `
-    	autonity genNodeKey <outkeyfile>
-		Generate node key and its consensus key to the given file.
-		write out the node address and the validator key on stdout using flag --writeaddress`,
+    	autonity genAutonityKeys <outkeyfile>
+		Generate node key and its consensus key to the given file. Write out the
+		node address, node public key of enode URL and the consensus key of registering
+		a validator on stdout using	flag --writeaddress`,
 		ArgsUsage: "<outkeyfile>",
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
@@ -161,25 +166,54 @@ along with autonity. If not, see <http://www.gnu.org/licenses/>.`)
 	return nil
 }
 
-// genOwnershipProof generates an ownership proof of the node and oracle account
+// genOwnershipProof generates an ownership proof of the node key, oracle key and the consensus key for a node operator.
+// If the input node key file is with a legacy format which missing a consensus key, the function will generate a random
+// consensus secret key and append it in the legacy node key file.
 func genOwnershipProof(ctx *cli.Context) error {
 	args := ctx.Args()
 	if len(args) != 1 {
 		utils.Fatalf(`Usage: autonity genOwnershipProof [options] <treasuryAddress>`)
 	}
 
-	// Load private key
 	var nodePrivateKey, oraclePrivateKey *ecdsa.PrivateKey
 	var consensusKey blst.SecretKey
 	var err error
-	if nodeKeyFile := ctx.GlobalString(utils.NodeKeyFileFlag.Name); nodeKeyFile != "" {
-		// load key from the node key file
-		nodePrivateKey, consensusKey, err = crypto.LoadNodeKey(nodeKeyFile)
+	// load node key and consensus key, if the consensus key is missing, it generates new one for legacy node key file.
+	if nodeKeyFile := ctx.GlobalString(utils.AutonityKeysFileFlag.Name); nodeKeyFile != "" {
+		s, err := os.Stat(nodeKeyFile)
 		if err != nil {
 			utils.Fatalf("Failed to load the node private key: %v", err)
 		}
-	} else if privateKeysHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); privateKeysHex != "" {
-		nodePrivateKey, consensusKey, err = crypto.HexToNodeKey(privateKeysHex)
+
+		// parse and load node key from legacy node key file, generate consensus key and append it.
+		if s.Size() < crypto.AutonityKeysLenInChar {
+			nodePrivateKey, err = crypto.LoadECDSA(nodeKeyFile)
+			if err != nil {
+				println("error: ", err.Error())
+				utils.Fatalf("Failed to load the node private key: %v", err)
+			}
+
+			consensusKey, err = blst.RandKey()
+			if err != nil {
+				utils.Fatalf("Failed to generate node consensus key: %v", err)
+			}
+
+			if err = crypto.SaveAutonityKeys(nodeKeyFile, nodePrivateKey, consensusKey); err != nil {
+				utils.Fatalf("Failed to generate node consensus key: %v", err)
+			}
+		}
+
+		// parse and load node key and consensus key.
+		if s.Size() >= crypto.AutonityKeysLenInChar {
+			// load key from the node key file
+			nodePrivateKey, consensusKey, err = crypto.LoadAutonityKeys(nodeKeyFile)
+			if err != nil {
+				utils.Fatalf("Failed to load the node private key: %v", err)
+			}
+		}
+	} else if privateKeysHex := ctx.GlobalString(utils.AutonityKeysHexFlag.Name); privateKeysHex != "" {
+		// if the consensus key is missing from the input hex string, terminate the execution.
+		nodePrivateKey, consensusKey, err = crypto.HexToAutonityKeys(privateKeysHex)
 		if err != nil {
 			utils.Fatalf("Failed to parse the node private key: %v", err)
 		}
@@ -187,6 +221,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf(`Node key details are not provided`)
 	}
 
+	// load oracle node key from file or from input hex string.
 	if oracleKeyFile := ctx.GlobalString(utils.OracleKeyFileFlag.Name); oracleKeyFile != "" {
 		oraclePrivateKey, err = crypto.LoadECDSA(oracleKeyFile)
 		if err != nil {
@@ -210,31 +245,31 @@ func genOwnershipProof(ctx *cli.Context) error {
 		utils.Fatalf("Failed to generate Autonity POP: %v", err)
 	}
 
-	fmt.Println("Validator key hex:", consensusKey.PublicKey().Hex())
-	hexStr := hexutil.Encode(signatures)
-	fmt.Println("Signatures hex:", hexStr)
+	fmt.Println(hexutil.Encode(signatures))
 	return nil
 }
 
-// genNodeKey generates a node key, and append its derived BLS private key (the validator key) in the key file.
-func genNodeKey(ctx *cli.Context) error {
+// genAutonityKeys generates a node key, and append its derived BLS private key (the validator key) in the key file.
+func genAutonityKeys(ctx *cli.Context) error {
 	outKeyFile := ctx.Args().First()
 	if len(outKeyFile) == 0 {
-		utils.Fatalf("Out key file must be provided!! Usage: autonity genNodeKey <outkeyfile> [options]")
+		utils.Fatalf("Out key file must be provided!! Usage: autonity genAutonityKeys <outkeyfile> [options]")
 	}
 
-	nodeKey, consensusKey, err := crypto.GenAutonityNodeKey()
+	nodeKey, consensusKey, err := crypto.GenAutonityKeys()
 	if err != nil {
 		utils.Fatalf("could not generate node key %v", err)
 	}
 
-	if err = crypto.SaveNodeKey(outKeyFile, nodeKey, consensusKey); err != nil {
+	if err = crypto.SaveAutonityKeys(outKeyFile, nodeKey, consensusKey); err != nil {
 		utils.Fatalf("could not save key %v", err)
 	}
 
 	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
 	if writeAddr {
-		fmt.Printf("%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
+		fmt.Printf("Node address: %s\n", crypto.PubkeyToAddress(nodeKey.PublicKey).String())
+		fmt.Printf("Node public key: 0x%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
+		fmt.Println("Consensus public key:", consensusKey.PublicKey().Hex())
 	}
 	fmt.Println("Node's validator key:", consensusKey.PublicKey().Hex())
 	return nil

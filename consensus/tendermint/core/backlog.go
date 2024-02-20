@@ -2,10 +2,11 @@ package core
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"math/big"
 )
 
 const MaxSizeBacklogUnchecked = 1000
@@ -17,16 +18,9 @@ type backlogUntrustedMessageEvent struct {
 	msg message.Msg
 }
 
-// checkMessageStep checks the message step
-// return errInvalidMessage if the message is invalid
-// return errFutureHeightMessage if the message view is larger than curRoundMessages view
-// return errOldHeightMessage if the message view is smaller than curRoundMessages view
-// return errFutureStepMessage if we are at the same view but at the propose step and it's a voting message.
-func (c *Core) checkMessageStep(round int64, height uint64, step Step) error {
+func (c *Core) checkMessage(round int64, height uint64) error {
 	h := new(big.Int).SetUint64(height)
 	switch {
-	case round < 0 || round > constants.MaxRound:
-		return constants.ErrInvalidMessage
 	case h.Cmp(c.Height()) > 0:
 		return constants.ErrFutureHeightMessage
 	case h.Cmp(c.Height()) < 0:
@@ -35,8 +29,6 @@ func (c *Core) checkMessageStep(round int64, height uint64, step Step) error {
 		return constants.ErrFutureRoundMessage
 	case round < c.Round():
 		return constants.ErrOldRoundMessage
-	case c.step == Propose && step > Propose:
-		return constants.ErrFutureStepMessage
 	}
 	return nil
 }
@@ -104,8 +96,8 @@ func (c *Core) processBacklog() {
 
 				r := curMsg.R()
 				h := curMsg.H()
-				err := c.checkMessageStep(r, h, Step(curMsg.Code()))
-				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) || errors.Is(err, constants.ErrFutureStepMessage) {
+				err := c.checkMessage(r, h)
+				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) {
 					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue
 

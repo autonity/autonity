@@ -34,7 +34,6 @@ import (
 
 var (
 	incompleteNodeURL = regexp.MustCompile("(?i)^(?:enode://)?([0-9a-f]+)$")
-	lookupIPFunc      = net.LookupIP
 )
 
 var (
@@ -54,7 +53,12 @@ var (
 	V4ResolveFunc = net.LookupIP
 )
 
-const defaultPort = ":30303"
+const (
+	DefaultETHPort    = ":30303"
+	DefaultETHPortInt = 30303
+	DefaultACNPort    = ":20203"
+	DefaultACNPortInt = 20203
+)
 
 // MustParseV4 parses a node URL. It panics if the URL is not valid.
 func MustParseV4(rawurl string) *Node {
@@ -74,8 +78,8 @@ func MustParseV4(rawurl string) *Node {
 //
 // For incomplete nodes, the designator must look like one of these
 //
-//    enode://<hex node id>
-//    <hex node id>
+//	enode://<hex node id>
+//	<hex node id>
 //
 // For complete nodes, the node ID is encoded in the username portion
 // of the URL, separated from the host by an @ sign. The hostname can
@@ -88,9 +92,14 @@ func MustParseV4(rawurl string) *Node {
 // a node with IP address 10.3.58.6, TCP listening port 30303
 // and UDP discovery port 30301.
 //
-//    enode://<hex node id>@10.3.58.6:30303?discport=30301
+//	enode://<hex node id>@10.3.58.6:30303?discport=30301
 func ParseV4(rawurl string) (*Node, error) {
 	return ParseV4CustomResolve(rawurl, V4ResolveFunc)
+}
+
+// enode://<hex node id>@10.3.58.6:30303?discport=30301?acn=10.3.58.5:20203
+func ParseACNV4(rawurl string) (*Node, error) {
+	return parseComplete(rawurl, V4ResolveFunc, acnProtoParams)
 }
 
 // ParseV4NoResolve returns a node object without attempting to resolve. Useful to manipulate
@@ -113,7 +122,7 @@ func ParseV4CustomResolve(rawurl string, resolve func(host string) ([]net.IP, er
 		return NewV4(id, nil, 0, 0), nil
 	}
 
-	return parseComplete(rawurl, resolve)
+	return parseComplete(rawurl, resolve, ethProtoParams)
 }
 
 // NewV4WithHost creates a node where the record contained in the node has a
@@ -156,11 +165,72 @@ func isNewV4(n *Node) bool {
 	return n.r.IdentityScheme() == "" && n.r.Load(&k) == nil && len(n.r.Signature()) == 0
 }
 
-func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error)) (*Node, error) {
+func IPPort(host string, defaultPort string) (string, uint64, error) {
+	var p uint64
+	if strings.LastIndex(host, ":") == -1 {
+		//append default port
+		host += defaultPort
+	}
+	// Parse the IP address.
+	h, port, err := net.SplitHostPort(host)
+	if err != nil {
+		return "", 0, fmt.Errorf("%w: %v", ErrInvalidHost, err)
+	}
+	// Parse the port numbers.
+	if p, err = strconv.ParseUint(port, 10, 16); err != nil {
+		return "", 0, ErrInvalidPort
+	}
+	return h, p, nil
+
+}
+
+func ethProtoParams(u *url.URL) (string, uint64, uint64, error) {
+	host, tcpPort, err := IPPort(u.Host, DefaultETHPort)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	udpPort := tcpPort
+	qv := u.Query()
+	if qv.Get("discport") != "" {
+		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
+		if err != nil {
+			return "", 0, 0, ErrInvalidDisport
+		}
+	}
+	return host, tcpPort, udpPort, nil
+}
+
+func acnProtoParams(u *url.URL) (string, uint64, uint64, error) {
 	var (
-		id               *ecdsa.PublicKey
-		ip               net.IP
-		tcpPort, udpPort uint64
+		acnPort uint64
+		acnIP   string
+		err     error
+	)
+
+	// Parse the IP address.
+	qv := u.Query()
+	if qv.Get("acn") != "" {
+		acnIP, acnPort, err = IPPort(qv.Get("acn"), DefaultACNPort)
+		if acnIP == "" {
+			acnIP, _, _, err = ethProtoParams(u)
+		}
+		return acnIP, acnPort, 0, err
+	}
+
+	// set same ip as eth for acn protocol
+	acnIP, _, _, err = ethProtoParams(u)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	acnPort = uint64(DefaultACNPortInt)
+	return acnIP, acnPort, 0, nil
+}
+
+func parseComplete(rawurl string, _ func(host string) ([]net.IP, error),
+	protoParser func(u *url.URL) (string, uint64, uint64, error)) (*Node, error) {
+	var (
+		id *ecdsa.PublicKey
+		ip net.IP
 	)
 	u, err := url.Parse(rawurl)
 	if err != nil {
@@ -176,28 +246,10 @@ func parseComplete(rawurl string, resolveFunc func(host string) ([]net.IP, error
 	if id, err = parsePubkey(u.User.String()); err != nil {
 		return nil, fmt.Errorf("invalid public key (%v)", err)
 	}
-	if strings.LastIndex(u.Host, ":") == -1 {
-		//set default port
-		u.Host += defaultPort
-	}
-	// Parse the IP address.
-	host, port, err := net.SplitHostPort(u.Host)
+
+	host, tcpPort, udpPort, err := protoParser(u)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidHost, err)
-	}
-
-	// Parse the port numbers.
-	if tcpPort, err = strconv.ParseUint(port, 10, 16); err != nil {
-		return nil, ErrInvalidPort
-	}
-
-	udpPort = tcpPort
-	qv := u.Query()
-	if qv.Get("discport") != "" {
-		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
-		if err != nil {
-			return nil, ErrInvalidDisport
-		}
+		return nil, err
 	}
 
 	// host is not an ip address
@@ -280,4 +332,15 @@ func PubkeyToIDV4(key *ecdsa.PublicKey) ID {
 	math.ReadBits(key.X, e[:len(e)/2])
 	math.ReadBits(key.Y, e[len(e)/2:])
 	return ID(crypto.Keccak256Hash(e))
+}
+
+func AppendConsensusEndpoint(host, port string, ens string) string {
+	u, err := url.Parse(ens)
+	if err != nil {
+		return ens
+	}
+	q := u.Query()
+	q.Add("acn", host+":"+port)
+	u.RawQuery = q.Encode()
+	return u.String()
 }

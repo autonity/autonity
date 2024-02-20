@@ -147,8 +147,7 @@ function checkUnbondingShare(unbondingRequest, delegatee, delegator, tokenUnbond
 
 contract('Autonity', function (accounts) {
     before(async function () {
-      console.log("\tAttempting to mock verifier precompile. Will (rightfully) fail if running against Autonity network")
-      await utils.mockEnodePrecompile()
+      await utils.mockPrecompile()
     });
 
   for (let i = 0; i < accounts.length; i++) {
@@ -632,7 +631,7 @@ contract('Autonity', function (accounts) {
     });
   });
 
-  describe('Bonding and unbonding requests', function () {
+  describe('Bonding and unbonding requests - 1', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
@@ -731,7 +730,13 @@ contract('Autonity', function (accounts) {
         "validator not registered"
       );
     });
-    
+  });
+
+  describe('Bonding and unbonding requests - 2', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+    });
+
     it("can't bond to a paused validator", async function () {
       await autonity.pauseValidator(validators[0].nodeAddress, {from: validators[0].treasury});
       
@@ -848,6 +853,12 @@ contract('Autonity', function (accounts) {
 
      
     });
+  });
+
+  describe('Bonding and unbonding requests - 3', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+    });
 
     it('does not unbond from not registered validator', async function () {
       let unRegisteredVal = anyAccount;
@@ -938,6 +949,12 @@ contract('Autonity', function (accounts) {
       assert.equal(unstaking.delegator, validators[0].treasury, "delegator addr is not expected");
       assert.equal(unstaking.delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
       assert.equal(unstaking.unlocked, false, "pending unbonding request unlocked");
+    });
+  });
+
+  describe('Bonding and unbonding requests - 4', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
     });
 
     it('test unbonding shares logic', async function () {
@@ -1287,7 +1304,7 @@ contract('Autonity', function (accounts) {
     });
   });
   describe('Test epoch parameters updates', function () {
-      let copyParams = autonityConfig;
+      let copyParams = JSON.parse(JSON.stringify(autonityConfig));
       let token;
       beforeEach(async function () {
           // set short epoch period 
@@ -1305,5 +1322,24 @@ contract('Autonity', function (accounts) {
         //TODO(tariq) low priority change, leave for last
         // check that blockEpochMap and getEpochFromBlock return the numbers we expect. Terminate a couple epochs and check the variables.
       });
+  });
+
+  describe('Test computeCommittee', function () {
+    let config = JSON.parse(JSON.stringify(autonityConfig));
+
+    it('test computeCommittee (committeeSize > validator count)', async function () {
+      config.protocol.committeeSize = validators.length + 2;
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      assert.equal((await autonity.getMaxCommitteeSize()).toNumber(), config.protocol.committeeSize, "committee size mismatch");
+      await autonity.testComputeCommittee({from: deployer});
+    });
+
+    it('test computeCommittee (committeeSize < validator count)', async function () {
+      config.protocol.committeeSize = validators.length - 2;
+      assert.equal(config.protocol.committeeSize > 0, true, "committeeSize negative");
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      assert.equal((await autonity.getMaxCommitteeSize()).toNumber(), config.protocol.committeeSize, "committee size mismatch");
+      await autonity.testComputeCommittee({from: deployer});
+    });
   });
 });

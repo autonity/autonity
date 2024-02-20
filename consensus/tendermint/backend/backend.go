@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 
@@ -66,7 +67,7 @@ func New(privateKey *ecdsa.PrivateKey,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend, services)
+	core := tendermintCore.New(backend, services, backend.address, log)
 
 	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
@@ -99,8 +100,10 @@ type Backend struct {
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
 
-	// interface to enqueue blocks to fetcher and find peers
+	// interface to find peers
 	Broadcaster consensus.Broadcaster
+	// interface to enqueue blocks to fetcher
+	Enqueuer consensus.Enqueuer
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
@@ -144,6 +147,11 @@ func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg) {
 	sb.gossiper.Gossip(committee, msg)
 }
 
+// UpdateStopChannel implements tendermint.Backend.Gossip
+func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
+	sb.gossiper.UpdateStopChannel(stopCh)
+}
+
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
 	m := make([]common.Hash, 0, sb.knownMessages.Len())
@@ -168,14 +176,12 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 	if err := types.WriteCommittedSeals(h, seals); err != nil {
 		return err
 	}
-
 	if err := types.WriteRound(h, round); err != nil {
 		return err
 	}
 	// update block's header
 	proposal = proposal.WithSeal(h)
-
-	sb.logger.Info("Committed block", "hash", proposal.Hash(), "height", proposal.Number().Uint64())
+	sb.logger.Info("Quorum of Precommits received", "proposal", proposal.Hash(), "round", round, "height", proposal.Number().Uint64())
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to resultCh channel, which is being watched inside the worker.ResultLoop() function.
 	// - otherwise, we try to insert the block.
@@ -183,13 +189,12 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
 	if sb.proposedBlockHash == proposal.Hash() && !sb.isResultChanNil() {
-		// feed block hash to Seal() and wait the Seal() result
 		sb.sendResultChan(proposal)
 		return nil
 	}
 
-	if sb.Broadcaster != nil {
-		sb.Broadcaster.Enqueue(fetcherID, proposal)
+	if sb.Enqueuer != nil {
+		sb.Enqueuer.Enqueue(fetcherID, proposal)
 	}
 	return nil
 }
@@ -209,6 +214,15 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 	if sb.HasBadProposal(proposal.Hash()) {
 		return 0, core.ErrBannedHash
+	}
+
+	// verify if the proposal block is already included in the node's local chain.
+	// This scenario can happen when we are processing a proposal, but in the meantime other peers already reached quorum on it,
+	// therefore we already received the finalized block through p2p block propagation.
+	// NOTE: this function execution is not atomic, the block could be not included at the time of this check
+	// and become included right after we passed the check.
+	if sb.blockchain.HasHeader(proposal.Hash(), proposal.NumberU64()) {
+		return 0, constants.ErrAlreadyHaveBlock
 	}
 
 	// verify the header of proposed proposal
@@ -310,6 +324,13 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
 	}
+
+	// Here we are considering this proposal invalid because we pruned the parent's state
+	// however this is our local node fault, not the remote proposer fault.
+	if errors.Is(err, consensus.ErrPrunedAncestor) {
+		sb.logger.Error("Rejecting a proposal because local node has pruned parent's state")
+		sb.logger.Error("Please check your pruning settings")
+	}
 	return 0, err
 }
 
@@ -350,7 +371,8 @@ func (sb *Backend) CommitteeEnodes() []string {
 		sb.logger.Error("Failed to get state", "err", err)
 		return nil
 	}
-	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock().Header(), db)
+
+	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock().Header(), db, false)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil

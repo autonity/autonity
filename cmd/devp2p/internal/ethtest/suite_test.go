@@ -42,7 +42,7 @@ func TestEthSuite(t *testing.T) {
 	}
 	defer geth.Close()
 
-	suite, err := NewSuite(geth.Server().Self(), fullchainFile, genesisFile)
+	suite, err := NewSuite(geth.ExecutionServer().Self(), fullchainFile, genesisFile)
 	if err != nil {
 		t.Fatalf("could not create new test suite: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestSnapSuite(t *testing.T) {
 	}
 	defer geth.Close()
 
-	suite, err := NewSuite(geth.Server().Self(), fullchainFile, genesisFile)
+	suite, err := NewSuite(geth.ExecutionServer().Self(), fullchainFile, genesisFile)
 	if err != nil {
 		t.Fatalf("could not create new test suite: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestSnapSuite(t *testing.T) {
 // runGeth creates and starts a geth node
 func runGeth() (*node.Node, error) {
 	stack, err := node.New(&node.Config{
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			ListenAddr:  "127.0.0.1:0",
 			NoDiscovery: true,
 			MaxPeers:    10, // in case a test requires multiple connections, can be changed in the future

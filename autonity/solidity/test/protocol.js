@@ -20,30 +20,6 @@ async function modifiedSlashingFeeAccountability(autonity, accountabilityConfig,
   return accountability;
 }
 
-async function slash(config, accountability, epochOffenceCount, offender, reporter) {
-  const event = {
-    "chunks": 1, 
-    "chunkId": 1,
-    "eventType": 0,
-    "rule": 0, // PN rule --> severity mid
-    "reporter": reporter,
-    "offender": offender,
-    "rawProof": [], 
-    "block": 1,
-    "epoch": 0,
-    "reportingBlock": 2,
-    "messageHash": 0, 
-  }
-  let tx = await accountability.slash(event, epochOffenceCount);
-  let txEvent;
-  truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
-    txEvent = ev;
-    return ev.amount.toNumber() > 0;
-  });
-  let slashingRate = utils.ruleToRate(config, event.rule) / config.slashingRatePrecision;
-  return {txEvent, slashingRate};
-}
-
 async function killValidatorWithSlash(config, accountability, offender, reporter) {
   const event = {
     "chunks": 1, 
@@ -99,7 +75,7 @@ async function selfUnbondAndSlash(config, autonity, accountability, delegator, v
   }
 
   // slash
-  let {txEvent, slashingRate} = await slash(config, accountability, 1, validator, validator);
+  let {txEvent, slashingRate} = await utils.slash(config, accountability, 1, validator, validator);
   valInfo = await autonity.getValidator(validator);
   assert.equal(
     Number(valInfo.bondedStake) + Number(valInfo.selfUnbondingStake),
@@ -155,7 +131,7 @@ async function unbondAndSlash(config, autonity, accountability, delegators, vali
     checkUnbondingRequest(request, tokenUnbondArray[i], share, false);
     requestID++;
   }
-  let {txEvent, slashingRate} = await slash(config, accountability, 1, validator, validator);
+  let {txEvent, slashingRate} = await utils.slash(config, accountability, 1, validator, validator);
   slashCount++;
   valInfo = await autonity.getValidator(validator);
   assert.equal(
@@ -219,7 +195,7 @@ async function bondSlashUnbond(config, autonity, accountability, delegators, val
 
   // to compare with expected NTN without slashing, need to store old ratio
   const oldDelegatedStakes = delegatedStakes;
-  let {txEvent, slashingRate} = await slash(config, accountability, 1, validator, validator);
+  let {txEvent, slashingRate} = await utils.slash(config, accountability, 1, validator, validator);
   valInfo = await autonity.getValidator(validator);
   assert.equal(
     Number(valInfo.bondedStake) + Number(valInfo.unbondingStake),
@@ -260,8 +236,7 @@ function checkUnbondingRequest(request, newtonAmount, share, selfDelegation) {
 
 contract('Protocol', function (accounts) {
     before(async function () {
-      console.log("\tAttempting to mock enode verifier precompile. Will (rightfully) fail if running against Autonity network")
-      await utils.mockEnodePrecompile()
+      await utils.mockPrecompile()
     });
 
   for (let i = 0; i < accounts.length; i++) {
@@ -293,11 +268,11 @@ contract('Protocol', function (accounts) {
 
   let autonity;
   let accountability;
-  describe('After effects of slashing', function () {
+  describe('After effects of slashing 1', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
-      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+      await autonity.setAccountabilityContract(accountability.address, {from: operator});
     });
 
     it('unbondingShares:unbondingStake conversion ratio', async function () {
@@ -306,7 +281,7 @@ contract('Protocol', function (accounts) {
 
 
       accountability = await modifiedSlashingFeeAccountability(autonity, accountabilityConfig, operator, deployer);
-      
+
       let delegatee = [];
       let delegators = [];
       let tokenBondArray = []
@@ -335,7 +310,14 @@ contract('Protocol', function (accounts) {
       // repeat
       await unbondAndSlash(accountabilityConfig, autonity, accountability, delegators, validator, tokenUnbond, operator, deployer, 1);
     });
+  });
 
+  describe('After effects of slashing 2', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('selfUnbondingShares:selfUnbondingStake conversion ratio', async function () {
       // issue multiple unbonding requests (selfBonded) in different epochs, interleaved with slashing events
@@ -366,6 +348,14 @@ contract('Protocol', function (accounts) {
       await selfUnbondAndSlash(accountabilityConfig, autonity, accountability, delegator, validator, tokenUnbond, maxCount, operator, deployer);
 
     });
+  });
+
+  describe('After effects of slashing 3', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('unbondingShares:unbondingStake 100% slash edge case', async function () {
       // unbonding period needs to be increased for this test to work
@@ -390,6 +380,14 @@ contract('Protocol', function (accounts) {
       await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
       await utils.endEpoch(autonity, operator, deployer);
       assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "balance increased after 100% slash");
+    });
+  });
+
+  describe('After effects of slashing 4', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('LNTN:NTN conversion ratio', async function () {
@@ -428,6 +426,14 @@ contract('Protocol', function (accounts) {
       roundingFactor = roundingFactor * (1 - slashingRate);
       await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * roundingFactor, tokenUnbond, operator, deployer);
     });
+  });
+
+  describe('After effects of slashing 5', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('LNTN:NTN 100% slash edge case', async function () {
       const validator = validators[0].nodeAddress;
@@ -449,6 +455,14 @@ contract('Protocol', function (accounts) {
       assert.equal(unbondingRequest.unbondingShare, 0, "unexpected unbondingShare");
       assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "balance increased after 100% slash");
 
+    });
+  });
+
+  describe('After effects of slashing 6', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('jailed validator rewards go to proof reporter', async function () {
@@ -478,7 +492,7 @@ contract('Protocol', function (accounts) {
       await web3.eth.sendTransaction({from: anyAccount, to: autonity.address, value: reward});
 
       let epochOffenceCount = 1;
-      await slash(accountabilityConfig, accountability, epochOffenceCount, validator, reporter)
+      await utils.slash(accountabilityConfig, accountability, epochOffenceCount, validator, reporter)
       let treasuryBalance = await web3.eth.getBalance(treasury);
       let reporterTreasuryBalance = Number(await web3.eth.getBalance(reporterTreasury));
       await utils.endEpoch(autonity, operator, deployer);
@@ -488,6 +502,14 @@ contract('Protocol', function (accounts) {
         validatorReward + reporterReward + reporterTreasuryBalance,
         "reporter did not get reward from jailed validator"
       );
+    });
+  });
+
+  describe('After effects of slashing 7', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('jailbound validator rewards go to proof reporter', async function () {
@@ -531,13 +553,21 @@ contract('Protocol', function (accounts) {
         "reporter did not get reward from jailbound validator"
       );
     });
+  });
+
+  describe('After effects of slashing 8', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
 
     it('jailed validator cannot be activated', async function () {
       const validator = validators[0].nodeAddress;
       const treasury = validators[0].treasury;
 
       let epochOffenceCount = 1;
-      let {txEvent, slashingRate} = await slash(accountabilityConfig, accountability, epochOffenceCount, validator, treasury);
+      let {txEvent, slashingRate} = await utils.slash(accountabilityConfig, accountability, epochOffenceCount, validator, treasury);
       let releaseBlock = txEvent.releaseBlock.toNumber();
 
       let validatorInfo = await autonity.getValidator(validator);
@@ -556,6 +586,105 @@ contract('Protocol', function (accounts) {
         return ev.treasury === treasury && ev.addr === validator;
       });
 
+    });
+  });
+
+  describe('After effects of slashing 9', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+    });
+
+    it('cannot bond to a non-active validator', async function () {
+      // ready task to jail, jailbound or pause a validator
+      let tasks = [];
+      let status = [];
+      let jailTask = async function(validator, reporter) {
+        let {txEvent, _} = await utils.slash(accountabilityConfig, accountability, 1, validator, reporter);
+        assert.equal(txEvent.isJailbound, false, "slashed too much, validator jailbound instead of jailed");
+      }
+      tasks.push(jailTask);
+      status.push(utils.ValidatorState.jailed);
+      let jailboundTask = async function(validator, reporter) {
+        await killValidatorWithSlash(accountabilityConfig, accountability, validator, reporter);
+      }
+      tasks.push(jailboundTask);
+      status.push(utils.ValidatorState.jailbound);
+      let pauseTask = async function(validator, treasury) {
+        let tx = await autonity.pauseValidator(validator, {from: treasury});
+        truffleAssert.eventEmitted(tx, 'PausedValidator', (ev) => {
+          return ev.treasury == treasury && ev.addr == validator;
+        });
+      }
+      tasks.push(pauseTask);
+      status.push(utils.ValidatorState.paused);
+      const count = tasks.length;
+
+      const delegator = accounts[9];
+      const tokenMint = 100;
+
+      await autonity.mint(delegator, (1+count)*tokenMint, {from: operator});
+      let delegatorBalance = (await autonity.balanceOf(delegator)).toNumber();
+      let treasuryBalances = []
+      // mint and bond
+      for (let i = 0; i < count; i++) {
+        let treasury = validators[i].treasury;
+        let validator = validators[i].nodeAddress;
+        await autonity.mint(treasury, 2*tokenMint, {from: operator});
+        treasuryBalances.push((await autonity.balanceOf(treasury)).toNumber());
+        await autonity.bond(validator, tokenMint, {from: delegator});
+        await autonity.bond(validator, tokenMint, {from: treasury});
+        assert.equal((await autonity.balanceOf(delegator)).toNumber(), delegatorBalance - tokenMint, "delegator balance did not decrease after bonding request");
+        assert.equal((await autonity.balanceOf(treasury)).toNumber(), treasuryBalances[i] - tokenMint, "treasury balance did not decrease after bonding request");
+        delegatorBalance -= tokenMint;
+      }
+
+      // perform tasks before bonding can be applied
+      let oldValInfo = [];
+      for (let i = 0; i < count; i++) {
+        let treasury = validators[i].treasury;
+        let validator = validators[i].nodeAddress;
+        await tasks[i](validator, treasury);
+        oldValInfo.push(await autonity.getValidator(validator));
+        assert.equal(oldValInfo[i].state, status[i], "validator status mismatch");
+        // cannot bond to jailed validator
+        await truffleAssert.fails(
+          autonity.bond(validator, tokenMint, {from: delegator}),
+          truffleAssert.ErrorType.REVERT,
+          "validator need to be active"
+        );
+        await truffleAssert.fails(
+          autonity.bond(validator, tokenMint, {from: treasury}),
+          truffleAssert.ErrorType.REVERT,
+          "validator need to be active"
+        );
+      }
+
+      // bonding request should be rejected
+      await utils.endEpoch(autonity, operator, deployer);
+      delegatorBalance += count*tokenMint;
+      assert.equal((await autonity.balanceOf(delegator)).toNumber(), delegatorBalance, "unexpected delegator balance");
+      for (let i = 0; i < count; i++) {
+        let validator = validators[i].nodeAddress;
+        let treasury = validators[i].treasury;
+        assert.equal((await autonity.balanceOf(treasury)).toNumber(), treasuryBalances[i], "unexpected treasury balance");
+        let newValInfo = await autonity.getValidator(validator);
+        assert.equal(newValInfo.bondedStake, oldValInfo[i].bondedStake, "bondedStake changed");
+        assert.equal(newValInfo.selfBondedStake, oldValInfo[i].selfBondedStake, "selfBondedStake changed");
+        assert.equal(newValInfo.selfUnbondingStake, oldValInfo[i].selfUnbondingStake, "selfUnbondingStake changed");
+        assert.equal(newValInfo.unbondingStake, oldValInfo[i].unbondingStake, "unbondingStake changed");
+        assert.equal(newValInfo.liquidSupply, oldValInfo[i].liquidSupply, "liquidSupply changed");
+        assert.equal(newValInfo.state, oldValInfo[i].state, "validator status mismatch");
+      }
+    });
+  });
+
+  describe('After effects of slashing 10', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('jailbound validator cannot be activated', async function () {
@@ -583,40 +712,13 @@ contract('Protocol', function (accounts) {
       assert.equal(releaseBlock, 0, "releaseBlock for jailbound validator");
 
     });
+  });
 
-    it('cannot bond to a jailbound validator', async function () {
-      let validator = validators[0].nodeAddress;
-      const treasury = validators[0].treasury;
-
-      // non-self bond
-      let delegator = accounts[9];
-      let tokenMint = 100;
-      await autonity.mint(delegator, 3*tokenMint, {from: operator});
-      // 1st bond
-      await autonity.bond(validator, tokenMint, {from: delegator});
-      await utils.endEpoch(autonity, operator, deployer);
-
-      let balance = (await autonity.balanceOf(delegator)).toNumber();
-      // 2nd bond
-      await autonity.bond(validator, tokenMint, {from: delegator});
-      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance - tokenMint, "balance did not decrease after bonding request");
-      await killValidatorWithSlash(accountabilityConfig, accountability, validator, treasury);
-      let oldValInfo = await autonity.getValidator(validator);
-
-      await truffleAssert.fails(
-        autonity.bond(validator, tokenMint, {from: delegator}),
-        truffleAssert.ErrorType.REVERT,
-        "validator need to be active"
-      );
-      // 2nd bonding should not be applied
-      await utils.endEpoch(autonity, operator, deployer);
-      assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unexpected balance");
-      let newValInfo = await autonity.getValidator(validator);
-      assert.equal(newValInfo.bondedStake, oldValInfo.bondedStake, "bondedStake changed");
-      assert.equal(newValInfo.selfBondedStake, oldValInfo.selfBondedStake, "selfBondedStake changed");
-      assert.equal(newValInfo.selfUnbondingStake, oldValInfo.selfUnbondingStake, "selfUnbondingStake changed");
-      assert.equal(newValInfo.unbondingStake, oldValInfo.unbondingStake, "unbondingStake changed");
-      assert.equal(newValInfo.liquidSupply, oldValInfo.liquidSupply, "liquidSupply changed");
+  describe('After effects of slashing 11', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
 
     it('kills validator for 100% slash', async function () {

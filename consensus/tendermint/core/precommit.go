@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -23,62 +22,44 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 			return
 		}
 		value = proposal.Block().Hash()
+		c.logger.Info("Precommiting on proposal", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
+	} else {
+		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
+
 	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
 }
 
+// HandlePrecommit process the incoming precommit message.
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
-	if err := c.checkMessageStep(precommit.R(), precommit.H(), Precommit); err != nil {
-		if errors.Is(err, constants.ErrOldRoundMessage) {
-			// We are receiving a precommit for an old round. We need to check if we have now a quorum
-			// in this old round.
-			roundMessages := c.messages.GetOrCreate(precommit.R())
-			roundMessages.AddPrecommit(precommit)
-			oldRoundProposal := roundMessages.Proposal()
-			if oldRoundProposal != nil && roundMessages.PrecommitsPower(oldRoundProposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-				c.logger.Info("Quorum on a old round proposal", "round", precommit.R())
-				if !roundMessages.IsProposalVerified() {
-					if _, err2 := c.backend.VerifyProposal(roundMessages.Proposal().Block()); err2 != nil {
-						// Impossible with the BFT assumptions of 1/3rd honest.
-						panic("Fatal Safety Error: Quorum on unverifiable proposal")
-					}
-				}
-				c.Commit(precommit.R(), c.curRoundMessages)
-				return nil
-			}
+	if precommit.R() > c.Round() {
+		return constants.ErrFutureRoundMessage
+	}
+	if precommit.R() < c.Round() {
+		// We are receiving a precommit for an old round. We need to check if we have now a quorum
+		// in this old round.
+		roundMessages := c.messages.GetOrCreate(precommit.R())
+		roundMessages.AddPrecommit(precommit)
+
+		oldRoundProposal := roundMessages.Proposal()
+		if oldRoundProposal == nil {
+			return constants.ErrOldRoundMessage
 		}
 
-		return err
+		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
+		_ = c.quorumPrecommitsCheck(ctx, oldRoundProposal, roundMessages.IsProposalVerified())
+		return constants.ErrOldRoundMessage
 	}
 
-	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
-	curProposalHash := c.curRoundMessages.ProposalHash()
+	// Precommit if for current round from here
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 	c.curRoundMessages.AddPrecommit(precommit)
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
-	if curProposalHash != (common.Hash{}) && c.curRoundMessages.PrecommitsPower(curProposalHash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		if err := c.precommitTimeout.StopTimer(); err != nil {
-			return err
-		}
-		c.logger.Debug("Stopped Scheduled Precommit Timeout")
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			c.Commit(c.Round(), c.curRoundMessages)
-		}
-
-		// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
-	} else if !c.precommitTimeout.TimerStarted() && c.curRoundMessages.PrecommitsTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		timeoutDuration := c.timeoutPrecommit(c.Round())
-		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
-		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
-	}
-
+	c.currentPrecommitChecks(ctx)
 	return nil
 }
 

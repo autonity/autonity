@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	ethereum "github.com/autonity/autonity"
+	autonity "github.com/autonity/autonity"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -108,7 +108,7 @@ type handler struct {
 	downloader   *downloader.Downloader
 	blockFetcher *fetcher.BlockFetcher
 	txFetcher    *fetcher.TxFetcher
-	peers        *peerSet
+	peers        *ethPeerSet
 
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
@@ -140,7 +140,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		database:       config.Database,
 		txpool:         config.TxPool,
 		chain:          config.Chain,
-		peers:          newPeerSet(),
+		peers:          newEthPeerSet(),
 		requiredBlocks: config.RequiredBlocks,
 		quitSync:       make(chan struct{}),
 	}
@@ -213,7 +213,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	h.blockFetcher = fetcher.NewBlockFetcher(false, nil, h.chain.GetBlockByHash, validator, h.BroadcastBlock, heighter, nil, inserter, h.removePeer)
 
 	if handler, ok := h.chain.Engine().(consensus.Handler); ok {
-		handler.SetBroadcaster(h)
+		handler.SetEnqueuer(h)
 	}
 
 	fetchTx := func(peer string, hashes []common.Hash) error {
@@ -521,7 +521,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}
-	// Otherwise if the block is indeed in out own chain, announce it
+	// Otherwise if the block is indeed in our own chain, announce it
 	if h.chain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
 			peer.AsyncSendNewBlockHash(block)
@@ -598,6 +598,6 @@ func (h *handler) txBroadcastLoop() {
 	}
 }
 
-func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
 	return h.peers.findPeers(targets)
 }

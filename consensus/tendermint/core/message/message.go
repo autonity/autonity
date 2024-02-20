@@ -204,12 +204,18 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	if ext.Height == 0 {
 		return constants.ErrInvalidMessage
 	}
+	if ext.Height != ext.ProposalBlock.NumberU64() {
+		return constants.ErrInvalidMessage
+	}
 	if ext.IsValidRoundNil {
 		if ext.ValidRound != 0 {
 			return constants.ErrInvalidMessage
 		}
 		p.validRound = -1
 	} else {
+		if ext.ValidRound >= ext.Round {
+			return constants.ErrInvalidMessage
+		}
 		p.validRound = int64(ext.ValidRound)
 	}
 	p.round = int64(ext.Round)
@@ -320,6 +326,9 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 		}
 		p.validRound = -1
 	} else {
+		if ext.ValidRound >= ext.Round {
+			return constants.ErrInvalidMessage
+		}
 		p.validRound = int64(ext.ValidRound)
 	}
 	p.round = int64(ext.Round)

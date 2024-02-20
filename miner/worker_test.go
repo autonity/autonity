@@ -17,12 +17,6 @@
 package miner
 
 import (
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/core/state"
-	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/p2p/enode"
 	"math/big"
 	"math/rand"
 	"os"
@@ -30,18 +24,23 @@ import (
 	"testing"
 	"time"
 
-	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
-
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/ethash"
+	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
+	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 )
 
@@ -76,8 +75,6 @@ var (
 
 	testConsensusKey, _ = blst.RandKey()
 
-	pop, _ = crypto.AutonityPOPProof(testUserKey, testOracleKey, testTreasuryAddress.Hex(), testConsensusKey)
-
 	// Test transactions
 	pendingTxs []*types.Transaction
 	newTxs     []*types.Transaction
@@ -94,6 +91,7 @@ func init() {
 	testTxPoolConfig = core.DefaultTxPoolConfig
 	testTxPoolConfig.Journal = ""
 	ethashChainConfig = params.TestChainConfig
+	ethashChainConfig.AutonityContractConfig.Validators = ethashChainConfig.AutonityContractConfig.Validators[0:1]
 	ethashChainConfig.AutonityContractConfig.Prepare()
 
 	tendermintChainConfig = params.TestChainConfig
@@ -102,9 +100,8 @@ func init() {
 	tendermintChainConfig.AutonityContractConfig.Validators[0].OracleAddress = testOracleAddress
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Treasury = testTreasuryAddress
 	tendermintChainConfig.AutonityContractConfig.Validators[0].ConsensusKey = testConsensusKey.PublicKey().Marshal()
-	tendermintChainConfig.AutonityContractConfig.Validators[0].Pop = pop
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Enode = enode.NewV4(&testUserKey.PublicKey, nil, 0, 0).URLv4()
-
+	tendermintChainConfig.AutonityContractConfig.Validators = tendermintChainConfig.AutonityContractConfig.Validators[0:1]
 	tendermintChainConfig.AutonityContractConfig.Prepare()
 
 	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, big.NewInt(params.InitialBaseFee), nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
@@ -285,7 +282,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 			if _, err := chain.InsertChain([]*types.Block{block}); err != nil {
 				t.Fatalf("failed to insert new mined block %d: %v", block.NumberU64(), err)
 			}
-		case <-time.After(3 * time.Second): // Worker needs 1s to include new changes.
+		case <-time.After(5 * time.Second): // Worker needs 1s to include new changes.
 			t.Fatalf("timeout")
 		}
 	}

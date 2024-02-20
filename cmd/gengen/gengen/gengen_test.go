@@ -7,10 +7,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/crypto"
 )
 
 var (
@@ -25,28 +26,9 @@ func TestGenesisCommand(t *testing.T) {
 	out, cleanup := tempFile(t)
 	defer cleanup()
 
-	keyfile1, cleanup := tempFile(t)
-	// We delete this file immediately so that a key is genrated for this validator,
-	// but we use the temp path as the destination.
-	cleanup()
-	defer cleanup()
-
-	// We fill the following 2 key files with a public and private key.
-	keyfile2, cleanup := tempFile(t)
-	defer cleanup()
-	k, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	err = ioutil.WriteFile(keyfile2, crypto.PrivECDSAToHex(k), os.ModePerm)
-	require.NoError(t, err)
-
-	keyfile3, cleanup := tempFile(t)
-	defer cleanup()
-	err = ioutil.WriteFile(keyfile3, crypto.PubECDSAToHex(&k.PublicKey), os.ModePerm)
-	require.NoError(t, err)
-
-	validator1 := "1e12,v,1,:6789," + keyfile1
-	validator2 := "1e12,s,1,:6799," + keyfile2
-	validator3 := "1e12,p,1,:6780," + keyfile3
+	validator1 := "1e12,v,1,:6789,/tmp/autonityKeys1,/tmp/oracleKey1,/tmp/treasuryKey1"
+	validator2 := "1e12,s,1,:6799,/tmp/autonityKeys2,/tmp/oracleKey2,/tmp/treasuryKey2"
+	validator3 := "1e12,p,1,:6780,/tmp/autonityKeys3,/tmp/oracleKey3,/tmp/treasuryKey3"
 
 	args := []string{
 		"",
@@ -62,7 +44,7 @@ func TestGenesisCommand(t *testing.T) {
 
 	c := NewCmd()
 	c.SetArgs(args)
-	err = c.Execute()
+	err := c.Execute()
 	require.NoError(t, err)
 
 	// Now try to load the genesis from disk
@@ -78,11 +60,9 @@ func TestGenesisCommand(t *testing.T) {
 func TestEncodeDecodeConsistency(t *testing.T) {
 	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
-	// Set one of the validators to have a publick key, just to cover more code
-	// branches.
-	k := validators[0].NodeKey
-	validators[0].NodeKey = k
+
 	g, err := NewGenesis(validators)
+	g.Config.AutonityContractConfig.ABI = nil
 	require.NoError(t, err)
 	encoded, err := json.Marshal(g)
 	require.NoError(t, err)
@@ -221,7 +201,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err := ioutil.WriteFile(keyFile, []byte("kjcld"), os.ModePerm)
 	require.NoError(t, err)
 
-	_, _, err = readNodeKey(keyFile)
+	_, _, err = readAutonityKeys(keyFile)
 	assert.Error(t, err, "garbage provided in key file")
 
 	// Write a private key missing the last hex char
@@ -231,7 +211,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err = ioutil.WriteFile(keyFile, data[:len(data)-1], os.ModePerm)
 	require.NoError(t, err)
 
-	_, _, err = readNodeKey(keyFile)
+	_, _, err = readAutonityKeys(keyFile)
 	assert.Error(t, err, "invalid key provided in key file")
 
 	// Write a public key missing the last hex char
@@ -239,7 +219,7 @@ func TestKeyParsingErrors(t *testing.T) {
 	err = ioutil.WriteFile(keyFile, data[:len(data)-1], os.ModePerm)
 	require.NoError(t, err)
 
-	_, _, err = readNodeKey(keyFile)
+	_, _, err = readAutonityKeys(keyFile)
 	assert.Error(t, err, "invalid key provided in key file")
 }
 

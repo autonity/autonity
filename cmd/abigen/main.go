@@ -25,6 +25,8 @@ import (
 	"regexp"
 	"strings"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/cmd/utils"
@@ -32,7 +34,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/internal/flags"
 	"github.com/autonity/autonity/log"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -98,6 +99,10 @@ var (
 		Name:  "alias",
 		Usage: "Comma separated aliases for function and event renaming, e.g. original1=alias1, original2=alias2",
 	}
+	testFlag = cli.BoolFlag{
+		Name:  "test",
+		Usage: "Generate test bindings",
+	}
 )
 
 func init() {
@@ -116,6 +121,7 @@ func init() {
 		outFlag,
 		langFlag,
 		aliasFlag,
+		testFlag,
 	}
 	app.Action = utils.MigrateFlags(abigen)
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
@@ -254,7 +260,7 @@ func abigen(c *cli.Context) error {
 		}
 	}
 	// Generate the contract binding
-	code, err := bind.Bind(types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases)
+	code, err := bind.Bind(types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases, c.GlobalBool(testFlag.Name))
 	if err != nil {
 		utils.Fatalf("Failed to generate ABI binding: %v", err)
 	}

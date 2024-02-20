@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto"
 	"math/big"
 	"net"
 	"strings"
@@ -327,7 +326,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 
 	genesisBonds := g.Alloc.ToGenesisBonds()
 
-	evmProvider := func(statedb *state.StateDB) *vm.EVM {
+	evmProvider := func(statedb vm.StateDB) *vm.EVM {
 		return genesisEVM(g, statedb)
 	}
 
@@ -374,7 +373,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil)), nil
 }
 
-func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
+func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 
 	evmContext := vm.BlockContext{
 		CanTransfer: CanTransfer,
@@ -388,7 +387,7 @@ func genesisEVM(genesis *Genesis, statedb *state.StateDB) *vm.EVM {
 	}
 
 	txContext := vm.TxContext{
-		Origin:   autonity.DeployerAddress,
+		Origin:   params.DeployerAddress,
 		GasPrice: new(big.Int).SetUint64(0x0),
 	}
 
@@ -597,12 +596,6 @@ func DefaultGoerliGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
-	consensusKey := params.DevModeConsensusKey
-	pop, err := crypto.AutonityPOPProof(faucet.PrivateKey, faucet.PrivateKey, faucet.Address.Hex(), consensusKey)
-	if err != nil {
-		log.Error("Error preparing Autonity POP for DEV mode, err:", err)
-	}
-
 	testAutonityContractConfig := params.AutonityContractGenesis{
 		MaxCommitteeSize: 1,
 		BlockPeriod:      1,
@@ -617,10 +610,9 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			{
 				Treasury:      faucet.Address,
 				OracleAddress: faucet.Address,
-				Pop:           pop,
 				Enode:         validatorEnode.String(),
 				BondedStake:   new(big.Int).SetUint64(1000),
-				ConsensusKey:  consensusKey.PublicKey().Marshal(),
+				ConsensusKey:  params.TestValidatorConsensusKey.PublicKey().Marshal(),
 			},
 		},
 	}
@@ -653,8 +645,8 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			LondonBlock:            big.NewInt(0),
 			ArrowGlacierBlock:      big.NewInt(0),
 			AutonityContractConfig: &testAutonityContractConfig,
-			AccountabilityConfig:   &params.TestAccountabilityConfig,
-			OracleContractConfig:   &params.OracleContractGenesis{},
+			AccountabilityConfig:   params.DefaultAccountabilityConfig,
+			OracleContractConfig:   params.DefaultGenesisOracleConfig,
 		},
 	}
 }

@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"reflect"
 	"testing"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -125,29 +123,6 @@ func TestSendPrecommit(t *testing.T) {
 }
 
 func TestHandlePrecommit(t *testing.T) {
-	t.Run("pre-commit with future height given, error returned", func(t *testing.T) {
-		addr := common.HexToAddress("0x0123456789")
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(1)
-		preCommit := message.NewPrecommit(2, 3, common.Hash{}, defaultSigner)
-
-		c := &Core{
-			address:          addr,
-			round:            1,
-			height:           big.NewInt(2),
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
-			logger:           log.New("backend", "test", "id", 0),
-			//committeeSet:     new(validatorSet),
-		}
-
-		c.SetDefaultHandlers()
-		err := c.precommiter.HandlePrecommit(context.Background(), preCommit)
-		if !errors.Is(err, constants.ErrFutureHeightMessage) {
-			t.Fatalf("Expected %v, got %v", constants.ErrFutureHeightMessage, err)
-		}
-	})
-
 	t.Run("pre-commit with invalid signature given, panic", func(t *testing.T) {
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 		member, _ := committeeSet.GetByIndex(1)
@@ -161,9 +136,12 @@ func TestHandlePrecommit(t *testing.T) {
 			height:           big.NewInt(3),
 			curRoundMessages: curRoundMessages,
 			logger:           log.New("backend", "test", "id", 0),
+			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
+			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
+			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 		}
 		c.SetDefaultHandlers()
-		c.SetStep(Precommit)
+		c.SetStep(context.Background(), Precommit)
 		defer func() {
 			if r := recover(); r == nil {
 				t.Errorf("The code did not panic")
@@ -215,6 +193,8 @@ func TestHandlePrecommit(t *testing.T) {
 			height:           big.NewInt(3),
 			step:             Precommit,
 			committee:        committeeSet,
+			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 		}
 
@@ -222,44 +202,6 @@ func TestHandlePrecommit(t *testing.T) {
 		err := c.precommiter.HandlePrecommit(context.Background(), msg)
 		if err != nil {
 			t.Fatalf("Expected nil, got %v", err)
-		}
-	})
-
-	t.Run("pre-commit given with no errors, commit cancelled", func(t *testing.T) {
-		logger := log.New("backend", "test", "id", 0)
-		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
-		member, _ := committeeSet.GetByIndex(0)
-		proposal := message.NewPropose(
-			1,
-			2,
-			1,
-			types.NewBlockWithHeader(&types.Header{}),
-			makeSigner(keys[member.Address], member.Address))
-
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
-		curRoundMessages.SetProposal(proposal, true)
-
-		msg := message.NewPrecommit(1, 2, proposal.Block().Hash(), makeSigner(keys[member.Address], member.Address))
-		msg.Validate(stubVerifier)
-
-		c := &Core{
-			address:          member.Address,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
-			logger:           logger,
-			round:            1,
-			height:           big.NewInt(2),
-			committee:        committeeSet,
-			step:             Precommit,
-			precommitTimeout: NewTimeout(Precommit, logger),
-		}
-		c.SetDefaultHandlers()
-
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		if err := c.precommiter.HandlePrecommit(ctx, msg); !errors.Is(err, context.Canceled) {
-			t.Fatalf("Expected %v, got %v", context.Canceled, err)
 		}
 	})
 

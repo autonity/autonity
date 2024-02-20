@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -36,9 +36,7 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 func (c *Core) Stop() {
 	c.logger.Debug("Stopping Tendermint Core", "addr", c.address.String())
 
-	_ = c.proposeTimeout.StopTimer()
-	_ = c.prevoteTimeout.StopTimer()
-	_ = c.precommitTimeout.StopTimer()
+	c.stopAllTimeouts()
 
 	c.cancel()
 
@@ -81,13 +79,19 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		fallthrough
-	case errors.Is(err, constants.ErrFutureStepMessage):
-		fallthrough
 	case errors.Is(err, constants.ErrNilPrevoteSent):
 		fallthrough
 	case errors.Is(err, constants.ErrNilPrecommitSent):
 		fallthrough
 	case errors.Is(err, constants.ErrMovedToNewRound):
+		fallthrough
+	case errors.Is(err, constants.ErrHeightClosed):
+		fallthrough
+	case errors.Is(err, constants.ErrAlreadyHaveBlock):
+		fallthrough
+	case errors.Is(err, consensus.ErrPrunedAncestor):
+		fallthrough
+	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false
 	case errors.Is(err, ErrValidatorJailed):
 		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
@@ -152,6 +156,11 @@ eventLoop:
 				break eventLoop
 			}
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
+				// if we already decided on this height block, ignore the timeout. It is useless by now.
+				if c.step == PrecommitDone {
+					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
+					continue
+				}
 				switch timeoutE.Step {
 				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)
@@ -225,6 +234,7 @@ eventLoop:
 		case <-ctx.Done():
 			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop
+
 		}
 	}
 
@@ -248,6 +258,12 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		// Old height messages. Do nothing.
 		return constants.ErrOldHeightMessage // No gossip
 	}
+
+	// if we already decided on this height block, discard the message. It is useless by now.
+	if c.step == PrecommitDone {
+		return constants.ErrHeightClosed
+	}
+
 	if err := msg.Validate(c.committee.CommitteeMember); err != nil {
 		c.logger.Error("Failed to validate message", "err", err)
 		c.logger.Error(msg.String())
@@ -260,42 +276,33 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	return c.handleValidMsg(ctx, msg)
 }
 
-func (c *Core) handleFutureRoundMsg(ctx context.Context, msg message.Msg, sender common.Address) {
-	// Decoding functions can't fail here
-	msgRound := msg.R()
-	if _, ok := c.futureRoundChange[msgRound]; !ok {
-		c.futureRoundChange[msgRound] = make(map[common.Address]*big.Int)
-	}
-	c.futureRoundChange[msgRound][sender] = msg.Power()
-
-	totalFutureRoundMessagesPower := new(big.Int)
-	for _, power := range c.futureRoundChange[msgRound] {
-		totalFutureRoundMessagesPower.Add(totalFutureRoundMessagesPower, power)
-	}
-
-	if totalFutureRoundMessagesPower.Cmp(c.CommitteeSet().F()) > 0 {
-		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", msgRound)
-		c.StartRound(ctx, msgRound)
-	}
-}
-
 func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 	logger := c.logger.New("from", msg.Sender())
+
+	// These checks need to be repeated here due to backlogged messages being re-injected
+
+	if c.Height().Uint64() > msg.H() {
+		return constants.ErrOldHeightMessage
+	}
+
+	if c.Height().Uint64() < msg.H() {
+		panic("Processing future message")
+	}
+
+	// if we already decided on this height block, discard the message. It is useless by now.
+	if c.step == PrecommitDone {
+		return constants.ErrHeightClosed
+	}
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
 		// We want to store only future messages in backlog
 		switch {
-		case errors.Is(err, constants.ErrFutureHeightMessage):
-			panic("Processed future message as a valid message")
 		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
 			c.storeBacklog(msg, msg.Sender())
 			// decoding must have been successful to return
-			c.handleFutureRoundMsg(ctx, msg, msg.Sender())
-		case errors.Is(err, constants.ErrFutureStepMessage):
-			logger.Debug("Storing future step message in backlog")
-			c.storeBacklog(msg, msg.Sender())
+			c.roundSkipCheck(ctx, msg, msg.Sender())
 		}
 		return err
 	}
@@ -313,8 +320,8 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
-
-	return constants.ErrInvalidMessage
+	// this should never happen, decoding only returns us propose, prevote or precommit
+	panic("handled message that is not propose, prevote or precommit")
 }
 
 func tryDisconnect(errorCh chan<- error, err error) {

@@ -18,13 +18,13 @@ import (
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
 		blockPeriod:            1, // todo: retrieve it from contract
-		address:                backend.Address(),
-		logger:                 backend.Logger(),
+		address:                address,
+		logger:                 logger,
 		backend:                backend,
 		backlogs:               make(map[common.Address][]message.Msg),
 		backlogUntrusted:       make(map[uint64][]message.Msg),
@@ -36,9 +36,9 @@ func New(backend interfaces.Backend, services *interfaces.Services) *Core {
 		lockedRound:            -1,
 		validRound:             -1,
 		curRoundMessages:       roundMessage,
-		proposeTimeout:         NewTimeout(Propose, backend.Logger()),
-		prevoteTimeout:         NewTimeout(Prevote, backend.Logger()),
-		precommitTimeout:       NewTimeout(Precommit, backend.Logger()),
+		proposeTimeout:         NewTimeout(Propose, logger),
+		prevoteTimeout:         NewTimeout(Prevote, logger),
+		precommitTimeout:       NewTimeout(Precommit, logger),
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
@@ -251,29 +251,26 @@ func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
 
-func (c *Core) Commit(round int64, messages *message.RoundMessages) {
-	c.SetStep(PrecommitDone)
+func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundMessages) {
+	c.SetStep(ctx, PrecommitDone)
 	// for metrics
 	start := time.Now()
 	proposal := messages.Proposal()
 	if proposal == nil {
-		// Should never happen really.
-		c.logger.Error("Core commit called with empty proposal")
+		// Should never happen really. Let's panic to catch bugs.
+		panic("Core commit called with empty proposal")
 		return
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-
 	committedSeals := make([][]byte, 0)
 	for _, v := range messages.PrecommitsFor(proposalHash) {
 		committedSeals = append(committedSeals, v.Signature())
 	}
-
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
-
 	if metrics.Enabled {
 		now := time.Now()
 		CommitTimer.Update(now.Sub(start))
@@ -301,8 +298,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	c.measureHeightRoundMetrics(round)
 	// Set initial FSM state
 	c.setInitialState(round)
-	// c.setStep(propose) will process the pending unmined blocks sent by the backed.Seal() and set c.lastestPendingRequest
-	c.SetStep(Propose)
+	c.SetStep(ctx, Propose)
 	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
@@ -314,20 +310,21 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		// they propose a new block.
 		if c.validValue != nil {
 			c.proposer.SendProposal(ctx, c.validValue)
-			return
-		}
-		// send proposal when there is available candidate rather than blocking the Core event loop, the
-		// handleNewCandidateBlockMsg in the Core event loop will send proposal when the available one comes if we
-		// don't have it sent here.
-		newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
-		if ok {
-			c.proposer.SendProposal(ctx, newValue)
+		} else {
+			// send proposal when there is available candidate rather than blocking the Core event loop, the
+			// handleNewCandidateBlockMsg in the Core event loop will send proposal when the available one comes if we
+			// don't have it sent here.
+			newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
+			if ok {
+				c.proposer.SendProposal(ctx, newValue)
+			}
 		}
 	} else {
 		timeoutDuration := c.timeoutPropose(round)
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
+	c.processBacklog()
 }
 
 func (c *Core) setInitialState(r int64) {
@@ -363,7 +360,7 @@ func (c *Core) setInitialState(r int64) {
 	c.proposeTimeout.Reset(Propose)
 	c.prevoteTimeout.Reset(Prevote)
 	c.precommitTimeout.Reset(Precommit)
-	c.curRoundMessages = c.messages.GetOrCreate(r)
+
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
@@ -389,7 +386,7 @@ func (c *Core) setInitialState(r int64) {
 		}
 	}
 */
-func (c *Core) SetStep(step Step) {
+func (c *Core) SetStep(ctx context.Context, step Step) {
 	now := time.Now()
 	if metrics.Enabled {
 		switch {
@@ -416,33 +413,56 @@ func (c *Core) SetStep(step Step) {
 		case c.step == Precommit && step == Propose:
 			PrecommitStepTimer.Update(now.Sub(c.stepChange))
 			PrecommitStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		// committing an old round proposal
+		// committing a proposal (old or current) due to receival of quorum precommits
 		case c.step == Propose && step == PrecommitDone:
 			ProposeStepTimer.Update(now.Sub(c.stepChange))
 			ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		case c.step == Prevote && step == PrecommitDone:
 			PrevoteStepTimer.Update(now.Sub(c.stepChange))
 			PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == PrecommitDone && step == PrecommitDone:
-			//this transition can also happen when we already received 2f+1 precommits but we did not start the new round yet.
-			PrecommitDoneStepTimer.Update(now.Sub(c.stepChange))
-			PrecommitDoneStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		default:
-			// TODO(lorenzo) this ideally should be a .Crit but these transitions do actually happen.
-			// see: https://github.com/autonity/autonity/issues/803
+			// Ideally should be a .Crit, however it does not seem right to me because in the same sceneario the node would:
+			// - crash if running the metrics
+			// - keep validating without issues if not
 			c.logger.Warn("Unexpected tendermint state transition", "c.step", c.step, "step", step)
 		}
 	}
-	c.logger.Debug("moving to step", "step", step.String(), "round", c.Round())
+	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round())
 	c.step = step
 	c.stepChange = now
-	c.processBacklog()
+
+	// stop consensus timeouts
+	c.stopAllTimeouts()
+
+	// if we are moving from propose to prevote step we need to check again line 34,36 and 44
+	// NOTE: this call to stepChangeChecks can cause recursion in the SetStep function.
+	// This can happen if the checks cause a transition to Precommit step. It is expected behaviour.
+	// If we want to remove this recursion possibility, we could post an Event that signals a step change,
+	// which will then be processed in the MainEventLoop
+	if c.step == Prevote {
+		c.stepChangeChecks(ctx)
+	}
+
+}
+
+// tries to stop all consensus timeouts
+func (c *Core) stopAllTimeouts() {
+	if err := c.proposeTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "err", err)
+	}
+	if err := c.prevoteTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "err", err)
+	}
+	if err := c.precommitTimeout.StopTimer(); err != nil {
+		c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "err", err)
+	}
 }
 
 func (c *Core) setRound(round int64) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.round = round
+	c.curRoundMessages = c.messages.GetOrCreate(round)
 }
 
 func (c *Core) setHeight(height *big.Int) {

@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"net"
 	"os"
 	"strconv"
@@ -13,19 +12,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+	"go.uber.org/goleak"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/autonity/autonity/common/fdlimit"
 	"github.com/autonity/autonity/common/graph"
 	"github.com/autonity/autonity/common/keygenerator"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
-	"github.com/davecgh/go-spew/spew"
-	"go.uber.org/goleak"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -153,14 +154,17 @@ func runTest(t *testing.T, test *testCase) {
 		peer := peer
 		peer.listener[0].Close()
 		peer.listener[1].Close()
+		peer.listener[2].Close()
 
 		rates := test.networkRates[i]
 		peer.nodeConfig, peer.ethConfig = makeNodeConfig(t, genesis, peer.nodeKey, peer.consensusKey,
 			fmt.Sprintf("127.0.0.1:%d", peer.port),
+			fmt.Sprintf("127.0.0.1:%d", peer.acnPort),
 			peer.rpcPort, rates.in, rates.out)
 
 		wg.Go(func() error {
-			return peer.startNode()
+			// if we have only a single validator, force mining start to bypass sync check
+			return peer.startNode(nodesNum == 1)
 		})
 	}
 
@@ -291,18 +295,20 @@ func (t *Topology) ConnectNodes(nodes map[string]*testNode) error {
 	edges := t.getEdges(maxNumOfBlockMum(nodes))
 	connections := t.getPeerConnections(edges)
 	for nodeKey, connectionsList := range connections {
-		m := t.transformPeerListToMap(nodes[nodeKey].node.Server().Peers(), nodes)
+		m := t.transformPeerListToMap(nodes[nodeKey].node.ExecutionServer().Peers(), nodes)
 		for k := range connectionsList {
 			if _, ok := m[k]; ok {
 				continue
 			}
-			nodes[nodeKey].node.Server().AddPeer(nodes[k].node.Server().Self())
+			nodes[nodeKey].node.ExecutionServer().AddPeer(nodes[k].node.ExecutionServer().Self())
+			nodes[nodeKey].node.ConsensusServer().AddPeer(nodes[k].node.ConsensusServer().Self())
 		}
 		for k := range m {
 			if _, ok := connectionsList[k]; ok {
 				continue
 			}
-			nodes[nodeKey].node.Server().RemovePeer(nodes[k].node.Server().Self())
+			nodes[nodeKey].node.ExecutionServer().RemovePeer(nodes[k].node.ExecutionServer().Self())
+			nodes[nodeKey].node.ConsensusServer().RemovePeer(nodes[k].node.ConsensusServer().Self())
 		}
 	}
 
@@ -313,7 +319,7 @@ func (t *Topology) transformPeerListToMap(peers []*p2p.Peer, nodes map[string]*t
 	m := make(map[string]struct{})
 	mapper := make(map[enode.ID]string, len(nodes))
 	for index, n := range nodes {
-		mapper[n.node.Server().Self().ID()] = index
+		mapper[n.node.ExecutionServer().Self().ID()] = index
 	}
 	for _, v := range peers {
 		index, ok := mapper[v.Node().ID()]
@@ -387,7 +393,7 @@ func (t *Topology) CheckTopology(nodes map[string]*testNode) error {
 	connections := t.getPeerConnections(edges)
 
 	for i, v := range connections {
-		peers := nodes[i].node.Server().Peers()
+		peers := nodes[i].node.ExecutionServer().Peers()
 		m := t.transformPeerListToMap(peers, nodes)
 		for j := range v {
 			if _, ok := v[j]; !ok {
@@ -407,7 +413,7 @@ func (t *Topology) CheckTopology(nodes map[string]*testNode) error {
 func (t *Topology) FullTopology(nodes map[string]*testNode) map[string]map[string]struct{} {
 	m := make(map[string]map[string]struct{})
 	for i, v := range nodes {
-		peers := v.node.Server().Peers()
+		peers := v.node.ExecutionServer().Peers()
 		byPeer := t.transformPeerListToMap(peers, nodes)
 		m[i] = byPeer
 	}
@@ -451,7 +457,7 @@ func (t *Topology) CheckTopologyForIndex(index string, nodes map[string]*testNod
 	fmt.Println("check started", index, blockNum)
 	allConnections := t.getPeerConnections(edges)
 	indexConnections := allConnections[index]
-	peers := node.node.Server().Peers()
+	peers := node.node.ExecutionServer().Peers()
 	m := t.transformPeerListToMap(peers, nodes)
 	for i := range indexConnections {
 		if _, ok := m[i]; !ok {
@@ -483,15 +489,17 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 	graphConnections := allConnections[index]
 	fmt.Println(dumpConnections(index, graphConnections))
 	fmt.Println()
-	peers := nodes[index].node.Server().Peers()
+	peers := nodes[index].node.ExecutionServer().Peers()
 	currentConnections := t.transformPeerListToMap(peers, nodes)
 	for k := range currentConnections {
 		if _, ok := graphConnections[k]; ok {
 			continue
 		}
 		fmt.Println("node", index, "removes to", k)
-		nodes[index].node.Server().RemovePeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().RemoveTrustedPeer(nodes[k].node.Server().Self())
+		nodes[index].node.ExecutionServer().RemovePeer(nodes[k].node.ExecutionServer().Self())
+		nodes[index].node.ExecutionServer().RemoveTrustedPeer(nodes[k].node.ExecutionServer().Self())
+		nodes[index].node.ConsensusServer().RemovePeer(nodes[k].node.ConsensusServer().Self())
+		nodes[index].node.ConsensusServer().RemoveTrustedPeer(nodes[k].node.ConsensusServer().Self())
 	}
 
 	for k := range graphConnections {
@@ -499,8 +507,10 @@ func (t *Topology) ConnectNodesForIndex(index string, nodes map[string]*testNode
 			continue
 		}
 		fmt.Println("node", index, "connects to", k)
-		nodes[index].node.Server().AddPeer(nodes[k].node.Server().Self())
-		nodes[index].node.Server().AddTrustedPeer(nodes[k].node.Server().Self())
+		nodes[index].node.ExecutionServer().AddPeer(nodes[k].node.ExecutionServer().Self())
+		nodes[index].node.ExecutionServer().AddTrustedPeer(nodes[k].node.ExecutionServer().Self())
+		nodes[index].node.ConsensusServer().AddPeer(nodes[k].node.ConsensusServer().Self())
+		nodes[index].node.ConsensusServer().AddTrustedPeer(nodes[k].node.ConsensusServer().Self())
 	}
 
 	return nil
@@ -548,8 +558,15 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 		address: crypto.PubkeyToAddress(privateKey.PublicKey),
 	}
 
-	//port
+	// atc listener
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return netNode{}, err
+	}
+	n.listener = append(n.listener, listener)
+
+	// eth listener
+	listener, err = net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return netNode{}, err
 	}
@@ -562,11 +579,15 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 	}
 	n.listener = append(n.listener, listener)
 
-	port := strings.Split(n.listener[0].Addr().String(), ":")[1]
+	acnPort := strings.Split(n.listener[0].Addr().String(), ":")[1]
+	n.acnhost = fmt.Sprintf("%s:%s", addr, acnPort)
+	n.acnPort, _ = strconv.Atoi(acnPort)
+
+	port := strings.Split(n.listener[1].Addr().String(), ":")[1]
 	n.host = fmt.Sprintf("%s:%s", addr, port)
 	n.port, _ = strconv.Atoi(port)
 
-	rpcListener := n.listener[1]
+	rpcListener := n.listener[2]
 	rpcPort, innerErr := strconv.Atoi(strings.Split(rpcListener.Addr().String(), ":")[1])
 	if innerErr != nil {
 		return netNode{}, fmt.Errorf("incorrect rpc port %w", innerErr)
@@ -574,7 +595,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 
 	n.rpcPort = rpcPort
 
-	if n.port == 0 || n.rpcPort == 0 {
+	if n.port == 0 || n.rpcPort == 0 || n.acnPort == 0 {
 		return netNode{}, fmt.Errorf("on node %s port equals 0", addr)
 	}
 
@@ -584,6 +605,7 @@ func newNode(privateKey *ecdsa.PrivateKey, addr string) (netNode, error) {
 		n.port,
 		n.port,
 	)
+	n.url = enode.AppendConsensusEndpoint(addr, strconv.Itoa(n.acnPort), n.url)
 
 	return n, nil
 }

@@ -86,7 +86,7 @@ var Defaults = Config{
 	TrieTimeout:             60 * time.Minute,
 	SnapshotCache:           102,
 	Miner: miner.Config{
-		GasCeil:  30_000_000,
+		GasCeil:  20_000_000,
 		GasPrice: big.NewInt(500_000_000),
 		Recommit: 3 * time.Second,
 	},
@@ -239,5 +239,8 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 			return engine
 		}
 	}
-	return tendermintBackend.New(ctx.Config().NodeKey(), vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger())
+
+	nodeKey, _ := ctx.Config().AutonityKeys()
+	//todo: config consensus key to engine with the returned keys from ctx.Config().AutonityKeys()
+	return tendermintBackend.New(nodeKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger())
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -14,6 +13,12 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/consul/sdk/freeport"
+
+	"github.com/autonity/autonity/consensus/acn"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
@@ -29,18 +34,24 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
-	"github.com/hashicorp/consul/sdk/freeport"
+)
+
+const (
+	addrAny = "0.0.0.0"
 )
 
 var (
 	baseNodeConfig = &node.Config{
 		Name:    "autonity",
 		Version: params.Version,
-		P2P: p2p.Config{
+		ExecutionP2P: p2p.Config{
 			MaxPeers: 100,
 		},
-		HTTPHost: "0.0.0.0",
-		WSHost:   "0.0.0.0",
+		ConsensusP2P: p2p.Config{
+			MaxPeers: 100000,
+		},
+		HTTPHost: addrAny,
+		WSHost:   addrAny,
 	}
 
 	baseEthConfig = &eth.Config{
@@ -112,8 +123,13 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	}
 
 	// p2p key and address
-	c.P2P.PrivateKey = u.NodeKey
-	c.P2P.ListenAddr = "0.0.0.0:" + strconv.Itoa(u.NodePort)
+	c.ExecutionP2P.PrivateKey = u.NodeKey
+	c.ExecutionP2P.ListenAddr = addrAny + ":" + strconv.Itoa(u.NodePort)
+
+	// consensus key used by consensus engine.
+	c.ConsensusKey = u.ConsensusKey
+	c.ConsensusP2P.PrivateKey = u.NodeKey
+	c.ConsensusP2P.ListenAddr = addrAny + ":" + strconv.Itoa(u.AcnPort)
 
 	// consensus key used by consensus engine.
 	c.ConsensusKey = u.ConsensusKey
@@ -173,7 +189,13 @@ func (n *Node) Start() error {
 		}
 	}()
 
+	copyConsensusKey, err := blst.SecretKeyFromBytes(n.Config.ConsensusKey.Marshal())
+	if err != nil {
+		return err
+	}
 	nodeConfigCopy := *n.Config
+	nodeConfigCopy.ConsensusKey = copyConsensusKey
+
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
 	// copy, since it is not useful for black box testing and it is also not
@@ -187,7 +209,7 @@ func (n *Node) Start() error {
 		}
 		return b
 	})))
-	logger.Verbosity(log.LvlDebug)
+	logger.Verbosity(log.LvlError)
 
 	nodeConfigCopy.Logger = log.New()
 	nodeConfigCopy.Logger.SetHandler(logger)
@@ -207,10 +229,12 @@ func (n *Node) Start() error {
 		return err
 	}
 	// setting EtherBase for miner
-	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(n.Node.Config().NodeKey().PublicKey)
+	nodeKey, _ := n.Node.Config().AutonityKeys()
+	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(nodeKey.PublicKey)
 	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}
+	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
 	if _, _, err = core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis); err != nil {
 		return fmt.Errorf("cannot setup genesis block: %w", err)
 	}
@@ -230,7 +254,7 @@ func (n *Node) Start() error {
 // Close shuts down the node and releases all resources and removes the datadir
 // unless an error is returned, in which case there is no guarantee that all
 // resources are released.
-func (n *Node) Close() error {
+func (n *Node) Close(deleteDataDir bool) error {
 	if !n.isRunning {
 		return nil
 	}
@@ -248,7 +272,9 @@ func (n *Node) Close() error {
 	if n.Node != nil {
 		err = n.Node.Close() // This also shuts down the Eth service
 	}
-	os.RemoveAll(n.Config.DataDir)
+	if deleteDataDir {
+		os.RemoveAll(n.Config.DataDir)
+	}
 	return err
 }
 
@@ -528,6 +554,10 @@ func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, star
 	network := make([]*Node, len(validators))
 	for i, u := range validators {
 		n, err := NewNode(t, u, g, i)
+		if len(validators) > 21 {
+			n.EthConfig.DatabaseCache = 16
+			n.EthConfig.DatabaseHandles = 8
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to build node for network: %v", err)
 		}
@@ -577,7 +607,7 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 func (nw Network) Shutdown() {
 	for _, node := range nw {
 		if node != nil && node.isRunning {
-			err := node.Close()
+			err := node.Close(true)
 			if err != nil {
 				fmt.Printf("error shutting down node %v: %v", node.Address.String(), err)
 			}
@@ -631,6 +661,11 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 		if err != nil {
 			return nil, err
 		}
+
+		//add port ip for consensus channel
+		u.AcnIP = u.NodeIP
+		u.AcnPort = freeport.GetOne(t)
+		u.TreasuryKey, _ = crypto.GenerateKey()
 		validators = append(validators, u)
 	}
 	return validators, nil
@@ -665,11 +700,17 @@ func Genesis(users []*gengen.Validator, options ...gengen.GenesisOption) (*core.
 func copyNodeConfig(source, dest *node.Config) error {
 	s := &MarshalableNodeConfig{}
 	s.Config = *source
-	p := MarshalableP2PConfig{}
-	p.Config = source.P2P
 
-	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.P2P.PrivateKey)
+	p := MarshalableP2PConfig{}
+	p.Config = source.ExecutionP2P
+	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.ExecutionP2P.PrivateKey)
 	s.P2P = p
+
+	cns := MarshalableP2PConfig{}
+	cns.Config = source.ConsensusP2P
+	cns.PrivateKey = (*MarshalableECDSAPrivateKey)(source.ConsensusP2P.PrivateKey)
+	s.ConsensusP2P = cns
+
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -680,14 +721,17 @@ func copyNodeConfig(source, dest *node.Config) error {
 		return err
 	}
 	*dest = u.Config
-	dest.P2P = u.P2P.Config
-	dest.P2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
+	dest.ExecutionP2P = u.P2P.Config
+	dest.ConsensusP2P = u.ConsensusP2P.Config
+	dest.ExecutionP2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
+	dest.ConsensusP2P.PrivateKey = (*ecdsa.PrivateKey)(u.ConsensusP2P.PrivateKey)
 	return nil
 }
 
 type MarshalableNodeConfig struct {
 	node.Config
-	P2P MarshalableP2PConfig
+	P2P          MarshalableP2PConfig
+	ConsensusP2P MarshalableP2PConfig
 }
 
 type MarshalableP2PConfig struct {

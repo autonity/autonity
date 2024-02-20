@@ -51,6 +51,9 @@ autonity:
 bindings:
 	@echo Generating protocol contracts bindings
 	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol "$(CONTRACTS_DIR)/bindings.sol" --out ./autonity/bindings.go
+	@echo Generating internal testing bindings
+	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/tests/bindings.go
+
 
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
 # glibc for solc.
@@ -86,6 +89,9 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,Oracle)
 	@$(call gen-contract,,AutonityUpgradeTest)
 	@$(call gen-contract,,Accountability)
+	@$(call gen-contract,,AutonityTest)
+	@$(call gen-contract,,AccountabilityTest)
+	@$(call gen-contract,,UpgradeManager)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
@@ -95,7 +101,8 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	# Generate go bindings
 	@echo Generating protocol contracts bindings
 	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/bindings.go
-
+	@echo Generating internal testing bindings
+	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/tests/bindings.go
 
 
 $(SOLC_BINARY):
@@ -164,7 +171,14 @@ test-contracts-pre:
 
 APE_VERSION := 0.6.26
 HARDHAT_VERSION := 2.19.1
-test-contracts-asm:
+test-contracts-asm: test-contracts-asm-pre
+	@echo "run tests for the asm contracts"
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/acu
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/stabilization
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/supply_control
+
+.PHONY: test-contracts-asm-pre
+test-contracts-asm-pre:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
 	@echo "check ape framework version"
@@ -178,8 +192,6 @@ test-contracts-asm:
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
-	@echo "run tests for the asm contracts"
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm
 
 # start an autonity network for contract tests
 start-autonity:

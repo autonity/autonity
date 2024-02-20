@@ -64,6 +64,8 @@ func (n *fullNode) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, nodes)
 }
 
+// do we want to create a new copy of the node so that modifying the new one does not affect the old one?
+// in that case is copy() implemented properly
 func (n *fullNode) copy() *fullNode   { copy := *n; return &copy }
 func (n *shortNode) copy() *shortNode { copy := *n; return &copy }
 

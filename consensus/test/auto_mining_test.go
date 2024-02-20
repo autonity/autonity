@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethclient"
-	"github.com/stretchr/testify/require"
 )
 
 // test committee members should all start the mining workers.
@@ -30,11 +31,11 @@ func TestAutoMiningForCommitteeMembers(t *testing.T) {
 	runTest(t, testCase)
 }
 
-// test none-committee member validators should not start the mining workers.
-func TestAutoMiningForNoneCommitteeValidator(t *testing.T) {
+// test non-committee member validators should not start the mining workers.
+func TestAutoMiningForNonCommitteeValidator(t *testing.T) {
 	numOfValidators := 2
 	testCase := &testCase{
-		name:          "Auto mining test, none committee member should not start mining",
+		name:          "Auto mining test, non committee member should not start mining",
 		numValidators: numOfValidators,
 		numBlocks:     15,
 		genesisHook: func(g *core.Genesis) *core.Genesis {

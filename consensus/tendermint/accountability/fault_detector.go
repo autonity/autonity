@@ -16,7 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
@@ -48,8 +47,6 @@ const (
 )
 
 var (
-	errInvalidRound    = errors.New("invalid round or steps")
-	errWrongValidRound = errors.New("wrong valid-round")
 	errDuplicatedMsg   = errors.New("duplicated msg")
 	errEquivocation    = errors.New("equivocation")
 	errFutureMsg       = errors.New("future height msg")
@@ -83,6 +80,7 @@ type FaultDetector struct {
 	transactOps *bind.TransactOpts
 
 	eventReporterCh chan *autonity.AccountabilityEvent
+	stopRetry       chan struct{}
 	// chain event subscriber for rule engine.
 	ruleEngineBlockCh  chan core.ChainEvent
 	ruleEngineBlockSub event.Subscription
@@ -142,6 +140,7 @@ func NewFaultDetector(
 		msgStore:              ms,
 		chainEventCh:          make(chan core.ChainEvent, 300),
 		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
+		stopRetry:             make(chan struct{}),
 		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
 		futureMessages:        make(map[uint64][]message.Msg),
 		futureMessageCount:    0,
@@ -268,7 +267,7 @@ tendermintMsgLoop:
 				if h <= curHeight {
 					for _, m := range messages {
 						if err := fd.processMsg(m); err != nil {
-							fd.logger.Error("Fault detector: error while processing consensus msg", "err", err)
+							fd.logger.Warn("Fault detector: processing consensus msg", "result", err)
 						}
 					}
 					// once messages are processed, delete it from buffer.
@@ -405,6 +404,7 @@ func (fd *FaultDetector) Stop() {
 	fd.chainEventSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	fd.accountabilityEventSub.Unsubscribe()
+	close(fd.stopRetry)
 	close(fd.eventReporterCh)
 	fd.wg.Wait()
 }
@@ -1145,7 +1145,6 @@ precommitLoop:
 		// Skip if preCommit is equivocated
 		precommitsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			return m.Sender() == precommit.Sender() && m.Code() == message.PrecommitCode && m.R() == precommit.R()
-
 		})
 		// Due to the for loop there must be at least one preCommit.
 		if len(precommitsForR) > 1 {
@@ -1221,12 +1220,6 @@ func (fd *FaultDetector) submitMisbehavior(m message.Msg, evidence []message.Msg
 }
 
 func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propose) error {
-	// todo (Jason): do we need this:
-	if proposal.R() > constants.MaxRound {
-		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errInvalidRound)
-		return errInvalidRound
-	}
-
 	// skip processing duplicated msg.
 	duplicated := engineCore.GetStore(fd.msgStore, proposal.H(), func(p *message.Propose) bool {
 		return p.R() == proposal.R() &&
@@ -1243,12 +1236,6 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 	if !isProposerValid(fd.blockchain, proposal) {
 		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errProposer)
 		return errProposer
-	}
-
-	// account for wrong valid round.
-	if proposal.ValidRound() >= proposal.R() {
-		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errWrongValidRound)
-		return errWrongValidRound
 	}
 
 	// account for equivocation
@@ -1271,10 +1258,6 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 }
 
 func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
-	if m.R() > constants.MaxRound {
-		fd.submitMisbehavior(m, nil, errInvalidRound)
-		return errInvalidRound
-	}
 	// skip process duplicated for votes.
 	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Msg) bool {
 		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() == m.Value()
@@ -1298,10 +1281,6 @@ func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
 func errorToRule(err error) (autonity.Rule, error) {
 	var rule autonity.Rule
 	switch {
-	case errors.Is(err, errWrongValidRound):
-		rule = autonity.WrongValidRound
-	case errors.Is(err, errInvalidRound):
-		rule = autonity.InvalidRound
 	case errors.Is(err, errEquivocation):
 		rule = autonity.Equivocation
 	case errors.Is(err, errProposer):

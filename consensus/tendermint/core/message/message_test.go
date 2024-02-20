@@ -2,6 +2,7 @@ package message
 
 import (
 	"bytes"
+	"errors"
 	"math/big"
 	"reflect"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 
@@ -28,40 +30,70 @@ var (
 func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
 		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner)
-		decrypted := &Prevote{}
+		decoded := &Prevote{}
 		reader := bytes.NewReader(vote.Payload())
-		if err := rlp.Decode(reader, decrypted); err != nil {
+		if err := rlp.Decode(reader, decoded); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
-		if decrypted.Value() != vote.Value() {
-			t.Errorf("values are not the same: have %v, want %v", decrypted, vote)
+		if decoded.Value() != vote.Value() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
 		}
-		if decrypted.H() != vote.H() {
-			t.Errorf("values are not the same: have %v, want %v", decrypted, vote)
+		if decoded.H() != vote.H() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
 		}
-		if decrypted.R() != vote.R() {
-			t.Errorf("values are not the same: have %v, want %v", decrypted, vote)
+		if decoded.R() != vote.R() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
 		}
 	})
 	t.Run("precommit", func(t *testing.T) {
 		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), defaultSigner)
-		decrypted := &Precommit{}
+		decoded := &Precommit{}
 		reader := bytes.NewReader(vote.Payload())
-		if err := rlp.Decode(reader, decrypted); err != nil {
+		if err := rlp.Decode(reader, decoded); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
-		if decrypted.Value() != vote.Value() {
-			t.Errorf("values are not the same: have %v, want %v", decrypted, vote)
+		if decoded.Value() != vote.Value() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
 		}
-		if decrypted.H() != vote.H() {
-			t.Errorf("values are not the same: have %v, want %v", decrypted, vote)
+		if decoded.H() != vote.H() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
 		}
-		if decrypted.R() != vote.R() {
-			t.Errorf("values are not the same: have %v, want %v", decrypted, vote)
+		if decoded.R() != vote.R() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
 		}
 	})
 	t.Run("propose", func(t *testing.T) {
-		//todo: ...
+		header := &types.Header{Number: common.Big2}
+		block := types.NewBlockWithHeader(header)
+		proposal := NewPropose(1, 2, -1, block, defaultSigner)
+		decoded := &Propose{}
+		reader := bytes.NewReader(proposal.Payload())
+		if err := rlp.Decode(reader, decoded); err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+		if decoded.Value() != proposal.Value() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
+		}
+		if decoded.H() != proposal.H() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
+		}
+		if decoded.R() != proposal.R() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
+		}
+		if decoded.ValidRound() != proposal.ValidRound() {
+			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
+		}
+	})
+	t.Run("invalid propose with vr > r", func(t *testing.T) {
+		header := &types.Header{Number: common.Big2}
+		block := types.NewBlockWithHeader(header)
+		proposal := NewPropose(1, 2, 57, block, defaultSigner)
+		decoded := &Propose{}
+		reader := bytes.NewReader(proposal.Payload())
+		err := rlp.Decode(reader, decoded)
+		if !errors.Is(err, constants.ErrInvalidMessage) {
+			t.Error("Decoding should have failed")
+		}
 	})
 }
 
@@ -135,7 +167,8 @@ func TestMessageEncodeDecode(t *testing.T) {
 	}
 	c.Members = append(c.Members, validator)
 
-	lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: c}
+	lastHeader := &types.Header{Number: new(big.Int).SetUint64(2), Committee: c}
+
 	messages := []Msg{
 		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), signer).MustVerify(stubVerifier),
 		NewPrevote(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),

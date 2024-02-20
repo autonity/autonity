@@ -3,13 +3,14 @@ package test
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"net"
 	"sync"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/node"
@@ -43,12 +44,15 @@ type testNode struct {
 
 type netNode struct {
 	listener []net.Listener
-	nodeKey  *ecdsa.PrivateKey // used to generate POP in genesis, and p2p messaging.
-	host     string
-	address  common.Address
-	port     int
-	url      string
-	rpcPort  int
+
+	nodeKey *ecdsa.PrivateKey
+	host    string
+	acnhost string
+	address common.Address
+	port    int
+	acnPort int
+	url     string
+	rpcPort int
 }
 
 func (n *netNode) EthAddress() common.Address {
@@ -60,7 +64,7 @@ type block struct {
 	txs  int
 }
 
-func (validator *testNode) startNode() error {
+func (validator *testNode) startNode(forceMining bool) error {
 	// Start the node and configure a full Ethereum node on it
 	var err error
 	validator.node, err = node.New(validator.nodeConfig)
@@ -73,12 +77,18 @@ func (validator *testNode) startNode() error {
 		return err
 	}
 
+	acn.New(validator.node, validator.service, validator.ethConfig.NetworkID)
+
 	if err := validator.node.Start(); err != nil {
 		return fmt.Errorf("cannot start a node %s", err)
 	}
 
+	if forceMining {
+		validator.service.StartMining(0)
+	}
+
 	// Start tracking the node and it's enode
-	validator.enode = validator.node.Server().Self()
+	validator.enode = validator.node.ExecutionServer().Self()
 	return nil
 }
 

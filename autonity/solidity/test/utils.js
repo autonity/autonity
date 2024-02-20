@@ -1,16 +1,21 @@
 const assert = require('assert');
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
+const UpgradeManager = artifacts.require("UpgradeManager");
 const Oracle = artifacts.require("Oracle")
 const Acu = artifacts.require("ACU")
 const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
+const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
 const ethers = require('ethers');
+const truffleAssert = require('truffle-assertions');
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
@@ -113,30 +118,52 @@ function timeout(ms) {
 }
 
 // set solidity bytecode at arbitrary address address
-async function setCode(addr, code) {
+async function setCode(addr, code, contractName) {
   return new Promise((resolve, reject) => {
     web3.currentProvider.send({
       method: "evm_setAccountCode",
       params: [addr, code]
     }, (err, res) => {
-      if (res?.result) { resolve("\tSuccessfully mocked verifier precompile."); }
-      else { reject("\tError while mocking verifier precompile."); }
+      if (res?.result) { resolve(`\tSuccessfully mocked ${contractName} precompile.`); }
+      else { reject(`\tError while mocking ${contractName} precompile.`); }
     });
   });
 }
 
+async function mockPrecompile() {
+  await mockEnodePrecompile();
+  await mockCommitteeSelectorPrecompile();
+}
+
 // mock verify enode precompiled contract
 async function mockEnodePrecompile() {
+      console.log("\tAttempting to mock enode verifier precompile. Will (rightfully) fail if running against Autonity network")
       const instance = await mockEnodeVerifier.new();
       console.log("enode verifier mocker address: ", instance.address)
       const code = await web3.eth.getCode(instance.address);
       const verifyEnodeAddr = "0x00000000000000000000000000000000000000ff";
-      await setCode(verifyEnodeAddr, code).then(
+      await setCode(verifyEnodeAddr, code, "enode verifier").then(
         (result) => {
             console.log(result); 
         },
         (error) => {
             console.log(error); 
+    });
+}
+
+// mock committee selector precompiled contract
+async function mockCommitteeSelectorPrecompile() {
+  console.log("\tAttempting to mock committee selector precompile. Will (rightfully) fail if running against Autonity network")
+  const instance = await mockCommitteeSelector.new();
+  console.log("committee selector mocker address: ", instance.address)
+  const code = await web3.eth.getCode(instance.address);
+  const contractAddress = "0x00000000000000000000000000000000000000fa";
+  await setCode(contractAddress, code, "committee selector").then(
+    (result) => {
+        console.log(result); 
+    },
+    (error) => {
+        console.log(error); 
     });
 }
 
@@ -215,7 +242,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
     "targetPrice" : 0,
   }
   const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
-
+  const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
   // setters
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
   
@@ -224,6 +251,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setSupplyControlContract(acu.address, {from: operator});
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
+  await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
 }
 
@@ -303,14 +331,14 @@ function publicKeyObject(privateKey) {
   return ec.keyFromPrivate(privateKey).getPublic();
 }
 
-function publicKey(privateKey, hex = true) {
-  let publicKey = publicKeyObject(privateKey);
-  return (hex == true) ? publicKey.encode("hex") : new Uint8Array(publicKey.encode());
-}
-
 function publicKeyCompressed(privateKey, hex = true) {
   let publicKey = publicKeyObject(privateKey);
   return (hex == true) ? publicKey.encodeCompressed("hex") : new Uint8Array(publicKey.encodeCompressed());
+}
+
+function publicKey(privateKey, hex = true) {
+  let publicKey = publicKeyObject(privateKey);
+  return (hex == true) ? publicKey.encode("hex") : new Uint8Array(publicKey.encode());
 }
 
 function address(publicKeyUncompressedBytes) {
@@ -324,24 +352,71 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
   return multisig
 }
 
-// todo: (Jason) rewrite this function since the BLS POP is required.
-async function registerValidator(autonity, validatorPrivateKey, treasuryAddr) {
-  let multisig = generateMultiSig(validatorPrivateKey, validatorPrivateKey, treasuryAddr);
-  let oracleAddress = address(publicKey(validatorPrivateKey, false));
-  let enode = privateKeyToEnode(validatorPrivateKey);
-  await autonity.registerValidator(enode, oracleAddress, multisig, {from: treasuryAddr});
-  return oracleAddress;
+async function generateAutonityPOP(autonityKeysFile, oracleKeyHex, treasuryAddress) {
+  const command = `../../../build/bin/autonity genOwnershipProof --autonitykeys ${autonityKeysFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
+  try {
+    const { stdout, stderr } = await exec(command);
+    if (stderr) {
+      throw new Error(stderr);
+    }
+    const outputLines = stdout.split('\n');
+    const signatures = outputLines[0].trim();
+    return { signatures };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function generateAutonityKeys(filePath) {
+  try {
+    const command = `../../../build/bin/autonity genAutonityKeys --writeaddress ${filePath}`;
+    const { stdout, stderr } = await exec(command);
+    if (stderr) {
+      throw new Error(stderr);
+    }
+    const nodeAddress = stdout.match(/Node address: (0x[0-9a-fA-F]+)/)[1];
+    const nodePublicKey = stdout.match(/Node public key: (0x[0-9a-fA-F]+)/)[1];
+    const nodeConsensusKey = stdout.match(/Consensus public key: (0x[0-9a-fA-F]+)/)[1];
+    return { nodeAddress, nodePublicKey, nodeConsensusKey };
+  } catch (error) {
+    throw new Error(`Failed to execute command: ${error.message}`);
+  }
 }
 
 function keccakHash(input) {
   return keccak256(Buffer.from(input)).toString('hex');
 }
 
+async function slash(config, accountability, epochOffenceCount, offender, reporter) {
+  const event = {
+    "chunks": 1,
+    "chunkId": 1,
+    "eventType": 0,
+    "rule": 0, // PN rule --> severity mid
+    "reporter": reporter,
+    "offender": offender,
+    "rawProof": [],
+    "block": 1,
+    "epoch": 0,
+    "reportingBlock": 2,
+    "messageHash": 0,
+  }
+  let tx = await accountability.slash(event, epochOffenceCount);
+  let txEvent;
+  truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
+    txEvent = ev;
+    return ev.amount.toNumber() > 0;
+  });
+  let slashingRate = ruleToRate(config, event.rule) / config.slashingRatePrecision;
+  return {txEvent, slashingRate};
+}
+
 module.exports.deployContracts = deployContracts;
 module.exports.deployAutonityTestContract = deployAutonityTestContract;
 module.exports.mineEmptyBlock = mineEmptyBlock;
 module.exports.setCode = setCode;
-module.exports.mockEnodePrecompile = mockEnodePrecompile;
+module.exports.mockPrecompile = mockPrecompile;
+module.exports.mockCommitteeSelectorPrecompile = mockCommitteeSelectorPrecompile;
 module.exports.timeout = timeout;
 module.exports.waitForNewBlock = waitForNewBlock;
 module.exports.endEpoch = endEpoch;
@@ -355,5 +430,12 @@ module.exports.signAndSendTransaction = signAndSendTransaction;
 module.exports.bytesToHex = bytesToHex;
 module.exports.randomPrivateKey = randomPrivateKey;
 module.exports.generateMultiSig = generateMultiSig;
-module.exports.registerValidator = registerValidator;
 module.exports.ValidatorState = ValidatorState;
+module.exports.generateAutonityPOP = generateAutonityPOP;
+module.exports.generateAutonityKeys = generateAutonityKeys;
+module.exports.publicKeyToEnode = publicKeyToEnode;
+module.exports.privateKeyToEnode = privateKeyToEnode;
+module.exports.publicKeyCompressed = publicKeyCompressed;
+module.exports.publicKey = publicKey;
+module.exports.address = address;
+module.exports.slash = slash;

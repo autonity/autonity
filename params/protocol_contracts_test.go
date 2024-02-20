@@ -14,48 +14,30 @@ import (
 )
 
 func TestPrepareAutonityContract(t *testing.T) {
-
-	treasury1, _ := crypto.GenerateKey()
-	nodeKey1, _ := crypto.GenerateKey()
-	oracleKey1, _ := crypto.GenerateKey()
-	nodeAddr1 := crypto.PubkeyToAddress(nodeKey1.PublicKey)
-	enode1 := enode.NewV4(&nodeKey1.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	consensusKey1, err := blst.RandKey()
-	require.NoError(t, err)
-	pop1, _ := crypto.AutonityPOPProof(nodeKey1, oracleKey1, crypto.PubkeyToAddress(treasury1.PublicKey).Hex(), consensusKey1)
-
-	treasury2, _ := crypto.GenerateKey()
-	nodeKey2, _ := crypto.GenerateKey()
-	oracleKey2, _ := crypto.GenerateKey()
-	nodeAddr2 := crypto.PubkeyToAddress(nodeKey2.PublicKey)
-	enode2 := enode.NewV4(&nodeKey2.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
-	consensusKey2, err := blst.RandKey()
-	require.NoError(t, err)
-	pop2, _ := crypto.AutonityPOPProof(nodeKey2, oracleKey2, crypto.PubkeyToAddress(treasury2.PublicKey).Hex(), consensusKey2)
-
+	committeeSize := 21
 	contractConfig := AutonityContractGenesis{
 		Operator:         common.HexToAddress("0xff"),
-		MaxCommitteeSize: 21,
-		Validators: []*Validator{
-			{
-				Treasury:      crypto.PubkeyToAddress(treasury1.PublicKey),
-				Enode:         enode1.String(),
-				NodeAddress:   &nodeAddr1,
-				OracleAddress: crypto.PubkeyToAddress(oracleKey1.PublicKey),
-				BondedStake:   big.NewInt(1),
-				ConsensusKey:  consensusKey1.PublicKey().Marshal(),
-				Pop:           pop1,
-			},
-			{
-				Treasury:      crypto.PubkeyToAddress(treasury2.PublicKey),
-				Enode:         enode2.String(),
-				NodeAddress:   &nodeAddr2,
-				OracleAddress: crypto.PubkeyToAddress(oracleKey2.PublicKey),
-				BondedStake:   big.NewInt(1),
-				ConsensusKey:  consensusKey2.PublicKey().Marshal(),
-				Pop:           pop2,
-			},
-		},
+		MaxCommitteeSize: uint64(committeeSize),
+	}
+
+	for i := 0; i < committeeSize; i++ {
+		treasury, _ := crypto.GenerateKey()
+		nodeKey, _ := crypto.GenerateKey()
+		oracleKey, _ := crypto.GenerateKey()
+		nodeAddr := crypto.PubkeyToAddress(nodeKey.PublicKey)
+		enode := enode.NewV4(&nodeKey.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
+		consensusKey, err := blst.RandKey()
+		require.NoError(t, err)
+
+		validator := &Validator{
+			Treasury:      crypto.PubkeyToAddress(treasury.PublicKey),
+			Enode:         enode.String(),
+			NodeAddress:   &nodeAddr,
+			OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
+			BondedStake:   big.NewInt(1),
+			ConsensusKey:  consensusKey.PublicKey().Marshal(),
+		}
+		contractConfig.Validators = append(contractConfig.Validators, validator)
 	}
 	assert.NoError(t, contractConfig.Prepare())
 }
@@ -106,7 +88,6 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	enode := enode.NewV4(&nodeKey.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
 	consensusKey, err := blst.RandKey()
 	require.NoError(t, err)
-	pop, _ := crypto.AutonityPOPProof(nodeKey, oracleKey, crypto.PubkeyToAddress(treasury.PublicKey).Hex(), consensusKey)
 
 	contractConfig := &AutonityContractGenesis{
 		MaxCommitteeSize: 21,
@@ -116,7 +97,6 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 				Enode:         enode.String(),
 				OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
 				ConsensusKey:  consensusKey.PublicKey().Marshal(),
-				Pop:           pop,
 				BondedStake:   big.NewInt(1),
 			},
 		},

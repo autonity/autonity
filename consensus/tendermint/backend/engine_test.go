@@ -11,18 +11,19 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"go.uber.org/mock/gomock"
 )
 
 func TestPrepare(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	header := makeHeader(chain.Genesis())
+	header := makeHeader(chain.Genesis(), chain)
 	err := engine.Prepare(chain, header)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -492,10 +493,14 @@ func TestStart(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
-		tendermintC.EXPECT().Start(ctx, chain.ProtocolContracts()).MaxTimes(1)
+
+		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
 			core:        tendermintC,
+			gossiper:    g,
 			coreStarted: false,
 			blockchain:  chain,
 		}
@@ -523,8 +528,12 @@ func TestStart(t *testing.T) {
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		chain, _ := newBlockChain(1)
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
+
 		b := &Backend{
 			core:        tendermintC,
+			gossiper:    g,
 			coreStarted: false,
 			blockchain:  chain,
 		}
@@ -544,10 +553,14 @@ func TestStart(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
-		tendermintC.EXPECT().Start(ctx, chain.ProtocolContracts()).AnyTimes()
+
+		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
 			core:        tendermintC,
+			gossiper:    g,
 			coreStarted: false,
 			blockchain:  chain,
 		}
@@ -595,10 +608,13 @@ func TestMultipleRestart(t *testing.T) {
 	ctx := context.Background()
 	tendermintC := interfaces.NewMockCore(ctrl)
 	chain, _ := newBlockChain(1)
-	tendermintC.EXPECT().Start(ctx, chain.ProtocolContracts()).MaxTimes(times)
-	tendermintC.EXPECT().Stop().MaxTimes(5)
+
+	g := interfaces.NewMockGossiper(ctrl)
+	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
+
 	b := &Backend{
 		core:        tendermintC,
+		gossiper:    g,
 		coreStarted: false,
 		blockchain:  chain,
 	}

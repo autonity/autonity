@@ -67,7 +67,7 @@ func generateCommittee() (*types.Committee, []*ecdsa.PrivateKey) {
 func newBlockHeader(height uint64, committee *types.Committee) *types.Header {
 	// use random nonce to create different blocks
 	var nonce types.BlockNonce
-	for i := range nonce {
+	for i := 0; i < len(nonce); i++ {
 		nonce[i] = byte(rand.Intn(256)) //nolint
 	}
 	return &types.Header{

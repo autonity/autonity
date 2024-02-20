@@ -44,6 +44,8 @@ const (
 	ENRResponsePacket
 )
 
+var AutMagic = []byte{'a', 'u', 't'}
+
 // RPC request structures
 type (
 	Ping struct {
@@ -192,14 +194,16 @@ func Expired(ts uint64) bool {
 // Encoder/decoder.
 
 const (
-	macSize  = 32
-	sigSize  = crypto.SignatureLength
-	headSize = macSize + sigSize // space of packet frame data
+	magicSize = 3
+	macSize   = 32
+	sigSize   = crypto.SignatureLength
+	headSize  = magicSize + macSize + sigSize // space of packet frame data
 )
 
 var (
 	ErrPacketTooSmall = errors.New("too small")
 	ErrBadHash        = errors.New("bad hash")
+	ErrBadMagic       = errors.New("bad magic")
 	ErrBadPoint       = errors.New("invalid curve point")
 )
 
@@ -210,8 +214,11 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 	if len(input) < headSize+1 {
 		return nil, Pubkey{}, nil, ErrPacketTooSmall
 	}
-	hash, sig, sigdata := input[:macSize], input[macSize:headSize], input[headSize:]
-	shouldhash := crypto.Keccak256(input[macSize:])
+	magic, hash, sig, sigdata := input[:magicSize], input[magicSize:macSize+magicSize], input[macSize+magicSize:headSize], input[headSize:]
+	if !bytes.Equal(magic, AutMagic) {
+		return nil, Pubkey{}, nil, ErrBadMagic
+	}
+	shouldhash := crypto.Keccak256(input[macSize+magicSize:])
 	if !bytes.Equal(hash, shouldhash) {
 		return nil, Pubkey{}, nil, ErrBadHash
 	}
@@ -251,14 +258,15 @@ func Encode(priv *ecdsa.PrivateKey, req Packet) (packet, hash []byte, err error)
 		return nil, nil, err
 	}
 	packet = b.Bytes()
+	copy(packet, AutMagic)
 	sig, err := crypto.Sign(crypto.Keccak256(packet[headSize:]), priv)
 	if err != nil {
 		return nil, nil, err
 	}
-	copy(packet[macSize:], sig)
+	copy(packet[macSize+magicSize:], sig)
 	// Add the hash to the front. Note: this doesn't protect the packet in any way.
-	hash = crypto.Keccak256(packet[macSize:])
-	copy(packet, hash)
+	hash = crypto.Keccak256(packet[macSize+magicSize:])
+	copy(packet[magicSize:], hash)
 	return packet, hash, nil
 }
 

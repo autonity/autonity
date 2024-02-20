@@ -7,7 +7,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
@@ -27,7 +26,6 @@ type GenesisBond struct {
 }
 
 func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts) error {
-
 	if err := DeployAutonityContract(genesisConfig.AutonityContractConfig, genesisBonds, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the autonity contract: %w", err)
 	}
@@ -46,6 +44,22 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployStabilizationContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the stabilization contract: %w", err)
 	}
+	if err := DeployUpgradeManagerContract(genesisConfig, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the upgrade manager contract: %w", err)
+	}
+	return nil
+}
+
+func DeployUpgradeManagerContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	err := evmContracts.DeployUpgradeManagerContract(
+		params.AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
+		generated.UpgradeManagerBytecode)
+	if err != nil {
+		log.Error("DeployUpgradeManagerContract failed", "err", err)
+		return fmt.Errorf("failed to deploy Upgrade Manager contract: %w", err)
+	}
+	log.Info("Deployed Upgrade Manager contract", "address", params.UpgradeManagerContractAddress)
 	return nil
 }
 
@@ -66,11 +80,11 @@ func DeployStabilizationContract(config *params.ChainConfig, evmContracts *Genes
 	}
 
 	err := evmContracts.DeployStabilizationContract(stabilizationConfig,
-		AutonityContractAddress,
+		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
-		OracleContractAddress,
-		SupplyControlContractAddress,
-		AutonityContractAddress,
+		params.OracleContractAddress,
+		params.SupplyControlContractAddress,
+		params.AutonityContractAddress,
 		generated.StabilizationBytecode)
 
 	if err != nil {
@@ -78,7 +92,7 @@ func DeployStabilizationContract(config *params.ChainConfig, evmContracts *Genes
 		return fmt.Errorf("failed to deploy Stabilization contract: %w", err)
 	}
 
-	log.Info("Deployed Stabilization contract", "address", StabilizationContractAddress.String())
+	log.Info("Deployed Stabilization contract", "address", params.StabilizationContractAddress)
 
 	return nil
 }
@@ -93,11 +107,11 @@ func DeploySupplyControlContract(config *params.ChainConfig, evmContracts *Genes
 
 	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
 
-	evmContracts.AddBalance(DeployerAddress, value)
+	evmContracts.AddBalance(params.DeployerAddress, value)
 	err := evmContracts.DeploySupplyControlContract(
-		AutonityContractAddress,
+		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
-		StabilizationContractAddress,
+		params.StabilizationContractAddress,
 		generated.SupplyControlBytecode,
 		value)
 
@@ -106,7 +120,7 @@ func DeploySupplyControlContract(config *params.ChainConfig, evmContracts *Genes
 		return fmt.Errorf("failed to deploy SupplyControl contract: %w", err)
 	}
 
-	log.Info("Deployed ASM supply control contract", "address", SupplyControlContractAddress.String())
+	log.Info("Deployed ASM supply control contract", "address", params.SupplyControlContractAddress)
 
 	return nil
 }
@@ -127,9 +141,9 @@ func DeployACUContract(config *params.ChainConfig, evmContracts *GenesisEVMContr
 	err := evmContracts.DeployACUContract(config.ASM.ACUContractConfig.Symbols,
 		bigQuantities,
 		new(big.Int).SetUint64(config.ASM.ACUContractConfig.Scale),
-		AutonityContractAddress,
+		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
-		OracleContractAddress,
+		params.OracleContractAddress,
 		generated.ACUBytecode)
 
 	if err != nil {
@@ -137,7 +151,7 @@ func DeployACUContract(config *params.ChainConfig, evmContracts *GenesisEVMContr
 		return fmt.Errorf("failed to deploy ACU contract: %w", err)
 	}
 
-	log.Info("Deployed ACU contract", "address", ACUContractAddress.String())
+	log.Info("Deployed ACU contract", "address", params.ACUContractAddress)
 
 	return nil
 }
@@ -155,12 +169,12 @@ func DeployAccountabilityContract(config *params.AccountabilityGenesis, evmContr
 		JailFactor:                     new(big.Int).SetUint64(config.JailFactor),
 		SlashingRatePrecision:          new(big.Int).SetUint64(config.SlashingRatePrecision),
 	}
-	err := evmContracts.DeployAccountabilityContract(AutonityContractAddress, accountabilityConfig, generated.AccountabilityBytecode)
+	err := evmContracts.DeployAccountabilityContract(params.AutonityContractAddress, accountabilityConfig, generated.AccountabilityBytecode)
 	if err != nil {
 		return fmt.Errorf("failed to deploy accountability contract: %w", err)
 	}
 
-	log.Info("Deployed Accountability contract", "address", AccountabilityContractAddress.String())
+	log.Info("Deployed Accountability contract", "address", params.AccountabilityContractAddress)
 
 	return nil
 }
@@ -172,14 +186,15 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			MinBaseFee:      new(big.Int).SetUint64(genesisConfig.MinBaseFee),
 			DelegationRate:  new(big.Int).SetUint64(genesisConfig.DelegationRate),
 			UnbondingPeriod: new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
-			TreasuryAccount: genesisConfig.Operator,
+			TreasuryAccount: genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract: AccountabilityContractAddress,
-			OracleContract:         OracleContractAddress,
-			AcuContract:            ACUContractAddress,
-			SupplyControlContract:  SupplyControlContractAddress,
-			StabilizationContract:  StabilizationContractAddress,
+			AccountabilityContract: params.AccountabilityContractAddress,
+			OracleContract:         params.OracleContractAddress,
+			AcuContract:            params.ACUContractAddress,
+			SupplyControlContract:  params.SupplyControlContractAddress,
+			StabilizationContract:  params.StabilizationContractAddress,
+			UpgradeManagerContract: params.UpgradeManagerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: genesisConfig.Operator,
@@ -234,7 +249,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 		return fmt.Errorf("error while calling finalizeInitialization: %w", err)
 	}
 
-	log.Info("Deployed Autonity contract", "Address", AutonityContractAddress.String())
+	log.Info("Deployed Autonity contract", "address", params.AutonityContractAddress)
 
 	return nil
 }
@@ -255,7 +270,7 @@ func DeployOracleContract(genesisConfig *params.ChainConfig, evmContracts *Genes
 
 	err := evmContracts.DeployOracleContract(
 		voters,
-		AutonityContractAddress,
+		params.AutonityContractAddress,
 		genesisConfig.AutonityContractConfig.Operator,
 		genesisConfig.OracleContractConfig.Symbols,
 		new(big.Int).SetUint64(genesisConfig.OracleContractConfig.VotePeriod),
@@ -265,13 +280,13 @@ func DeployOracleContract(genesisConfig *params.ChainConfig, evmContracts *Genes
 		return fmt.Errorf("failed to deploy Oracle contract: %w", err)
 	}
 
-	log.Info("Deployed Oracle Contract", "address", OracleContractAddress)
+	log.Info("Deployed Oracle Contract", "address", params.OracleContractAddress)
 	return nil
 }
 
-func (c *EVMContract) replaceAutonityBytecode(header *types.Header, statedb *state.StateDB, bytecode []byte) error {
-	evm := c.evmProvider(header, DeployerAddress, statedb)
-	_, _, _, vmerr := evm.Replace(vm.AccountRef(DeployerAddress), bytecode, AutonityContractAddress)
+func (c *EVMContract) replaceAutonityBytecode(header *types.Header, statedb vm.StateDB, bytecode []byte) error {
+	evm := c.evmProvider(header, params.DeployerAddress, statedb)
+	_, _, _, vmerr := evm.Replace(vm.AccountRef(params.DeployerAddress), bytecode, params.AutonityContractAddress)
 	if vmerr != nil {
 		log.Error("replaceAutonityBytecode evm.Create", "err", vmerr)
 		return vmerr
@@ -282,7 +297,7 @@ func (c *EVMContract) replaceAutonityBytecode(header *types.Header, statedb *sta
 // AutonityContractCall calls the specified function of the autonity contract
 // with the given args, and returns the output unpacked into the result
 // interface.
-func (c *AutonityContract) AutonityContractCall(statedb *state.StateDB, header *types.Header, function string, result any, args ...any) error {
+func (c *AutonityContract) AutonityContractCall(statedb vm.StateDB, header *types.Header, function string, result any, args ...any) error {
 	packedArgs, err := c.contractABI.Pack(function, args...)
 	if err != nil {
 		return err
@@ -305,7 +320,7 @@ func (c *AutonityContract) AutonityContractCall(statedb *state.StateDB, header *
 	return nil
 }
 
-func (c *AutonityContract) Mint(header *types.Header, statedb *state.StateDB, address common.Address, amount *big.Int) error {
+func (c *AutonityContract) Mint(header *types.Header, statedb vm.StateDB, address common.Address, amount *big.Int) error {
 	packedArgs, err := c.contractABI.Pack("mint", address, amount)
 	if err != nil {
 		return fmt.Errorf("error while generating call data for mint: %w", err)
@@ -318,7 +333,7 @@ func (c *AutonityContract) Mint(header *types.Header, statedb *state.StateDB, ad
 	return nil
 }
 
-func (c *AutonityContract) Bond(header *types.Header, statedb *state.StateDB, from common.Address, validatorAddress common.Address, amount *big.Int) error {
+func (c *AutonityContract) Bond(header *types.Header, statedb vm.StateDB, from common.Address, validatorAddress common.Address, amount *big.Int) error {
 
 	packedArgs, err := c.contractABI.Pack("bond", validatorAddress, amount)
 	if err != nil {
@@ -332,7 +347,7 @@ func (c *AutonityContract) Bond(header *types.Header, statedb *state.StateDB, fr
 	return nil
 }
 
-func (c *AutonityContract) FinalizeInitialization(header *types.Header, statedb *state.StateDB) error {
+func (c *AutonityContract) FinalizeInitialization(header *types.Header, statedb vm.StateDB) error {
 	packedArgs, err := c.contractABI.Pack("finalizeInitialization")
 	if err != nil {
 		return fmt.Errorf("error while generating call data for finalizeInitialization: %w", err)
@@ -351,30 +366,29 @@ func (c *AutonityContract) FinalizeInitialization(header *types.Header, statedb 
 // packed result. If there is an error making the evm call it will be returned.
 // Callers should use the autonity contract ABI to pack and unpack the args and
 // result.
-func (c *EVMContract) CallContractFunc(statedb *state.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, error) {
+func (c *EVMContract) CallContractFunc(statedb vm.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, uint64, error) {
 	gas := uint64(math.MaxUint64)
-	evm := c.evmProvider(header, DeployerAddress, statedb)
-	packedResult, _, err := evm.Call(vm.AccountRef(DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
-	return packedResult, err
+	evm := c.evmProvider(header, params.DeployerAddress, statedb)
+	return evm.Call(vm.AccountRef(params.DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
 }
 
-func (c *EVMContract) CallContractFuncAs(statedb *state.StateDB, header *types.Header, contractAddress common.Address, origin common.Address, packedArgs []byte) ([]byte, error) {
+func (c *EVMContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, contractAddress common.Address, origin common.Address, packedArgs []byte) ([]byte, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, origin, statedb)
 	packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, new(big.Int))
 	return packedResult, err
 }
 
-func (c *AutonityContract) callGetCommitteeEnodes(state *state.StateDB, header *types.Header) (*types.Nodes, error) {
+func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *types.Header, asACN bool) (*types.Nodes, error) {
 	var returnedEnodes []string
 	err := c.AutonityContractCall(state, header, "getCommitteeEnodes", &returnedEnodes)
 	if err != nil {
 		return nil, err
 	}
-	return types.NewNodes(returnedEnodes), nil
+	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
-func (c *AutonityContract) callGetMinimumBaseFee(state *state.StateDB, header *types.Header) (*big.Int, error) {
+func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	minBaseFee := new(big.Int)
 	err := c.AutonityContractCall(state, header, "getMinimumBaseFee", &minBaseFee)
 	if err != nil {
@@ -383,7 +397,7 @@ func (c *AutonityContract) callGetMinimumBaseFee(state *state.StateDB, header *t
 	return minBaseFee, nil
 }
 
-func (c *AutonityContract) callFinalize(state *state.StateDB, header *types.Header) (bool, []types.CommitteeMember, *big.Int, error) {
+func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, []types.CommitteeMember, *big.Int, error) {
 	var updateReady bool
 	var committee []types.CommitteeMember
 	lastEpochBlock := new(big.Int)
@@ -393,7 +407,7 @@ func (c *AutonityContract) callFinalize(state *state.StateDB, header *types.Head
 	return updateReady, committee, lastEpochBlock, nil
 }
 
-func (c *AutonityContract) callRetrieveContract(state *state.StateDB, header *types.Header) ([]byte, string, error) {
+func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.Header) ([]byte, string, error) {
 	var bytecode []byte
 	var abi string
 	if err := c.AutonityContractCall(state, header, "getNewContract", &[]any{&bytecode, &abi}); err != nil {

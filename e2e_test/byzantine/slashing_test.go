@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -15,7 +17,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/ethclient"
-	"github.com/stretchr/testify/require"
+	"github.com/autonity/autonity/params"
 )
 
 // *** e2e tests to write ***:
@@ -46,7 +48,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	// set Malicious validators
 	for _, faultyNodeIndex := range faultyNodes {
-		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposalBroadcaster}
+		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 	}
 
 	validatorsBefore := make([]autonity.AutonityValidator, len(faultyNodes))
@@ -88,7 +90,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	dedicatedNode := network[1].WsClient
 
-	autonityContract, err := autonity.NewAutonity(autonity.AutonityContractAddress, dedicatedNode)
+	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
 	treasuryAccount, err := autonityContract.GetTreasuryAccount(nil)
@@ -99,11 +101,16 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	extraEpochsSlashed := uint64(0)
 
+	// used to scale timeout based on how many faulty nodes are in the network
+	// the more faulty nodes --> the lower the block mining rate
+	faultyFactor := 1 + (float32(len(faultyNodes)) / float32(nodesCount))
+
+	// consensus engine now takes ~10 second to start, since it waits for block sync success
+	consensusEngineOffset := float32(10)
+
 	// run extra epochs
 	for i := 1; i < epochs; i++ {
-		// scale timeout with extra 10% of expected time
-
-		timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.5)*time.Second)
+		timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
 		defer cancel()
 		slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -119,7 +126,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		validatorsBefore[i] = validatorBefore
 	}
 
-	timeout, cancel := context.WithTimeout(ctx, time.Duration(float32(epochPeriod)*1.5)*time.Second)
+	timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
 	defer cancel()
 	slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -163,7 +170,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 }
 
 func TestSimpleSlashing(t *testing.T) {
-	runSlashingTest(context.TODO(), t, 4, 40, 0, 100, []int{2}, 1, 0, 1)
+	runSlashingTest(context.TODO(), t, 4, 60, 0, 100, []int{2}, 1, 0, 1)
 }
 
 func TestPenaltyAbsorbingStake(t *testing.T) {
@@ -208,13 +215,13 @@ func TestHistoryFactor(t *testing.T) {
 
 	// set Malicious validators
 	faultyNode := 2
-	validators[faultyNode].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposalBroadcaster}
+	validators[faultyNode].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 
 	var chainID *big.Int
 
 	// creates a network of 4 validators and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *core2.Genesis) {
-		genesis.Config.AutonityContractConfig.EpochPeriod = 50
+		genesis.Config.AutonityContractConfig.EpochPeriod = 60
 		genesis.Config.AccountabilityConfig.JailFactor = 1
 		chainID = genesis.Config.ChainID
 	})
@@ -223,10 +230,10 @@ func TestHistoryFactor(t *testing.T) {
 
 	dedicatedNode := network[1].WsClient
 
-	autonityContract, err := autonity.NewAutonity(autonity.AutonityContractAddress, dedicatedNode)
+	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
-	accountabilityContract, err := autonity.NewAccountability(autonity.AccountabilityContractAddress, dedicatedNode)
+	accountabilityContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
 	treasuryAccount, err := autonityContract.GetTreasuryAccount(nil)
@@ -241,7 +248,7 @@ func TestHistoryFactor(t *testing.T) {
 	slashingEventA := WaitForSlashingEvent(timeout, t, dedicatedNode)
 
 	// wait until we can un-jail (+1 just in case)
-	err = network.WaitForHeight(slashingEventA.ReleaseBlock.Uint64()+1, 60)
+	err = network.WaitForHeight(slashingEventA.ReleaseBlock.Uint64()+1, 70)
 	require.NoError(t, err)
 
 	//un-jail
@@ -309,7 +316,7 @@ func TestHistoryFactor(t *testing.T) {
 // Wait for N AccountabilitySlashingEvent to appear on all the nodes in the network
 func WaitForSlashingEvents(ctx context.Context, t *testing.T, n int, client *ethclient.Client) []*autonity.AccountabilitySlashingEvent {
 
-	accountabilityContract, err := autonity.NewAccountability(autonity.AccountabilityContractAddress, client)
+	accountabilityContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, client)
 	require.NoError(t, err)
 
 	// wait for slashing event

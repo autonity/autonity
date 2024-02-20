@@ -2,12 +2,12 @@ package blst
 
 import (
 	"crypto/rand"
+
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	blst "github.com/supranational/blst/bindings/go"
 )
-
-var zeroSecretKey = new(blst.SecretKey)
 
 // bls12SecretKey used in the BLS signature scheme.
 type bls12SecretKey struct {
@@ -42,9 +42,11 @@ func RandKey() (SecretKey, error) {
 	}
 	// Defensive check, that we have not generated a secret key,
 	secKey := &bls12SecretKey{blst.KeyGen(ikm[:])}
-	if secKey.IsZero() {
+
+	if IsZero(secKey.Marshal()) {
 		return nil, ErrZeroKey
 	}
+
 	return secKey, nil
 }
 
@@ -58,7 +60,8 @@ func SecretKeyFromBytes(privKey []byte) (SecretKey, error) {
 		return nil, ErrSecretUnmarshal
 	}
 	wrappedKey := &bls12SecretKey{p: secKey}
-	if wrappedKey.IsZero() {
+
+	if IsZero(privKey) {
 		return nil, ErrZeroKey
 	}
 	return wrappedKey, nil
@@ -69,9 +72,15 @@ func (s *bls12SecretKey) PublicKey() PublicKey {
 	return &BlsPublicKey{p: new(blstPublicKey).From(s.p)}
 }
 
-// IsZero checks if the secret key is a zero key.
-func (s *bls12SecretKey) IsZero() bool {
-	return s.p.Equals(zeroSecretKey)
+// IsZero checks if the secret key is a zero key. We don't rely on the CGO to refer to the type of C.blst_scalar which
+// is implemented in C to initialize the memory bits of C.blst_scalar to be zero. It is better for go binder to
+// check if all the bytes of the secret key are zero.
+func IsZero(sKey []byte) bool {
+	b := byte(0)
+	for _, s := range sKey {
+		b |= s
+	}
+	return subtle.ConstantTimeByteEq(b, 0) == 1
 }
 
 // POPProof generate a proof of possession using a secret key - in a Validator client.
@@ -94,10 +103,6 @@ func (s *bls12SecretKey) Sign(msg []byte) Signature {
 // Marshal a secret key into a LittleEndian byte slice.
 func (s *bls12SecretKey) Marshal() []byte {
 	keyBytes := s.p.Serialize()
-	if len(keyBytes) < BLSSecretKeyLength {
-		emptyBytes := make([]byte, BLSSecretKeyLength-len(keyBytes))
-		keyBytes = append(emptyBytes, keyBytes...)
-	}
 	return keyBytes
 }
 

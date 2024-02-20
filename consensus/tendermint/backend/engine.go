@@ -29,8 +29,8 @@ import (
 
 const (
 	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 40
-	inmemoryMessages  = 1024
+	inmemoryPeers     = 150
+	inmemoryMessages  = 8192
 )
 
 // ErrStartedEngine is returned if the engine is already started
@@ -511,6 +511,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 		return ErrStartedEngine
 	}
 	sb.stopped = make(chan struct{})
+	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
 	// Start Tendermint

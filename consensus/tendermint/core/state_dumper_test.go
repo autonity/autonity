@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -33,9 +34,7 @@ func TestGetProposal(t *testing.T) {
 	defer ctrl.Finish()
 	nodeAddr := common.BytesToAddress([]byte("node"))
 	backendMock := interfaces.NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().Return(nodeAddr)
-	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
-	core := New(backendMock, nil)
+	core := New(backendMock, nil, nodeAddr, log.Root())
 
 	proposal := randomProposal(t)
 	core.messages.GetOrCreate(proposal.R()).SetProposal(proposal, true)
@@ -50,11 +49,7 @@ func TestGetRoundState(t *testing.T) {
 	defer ctrl.Finish()
 
 	backendMock := interfaces.NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().Return(sender)
-	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
-
-	c := New(backendMock, nil)
-
+	c := New(backendMock, nil, sender, log.Root())
 	rounds := []int64{0, 1}
 	height := big.NewInt(int64(100) + 1)
 
@@ -85,11 +80,8 @@ func TestGetCoreState(t *testing.T) {
 	defer ctrl.Finish()
 
 	backendMock := interfaces.NewMockBackend(ctrl)
-	backendMock.EXPECT().Address().Return(sender)
-	backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
-
-	c := New(backendMock, nil)
+	c := New(backendMock, nil, sender, log.Root())
 
 	var rounds = []int64{0, 1}
 
@@ -186,7 +178,7 @@ func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Ad
 func setCoreState(c *Core, h *big.Int, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee interfaces.Committee, header *types.Header) {
 	c.setHeight(h)
 	c.setRound(r)
-	c.SetStep(s)
+	c.SetStep(context.Background(), s)
 	c.lockedValue = lv
 	c.lockedRound = lr
 	c.validValue = vv
