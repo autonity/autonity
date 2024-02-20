@@ -256,11 +256,16 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
 		// Instead only the transactions are applied to the copied state
+		config := sb.blockchain.Config()
+		signer := types.MakeSigner(config, header.Number)
+		// Create a new context to be used in the EVM environment
+		blockContext := core.NewEVMBlockContext(header, sb.BlockChain(), nil)
+		vmenv := vm.NewEVM(blockContext, vm.TxContext{}, state, config, *sb.vmConfig)
 		for i, tx := range proposal.Transactions() {
 			state.Prepare(tx.Hash(), i)
 			// Might be vulnerable to DoS Attack depending on gaslimit
 			// Todo : Double check
-			receipt, receiptErr := core.ApplyTransaction(sb.blockchain.Config(), sb.blockchain, nil, gp, state, header, tx, usedGas, *sb.vmConfig)
+			receipt, receiptErr := core.ApplyTransactionWithContext(signer, config, sb.blockchain, nil, gp, state, header, tx, usedGas, vmenv)
 			if receiptErr != nil {
 				return 0, receiptErr
 			}
