@@ -110,6 +110,8 @@ func handleConsensusMsg[T any, PT interface {
 	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
 	buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
+	// We copy the message here as it can't be saved directly due to
+	// a call to Discard in the eth handler which is going to empty this buffer.
 	if _, err := io.Copy(buffer, p2pMsg.Payload); err != nil {
 		return true, err
 	}

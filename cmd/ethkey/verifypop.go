@@ -14,8 +14,6 @@ import (
 	enodes "github.com/autonity/autonity/p2p/enode"
 )
 
-const popSize = 226
-
 type outputVerifyPOP struct {
 	NodeKeyPOP      bool
 	OracleKeyPOP    bool
@@ -65,7 +63,7 @@ Print if the proof of possession for registering a validator is valid or not. Us
 		if err != nil {
 			utils.Fatalf("can't decode proof with error %v", err)
 		}
-		if len(signatures) != popSize {
+		if len(signatures) != crypto.AutonityPOPLen {
 			utils.Fatalf("invalid proof size")
 		}
 		// Checks arguments END
