@@ -43,6 +43,7 @@ func init() {
 		commandChangePassphrase,
 		commandSignMessage,
 		commandVerifyMessage,
+		commandAutInspect,
 		commandVerifyPOP,
 	}
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate

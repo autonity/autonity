@@ -52,8 +52,6 @@ var (
 		WSHost:   localhost,
 	}
 
-	baseEthConfig = ethconfig.Defaults
-
 	terminalColors = []struct {
 		foreground string
 		background string
