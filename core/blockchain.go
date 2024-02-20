@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,9 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/testx"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/mclock"
@@ -46,7 +50,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -272,6 +275,7 @@ func NewBlockChain(db ethdb.Database,
 		senderCacher:  senderCacher,
 		log:           log,
 	}
+	testx.Logger = log
 	bc.forker = NewForkChoice(bc, shouldPreserve)
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
@@ -287,6 +291,8 @@ func NewBlockChain(db ethdb.Database,
 	}
 
 	var nilBlock *types.Block
+	bc.log.Warn("Storing nilBlock")
+	//bc.log.Warn(string(debug.Stack()[:]))
 	bc.currentBlock.Store(nilBlock)
 	bc.currentFastBlock.Store(nilBlock)
 
@@ -473,6 +479,14 @@ func (bc *BlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	// Everything seems to be fine, set as the head block
+	bc.log.Warn(fmt.Sprintf("Storing block with height: %d\n", currentBlock.NumberU64()))
+	//bc.log.Warn(string(debug.Stack()[:]))
+	previous := bc.currentBlock.Load().(*types.Block)
+	if previous != nil && previous.NumberU64() > currentBlock.NumberU64() {
+		bc.log.Warn(fmt.Sprintf("Storing same or older block : %d %d \n", previous.NumberU64(), currentBlock.NumberU64()))
+		bc.log.Warn(string(debug.Stack()[:]))
+		bc.log.Crit("store current block")
+	}
 	bc.currentBlock.Store(currentBlock)
 	headBlockGauge.Update(int64(currentBlock.NumberU64()))
 
@@ -509,6 +523,10 @@ func (bc *BlockChain) loadLastState() error {
 		bc.log.Info("Loaded last fast-sync pivot marker", "number", *pivot)
 	}
 	return nil
+}
+
+func (bc *BlockChain) Logger() log.Logger {
+	return bc.log
 }
 
 // SetHead rewinds the local chain to a new head. Depending on whether the node
@@ -590,6 +608,14 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 			// In theory we should update all in-memory markers in the
 			// last step, however the direction of SetHead is from high
 			// to low, so it's safe to update in-memory markers directly.
+			bc.log.Warn(fmt.Sprintf("Storing block with height: %d\n", newHeadBlock.NumberU64()))
+			//bc.log.Warn(string(debug.Stack()[:]))
+			previous := bc.currentBlock.Load().(*types.Block)
+			if previous.NumberU64() > newHeadBlock.NumberU64() {
+				bc.log.Warn(fmt.Sprintf("Storing same or older block : %d %d \n", previous.NumberU64(), newHeadBlock.NumberU64()))
+				bc.log.Warn(string(debug.Stack()[:]))
+				bc.log.Crit("store current block")
+			}
 			bc.currentBlock.Store(newHeadBlock)
 			headBlockGauge.Update(int64(newHeadBlock.NumberU64()))
 		}
@@ -680,6 +706,14 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 	if !bc.chainmu.TryLock() {
 		return errChainStopped
 	}
+	bc.log.Warn(fmt.Sprintf("Storing block with height: %d\n", block.NumberU64()))
+	//bc.log.Warn(string(debug.Stack()[:]))
+	previous := bc.currentBlock.Load().(*types.Block)
+	if previous.NumberU64() > block.NumberU64() {
+		bc.log.Warn(fmt.Sprintf("Storing same or older block : %d %d \n", previous.NumberU64(), block.NumberU64()))
+		bc.log.Warn(string(debug.Stack()[:]))
+		bc.log.Crit("store current block")
+	}
 	bc.currentBlock.Store(block)
 	headBlockGauge.Update(int64(block.NumberU64()))
 	bc.chainmu.Unlock()
@@ -721,6 +755,8 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 
 	// Last update all in-memory chain markers
 	bc.genesisBlock = genesis
+	bc.log.Warn("Storing genesis")
+	//bc.log.Warn(string(debug.Stack()[:]))
 	bc.currentBlock.Store(bc.genesisBlock)
 	headBlockGauge.Update(int64(bc.genesisBlock.NumberU64()))
 	bc.hc.SetGenesis(bc.genesisBlock.Header())
@@ -789,6 +825,14 @@ func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	bc.currentFastBlock.Store(block)
 	headFastBlockGauge.Update(int64(block.NumberU64()))
 
+	bc.log.Warn(fmt.Sprintf("Storing block with height: %d\n", block.NumberU64()))
+	//bc.log.Warn(string(debug.Stack()[:]))
+	previous := bc.currentBlock.Load().(*types.Block)
+	if previous != nil && previous.NumberU64() > block.NumberU64() {
+		bc.log.Warn(fmt.Sprintf("Storing same or older block : %d %d \n", previous.NumberU64(), block.NumberU64()))
+		bc.log.Warn(string(debug.Stack()[:]))
+		bc.log.Crit("store current block")
+	}
 	bc.currentBlock.Store(block)
 	headBlockGauge.Update(int64(block.NumberU64()))
 }

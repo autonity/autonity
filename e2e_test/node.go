@@ -75,7 +75,7 @@ var (
 		background: log.BackgroundLightYellow,
 	}, {
 		foreground: log.Black,
-		background: log.BackgroundCyan,
+		background: log.BackgroundRed,
 	}, {
 		foreground: log.Black,
 		background: log.BackgroundLightGreen,
@@ -136,6 +136,7 @@ func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (
 	c.WSPort = freeport.GetOne(t)
 
 	datadir, err := ioutil.TempDir("", "autonity_datadir")
+	fmt.Println(datadir)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +207,11 @@ func (n *Node) Start() error {
 		}
 		return b
 	})))
-	logger.Verbosity(log.LvlWarn)
+	if n.ID == 3 {
+		logger.Verbosity(log.LvlWarn)
+	} else {
+		logger.Verbosity(log.LvlCrit)
+	}
 
 	nodeConfigCopy.Logger = log.New()
 	nodeConfigCopy.Logger.SetHandler(logger)
@@ -566,6 +571,12 @@ func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, star
 			}
 		}
 		network[i] = n
+		fmt.Println("-----------------")
+		fmt.Println(n.Config.DataDir)
+		fmt.Println("-----------------")
+	}
+	for _, n := range network {
+		fmt.Println("%v", n)
 	}
 	go communicatePort(network[0].Config.WSPort)
 	// There is a race condition in miner.worker its field snapshotBlock is set

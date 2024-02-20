@@ -232,6 +232,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			logged = true
 		}
 		// execute the operation
+		/*
+			if testx.Debug && in.evm.Context.BlockNumber.Uint64() == 32 {
+				fmt.Println("32 in RUN")
+			}*/
 		res, err = operation.execute(&pc, in, callContext)
 		if err != nil {
 			break

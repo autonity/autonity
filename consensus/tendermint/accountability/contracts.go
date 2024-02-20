@@ -3,7 +3,10 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/testx"
 	"math/big"
+	"runtime/debug"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -13,6 +16,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -60,6 +64,10 @@ type AccusationVerifier struct {
 	chain ChainContext
 }
 
+func (a *AccusationVerifier) Chain() ChainContext {
+	return a.chain
+}
+
 // RequiredGas the gas cost to execute AccusationVerifier contract, weighted by input data size.
 func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 	times := uint64(len(input)/KB + 1)
@@ -101,9 +109,33 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 		return failureReturn, nil
 	}
 
-	// TODO(Lorenzo) can blockNumber be != a.chain.CurrentBlock().NumberU64()+1
-	// if no merge two params
-	// preliminary checks that do not rely on signature correctness
+	testx.Logger.Warn("blockchain in precompile", "chain", fmt.Sprint(a.chain.(*core.BlockChain)))
+	// normal case blockNumber = 32 ---> 30
+	blockblock := a.chain.CurrentBlock()
+	blockHeight := blockblock.NumberU64()
+	fastBlockHeight := a.chain.CurrentFastBlock().NumberU64()
+	headerHeight := a.chain.CurrentHeader().Number.Uint64()
+
+	if blockNumber == 32 {
+		a.chain.Logger().Warn("32 in precompiled")
+	}
+
+	if blockHeight < blockNumber-1 {
+		a.chain.Logger().Warn(fmt.Sprintf("mismatch %d %d\n", blockHeight, blockNumber))
+		a.chain.Logger().Warn(fmt.Sprintf("%d\n", fastBlockHeight))
+		a.chain.Logger().Warn(fmt.Sprintf("%d\n", headerHeight))
+		a.chain.Logger().Warn(string(debug.Stack()[:]))
+		a.chain.Logger().Crit("quitting")
+	}
+	if blockHeight > blockNumber {
+		log.Warn(fmt.Sprintf("mismatch %d %d\n", blockHeight, blockNumber))
+		panic("test2")
+	}
+
+	/* Do preliminary checks that do not rely on signature correctness
+	* NOTE: We do not have guarantees that: a.chain.CurrentBlock().NumberU64() == blockNumber - 1
+	* This is because the chain head can change while we are executing this tx, therefore the blockNumber might become obsolete
+	 */
 	if err := preVerifyAccusation(a.chain, p.Message, blockNumber); err != nil {
 		return failureReturn, nil
 	}
@@ -178,7 +210,7 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 
 // Run take the rlp encoded Proof of challenge in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg sender is returned as the valid identity for Proof management.
-func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
+func (c *MisbehaviourVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
 	}
@@ -186,6 +218,18 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.A
 	p, err := decodeRawProof(input[32:])
 	if err != nil {
 		return failureReturn, nil
+	}
+
+	blockHeight := c.chain.CurrentBlock().NumberU64()
+	fastBlockHeight := c.chain.CurrentFastBlock().NumberU64()
+	headerHeight := c.chain.CurrentHeader().Number.Uint64()
+
+	if blockHeight < blockNumber-1 {
+		c.chain.Logger().Warn(fmt.Sprintf("mismatch %d %d\n", blockHeight, blockNumber))
+		c.chain.Logger().Warn(fmt.Sprintf("%d\n", fastBlockHeight))
+		c.chain.Logger().Warn(fmt.Sprintf("%d\n", headerHeight))
+		c.chain.Logger().Warn(string(debug.Stack()[:]))
+		c.chain.Logger().Crit("quitting")
 	}
 	if err := verifyProofSignatures(c.chain, p); err != nil {
 		return failureReturn, nil

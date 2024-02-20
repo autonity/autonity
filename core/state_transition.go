@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"runtime/debug"
 
 	"github.com/autonity/autonity/params/generated"
+	"github.com/autonity/autonity/testx"
 
 	"github.com/autonity/autonity/common"
 	cmath "github.com/autonity/autonity/common/math"
@@ -182,6 +184,14 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) (*ExecutionResult, error) {
+	/*
+		if testx.Debug && evm.Context.BlockNumber.Uint64() == 32 {
+			fmt.Println("32 in applymessage")
+		}*/
+	testx.Logger.Warn("applyMessage", "h", evm.Context.BlockNumber.Uint64())
+	if evm.Context.BlockNumber.Uint64() == 32 {
+		testx.Logger.Warn(string(debug.Stack()[:]))
+	}
 	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
@@ -338,6 +348,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		testx.Logger.Warn("transitiondb", "h", st.evm.Context.BlockNumber.Uint64())
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 

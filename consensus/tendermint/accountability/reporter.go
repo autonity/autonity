@@ -106,6 +106,7 @@ func (fd *FaultDetector) eventReporter() {
 				fd.logger.Warn("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
 				// wait until it get mined before moving to the next one
 				attempt := 0
+			GetTxLoop:
 				for ; attempt < MaxSubmissionAttempts; attempt++ {
 					select {
 					case <-fd.stopRetry:
@@ -114,7 +115,7 @@ func (fd *FaultDetector) eventReporter() {
 						time.Sleep(SubmissionDelay)
 						_, _, blockNumber, _, _ := fd.ethBackend.GetTransaction(context.Background(), tx.Hash())
 						if blockNumber != 0 {
-							break
+							break GetTxLoop
 						}
 					}
 				}

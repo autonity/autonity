@@ -22,10 +22,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
-	"github.com/holiman/uint256"
+	"github.com/autonity/autonity/testx"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -215,6 +217,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 
 	if isPrecompile {
+		testx.Logger.Warn("before runprecompile in staticall", "h", evm.Context.BlockNumber.Uint64())
 		ret, gas, err = RunPrecompiledContract(p, input, gas, evm.Context.BlockNumber.Uint64(), evm, caller.Address())
 	} else {
 		// Initialise a new contract and set the code that is to be used by the EVM.
@@ -228,6 +231,11 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
+			/*
+				if testx.Debug && evm.Context.BlockNumber.Uint64() == 32 {
+					fmt.Println("32 in CALL")
+				}*/
+
 			ret, err = evm.interpreter.Run(contract, input, false)
 			gas = contract.Gas
 		}
@@ -368,6 +376,16 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	}
 
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
+		/*
+			if testx.Debug && evm.Context.BlockNumber.Uint64() == 32 {
+				fmt.Println("32 in staticall2 ")
+			}*/
+		/*
+			prec, ok := p.(*accountability.AccusationVerifier)
+			if ok {
+				testx.Logger.Warn("before runprecompile in staticall", "chainHeight", prec.Chain().CurrentBlock().NumberU64())
+			}*/
+		testx.Logger.Warn("before runprecompile in staticall", "h", evm.Context.BlockNumber.Uint64())
 		ret, gas, err = RunPrecompiledContract(p, input, gas, evm.Context.BlockNumber.Uint64(), evm, caller.Address())
 	} else {
 		// At this point, we use a copy of address. If we don't, the go compiler will

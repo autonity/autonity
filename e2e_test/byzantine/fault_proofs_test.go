@@ -29,6 +29,14 @@ func runTest(t *testing.T, services *interfaces.Services, eventType autonity.Acc
 	validators[faultyNode].TendermintServices = services
 	// creates a network of 4 validators and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, validators, true)
+	fmt.Printf("%p\n", network[0].Eth.BlockChain())
+	fmt.Printf("%p\n", network[1].Eth.BlockChain())
+	fmt.Printf("%p\n", network[2].Eth.BlockChain())
+	fmt.Printf("%p\n", network[3].Eth.BlockChain())
+	fmt.Printf("%p\n", network[0].Node)
+	fmt.Printf("%p\n", network[1].Node)
+	fmt.Printf("%p\n", network[2].Node)
+	fmt.Printf("%p\n", network[3].Node)
 	require.NoError(t, err)
 	defer network.Shutdown()
 

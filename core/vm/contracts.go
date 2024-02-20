@@ -35,6 +35,7 @@ import (
 	"github.com/autonity/autonity/crypto/bn256"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/testx"
 
 	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
@@ -204,6 +205,7 @@ func RunPrecompiledContract(
 		return nil, 0, ErrOutOfGas
 	}
 	suppliedGas -= gasCost
+	testx.Logger.Warn("In runprecompile", "h", evm.Context.BlockNumber.Uint64())
 	output, err := p.Run(input, blockNumber, evm, caller)
 	return output, suppliedGas, err
 }

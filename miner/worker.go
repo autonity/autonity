@@ -27,6 +27,9 @@ import (
 
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/testx"
+
+	mapset "github.com/deckarep/golang-set"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -38,7 +41,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
-	mapset "github.com/deckarep/golang-set"
 )
 
 const (
@@ -846,6 +848,17 @@ func (w *worker) updateSnapshot(env *environment) {
 func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*types.Log, error) {
 	snap := env.state.Snapshot()
 
+	/*
+		if testx.Debug {
+			if env.header.Number.Uint64() == 32 {
+				w.chain.Logger().Warn("32 in committx")
+			} else {
+				w.chain.Logger().Warn("not 32 in committx")
+			}
+		}*/
+	testx.Logger.Warn("committx", "h", env.header.Number.Uint64())
+	testx.Logger.Warn("commitTx", "chainHeight", w.chain.CurrentBlock().NumberU64())
+	testx.Logger.Warn("blockchain in worker", "chain", fmt.Sprint(w.chain))
 	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &env.coinbase, env.gasPool, env.state, env.header, tx, &env.header.GasUsed, *w.chain.GetVMConfig())
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
@@ -911,6 +924,11 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), env.tcount)
 
+		/*
+			if testx.Debug && env.header.Number.Uint64() == 32 {
+				w.chain.Logger().Warn("32 in committxs")
+			}*/
+		testx.Logger.Warn("committxs", "h", env.header.Number.Uint64())
 		logs, err := w.commitTransaction(env, tx)
 		switch {
 		case errors.Is(err, core.ErrGasLimitReached):
@@ -990,12 +1008,24 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 
 	// Find the parent block for sealing task
 	parent := w.chain.CurrentBlock()
+	if parent.NumberU64() == 31 {
+		testx.Logger.Warn("break here")
+	}
 	if genParams.parentHash != (common.Hash{}) {
 		parent = w.chain.GetBlockByHash(genParams.parentHash)
+		testx.Logger.Warn("passing here", "h", parent.NumberU64())
 	}
 	if parent == nil {
 		return nil, fmt.Errorf("missing parent")
 	}
+
+	/*
+		if parent.NumberU64() == 32 {
+			w.chain.Logger().Warn("32 in prepareWork")
+		} else {
+			w.chain.Logger().Warn("in prepare work", "h", parent.NumberU64())
+		}*/
+	testx.Logger.Warn("in prepare work", "h", parent.NumberU64())
 	/*
 		// We must account here for the block period in case of Tendermint consensus.
 		// Another strategy would have been to sleep before submitting a new work request
@@ -1090,12 +1120,14 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment) {
 	}
 	if len(localTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, env.header.BaseFee)
+		testx.Logger.Warn("before commit local txs", "h", env.header.Number.Uint64())
 		if w.commitTransactions(env, txs, interrupt) {
 			return
 		}
 	}
 	if len(remoteTxs) > 0 {
 		txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
+		testx.Logger.Warn("before commit tx", "h", env.header.Number.Uint64())
 		if w.commitTransactions(env, txs, interrupt) {
 			return
 		}
@@ -1149,6 +1181,12 @@ func (w *worker) commitWork(interrupt *int32, noempty bool, timestamp int64) {
 
 	fillTxStart := time.Now()
 	// Fill pending transactions from the txpool
+	/*
+		if work.header.Number.Uint64() == 32 {
+			w.chain.Logger().Warn("32 before fill transaction")
+		} else {
+		}*/
+	testx.Logger.Warn("before fill transaction", "h", work.header.Number.Uint64())
 	w.fillTransactions(interrupt, work)
 	if metrics.Enabled {
 		now := time.Now()

@@ -17,12 +17,15 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
+	"runtime/debug"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/log"
 )
 
 // ChainContext supports retrieving headers and consensus parameters from the
@@ -32,6 +35,9 @@ type ChainContext interface {
 	GetHeader(common.Hash, uint64) *types.Header
 	// Engine retrieves the chain's consensus engine.
 	Engine() consensus.Engine
+	CurrentBlock() *types.Block
+	Logger() log.Logger
+	CurrentFastBlock() *types.Block
 }
 
 // NewEVMBlockContext creates a new context for use in the EVM.
@@ -54,6 +60,23 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 	if header.Difficulty.Cmp(common.Big0) == 0 {
 		random = &header.MixDigest
 	}
+	blockHeight := chain.CurrentBlock().NumberU64()
+	fastBlockHeight := chain.CurrentFastBlock().NumberU64()
+
+	chain.Logger().Warn(fmt.Sprintf("setting number in blockContext. %d %d\n", blockHeight, header.Number.Uint64()))
+	//chain.Logger().Warn(string(debug.Stack()[:]))
+
+	if header.Number.Uint64() >= 1 && blockHeight < header.Number.Uint64()-1 {
+		fmt.Println(blockHeight)
+		fmt.Println(header.Number.Uint64())
+		fmt.Println(fastBlockHeight)
+		panic("test222222")
+	}
+	if header.Number.Uint64() == 32 {
+		chain.Logger().Warn(fmt.Sprintf("32 with this node"))
+		chain.Logger().Warn(string(debug.Stack()[:]))
+	}
+
 	return vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -76,7 +99,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			Transfer:    Transfer,
 			GetHash:     GetHashFn(header, chain),
 			Coinbase:    header.Coinbase,
-			BlockNumber: header.Number,
+			BlockNumber: new(big.Int).Set(header.Number),
 			Time:        new(big.Int).SetUint64(header.Time),
 			GasLimit:    header.GasLimit,
 			Difficulty:  header.Difficulty,

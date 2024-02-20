@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
@@ -37,7 +39,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -134,6 +135,15 @@ func (lc *LightChain) AddTrustedCheckpoint(cp *params.TrustedCheckpoint) {
 		lc.odr.BloomIndexer().AddCheckpoint(cp.SectionIndex, cp.SectionHead)
 	}
 	log.Info("Added trusted checkpoint", "block", (cp.SectionIndex+1)*lc.indexerConfig.ChtSize-1, "hash", cp.SectionHead)
+}
+func (lc *LightChain) CurrentBlock() *types.Block {
+	return nil
+}
+func (lc *LightChain) CurrentFastBlock() *types.Block {
+	return nil
+}
+func (lc *LightChain) Logger() log.Logger {
+	return nil
 }
 
 func (lc *LightChain) getProcInterrupt() bool {

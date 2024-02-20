@@ -18,8 +18,10 @@ package core
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"math/big"
+
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/testx"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -81,6 +83,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		statedb.Prepare(tx.Hash(), i)
+		p.bc.Logger().Warn("Process", "h", vmenv.Context.BlockNumber.Uint64())
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
@@ -108,6 +111,12 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	// Create a new context to be used in the EVM environment.
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
+	testx.Logger.Warn("applyTx", "h", evm.Context.BlockNumber.Uint64())
+	testx.Logger.Warn("applyTx", "chainheight", bc.CurrentBlock().NumberU64())
+	/*
+		if evm.Context.BlockNumber.Uint64() == 32 {
+			bc.Logger().Warn("32 here! (applytx2)")
+		}*/
 
 	// Apply the transaction to the current state (included in the env).
 	result, err := ApplyMessage(evm, msg, gp)
@@ -161,5 +170,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new context to be used in the EVM environment
 	blockContext := NewEVMBlockContext(header, bc, author)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
+	/*
+		if vmenv.Context.BlockNumber.Uint64() == 32 {
+			bc.Logger().Warn("still 32 here! (applytx0)")
+		}
+		if testx.Debug && blockContext.BlockNumber.Uint64() == 32 {
+			bc.Logger().Warn("32 in applytx")
+		}*/
+	testx.Logger.Warn("ApplyTx", "h", blockContext.BlockNumber.Uint64())
+	testx.Logger.Warn("ApplyTx", "chainHeight", bc.CurrentBlock().NumberU64())
 	return applyTransaction(msg, config, bc, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }

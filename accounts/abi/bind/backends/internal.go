@@ -2,7 +2,6 @@ package backends
 
 import (
 	"context"
-	"math/big"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -14,7 +13,7 @@ import (
 )
 
 // InternalBackend implements the contract.Backend interface to interact with the
-// protocol contracts. This is used internaly by the accountability module.
+// protocol contracts. This is used internally by the accountability module and by the autonity cache.
 type InternalBackend struct {
 	SimulatedBackend
 	TxSender *func(signedTx *types.Transaction) error
@@ -33,11 +32,6 @@ func NewInternalBackend(txSender *func(signedTx *types.Transaction) error) func(
 	}
 }
 
-// SuggestGasTipCap doesn't provide any tips with accountability.
-func (b *InternalBackend) SuggestGasTipCap(_ context.Context) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
 // PendingCodeAt is used for gas estimation but it really doesn't matter, we can use the current state
 func (b *InternalBackend) PendingCodeAt(ctx context.Context, contract common.Address) ([]byte, error) {
 	return b.CodeAt(ctx, contract, nil)
@@ -45,8 +39,20 @@ func (b *InternalBackend) PendingCodeAt(ctx context.Context, contract common.Add
 
 func (b *InternalBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
 	// very hacky but that will avoid us further complications
-	b.SimulatedBackend.pendingBlock = b.blockchain.CurrentBlock()
+	// TODO(lorenzo) refactor
+	headBlock := b.blockchain.CurrentBlock()
+	pendingBlock := types.NewBlockWithHeader(headBlock.Header())
+	// Increase the block number by 1, we want to simulate the tx as if it will be included in the next block
+	// Otherwise precompiles which check blockNumber timing conditions (e.g. accusation verifier) might wrongly fail
+	pendingBlockHeight := pendingBlock.Number()
+	pendingBlockHeight = pendingBlockHeight.Add(pendingBlockHeight, common.Big1)
+	pendingBlock.SetHeaderNumber(pendingBlockHeight)
+	// NOTE: Theoretically also header.GasLimit should be changed since GasLimit adapts
+	// based on parent GasLimit and desired GasCeil. However it is not a big deal.
+
+	b.SimulatedBackend.pendingBlock = pendingBlock
 	b.SimulatedBackend.pendingState, _ = b.blockchain.State()
+
 	return b.SimulatedBackend.EstimateGas(ctx, call)
 }
 

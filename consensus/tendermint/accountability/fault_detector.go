@@ -31,11 +31,14 @@ import (
 type ChainContext interface {
 	consensus.ChainReader
 	CurrentBlock() *types.Block
+	CurrentFastBlock() *types.Block
+	CurrentHeader() *types.Header
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	State() (*state.StateDB, error)
 	ProtocolContracts() *autonity.ProtocolContracts
 	StateAt(root common.Hash) (*state.StateDB, error)
 	HasBadBlock(hash common.Hash) bool
+	Logger() log.Logger
 	Validator() core.Validator
 }
 
