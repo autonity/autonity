@@ -173,19 +173,19 @@ func (mr *MockChainContextMockRecorder) GetTd(hash, number any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTd", reflect.TypeOf((*MockChainContext)(nil).GetTd), hash, number)
 }
 
-// LatestCommitteeAndChainHead mocks base method
-func (m *MockChainContext) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
+// ChainHeadAndCommittee mocks base method
+func (m *MockChainContext) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestCommitteeAndChainHead")
+	ret := m.ctrl.Call(m, "ChainHeadAndCommittee")
 	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[0].(*types.Header)
 	return ret0, ret1
 }
 
-// LatestCommitteeAndChainHead indicates an expected call of LatestCommitteeAndChainHead
-func (mr *MockChainContextMockRecorder) LatestCommitteeAndChainHead() *gomock.Call {
+// ChainHeadAndCommittee indicates an expected call of ChainHeadAndCommittee
+func (mr *MockChainContextMockRecorder) ChainHeadAndCommittee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestCommitteeAndChainHead", reflect.TypeOf((*MockChainContext)(nil).LatestCommitteeAndChainHead))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainHeadAndCommittee", reflect.TypeOf((*MockChainContext)(nil).ChainHeadAndCommittee))
 }
 
 // CommitteeOfHeight mocks base method

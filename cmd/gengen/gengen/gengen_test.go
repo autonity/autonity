@@ -21,7 +21,6 @@ var (
 // This test runs the command and checks that the output is can be json
 // unmarshaled into a core.Genesis instance.
 func TestGenesisCommand(t *testing.T) {
-	t.Skip("due to the missing of bls key for validators in the PiccaddillyChainConfig and BakerlooChainConfig")
 	// We make temp files for the paths.
 	out, cleanup := tempFile(t)
 	defer cleanup()

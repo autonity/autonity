@@ -493,8 +493,8 @@ func (hc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
 	return rawdb.HasHeader(hc.chainDb, hash, number)
 }
 
-// LatestCommitteeAndChainHead retries the latest committee and the current chain head of chain.
-func (hc *HeaderChain) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
+// ChainHeadAndCommittee retries the latest committee and the current chain head of chain.
+func (hc *HeaderChain) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	currentHead := hc.CurrentHeader()
 
 	if currentHead.Number.Cmp(currentHead.LastEpochBlock) == 0 {

@@ -62,8 +62,8 @@ type ChainHeaderReader interface {
 	// CommitteeOfHeight retries the committee for a given block number.
 	CommitteeOfHeight(number uint64) (*types.Committee, error)
 
-	// LatestCommitteeAndChainHead retries the latest committee and chain head of block chain.
-	LatestCommitteeAndChainHead() (*types.Committee, *types.Header)
+	// ChainHeadAndCommittee retries the latest committee and chain head of block chain.
+	ChainHeadAndCommittee() (*types.Committee, *types.Header)
 }
 
 // ChainReader defines a small collection of methods needed to access the local

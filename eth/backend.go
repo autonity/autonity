@@ -605,7 +605,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, s.p2pServer.LocalNode()), committee.List)
 	}
 	wasValidating := false
-	committee, currentHead := s.blockchain.LatestCommitteeAndChainHead()
+	committee, currentHead := s.blockchain.ChainHeadAndCommittee()
 	if committee.CommitteeMember(s.address) != nil {
 		updateConsensusEnodes(currentHead)
 		s.miner.Start()

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
-import "./lib/BytesLib.sol";
 
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {

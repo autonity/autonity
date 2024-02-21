@@ -111,19 +111,19 @@ func (m *MockChainHeaderReader) GetHeaderByNumber(number uint64) *types.Header {
 	return ret0
 }
 
-// LatestCommitteeAndChainHead mocks base method
-func (m *MockChainHeaderReader) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
+// ChainHeadAndCommittee mocks base method
+func (m *MockChainHeaderReader) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestCommitteeAndChainHead")
+	ret := m.ctrl.Call(m, "ChainHeadAndCommittee")
 	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Header)
 	return ret0, ret1
 }
 
-// LatestCommitteeAndChainHead indicates an expected call of LatestCommitteeAndChainHead
-func (mr *MockChainHeaderReaderMockRecorder) LatestCommitteeAndChainHead() *gomock.Call {
+// ChainHeadAndCommittee indicates an expected call of ChainHeadAndCommittee
+func (mr *MockChainHeaderReaderMockRecorder) ChainHeadAndCommittee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestCommitteeAndChainHead", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestCommitteeAndChainHead))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainHeadAndCommittee", reflect.TypeOf((*MockChainHeaderReader)(nil).ChainHeadAndCommittee))
 }
 
 // CommitteeOfHeight mocks base method.
@@ -268,19 +268,19 @@ func (mr *MockChainReaderMockRecorder) GetHeaderByHash(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeaderByHash", reflect.TypeOf((*MockChainReader)(nil).GetHeaderByHash), hash)
 }
 
-// LatestCommitteeAndChainHead mocks base method
-func (m *MockChainReader) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
+// ChainHeadAndCommittee mocks base method
+func (m *MockChainReader) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestCommitteeAndChainHead")
+	ret := m.ctrl.Call(m, "ChainHeadAndCommittee")
 	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Header)
 	return ret0, ret1
 }
 
-// LatestCommitteeAndChainHead indicates an expected call of LatestCommitteeAndChainHead
-func (mr *MockChainReaderMockRecorder) LatestCommitteeAndChainHead() *gomock.Call {
+// ChainHeadAndCommittee indicates an expected call of ChainHeadAndCommittee
+func (mr *MockChainReaderMockRecorder) ChainHeadAndCommittee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestCommitteeAndChainHead", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestCommitteeAndChainHead))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainHeadAndCommittee", reflect.TypeOf((*MockChainHeaderReader)(nil).ChainHeadAndCommittee))
 }
 
 // CommitteeOfHeight mocks base method.

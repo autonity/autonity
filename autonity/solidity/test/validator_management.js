@@ -53,7 +53,6 @@ contract('Autonity', function (accounts) {
             let enode = genesisEnodes[0]
             // multisig length is checked before validator already registered (it is not verified though)
             let multisig = utils.generateMultiSig(genesisPrivateKeys[0],genesisPrivateKeys[0],treasury)
-
             let consensusKey = Buffer.from('845681310fe66ed10629e76cc5aa20f3ec8b853af9f3dee8a6318f3fb81c0adcaaa0a776dc066127e743bba6b0349bc0', 'hex');
             let consensusKeyProof = '0x88a19caac1d02d2efb3675ec9fe99936b1170641b03d7525674ee001446cfd204fa5ba0b5e362d71294f3ba2f758695115a17101fc70b73fe90d7eb83950c3f7ad598b6740698b8e78fb48821c47762cdf2de889deede80fe2e7c085e48562c4';
             multisig = multisig + consensusKeyProof.substring(2);
@@ -87,7 +86,6 @@ contract('Autonity', function (accounts) {
             let oracleAddr = treasury
             await truffleAssert.fails(
                 autonity.registerValidator(enode, oracleAddr, consensusKey, pop, {from: treasury}),
-
                 truffleAssert.ErrorType.REVERT,
                 "Invalid oracle key ownership proof provided"
             );
@@ -108,7 +106,6 @@ contract('Autonity', function (accounts) {
             const liquid = new web3.eth.Contract(liquidABI, v.liquidContract);
             assert.equal(await liquid.methods.name().call(),"LNTN-"+(vals.length-1))
             assert.equal(await liquid.methods.symbol().call(),"LNTN-"+(vals.length-1))
-
             assert.equal(v.treasury.toString(), treasury.toString(), "treasury addr is not expected");
             assert.equal(v.nodeAddress.toString(), node.toString(), "validator addr is not expected");
             assert.equal(v.enode.toString(), enode.toString(), "validator enode is not expected");

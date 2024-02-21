@@ -381,6 +381,6 @@ func (cr *fakeChainReader) MinBaseFee() *big.Int {
 func (cr *fakeChainReader) CommitteeOfHeight(_ uint64) (*types.Committee, error) {
 	return nil, nil
 }
-func (cr *fakeChainReader) LatestCommitteeAndChainHead() (*types.Committee, *types.Header) {
+func (cr *fakeChainReader) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	return nil, nil
 }

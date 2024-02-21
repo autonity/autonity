@@ -28,7 +28,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	}
 
 	wasValidating := false
-	committee, currentHead := acn.chain.LatestCommitteeAndChainHead()
+	committee, currentHead := acn.chain.ChainHeadAndCommittee()
 	if committee.CommitteeMember(acn.address) != nil {
 		updateConsensusEnodes(currentHead)
 		wasValidating = true

@@ -21,7 +21,7 @@ var ErrValidatorJailed = errors.New("jailed validator")
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
-	com, chainHead := c.backend.BlockChain().LatestCommitteeAndChainHead()
+	com, chainHead := c.backend.BlockChain().ChainHeadAndCommittee()
 	c.protocolContracts = contract
 	committeeSet := committee.NewWeightedRandomSamplingCommittee(chainHead, com, c.protocolContracts)
 	c.setCommitteeSet(committeeSet)
