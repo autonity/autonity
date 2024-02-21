@@ -768,15 +768,15 @@ func TestOldProposal(t *testing.T) {
 func TestProposeTimeout(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
-	clientAddr := members[0].Address
+	committee := committeeSet.Committee()
+	clientAddr := committee.Members[0].Address
 
 	t.Run("propose Timeout is not stopped if the proposal does not cause a step change", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
 		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 
 		// proposal with vr > r
-		proposal := generateBlockProposal(currentRound, currentHeight, currentRound+1, false, makeSigner(privateKeys[members[currentRound].Address], members[currentRound].Address)).MustVerify(stubVerifier) //nolint:gosec
+		proposal := generateBlockProposal(currentRound, currentHeight, currentRound+1, false, makeSigner(privateKeys[committee.Members[currentRound].Address], committee.Members[currentRound].Address)).MustVerify(stubVerifier) //nolint:gosec
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()

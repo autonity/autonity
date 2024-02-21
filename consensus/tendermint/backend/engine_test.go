@@ -607,8 +607,9 @@ func TestMultipleRestart(t *testing.T) {
 	times := 5
 	ctx := context.Background()
 	tendermintC := interfaces.NewMockCore(ctrl)
+	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
+	tendermintC.EXPECT().Stop().MaxTimes(5)
 	chain, _ := newBlockChain(1)
-
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 

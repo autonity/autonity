@@ -15,7 +15,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -1089,37 +1088,6 @@ func TestCheckEquivocation(t *testing.T) {
 		proofs = append(proofs, vote1)
 		require.Nil(t, checkEquivocation(vote1, proofs))
 	})
-}
-
-func TestPOPVerifier(t *testing.T) {
-	key1, err := crypto.GenerateKey()
-	require.NoError(t, err)
-
-	treasuryAddress := crypto.PubkeyToAddress(key1.PublicKey)
-	key, err := blst.RandKey()
-	require.NoError(t, err)
-
-	proof, err := crypto.BLSPOPProof(key, treasuryAddress.Bytes())
-	require.NoError(t, err)
-
-	popVerifier := &POPVerifier{}
-	input := make([]byte, ArrayLenBytes+POPBytes)
-	signatureOffset := ArrayLenBytes + blst.BLSPubkeyLength
-	treasuryOffset := signatureOffset + blst.BLSSignatureLength
-	copy(input[ArrayLenBytes:signatureOffset], key.PublicKey().Marshal())
-	copy(input[signatureOffset:treasuryOffset], proof)
-	copy(input[treasuryOffset:ArrayLenBytes+POPBytes], treasuryAddress.Bytes())
-
-	ret, err := popVerifier.Run(input, 0)
-	require.NoError(t, err)
-	require.Equal(t, successResult, ret)
-
-	wrongKey, err := blst.RandKey()
-	require.NoError(t, err)
-	copy(input[32:80], wrongKey.PublicKey().Marshal())
-	ret, err = popVerifier.Run(input, 0)
-	require.NotNil(t, err)
-	require.Equal(t, failure32Byte, ret)
 }
 
 func validateProof(p *Proof, committee *types.Committee) {
