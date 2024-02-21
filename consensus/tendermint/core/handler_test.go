@@ -228,7 +228,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 
 func TestHandleMsg(t *testing.T) {
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	//header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
