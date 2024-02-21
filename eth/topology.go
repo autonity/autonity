@@ -6,16 +6,23 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
+const (
+	// max degree allowed for network in the execution layer
+	MaxDegree = 25
+	// if the network size exceeds MaxGraphSize, we divide the network in smaller sub-network of size MaxGraphSize
+	MaxGraphSize = 64
+)
+
 type networkTopology struct {
 	diameter int
 	minNodes int
 }
 
-func NewGraphTopology(diameter int, minNodes int) networkTopology {
+func NewGraphTopology(diameter, minNodes int) networkTopology {
 	// Only diameter = 2, to support diameter > 2, ComputeBase and adjacentNodesIdx function has to be modified
-	if diameter != 2 {
-		panic("diameter value must be 2")
-	}
+	// if diameter != 2 {
+	// 	panic("diameter value must be 2")
+	// }
 	return networkTopology{
 		diameter: diameter,
 		minNodes: minNodes,
@@ -37,22 +44,6 @@ func (g *networkTopology) computeSquareRoot(n int) int {
 	return int(math.Ceil(math.Sqrt(float64(n))))
 }
 
-// Returns the number of matching digits in i and j for g.diameter least significant digits
-// Both i and j are considered to be in b-base number system
-func (g *networkTopology) countMatchingDigits(i, j, b int) int {
-	count := 0
-	digitCount := g.diameter
-	for digitCount > 0 {
-		if i%b == j%b {
-			count++
-		}
-		i /= b
-		j /= b
-		digitCount--
-	}
-	return count
-}
-
 // compute b such that b^d >= n and (b-1)^d < n where d = g.diameter
 // for now only g.diameter = 2 is supported
 func (g *networkTopology) ComputeBase(n int) int {
@@ -66,9 +57,8 @@ func (g *networkTopology) MaxDegree(totalNodeCount int) int {
 	return d * int(math.Pow(float64(b-1), float64(d-1)))
 }
 
-// maximum number of degree for each node = d*(b-1)^(d-1) where d = g.diameter
-// it constructs array of them by keeping one digit of myIdx fix and changing all the rest
-func (g *networkTopology) adjacentNodesIdx(myIdx, totalNodes int) []int {
+// it constructs array of the edges by keeping one digit of myIdx fix and changing all the rest
+func (g *networkTopology) edges(myIdx, totalNodes int) []int {
 	b := g.ComputeBase(totalNodes)
 
 	// the following part supports only g.diameter = 2 for ease of coding,
@@ -91,8 +81,86 @@ func (g *networkTopology) adjacentNodesIdx(myIdx, totalNodes int) []int {
 	return adjacentNodes
 }
 
+func (g *networkTopology) componentSize(componentEndIdx []int, componentIdx int) int {
+	if componentIdx > 0 {
+		return componentEndIdx[componentIdx] - componentEndIdx[componentIdx-1]
+	}
+	return componentEndIdx[componentIdx]
+}
+
+func (g *networkTopology) componentRelativeIdx(componentEndIdx, actualIdx int) int {
+	return componentEndIdx - 1 - actualIdx
+}
+
+func (g *networkTopology) idxFromRelativeIdx(componentEndIdx, relativeIdx int) int {
+	return componentEndIdx - 1 - relativeIdx
+}
+
+func (g *networkTopology) componentCount(nodeCount int) int {
+	return (nodeCount + MaxGraphSize - 1) / MaxGraphSize // components = math.Ceil(totalNodes/MaxGraphSize)
+}
+
+func (g *networkTopology) componentEndIdx(totalNodes int) []int {
+	components := g.componentCount(totalNodes)
+	componentEndIdx := make([]int, components)
+	for i := 0; i < components-1; i++ {
+		componentEndIdx[i] = (i + 1) * MaxGraphSize
+	}
+	componentEndIdx[components-1] = totalNodes
+	if components > 1 && g.componentSize(componentEndIdx, components-1) < (MaxGraphSize+1)/2 {
+		componentEndIdx[components-2] -= MaxGraphSize / 2
+	}
+	return componentEndIdx
+}
+
+func (g *networkTopology) componentIdx(componentEndIdx []int, nodeIdx int) int {
+	componentIdx := 0
+	// scope to improve: do a binary search if len(componentEndIdx) is too big
+	for nodeIdx >= componentEndIdx[componentIdx] {
+		componentIdx++
+	}
+	return componentIdx
+}
+
+func (g *networkTopology) adjacentNodesIdx(myIdx, totalNodes int) []int {
+	if totalNodes <= MaxGraphSize {
+		return g.edges(myIdx, totalNodes)
+	}
+	components := g.componentCount(totalNodes)
+	componentEndIdx := g.componentEndIdx(totalNodes)
+	myComponentIdx := g.componentIdx(componentEndIdx, myIdx)
+	relativeIdx := g.componentRelativeIdx(componentEndIdx[myComponentIdx], myIdx)
+	myComponentSize := g.componentSize(componentEndIdx, myComponentIdx)
+	connections := g.edges(relativeIdx, myComponentSize)
+	for i := 0; i < len(connections); i++ {
+		connections[i] = g.idxFromRelativeIdx(componentEndIdx[myComponentIdx], connections[i])
+	}
+	componentConnections := g.adjacentNodesIdx(myComponentIdx, components)
+	for _, componentIdx := range componentConnections {
+		componentSize := g.componentSize(componentEndIdx, componentIdx)
+		peerRelativeIdx := relativeIdx
+		if myComponentSize >= componentSize {
+			if peerRelativeIdx >= componentSize {
+				peerRelativeIdx -= componentSize
+			}
+			peerIdx := g.idxFromRelativeIdx(componentEndIdx[componentIdx], peerRelativeIdx)
+			connections = append(connections, peerIdx)
+		} else {
+			factor := (componentSize + myComponentSize - 1) / myComponentSize // factor = math.Ceil(componentSize/myComponentSize)
+			for factor > 0 && peerRelativeIdx < componentSize {
+				peerIdx := g.idxFromRelativeIdx(componentEndIdx[componentIdx], peerRelativeIdx)
+				connections = append(connections, peerIdx)
+				peerRelativeIdx += myComponentSize
+				factor--
+			}
+		}
+	}
+	return connections
+}
+
+// the input array (nodes []*enode.Node) must be same for everyone in order to create a connected graph
 // Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
-// for everyone, connecting to only adjacentNodes will create a connected graph with diameter = g.diameter
+// for everyone, connecting to only adjacentNodes will create a connected graph with diameter <= 4
 func (g *networkTopology) RequestSubset(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
 	if len(nodes) < g.minNodes {
 		// connect to all nodes
