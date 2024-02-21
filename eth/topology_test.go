@@ -119,7 +119,7 @@ func (graph *graphTester) AddNewNode() {
 	if !graph.bulkTest && len(graph.nodes) < graph.totalNodeCount {
 		return
 	}
-	testId := len(graph.nodes)
+	testID := len(graph.nodes)
 	edgeAdded := make([]bool, len(graph.nodes))
 	task := sync.WaitGroup{}
 	for i := 0; i < len(graph.nodes); i++ {
@@ -128,7 +128,7 @@ func (graph *graphTester) AddNewNode() {
 			edges := graph.topology.RequestSubset(graph.nodes, graph.localNodes[idx])
 			for _, peer := range edges {
 				peerIdx := graph.nodesIdx[peer]
-				graph.edgeChecker[idx][peerIdx] = testId
+				graph.edgeChecker[idx][peerIdx] = testID
 			}
 			edgeAdded[idx] = true
 			graph.connections[idx] = edges
@@ -142,7 +142,7 @@ func (graph *graphTester) AddNewNode() {
 	for i := 0; i < len(graph.nodes); i++ {
 		for _, peer := range graph.connections[i] {
 			peerIdx := graph.nodesIdx[peer]
-			require.Equal(graph.t, testId, graph.edgeChecker[peerIdx][i])
+			require.Equal(graph.t, testID, graph.edgeChecker[peerIdx][i])
 		}
 		require.Equal(graph.t, 0, graph.edgeChecker[i][i], "self loop detected")
 	}
@@ -159,7 +159,7 @@ func (graph *graphTester) TestGraph() {
 	graph.testGraphDegree()
 	if !graph.bulkTest {
 		graph.testGraphDiamter()
-	} else if len(graph.nodes)%MaxGraphSize == 0 {
+	} else if len(graph.nodes)%100 == 0 {
 		graph.testGraphDiamter()
 	} else {
 		visited := make([]bool, len(graph.nodes))
