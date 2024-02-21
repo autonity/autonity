@@ -49,7 +49,8 @@ type graphTester struct {
 	connections    [][]*enode.Node
 	distance       [][]int
 	localNodes     []*enode.LocalNode
-	edgeChecker    [][]int
+	// to check if edges are bidirectional
+	edgeChecker [][]int
 	// if bulkTest = true, the graph is tested for each node added, and some optimimzation must be applied
 	// set bulkTest = false if a single graph is to be tested
 	bulkTest bool
@@ -120,7 +121,6 @@ func (graph *graphTester) AddNewNode() {
 		return
 	}
 	testID := len(graph.nodes)
-	edgeAdded := make([]bool, len(graph.nodes))
 	task := sync.WaitGroup{}
 	for i := 0; i < len(graph.nodes); i++ {
 		task.Add(1)
@@ -128,17 +128,16 @@ func (graph *graphTester) AddNewNode() {
 			edges := graph.topology.RequestSubset(graph.nodes, graph.localNodes[idx])
 			for _, peer := range edges {
 				peerIdx := graph.nodesIdx[peer]
+				// put unidirectional edge, i.e. idx -> peerIdx
+				// if edges are bidirectional, we will have peerIdx -> idx
 				graph.edgeChecker[idx][peerIdx] = testID
 			}
-			edgeAdded[idx] = true
 			graph.connections[idx] = edges
 			task.Done()
 		}(i)
 	}
 	task.Wait()
-	for _, check := range edgeAdded {
-		require.True(graph.t, check)
-	}
+	// check if edges are bidirectional
 	for i := 0; i < len(graph.nodes); i++ {
 		for _, peer := range graph.connections[i] {
 			peerIdx := graph.nodesIdx[peer]
@@ -162,6 +161,7 @@ func (graph *graphTester) TestGraph() {
 	} else if len(graph.nodes)%100 == 0 {
 		graph.testGraphDiamter()
 	} else {
+		// check if graph is connected
 		visited := make([]bool, len(graph.nodes))
 		graph.dfs(0, visited)
 		for _, check := range visited {
