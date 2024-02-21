@@ -12,7 +12,6 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-// currently we only support graph diameter = 2, to support diameter > 2, floydWarshall needs to be modified
 func TestEthExecutionLayerGraph(t *testing.T) {
 	const targetDiameter = 4
 	nodeCount := int(max(1000, params.TestAutonityContractConfig.MaxCommitteeSize))
@@ -57,11 +56,9 @@ type graphTester struct {
 }
 
 func (graph *graphTester) initiateGraph(targetDiameter, totalNodeCount int) {
-	// following functions need to be updated to support testing diameter > 2: floydWarshall, testNodeDiameter
-	// require.True(graph.t, targetDiameter <= 2, "testing of diameter > 2 not supported")
 	graph.totalNodeCount = totalNodeCount
 	graph.targetDiameter = targetDiameter
-	graph.topology = NewGraphTopology(targetDiameter, 0)
+	graph.topology = NewGraphTopology(0)
 	graph.nodes = make([]*enode.Node, 0, totalNodeCount)
 	graph.privateKeys = make(map[*ecdsa.PrivateKey]bool)
 	graph.nodesIdx = make(map[*enode.Node]int)

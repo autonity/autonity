@@ -14,26 +14,13 @@ const (
 )
 
 type networkTopology struct {
-	diameter int
 	minNodes int
 }
 
-func NewGraphTopology(diameter, minNodes int) networkTopology {
-	// Only diameter = 2, to support diameter > 2, ComputeBase and adjacentNodesIdx function has to be modified
-	// if diameter != 2 {
-	// 	panic("diameter value must be 2")
-	// }
+func NewGraphTopology(minNodes int) networkTopology {
 	return networkTopology{
-		diameter: diameter,
 		minNodes: minNodes,
 	}
-}
-
-func (g *networkTopology) SetDiameter(d int) {
-	if d != 2 {
-		panic("diameter value must be 2")
-	}
-	g.diameter = d
 }
 
 func (g *networkTopology) SetMinNodes(n int) {
@@ -44,25 +31,14 @@ func (g *networkTopology) computeSquareRoot(n int) int {
 	return int(math.Ceil(math.Sqrt(float64(n))))
 }
 
-// compute b such that b^d >= n and (b-1)^d < n where d = g.diameter
-// for now only g.diameter = 2 is supported
 func (g *networkTopology) ComputeBase(n int) int {
 	return g.computeSquareRoot(n)
-}
-
-// maximum number of degree of each node = d*(b-1)^(d-1), where b = base, d = diameter
-func (g *networkTopology) MaxDegree(totalNodeCount int) int {
-	b := g.ComputeBase(totalNodeCount)
-	d := g.diameter
-	return d * int(math.Pow(float64(b-1), float64(d-1)))
 }
 
 // it constructs array of the edges by keeping one digit of myIdx fix and changing all the rest
 func (g *networkTopology) edges(myIdx, totalNodes int) []int {
 	b := g.ComputeBase(totalNodes)
 
-	// the following part supports only g.diameter = 2 for ease of coding,
-	// it needs to change to support g.diameter > 2 (which may not be necessary)
 	lsb := myIdx % b
 	msb := (myIdx / b) * b
 	adjacentNodes := make([]int, 0, 2*(b-1))
@@ -177,16 +153,6 @@ func (g *networkTopology) RequestSubset(nodes []*enode.Node, localNode *enode.Lo
 	if myIdx == -1 {
 		return nodes
 	}
-	// Graph construction mechanism for large graph
-	// each node is represented as a number in b-base number system with exactly d digits
-	// which requires len(nodes) <= b^d. For example, if b = 2 and d = 2
-	// then we can support 4 nodes numbering 00, 01, 10, 11 (in binary).
-	// Two nodes i and j is connected if they have exactly 1 digit common
-	// So in above example, 00 is connected with 01 and 10; 01 is connected with 00 and 11;
-	// 10 is connected with 00 and 11; 11 is connected with 01 and 10.
-
-	// for now only diameter = 2 is supported
-	// b is chosen with the following property len(nodes) <= b*b and len(nodes) > (b-1)*(b-1)
 	adjacentNodes := g.adjacentNodesIdx(myIdx, len(nodes))
 	connections := make([]*enode.Node, 0, len(adjacentNodes))
 	for _, idx := range adjacentNodes {
