@@ -271,6 +271,5 @@ func genAutonityKeys(ctx *cli.Context) error {
 		fmt.Printf("Node public key: 0x%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
 		fmt.Println("Consensus public key:", consensusKey.PublicKey().Hex())
 	}
-	fmt.Println("Node's validator key:", consensusKey.PublicKey().Hex())
 	return nil
 }
