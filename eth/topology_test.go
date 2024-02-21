@@ -2,7 +2,6 @@ package eth
 
 import (
 	"crypto/ecdsa"
-	"math"
 	"sync"
 	"testing"
 
@@ -15,19 +14,18 @@ import (
 
 // currently we only support graph diameter = 2, to support diameter > 2, floydWarshall needs to be modified
 func TestEthExecutionLayerGraph(t *testing.T) {
-	const targetDiameter = 2
+	const targetDiameter = 4
 	nodeCount := int(max(1000, params.TestAutonityContractConfig.MaxCommitteeSize))
 	graph := NewBulkGraphTester(targetDiameter, nodeCount, t)
 	for n := 1; n <= nodeCount; n++ {
 		graph.AddNewNode()
 		graph.TestGraph()
 	}
-	t.Logf("heavy tests done %v", graph.heavyTestCount)
 }
 
 // benchmark construction of the list of connection of a single node
 func BenchmarkEdgeConstruction(b *testing.B) {
-	const targetDiameter = 2
+	const targetDiameter = 4
 	nodeCount := int(max(1000, params.TestAutonityContractConfig.MaxCommitteeSize))
 	graph := NewGraphTester(targetDiameter, nodeCount, b)
 	// create the graph
@@ -45,7 +43,6 @@ type graphTester struct {
 	t              require.TestingT
 	totalNodeCount int
 	targetDiameter int
-	base           int
 	topology       networkTopology
 	nodes          []*enode.Node
 	privateKeys    map[*ecdsa.PrivateKey]bool
@@ -53,8 +50,7 @@ type graphTester struct {
 	connections    [][]*enode.Node
 	distance       [][]int
 	localNodes     []*enode.LocalNode
-	graphChanged   bool
-	heavyTestCount int
+	edgeChecker    [][]int
 	// if bulkTest = true, the graph is tested for each node added, and some optimimzation must be applied
 	// set bulkTest = false if a single graph is to be tested
 	bulkTest bool
@@ -62,7 +58,7 @@ type graphTester struct {
 
 func (graph *graphTester) initiateGraph(targetDiameter, totalNodeCount int) {
 	// following functions need to be updated to support testing diameter > 2: floydWarshall, testNodeDiameter
-	require.True(graph.t, targetDiameter <= 2, "testing of diameter > 2 not supported")
+	// require.True(graph.t, targetDiameter <= 2, "testing of diameter > 2 not supported")
 	graph.totalNodeCount = totalNodeCount
 	graph.targetDiameter = targetDiameter
 	graph.topology = NewGraphTopology(targetDiameter, 0)
@@ -70,9 +66,16 @@ func (graph *graphTester) initiateGraph(targetDiameter, totalNodeCount int) {
 	graph.privateKeys = make(map[*ecdsa.PrivateKey]bool)
 	graph.nodesIdx = make(map[*enode.Node]int)
 	graph.localNodes = make([]*enode.LocalNode, 0, totalNodeCount)
+	graph.edgeChecker = make([][]int, totalNodeCount)
+	for i := 0; i < totalNodeCount; i++ {
+		graph.edgeChecker[i] = make([]int, totalNodeCount)
+	}
 	graph.distance = make([][]int, totalNodeCount)
 	for i := 0; i < totalNodeCount; i++ {
 		graph.distance[i] = make([]int, totalNodeCount)
+		for j := 0; j < totalNodeCount; j++ {
+			graph.distance[i][j] = -1
+		}
 	}
 	graph.connections = make([][]*enode.Node, totalNodeCount)
 }
@@ -119,56 +122,39 @@ func (graph *graphTester) AddNewNode() {
 	if !graph.bulkTest && len(graph.nodes) < graph.totalNodeCount {
 		return
 	}
-	graph.graphChanged = false
+	testId := len(graph.nodes)
 	edgeAdded := make([]bool, len(graph.nodes))
 	task := sync.WaitGroup{}
 	for i := 0; i < len(graph.nodes); i++ {
 		task.Add(1)
 		go func(idx int) {
-			defer task.Done()
 			edges := graph.topology.RequestSubset(graph.nodes, graph.localNodes[idx])
+			for _, peer := range edges {
+				peerIdx := graph.nodesIdx[peer]
+				graph.edgeChecker[idx][peerIdx] = testId
+			}
 			edgeAdded[idx] = true
-			if !graph.bulkTest {
-				graph.connections[idx] = edges
-				return
-			}
-			// for bulk test, we have a new graph created each time a new node is added
-			// to optimze testing of all the graphs, we track the following:
-			// graph.graphChanged = true if adding the new node changes at least one edge present in the current graph (before adding the new node)
-			// otherwise graph.graphChanged = false, i.e. adding the new node only adds some eges to graph, it does not change any existing edges
-			if !graph.graphChanged {
-				newNodes := make(map[*enode.Node]bool)
-				for _, peer := range edges {
-					newNodes[peer] = true
-				}
-				for _, peer := range graph.connections[idx] {
-					if newNodes[peer] == false {
-						// current egde not found in the set of new edges
-						graph.graphChanged = true
-						break
-					}
-				}
-			}
 			graph.connections[idx] = edges
+			task.Done()
 		}(i)
 	}
 	task.Wait()
 	for _, check := range edgeAdded {
 		require.True(graph.t, check)
 	}
+	for i := 0; i < len(graph.nodes); i++ {
+		for _, peer := range graph.connections[i] {
+			peerIdx := graph.nodesIdx[peer]
+			require.Equal(graph.t, testId, graph.edgeChecker[peerIdx][i])
+		}
+		require.Equal(graph.t, 0, graph.edgeChecker[i][i], "self loop detected")
+	}
 }
 
 func (graph *graphTester) testGraphDegree() {
 	// check if the degree properties hold
-	graph.base = graph.topology.ComputeBase(len(graph.nodes))
-	// check if base calculation correct or not
-	require.True(
-		graph.t, int(math.Pow(float64(graph.base), float64(graph.targetDiameter))) >= len(graph.nodes) &&
-			int(math.Pow(float64(graph.base-1), float64(graph.targetDiameter))) < len(graph.nodes),
-	)
-	maxDegree := graph.topology.MaxDegree(len(graph.nodes))
 	for i := 0; i < len(graph.nodes); i++ {
-		require.True(graph.t, len(graph.connections[i]) <= maxDegree)
+		require.True(graph.t, len(graph.connections[i]) <= MaxDegree)
 	}
 }
 
@@ -176,108 +162,56 @@ func (graph *graphTester) TestGraph() {
 	graph.testGraphDegree()
 	if !graph.bulkTest {
 		graph.testGraphDiamter()
-	} else if graph.graphChanged {
-		// test the whole graph because the old edges from the graph changed
-		graph.t.(*testing.T).Logf("heavy test on graph with nodes %v", len(graph.nodes))
-		graph.heavyTestCount++
+	} else if len(graph.nodes)%MaxGraphSize == 0 {
 		graph.testGraphDiamter()
-		graph.graphChanged = false
 	} else {
-		// test a single node, no need to test the whole graph because the old edges remain same
-		graph.testLastNode()
+		visited := make([]bool, len(graph.nodes))
+		graph.dfs(0, visited)
+		for _, check := range visited {
+			require.True(graph.t, check, "graph disconnected")
+		}
 	}
 }
 
-func (graph *graphTester) testLastNode() {
-	myIdx := len(graph.nodes) - 1
-	// update distance from any node to myIdx node
-	for i := 0; i < len(graph.nodes); i++ {
-		graph.distance[i][myIdx] = graph.targetDiameter + 1 // if dis[i][j] > graph.targetDiameter, test fails
-		graph.distance[myIdx][i] = graph.targetDiameter + 1
+func (graph *graphTester) dfs(nodeIdx int, visited []bool) {
+	if visited[nodeIdx] {
+		return
 	}
-	graph.distance[myIdx][myIdx] = 0
-	base := graph.topology.ComputeBase(len(graph.nodes))
-	for _, peer := range graph.connections[myIdx] {
-		i := graph.nodesIdx[peer]
-		// check graph construction
-		require.True(graph.t, graph.topology.countMatchingDigits(i, myIdx, base) == 1, "invalid graph constrcution")
-		graph.distance[myIdx][i] = 1
-		graph.distance[i][myIdx] = 1
-		for _, distantPeer := range graph.connections[i] {
-			j := graph.nodesIdx[distantPeer]
-			if graph.distance[myIdx][j] > 2 {
-				graph.distance[myIdx][j] = 2
-				graph.distance[j][myIdx] = 2
-			}
-		}
-		// If there is any node i remains where dis[i][myIdx] is not updated yet, then dis[i][myIdx] > 2 is true for them.
-		// As we support only diameter = 2, we don't need to update those distances and the test will rightfully fail.
-	}
-	// Ideally we should update all pair distance becase there could be a new path including the new node that reduces their distance,
-	// but it cannot be reduced less than 2. For now we only support diameter = 2, so we can do a little optimization here.
-	// We can ignore all pair distance update because we already have all pair distance <= 2 (otherwise the test would fail already)
-	// and it cannot be reduced any more.
-	// Note that the above statement would not be true if we had diameter > 2
-	for i := 0; i < len(graph.nodes); i++ {
-		require.True(graph.t, graph.distance[i][myIdx] <= graph.targetDiameter, "graph diameter more than desired")
-		require.True(graph.t, graph.distance[myIdx][i] <= graph.targetDiameter, "graph diameter more than desired")
+	visited[nodeIdx] = true
+	for _, peer := range graph.connections[nodeIdx] {
+		graph.dfs(graph.nodesIdx[peer], visited)
 	}
 }
 
 func (graph *graphTester) testGraphDiamter() {
-	// check if the construction is correct
-	base := graph.topology.ComputeBase(len(graph.nodes))
 	for i := 0; i < len(graph.nodes); i++ {
-		for _, peer := range graph.connections[i] {
-			j := graph.nodesIdx[peer]
-			require.True(graph.t, graph.topology.countMatchingDigits(i, j, base) == 1, "invalid graph constrcution")
-		}
-	}
-	// check distance for each pair of nodes
-	graph.floydWarshall()
-	for i := 0; i < len(graph.nodes); i++ {
+		graph.bfs(i, graph.distance[i])
 		for j := 0; j < len(graph.nodes); j++ {
-			require.True(graph.t, graph.distance[i][j] <= graph.targetDiameter, "graph diameter more than desired")
+			d := graph.distance[i][j]
+			require.True(graph.t, d >= 0, "graph disconnected")
+			require.True(graph.t, d <= graph.targetDiameter, "graph diameter more than expected")
 		}
 	}
 }
 
-// algorithm to measure distance between all pair of nodes in a graph: https://en.wikipedia.org/wiki/Floyd%E2%80%93Warshall_algorithm
-func (graph *graphTester) floydWarshall() {
+func (graph *graphTester) bfs(sourceIdx int, dis []int) {
 	for i := 0; i < len(graph.nodes); i++ {
-		for j := 0; j < len(graph.nodes); j++ {
-			graph.distance[i][j] = graph.targetDiameter + 1 // if dis[i][j] > graph.targetDiameter, test fails
-		}
+		dis[i] = -1
 	}
-	for i := 0; i < len(graph.nodes); i++ {
-		graph.distance[i][i] = 0
-		for _, peer := range graph.connections[i] {
-			j := graph.nodesIdx[peer]
-			graph.distance[i][j] = 1
-		}
-	}
-	for mid := 0; mid < len(graph.nodes); mid++ {
-		/*
-			According to the Floyd-Warshall algorithm, the following part should iterate through all possible pair of nodes (i,j)
-			and update their distance if it reduces using the midle node, i.e. dis[i][j] = min(dis[i][j], dis[i][mid] + dis[mid][j]).
-			But we support only diameter = 2, so we can do the following optimization
-			1. For any node i that doesn't have a direct connection to mid, dis[i][mid] > 1 is always true
-			2. For any pair of nodes (i,j), if either i or j does not have a direct connection,
-				then dis[i][j] = dis[i][mid] + dis[mid][j] > 2. If there is no such node mid found, then the test rightfully fails
-			3. For any pair of nodes (i,j), dis[i][j] <= 2 if they have direct connection or there is a node, mid,
-				which has direct connection to both i and j
-			4. So we only update the pair of nodes (i,j) if both i and j have direct connection to node mid
-			5. Note that if we have some pair nodes (i,j) such that in the graph the actual distance between them is greater than 2,
-				then we cannot determine their actual distance via this optimization, but we don't care since the test will fail anyway
-		*/
-		edges := graph.connections[mid]
-		for _, peer1 := range edges {
-			for _, peer2 := range edges {
-				i := graph.nodesIdx[peer1]
-				j := graph.nodesIdx[peer2]
-				if graph.distance[i][j] > 2 {
-					graph.distance[i][j] = 2
-				}
+	// enque source
+	queue := make([]int, 0, len(graph.nodes))
+	queue = append(queue, sourceIdx)
+	dis[sourceIdx] = 0
+	for len(queue) > 0 {
+		// pop
+		nodeIdx := queue[0]
+		queue = queue[1:]
+		for _, peer := range graph.connections[nodeIdx] {
+			peerIdx := graph.nodesIdx[peer]
+			if dis[peerIdx] < 0 {
+				// enque adjacent nodes
+				queue = append(queue, peerIdx)
+				dis[peerIdx] = dis[nodeIdx] + 1
 			}
 		}
 	}
