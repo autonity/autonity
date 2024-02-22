@@ -226,7 +226,7 @@ tendermintMsgLoop:
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
 				if fd.isMsgExpired(curHeight, e.Message.H()) {
-					fd.logger.Debug("Fault detector: discarding old message", "sender", e.Message.Sender())
+					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
 				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {

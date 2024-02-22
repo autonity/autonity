@@ -190,6 +190,10 @@ func (c *AutonityContract) CommitteeEnodes(block *types.Block, db vm.StateDB, as
 	return c.callGetCommitteeEnodes(db, block.Header(), asACN)
 }
 
+func (c *AutonityContract) Committee(header *types.Header, db vm.StateDB) ([]types.CommitteeMember, error) {
+	return c.callGetCommittee(db, header)
+}
+
 func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*big.Int, error) {
 	if block.Number.Uint64() <= 1 {
 		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.MinBaseFee), nil

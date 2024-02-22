@@ -388,6 +388,12 @@ func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *type
 	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
+func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) ([]types.CommitteeMember, error) {
+	var committee []types.CommitteeMember
+	err := c.AutonityContractCall(state, header, "getCommittee", &committee)
+	return committee, err
+}
+
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	minBaseFee := new(big.Int)
 	err := c.AutonityContractCall(state, header, "getMinimumBaseFee", &minBaseFee)

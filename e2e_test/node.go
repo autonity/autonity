@@ -3,14 +3,12 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +16,8 @@ import (
 
 	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/p2p/enode"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
@@ -27,7 +26,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth"
-	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/log"
@@ -37,7 +35,7 @@ import (
 )
 
 const (
-	addrAny = "0.0.0.0"
+	localhost = "127.0.0.1"
 )
 
 var (
@@ -45,20 +43,13 @@ var (
 		Name:    "autonity",
 		Version: params.Version,
 		ExecutionP2P: p2p.Config{
-			MaxPeers: 100,
+			MaxPeers: 50,
 		},
 		ConsensusP2P: p2p.Config{
 			MaxPeers: 100000,
 		},
-		HTTPHost: addrAny,
-		WSHost:   addrAny,
-	}
-
-	baseEthConfig = &eth.Config{
-		SyncMode:        downloader.FullSync,
-		DatabaseCache:   256,
-		DatabaseHandles: 256,
-		TxPool:          core.DefaultTxPoolConfig,
+		HTTPHost: localhost,
+		WSHost:   localhost,
 	}
 
 	terminalColors = []struct {
@@ -109,59 +100,72 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewNode(t *testing.T, u *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
-
-	k := u.NodeKey
-	address := crypto.PubkeyToAddress(k.PublicKey)
+func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
+	address := crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
 	// original.
-	c := &node.Config{}
-	err := copyNodeConfig(baseNodeConfig, c)
-	if err != nil {
-		return nil, err
-	}
+	nodeConfig := copyNodeConfig(baseNodeConfig)
 
 	// p2p key and address
-	c.ExecutionP2P.PrivateKey = u.NodeKey
-	c.ExecutionP2P.ListenAddr = addrAny + ":" + strconv.Itoa(u.NodePort)
+	nodeConfig.ExecutionP2P.PrivateKey = validator.NodeKey
+	nodeConfig.ExecutionP2P.ListenAddr = fmt.Sprintf("%s:%d", localhost, validator.NodePort)
 
 	// consensus key used by consensus engine.
-	c.ConsensusKey = u.ConsensusKey
-	c.ConsensusP2P.PrivateKey = u.NodeKey
-	c.ConsensusP2P.ListenAddr = addrAny + ":" + strconv.Itoa(u.AcnPort)
+	nodeConfig.ConsensusKey = validator.ConsensusKey
+	nodeConfig.ConsensusP2P.PrivateKey = validator.NodeKey
+	nodeConfig.ConsensusP2P.ListenAddr = fmt.Sprintf("%s:%d", localhost, validator.AcnPort)
 
 	// Set rpc ports
-	c.HTTPPort = freeport.GetOne(t)
-	c.WSPort = freeport.GetOne(t)
+	//c.HTTPPort = freeport.GetOne(t)
+	//c.WSPort = freeport.GetOne(t)
 
-	datadir, err := ioutil.TempDir("", "autonity_datadir")
-	if err != nil {
-		return nil, err
-	}
-	c.DataDir = datadir
+	nodeConfig.DataDir = ""
 
 	// copy the base eth config, so we can modify it without damaging the
 	// original.
-	ec := &ethconfig.Config{}
-	err = copyConfig(baseEthConfig, ec)
-	if err != nil {
+	ethConfig := &ethconfig.Config{}
+	ethconfig.Defaults.SyncMode = downloader.FullSync
+	ethconfig.Defaults.Miner.Recommit = time.Second
+	if err := copyConfig(&ethconfig.Defaults, ethConfig); err != nil {
 		return nil, err
 	}
 	// Set the min gas price on the mining pool config, otherwise the miner
 	// starts with a default min gas price. Which causes transactions to be
 	// dropped.
-	ec.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinBaseFee)
-	ec.Genesis = genesis
-	ec.NetworkID = genesis.Config.ChainID.Uint64()
+	ethConfig.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinBaseFee)
+	ethConfig.Miner.Etherbase = crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
+	ethConfig.Genesis = genesis
+	ethConfig.NetworkID = genesis.Config.ChainID.Uint64()
+
+	// Give this logger context based on the node address so that we can easily
+	// trace single node execution in the logs. We set the logger only on the
+	// copy, since it is not useful for black box testing and it is also not
+	// marshalable since the implementation contains unexported fields.
+	logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
+		b := log.TerminalFormat(false).Format(record)
+		if id < len(terminalColors) {
+			prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
+			suffix := []byte("\x1b[0;K\033[0m\n")
+			return append(append(prefix, b[:len(b)-1]...), suffix...)
+		}
+		return b
+	})))
+
+	logger.Verbosity(log.DefaultVerbosity)
+	nodeConfig.Logger = log.New()
+	nodeConfig.Logger.SetHandler(logger)
+
+	// set custom tendermint services
+	nodeConfig.SetTendermintServices(validator.TendermintServices)
 
 	n := &Node{
-		Config:      c,
-		EthConfig:   ec,
-		Key:         k,
+		Config:      nodeConfig,
+		EthConfig:   ethConfig,
+		Key:         validator.NodeKey,
 		Address:     address,
 		Tracker:     NewTransactionTracker(),
-		CustHandler: u.TendermintServices,
+		CustHandler: validator.TendermintServices,
 		ID:          id,
 	}
 
@@ -172,13 +176,10 @@ func (n *Node) Running() bool {
 	return n.isRunning
 }
 
-// This creates the node.Node and eth.Ethereum and starts the node.Node and
-// starts eth.Ethereum mining.
 func (n *Node) Start() error {
 	if n.isRunning {
 		return nil
 	}
-
 	var err error
 	defer func() {
 		if err == nil {
@@ -186,55 +187,14 @@ func (n *Node) Start() error {
 		}
 	}()
 
-	copyConsensusKey, err := blst.SecretKeyFromBytes(n.Config.ConsensusKey.Marshal())
-	if err != nil {
+	if n.Node, err = node.New(n.Config); err != nil {
 		return err
 	}
-	nodeConfigCopy := *n.Config
-	nodeConfigCopy.ConsensusKey = copyConsensusKey
-
-	// Give this logger context based on the node address so that we can easily
-	// trace single node execution in the logs. We set the logger only on the
-	// copy, since it is not useful for black box testing and it is also not
-	// marshalable since the implementation contains unexported fields.
-	logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
-		b := log.TerminalFormat(false).Format(record)
-		if n.ID < len(terminalColors) {
-			prefix := []byte(terminalColors[n.ID].background + terminalColors[n.ID].foreground)
-			suffix := []byte("\x1b[0;K\033[0m\n")
-			return append(append(prefix, b[:len(b)-1]...), suffix...)
-		}
-		return b
-	})))
-	logger.Verbosity(log.LvlError)
-
-	nodeConfigCopy.Logger = log.New()
-	nodeConfigCopy.Logger.SetHandler(logger)
-
-	// set custom tendermint services
-	nodeConfigCopy.SetTendermintServices(n.CustHandler)
-
-	if n.Node, err = node.New(&nodeConfigCopy); err != nil {
-		return err
-	}
-
-	// This registers the ethereum service on the n.Node, so that calling
-	// n.Node.Stop will also close the eth service. Again we provide a copy of
-	// the EthConfig so that we can use our copy for black box testing.
-	ethConfigCopy := &ethconfig.Config{}
-	if err = copyConfig(n.EthConfig, ethConfigCopy); err != nil {
-		return err
-	}
-	// setting EtherBase for miner
-	nodeKey, _ := n.Node.Config().AutonityKeys()
-	ethConfigCopy.Miner.Etherbase = crypto.PubkeyToAddress(nodeKey.PublicKey)
-	if n.Eth, err = eth.New(n.Node, ethConfigCopy); err != nil {
+	if n.Eth, err = eth.New(n.Node, n.EthConfig); err != nil {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}
+
 	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
-	if _, _, err = core.SetupGenesisBlock(n.Eth.ChainDb(), n.EthConfig.Genesis); err != nil {
-		return fmt.Errorf("cannot setup genesis block: %w", err)
-	}
 	if err = n.Node.Start(); err != nil {
 		return fmt.Errorf("failed to start a node: %w", err)
 	}
@@ -550,7 +510,7 @@ func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, star
 	}
 	network := make([]*Node, len(validators))
 	for i, u := range validators {
-		n, err := NewNode(t, u, g, i)
+		n, err := NewNode(u, g, i)
 		if len(validators) > 21 {
 			n.EthConfig.DatabaseCache = 16
 			n.EthConfig.DatabaseHandles = 8
@@ -586,6 +546,114 @@ func NewNetwork(t *testing.T, count int, formatString string) (Network, error) {
 		return nil, fmt.Errorf("failed to build users: %v", err)
 	}
 	return NewNetworkFromValidators(t, users, true)
+}
+
+type pipeManager struct {
+	nodes   sync.Map
+	network p2p.Network
+}
+type pipeDialer struct {
+	node    *Node
+	manager *pipeManager
+	count   uint64
+	fail    uint64
+}
+
+func newPipeManager(net p2p.Network) *pipeManager {
+	return &pipeManager{network: net}
+}
+
+func (pm *pipeManager) createPipeDialer(node *Node) *pipeDialer {
+	return &pipeDialer{
+		node:    node,
+		manager: pm,
+	}
+}
+
+// Dial implements the p2p.NodeDialer interface by connecting to the node using
+// an in-memory net.Pipe
+func (p *pipeDialer) Dial(_ context.Context, dest *enode.Node) (conn net.Conn, err error) {
+	p.count++
+	if p.node.ID == 0 {
+		fmt.Println("attempt", "cs", p.count, "f", p.fail, "type", p.manager.network)
+	}
+	n, ok := p.manager.nodes.Load(dest.ID())
+	if !ok || !n.(*Node).Running() {
+		// try again a bit later, the node may not have started yet
+		<-time.After(10 * time.Millisecond)
+		n, ok = p.manager.nodes.Load(dest.ID())
+		if !ok || !n.(*Node).Running() {
+			p.fail++
+			return nil, fmt.Errorf("node not running: %s", dest.ID())
+		}
+	}
+	pipe1, pipe2 := net.Pipe()
+	go func() {
+		switch p.manager.network {
+		case p2p.Execution:
+			n.(*Node).Node.ExecutionServer().SetupConn(pipe1, 4, nil)
+		case p2p.Consensus:
+			n.(*Node).Node.ConsensusServer().SetupConn(pipe1, 4, nil)
+		}
+	}()
+	return pipe2, nil
+}
+
+func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
+	g, err := Genesis(validators, options...)
+	if err != nil {
+		return nil, fmt.Errorf("failed the genesis: %w", err)
+	}
+	network := make([]*Node, len(validators))
+	executionManager := newPipeManager(p2p.Execution)
+	consensusManager := newPipeManager(p2p.Consensus)
+	bootnode1, _ := enode.Parse(enode.ValidSchemes, g.Config.AutonityContractConfig.Validators[0].Enode)
+	baseNodeConfig.ExecutionP2P.BootstrapNodes = []*enode.Node{bootnode1}
+
+	wg := sync.WaitGroup{}
+	for i, u := range validators {
+		wg.Add(1)
+		go func(id int, val *gengen.Validator) {
+			n, _ := NewNode(val, g, id)
+			if id == 0 {
+				n.Config.WSPort = freeport.GetOne(t)
+			}
+			nodeID := enode.PubkeyToIDV4(&val.NodeKey.PublicKey)
+			n.Config.ConsensusP2P.Dialer = consensusManager.createPipeDialer(n)
+			n.Config.ExecutionP2P.Dialer = executionManager.createPipeDialer(n)
+			executionManager.nodes.Store(nodeID, n)
+			consensusManager.nodes.Store(nodeID, n)
+			network[id] = n
+			wg.Done()
+		}(i, u)
+	}
+	wg.Wait()
+
+	startCh := make(chan error)
+	if start {
+		for _, n := range network {
+			n := n
+			go func() {
+				startCh <- n.Start()
+			}()
+		}
+	}
+	for range network {
+		err := <-startCh
+		if err != nil {
+			t.Fatalf("failed to start node with error %v", err)
+		}
+	}
+
+	go communicatePort(network[0].Config.WSPort)
+	// There is a race condition in miner.worker its field snapshotBlock is set
+	// only when new transactions are received or commitNewWork is called. But
+	// both of these happen in goroutines separate to the call to miner.Start
+	// and miner.Start does not wait for snapshotBlock to be set. Therefore
+	// there is currently no way to know when it is safe to call estimate gas.
+	// What we do here is sleep a bit and cross our fingers.
+	time.Sleep(10 * time.Millisecond)
+	return network, nil
 }
 
 // AwaitTransactions ensures that the entire network has processed the provided transactions.
@@ -690,69 +758,95 @@ func Genesis(users []*gengen.Validator, options ...gengen.GenesisOption) (*core.
 	return g, nil
 }
 
-// Since the node config is not marshalable by default we construct a
-// marshalable struct which we marshal and unmarshal and then unpack into the
-// original struct type.
-func copyNodeConfig(source, dest *node.Config) error {
-	s := &MarshalableNodeConfig{}
-	s.Config = *source
-
-	p := MarshalableP2PConfig{}
-	p.Config = source.ExecutionP2P
-	p.PrivateKey = (*MarshalableECDSAPrivateKey)(source.ExecutionP2P.PrivateKey)
-	s.P2P = p
-
-	cns := MarshalableP2PConfig{}
-	cns.Config = source.ConsensusP2P
-	cns.PrivateKey = (*MarshalableECDSAPrivateKey)(source.ConsensusP2P.PrivateKey)
-	s.ConsensusP2P = cns
-
-	data, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	u := new(MarshalableNodeConfig)
-	err = json.Unmarshal(data, u)
-	if err != nil {
-		return err
-	}
-	*dest = u.Config
-	dest.ExecutionP2P = u.P2P.Config
-	dest.ConsensusP2P = u.ConsensusP2P.Config
-	dest.ExecutionP2P.PrivateKey = (*ecdsa.PrivateKey)(u.P2P.PrivateKey)
-	dest.ConsensusP2P.PrivateKey = (*ecdsa.PrivateKey)(u.ConsensusP2P.PrivateKey)
-	return nil
-}
-
-type MarshalableNodeConfig struct {
-	node.Config
-	P2P          MarshalableP2PConfig
-	ConsensusP2P MarshalableP2PConfig
-}
-
-type MarshalableP2PConfig struct {
-	p2p.Config
-	PrivateKey *MarshalableECDSAPrivateKey
-}
-
-type MarshalableECDSAPrivateKey ecdsa.PrivateKey
-
-func (k *MarshalableECDSAPrivateKey) UnmarshalJSON(b []byte) error {
-	key, err := crypto.PrivECDSAFromHex(b[1 : len(b)-1])
-	if err != nil {
-		return err
-	}
-	*k = MarshalableECDSAPrivateKey(*key)
-	return nil
-}
-
-func (k *MarshalableECDSAPrivateKey) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + hex.EncodeToString(crypto.FromECDSA((*ecdsa.PrivateKey)(k))) + `"`), nil
-}
-
 // copyConfig copies an object so that the copy shares no memory with the
 // original.
 func copyConfig(source, dest *ethconfig.Config) error {
 	*dest = *source
 	return nil
+}
+
+// copyNodeConfig deep copy a node config.
+func copyNodeConfig(source *node.Config) *node.Config {
+	return &node.Config{
+		ConsensusKey: source.ConsensusKey,
+		Name:         source.Name,
+		UserIdent:    source.UserIdent,
+		Version:      source.Version,
+		DataDir:      source.DataDir,
+		ExecutionP2P: p2p.Config{
+			PrivateKey:       source.ExecutionP2P.PrivateKey,
+			MaxPeers:         source.ExecutionP2P.MaxPeers,
+			MaxPendingPeers:  source.ExecutionP2P.MaxPendingPeers,
+			DialRatio:        source.ExecutionP2P.DialRatio,
+			NoDiscovery:      source.ExecutionP2P.NoDiscovery,
+			DiscoveryV5:      source.ExecutionP2P.DiscoveryV5,
+			Name:             source.ExecutionP2P.Name,
+			BootstrapNodes:   source.ExecutionP2P.BootstrapNodes,
+			BootstrapNodesV5: source.ExecutionP2P.BootstrapNodesV5,
+			StaticNodes:      source.ExecutionP2P.StaticNodes,
+			TrustedNodes:     source.ExecutionP2P.TrustedNodes,
+			NetRestrict:      source.ExecutionP2P.NetRestrict,
+			NodeDatabase:     source.ExecutionP2P.NodeDatabase,
+			Protocols:        source.ExecutionP2P.Protocols,
+			ListenAddr:       source.ExecutionP2P.ListenAddr,
+			NAT:              source.ExecutionP2P.NAT,
+			Dialer:           source.ExecutionP2P.Dialer,
+			NoDial:           source.ExecutionP2P.NoDial,
+			EnableMsgEvents:  source.ExecutionP2P.EnableMsgEvents,
+			Logger:           source.ExecutionP2P.Logger,
+			IsRated:          source.ExecutionP2P.IsRated,
+			InRate:           source.ExecutionP2P.InRate,
+			OutRate:          source.ExecutionP2P.OutRate,
+		},
+		ConsensusP2P: p2p.Config{
+			PrivateKey:       source.ConsensusP2P.PrivateKey,
+			MaxPeers:         source.ConsensusP2P.MaxPeers,
+			MaxPendingPeers:  source.ConsensusP2P.MaxPendingPeers,
+			DialRatio:        source.ConsensusP2P.DialRatio,
+			NoDiscovery:      source.ConsensusP2P.NoDiscovery,
+			DiscoveryV5:      source.ConsensusP2P.DiscoveryV5,
+			Name:             source.ConsensusP2P.Name,
+			BootstrapNodes:   source.ConsensusP2P.BootstrapNodes,
+			BootstrapNodesV5: source.ConsensusP2P.BootstrapNodesV5,
+			StaticNodes:      source.ConsensusP2P.StaticNodes,
+			TrustedNodes:     source.ConsensusP2P.TrustedNodes,
+			NetRestrict:      source.ConsensusP2P.NetRestrict,
+			NodeDatabase:     source.ConsensusP2P.NodeDatabase,
+			Protocols:        source.ConsensusP2P.Protocols,
+			ListenAddr:       source.ConsensusP2P.ListenAddr,
+			NAT:              source.ConsensusP2P.NAT,
+			Dialer:           source.ConsensusP2P.Dialer,
+			NoDial:           source.ConsensusP2P.NoDial,
+			EnableMsgEvents:  source.ConsensusP2P.EnableMsgEvents,
+			Logger:           source.ConsensusP2P.Logger,
+			IsRated:          source.ConsensusP2P.IsRated,
+			InRate:           source.ConsensusP2P.InRate,
+			OutRate:          source.ConsensusP2P.OutRate,
+		},
+		KeyStoreDir:           source.KeyStoreDir,
+		ExternalSigner:        source.ExternalSigner,
+		UseLightweightKDF:     source.UseLightweightKDF,
+		InsecureUnlockAllowed: source.InsecureUnlockAllowed,
+		NoUSB:                 source.NoUSB,
+		USB:                   source.USB,
+		SmartCardDaemonPath:   source.SmartCardDaemonPath,
+		IPCPath:               source.IPCPath,
+		HTTPHost:              source.HTTPHost,
+		HTTPPort:              source.HTTPPort,
+		HTTPCors:              source.HTTPCors,
+		HTTPVirtualHosts:      source.HTTPVirtualHosts,
+		HTTPModules:           source.HTTPModules,
+		HTTPTimeouts:          source.HTTPTimeouts,
+		HTTPPathPrefix:        source.HTTPPathPrefix,
+		WSHost:                source.WSHost,
+		WSPort:                source.WSPort,
+		WSPathPrefix:          source.WSPathPrefix,
+		WSOrigins:             source.WSOrigins,
+		WSModules:             source.WSModules,
+		WSExposeAll:           source.WSExposeAll,
+		GraphQLCors:           source.GraphQLCors,
+		GraphQLVirtualHosts:   source.GraphQLVirtualHosts,
+		Logger:                source.Logger,
+		AllowUnprotectedTxs:   source.AllowUnprotectedTxs,
+	}
 }
