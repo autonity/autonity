@@ -62,14 +62,13 @@ var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
 }
 
 var (
-	bigBondedStakeNewton = big.NewInt(10_000)
-	bigPrecisionFactor   = big.NewInt(1_000_000_000_000_000_000)
-	bigBondedStake       = big.NewInt(0).Mul(bigBondedStakeNewton, bigPrecisionFactor)
+	NtnPrecision = big.NewInt(1_000_000_000_000_000_000)
+	Ntn1         = new(big.Int).Mul(big.NewInt(1), NtnPrecision)
+	Ntn10000     = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
 
-	// PiccaddillyChainConfig todo: ask Raj to generate validator key for validators in the PiccaddillyChainConfig
-	// PiccaddillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
-	PiccaddillyChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_100_001),
+	// PiccadillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
+	PiccadillyChainConfig = &ChainConfig{
+		ChainID:                 big.NewInt(65_100_002),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -93,42 +92,67 @@ var (
 			EpochPeriod:      30 * 60,
 			UnbondingPeriod:  6 * 60 * 60,
 			BlockPeriod:      1,
-			MaxCommitteeSize: 100,
+			MaxCommitteeSize: 9,
 			Operator:         common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
 			Treasury:         common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
 			TreasuryFee:      10_000_000_000_000_000,
 			DelegationRate:   1000,
-			Validators: []*Validator{{
-				Treasury:      common.HexToAddress("0x75474aC55768fAb6fE092191eea8016b955072F5"),
-				OracleAddress: common.HexToAddress("0x6c5AE53a803796D788E917D1fE919BfC8B56d2E6"),
-				Enode:         "enode://d4dc137f987e17155a69b31e566494c16edafd228912483cc519a48ce85864781faccc38141cc0eb1df8cdb28b9b3ccd10e1c298bac78ac43bbe5804021c1152@34.142.71.5:30303",
-				BondedStake:   bigBondedStake,
-			}, {
-				Treasury:      common.HexToAddress("0x821BC352E77D885906B47001863f75e15C114f70"),
-				OracleAddress: common.HexToAddress("0x7C056299014D2F6f2e506ef1A4F89c94AAca004e"),
-				Enode:         "enode://74a4f767ad2f3f607a2db06732b44e6c61a68cae1959b331c18aea6256aae16bded31ba40dd85dcc4d719baaeb29f918726d19fa51b5d8174b27da0d7593e19b@34.142.33.89:30303",
-				BondedStake:   bigBondedStake,
-			}, {
-				Treasury:      common.HexToAddress("0x59e2EE43e1950a348ab3CC9b6Eb847C019c2CFb1"),
-				OracleAddress: common.HexToAddress("0x7615a195832843798DDb75B11CDA87D61C5F794D"),
-				Enode:         "enode://0ddc30943837f9416f563063ed5d409aca37780b8b8f939ef9f4b7901b9eb94c09d7ba2af27f70b33d76e74403d00021c13ebc4943ad46bc1e5051689cd862b8@35.234.131.29:30303",
-				BondedStake:   bigBondedStake,
-			}, {
-				Treasury:      common.HexToAddress("0xEd1c2E7143Ad134909a39AadC25599E36064803E"),
-				OracleAddress: common.HexToAddress("0x3c44B519B6b52EF347DaD0478E80455DbBf037f9"),
-				Enode:         "enode://9435658d26e5daf30261648504560f6375b24cdf0e4403613d44ebc4020489cc67ac82ababe7928d63d9f113c67b946845d18db935abe3d241e665114fc75e94@35.177.73.222:30303",
-				BondedStake:   bigBondedStake,
-			}, {
-				Treasury:      common.HexToAddress("0xb34ed221c46a6Ad530d250856f94baD84E4308d5"),
-				OracleAddress: common.HexToAddress("0x7732255C36e5796806c19195503D3a323Fc5c616"),
-				Enode:         "enode://fe2c621f2b660725a3d529b3eefd780e90bb86e9eb4b7136c0b00a7365260a478b9b8941f1a65c6d4d77bff1b2e22eb6d781f5cc86401d60b373c6d4155c189a@3.10.195.56:30304",
-				BondedStake:   bigBondedStake,
-			}, {
-				Treasury:      common.HexToAddress("0xb94475118860Aa51544AF1C16eE3Db3799B6Db64"),
-				OracleAddress: common.HexToAddress("0x256702DdF28F9282E582214Be52aE15Bf1386a25"),
-				Enode:         "enode://6ab1e6bbf5897e1a24ccf8d8718615ec972ffd54d99c3e46f4517d5602e8bf7110e2e5e2c2e584795e45e2e842172de044b4df165a7082133c6697b632da8282@18.168.88.205:30305",
-				BondedStake:   bigBondedStake,
-			}},
+			Validators: []*Validator{
+				{
+					Treasury:      common.HexToAddress("0x75474aC55768fAb6fE092191eea8016b955072F5"),
+					OracleAddress: common.HexToAddress("0x6c5AE53a803796D788E917D1fE919BfC8B56d2E6"),
+					ConsensusKey:  common.Hex2Bytes("a3aa75e42e99275f7d7985538fedc06e7f128b138a5311702afc0dc129484763645c40c36fdd97ff0d0293b00a031714"),
+					Enode:         "enode://772248dfe1af5f77e0efc0510e83364bfad55cbd6d3e276f3bd0b4ddec6472aa98645655fd80bbf049ba3da18d219ab30a68fcb98da8e06dd42863dd0356cc95@35.242.168.170:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0x821BC352E77D885906B47001863f75e15C114f70"),
+					OracleAddress: common.HexToAddress("0x7C056299014D2F6f2e506ef1A4F89c94AAca004e"),
+					ConsensusKey:  common.Hex2Bytes("8a7474c5d53279bd21b8e0d0475ca6cd868155ac16d67d22c15eaee75f87101d9b329f4c2e2da52934a845fc4567254a"),
+					Enode:         "enode://22f696529d7874ca66d177c2c272600c3d1f2f7111d02140c462a8cbc789f5f8968c2ce57a5aac1373ef17bf3fc67d155b54691d1413516459824067e13750a4@34.92.27.46:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0x59e2EE43e1950a348ab3CC9b6Eb847C019c2CFb1"),
+					OracleAddress: common.HexToAddress("0x7615a195832843798DDb75B11CDA87D61C5F794D"),
+					ConsensusKey:  common.Hex2Bytes("866610ce1e9fc5871c7b99ee92e0aa3485c7b157bddda85518edf68aea68fe1ec1ccd7bb51064e3b742719c0cf562409"),
+					Enode:         "enode://24b2655b0434d1af4e2329cababf38963cab8a154e0b8c9748e75c85d10d7dab5032af7a41f3ec06dd1a7d3d306f1edee5dc46dad7a2858b80ebb56e5fa24925@34.233.111.193:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0xE052e6B778C2b9591548217C3372897513175684"),
+					OracleAddress: common.HexToAddress("0xaDF6a07D1f9D52bd9a464C8e3B1B670FD4b2cC55"),
+					ConsensusKey:  common.Hex2Bytes("b2eed3ac8ec307e0862cdf7b8435049a98d8c83721a6066308ec57a1d9ec7f9c4e4725872dbfc96a83d102a77b430eb0"),
+					Enode:         "enode://a20e27effd92dc11e7340e96a6f2908124ea363e6b68af34cad2a46a9ffdc6f5d4f516acec7f98949cc25955269f7842dc513444902c21239155de7e70b86a87@65.109.160.27:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0xe33cbaA5A4E408560b229bDF1Cb58CDFD33c1C0f"),
+					OracleAddress: common.HexToAddress("0xcfC6f79aa1f47b27C219E5Dbb79abA034f068b0a"),
+					ConsensusKey:  common.Hex2Bytes("933c2786e202b51b04d64817f2d3d57b99fccf106edda8c53d0c66b9a356b52515e9637ddf5da6a172bb09bc5ffdb764"),
+					Enode:         "enode://a2ea938a325381c7b163e7a3ca1a63fcfd927a81cadcf86551ad29f2f3ed05ef06f0b3a5d10ca932d0b85b3cf9a7c7956bf5398a2c9322f941817c92f9f62105@37.252.184.235:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0xa7705415B06e76075982C7e8BaCa4aAF3D6d0f28"),
+					OracleAddress: common.HexToAddress("0x469C4A81d86461d1E85be1741b1a3152e5BB9b98"),
+					ConsensusKey:  common.Hex2Bytes("86f21aa126b2bae0aca1926ae5ed55f2d0207917ca6995bd48755f809868b8903e56e4cfe48bee22224e854f2e7ffb2e"),
+					Enode:         "enode://46f4abe3aeca863ce3a1b4a2b2fce3112476ca75a20039ef4bad78e1a2171ae36404d74b08a0c5a8720e2548d296d37e0b92062c096801b3f6d2d86e4e9da2f2@46.4.32.57:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0xB695CEe3080A58fa021b5e7d721dD1eC391983E5"),
+					OracleAddress: common.HexToAddress("0x1e83A988b4fdCD21849a2b16f6db234ab1473bab"),
+					ConsensusKey:  common.Hex2Bytes("a71653e690e47a3829971c8d738e54fb37f13e102759175eb04d63a6fa6f1f6873e0c77e168892e387861c3b277ee3f6"),
+					Enode:         "enode://84c9a23b75bcd0252e0b361f6962a9f360d38f4fe5206cfb2d907074de877edbb1b810fd9cecf2fa64aa6ec4f7816a7f238650d489eaa82d68e8660769c6763d@51.91.220.174:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0x18E1a1a0B942519e12cC524d9Acc573C7c56b12a"),
+					OracleAddress: common.HexToAddress("0x9A6fc51c24D734dfc78A942d70Cd8575b89ABb9D"),
+					ConsensusKey:  common.Hex2Bytes("b1782f20a3935c788352e15aec6ba7afded381170a71e6220f8b6fcad5adff168da5c32eb1bff98315168f26c837e94c"),
+					Enode:         "enode://11dd1e9d4a68fb07e4cbd60d225c6ffea45852ac3d4e17df3a086a7d27ee05698922e7474db4dbcef14a11e3dd44bf66a52160610bd43a890fdc1bc8a2f51393@65.109.69.239:30303",
+					BondedStake:   Ntn1,
+				}, {
+					Treasury:      common.HexToAddress("0x2F8cEa90D5d8Eff154fe85841C771Ac33bB6EEb1"),
+					OracleAddress: common.HexToAddress("0xf41d3430ab8fb0c06c5bbf9efca587c33cdcfae3"),
+					ConsensusKey:  common.Hex2Bytes("93d58b3114509a592c321250cb5a512f42aa19e59dfa29aec90a262fa0dbb9364e138caff57bc4efe5fe27c05bfe6d4a"),
+					Enode:         "enode://700ae526623b87a748acf278cee299d970ccde4e4d6e7aa7685f4a550500b6e53b84892e37c2c10516673f45253fcb824d8e1836ee91a92a16b66b85b8000642@93.115.25.90:30303",
+					BondedStake:   Ntn1,
+				}},
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
@@ -150,7 +174,7 @@ var (
 	// BakerlooChainConfig todo: ask Raj to generate validator key for validators in the BakerlooChainConfig
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
 	BakerlooChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_010_001),
+		ChainID:                 big.NewInt(65_010_002),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -182,33 +206,40 @@ var (
 			Validators: []*Validator{{
 				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
 				OracleAddress: common.HexToAddress("0x4D8387E38F42084aa24CE7DA137222786fF23A3E"),
-				Enode:         "enode://181dd52828614267b2e3fe16e55721ce4ee428a303b89a0cba3343081be540f28a667c9391024718e45ae880088bd8b6578e82d395e43af261d18cedac7f51c3@35.246.21.247:30303",
-				BondedStake:   bigBondedStake,
+				ConsensusKey:  common.Hex2Bytes("89d04918f676554704f833d193b0819ef171784309bc4573cc2eeaaef78e3881bba3b7cc9bc8b8c3ff5678c355626a7d"),
+				Enode:         "enode://ebd47c61fa3b0125240654f7b73abeb188dd8c954385e2b75dd0b46efc341b801ae4593be77a954120bcff97a5282ff8f9485306976f8541b2fa971066cd37be@35.246.21.247:30303",
+				BondedStake:   Ntn10000,
 			}, {
 				Treasury:      common.HexToAddress("0xf1859D9feD50514F9D805BeC7a30623d061f40B7"),
 				OracleAddress: common.HexToAddress("0x22F1e6eA5d67Bef19C6953bdBCFA03320ECd015A"),
-				Enode:         "enode://e3b8ea9ddef567225530bcbae68af5d46f59a2b39acc04113165eba2744f6759493027237681f10911d4c12eda729c367f8e64dfd4789c508b7619080bb0861b@35.189.64.207:30303",
-				BondedStake:   bigBondedStake,
+				ConsensusKey:  common.Hex2Bytes("8df1b499f3a7acd89cd36ef96ceb931a2455751c5e676000e378bec03f2008c6a321cd833132204f46e43ee719dac5c4"),
+				Enode:         "enode://1cbd580027a2d21c114c75720115c4c04524952231f66607514fd6bcb5979f20181066383a7a15f1382aa637f6470170c67f74bf1f95271f2abc4ae08c8a11fb@35.189.64.207:30303",
+				BondedStake:   Ntn10000,
 			}, {
 				Treasury:      common.HexToAddress("0x1B441084736B80f273e498E646b0bEA86B4eC6AB"),
 				OracleAddress: common.HexToAddress("0xC81B686402395A83938452DF8398DA9b2649281A"),
-				Enode:         "enode://00c6c1704c103e74a26ad072aa680d82f6c677106db413f0afa41a84b5c3ab3b0827ea1a54511f637350e4e31d8a87fdbab5d918e492d21bea0a399399a9a7b5@34.105.163.137:30303",
-				BondedStake:   bigBondedStake,
+				ConsensusKey:  common.Hex2Bytes("a648a602bf8ad04b07cf2cbffcb70eccb2bfe9500dca99c599998f5b8cae950e99ab0e7247a03c1ca731fe7c6fc257f8"),
+				Enode:         "enode://28136dd78f976e8fbcbd2c8222cee3f6ac45ac01ceea4a43946d476c03f4971cea23d8c30f0e1a2cbcfde5310a0117ae36ba15c6028e036f637141f330040f62@34.105.163.137:30303",
+				BondedStake:   Ntn10000,
 			}, {
+
 				Treasury:      common.HexToAddress("0xB5C49d50470743D8dE43bB6822AC4505E64648Da"),
 				OracleAddress: common.HexToAddress("0x4c35544931E2Cea6eD41102197685704917F72C3"),
-				Enode:         "enode://dffaa985bf36c8e961b9aa7bcdd644f1ad80e07d7977ce8238ac126d4425509d98da8c7f32a3e47e19822bd412ffa705c4488ce49d8b1769b8c81ee7bf102249@35.177.8.113:30308",
-				BondedStake:   bigBondedStake,
+				ConsensusKey:  common.Hex2Bytes("897bef2c488b7bf696d8f4595790233e7ced50bb10bfb33c3e82d8526ce147a70bc6152842eeeeacbc044ebe43c64b27"),
+				Enode:         "enode://e4dacdb0170bc1baaf7a90935c8d35e75aeec639087320b19ffdd6eb8e6f3b967dd696b1c2f3f99a6a1fea003f7c2a0bb9d8228c06b31ae6c5fec863b8745a2d@35.177.8.113:30303",
+				BondedStake:   Ntn10000,
 			}, {
 				Treasury:      common.HexToAddress("0x31e1dE659A26F7638FAaFEfD94D47258FE361823"),
 				OracleAddress: common.HexToAddress("0xC0bB231711470a92DE3B57DE2Ca04727048f5580"),
-				Enode:         "enode://1bd367bfb421eb4d21f9ace33f9c3c26cd1f6b257cc4a1af640c9af56f338d865c8e5480c7ee74d5881647ef6f71d880104690936b72fdc905886e9594e976d1@35.179.46.181:30309",
-				BondedStake:   bigBondedStake,
+				ConsensusKey:  common.Hex2Bytes("b6c83a5bfd23f6b2043e89bf5a774e41428151b913dd842efac094f04ac41bec8f5110e313c38ccc115f916108769c40"),
+				Enode:         "enode://07ea9eaa469d07695d6855089ad1e0fda35933b779f5907c6edbb77365eef2297b56039fa021e31183675c201855bd95275852d4b1ff9251cce558d1a3611240@35.179.46.181:30303",
+				BondedStake:   Ntn10000,
 			}, {
 				Treasury:      common.HexToAddress("0xe22617BD2a4e1Fe3938F84060D8a6be7A18a2ef9"),
 				OracleAddress: common.HexToAddress("0x82C3E23Aa626Ca1556938bCA38f52B329A99b9d8"),
-				Enode:         "enode://a7465d99513715ece132504e47867f88bb5e289b8bca0fca118076b5c733d901305db68d1104ab838cf6be270b7bf71e576a44644d02f8576a4d43de8aeba1ab@3.9.98.39:30310",
-				BondedStake:   bigBondedStake,
+				ConsensusKey:  common.Hex2Bytes("80293a218b081704b25d6b1db351246472b111e42e73998d34a9783f1439eba2cdd4fb832cc9d018986c59a398fd0e69"),
+				Enode:         "enode://fb6f5556df35da18c1ecac878fd44a84a0cc302952e1172871dfc48c996c9940b182df374586722212ecb92a8771cafcf48b21657832316423e33f7dbc0b4e7f@3.9.98.39:30303",
+				BondedStake:   Ntn10000,
 			}},
 		},
 		OracleContractConfig: &OracleContractGenesis{
@@ -438,7 +469,7 @@ var (
 		"5d1a359c9f81b2b199e4cd972990ddf101d03ab5e44d7313b4da06d7dfc06b87",
 	}
 	TestValidatorBase = Validator{
-		BondedStake: bigBondedStake,
+		BondedStake: Ntn10000,
 	}
 	TestValidatorConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
 
@@ -501,7 +532,7 @@ func init() {
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)
 	}
 	TestAutonityContractConfig.Prepare()
-	PiccaddillyChainConfig.AutonityContractConfig.Prepare()
+	PiccadillyChainConfig.AutonityContractConfig.Prepare()
 	BakerlooChainConfig.AutonityContractConfig.Prepare()
 }
 

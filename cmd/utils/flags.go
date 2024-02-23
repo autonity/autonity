@@ -1574,7 +1574,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Override any default configs for hard coded networks.
 	if ctx.GlobalBool(PiccadillyFlag.Name) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkID = params.PiccaddillyChainConfig.ChainID.Uint64()
+			cfg.NetworkID = params.PiccadillyChainConfig.ChainID.Uint64()
 		}
 		cfg.Genesis = core.DefaultPiccadillyGenesisBlock()
 	}

@@ -518,13 +518,13 @@ func DefaultGenesisBlock() *Genesis {
 // DefaultPiccadillyGenesisBlock returns the Piccadilly network genesis block.
 func DefaultPiccadillyGenesisBlock() *Genesis {
 	g := &Genesis{
-		Config:     params.PiccaddillyChainConfig,
+		Config:     params.PiccadillyChainConfig,
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.PiccaddillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
+			params.PiccadillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
 		},
 	}
 	for _, v := range g.Config.AutonityContractConfig.Validators {
