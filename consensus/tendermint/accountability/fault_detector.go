@@ -46,8 +46,9 @@ const (
 	maxNumOfInnocenceProofCached  = 120 * maxAccusationPerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
 	maxFutureHeightMsgs           = 1000                         // max num of msg buffer for the future heights.
 	reportingSlotPeriod           = 20                           // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
-	HeightRange                   = 256                          // Default msg buffer range for AFD.
-	DeltaBlocks                   = 10                           // Wait until the GST + delta blocks to start accounting.
+	//NOTE: update to below constants might require a chain fork to upgrade clients, since they impact the Accountability Event execution result. They should be turned into protocol parameters https://github.com/autonity/autonity/issues/949
+	HeightRange = 256 // Default msg buffer range for AFD.
+	DeltaBlocks = 10  // Wait until the GST + delta blocks to start accounting.
 )
 
 var (
