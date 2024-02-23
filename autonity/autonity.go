@@ -211,13 +211,13 @@ func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height u
 
 	needsTrimming := false
 
-	roundMap, ok := c.proposers[height]
+	_, ok := c.proposers[height]
 	if !ok {
 		c.proposers[height] = make(map[int64]common.Address)
 		needsTrimming = true // cannot trim here, we might delete the entry we just created if it is for a very old height
 	}
 
-	proposer, ok = roundMap[round]
+	proposer, ok = c.proposers[height][round]
 	if !ok {
 		proposer = c.electProposer(header, height, round)
 		c.proposers[height][round] = proposer
