@@ -486,10 +486,7 @@ func (pool *TxPool) Stats() (int, int) {
 // stats retrieves the current pool stats, namely the number of pending and the
 // number of queued (non-executable) transactions.
 func (pool *TxPool) stats() (int, int) {
-	pending := 0
-	for _, list := range pool.pending {
-		pending += list.Len()
-	}
+	pending := int(pool.totalPending.Load())
 	queued := 0
 	for _, list := range pool.queue {
 		queued += list.Len()
