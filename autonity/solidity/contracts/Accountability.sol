@@ -33,7 +33,6 @@ contract Accountability is IAccountability {
         PVN,
         PVO,
         PVO12,
-        PVO3,
         C,
         C1,
 
@@ -59,6 +58,7 @@ contract Accountability is IAccountability {
         address offender;    // The corresponding node address of this accountability event.
         bytes rawProof;      // rlp encoded bytes of Proof object.
 
+        uint256 id;             // index of the event in the Events array. Will be populated internally.
         uint256 block;          // block when the event occurred. Will be populated internally.
         uint256 epoch;          // epoch when the event occurred. Will be populated internally.
         uint256 reportingBlock; // block when the event got reported. Will be populated internally.
@@ -205,12 +205,7 @@ contract Accountability is IAccountability {
         require(_offender == _ev.offender, "offender mismatch");
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
         require(_block < block.number, "can't be in the future");
-
-        // in the case of a garbage message, where the inner consensus message can't be decoded
-        // we assign the last block number as the block height as the epoch id is not yet available
-        if(_block == 0){
-            _block = block.number - 1;
-        }
+        require(_block > 0, "can't be at genesis");
         
         uint256 _epoch = autonity.getEpochFromBlock(_block);
         
@@ -226,23 +221,23 @@ contract Accountability is IAccountability {
         uint256 _severity = _ruleSeverity(_ev.rule);
         require(slashingHistory[_ev.offender][_ev.epoch] < _severity, "already slashed at the proof's epoch");
 
+        _ev.id = events.length;
         events.push(_ev);
-        uint256 _eventId = events.length - 1;
-        validatorFaults[_ev.offender].push(_eventId);
-        slashingQueue.push(_eventId);
+        
+        validatorFaults[_ev.offender].push(_ev.id);
+        slashingQueue.push(_ev.id);
         slashingHistory[_ev.offender][_ev.epoch] = _severity;
 
-        emit NewFaultProof(_ev.offender, _severity, _eventId);
+        emit NewFaultProof(_ev.offender, _severity, _ev.id);
     }
 
     function _handleAccusation(Event memory _ev) internal {
-        // Validate the accusation proof
+        // Validate the accusation proof. It also does height related checks 
         (bool _success, address _offender, uint256 _ruleId, uint256 _block, uint256 _messageHash) =
             Precompiled.verifyAccountabilityEvent(Precompiled.ACCUSATION_CONTRACT, _ev.rawProof);
         require(_success, "failed accusation verification");
         require(_offender == _ev.offender, "offender mismatch");
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
-        require(_block < block.number, "can't be in the future");
 
         uint256 _epoch = autonity.getEpochFromBlock(_block);
 
@@ -259,14 +254,14 @@ contract Accountability is IAccountability {
         uint256 _severity = _ruleSeverity(_ev.rule);
         require(slashingHistory[_ev.offender][_ev.epoch] < _severity, "already slashed at the proof's epoch");
 
+        _ev.id = events.length;
         events.push(_ev);
-        uint256 _eventId = events.length - 1;
 
         // off-by-one adjustement to hande special case id = 0
-        validatorAccusation[_ev.offender] = _eventId + 1;
-        accusationsQueue.push(_eventId + 1);
+        validatorAccusation[_ev.offender] = _ev.id + 1;
+        accusationsQueue.push(_ev.id + 1);
 
-        emit NewAccusation(_ev.offender, _severity, _eventId);
+        emit NewAccusation(_ev.offender, _severity, _ev.id);
     }
 
     function _handleInnocenceProof(Event memory _ev) internal {
@@ -360,7 +355,7 @@ contract Accountability is IAccountability {
             _val.state = ValidatorState.jailbound;
             _val.jailReleaseBlock = 0;
             autonity.updateValidatorAndTransferSlashedFunds(_val);
-            emit SlashingEvent(_val.nodeAddress, _slashingAmount, 0, true);
+            emit SlashingEvent(_val.nodeAddress, _slashingAmount, 0, true, _event.id);
             return;
         }
         uint256 _remaining = _slashingAmount;
@@ -418,7 +413,7 @@ contract Accountability is IAccountability {
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
 
-        emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false);
+        emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false, _event.id);
     }
 
 

@@ -76,7 +76,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			Transfer:    Transfer,
 			GetHash:     GetHashFn(header, chain),
 			Coinbase:    header.Coinbase,
-			BlockNumber: header.Number,
+			BlockNumber: new(big.Int).Set(header.Number),
 			Time:        new(big.Int).SetUint64(header.Time),
 			GasLimit:    header.GasLimit,
 			Difficulty:  header.Difficulty,

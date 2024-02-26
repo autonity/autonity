@@ -6,14 +6,15 @@ import (
 	"sync/atomic"
 	"testing"
 
+	fuzz "github.com/google/gofuzz"
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
-	fuzz "github.com/google/gofuzz"
-	"github.com/stretchr/testify/require"
 )
 
 func newDuplicateProposalSender(c interfaces.Core) interfaces.Proposer {

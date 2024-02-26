@@ -195,6 +195,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter,
         "offender": offender.nodeAddress,
         "rawProof": [], // not checked by the _slash function
+        "id": 0,
         "block": 1,
         "epoch": 0,
         "reportingBlock": 2,
@@ -221,6 +222,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter,
         "offender":"",
         "rawProof": [], 
+        "id": 0,
         "block": 1,
         "epoch": 0,
         "reportingBlock": 2,
@@ -267,6 +269,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter.treasury,
         "offender": offender.nodeAddress,
         "rawProof": [],
+        "id": 0,
         "block": 10,
         "epoch": 0,
         "reportingBlock": 11,
@@ -314,6 +317,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter.treasury,
         "offender": offender.nodeAddress,
         "rawProof": [],
+        "id":0,
         "block": currentBlock - 1,
         "epoch": 0,
         "reportingBlock": currentBlock,
@@ -383,6 +387,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter.treasury,
         "offender": offender.nodeAddress,
         "rawProof": [],
+        "id": 0,
         "block": 10,
         "epoch": 0,
         "reportingBlock": 11,
@@ -423,6 +428,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter.treasury,
         "offender": offender.nodeAddress,
         "rawProof": [],
+        "id": 0,
         "block": 10,
         "epoch": 0,
         "reportingBlock": 11,
@@ -460,6 +466,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter.treasury,
         "offender": offender.nodeAddress,
         "rawProof": [],
+        "id": 0,
         "block": 10,
         "epoch": 0,
         "reportingBlock": 11,
@@ -495,6 +502,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter.treasury,
         "offender": "", // tofill
         "rawProof": [],
+        "id": 0,
         "block": 0, // tofill
         "epoch": 0,
         "reportingBlock": 0, //tofill
@@ -545,6 +553,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 0, // does not matter
         "messageHash": 0, // must match accusation's one
+        "id": 0,
       }
       await accountability.handleValidInnocenceProof(proof);
 
@@ -576,6 +585,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 0, // does not matter
         "messageHash": 0, // must match accusation's one
+        "id" : 0,
       }
       await truffleAssert.fails(
         accountability.handleValidInnocenceProof(proof2),
@@ -605,6 +615,7 @@ contract('Accountability', function (accounts) {
         "reporter": reporter,
         "offender": offender,
         "rawProof": [],
+        "id": 0,
         "block": 10,
         "epoch": 0,
         "reportingBlock": 11,
@@ -634,6 +645,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
       let balance = web3.utils.toWei("10", "ether");
       await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
@@ -688,6 +700,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
 
       // cannot submit transaction from reporter because the address is not unlocked and will require signing
@@ -719,6 +732,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
       let rawProof = [];
       rawProof.push(20);
@@ -780,6 +794,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id": 0,
       };
 
       let currentProof = "0x";
@@ -838,6 +853,7 @@ contract('Accountability', function (accounts) {
         "epoch": 0,
         "reportingBlock": 11,
         "messageHash": 0,
+        "id":0,
       };
 
       let request = (await accountability.handleEvent.request(event, {from: reporter}));

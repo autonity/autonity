@@ -536,6 +536,20 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 		case <-sb.stopped:
 			return
 		case ev := <-newFaultProofCh:
+			// a fault proof against our own node has been finalized on-chain
+			// we cannot do anything about it now, let's just write a summary for the validator operator
+			if ev.Offender == sb.address {
+				event, err := sb.blockchain.ProtocolContracts().Events(nil, ev.Id)
+				if err != nil {
+					// this should never happen
+					sb.logger.Crit("Can't retrieve accountability event", "id", ev.Id)
+				}
+				eventType := autonity.AccountabilityEventType(event.EventType).String()
+				rule := autonity.Rule(event.Rule).String()
+				explanation := autonity.Rule(event.Rule).Explanation()
+				sb.logger.Warn("Your validator has been found guilty of consensus misbehaviour", "address", event.Offender, "event id", ev.Id.Uint64(), "event type", eventType, "rule", rule, "block", event.Block.Uint64(), "epoch", event.Epoch.Uint64(), "faulty message hash", common.BigToHash(event.MessageHash))
+				sb.logger.Warn(explanation)
+			}
 			sb.jailedLock.Lock()
 			// a 0 value means that the validator is in a perpetual jailed state
 			// which should only be temporary until it gets updated at the next
@@ -543,6 +557,10 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			sb.jailed[ev.Offender] = 0
 			sb.jailedLock.Unlock()
 		case ev := <-slashingEventCh:
+			// local node got slashed, print out information about the slashing that can be correlated with the information about the fault proof above.
+			if ev.Validator == sb.address {
+				sb.logger.Warn("Your validator has been slashed", "amount", ev.Amount.Uint64(), "jail release block", ev.ReleaseBlock.Uint64(), "jailbound", ev.IsJailbound, "event id", ev.EventId.Uint64())
+			}
 			sb.jailedLock.Lock()
 			if ev.IsJailbound {
 				// the validator is jailed permanently, won't be able to enter committee and

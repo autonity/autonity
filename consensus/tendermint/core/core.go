@@ -143,14 +143,6 @@ func (c *Core) Address() common.Address {
 	return c.address
 }
 
-func (c *Core) Committee() interfaces.Committee {
-	return c.committee
-}
-
-func (c *Core) SetCommittee(committee interfaces.Committee) {
-	c.committee = committee
-}
-
 func (c *Core) Step() Step {
 	return c.step
 }

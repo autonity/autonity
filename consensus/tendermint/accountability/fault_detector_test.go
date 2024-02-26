@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -112,7 +111,7 @@ func TestRunRuleEngine(t *testing.T) {
 	round := int64(3)
 	t.Run("test run rules with malicious behaviour should be detected", func(t *testing.T) {
 		chainHead := uint64(100)
-		checkPointHeight := chainHead - uint64(proto.DeltaBlocks)
+		checkPointHeight := chainHead - uint64(DeltaBlocks)
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(checkPointHeight - 1), Committee: committee}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -660,15 +659,15 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Evidences[0].Signature())
 	})
 
-	t.Run("RunRule address the Accusation of PO rule, no quorum preVotes presented on the valid round", func(t *testing.T) {
+	t.Run("RunRule address the Accusation of PO rule, no quorum preVotes presented on the valid round and proposal not committed", func(t *testing.T) {
 		// ------------Old Proposal------------
 		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
 		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
 
 		// To address below accusation scenario:
-		// If proposer rise an old proposal, then there must be a quorum preVotes on the valid round.
-		// Do we see a quorum of preVotes in the valid round, if not we can raise an accusation, since we cannot be sure
-		// that these preVotes don't exist
+		// If proposer broadcasts an old proposal, then there must be a quorum preVotes at valid round.
+		// Do we see a quorum of preVotes at valid round? if not we can raise an accusation, since we cannot be sure
+		// that those preVotes do exist
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -683,6 +682,8 @@ func TestRuleEngine(t *testing.T) {
 
 		header := newBlockHeader(height, committee)
 		block := types.NewBlockWithHeader(header)
+		// block was not committed
+		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(nil)
 
 		// simulate an old proposal at r: 2, with v and vr: 0.
 		oldProposal := newProposalMessage(height, 2, 0, signer, committee, block).MustVerify(stubVerifier)
@@ -696,7 +697,42 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, message.NewLightProposal(oldProposal).Signature(), onChainProofs[0].Message.Signature())
 	})
 
-	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote", func(t *testing.T) {
+	t.Run("RunRule address the Accusation of PO rule, no quorum preVotes presented on the valid round BUT proposal was committed", func(t *testing.T) {
+		// ------------Old Proposal------------
+		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
+		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
+
+		// To address below accusation scenario:
+		// If proposer broadcasts an old proposal, then there must be a quorum preVotes at valid round.
+		// Do we see a quorum of preVotes at valid round? if not we can raise an accusation, since we cannot be sure
+		// that those preVotes do exist
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
+		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		quorum := bft.Quorum(totalPower)
+
+		// block was committed --> no accusation should be raised
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(block)
+
+		// simulate an old proposal at r: 2, with v and vr: 0.
+		oldProposal := newProposalMessage(height, 2, 0, signer, committee, block).MustVerify(stubVerifier)
+		fd.msgStore.Save(oldProposal)
+
+		// run rule engine.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 0, len(onChainProofs))
+	})
+
+	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote and value not committed", func(t *testing.T) {
 		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
 		// To address below accusation scenario:
 		// If there exist a preVote for a non nil value, then there must be a corresponding proposal at the same round,
@@ -715,6 +751,7 @@ func TestRuleEngine(t *testing.T) {
 		// simulate a preVote for v at round, let's make the corresponding proposal missing.
 		preVote := message.NewPrevote(round, height, noneNilValue, makeSigner(keys[1], committee[1])).MustVerify(stubVerifier)
 		fd.msgStore.Save(preVote)
+		chainMock.EXPECT().GetBlock(preVote.Value(), preVote.H()).Return(nil)
 
 		// run rule engine.
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -723,15 +760,108 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, autonity.PVN, onChainProofs[0].Rule)
 		assert.Equal(t, preVote.Signature(), onChainProofs[0].Message.Signature())
 	})
+	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote BUT value committed", func(t *testing.T) {
+		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
+		// To address below accusation scenario:
+		// If there exist a preVote for a non nil value, then there must be a corresponding proposal at the same round,
+		// otherwise an accusation of PVN should rise.
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
+		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		quorum := bft.Quorum(totalPower)
+
+		// block was committed --> no accusation should be raised
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(block)
+
+		// simulate a preVote for v at round, let's make the corresponding proposal missing.
+		preVote := message.NewPrevote(round, height, block.Hash(), makeSigner(keys[1], committee[1])).MustVerify(stubVerifier)
+		fd.msgStore.Save(preVote)
+
+		// run rule engine.
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+		assert.Equal(t, 0, len(onChainProofs))
+	})
+
+	t.Run("RunRule address the misbehaviour of PVN, node prevotes for V with previous precommits={V1,nil,V}. No misbehaviour raised", func(t *testing.T) {
+		// node precommits for a value != V at round 0, but then precommits for V at a later r < prevote round.
+		// everything is good here since last precommit was for V --> no misbehaviour happening
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
+		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		quorum := bft.Quorum(totalPower)
+
+		newProposer := makeSigner(keys[2], committee[2])
+
+		header := newBlockHeader(height, committee)
+		v1 := types.NewBlockWithHeader(header)
+
+		// simulate an init proposal at r: 0 for value v1.
+		initProposal := newProposalMessage(height, 0, -1, signer, committee, v1).MustVerify(stubVerifier)
+		fd.msgStore.Save(initProposal)
+
+		// simulate quorum preVotes for init proposal
+		for i := 0; i < len(committee); i++ {
+			preVote := message.NewPrevote(0, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			fd.msgStore.Save(preVote)
+		}
+
+		// node did preCommit for v1 on round 0
+		preCommit := message.NewPrecommit(0, height, initProposal.Value(), maliciousSigner).MustVerify(stubVerifier)
+		fd.msgStore.Save(preCommit)
+
+		// node did preCommit for nil at round 1
+		pc := message.NewPrecommit(1, height, nilValue, maliciousSigner).MustVerify(stubVerifier)
+		fd.msgStore.Save(pc)
+
+		// at round 2 someone proposes value v != v1, node precommits for it
+		header = newBlockHeader(height, committee)
+		v := types.NewBlockWithHeader(header)
+		newProposal := newProposalMessage(height, 2, -1, newProposer, committee, v).MustVerify(stubVerifier)
+		fd.msgStore.Save(newProposal)
+
+		// simulate quorum preVotes for newProposal
+		for i := 0; i < len(committee); i++ {
+			// our node doesn't prevote for v, since he is locked on v1
+			if i == 1 {
+				continue
+			}
+			preVote := message.NewPrevote(2, height, newProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			fd.msgStore.Save(preVote)
+		}
+
+		// node does preCommit for v at round 2 since he sees a quorum of prevotes for it (even if he did not prevoted for it)
+		pc = message.NewPrecommit(2, height, newProposal.Value(), maliciousSigner).MustVerify(stubVerifier)
+		fd.msgStore.Save(pc)
+
+		// at round 3 v is proposed again, and node prevotes for it
+		newProposal2 := newProposalMessage(height, 3, -1, newProposer, committee, v).MustVerify(stubVerifier)
+		fd.msgStore.Save(newProposal2)
+
+		// nodes prevotes for it
+		preVote := message.NewPrevote(3, height, newProposal2.Value(), maliciousSigner).MustVerify(stubVerifier)
+		fd.msgStore.Save(preVote)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+
+		assert.Equal(t, 0, len(onChainProofs))
+	})
 
 	t.Run("RunRule address the misbehaviour of PVN, node preVote for value V1 while it preCommitted another value at previous round", func(t *testing.T) {
-		//t.Skip("skip this case from CI jobs, it works in local environment.")
-		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
-		// PVN2: [nil ∨ ⊥] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]: r′= 0,∀r′′< r:Mr′′,PC|pi=nil
-		// PVN2, If there is a valid proposal V at round r, and pi never
-		// ever precommit(locked a value) before, then pi should prevote
-		// for V or a nil in case of timeout at this round.
-
 		// To address below misbehaviour scenario:
 		// Node preCommitted at v1 at R_x, while it preVote for v2 at R_x + n.
 		ctrl := gomock.NewController(t)
@@ -845,7 +975,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, 0, len(onChainProofs))
 	})
 
-	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round", func(t *testing.T) {
+	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round and proposal not committed", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
@@ -858,7 +988,9 @@ func TestRuleEngine(t *testing.T) {
 		quorum := bft.Quorum(totalPower)
 
 		header := newBlockHeader(height, committee)
+		// block was not committed --> accusation raised
 		block := types.NewBlockWithHeader(header)
+		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).MaxTimes(2).Return(nil)
 
 		// simulate a proposal at r: 3, and vr: 1, with v.
 		oldProposal := newProposalMessage(height, 3, 1, signer, committee, block).MustVerify(stubVerifier)
@@ -878,6 +1010,36 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, autonity.Accusation, onChainProofs[1].Type)
 		assert.Equal(t, autonity.PVO, onChainProofs[1].Rule)
 		assert.Equal(t, preVote.Signature(), onChainProofs[1].Message.Signature())
+	})
+
+	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round BUT proposal was committed", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockChainContext(ctrl)
+		var blockSub event.Subscription
+		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
+		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		quorum := bft.Quorum(totalPower)
+
+		// block was committed --> no accusations
+		header := newBlockHeader(height, committee)
+		block := types.NewBlockWithHeader(header)
+		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).MaxTimes(2).Return(block)
+
+		// simulate a proposal at r: 3, and vr: 1, with v.
+		oldProposal := newProposalMessage(height, 3, 1, signer, committee, block).MustVerify(stubVerifier)
+		fd.msgStore.Save(oldProposal)
+
+		// simulate a preVote at r: 3 for value v.
+		preVote := message.NewPrevote(3, height, oldProposal.Value(), maliciousSigner).MustVerify(stubVerifier)
+		fd.msgStore.Save(preVote)
+
+		onChainProofs := fd.runRulesOverHeight(height, quorum)
+
+		assert.Equal(t, 0, len(onChainProofs))
 	})
 
 	t.Run("RunRule to address misbehaviour of rule PVO, there were quorum prevote for not V at valid round", func(t *testing.T) {
@@ -926,6 +1088,7 @@ func TestRuleEngine(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -980,6 +1143,7 @@ func TestRuleEngine(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -1025,7 +1189,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, true, presentPVO1)
 	})
 
-	t.Run("RunRule address Accusation of rule C1, no corresponding quorum prevotes for a preCommit msg", func(t *testing.T) {
+	t.Run("RunRule address Accusation of rule C1, no corresponding quorum prevotes for a preCommit msg and proposal not committed", func(t *testing.T) {
 		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
@@ -1045,6 +1209,7 @@ func TestRuleEngine(t *testing.T) {
 		quorum := bft.Quorum(totalPower)
 
 		preCommit := message.NewPrecommit(0, height, noneNilValue, signer).MustVerify(stubVerifier)
+		chainMock.EXPECT().GetBlock(preCommit.Value(), preCommit.H()).Return(nil)
 		fd.msgStore.Save(preCommit)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
@@ -1054,7 +1219,7 @@ func TestRuleEngine(t *testing.T) {
 		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Message.Signature())
 	})
 
-	t.Run("RunRule address accusation of rule C1, no present of quorum preVotes of V to justify the preCommit of V", func(t *testing.T) {
+	t.Run("RunRule address Accusation of rule C1, no corresponding quorum prevotes for a preCommit msg BUT proposal was committed", func(t *testing.T) {
 		// ------------precommits------------
 		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
@@ -1074,19 +1239,19 @@ func TestRuleEngine(t *testing.T) {
 		quorum := bft.Quorum(totalPower)
 		header := newBlockHeader(height, committee)
 		block := types.NewBlockWithHeader(header)
+		round := int64(0)
 
 		// simulate an init proposal at r: 0, with v.
-		initProposal := newProposalMessage(height, 0, -1, signer, committee, block).MustVerify(stubVerifier)
+		initProposal := newProposalMessage(height, round, -1, signer, committee, block).MustVerify(stubVerifier)
 		fd.msgStore.Save(initProposal)
 
 		// malicious node preCommit to v even through there was no quorum preVotes for v.
-		preCommit := message.NewPrecommit(0, height, initProposal.Value(), maliciousSigner).MustVerify(stubVerifier)
+		preCommit := message.NewPrecommit(round, height, initProposal.Value(), maliciousSigner).MustVerify(stubVerifier)
+		chainMock.EXPECT().GetBlock(preCommit.Value(), preCommit.H()).Return(block)
+
 		fd.msgStore.Save(preCommit)
 
 		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.C1, onChainProofs[0].Rule)
-		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Message.Signature())
+		assert.Equal(t, 0, len(onChainProofs))
 	})
 }
