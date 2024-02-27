@@ -15,6 +15,9 @@ func TestValidatorManagement(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(2, 10, false)
+
 	accounts, err := makeAccounts(2)
 	require.NoError(t, err)
 	oracle := accounts[0]

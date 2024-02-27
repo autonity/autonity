@@ -23,6 +23,9 @@ func TestACERC20Interfaces(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(2, 10, false)
+
 	operatorNode := network[0]
 	operatorKey := operatorNode.Key
 	accounts, err := makeAccounts(2)
@@ -39,17 +42,19 @@ func TestACERC20Interfaces(t *testing.T) {
 	}
 
 	Alice := accounts[0]
+	AliceAddr := crypto.PubkeyToAddress(Alice.PublicKey)
 	Bob := accounts[1]
+	BobAddr := crypto.PubkeyToAddress(Bob.PublicKey)
 	// Alice grant NTN transferFrom approval to Bob with 15 NTN
-	err = operatorNode.AwaitApproveNTN(Alice, crypto.PubkeyToAddress(Bob.PublicKey), approvedAmount, timeout)
+	err = operatorNode.AwaitNTNApprove(Alice, BobAddr, approvedAmount, timeout)
 	require.NoError(t, err)
 
 	// Bob transfer from Alice's account with the approved amount of NTN to Bob's account
-	err = operatorNode.AwaitTransferFromNTN(Bob, crypto.PubkeyToAddress(Alice.PublicKey), approvedAmount, timeout)
+	err = operatorNode.AwaitNTNTransferFrom(Bob, AliceAddr, approvedAmount, timeout)
 	require.NoError(t, err)
 
 	// Bot transfer 15 NTNs back to Alice.
-	err = operatorNode.AwaitTransferNTN(Bob, crypto.PubkeyToAddress(Alice.PublicKey), approvedAmount, timeout)
+	err = operatorNode.AwaitTransferNTN(Bob, AliceAddr, approvedAmount, timeout)
 	require.NoError(t, err)
 
 	for _, account := range accounts {
@@ -57,6 +62,13 @@ func TestACERC20Interfaces(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, mintAmount.Uint64(), balance.Uint64())
 	}
+
+	err = operatorNode.AwaitBurnNTN(operatorKey, AliceAddr, mintAmount, timeout)
+	require.NoError(t, err)
+
+	balance, err := operatorNode.BalanceNTN(AliceAddr)
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), balance.Uint64())
 }
 
 func makeAccounts(num int) ([]*ecdsa.PrivateKey, error) {

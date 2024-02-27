@@ -32,9 +32,12 @@ var (
 
 // This test checks that those getter functions can be accessed via the client's HTTP RPC calls.
 func TestACGetterRPCs(t *testing.T) {
-	network, err := e2e.NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, 1, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown()
+
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(2, 10, false)
 
 	validator := network[0].Address.String()
 	ep := network[0].HTTPEndpoint()

@@ -431,58 +431,6 @@ func (c *caller) getNewContract() ([]byte, string, error) {
 	return byteCode, abi, err
 }
 
-func (n *Node) AwaitMintNTN(operatorKey *ecdsa.PrivateKey, receiver common.Address, amount *big.Int, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
-	tx, err := client.tx(ctx, operatorKey).mint(receiver, amount)
-	if err != nil {
-		return err
-	}
-	return n.AwaitTransactions(ctx, tx)
-}
-
-func (n *Node) AwaitApproveNTN(owner *ecdsa.PrivateKey, spender common.Address, amount *big.Int, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
-	tx, err := client.tx(ctx, owner).approve(spender, amount)
-	if err != nil {
-		return err
-	}
-	return n.AwaitTransactions(ctx, tx)
-}
-
-func (n *Node) AwaitTransferFromNTN(spenderKey *ecdsa.PrivateKey, owner common.Address, amount *big.Int, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
-	tx, err := client.tx(ctx, spenderKey).transferFrom(owner, crypto.PubkeyToAddress(spenderKey.PublicKey), amount)
-	if err != nil {
-		return err
-	}
-	return n.AwaitTransactions(ctx, tx)
-}
-
-func (n *Node) AwaitTransferNTN(senderKey *ecdsa.PrivateKey, receiver common.Address, amount *big.Int, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
-	tx, err := client.tx(ctx, senderKey).transfer(receiver, amount)
-	if err != nil {
-		return err
-	}
-	return n.AwaitTransactions(ctx, tx)
-}
-
 func (n *Node) BalanceNTN(account common.Address) (*big.Int, error) {
 	url := n.HTTPEndpoint()
 	client := interact(url)
@@ -490,41 +438,122 @@ func (n *Node) BalanceNTN(account common.Address) (*big.Int, error) {
 	return client.call(n.Eth.BlockChain().CurrentHeader().Number.Uint64()).balanceOf(account)
 }
 
-func (n *Node) AwaitRegisterValidator(validator *ecdsa.PrivateKey, enode string, oracle common.Address, consensusKey []byte, pop []byte, timeout time.Duration) error {
+func (n *Node) AwaitContractTXN(txFunc func(ctx context.Context, client *interactor) (*types.Transaction, error), timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	url := n.HTTPEndpoint()
 	client := interact(url)
 	defer client.close()
-	tx, err := client.tx(ctx, validator).registerValidator(enode, oracle, consensusKey, pop)
+
+	tx, err := txFunc(ctx, client)
 	if err != nil {
 		return err
 	}
+
 	return n.AwaitTransactions(ctx, tx)
+}
+
+func (n *Node) AwaitMintNTN(operatorKey *ecdsa.PrivateKey, receiver common.Address, amount *big.Int, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, operatorKey).mint(receiver, amount)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitBurnNTN(optKey *ecdsa.PrivateKey, from common.Address, amount *big.Int, tm time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).burn(from, amount)
+	}
+	return n.AwaitContractTXN(txFunc, tm)
+}
+
+func (n *Node) AwaitNTNApprove(owner *ecdsa.PrivateKey, spender common.Address, amount *big.Int, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, owner).approve(spender, amount)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitNTNTransferFrom(spenderKey *ecdsa.PrivateKey, owner common.Address, amount *big.Int, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, spenderKey).transferFrom(owner, crypto.PubkeyToAddress(spenderKey.PublicKey), amount)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitTransferNTN(senderKey *ecdsa.PrivateKey, receiver common.Address, amount *big.Int, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, senderKey).transfer(receiver, amount)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitRegisterValidator(validator *ecdsa.PrivateKey, enode string, oracle common.Address, consensusKey []byte, pop []byte, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, validator).registerValidator(enode, oracle, consensusKey, pop)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitBondStake(delegator *ecdsa.PrivateKey, validator common.Address, amount *big.Int, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
-	tx, err := client.tx(ctx, delegator).bond(validator, amount)
-	if err != nil {
-		return err
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, delegator).bond(validator, amount)
 	}
-	return n.AwaitTransactions(ctx, tx)
+	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitUnbondStake(delegator *ecdsa.PrivateKey, validator common.Address, amount *big.Int, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
-	tx, err := client.tx(ctx, delegator).unbond(validator, amount)
-	if err != nil {
-		return err
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, delegator).unbond(validator, amount)
 	}
-	return n.AwaitTransactions(ctx, tx)
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitSetMinBaseFee(optKey *ecdsa.PrivateKey, newFee *big.Int, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).setMinBaseFee(newFee)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitSetCommitteeSize(optKey *ecdsa.PrivateKey, newSize *big.Int, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).setCommitteeSize(newSize)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitSetUnbondingPeriod(optKey *ecdsa.PrivateKey, newPeriod *big.Int, timeout time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).setUnBondingPeriod(newPeriod)
+	}
+	return n.AwaitContractTXN(txFunc, timeout)
+}
+
+func (n *Node) AwaitSetEpochPeriod(optKey *ecdsa.PrivateKey, newPeriod *big.Int, tm time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).setEpochPeriod(newPeriod)
+	}
+	return n.AwaitContractTXN(txFunc, tm)
+}
+
+func (n *Node) AwaitSetTreasuryAccount(optKey *ecdsa.PrivateKey, newAccount common.Address, tm time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).setTreasuryAccount(newAccount)
+	}
+	return n.AwaitContractTXN(txFunc, tm)
+}
+
+func (n *Node) AwaitSetTreasuryFee(optKey *ecdsa.PrivateKey, newFee *big.Int, tm time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).setTreasuryFee(newFee)
+	}
+	return n.AwaitContractTXN(txFunc, tm)
+}
+
+func (n *Node) AwaitSetOperator(optKey *ecdsa.PrivateKey, newOperator common.Address, tm time.Duration) error {
+	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
+		return client.tx(ctx, optKey).setOperator(newOperator)
+	}
+	return n.AwaitContractTXN(txFunc, tm)
 }
