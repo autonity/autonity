@@ -489,3 +489,42 @@ func (n *Node) BalanceNTN(account common.Address) (*big.Int, error) {
 	defer client.close()
 	return client.call(n.Eth.BlockChain().CurrentHeader().Number.Uint64()).balanceOf(account)
 }
+
+func (n *Node) AwaitRegisterValidator(validator *ecdsa.PrivateKey, enode string, oracle common.Address, consensusKey []byte, pop []byte, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	url := n.HTTPEndpoint()
+	client := interact(url)
+	defer client.close()
+	tx, err := client.tx(ctx, validator).registerValidator(enode, oracle, consensusKey, pop)
+	if err != nil {
+		return err
+	}
+	return n.AwaitTransactions(ctx, tx)
+}
+
+func (n *Node) AwaitBondStake(delegator *ecdsa.PrivateKey, validator common.Address, amount *big.Int, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	url := n.HTTPEndpoint()
+	client := interact(url)
+	defer client.close()
+	tx, err := client.tx(ctx, delegator).bond(validator, amount)
+	if err != nil {
+		return err
+	}
+	return n.AwaitTransactions(ctx, tx)
+}
+
+func (n *Node) AwaitUnbondStake(delegator *ecdsa.PrivateKey, validator common.Address, amount *big.Int, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	url := n.HTTPEndpoint()
+	client := interact(url)
+	defer client.close()
+	tx, err := client.tx(ctx, delegator).unbond(validator, amount)
+	if err != nil {
+		return err
+	}
+	return n.AwaitTransactions(ctx, tx)
+}

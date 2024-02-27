@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"reflect"
 	"testing"
@@ -17,7 +16,6 @@ import (
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 )
@@ -42,146 +40,6 @@ var (
 	mintAmount         = new(big.Int).SetUint64(100)
 	burnAmount         = new(big.Int).SetUint64(50)
 )
-
-// test registerValidator, unRegisterValidators, bond and unbond operations.
-func TestACPublicWritters(t *testing.T) {
-	numOfValidators := 2
-
-	operator, err := makeAccount()
-	require.NoError(t, err)
-	operatorAddr := crypto.PubkeyToAddress(operator.PublicKey)
-
-	newValidator, err := makeAccount()
-	require.NoError(t, err)
-	newValidatorAddr := crypto.PubkeyToAddress(newValidator.PublicKey)
-	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
-	treasury := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
-
-	consensusKey, err := blst.RandKey()
-	require.NoError(t, err)
-
-	consensusKeyProof, err := crypto.BLSPOPProof(consensusKey, treasury)
-	require.NoError(t, err)
-
-	oracleAccount, err := makeAccount()
-	require.NoError(t, err)
-	// newton to be mint
-	amount := new(big.Int).SetUint64(10)
-
-	cases := []*testCase{
-		{
-			name:          "Test register new validator",
-			numValidators: numOfValidators,
-			numBlocks:     10,
-			genesisHook: func(g *core.Genesis) *core.Genesis {
-				g.Config.AutonityContractConfig.Operator = operatorAddr
-				// pre-mine Auton for system operator and new validator.
-				g.Alloc[operatorAddr] = core.GenesisAccount{
-					Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
-				}
-				g.Alloc[newValidatorAddr] = core.GenesisAccount{
-					Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
-				}
-				return g
-			},
-			// register validator right after block #5 is committed from client V0.
-			afterHooks: map[string]hook{
-				"V0": registerValidatorHook(map[uint64]struct{}{
-					5: {},
-				},
-					enodeUrl,
-					newValidator,
-					oracleAccount,
-					consensusKey.PublicKey().Marshal(),
-					consensusKeyProof,
-				),
-			},
-			finalAssert: func(t *testing.T, validators map[string]*testNode) {
-				client := interact(validators["V0"].rpcPort)
-				defer client.close()
-				val, err := client.call(validators["V0"].lastBlock).getValidator(newValidatorAddr)
-				require.NoError(t, err)
-				require.Equal(t, newValidatorAddr, val.NodeAddress)
-			},
-		},
-		{
-			name:          "bond stake to validator",
-			numValidators: numOfValidators,
-			numBlocks:     10,
-			genesisHook: func(g *core.Genesis) *core.Genesis {
-				g.Config.AutonityContractConfig.Operator = operatorAddr
-				// pre-mine Auton for system operator and new validator.
-				g.Alloc[operatorAddr] = core.GenesisAccount{
-					Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
-				}
-				g.Alloc[newValidatorAddr] = core.GenesisAccount{
-					Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
-				}
-				return g
-			},
-			// mint newton for new validator right after block #3 via client V0.
-			// bond newton to validator right after block #7 via client V1.
-			afterHooks: map[string]hook{
-				"V0": mintStakeHook(map[uint64]struct{}{
-					2: {},
-				},
-					operator,
-					newValidator,
-					amount,
-				),
-				"V1": bondStakeHook(map[uint64]struct{}{
-					7: {},
-				},
-					newValidator,
-					amount,
-				),
-			},
-			finalAssert: func(t *testing.T, validators map[string]*testNode) {
-				node := validators["V1"]
-				client := interact(node.rpcPort)
-				defer client.close()
-				/* todo: update
-				reqs, err := client.call(node.lastBlock).getBondingReq(new(big.Int).SetUint64(0),
-					new(big.Int).SetUint64(3))
-				require.NoError(t, err)
-				require.Equal(t, node.EthAddress(), reqs[2].Delegatee)
-				require.Equal(t, newValidatorAddr, reqs[2].Delegator)
-				require.Equal(t, amount, reqs[2].Amount)
-				*/
-			},
-		},
-		{
-			name:          "unbond stake from validator",
-			numValidators: numOfValidators,
-			numBlocks:     10,
-			afterHooks: map[string]hook{
-				"V0": unBondStakeHook(map[uint64]struct{}{
-					2: {},
-				},
-					amount,
-				),
-			},
-			finalAssert: func(t *testing.T, validators map[string]*testNode) {
-				node := validators["V0"]
-				client := interact(node.rpcPort)
-				defer client.close()
-				/* todo: update
-				reqs, err := client.call(node.lastBlock).getUnBondingReq(new(big.Int).SetUint64(0),
-					new(big.Int).SetUint64(1))
-				require.NoError(t, err)
-				require.Equal(t, node.EthAddress(), reqs[0].Delegatee)
-				require.Equal(t, node.EthAddress(), reqs[0].Delegator)
-				require.Equal(t, amount, reqs[0].Amount)
-
-				*/
-			},
-		},
-	}
-
-	for _, testcase := range cases {
-		runTest(t, testcase)
-	}
-}
 
 // test system settings management by operator account.
 func TestACSystemOperatorOPs(t *testing.T) {
