@@ -76,7 +76,7 @@ func (i *interactor) close() {
 }
 
 // tx returns a transactor through which transactions can be executed.
-func (i *interactor) tx(senderKey *ecdsa.PrivateKey, ctx context.Context) *transactor {
+func (i *interactor) tx(ctx context.Context, senderKey *ecdsa.PrivateKey) *transactor {
 	t := &transactor{}
 	if i.err != nil {
 		t.err = i.err
@@ -91,8 +91,8 @@ func (i *interactor) tx(senderKey *ecdsa.PrivateKey, ctx context.Context) *trans
 	}
 
 	// The test framework uses 1337 as chain ID.
-	chainId := new(big.Int).SetUint64(1337)
-	txOpt, err := bind.NewKeyedTransactorWithChainID(senderKey, chainId)
+	chainID := new(big.Int).SetUint64(1337)
+	txOpt, err := bind.NewKeyedTransactorWithChainID(senderKey, chainID)
 	if err != nil {
 		t.err = err
 		return t
@@ -437,7 +437,7 @@ func (n *Node) AwaitMintNTN(operatorKey *ecdsa.PrivateKey, receiver common.Addre
 	url := n.HTTPEndpoint()
 	client := interact(url)
 	defer client.close()
-	tx, err := client.tx(operatorKey, ctx).mint(receiver, amount)
+	tx, err := client.tx(ctx, operatorKey).mint(receiver, amount)
 	if err != nil {
 		return err
 	}
@@ -450,7 +450,7 @@ func (n *Node) AwaitApproveNTN(owner *ecdsa.PrivateKey, spender common.Address, 
 	url := n.HTTPEndpoint()
 	client := interact(url)
 	defer client.close()
-	tx, err := client.tx(owner, ctx).approve(spender, amount)
+	tx, err := client.tx(ctx, owner).approve(spender, amount)
 	if err != nil {
 		return err
 	}
@@ -463,7 +463,7 @@ func (n *Node) AwaitTransferFromNTN(spenderKey *ecdsa.PrivateKey, owner common.A
 	url := n.HTTPEndpoint()
 	client := interact(url)
 	defer client.close()
-	tx, err := client.tx(spenderKey, ctx).transferFrom(owner, crypto.PubkeyToAddress(spenderKey.PublicKey), amount)
+	tx, err := client.tx(ctx, spenderKey).transferFrom(owner, crypto.PubkeyToAddress(spenderKey.PublicKey), amount)
 	if err != nil {
 		return err
 	}
@@ -476,7 +476,7 @@ func (n *Node) AwaitTransferNTN(senderKey *ecdsa.PrivateKey, receiver common.Add
 	url := n.HTTPEndpoint()
 	client := interact(url)
 	defer client.close()
-	tx, err := client.tx(senderKey, ctx).transfer(receiver, amount)
+	tx, err := client.tx(ctx, senderKey).transfer(receiver, amount)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package contract_opt
+package contracts
 
 import (
 	"context"
