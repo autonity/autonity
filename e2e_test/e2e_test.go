@@ -222,7 +222,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown()
 	n := network[0]
-	// Send a tx to see that the network is working
+	// Send a TX to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -231,7 +231,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	err = network[1].Close(true)
 	network[1].Wait()
 	require.NoError(t, err)
-	// Send a tx to see that the network is working
+	// Send a TX to see that the network is working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -241,8 +241,8 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	err = network[2].Close(true)
 	network[2].Wait()
 	require.NoError(t, err)
-	// We have now stopped more than F nodes, so we expect tx processing to time out.
-	// Well wait 5 times the avgTransactionDuration before we assume the tx is not being processed.
+	// We have now stopped more than F nodes, so we expect TX processing to time out.
+	// Well wait 5 times the avgTransactionDuration before we assume the TX is not being processed.
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -259,7 +259,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	defer cancel()
 	err = n.AwaitSentTransactions(ctx)
 	require.NoError(t, err)
-	// Send a tx to see that the network is still working
+	// Send a TX to see that the network is still working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -268,7 +268,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Start the last stopped node
 	err = network[1].Start()
 	require.NoError(t, err)
-	// Send a tx to see that the network is still working
+	// Send a TX to see that the network is still working
 	err = n.SendAUTtracked(context.Background(), network[1].Address, 10)
 	require.NoError(t, err)
 }

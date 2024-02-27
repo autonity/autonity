@@ -1,4 +1,4 @@
-package protocol_contract_opt
+package contract_opt
 
 import (
 	"bytes"
