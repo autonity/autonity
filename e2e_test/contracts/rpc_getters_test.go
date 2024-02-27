@@ -26,6 +26,7 @@ var (
 		"aut_totalSupply",
 		"aut_getMaxCommitteeSize",
 		"aut_getMinimumBaseFee",
+		"aut_getNewContract",
 	}
 )
 

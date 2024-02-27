@@ -115,36 +115,6 @@ func TestACSystemOperatorOPs(t *testing.T) {
 	runTest(t, testCase)
 }
 
-// test system settings / state getters
-func TestACStateGetters(t *testing.T) {
-	operatorKey, err := makeAccount()
-	require.NoError(t, err)
-	operatorAddress := crypto.PubkeyToAddress(operatorKey.PublicKey)
-	numOfValidators := 2
-	testCase := &testCase{
-		name:          "Test AC state getters",
-		numValidators: numOfValidators,
-		numBlocks:     10,
-		// set AC configs in genesis hook.
-		genesisHook: func(g *core.Genesis) *core.Genesis {
-			g.Config.AutonityContractConfig.Operator = operatorAddress
-			g.Config.AutonityContractConfig.Treasury = operatorAddress
-			setACConfig(g.Config.AutonityContractConfig)
-			return g
-		},
-		// start AC state getter verifications right after block #5 is committed from client V0.
-		afterHooks: map[string]hook{
-			"V0": acStateGettersHook(map[uint64]struct{}{
-				5: {},
-			},
-				operatorAddress,
-				numOfValidators,
-			),
-		},
-	}
-	runTest(t, testCase)
-}
-
 func burnStakeHook(upgradeBlocks map[uint64]struct{}, op *ecdsa.PrivateKey, ac common.Address) hook {
 	return func(block *types.Block, validator *testNode, tCase *testCase, currentTime time.Time) error {
 		blockNum := block.Number().Uint64()
