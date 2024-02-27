@@ -21,7 +21,7 @@ import (
 	"github.com/autonity/autonity/ethclient"
 )
 
-// interact is the starting point to constructing a tool to interact with
+// Interact is the starting point to constructing a tool to Interact with
 // autonity. It accepts an rpc port to connect to a local autonity instance and
 // then, through a sequence of method calls allows interaction with autonity.
 // Any error encountered along the way is propagated to the end of the chain of
@@ -31,11 +31,11 @@ import (
 // Example usages
 // ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 // defer cancel()
-// err := interact(url).tx(senderKey, ctx).registerValidator(address ,stake, enode)
+// err := Interact(url).TX(senderKey, ctx).registerValidator(address ,stake, enode)
 //
-// whitelist,err := interact(rpcPort).call(blockNumber).getWhitelist()
-func interact(url string) *interactor {
-	i := &interactor{}
+// whitelist,err := Interact(rpcPort).Call(blockNumber).getWhitelist()
+func Interact(url string) *Interactor {
+	i := &Interactor{}
 	client, err := ethclient.Dial(url)
 	if err != nil {
 		i.err = err
@@ -53,30 +53,30 @@ func interact(url string) *interactor {
 	return i
 }
 
-// interactor serves as the root object for interacting with autonity in a
+// Interactor serves as the root object for interacting with autonity in a
 // builder fashion. E.G. build().configure().do() any error encountered at any
 // step is propagated onwards through the chain of function calls and returned
-// at the end. interactor manages an autonity instance and an ethereum client
+// at the end. Interactor manages an autonity instance and an ethereum client
 // and provides functions to return objects that can handle sending
 // transactions or making contract calls.
-type interactor struct {
+type Interactor struct {
 	instance *autonity.Autonity
 	client   *ethclient.Client
 	err      error
 }
 
-// close closes the underlying ethclient. Validators of interacotor should not
-// need to call this directly because the call that finally interacts with the
-// autonity contract will call this.
-func (i *interactor) close() {
+// Close closes the underlying ethclient. Validators of interacotor should not
+// need to Call this directly because the Call that finally interacts with the
+// autonity contract will Call this.
+func (i *Interactor) Close() {
 	// in the case that Dial failed a.client could be nil
 	if i.client != nil {
 		i.client.Close()
 	}
 }
 
-// tx returns a transactor through which transactions can be executed.
-func (i *interactor) tx(ctx context.Context, senderKey *ecdsa.PrivateKey) *transactor {
+// TX returns a transactor through which transactions can be executed.
+func (i *Interactor) TX(ctx context.Context, senderKey *ecdsa.PrivateKey) *transactor {
 	t := &transactor{}
 	if i.err != nil {
 		t.err = i.err
@@ -106,10 +106,10 @@ func (i *interactor) tx(ctx context.Context, senderKey *ecdsa.PrivateKey) *trans
 	return t
 }
 
-// call returns a caller through which we can call methods of the autonity
+// Call returns a Caller through which we can Call methods of the autonity
 // contract.
-func (i *interactor) call(blockNumber uint64) *caller {
-	c := &caller{}
+func (i *Interactor) Call(blockNumber *big.Int) *Caller {
+	c := &Caller{}
 	if i.err != nil {
 		c.err = i.err
 		return c
@@ -118,20 +118,20 @@ func (i *interactor) call(blockNumber uint64) *caller {
 	c.opts = &bind.CallOpts{
 		Pending:     false,
 		From:        common.Address{},
-		BlockNumber: new(big.Int).SetUint64(blockNumber),
+		BlockNumber: blockNumber,
 		Context:     context.Background(),
 	}
 	return c
 }
 
 // The transactor provides a mechanism to send Transactions to the
-// autonity contract, it is intended to be constructed by interactor and
+// autonity contract, it is intended to be constructed by Interactor and
 // provides a generic execute method which calls a callback with an autonity instance
-// and transaction opts. It also can provide other methods to call specific functions
+// and transaction opts. It also can provide other methods to Call specific functions
 // on the autonity contract.
 type transactor struct {
 	err      error
-	i        *interactor
+	i        *Interactor
 	opts     *bind.TransactOpts
 	executed []*types.Transaction
 }
@@ -266,29 +266,28 @@ func (t *transactor) approve(spender common.Address, amount *big.Int) (*types.Tr
 	})
 }
 
-// The caller provides a mechanism to call the autonity contract, it is
-// intended to be constructed by interactor and provides a generic execute
-// method which calls a callback with an autonity instance and call opts. It
-// also can provide other methods to call specific functions on the autonity
+// The Caller provides a mechanism to Call the autonity contract, it is
+// intended to be constructed by Interactor and provides a generic execute
+// method which calls a callback with an autonity instance and Call opts. It
+// also can provide other methods to Call specific functions on the autonity
 // contract.
-type caller struct {
+type Caller struct {
 	err  error
-	i    *interactor
+	i    *Interactor
 	opts *bind.CallOpts
 }
 
-// execute calls the given callback and ensures that its interactor instance
+// execute calls the given callback and ensures that its Interactor instance
 // is subsequently closed.
-func (c *caller) execute(action func(instance *autonity.Autonity, opts *bind.CallOpts) error) error {
-	defer c.i.close()
+func (c *Caller) execute(action func(instance *autonity.Autonity, opts *bind.CallOpts) error) error {
+	defer c.i.Close()
 	if c.err != nil {
 		return c.err
 	}
 	return action(c.i.instance, c.opts)
 }
 
-// erc-20 getters.
-func (c *caller) name() (string, error) {
+func (c *Caller) Name() (string, error) {
 	var name string
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		n, err := instance.Name(opts)
@@ -298,7 +297,7 @@ func (c *caller) name() (string, error) {
 	return name, err
 }
 
-func (c *caller) symbol() (string, error) {
+func (c *Caller) Symbol() (string, error) {
 	var symbol string
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		s, err := instance.Symbol(opts)
@@ -308,7 +307,7 @@ func (c *caller) symbol() (string, error) {
 	return symbol, err
 }
 
-func (c *caller) balanceOf(address common.Address) (*big.Int, error) {
+func (c *Caller) BalanceOf(address common.Address) (*big.Int, error) {
 	var newton *big.Int
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		s, err := instance.BalanceOf(opts, address)
@@ -318,7 +317,7 @@ func (c *caller) balanceOf(address common.Address) (*big.Int, error) {
 	return newton, err
 }
 
-func (c *caller) allowance(owner common.Address, spender common.Address) (*big.Int, error) {
+func (c *Caller) Allowance(owner common.Address, spender common.Address) (*big.Int, error) {
 	var al *big.Int
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		a, err := instance.Allowance(opts, owner, spender)
@@ -328,7 +327,7 @@ func (c *caller) allowance(owner common.Address, spender common.Address) (*big.I
 	return al, err
 }
 
-func (c *caller) totalSupply() (*big.Int, error) {
+func (c *Caller) TotalSupply() (*big.Int, error) {
 	var total *big.Int
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		t, err := instance.TotalSupply(opts)
@@ -338,8 +337,7 @@ func (c *caller) totalSupply() (*big.Int, error) {
 	return total, err
 }
 
-// system setting / state getters
-func (c *caller) getVersion() (uint64, error) {
+func (c *Caller) GetVersion() (uint64, error) {
 	var version uint64
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		v, err := instance.GetVersion(opts)
@@ -349,7 +347,7 @@ func (c *caller) getVersion() (uint64, error) {
 	return version, err
 }
 
-func (c *caller) getCommittee() ([]autonity.AutonityCommitteeMember, error) {
+func (c *Caller) GetCommittee() ([]autonity.AutonityCommitteeMember, error) {
 	var committee []autonity.AutonityCommitteeMember
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		cm, err := instance.GetCommittee(opts)
@@ -359,7 +357,7 @@ func (c *caller) getCommittee() ([]autonity.AutonityCommitteeMember, error) {
 	return committee, err
 }
 
-func (c *caller) getValidators() ([]common.Address, error) {
+func (c *Caller) GetValidators() ([]common.Address, error) {
 	var validators []common.Address
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		vals, err := instance.GetValidators(opts)
@@ -369,7 +367,7 @@ func (c *caller) getValidators() ([]common.Address, error) {
 	return validators, err
 }
 
-func (c *caller) getValidator(address common.Address) (autonity.AutonityValidator, error) {
+func (c *Caller) GetValidator(address common.Address) (autonity.AutonityValidator, error) {
 	var val autonity.AutonityValidator
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		v, err := instance.GetValidator(opts, address)
@@ -379,7 +377,7 @@ func (c *caller) getValidator(address common.Address) (autonity.AutonityValidato
 	return val, err
 }
 
-func (c *caller) getMaxCommitteeSize() (*big.Int, error) {
+func (c *Caller) GetMaxCommitteeSize() (*big.Int, error) {
 	var size *big.Int
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		s, err := instance.GetMaxCommitteeSize(opts)
@@ -389,7 +387,7 @@ func (c *caller) getMaxCommitteeSize() (*big.Int, error) {
 	return size, err
 }
 
-func (c *caller) getCommitteeEnodes() ([]string, error) {
+func (c *Caller) GetCommitteeEnodes() ([]string, error) {
 	var eNodes []string
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		es, err := instance.GetCommitteeEnodes(opts)
@@ -399,7 +397,7 @@ func (c *caller) getCommitteeEnodes() ([]string, error) {
 	return eNodes, err
 }
 
-func (c *caller) getMinBaseFee() (*big.Int, error) {
+func (c *Caller) GetMinBaseFee() (*big.Int, error) {
 	var fee *big.Int
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		f, err := instance.GetMinimumBaseFee(opts)
@@ -409,7 +407,47 @@ func (c *caller) getMinBaseFee() (*big.Int, error) {
 	return fee, err
 }
 
-func (c *caller) getOperator() (common.Address, error) {
+func (c *Caller) GetUnbondingPeriod() (*big.Int, error) {
+	var period *big.Int
+	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+		p, err := instance.GetUnbondingPeriod(opts)
+		period = p
+		return err
+	})
+	return period, err
+}
+
+func (c *Caller) GetEpochPeriod() (*big.Int, error) {
+	var period *big.Int
+	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+		p, err := instance.GetEpochPeriod(opts)
+		period = p
+		return err
+	})
+	return period, err
+}
+
+func (c *Caller) GetTreasuryFee() (*big.Int, error) {
+	var fee *big.Int
+	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+		f, err := instance.GetTreasuryFee(opts)
+		fee = f
+		return err
+	})
+	return fee, err
+}
+
+func (c *Caller) GetTreasuryAccount() (common.Address, error) {
+	var treasury common.Address
+	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+		t, err := instance.GetTreasuryAccount(opts)
+		treasury = t
+		return err
+	})
+	return treasury, err
+}
+
+func (c *Caller) GetOperator() (common.Address, error) {
 	var operator common.Address
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
 		o, err := instance.GetOperator(opts)
@@ -419,7 +457,7 @@ func (c *caller) getOperator() (common.Address, error) {
 	return operator, err
 }
 
-func (c *caller) getNewContract() ([]byte, string, error) {
+func (c *Caller) GetNewContract() ([]byte, string, error) {
 	var byteCode []byte
 	var abi string
 	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
@@ -431,21 +469,11 @@ func (c *caller) getNewContract() ([]byte, string, error) {
 	return byteCode, abi, err
 }
 
-func (n *Node) BalanceNTN(account common.Address) (*big.Int, error) {
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
-	return client.call(n.Eth.BlockChain().CurrentHeader().Number.Uint64()).balanceOf(account)
-}
-
-func (n *Node) AwaitContractTXN(txFunc func(ctx context.Context, client *interactor) (*types.Transaction, error), timeout time.Duration) error {
+func (n *Node) AwaitContractTXN(txFunc func(ctx context.Context, client *Interactor) (*types.Transaction, error), timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	url := n.HTTPEndpoint()
-	client := interact(url)
-	defer client.close()
 
-	tx, err := txFunc(ctx, client)
+	tx, err := txFunc(ctx, n.Interactor)
 	if err != nil {
 		return err
 	}
@@ -454,106 +482,106 @@ func (n *Node) AwaitContractTXN(txFunc func(ctx context.Context, client *interac
 }
 
 func (n *Node) AwaitMintNTN(operatorKey *ecdsa.PrivateKey, receiver common.Address, amount *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, operatorKey).mint(receiver, amount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, operatorKey).mint(receiver, amount)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitBurnNTN(optKey *ecdsa.PrivateKey, from common.Address, amount *big.Int, tm time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).burn(from, amount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).burn(from, amount)
 	}
 	return n.AwaitContractTXN(txFunc, tm)
 }
 
 func (n *Node) AwaitNTNApprove(owner *ecdsa.PrivateKey, spender common.Address, amount *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, owner).approve(spender, amount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, owner).approve(spender, amount)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitNTNTransferFrom(spenderKey *ecdsa.PrivateKey, owner common.Address, amount *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, spenderKey).transferFrom(owner, crypto.PubkeyToAddress(spenderKey.PublicKey), amount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, spenderKey).transferFrom(owner, crypto.PubkeyToAddress(spenderKey.PublicKey), amount)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitTransferNTN(senderKey *ecdsa.PrivateKey, receiver common.Address, amount *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, senderKey).transfer(receiver, amount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, senderKey).transfer(receiver, amount)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitRegisterValidator(validator *ecdsa.PrivateKey, enode string, oracle common.Address, consensusKey []byte, pop []byte, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, validator).registerValidator(enode, oracle, consensusKey, pop)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, validator).registerValidator(enode, oracle, consensusKey, pop)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitBondStake(delegator *ecdsa.PrivateKey, validator common.Address, amount *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, delegator).bond(validator, amount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, delegator).bond(validator, amount)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitUnbondStake(delegator *ecdsa.PrivateKey, validator common.Address, amount *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, delegator).unbond(validator, amount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, delegator).unbond(validator, amount)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitSetMinBaseFee(optKey *ecdsa.PrivateKey, newFee *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).setMinBaseFee(newFee)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).setMinBaseFee(newFee)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitSetCommitteeSize(optKey *ecdsa.PrivateKey, newSize *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).setCommitteeSize(newSize)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).setCommitteeSize(newSize)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitSetUnbondingPeriod(optKey *ecdsa.PrivateKey, newPeriod *big.Int, timeout time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).setUnBondingPeriod(newPeriod)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).setUnBondingPeriod(newPeriod)
 	}
 	return n.AwaitContractTXN(txFunc, timeout)
 }
 
 func (n *Node) AwaitSetEpochPeriod(optKey *ecdsa.PrivateKey, newPeriod *big.Int, tm time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).setEpochPeriod(newPeriod)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).setEpochPeriod(newPeriod)
 	}
 	return n.AwaitContractTXN(txFunc, tm)
 }
 
 func (n *Node) AwaitSetTreasuryAccount(optKey *ecdsa.PrivateKey, newAccount common.Address, tm time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).setTreasuryAccount(newAccount)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).setTreasuryAccount(newAccount)
 	}
 	return n.AwaitContractTXN(txFunc, tm)
 }
 
 func (n *Node) AwaitSetTreasuryFee(optKey *ecdsa.PrivateKey, newFee *big.Int, tm time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).setTreasuryFee(newFee)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).setTreasuryFee(newFee)
 	}
 	return n.AwaitContractTXN(txFunc, tm)
 }
 
 func (n *Node) AwaitSetOperator(optKey *ecdsa.PrivateKey, newOperator common.Address, tm time.Duration) error {
-	txFunc := func(ctx context.Context, client *interactor) (*types.Transaction, error) {
-		return client.tx(ctx, optKey).setOperator(newOperator)
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).setOperator(newOperator)
 	}
 	return n.AwaitContractTXN(txFunc, tm)
 }

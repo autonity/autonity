@@ -58,7 +58,7 @@ func TestACERC20Interfaces(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, account := range accounts {
-		balance, err := operatorNode.BalanceNTN(crypto.PubkeyToAddress(account.PublicKey))
+		balance, err := operatorNode.Interactor.Call(nil).BalanceOf(crypto.PubkeyToAddress(account.PublicKey))
 		require.NoError(t, err)
 		require.Equal(t, mintAmount.Uint64(), balance.Uint64())
 	}
@@ -66,7 +66,7 @@ func TestACERC20Interfaces(t *testing.T) {
 	err = operatorNode.AwaitBurnNTN(operatorKey, AliceAddr, mintAmount, timeout)
 	require.NoError(t, err)
 
-	balance, err := operatorNode.BalanceNTN(AliceAddr)
+	balance, err := operatorNode.Interactor.Call(nil).BalanceOf(AliceAddr)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), balance.Uint64())
 }

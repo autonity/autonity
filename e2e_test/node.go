@@ -77,15 +77,16 @@ var (
 // *node.Node is embedded so that its api is available through Node.
 type Node struct {
 	*node.Node
-	isRunning bool
-	Config    *node.Config
-	Eth       *eth.Ethereum
-	EthConfig *ethconfig.Config
-	WsClient  *ethclient.Client
-	Nonce     uint64
-	Key       *ecdsa.PrivateKey
-	Address   common.Address
-	Tracker   *TransactionTracker
+	isRunning  bool
+	Config     *node.Config
+	Eth        *eth.Ethereum
+	EthConfig  *ethconfig.Config
+	WsClient   *ethclient.Client
+	Interactor *Interactor
+	Nonce      uint64
+	Key        *ecdsa.PrivateKey
+	Address    common.Address
+	Tracker    *TransactionTracker
 	// The transactions that this node has sent.
 	SentTxs     []*types.Transaction
 	CustHandler *interfaces.Services
@@ -204,6 +205,12 @@ func (n *Node) Start() error {
 	if n.Nonce, err = n.WsClient.PendingNonceAt(context.Background(), n.Address); err != nil {
 		return err
 	}
+
+	n.Interactor = Interact(n.HTTPEndpoint())
+	if n.Interactor.err != nil {
+		return n.Interactor.err
+	}
+
 	err = n.Tracker.StartTracking(n.WsClient)
 	return err
 }
@@ -226,6 +233,7 @@ func (n *Node) Close(deleteDataDir bool) error {
 		return err
 	}
 	n.WsClient.Close()
+	n.Interactor.Close()
 	if n.Node != nil {
 		err = n.Node.Close() // This also shuts down the Eth service
 	}

@@ -27,27 +27,54 @@ func TestOperatorOpts(t *testing.T) {
 	err = fundingAccounts(client, []*ecdsa.PrivateKey{newOptKey})
 
 	tm := 5 * time.Second
-	err = client.AwaitSetOperator(initialOptKey, crypto.PubkeyToAddress(newOptKey.PublicKey), tm)
+	newOperator := crypto.PubkeyToAddress(newOptKey.PublicKey)
+	err = client.AwaitSetOperator(initialOptKey, newOperator, tm)
 	require.NoError(t, err)
+	op, err := client.Interactor.Call(nil).GetOperator()
+	require.NoError(t, err)
+	require.Equal(t, newOperator, op)
 
-	err = client.AwaitSetMinBaseFee(newOptKey, new(big.Int).SetUint64(12), tm)
+	newBaseFee := new(big.Int).SetUint64(12)
+	err = client.AwaitSetMinBaseFee(newOptKey, newBaseFee, tm)
 	require.NoError(t, err)
+	fee, err := client.Interactor.Call(nil).GetMinBaseFee()
+	require.NoError(t, err)
+	require.Equal(t, 0, newBaseFee.Cmp(fee))
 
-	err = client.AwaitSetCommitteeSize(newOptKey, new(big.Int).SetUint64(66), tm)
+	newSize := new(big.Int).SetUint64(66)
+	err = client.AwaitSetCommitteeSize(newOptKey, newSize, tm)
 	require.NoError(t, err)
+	size, err := client.Interactor.Call(nil).GetMaxCommitteeSize()
+	require.NoError(t, err)
+	require.Equal(t, 0, newSize.Cmp(size))
 
-	err = client.AwaitSetUnbondingPeriod(newOptKey, new(big.Int).SetUint64(60), tm)
+	newBondingPeriod := new(big.Int).SetUint64(60)
+	err = client.AwaitSetUnbondingPeriod(newOptKey, newBondingPeriod, tm)
 	require.NoError(t, err)
+	bp, err := client.Interactor.Call(nil).GetUnbondingPeriod()
+	require.NoError(t, err)
+	require.Equal(t, 0, newBondingPeriod.Cmp(bp))
 
-	err = client.AwaitSetEpochPeriod(newOptKey, new(big.Int).SetUint64(60), tm)
+	newEpochPeriod := new(big.Int).SetUint64(60)
+	err = client.AwaitSetEpochPeriod(newOptKey, newEpochPeriod, tm)
 	require.NoError(t, err)
+	ep, err := client.Interactor.Call(nil).GetEpochPeriod()
+	require.NoError(t, err)
+	require.Equal(t, 0, newEpochPeriod.Cmp(ep))
 
 	newTreasury, err := crypto.GenerateKey()
 	require.NoError(t, err)
-
-	err = client.AwaitSetTreasuryAccount(newOptKey, crypto.PubkeyToAddress(newTreasury.PublicKey), tm)
+	newTreasuryAddr := crypto.PubkeyToAddress(newTreasury.PublicKey)
+	err = client.AwaitSetTreasuryAccount(newOptKey, newTreasuryAddr, tm)
 	require.NoError(t, err)
-
-	err = client.AwaitSetTreasuryFee(newOptKey, new(big.Int).SetUint64(1000), tm)
+	treasury, err := client.Interactor.Call(nil).GetTreasuryAccount()
 	require.NoError(t, err)
+	require.Equal(t, newTreasuryAddr, treasury)
+
+	newTreasuryFee := new(big.Int).SetUint64(1000)
+	err = client.AwaitSetTreasuryFee(newOptKey, newTreasuryFee, tm)
+	require.NoError(t, err)
+	tFee, err := client.Interactor.Call(nil).GetTreasuryFee()
+	require.NoError(t, err)
+	require.Equal(t, 0, newTreasuryFee.Cmp(tFee))
 }
