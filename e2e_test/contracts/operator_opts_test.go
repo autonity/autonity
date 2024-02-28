@@ -2,8 +2,10 @@ package contracts
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
@@ -77,4 +79,36 @@ func TestOperatorOpts(t *testing.T) {
 	tFee, err := client.Interactor.Call(nil).GetTreasuryFee()
 	require.NoError(t, err)
 	require.Equal(t, 0, newTreasuryFee.Cmp(tFee))
+}
+
+func TestUpgradeAC(t *testing.T) {
+	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown()
+
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(2, 10, false)
+
+	bytecode := generated.AutonityUpgradeTestBytecode
+	abi := generated.AutonityUpgradeTestAbi
+
+	client := network[0]
+	optKey := client.Key
+	tm := 5 * time.Second
+	err = client.AwaitUpgradeAC(optKey, bytecode[0:len(bytecode)/2], "", tm)
+	require.NoError(t, err)
+
+	err = client.AwaitUpgradeAC(optKey, bytecode[len(bytecode)/2:], "", tm)
+	require.NoError(t, err)
+
+	res, err := json.Marshal(&abi)
+	require.NoError(t, err)
+	err = client.AwaitUpgradeAC(optKey, nil, string(res), tm)
+
+	err = client.AwaitCompleteUpgradeAC(optKey, tm)
+	require.NoError(t, err)
+
+	version, err := client.Interactor.Call(nil).GetVersion()
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), version)
 }

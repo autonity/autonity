@@ -585,3 +585,17 @@ func (n *Node) AwaitSetOperator(optKey *ecdsa.PrivateKey, newOperator common.Add
 	}
 	return n.AwaitContractTXN(txFunc, tm)
 }
+
+func (n *Node) AwaitUpgradeAC(optKey *ecdsa.PrivateKey, code []byte, abi string, tm time.Duration) error {
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).upgradeContract(code, abi)
+	}
+	return n.AwaitContractTXN(txFunc, tm)
+}
+
+func (n *Node) AwaitCompleteUpgradeAC(optKey *ecdsa.PrivateKey, tm time.Duration) error {
+	txFunc := func(ctx context.Context, client *Interactor) (*types.Transaction, error) {
+		return client.TX(ctx, optKey).completeContractUpgrade()
+	}
+	return n.AwaitContractTXN(txFunc, tm)
+}
