@@ -18,6 +18,7 @@ import (
 // between validators and stakeholders.
 func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	t.Skip("Is broken with Penalty Absorbing Stake")
+	//todo: should be rewrite once the ATN inflation is introduced.
 	//todo: fix. Genesis validators are no longer issued Liquid Newton. Need to introduce 3rd party delegators.
 	vals, err := e2e.Validators(t, 3, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
