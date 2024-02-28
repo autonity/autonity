@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -79,7 +79,7 @@ func callRPC(t *testing.T, ep string, payload []byte) []byte {
 	resp, err := http.Post(ep, "application/json", bytes.NewBuffer(payload)) // nolint gosec complains about variable url
 	require.NoError(t, err)
 	defer resp.Body.Close()
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	result := &rpcCall{}
 	err = json.Unmarshal(respBytes, result)

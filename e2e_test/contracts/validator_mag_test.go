@@ -37,8 +37,8 @@ func TestValidatorManagement(t *testing.T) {
 	require.NoError(t, err)
 	timeout := 5 * time.Second
 	oracleAddr := crypto.PubkeyToAddress(oracle.PublicKey)
-	enodeUrl := enode.V4DNSUrl(validator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
-	err = operatorNode.AwaitRegisterValidator(validator, enodeUrl, oracleAddr, consensusKey.PublicKey().Marshal(), pop, timeout)
+	enodeURL := enode.V4DNSUrl(validator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
+	err = operatorNode.AwaitRegisterValidator(validator, enodeURL, oracleAddr, consensusKey.PublicKey().Marshal(), pop, timeout)
 	require.NoError(t, err)
 
 	delegatee := crypto.PubkeyToAddress(validator.PublicKey)

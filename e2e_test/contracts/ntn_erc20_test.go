@@ -83,12 +83,12 @@ func makeAccounts(num int) ([]*ecdsa.PrivateKey, error) {
 	return accounts, nil
 }
 
-// fundingAccounts distribute 1 ATN from operator account to each account in the accounts list.
+// fundingAccounts distribute 1 ATN from the operator account to each account in the accounts list.
 func fundingAccounts(operatorNode *e2e.Node, accounts []*ecdsa.PrivateKey) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	var txs []*types.Transaction
+	txs := make([]*types.Transaction, 0, len(accounts)) // Pre-allocate memory for txs based on the number of accounts
 	for _, account := range accounts {
 		tx, err := operatorNode.SendAUT(ctx, crypto.PubkeyToAddress(account.PublicKey), params.Ether)
 		if err != nil {

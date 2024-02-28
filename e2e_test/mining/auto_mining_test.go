@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-//TestMiningManagementOfValidators, shrink and extend the committee size, and check the mining state for validator and
+// TestMiningManagementOfValidators, shrink and extend the committee size, and check the mining state for validator and
 // non validator nodes.
 func TestMiningManagementOfValidators(t *testing.T) {
 	numOfNodes := 4

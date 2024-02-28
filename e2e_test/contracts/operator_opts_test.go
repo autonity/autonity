@@ -27,6 +27,7 @@ func TestOperatorOpts(t *testing.T) {
 	client := network[0]
 	// funding for new operator.
 	err = fundingAccounts(client, []*ecdsa.PrivateKey{newOptKey})
+	require.NoError(t, err)
 
 	tm := 5 * time.Second
 	newOperator := crypto.PubkeyToAddress(newOptKey.PublicKey)
@@ -104,6 +105,7 @@ func TestUpgradeAC(t *testing.T) {
 	res, err := json.Marshal(&abi)
 	require.NoError(t, err)
 	err = client.AwaitUpgradeAC(optKey, nil, string(res), tm)
+	require.NoError(t, err)
 
 	err = client.AwaitCompleteUpgradeAC(optKey, tm)
 	require.NoError(t, err)
