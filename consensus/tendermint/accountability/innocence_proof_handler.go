@@ -6,7 +6,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/protocols/eth"
@@ -54,7 +53,7 @@ func (r *AccusationRateLimiter) validAccusationRate(sender common.Address) error
 	// potentially be received once the network session get established from a disaster, thus it could exceed the number
 	// of accusation that could be produced by rule engine over a height, so we set higher rate limit during 1 second
 	// to be tolerant for such case.
-	if times > maxAccusationRatePerHeight*2 {
+	if times > maxAccusationPerHeight*2 {
 		return errAccusationRateMalicious
 	}
 
@@ -115,7 +114,7 @@ func (r *AccusationRateLimiter) checkHeightAccusationRate(sender common.Address,
 	}
 	hMap[height] = times + 1
 
-	if hMap[height] > maxAccusationRatePerHeight {
+	if hMap[height] > maxAccusationPerHeight {
 		return errAccusationRateMalicious
 	}
 
@@ -154,6 +153,7 @@ func (i *InnocenceProofBuffer) getInnocenceProofFromCache(challengeHash common.H
 
 // this function take accountability events: an accusation or an innocence proof event to handle off chain accusation
 // protocol. It returns error to freeze remote peer for 30s by according to dev p2p protocol to prevent from DoS attack.
+// NOTE: sender is the p2p sender of the offchain accountability message
 func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sender common.Address) error {
 	// drop peer if the accusation exceed the rate limit during the last 1 seconds.
 	err := fd.rateLimiter.validAccusationRate(sender)
@@ -183,7 +183,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		return err
 	}
 
-	// drop peer if the event is not from validator node.
+	// drop peer if the proof does not come from a committee member
 	msgHeight := proof.Message.H()
 	lastHeader := fd.blockchain.GetHeaderByNumber(msgHeight - 1)
 	if lastHeader == nil {
@@ -219,6 +219,11 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	// if the suspected msg's sender is not current peer, then it would be a DoS attack, drop the peer with an error returned.
 	if accusation.Message.Sender() != fd.address {
 		return errInvalidAccusation
+	}
+
+	// last param represent the current height for which we are doing consensus (lastBlock + 1)
+	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+		return nil
 	}
 
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
@@ -293,10 +298,9 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 	defer fd.offChainAccusationsMu.RUnlock()
 	var expiredOnes []*Proof
 	for _, proof := range fd.offChainAccusations {
-		// since it already get delta block passed through when the accusation was being generated, so current head
-		// comparing to the msg height should count delta block, besides this, we counter extra 10 block as the off
-		// chain proof window.
-		if currentChainHeight-proof.Message.H() > (offChainAccusationProofWindow + consensus.DeltaBlocks) {
+		// NOTE: accusations for message at height h is generated at height h + delta by the fault detector
+		// then we have up to h + delta + offchainWindow to resolve it offchain
+		if currentChainHeight-proof.Message.H() > (DeltaBlocks + offChainAccusationProofWindow) {
 			expiredOnes = append(expiredOnes, proof)
 		}
 	}

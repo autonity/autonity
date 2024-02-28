@@ -8,7 +8,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	proto "github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -29,14 +28,15 @@ type PVNOffChainAccusation struct {
 // PVN accusation is simulated by the removal of proposal and those corresponding quorum prevotes from msg store on a
 // client, such client will rise accusation PVN over those client who prevote for the removed proposal.
 func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
+	//TODO(lorenzo) fix this test. PVN accusation will not be raised anymore because the block has been mined
 	s.BroadcastAll(msg)
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
 		return
 	}
 
-	// simulate accusation over height 7
-	height := currentHeight - proto.DeltaBlocks + 2
+	// simulate accusation over height 13 (will be scanned at height 23)
+	height := currentHeight - accountability.DeltaBlocks + 8
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
 		panic("cannot simulate off chain accusation PVN")
@@ -63,7 +63,7 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 			}
 		}
 	}
-	s.Logger().Info("Off chain Accusation of PVN rule is simulated")
+	s.Logger().Info("MsgStore manipulated to cause accusation of PVN rule to be raised later on", "accusationHeight", height)
 }
 
 func newC1OffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
@@ -78,14 +78,16 @@ type C1OffChainAccusation struct {
 // client, thus, the client will rise accusation C1 over those client who precommit for the corresponding proposal that
 // there were no quorum prevotes of it.
 func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
+	//TODO(lorenzo) fix this test. C1 accusation will not be raised anymore because the block has been mined
 	s.BroadcastAll(msg)
 	currentHeight := uint64(15)
 	if msg.H() != currentHeight {
 		return
 	}
 
-	// simulate accusation over height 7
-	height := currentHeight - proto.DeltaBlocks + 2
+	// simulate accusation over height 13 (will be scanned at height 23)
+	height := currentHeight - accountability.DeltaBlocks + 8
+
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
 		panic("cannot simulate off chain accusation C1")
@@ -111,7 +113,7 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 			}
 		}
 	}
-	s.Logger().Info("Off chain Accusation of C1 rule is simulated")
+	s.Logger().Info("MsgStore manipulated to cause accusation of C1 rule to be raised later on", "accusationHeight", height)
 }
 
 func newGarbageOffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
@@ -134,7 +136,7 @@ func (s *GarbageOffChainAccusation) Broadcast(msg message.Msg) {
 		panic("cannot simulate duplicated off chain accusation")
 	}
 
-	committee := s.Core.Committee().Committee()
+	committee := s.Core.CommitteeSet().Committee()
 
 	for _, c := range committee {
 		if c.Address == s.Address() {
@@ -247,7 +249,10 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 	}
 }
 
+// TODO(lorenzo): add test to check the maximum accusations per height
 func TestOffChainAccusation(t *testing.T) {
+	// TODO(lorenzo) we should add a check that an offchain accountability message is actually sent
+	// if something prevents this from happening, these tests will keep passing because no proof is ever raised
 	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newC1OffChainAccusation}
 		tp := autonity.Accusation
@@ -262,6 +267,7 @@ func TestOffChainAccusation(t *testing.T) {
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
+	// TODO(lorenzo) attempt to restore
 	// Following in belows, there are 3 testcases to observe if those malicious off-chain challenger's peer is dropped
 	// due to the DoS protection of off chain accusation protocol. Due to the re-dail scheduler in P2P layer, those
 	// dropped peer are reconnected after a short while which making the tests unstable from e2e point of view. So skip
@@ -300,7 +306,8 @@ func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testP
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 20, false) // nolint
+	err = network.WaitToMineNBlocks(testPeriod, 20, false)
+	require.NoError(t, err)
 
 	// the challenger should get no peer connection left.
 	n := network[1]
@@ -327,7 +334,8 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 	defer network.Shutdown()
 
 	// network should be up and continue to mine blocks
-	network.WaitToMineNBlocks(testPeriod, 500, false) // nolint
+	err = network.WaitToMineNBlocks(testPeriod, 500, false)
+	require.NoError(t, err)
 
 	// accusation of PVN shouldn't be submitted on chain by challenger.
 	challengerAddress := network[challenger].Address

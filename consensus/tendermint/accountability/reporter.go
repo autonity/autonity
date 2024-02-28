@@ -10,7 +10,12 @@ import (
 )
 
 const (
-	ChunkProofSize        = 1024 // 1KB is around 800k gas
+	/* 1KB is around 800_000 gas
+	* current gas limit = 20_000_000
+	* 20_000_000 / 800_000 = 25Kb
+	* set chunk size to 2KB
+	 */
+	ChunkProofSize        = 2048
 	MaxSubmissionAttempts = 100
 	SubmissionDelay       = 1 * time.Second
 	MaxChunks             = 10
@@ -89,6 +94,7 @@ func (fd *FaultDetector) eventReporter() {
 				EventType:      ev.EventType,
 				Rule:           ev.Rule,
 				Reporter:       ev.Reporter,
+				Id:             common.Big0, // not required for submission
 				Block:          common.Big0, // not required for submission
 				Epoch:          common.Big0, // not required for submission
 				ReportingBlock: common.Big0, // not required for submission
@@ -96,10 +102,11 @@ func (fd *FaultDetector) eventReporter() {
 				Offender:       ev.Offender,
 				RawProof:       ev.RawProof[i*ChunkProofSize : min((i+1)*ChunkProofSize, len(ev.RawProof))],
 			}
-			if tx, err := fd.protocolContracts.HandleEvent(fd.transactOps, chunkedEvent); err == nil {
+			if tx, err := fd.protocolContracts.HandleEvent(fd.txOpts, chunkedEvent); err == nil {
 				fd.logger.Warn("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
 				// wait until it get mined before moving to the next one
 				attempt := 0
+			GetTxLoop:
 				for ; attempt < MaxSubmissionAttempts; attempt++ {
 					select {
 					case <-fd.stopRetry:
@@ -108,7 +115,7 @@ func (fd *FaultDetector) eventReporter() {
 						time.Sleep(SubmissionDelay)
 						_, _, blockNumber, _, _ := fd.ethBackend.GetTransaction(context.Background(), tx.Hash())
 						if blockNumber != 0 {
-							break
+							break GetTxLoop
 						}
 					}
 				}
@@ -117,15 +124,8 @@ func (fd *FaultDetector) eventReporter() {
 					break
 				}
 			} else {
-				fd.logger.Error("Accountability transaction", "err", err)
+				fd.logger.Error("Cannot submit accountability transaction", "err", err)
 			}
 		}
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
