@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/common/graph"
 	"math/big"
 	"net"
 	"os"
@@ -686,6 +687,74 @@ func (nw Network) Shutdown() {
 			}
 		}
 	}
+}
+
+type TopologyManager struct {
+	Graph *graph.Graph
+}
+
+func NewTopologyManager(graph *graph.Graph) *TopologyManager {
+	return &TopologyManager{Graph: graph}
+}
+
+func (t *TopologyManager) transformPeerListToMap(peers []*p2p.Peer, nodes map[string]*Node) map[string]struct{} {
+	m := make(map[string]struct{})
+	mapper := make(map[enode.ID]string, len(nodes))
+	for index, n := range nodes {
+		mapper[n.ExecutionServer().Self().ID()] = index
+	}
+	for _, v := range peers {
+		index, ok := mapper[v.Node().ID()]
+		if ok {
+			m[index] = struct{}{}
+		} else {
+			panic("Node doesn't exists")
+		}
+	}
+	return m
+}
+
+func (t *TopologyManager) ApplyTopologyOverNetwork(nodes map[string]*Node) error {
+	edges := t.getEdges()
+	connections := t.getPeerConnections(edges)
+	for nodeKey, connectionsList := range connections {
+		m := t.transformPeerListToMap(nodes[nodeKey].ExecutionServer().Peers(), nodes)
+		for k := range m {
+			if _, ok := connectionsList[k]; ok {
+				continue
+			}
+			n := nodes[k]
+			log.Info("disconnecting execution peer", "peer", n.ExecutionServer().Self().String())
+			nodes[nodeKey].ExecutionServer().RemovePeer(n.ExecutionServer().Self())
+			log.Info("disconnecting acn peer", "peer", n.ConsensusServer().Self().String())
+			nodes[nodeKey].ConsensusServer().RemovePeer(n.ConsensusServer().Self())
+		}
+	}
+	return nil
+}
+
+func (t *TopologyManager) getPeerConnections(edges []*graph.Edge) map[string]map[string]struct{} {
+	res := make(map[string]map[string]struct{})
+	for _, v := range edges {
+		m, ok := res[v.LeftNode]
+		if !ok {
+			m = make(map[string]struct{})
+		}
+		m[v.RightNode] = struct{}{}
+		res[v.LeftNode] = m
+
+		m, ok = res[v.RightNode]
+		if !ok {
+			m = make(map[string]struct{})
+		}
+		m[v.LeftNode] = struct{}{}
+		res[v.RightNode] = m
+	}
+	return res
+}
+
+func (t *TopologyManager) getEdges() []*graph.Edge {
+	return t.Graph.Edges
 }
 
 // ValueTransferTransaction builds a signed value transfer transaction from the
