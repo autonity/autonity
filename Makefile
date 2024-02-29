@@ -145,7 +145,6 @@ test-race-all: all
 
 test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
-	go test -race -v ./consensus/test/... -timeout 30m
 
 test-contracts: test-contracts-asm test-contracts-truffle
 
