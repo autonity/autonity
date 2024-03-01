@@ -1,5 +1,5 @@
-# Test engine docker image.
-FROM ubuntu:18.04
+# Test engine docker file.
+FROM ubuntu:22.04
 RUN  apt-get update && \
   apt-get dist-upgrade --yes && \
   apt-get install --yes python3 && \
