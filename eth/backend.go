@@ -196,7 +196,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.ExecutionServer(),
-		topologySelector:  NewGraphTopology(2, maxFullMeshPeers),
+		topologySelector:  NewGraphTopology(maxFullMeshPeers),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
 
@@ -595,7 +595,8 @@ func (s *Ethereum) newCommitteeWatcher() {
 			return
 		}
 
-		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, s.p2pServer.LocalNode()), committee.List)
+		idx := s.topologySelector.MyIdx(committee.List, s.p2pServer.LocalNode())
+		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, idx), committee.List)
 	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()
