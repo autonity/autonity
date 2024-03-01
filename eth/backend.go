@@ -595,7 +595,8 @@ func (s *Ethereum) newCommitteeWatcher() {
 			return
 		}
 
-		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, s.p2pServer.LocalNode()), committee.List)
+		idx := s.topologySelector.MyIdx(committee.List, s.p2pServer.LocalNode())
+		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, idx), committee.List)
 	}
 	wasValidating := false
 	currentBlock := s.blockchain.CurrentBlock()

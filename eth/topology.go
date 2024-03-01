@@ -97,14 +97,19 @@ func (g *networkTopology) componentEndIdx(totalNodes int) []int {
 	return componentEndIdx
 }
 
+// returns the index of the component which nodeIdx belongs to
 func (g *networkTopology) componentIdx(componentEndIdx []int, nodeIdx int) int {
-	componentIdx := 0
-	// TODO: see if binary search reduces runtime for tests
-	// scope to improve: do a binary search if len(componentEndIdx) is too big
-	for nodeIdx >= componentEndIdx[componentIdx] {
-		componentIdx++
+	low := 0
+	high := len(componentEndIdx) - 1
+	for low < high {
+		mid := (low + high) >> 1
+		if componentEndIdx[mid] > nodeIdx {
+			high = mid
+		} else {
+			low = mid + 1
+		}
 	}
-	return componentIdx
+	return low
 }
 
 // If totalNodes <= MaxGraphSize, it uses 'The Construction Mechanism' (via g.edges(int,int))
@@ -161,20 +166,22 @@ func (g *networkTopology) adjacentNodesIdx(myIdx, totalNodes int) []int {
 	return connections
 }
 
+func (g *networkTopology) MyIdx(nodes []*enode.Node, localNode *enode.LocalNode) int {
+	for i, node := range nodes {
+		if node.ID() == localNode.ID() {
+			return i
+		}
+	}
+	return -1
+}
+
 // the input array (nodes []*enode.Node) must be same for everyone in order to create a connected graph
 // Returns the list of adjacentNodes to connect with localNode. Given that the order of the input array nodes is same
 // for everyone, connecting to only adjacentNodes will create a connected graph with diameter <= 4
-func (g *networkTopology) RequestSubset(nodes []*enode.Node, localNode *enode.LocalNode) []*enode.Node {
+func (g *networkTopology) RequestSubset(nodes []*enode.Node, myIdx int) []*enode.Node {
 	if len(nodes) < g.minNodes {
 		// connect to all nodes
 		return nodes
-	}
-	myIdx := -1
-	for i, node := range nodes {
-		if node.ID() == localNode.ID() {
-			myIdx = i
-			break
-		}
 	}
 	// If the node is not in committee, it has all slots available, so connect to all committee nodes
 	if myIdx == -1 {
