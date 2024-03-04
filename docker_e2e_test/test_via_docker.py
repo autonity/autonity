@@ -262,6 +262,7 @@ if __name__ == "__main__":
     autonity_path = os.path.abspath(args.autonity)
     bootnode_bin= os.path.join(autonity_path,"build/bin/bootnode")
     autonity_bin= os.path.join(autonity_path,"build/bin/autonity")
+    key_inspector_bin= os.path.join(autonity_path,"build/bin/ethkey")
 
     # cleanup in case of test is killed by ci.
     signal.signal(signal.SIGTERM, receive_signal)
@@ -286,6 +287,7 @@ if __name__ == "__main__":
         # copy binary to binary dir for image building.
         utility.execute("cp {} ./bin/".format(autonity_bin))
         utility.execute("cp {} ./bin/".format(bootnode_bin))
+        utility.execute("cp {} ./bin/".format(key_inspector_bin))
 
         # build autonity client image.
         check_to_build_client_images()

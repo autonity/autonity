@@ -7,7 +7,7 @@ network_data_dir: "./network-data"
 default_scalability: 6  # default number of validators for local e2e testing.
 local_mode: false # setup test network within local host with 6 validators.
 test_bed_template:
-  engineVersion: 3.0.1
+  engineVersion: 3.0.2
   targetNetwork:
     name: "E2E testing network of Autonity"
     nodes:
@@ -16,6 +16,7 @@ test_bed_template:
         ethernetInterfaceID: 'eth0' # This conf depend on your network configuration at test bed.
         rpcPort: 6000 # must
         p2pPort: 30303
+        acnPort: 20202
         wsPort: 7000
         coinBase: "0xDB3B0a10faE93b6D3cA881C5F13D1D9313Ddae5A"
         k8sCredential:
