@@ -45,7 +45,7 @@ def extract_keys(output_string):
 
 def gen_autonity_keys(autonity, key_inspector, key_file):
     # Generate a node-specific key file using autonity command
-    autonity_command = f"{autonity} {key_file}"
+    autonity_command = f"{autonity} genAutonityKeys {key_file}"
     subprocess.run(autonity_command, shell=True)
 
     # Inspect the generated key file using key_inspector command with -private flag
