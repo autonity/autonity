@@ -366,7 +366,7 @@ jobs:
   docker-e2e-tests:
     needs: prepare-cache
     runs-on: ubuntu-18.04
-    if: github.ref == 'refs/heads/develop'
+    #if: github.ref == 'refs/heads/develop'
     steps:
       - uses: actions/setup-go@v4
         with:
