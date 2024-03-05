@@ -1,5 +1,5 @@
 # Test engine docker file
-FROM ubuntu:22.04
+FROM ubuntu:18.04
 RUN  apt-get update && \
   apt-get dist-upgrade --yes && \
   apt-get install --yes python3 && \
@@ -8,4 +8,4 @@ RUN  apt-get update && \
 COPY . .
 RUN pip3 install -r ./requirements.txt
 RUN apt-get clean
-EXPOSE 22 6000 7000 8000 30303 20202
+EXPOSE 22 6000 7000
