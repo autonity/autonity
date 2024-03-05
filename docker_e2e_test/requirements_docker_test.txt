@@ -5,5 +5,5 @@ idna==2.9
 requests==2.23.0
 six==1.14.0
 testresources==2.0.1
-urllib3==1.25.1
+urllib3==1.25.11
 websocket-client==0.57.0
