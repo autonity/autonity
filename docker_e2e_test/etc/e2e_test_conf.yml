@@ -16,7 +16,7 @@ test_bed_template:
         ethernetInterfaceID: 'eth0' # This conf depend on your network configuration at test bed.
         rpcPort: 6000 # must
         p2pPort: 30303
-        acnPort: 20202
+        acnPort: 20203
         wsPort: 7000
         coinBase: "0xDB3B0a10faE93b6D3cA881C5F13D1D9313Ddae5A"
         k8sCredential:
