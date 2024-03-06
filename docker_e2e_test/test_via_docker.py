@@ -18,7 +18,7 @@ NUM_OF_CLIENT = 6
 NODE_NAME = "Node{}_{}"
 ENGINE_NAME = "Engine{}"
 VALIDATOR_IP_LIST_FILE = "./etc/validator.ip"
-COMMAND_START_TEST = "python3 e2etestengine.py ./bin/autonity"
+COMMAND_START_TEST = "python3 e2etestengine.py ./test_bin/autonity"
 FAILED_TEST_LOGS = "./JOB_{}.tar"
 SYSTEM_LOG_PATH = "/system_log"
 JOB_ID = ""
@@ -285,9 +285,9 @@ if __name__ == "__main__":
         #    volumes={autonity_path: {"bind": "/autonity", "mode": "rw"}})
 
         # copy binary to binary dir for image building.
-        utility.execute("cp {} ./bin/".format(autonity_bin))
-        utility.execute("cp {} ./bin/".format(bootnode_bin))
-        utility.execute("cp {} ./bin/".format(key_inspector_bin))
+        utility.execute("cp {} ./test_bin/".format(autonity_bin))
+        utility.execute("cp {} ./test_bin/".format(bootnode_bin))
+        utility.execute("cp {} ./test_bin/".format(key_inspector_bin))
 
         # build autonity client image.
         check_to_build_client_images()
