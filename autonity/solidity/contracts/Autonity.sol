@@ -897,6 +897,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         return blockEpochMap[_block];
     }
 
+    function getHeadBondingID() external view returns (uint256) {
+        return headBondingID;
+    }
+
+    function getHeadUnbondingID() external view returns (uint256) {
+        return headUnbondingID;
+    }
+
     /*
     ============================================================
 

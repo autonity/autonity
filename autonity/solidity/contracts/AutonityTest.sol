@@ -41,16 +41,8 @@ contract AutonityTest is Autonity {
      return tailBondingID;
    }
 
-   function getHeadBondingID() public view returns (uint256) {
-     return headBondingID;
-   }
-
    function getLastUnlockedUnbonding() public view returns (uint256) {
      return lastUnlockedUnbonding;     
-   }
-
-   function getHeadUnbondingID() public view returns (uint256) {
-     return headUnbondingID;
    }
 
    function testComputeCommittee() public {
