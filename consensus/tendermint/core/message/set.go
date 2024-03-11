@@ -7,88 +7,104 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
-type isVote interface {
-	*Prevote | *Precommit
-	Msg
-}
+//TODO(lorenzo) refinements2, analyze more duplicated msgs and equivocation scnearios
 
-func NewSet[T isVote]() *Set[T] {
-	return &Set[T]{
-		votes:    make(map[common.Hash]map[common.Address]T),
-		messages: make(map[common.Address]T),
+func NewSet() *Set {
+	return &Set{
+		votes: make(map[common.Hash][]Vote),
 	}
 }
 
-type Set[T isVote] struct {
+type Set struct {
 	// In some conditions we might receive prevotes or precommit before
 	// receiving a proposal, so we must save received message with different proposed block hash.
-	votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
-	messages map[common.Address]T
-	sync.RWMutex
+	votes        map[common.Hash][]Vote // map[proposedBlockHash][]vote
+	sync.RWMutex                        //TODO(lorenzo) refinements, do we need this lock since there is already one is round_messages?
 }
 
-func (s *Set[T]) Add(vote T) {
+func (s *Set) Add(vote Vote) {
 	s.Lock()
 	defer s.Unlock()
-	sender := vote.Sender()
+
 	value := vote.Value()
-	// Check first if we already received a message from this pal.
-	if _, ok := s.messages[sender]; ok {
-		// TODO : double signing fault ! Accountability
+	previousVotes, ok := s.votes[value]
+
+	if !ok {
+		s.votes[value] = []Vote{vote}
 		return
 	}
 
-	if _, ok := s.votes[value]; !ok {
-		s.votes[value] = make(map[common.Address]T)
-	}
-	s.votes[value][sender] = vote
-	s.messages[sender] = vote
-}
-
-func (s *Set[T]) Messages() []Msg {
-	s.RLock()
-	defer s.RUnlock()
-	result := make([]Msg, len(s.messages))
-	k := 0
-	for _, v := range s.messages {
-		result[k] = v
-		k++
-	}
-	return result
-}
-
-func (s *Set[T]) PowerFor(h common.Hash) *big.Int {
-	s.RLock()
-	defer s.RUnlock()
-	if votes, ok := s.votes[h]; ok {
-		power := new(big.Int)
-		for _, v := range votes {
-			power.Add(power, v.Power())
+	// aggregate previous votes and vote
+	//TODO(lorenzo) performance, verify that this doesn't create too much memory
+	switch vote.(type) {
+	case *Prevote:
+		aggregatedVotes := AggregatePrevotesSimple(append(previousVotes, vote))
+		s.votes[value] = make([]Vote, len(aggregatedVotes))
+		for i, aggregatedVote := range aggregatedVotes {
+			s.votes[value][i] = aggregatedVote
 		}
-		return power
+	case *Precommit:
+		aggregatedVotes := AggregatePrecommitsSimple(append(previousVotes, vote))
+		s.votes[value] = make([]Vote, len(aggregatedVotes))
+		for i, aggregatedVote := range aggregatedVotes {
+			s.votes[value][i] = aggregatedVote
+		}
+	default:
+		panic("Trying to add a vote that is not Prevote nor Precommit")
 	}
-	return new(big.Int)
 }
 
-func (s *Set[T]) TotalPower() *big.Int {
+func (s *Set) Messages() []Msg {
 	s.RLock()
 	defer s.RUnlock()
-	power := new(big.Int)
-	for _, msg := range s.messages {
-		power.Add(power, msg.Power())
-	}
-	return power
-}
 
-func (s *Set[T]) VotesFor(blockHash common.Hash) []T {
-	s.RLock()
-	defer s.RUnlock()
-	if _, ok := s.votes[blockHash]; !ok {
-		return nil
-	}
-	messages := make([]T, 0, len(s.votes[blockHash]))
-	for _, v := range s.votes[blockHash] {
-		messages = append(messages, v)
+	messages := make([]Msg, 0)
+	for _, votes := range s.votes {
+		for _, vote := range votes {
+			messages = append(messages, vote.(Msg))
+		}
 	}
 	return messages
+}
+
+func (s *Set) PowerFor(h common.Hash) *big.Int {
+	s.RLock()
+	defer s.RUnlock()
+
+	votes, ok := s.votes[h]
+	if !ok {
+		return new(big.Int)
+	}
+
+	var messages []Msg
+	for _, vote := range votes {
+		messages = append(messages, vote.(Msg))
+	}
+
+	return Power(messages)
+}
+
+func (s *Set) TotalPower() *big.Int {
+	s.RLock()
+	defer s.RUnlock()
+
+	// NOTE: in case of equivocated messages, we count power only once
+	// TODO(lorenzo) refinements, write a test for it
+
+	var messages []Msg
+
+	for _, votes := range s.votes {
+		for _, vote := range votes {
+			messages = append(messages, vote.(Msg))
+		}
+	}
+
+	return Power(messages)
+}
+
+func (s *Set) VotesFor(blockHash common.Hash) []Vote {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.votes[blockHash]
 }

@@ -240,7 +240,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 		chainConfig = tendermintChainConfig
 		evMux := new(event.TypeMux)
 		msgStore := tendermintcore.NewMsgStore()
-		engine = tendermintBackend.New(testUserKey, &vm.Config{}, nil, evMux, msgStore, log.Root())
+		engine = tendermintBackend.New(testUserKey, testConsensusKey, &vm.Config{}, nil, evMux, msgStore, log.Root())
 	} else {
 		chainConfig = ethashChainConfig
 		engine = ethash.NewFaker()
@@ -295,7 +295,7 @@ func TestEmptyWorkTendermint(t *testing.T) {
 	evMux := new(event.TypeMux)
 	msgStore := tendermintcore.NewMsgStore()
 	testEmptyWork(t, tendermintChainConfig,
-		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore, log.Root()),
+		tendermintBackend.New(testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, log.Root()),
 		true)
 }
 
@@ -406,7 +406,7 @@ func TestRegenerateMiningBlockTendermint(t *testing.T) {
 	evMux := new(event.TypeMux)
 	msgStore := tendermintcore.NewMsgStore()
 	testRegenerateMiningBlock(t, tendermintChainConfig,
-		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore, log.Root()),
+		tendermintBackend.New(testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, log.Root()),
 		true)
 }
 
@@ -473,7 +473,7 @@ func TestAdjustIntervalClique(t *testing.T) {
 	evMux := new(event.TypeMux)
 	msgStore := tendermintcore.NewMsgStore()
 	testAdjustInterval(t, tendermintChainConfig,
-		tendermintBackend.New(testUserKey, new(vm.Config), nil, evMux, msgStore, log.Root()))
+		tendermintBackend.New(testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, log.Root()))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {

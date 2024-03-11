@@ -44,7 +44,6 @@ const (
 	offChainAccusationProofWindow = 10                           // the time window in block for one to provide off chain innocence proof before it is escalated on chain.
 	maxAccusationPerHeight        = 4                            // max number of accusation allowed to be produced by rule engine over a height against a validator.
 	maxNumOfInnocenceProofCached  = 120 * maxAccusationPerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
-	maxFutureHeightMsgs           = 1000                         // max num of msg buffer for the future heights.
 	reportingSlotPeriod           = 20                           // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
 	//NOTE: update to below constants might require a chain fork to upgrade clients, since they impact the Accountability Event execution result. They should be turned into protocol parameters https://github.com/autonity/autonity/issues/949
 	HeightRange = 256 // Default msg buffer range for AFD.
@@ -102,8 +101,6 @@ type FaultDetector struct {
 	chainEventSub event.Subscription
 
 	misbehaviourProofCh chan *autonity.AccountabilityEvent
-	futureMessages      map[uint64][]message.Msg        // map[blockHeight][]*tendermintMessages
-	futureMessageCount  uint64                          // a counter to count the total cached future height msg.
 	pendingEvents       []*autonity.AccountabilityEvent // accountability event buffer.
 
 	offChainAccusationsMu sync.RWMutex
@@ -149,8 +146,6 @@ func NewFaultDetector(
 		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
 		stopRetry:             make(chan struct{}),
 		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
-		futureMessages:        make(map[uint64][]message.Msg),
-		futureMessageCount:    0,
 		logger:                logger, // Todo(youssef): remove context
 	}
 	// todo(youssef): analyze chainEvent vs chainHeadEvent and very important: what to do during sync !
@@ -182,40 +177,14 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	fd.broadcaster = broadcaster
 }
 
-func (fd *FaultDetector) saveFutureHeightMsg(m message.Msg) {
-	fd.futureMessages[m.H()] = append(fd.futureMessages[m.H()], m)
-	fd.futureMessageCount++
-
-	// buffer is full, remove the furthest away msg from buffer to prevent DoS attack.
-	if fd.futureMessageCount >= maxFutureHeightMsgs {
-		maxHeight := m.H()
-		for h, msgs := range fd.futureMessages {
-			if h > maxHeight && len(msgs) > 0 {
-				maxHeight = h
-			}
-		}
-		if len(fd.futureMessages[maxHeight]) > 1 {
-			fd.futureMessages[maxHeight] = fd.futureMessages[maxHeight][:len(fd.futureMessages[maxHeight])-1]
-		} else {
-			delete(fd.futureMessages, maxHeight)
-		}
-		fd.futureMessageCount--
-	}
-}
-
-func (fd *FaultDetector) deleteFutureHeightMsg(height uint64) {
-	length := len(fd.futureMessages[height])
-	fd.futureMessageCount = fd.futureMessageCount - uint64(length)
-	delete(fd.futureMessages, height)
-}
-
+/* //TODO(lorenzo) probably should delete too
 func preCheckMessage(m message.Msg, chain ChainContext) error {
 	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}
 	return m.Validate(lastHeader.CommitteeMember)
-}
+}*/
 
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
 	ticker := time.NewTicker(1 * time.Second)
@@ -227,6 +196,8 @@ tendermintMsgLoop:
 			if !ok {
 				break tendermintMsgLoop
 			}
+			//TODO(lorenzo) fix
+			continue
 			currentHeight := fd.blockchain.CurrentBlock().NumberU64()
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
@@ -235,10 +206,12 @@ tendermintMsgLoop:
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
-				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
+				if err := fd.processMsg(e.Message); err != nil { // && !errors.Is(err, errFutureMsg) { //TODO(lorenzo)
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
+				//TODO(lorenzo) should we gossip old height messages?
+				// might be useful for accountability, but might be exploitable for DoS
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {
@@ -262,8 +235,10 @@ tendermintMsgLoop:
 				fd.rateLimiter.resetPeerJustifiedAccusations()
 			}
 
+			/*  //TODO(lorenzo) delete
 			// NOTE: we are reacting to ChainEvent (not ChainHeadEvent) thus we cannot assume the event block is the chain head
 			currentHeight := fd.blockchain.CurrentBlock().NumberU64()
+
 
 			for h, messages := range fd.futureMessages {
 				if h <= currentHeight+1 {
@@ -279,7 +254,7 @@ tendermintMsgLoop:
 					// once messages are processed, delete it from buffer.
 					fd.deleteFutureHeightMsg(h)
 				}
-			}
+			}*/
 		case <-ticker.C:
 			// on each 1 seconds, reset the rate limiter counters.
 			fd.rateLimiter.resetRateLimiter()
@@ -417,10 +392,10 @@ func (fd *FaultDetector) Stop() {
 // convert the raw proofs into on-chain Proof which contains raw bytes of messages.
 func (fd *FaultDetector) eventFromProof(p *Proof) *autonity.AccountabilityEvent {
 	var ev = &autonity.AccountabilityEvent{
-		EventType:      uint8(p.Type),
-		Rule:           uint8(p.Rule),
-		Reporter:       fd.address,
-		Offender:       p.Message.Sender(),
+		EventType: uint8(p.Type),
+		Rule:      uint8(p.Rule),
+		Reporter:  fd.address,
+		//Offender:       p.Message.Sender(), //TODO(lorenzo) fix
 		Id:             common.Big0,                           // assigned contract-side
 		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side
 		ReportingBlock: common.Big0,                           // assigned contract-side
@@ -450,6 +425,10 @@ func (fd *FaultDetector) innocenceProof(p *Proof) (*autonity.AccountabilityEvent
 	case autonity.C1:
 		return fd.innocenceProofC1(p)
 	default:
+		// TODO(lorenzo) apply
+		// whether the accusation comes from off-chain or on-chain
+		// it always gets verified before we try to fetch the innocence proof
+		//panic("Trying to fetch innocence proof for invalid accusation")
 		return nil, errUnprovableRule
 	}
 }
@@ -577,12 +556,13 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg in msg store.
 func (fd *FaultDetector) processMsg(m message.Msg) error {
 	// check if msg is from valid committee member
+	/* //TODO(lorenzo) delete
 	if err := preCheckMessage(m, fd.blockchain); err != nil {
 		if errors.Is(err, errFutureMsg) {
 			fd.saveFutureHeightMsg(m)
 		}
 		return err
-	}
+	}*/
 	switch msg := m.(type) {
 	case *message.Propose:
 		if err := fd.checkSelfIncriminatingProposal(msg); err != nil {
@@ -594,6 +574,10 @@ func (fd *FaultDetector) processMsg(m message.Msg) error {
 		}
 	default:
 		return errInvalidMessage
+		//TODO(lorenzo) change
+		// a message with a different type than the previous ones
+		// will fail at decoding phase and should not arrive here. panic.
+		//fd.logger.Crit("message with invalid code processed by fault detector")
 	}
 
 	// msg pass the auto-incriminating checker, save it in msg store.
@@ -623,7 +607,9 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 	accused := make(map[common.Address]uint64)
 
 	for _, proof := range proofs {
-		offender := proof.Message.Sender()
+		//TODO(lorenzo) fix
+		//offender := proof.Message.Sender()
+		var offender common.Address
 
 		// skip misbehaviour or accusation against self
 		if fd.address == offender {
@@ -689,7 +675,8 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 
 		// Skip if proposal is equivocated
 		proposalsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
-			return m.Sender() == proposal.Sender() && m.Code() == message.ProposalCode && m.R() == proposal.R()
+			//TODO(lorenzo) fix
+			return /*m.Sender() == proposal.Sender() && */ m.Code() == message.ProposalCode && m.R() == proposal.R()
 		})
 		// Due to the for loop there must be at least one proposal
 		if len(proposalsForR) > 1 {
@@ -698,7 +685,8 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 
 		//check all precommits for previous rounds from this sender are nil
 		precommits := fd.msgStore.Get(height, func(m message.Msg) bool {
-			return m.Sender() == proposal.Sender() && m.Code() == message.PrecommitCode && m.R() < proposal.R() && m.Value() != nilValue
+			//TODO(lorenzo) fix
+			return /*m.Sender() == proposal.Sender() &&*/ m.Code() == message.PrecommitCode && m.R() < proposal.R() && m.Value() != nilValue
 		})
 		if len(precommits) != 0 {
 			proof := &Proof{
@@ -708,7 +696,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			fd.logger.Info("Misbehaviour detected", "rule", "PN", "incriminated", proposal.Sender())
+			//fd.logger.Info("Misbehaviour detected", "rule", "PN", "incriminated", proposal.Sender()) //TODO(lorenzo) fix
 		}
 	}
 	return proofs
@@ -731,7 +719,8 @@ oldProposalLoop:
 
 		// Skip if proposal is equivocated
 		proposalsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
-			return m.Sender() == proposal.Sender() && m.Code() == message.ProposalCode && m.R() == proposal.R()
+			//TODO(lorenzo)
+			return /*m.Sender() == proposal.Sender() &&*/ m.Code() == message.ProposalCode && m.R() == proposal.R()
 
 		})
 		// Due to the for loop there must be at least one proposal
@@ -745,7 +734,8 @@ oldProposalLoop:
 		// round? If there is, the proposer has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
 		precommitsFromPiInVR := fd.msgStore.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrecommitCode && m.R() == validRound && m.Sender() == proposal.Sender() &&
+			//TODO(lorenzo) fix
+			return m.Code() == message.PrecommitCode && m.R() == validRound && /*m.Sender() == proposal.Sender() &&*/
 				m.Value() != nilValue && m.Value() != proposal.Value()
 		})
 		if len(precommitsFromPiInVR) > 0 {
@@ -756,7 +746,7 @@ oldProposalLoop:
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender())
+			//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender()) //TODO(lorenzo)
 			continue oldProposalLoop
 		}
 
@@ -764,8 +754,9 @@ oldProposalLoop:
 		// the proposal? If there is then that implies the proposer saw 2f+1 prevotes in that round and hence it should
 		// have set that round as the valid round.
 		precommitsFromPiAfterVR := fd.msgStore.Get(height, func(m message.Msg) bool {
+			//TODO(lorenzo) fix
 			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < proposal.R() &&
-				m.Sender() == proposal.Sender() && m.Value() != nilValue
+				/*m.Sender() == proposal.Sender() &&*/ m.Value() != nilValue
 		})
 		if len(precommitsFromPiAfterVR) > 0 {
 			proof := &Proof{
@@ -775,7 +766,7 @@ oldProposalLoop:
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender())
+			//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender()) //TODO(lorenzo)
 			continue oldProposalLoop
 		}
 
@@ -801,7 +792,7 @@ oldProposalLoop:
 					Message:   message.NewLightProposal(proposal.(*message.Propose)),
 				}
 				proofs = append(proofs, proof)
-				fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender())
+				//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender()) //TODO(lorenzo)
 				continue oldProposalLoop
 			}
 		}
@@ -832,7 +823,7 @@ oldProposalLoop:
 					Message: message.NewLightProposal(propose),
 				}
 				proofs = append(proofs, accusation)
-				fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PO", "suspect", proposal.Sender())
+				//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PO", "suspect", proposal.Sender()) //TODO(lorenzo)
 			}
 		}
 	}
@@ -852,7 +843,8 @@ prevotesLoop:
 
 		// Skip if prevote is equivocated
 		prevotesForR := fd.msgStore.Get(height, func(m message.Msg) bool {
-			return m.Sender() == prevote.Sender() && m.Code() == message.PrevoteCode && m.R() == prevote.R()
+			//TODO(lorenzo) fix
+			return /*m.Sender() == prevote.Sender() &&*/ m.Code() == message.PrevoteCode && m.R() == prevote.R()
 
 		})
 		// Due to the for loop there must be at least one preVote.
@@ -889,7 +881,7 @@ prevotesLoop:
 						Message: prevote,
 					}
 					proofs = append(proofs, accusation)
-					fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", prevote.Sender())
+					//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", prevote.Sender()) //TODO(lorenzo)
 				}
 			}
 			continue prevotesLoop // we have no corresponding proposal, so we cannot check new and old prevote rules
@@ -963,7 +955,8 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 	// the latest precommit is not for V, and we have all the precommits from r' to r which are nil, then we have proof
 	// of misbehaviour.
 	precommitsFromPi := fd.msgStore.Get(height, func(m message.Msg) bool {
-		return m.Code() == message.PrecommitCode && prevote.Sender() == m.Sender() && m.R() < prevote.R()
+		//TODO(lorenzo)
+		return m.Code() == message.PrecommitCode && /*prevote.Sender() == m.Sender() &&*/ m.R() < prevote.R()
 	})
 
 	// Check for missing messages. If there are gaps those missing message could be the one that proves pi acted
@@ -982,8 +975,8 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 				pc := precommitsFromPi[i]
 
 				// check for equivocation. If present, bail out on the checking of this rule. Remote peer has already been punished for equivocation
-				precommitsAtRPrime := fd.msgStore.Get(height, func(m message.Msg) bool {
-					return m.Code() == message.PrecommitCode && pc.Sender() == m.Sender() && m.R() == pc.R()
+				precommitsAtRPrime := fd.msgStore.Get(height, func(m message.Msg) bool { //TODO(lorenzo)
+					return m.Code() == message.PrecommitCode && /*pc.Sender() == m.Sender() &&*/ m.R() == pc.R()
 				})
 				if len(precommitsAtRPrime) > 1 {
 					break
@@ -995,7 +988,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 				}
 
 				// precommit at r' is not for V --> remote peer is malicious
-				fd.logger.Info("Misbehaviour detected", "rule", "PVN", "incriminated", prevote.Sender())
+				//fd.logger.Info("Misbehaviour detected", "rule", "PVN", "incriminated", prevote.Sender()) //TODO(lorenzo)
 				proof := &Proof{
 					Type:    autonity.Misbehaviour,
 					Rule:    autonity.PVN,
@@ -1049,7 +1042,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		// this would imply at least quorum nodes are malicious which is much higher than our assumption.
 		overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
 		if overQuorumVotes != nil {
-			fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", prevote.Sender())
+			//fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", prevote.Sender()) //TODO(lorenzo)
 			proof := &Proof{
 				Type:    autonity.Misbehaviour,
 				Rule:    autonity.PVO,
@@ -1094,7 +1087,8 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		// check that we have no gaps and raise a misbehaviour if the last one is not for V.
 
 		precommitsFromPi := fd.msgStore.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < currentR && m.Sender() == prevote.Sender()
+			//TODO(lorenzo)
+			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < currentR /*&& m.Sender() == prevote.Sender()*/
 		})
 
 		if len(precommitsFromPi) > 0 {
@@ -1131,7 +1125,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 			}
 
 			if lastRoundForNotV > lastRoundForV {
-				fd.logger.Info("Misbehaviour detected", "rule", "PVO12", "incriminated", prevote.Sender())
+				//fd.logger.Info("Misbehaviour detected", "rule", "PVO12", "incriminated", prevote.Sender()) //TODO(lorenzo)
 				proof := &Proof{
 					Type:    autonity.Misbehaviour,
 					Rule:    autonity.PVO12,
@@ -1156,7 +1150,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		* However the commit round is not deterministic between all nodes.
 		 */
 		if fd.blockchain.GetBlock(prevote.Value(), prevote.H()) == nil {
-			fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVO", "suspect", prevote.Sender())
+			//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVO", "suspect", prevote.Sender()) //TODO(lorenzo)
 			return &Proof{
 				Type:      autonity.Accusation,
 				Rule:      autonity.PVO,
@@ -1184,7 +1178,8 @@ precommitLoop:
 
 		// Skip if preCommit is equivocated
 		precommitsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
-			return m.Sender() == precommit.Sender() && m.Code() == message.PrecommitCode && m.R() == precommit.R()
+			//TODO(lorenzo)
+			return /*m.Sender() == precommit.Sender() &&*/ m.Code() == message.PrecommitCode && m.R() == precommit.R()
 		})
 		// Due to the for loop there must be at least one preCommit.
 		if len(precommitsForR) > 1 {
@@ -1213,7 +1208,7 @@ precommitLoop:
 					Message:   precommit,
 				}
 				proofs = append(proofs, proof)
-				fd.logger.Info("Misbehaviour detected", "rule", "C", "incriminated", precommit.Sender())
+				//fd.logger.Info("Misbehaviour detected", "rule", "C", "incriminated", precommit.Sender()) //TODO(lorenzo)
 				continue precommitLoop
 			}
 		}
@@ -1245,7 +1240,7 @@ precommitLoop:
 				}
 				proofs = append(proofs, accusation)
 
-				fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "C1", "suspect", precommit.Sender())
+				//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "C1", "suspect", precommit.Sender()) //TODO(lorenzo)
 			}
 		}
 	}
@@ -1256,6 +1251,7 @@ precommitLoop:
 // send the event of misbehavior to event channel that is listened by ethereum object to sign the reporting TX.
 func (fd *FaultDetector) submitMisbehavior(m message.Msg, evidence []message.Msg, err error) {
 	rule, e := errorToRule(err)
+	//TODO(lorenzo) no need for errro
 	if e != nil {
 		fd.logger.Warn("error to rule", "fault detector", e)
 	}
@@ -1291,7 +1287,8 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 	// account for equivocation
 	equivocated := fd.msgStore.Get(proposal.H(), func(msg message.Msg) bool {
 		// todo(youssef) : again validValue missing here
-		return msg.R() == proposal.R() && msg.Code() == message.ProposalCode && msg.Sender() == proposal.Sender() && msg.Value() != proposal.Value()
+		//TODO(lorenzo)
+		return msg.R() == proposal.R() && msg.Code() == message.ProposalCode && /*msg.Sender() == proposal.Sender() &&*/ msg.Value() != proposal.Value()
 	})
 
 	if len(equivocated) > 0 {
@@ -1310,14 +1307,16 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
 	// skip process duplicated for votes.
 	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Msg) bool {
-		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() == m.Value()
+		//TODO(lorenzo)
+		return msg.R() == m.R() && msg.Code() == m.Code() && /*msg.Sender() == m.Sender() &&*/ msg.Value() == m.Value()
 	})
 	if len(duplicatedMsg) > 0 {
 		return errDuplicatedMsg
 	}
 	// account for equivocation for votes.
 	equivocatedMessages := fd.msgStore.Get(m.H(), func(msg message.Msg) bool {
-		return msg.R() == m.R() && msg.Code() == m.Code() && msg.Sender() == m.Sender() && msg.Value() != m.Value()
+		//TODO(lorenzo)
+		return msg.R() == m.R() && msg.Code() == m.Code() && /*msg.Sender() == m.Sender() &&*/ msg.Value() != m.Value()
 	})
 	if len(equivocatedMessages) > 0 {
 		fd.submitMisbehavior(m, equivocatedMessages[:1], errEquivocation)
@@ -1337,6 +1336,11 @@ func errorToRule(err error) (autonity.Rule, error) {
 		rule = autonity.InvalidProposer
 	default:
 		return rule, fmt.Errorf("errors of not provable")
+		//TODO(lorenzo) change this and change return type
+		// these 2 errors are the only ones which can be raised by a self-incriminating msg.
+		// if something else arrives here, it is a programming error.
+		// there should also be 'InvalidProposal', however we do not currently make them accountable (due to oversized proof).
+		//panic("unknown error to accountability rule mapping")
 	}
 
 	return rule, nil
@@ -1365,10 +1369,13 @@ func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) 
 }
 
 func isProposerValid(chain ChainContext, m message.Msg) bool {
+	return true
+	/* //TODO(lorenzo) fix
 	proposer, err := getProposer(chain, m.H(), m.R())
 	if err != nil {
 		log.Error("get proposer err", "err", err)
 		return false
 	}
 	return m.Sender() == proposer
+	*/
 }

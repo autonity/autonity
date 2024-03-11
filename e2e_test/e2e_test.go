@@ -26,7 +26,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
@@ -246,13 +246,15 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 
 	// get latest inserted block and generate proposal out of it
 	block := node.Eth.BlockChain().CurrentBlock()
-	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], node.Key)
-		return out, common.Address{}
+	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) (blst.Signature, common.Address) {
+		signature := node.ConsensusKey.Sign(hash.Bytes())
+		return signature, node.Address
 	}).MustVerify(func(address common.Address) *types.CommitteeMember {
 		return &types.CommitteeMember{
-			Address:     common.Address{},
-			VotingPower: common.Big1,
+			Address:           node.Address,
+			VotingPower:       common.Big1,
+			ConsensusKeyBytes: node.ConsensusKey.PublicKey().Marshal(),
+			ConsensusKey:      node.ConsensusKey.PublicKey(),
 		}
 	})
 

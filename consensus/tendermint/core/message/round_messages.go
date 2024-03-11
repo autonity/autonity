@@ -36,6 +36,10 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
+// TODO(lorenzo) refinements, this function has a mutex that can be taken by:
+// 1. the core routine
+// 2. the routine that syncs other peers
+// can this be exploited by a malicious peer to slow Core down (by requesting ask sync lots of times)
 func (s *Map) All() []Msg {
 	s.RLock()
 	defer s.RUnlock()
@@ -72,16 +76,16 @@ func (s *Map) GetRounds() []int64 {
 type RoundMessages struct {
 	verifiedProposal bool
 	proposal         *Propose
-	prevotes         *Set[*Prevote]
-	precommits       *Set[*Precommit]
+	prevotes         *Set
+	precommits       *Set
 	sync.RWMutex
 }
 
 // we need a reference to proposal also for proposing a proposal with vr!=0 if needed
 func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
-		prevotes:         NewSet[*Prevote](),
-		precommits:       NewSet[*Precommit](),
+		prevotes:         NewSet(),
+		precommits:       NewSet(),
 		verifiedProposal: false,
 	}
 }
@@ -91,6 +95,17 @@ func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 	defer s.Unlock()
 	s.proposal = proposal
 	s.verifiedProposal = verified
+}
+
+// total power for round (each sender counted only once, regardless of msg type)
+func (s *RoundMessages) Power() *big.Int {
+	var messages []Msg
+	messages = append(messages, s.AllPrevotes()...)
+	messages = append(messages, s.AllPrecommits()...)
+	if s.proposal != nil {
+		messages = append(messages, s.proposal)
+	}
+	return Power(messages)
 }
 
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
@@ -125,8 +140,16 @@ func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
 	s.precommits.Add(precommit)
 }
 
-func (s *RoundMessages) PrecommitsFor(hash common.Hash) []*Precommit {
-	return s.precommits.VotesFor(hash)
+// used to gossip quorum of prevotes
+func (s *RoundMessages) PrevoteFor(hash common.Hash) *Prevote {
+	prevotes := s.prevotes.VotesFor(hash)
+	return AggregatePrevotes(prevotes) // we allow complex aggregate here
+}
+
+// used to create committed seals when we managed to finalize a block and to gossip quorum of precommits
+func (s *RoundMessages) PrecommitFor(hash common.Hash) *Precommit {
+	precommits := s.precommits.VotesFor(hash)
+	return AggregatePrecommits(precommits) // we allow complex aggregate here
 }
 
 func (s *RoundMessages) Proposal() *Propose {

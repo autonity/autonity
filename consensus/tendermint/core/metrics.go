@@ -74,6 +74,9 @@ var (
 	MsgProposalPackets  = metrics.NewRegisteredMeter("core/handler/msg/proposal/packets", nil)  //nolint:goconst
 	MsgPrevotePackets   = metrics.NewRegisteredMeter("core/handler/msg/prevote/packets", nil)   //nolint:goconst
 	MsgPrecommitPackets = metrics.NewRegisteredMeter("core/handler/msg/precommit/packets", nil) //nolint:goconst
+
+	// temporary metrics to evaluate whether core.roundChangeMu is causing lock contention issues
+	RoundChangeMuBg = metrics.NewRegisteredBufferedGauge("tendermint/roundchangemu.bg", nil, nil)
 )
 
 func getIntPointer(val int) *int {

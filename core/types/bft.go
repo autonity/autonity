@@ -2,14 +2,17 @@ package types
 
 import (
 	"errors"
-	"github.com/autonity/autonity/crypto"
-	"golang.org/x/crypto/blake2b"
 	"strings"
+
+	"golang.org/x/crypto/blake2b"
+
+	"github.com/autonity/autonity/crypto"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -19,7 +22,6 @@ var (
 	BFTDigest = common.HexToHash("0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365")
 
 	BFTExtraVanity = 32 // Fixed number of extra-data bytes reserved for validator vanity
-	BFTExtraSeal   = 65 // Fixed number of extra-data bytes reserved for validator seal
 
 	inmemoryAddresses  = 500 // Number of recent addresses from ecrecover
 	recentAddresses, _ = lru.NewARC(inmemoryAddresses)
@@ -43,7 +45,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	if !keepSeal {
 		newHeader.ProposerSeal = []byte{}
 	}
-	newHeader.CommittedSeals = [][]byte{}
+	newHeader.CommittedSeals = AggregateSignature{}
 	newHeader.Round = 0
 	newHeader.Extra = []byte{}
 	return newHeader
@@ -82,10 +84,11 @@ func ECRecover(header *Header) (common.Address, error) {
 	return addr, nil
 }
 
+// TODO: All these Write* functions do useless checks as we always create the input ourselves. Remove them?
+
 // WriteSeal writes the extra-data field of the given header with the given seals.
-// suggest to rename to writeSeal.
 func WriteSeal(h *Header, seal []byte) error {
-	if len(seal) != BFTExtraSeal {
+	if len(seal) != common.SealLength {
 		return ErrInvalidSignature
 	}
 	h.ProposerSeal = make([]byte, len(seal))
@@ -103,27 +106,18 @@ func WriteRound(h *Header, round int64) error {
 }
 
 // WriteCommittedSeals writes the extra-data field of a block header with given committed seals.
-func WriteCommittedSeals(h *Header, committedSeals [][]byte) error {
-	if len(committedSeals) == 0 {
+func WriteCommittedSeals(h *Header, committedSeals AggregateSignature) error {
+	if committedSeals.Senders.Len() == 0 || committedSeals.Signature == nil {
 		return ErrInvalidCommittedSeals
 	}
-	for _, seal := range committedSeals {
-		if len(seal) != BFTExtraSeal {
-			return ErrInvalidCommittedSeals
-		}
-	}
-	h.CommittedSeals = make([][]byte, len(committedSeals))
-	for i, val := range committedSeals {
-		h.CommittedSeals[i] = make([]byte, len(val))
-		copy(h.CommittedSeals[i], val)
-	}
+	h.CommittedSeals = committedSeals.Copy()
 	return nil
 }
 
 func (c Committee) String() string {
 	var ret string
 	for _, val := range c {
-		ret += "[" + val.Address.String() + " - " + val.VotingPower.String() + "] "
+		ret += "[" + val.Address.String() + " - " + val.VotingPower.String() + " - " + val.ConsensusKey.Hex() + "] " //nolint
 	}
 	return ret
 }

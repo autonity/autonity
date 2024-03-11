@@ -228,8 +228,9 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		committee = make(types.Committee, len(validators))
 		for i, val := range validators {
 			committee[i] = types.CommitteeMember{
-				Address:     *val.NodeAddress,
-				VotingPower: val.BondedStake,
+				Address:           *val.NodeAddress,
+				VotingPower:       val.BondedStake,
+				ConsensusKeyBytes: val.ConsensusKey,
 			}
 		}
 	}
