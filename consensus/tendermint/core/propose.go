@@ -31,7 +31,8 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if c.sentProposal {
 		return
 	}
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
+	self := c.LastHeader().CommitteeMember(c.address)
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)
 	c.sentProposal = true
 	c.backend.SetProposedBlockHash(block.Hash())
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
@@ -105,6 +106,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if errors.Is(err, consensus.ErrFutureTimestampBlock) {
+			c.logger.Debug("delaying processing of proposal due to future timestamp", "delay", duration)
 			c.StopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				c.SendEvent(backlogMessageEvent{

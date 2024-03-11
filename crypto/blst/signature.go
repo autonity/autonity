@@ -3,11 +3,16 @@ package blst
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 	"sync"
 
 	"crypto/rand"
+
 	"github.com/pkg/errors"
 	blst "github.com/supranational/blst/bindings/go"
+
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/rlp"
 )
 
 /*
@@ -207,8 +212,45 @@ func (s *BlsSignature) Marshal() []byte {
 	return s.s.Compress()
 }
 
+func (s *BlsSignature) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, s.Marshal())
+}
+
+func (s *BlsSignature) DecodeRLP(stream *rlp.Stream) error {
+	b, err := stream.Bytes()
+	if err != nil {
+		return fmt.Errorf("error while decoding BLS signature: %w", err)
+	}
+	signature, err := SignatureFromBytes(b)
+	if err != nil {
+		return fmt.Errorf("error while decoding BLS signature: %w", err)
+	}
+	// copy inner bls signature pointer into the decoded one. Ugly but it works.
+	s.s = signature.(*BlsSignature).s
+	return nil
+}
+
+// for allowing JSON encoding/decoding of committed seals in the header
+func (s *BlsSignature) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(s.Marshal()).MarshalText()
+}
+
+func (s *BlsSignature) UnmarshalText(input []byte) error {
+	b := make([]byte, BLSSignatureLength)
+	if err := hexutil.UnmarshalFixedText("BlsSignature", input, b); err != nil {
+		return err
+	}
+	signature, err := SignatureFromBytes(b)
+	if err != nil {
+		return fmt.Errorf("error while decoding BLS signature: %w", err)
+	}
+	// copy inner bls signature pointer into the decoded one. Ugly but it works.
+	s.s = signature.(*BlsSignature).s
+	return nil
+}
+
 // Copy returns a full deep copy of a signature.
-func (s *BlsSignature) Copy() Signature {
+func (s *BlsSignature) Copy() *BlsSignature {
 	sign := *s.s
 	return &BlsSignature{s: &sign}
 }
