@@ -30,10 +30,23 @@ type NewCandidateBlockEvent struct {
 	CreatedAt         time.Time
 }
 
-// MessageEvent is posted for Istanbul engine communication
+// UnverifiedMessageEvent is posted from the peer handlers to the aggregator
+type UnverifiedMessageEvent struct {
+	Message   message.Msg
+	ErrCh     chan<- error
+	P2pSender common.Address
+}
+
+// MessageEvent is posted from the aggregator to core and the fault detector
 type MessageEvent struct {
 	Message message.Msg
-	ErrCh   chan<- error //error channel
+	ErrCh   chan<- error
+}
+
+// old messages are posted only to the fault detector
+type OldMessageEvent struct {
+	Message message.Msg
+	ErrCh   chan<- error
 }
 
 type Poster interface {
@@ -42,6 +55,25 @@ type Poster interface {
 
 // CommitEvent is posted when a proposal is committed
 type CommitEvent struct{}
+
+type RoundChangeEvent struct {
+	Height uint64
+	Round  int64
+}
+
+// change in voting power
+type PowerChangeEvent struct {
+	Height uint64
+	Round  int64
+	Code   uint8
+	Value  common.Hash
+}
+
+// change in future round voting power
+type FuturePowerChangeEvent struct {
+	Height uint64
+	Round  int64
+}
 
 type SyncEvent struct {
 	Addr common.Address

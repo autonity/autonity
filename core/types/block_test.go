@@ -23,12 +23,17 @@ import (
 	"reflect"
 	"testing"
 
+	"golang.org/x/crypto/sha3"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // from bcValidBlockTest.json, "SimpleTx"
@@ -66,6 +71,91 @@ func TestBlockEncoding(t *testing.T) {
 	if !bytes.Equal(ourBlockEnc, blockEnc) {
 		t.Errorf("encoded block mismatch:\ngot:  %x\nwant: %x", ourBlockEnc, blockEnc)
 	}
+}
+
+func TestHeaderEncodeDecodeJson(t *testing.T) {
+	header := &Header{
+		ParentHash:  common.HexToHash("0a5843ac1cb04865017cb35a57b50b07084e5fcee39b5acadade33149f4fff9e"),
+		UncleHash:   common.HexToHash("0a5843ac1c124732472342342387423897431293123020912dade33149f4fffe"),
+		Coinbase:    common.HexToAddress("8888f1f195afa192cfee860698584c030f4c9db1"),
+		Root:        common.HexToHash("0a5843ac1cb0486345235234564778768967856745645654649f4fff9321321e"),
+		TxHash:      common.HexToHash("0a58213121cb0486345235234564778768967856745645654649f4fff932132e"),
+		ReceiptHash: common.HexToHash("9a58213121cb0486345235234564778768967856745645654649f4fff932132e"),
+		Bloom:       BytesToBloom(bytes.Repeat([]byte("a"), 128)),
+		Difficulty:  big.NewInt(199),
+		Number:      big.NewInt(239),
+		GasLimit:    uint64(1000),
+		GasUsed:     uint64(400),
+		Time:        uint64(12343),
+		MixDigest:   common.HexToHash("0a58213121cb0486345235234564778768967853123645654649f4fff932132e"),
+		Nonce:       [8]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07},
+		BaseFee:     big.NewInt(20000),
+		Committee: []CommitteeMember{{
+			Address:           common.HexToAddress("0x76a685e4bf8cbcd25d7d3b6c342f64a30b503380"),
+			ConsensusKeyBytes: hexutil.MustDecode("0x951f3f7ab473eb0d00eaaa569ba1a0be2877b794e29e0cbf504b7f00cb879a824b0b913397e0071a87cebaae2740002b"),
+			VotingPower:       hexutil.MustDecodeBig("0x3039"),
+		}, {
+			Address:           common.HexToAddress("0xc44276975a6c2d12e62e18d814b507c38fc3646f"),
+			ConsensusKeyBytes: hexutil.MustDecode("0x8bddc21fca7f3a920064729547605c73e55c17e20917eddc8788b97990c0d7e9420e51a97ea400fb58a5c28fa63984eb"),
+			VotingPower:       hexutil.MustDecodeBig("0x3039"),
+		}, {
+			Address:           common.HexToAddress("0x1a72cb9d17c9e7acad03b4d3505f160e3782f2d5"),
+			ConsensusKeyBytes: hexutil.MustDecode("0x9679c8ebd47d18b93acd90cd380debdcfdb140f38eca207c61463a47be85398ec3082a66f7f30635c11470f5c8e5cf6b"),
+			VotingPower:       hexutil.MustDecodeBig("0x3039"),
+		}, {
+			Address:           common.HexToAddress("0xb2a0eea815fe9ba3cd9db5b230ec4db5286ad200"),
+			ConsensusKeyBytes: hexutil.MustDecode("0xa22d806dc2aec2a8a644d83cbd6d2d6251936c2977910aa2f2f3b7c06a07234687f4a528c052c702984cf300f48b67fe"),
+			VotingPower:       hexutil.MustDecodeBig("0x3039"),
+		}, {
+			Address:           common.HexToAddress("0xbaa58a01e5ca81dc288e2c46a8a467776bdb81c6"),
+			ConsensusKeyBytes: hexutil.MustDecode("0xa460c204c407b6272f7731b0d15daca8f2564cf7ace301769e3b42de2482fc3bf8116dd13c0545e806441d074d02dcc2"),
+			VotingPower:       hexutil.MustDecodeBig("0x3039"),
+		}},
+		ProposerSeal:   bytes.Repeat([]byte("c"), 65),
+		Round:          uint64(3),
+		CommittedSeals: make(Signatures),
+	}
+
+	err := header.Committee.DeserializeConsensusKeys()
+	require.NoError(t, err)
+
+	// fill in some additional fields
+	seal1, err := blst.SignatureFromBytes(hexutil.MustDecode("0xb0a87fe1d955b5526110f5eb2c9681e8ab5bddf77dd68a92480789b684f3b5e14586979bb64d84b6b885d12429ec92a6129598be4ba56bf2dccecfac0bead996a105c55f5b6c816384aa312cfc66dc648e8e7851eadfaa7091c2c472c732d021"))
+	require.NoError(t, err)
+	seal2, err := blst.SignatureFromBytes(hexutil.MustDecode("0xa2f685ab4925fa955796dc2fe83038036ec96a19ce7c8c76ab6ec2a65143a35a3540ee902fb87755ba8566f6550bc4ef1024489b34d2ad0ac1f3d2d238f265b5ebe2e1cd265472bb352bf3ecc57ec4269931c9dc8fcdf83fbe0bb1f9ec5cefd1"))
+	require.NoError(t, err)
+
+	header.CommittedSeals[header.Committee[2].Address] = seal1.(*blst.BlsSignature)
+	header.CommittedSeals[header.Committee[0].Address] = seal2.(*blst.BlsSignature)
+
+	hExtra := headerExtra{
+		Committee:      header.Committee,
+		ProposerSeal:   header.ProposerSeal,
+		Round:          header.Round,
+		CommittedSeals: header.CommittedSeals,
+	}
+
+	extra, err := rlp.EncodeToBytes(hExtra)
+	require.NoError(t, err)
+	header.Extra = extra
+
+	// encode to JSON
+	json, err := header.MarshalJSON()
+	require.NoError(t, err)
+
+	// decode
+	headerDecoded := new(Header)
+	err = headerDecoded.UnmarshalJSON(json)
+	require.NoError(t, err)
+
+	// decoded struct should be equal to original struct
+	equal := reflect.DeepEqual(header, headerDecoded)
+	require.True(t, equal)
+
+	// re-serialize decoded header, bytes should be equal
+	json2, err := headerDecoded.MarshalJSON()
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(json, json2))
 }
 
 func TestEIP1559BlockEncoding(t *testing.T) {

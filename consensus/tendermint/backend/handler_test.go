@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-
-	"github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/event"
@@ -20,7 +20,7 @@ import (
 func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
 	// generate one msg
-	data := message.NewPrevote(1, 2, common.Hash{}, testSigner)
+	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
 	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	// 1. this message should not be in cache
@@ -99,17 +99,6 @@ func TestSynchronisationMessage(t *testing.T) {
 		case <-sub.Chan():
 		}
 	})
-}
-
-func TestProtocol(t *testing.T) {
-	b := &Backend{}
-	name, code := b.Protocol()
-	if name != "tendermint" {
-		t.Fatalf("expected 'tendermint', got %v", name)
-	}
-	if code != 5 {
-		t.Fatalf("expected 2, got %v", code)
-	}
 }
 
 func TestNewChainHead(t *testing.T) {

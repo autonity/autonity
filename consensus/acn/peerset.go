@@ -65,7 +65,7 @@ func (ps *peerSet) register(peer *protocol.Peer) error {
 	if ps.closed {
 		return errPeerSetClosed
 	}
-	id := peer.ID()
+	id := peer.ID().String()
 	if _, ok := ps.peers[id]; ok {
 		return errPeerAlreadyRegistered
 	}
