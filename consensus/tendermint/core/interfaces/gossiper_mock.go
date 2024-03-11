@@ -5,7 +5,6 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 //
-
 // Package interfaces is a generated GoMock package.
 package interfaces
 
@@ -13,7 +12,7 @@ import (
 	reflect "reflect"
 
 	common "github.com/autonity/autonity/common"
-	FixedCache "github.com/autonity/autonity/common/fixsizecache"
+	fixsizecache "github.com/autonity/autonity/common/fixsizecache"
 	consensus "github.com/autonity/autonity/consensus"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	types "github.com/autonity/autonity/core/types"
@@ -96,10 +95,10 @@ func (mr *MockGossiperMockRecorder) Gossip(committee, message any) *gomock.Call 
 }
 
 // KnownMessages mocks base method.
-func (m *MockGossiper) KnownMessages() *FixedCache.Cache[common.Hash, bool] {
+func (m *MockGossiper) KnownMessages() *fixsizecache.Cache[common.Hash, bool] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KnownMessages")
-	ret0, _ := ret[0].(*FixedCache.Cache[common.Hash, bool])
+	ret0, _ := ret[0].(*fixsizecache.Cache[common.Hash, bool])
 	return ret0
 }
 

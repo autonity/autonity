@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/common/graph"
-	"go.uber.org/goleak"
 	"math/big"
 	"net"
 	"os"
@@ -15,29 +13,32 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
-
-	"github.com/autonity/autonity/consensus/acn"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/eth/downloader"
-	"github.com/autonity/autonity/p2p/enode"
+	"go.uber.org/goleak"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/graph"
+	"github.com/autonity/autonity/consensus/acn"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth"
+	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 )
 
 const (
 	localhost = "127.0.0.1"
+	verbosity = log.LvlDebug
 )
 
 var (
@@ -68,7 +69,7 @@ var (
 		background: log.BackgroundLightYellow,
 	}, {
 		foreground: log.Black,
-		background: log.BackgroundCyan,
+		background: log.BackgroundLightMagenta,
 	}, {
 		foreground: log.Black,
 		background: log.BackgroundLightGreen,
@@ -79,16 +80,18 @@ var (
 // *node.Node is embedded so that its api is available through Node.
 type Node struct {
 	*node.Node
-	isRunning  bool
-	Config     *node.Config
-	Eth        *eth.Ethereum
-	EthConfig  *ethconfig.Config
-	WsClient   *ethclient.Client
-	Interactor *Interactor
-	Nonce      uint64
-	Key        *ecdsa.PrivateKey
-	Address    common.Address
-	Tracker    *TransactionTracker
+	isRunning bool
+	Config    *node.Config
+	Eth       *eth.Ethereum
+	EthConfig *ethconfig.Config
+	WsClient  *ethclient.Client
+
+	Interactor   *Interactor
+	Nonce        uint64
+	Key          *ecdsa.PrivateKey
+	ConsensusKey blst.SecretKey
+	Address      common.Address
+	Tracker      *TransactionTracker
 	// The transactions that this node has sent.
 	SentTxs     []*types.Transaction
 	CustHandler *interfaces.Services
@@ -155,7 +158,7 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 		return b
 	})))
 
-	logger.Verbosity(log.DefaultVerbosity)
+	logger.Verbosity(verbosity)
 	nodeConfig.Logger = log.New()
 	nodeConfig.Logger.SetHandler(logger)
 
@@ -163,13 +166,14 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 	nodeConfig.SetTendermintServices(validator.TendermintServices)
 
 	n := &Node{
-		Config:      nodeConfig,
-		EthConfig:   ethConfig,
-		Key:         validator.NodeKey,
-		Address:     address,
-		Tracker:     NewTransactionTracker(),
-		CustHandler: validator.TendermintServices,
-		ID:          id,
+		Config:       nodeConfig,
+		EthConfig:    ethConfig,
+		Key:          validator.NodeKey,
+		ConsensusKey: validator.ConsensusKey,
+		Address:      address,
+		Tracker:      NewTransactionTracker(),
+		CustHandler:  validator.TendermintServices,
+		ID:           id,
 	}
 
 	return n, nil

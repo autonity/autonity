@@ -176,12 +176,11 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// messages from p2p protocol manager layer.
 
 	evMux := new(event.TypeMux)
-	messageCh := make(chan events.MessageEvent, 1000)
 
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
-		config.Miner.Noverify, &vmConfig, evMux, msgStore, messageCh)
+		config.Miner.Noverify, &vmConfig, evMux, msgStore)
 
 	nodeKey, _ := stack.Config().AutonityKeys()
 	eth := &Ethereum{
@@ -283,15 +282,14 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
 	accountability.LoadPrecompiles(eth.blockchain)
-	// Create Fault Detector for each full node for the time being,
-
+	// Create Fault Detector for each full node for the time being.
+	//TODO: I think it would make more sense to move this into the tendermint backend if possible
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,
-		evMux.Subscribe(events.AccountabilityEvent{}),
+		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}, events.OldMessageEvent{}),
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
-		messageCh,
 		eth.log)
 
 	// Setup DNS discovery iterators.

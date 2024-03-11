@@ -8,6 +8,8 @@ import (
 
 	"go.uber.org/mock/gomock"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -19,12 +21,16 @@ func TestSendPrevote(t *testing.T) {
 	t.Run("proposal is empty and send prevote nil", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
+
 		backendMock := interfaces.NewMockBackend(ctrl)
 		committeeSet := NewTestCommitteeSet(4)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
-		backendMock.EXPECT().Sign(gomock.Any()).Times(1)
+		// return random signature just to allow prevote encoding
+		backendMock.EXPECT().Sign(gomock.Any()).Times(1).Return(testSignature)
+
 		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
@@ -33,6 +39,8 @@ func TestSendPrevote(t *testing.T) {
 			round:            2,
 			committee:        committeeSet,
 			height:           big.NewInt(3),
+			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
+			address:          committeeSet.Committee()[0].Address,
 		}
 
 		c.SetDefaultHandlers()
@@ -42,23 +50,25 @@ func TestSendPrevote(t *testing.T) {
 	t.Run("valid proposal given, non nil prevote", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		committeSet, keys := NewTestCommitteeSetWithKeys(4)
-		member := committeSet.Committee()[0]
-		signer := makeSigner(keys[member.Address], member.Address)
+		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
+		member := committeeSet.Committee()[0]
+		signer := makeSigner(keys[member.Address].consensus)
 		logger := log.New("backend", "test", "id", 0)
+		csize := len(committeeSet.Committee())
 
 		proposal := message.NewPropose(
 			1,
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(2)}),
-			signer)
+			signer,
+			&member)
 
 		messages := message.NewMap()
 		curMessages := messages.GetOrCreate(2)
 		curMessages.SetProposal(proposal, true)
 
-		expectedMsg := message.NewPrevote(1, 2, curMessages.ProposalHash(), signer)
+		expectedMsg := message.NewPrevote(1, 2, curMessages.ProposalHash(), signer, &member, csize)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
@@ -69,11 +79,12 @@ func TestSendPrevote(t *testing.T) {
 			address:          member.Address,
 			logger:           logger,
 			height:           big.NewInt(2),
-			committee:        committeSet,
+			committee:        committeeSet,
 			messages:         messages,
 			round:            1,
 			step:             Prevote,
 			curRoundMessages: curMessages,
+			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 
 		c.SetDefaultHandlers()
@@ -84,11 +95,13 @@ func TestSendPrevote(t *testing.T) {
 func TestHandlePrevote(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 	member := committeeSet.Committee()[0]
-	signer := makeSigner(keys[member.Address], member.Address)
+	signer := makeSigner(keys[member.Address].consensus)
+	csize := len(committeeSet.Committee())
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		proposal := message.NewPropose(
@@ -96,12 +109,14 @@ func TestHandlePrevote(t *testing.T) {
 			2,
 			1,
 			types.NewBlockWithHeader(&types.Header{}),
-			signer)
+			signer,
+			&member)
 
 		curRoundMessages.SetProposal(proposal, true)
-		prevote := message.NewPrevote(1, 2, curRoundMessages.ProposalHash(), signer).MustVerify(stubVerifier)
+		prevote := message.NewPrevote(1, 2, curRoundMessages.ProposalHash(), signer, &member, csize)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(gomock.Any())
 		c := &Core{
 			address:          member.Address,
 			messages:         messages,
@@ -135,19 +150,27 @@ func TestHandlePrevote(t *testing.T) {
 			3,
 			1,
 			types.NewBlockWithHeader(&types.Header{Number: big.NewInt(3)}),
-			signer)
+			signer,
+			&member)
 
 		messagesMap := message.NewMap()
 		curRoundMessage := messagesMap.GetOrCreate(2)
 		curRoundMessage.SetProposal(proposal, true)
 
-		prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), signer).MustVerify(stubVerifierWithPower(3))
+		// quorum of prevotes for v
+		var prevotes []*message.Prevote
+		for i := 0; i < 3; i++ {
+			val := committeeSet.Committee()[i]
+			prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, csize)
+			prevotes = append(prevotes, prevote)
+		}
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer).AnyTimes()
 
-		precommit := message.NewPrecommit(2, 3, curRoundMessage.ProposalHash(), signer)
+		precommit := message.NewPrecommit(2, 3, curRoundMessage.ProposalHash(), signer, &member, csize)
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
+		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
 
 		c := &Core{
 			address:          member.Address,
@@ -161,10 +184,13 @@ func TestHandlePrevote(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(3),
 			step:             Prevote,
+			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 		c.SetDefaultHandlers()
-		if err := c.prevoter.HandlePrevote(context.Background(), prevote); err != nil {
-			t.Fatalf("Expected nil, got %v", err)
+		for _, prevote := range prevotes {
+			if err := c.prevoter.HandlePrevote(context.Background(), prevote); err != nil {
+				t.Fatalf("Expected nil, got %v", err)
+			}
 		}
 		if s := c.curRoundMessages.PrevotesPower(curRoundMessage.ProposalHash()); s.Cmp(common.Big3) != 0 {
 			t.Fatalf("Expected 1 prevote, but got %d", s)
@@ -183,11 +209,18 @@ func TestHandlePrevote(t *testing.T) {
 		member2 := committeeSet.Committee()[1]
 		curRoundMessage := messages.GetOrCreate(2)
 
-		expectedMsg := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[member2.Address], member2.Address)).MustVerify(stubVerifierWithPower(3))
+		// quorum of prevotes for nil
+		var prevotes []*message.Prevote
+		for i := 0; i < 3; i++ {
+			val := committeeSet.Committee()[i]
+			prevote := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[val.Address].consensus), &val, csize)
+			prevotes = append(prevotes, prevote)
+		}
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address], member2.Address)).AnyTimes()
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address].consensus)).AnyTimes()
+		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
 
-		precommit := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[member2.Address], member2.Address))
+		precommit := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[member2.Address].consensus), &member2, csize)
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
 
@@ -206,46 +239,73 @@ func TestHandlePrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
+			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 		c.SetDefaultHandlers()
-		if err := c.prevoter.HandlePrevote(context.Background(), expectedMsg); err != nil {
-			t.Fatalf("Expected nil, got %v", err)
+		for _, prevote := range prevotes {
+			if err := c.prevoter.HandlePrevote(context.Background(), prevote); err != nil {
+				t.Fatalf("Expected nil, got %v", err)
+			}
 		}
 	})
 
-	// This test hasn't been implemented yet !
-	/*
-		t.Run("pre-vote given at pre-vote step, pre-vote Timeout triggered", func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			member2 := committeeSet.Committee()[1]
-			proposal := message.NewPropose(
-				2,
-				2,
-				1,
-				types.NewBlockWithHeader(&types.Header{}),
-				signer)
+	t.Run("quorum pre-vote given at pre-vote step, pre-vote Timeout triggered", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-			curRoundMessages.SetProposal(proposal, true)
+		messages := message.NewMap()
+		curRoundMessages := messages.GetOrCreate(2)
+		member2 := committeeSet.Committee()[1]
 
-			prevote := message.NewPrevote(2, 2, curRoundMessages.ProposalHash(), makeSigner(keys[member2.Address], member2.Address))
-			backendMock := interfaces.NewMockBackend(ctrl)
-			backendMock.EXPECT().Address().AnyTimes().Return(member2.Address)
-			backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
-			backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address], member2.Address)).AnyTimes()
+		proposal := message.NewPropose(
+			2,
+			2,
+			1,
+			types.NewBlockWithHeader(&types.Header{}),
+			signer,
+			&member)
 
-			c := New(backendMock, nil)
-			c.curRoundMessages = curRoundMessages
-			c.height = big.NewInt(2)
-			c.round = 2
-			c.step = Prevote
-			c.prevoteTimeout = NewTimeout(Prevote, log.Root())
-			c.committee = committeeSet
+		curRoundMessages.SetProposal(proposal, true)
 
-			err := c.prevoter.HandlePrevote(context.Background(), prevote.MustVerify(stubVerifier))
+		// 2 prevotes for nil, 1 for v
+		var prevotes []*message.Prevote
+		val := committeeSet.Committee()[0]
+		prevotes = append(prevotes, message.NewPrevote(2, 2, curRoundMessages.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, csize))
+		val2 := committeeSet.Committee()[1]
+		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val2.Address].consensus), &val2, csize))
+		val3 := committeeSet.Committee()[2]
+		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val3.Address].consensus), &val3, csize))
+
+		backendMock := interfaces.NewMockBackend(ctrl)
+		backendMock.EXPECT().Address().AnyTimes().Return(member2.Address)
+		backendMock.EXPECT().Logger().AnyTimes().Return(log.Root())
+		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(4)
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address].consensus)).AnyTimes()
+
+		c := &Core{
+			address:          member2.Address,
+			backend:          backendMock,
+			messages:         messages,
+			curRoundMessages: curRoundMessages,
+			logger:           log.Root(),
+			round:            2,
+			height:           big.NewInt(2),
+			step:             Prevote,
+			committee:        committeeSet,
+			proposeTimeout:   NewTimeout(Propose, log.Root()),
+			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
+			precommitTimeout: NewTimeout(Precommit, log.Root()),
+			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
+		}
+		c.SetDefaultHandlers()
+
+		for _, prevote := range prevotes {
+			err := c.prevoter.HandlePrevote(context.Background(), prevote)
 			if err != nil {
 				t.Fatalf("Expected nil, got %v", err)
 			}
-		})
-	*/
+		}
+
+		require.True(t, c.prevoteTimeout.TimerStarted())
+	})
 }

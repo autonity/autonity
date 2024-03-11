@@ -158,21 +158,19 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 
 // Line 55 in Algorithm 1 of The latest gossip on BFT consensus
 // check if we need to skip to a new round
-func (c *Core) roundSkipCheck(ctx context.Context, msg message.Msg, sender common.Address) {
-	msgRound := msg.R()
-	if _, ok := c.futureRoundChange[msgRound]; !ok {
-		c.futureRoundChange[msgRound] = make(map[common.Address]*big.Int)
-	}
-	c.futureRoundChange[msgRound][sender] = msg.Power()
+func (c *Core) roundSkipCheck(ctx context.Context, r int64) {
+	futurePower := new(big.Int)
 
-	totalFutureRoundMessagesPower := new(big.Int)
-	for _, power := range c.futureRoundChange[msgRound] {
-		totalFutureRoundMessagesPower.Add(totalFutureRoundMessagesPower, power)
+	c.futureRoundLock.RLock()
+	futureAggregatedPower, ok := c.futurePower[r]
+	if ok {
+		futurePower.Set(futureAggregatedPower.Power())
 	}
+	c.futureRoundLock.RUnlock()
 
-	if totalFutureRoundMessagesPower.Cmp(c.CommitteeSet().F()) > 0 {
-		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", msgRound)
-		c.StartRound(ctx, msgRound)
+	if futurePower.Cmp(c.CommitteeSet().F()) > 0 {
+		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", r)
+		c.StartRound(ctx, r)
 	}
 }
 
