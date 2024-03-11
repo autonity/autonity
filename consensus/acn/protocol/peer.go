@@ -3,13 +3,12 @@ package protocol
 import (
 	"time"
 
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/metrics"
-	"github.com/autonity/autonity/p2p/enode"
-
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 var (
@@ -66,7 +65,6 @@ func (p *Peer) Close() {
 
 // ID retrieves the peer's unique identifier.
 func (p *Peer) ID() enode.ID {
-
 	return p.id
 }
 

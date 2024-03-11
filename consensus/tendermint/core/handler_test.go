@@ -9,13 +9,14 @@ import (
 
 	"go.uber.org/mock/gomock"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )
@@ -29,29 +30,39 @@ type testCase struct {
 	outcome          error
 	panic            bool
 	shouldDisconnect bool
-	jailed           bool // signals if the sender should be considered as jailed
 }
 
 func (tc *testCase) String() string {
 	return fmt.Sprintf("%#v", tc)
 }
 
-func TestHandleCheckedMessage(t *testing.T) {
+func searchForFutureMsg(engine *Core, msg message.Msg) bool {
+	messages := engine.futureRound[msg.R()]
+	for _, message := range messages {
+		if message.Hash() == msg.Hash() {
+			return true
+		}
+	}
+	return false
+}
+
+func TestHandleMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
-	senderKey := keysMap[sender.Address]
+	senderKey := keysMap[sender.Address].consensus
 
 	createPrevote := func(round int64, height int64) message.Msg {
-		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address))
+		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), &sender, 4)
 	}
 
 	createPrecommit := func(round int64, height int64) message.Msg {
-		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address))
+		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), &sender, 4)
 	}
 
-	// NOTE: jailed is ignored in this test case, it is useful on for the test of HandleMessage
 	cases := []testCase{
 		{
 			0,
@@ -60,7 +71,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 			Propose,
 			createPrevote(1, 2),
 			nil,
-			false,
 			false,
 			false,
 		},
@@ -73,18 +83,16 @@ func TestHandleCheckedMessage(t *testing.T) {
 			constants.ErrFutureRoundMessage,
 			false,
 			false,
-			false,
 		},
 		{
 			2,
-			0,
+			1,
 			big.NewInt(2),
 			Propose,
-			createPrevote(0, 3),
-			constants.ErrFutureHeightMessage,
-			true,
-			false,
-			false,
+			createPrevote(1, 5),
+			nil,
+			true, // future height should panic
+			true, // doesn't matter
 		},
 		{
 			3,
@@ -93,7 +101,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 			Prevote,
 			createPrevote(0, 2),
 			nil,
-			false,
 			false,
 			false,
 		},
@@ -106,21 +113,9 @@ func TestHandleCheckedMessage(t *testing.T) {
 			nil,
 			false,
 			false,
-			false,
 		},
 		{
 			5,
-			0,
-			big.NewInt(5),
-			Precommit,
-			createPrecommit(0, 10),
-			constants.ErrFutureHeightMessage,
-			true,
-			false,
-			false,
-		},
-		{
-			6,
 			5,
 			big.NewInt(2),
 			Precommit,
@@ -128,10 +123,9 @@ func TestHandleCheckedMessage(t *testing.T) {
 			constants.ErrFutureRoundMessage,
 			false,
 			false,
-			false,
 		},
 		{
-			7,
+			6,
 			2,
 			big.NewInt(2),
 			Precommit,
@@ -139,11 +133,9 @@ func TestHandleCheckedMessage(t *testing.T) {
 			constants.ErrOldHeightMessage,
 			false,
 			false,
-			false,
 		},
-
 		{
-			8,
+			7,
 			2,
 			big.NewInt(2),
 			PrecommitDone,
@@ -151,10 +143,9 @@ func TestHandleCheckedMessage(t *testing.T) {
 			constants.ErrHeightClosed,
 			false,
 			false,
-			false,
 		},
 		{
-			9,
+			8,
 			2,
 			big.NewInt(2),
 			Precommit,
@@ -162,27 +153,39 @@ func TestHandleCheckedMessage(t *testing.T) {
 			constants.ErrOldRoundMessage,
 			false,
 			false,
+		},
+		{
+			9,
+			1,
+			big.NewInt(2),
+			Propose,
+			message.NewPropose(1, 2, -1, types.NewBlockWithHeader(&types.Header{}), makeSigner(senderKey), &sender),
+			constants.ErrNotFromProposer,
 			false,
+			true,
 		},
 	}
 
 	for _, tc := range cases {
 		logger := log.New("backend", "test", "id", 0)
 		messageMap := message.NewMap()
+		backendMock := interfaces.NewMockBackend(ctrl)
+		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 		engine := Core{
-			logger:            logger,
-			address:           currentValidator.Address,
-			backlogs:          make(map[common.Address][]message.Msg),
-			round:             tc.round,
-			height:            tc.height,
-			step:              tc.step,
-			futureRoundChange: make(map[int64]map[common.Address]*big.Int),
-			messages:          messageMap,
-			curRoundMessages:  messageMap.GetOrCreate(0),
-			committee:         committeeSet,
-			proposeTimeout:    NewTimeout(Propose, logger),
-			prevoteTimeout:    NewTimeout(Prevote, logger),
-			precommitTimeout:  NewTimeout(Precommit, logger),
+			logger:           logger,
+			address:          currentValidator.Address,
+			round:            tc.round,
+			height:           tc.height,
+			step:             tc.step,
+			futureRound:      make(map[int64][]message.Msg),
+			futurePower:      make(map[int64]*message.PowerInfo),
+			messages:         messageMap,
+			curRoundMessages: messageMap.GetOrCreate(0),
+			committee:        committeeSet,
+			proposeTimeout:   NewTimeout(Propose, logger),
+			prevoteTimeout:   NewTimeout(Prevote, logger),
+			precommitTimeout: NewTimeout(Precommit, logger),
+			backend:          backendMock,
 		}
 		engine.SetDefaultHandlers()
 
@@ -198,131 +201,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 					t.Errorf("Unexpected panic")
 				}
 			}()
-			tc.message.Validate(header.CommitteeMember)
-			err := engine.handleValidMsg(context.Background(), tc.message)
-
-			if !errors.Is(err, tc.outcome) {
-				t.Log(tc.String())
-				t.Fatal("unexpected behaviour, handleValidMsg returning", "err=", err, ", expecting=", tc.outcome)
-			}
-
-			if err != nil {
-				// check if disconnection is required
-				disconnect := shouldDisconnectSender(err)
-				if tc.shouldDisconnect != disconnect {
-					t.Log(tc.String())
-					t.Fatal("unexpected behaviour, shouldDisconnectSender returning", "disconnect=", disconnect, ", expecting=", tc.shouldDisconnect)
-				}
-
-				if err == constants.ErrFutureRoundMessage {
-					// check backlog
-					backlogValue := engine.backlogs[sender.Address][0]
-					if backlogValue != tc.message {
-						t.Fatal("unexpected backlog message")
-					}
-				}
-			}
-		}()
-	}
-}
-
-func TestHandleMsg(t *testing.T) {
-	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
-	currentValidator, _ := committeeSet.GetByIndex(0)
-	sender, _ := committeeSet.GetByIndex(1)
-	senderKey := keysMap[sender.Address]
-
-	cases := []testCase{
-		{
-			0,
-			1,
-			big.NewInt(2),
-			Propose,
-			message.NewPrevote(2, 1, common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address)),
-			constants.ErrOldHeightMessage,
-			false,
-			false,
-			false,
-		},
-		{
-			1,
-			1,
-			big.NewInt(2),
-			Propose,
-			message.NewPrevote(2, 3, common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address)),
-			constants.ErrFutureHeightMessage,
-			false,
-			false,
-			false,
-		},
-		{
-			2,
-			1,
-			big.NewInt(2),
-			Propose,
-			message.NewPrevote(1, 2, common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address)),
-			ErrValidatorJailed,
-			false,
-			false,
-			true,
-		},
-		{
-			3,
-			1,
-			big.NewInt(2),
-			Propose,
-			message.NewPrevote(1, 2, common.BytesToHash([]byte{0x1}), func(hash common.Hash) ([]byte, common.Address) {
-				out, _ := crypto.Sign(append(hash[:], []byte{0xca, 0xfe}...), senderKey)
-				return out, sender.Address
-			}),
-			message.ErrBadSignature,
-			false,
-			true,
-			false,
-		},
-		{
-			4,
-			1,
-			big.NewInt(2),
-			Propose,
-			message.NewPropose(1, 2, -1, types.NewBlockWithHeader(&types.Header{}), makeSigner(senderKey, sender.Address)),
-			constants.ErrNotFromProposer,
-			false,
-			true,
-			false,
-		},
-	}
-
-	for _, tc := range cases {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().IsJailed(sender.Address).Return(tc.jailed).MaxTimes(1)
-
-		logger := log.New("backend", "test", "id", 3)
-		c := New(backendMock, nil, currentValidator.Address, logger, false)
-
-		c.height = tc.height
-		c.round = tc.round
-		c.step = tc.step
-		c.committee = committeeSet
-		c.setLastHeader(&header)
-
-		func() {
-			defer func() {
-				r := recover()
-				if r == nil && tc.panic {
-					t.Log(tc.String())
-					t.Errorf("The code did not panic")
-				}
-				if r != nil && !tc.panic {
-					t.Log(tc.String())
-					t.Errorf("Unexpected panic")
-				}
-			}()
-			tc.message.Validate(header.CommitteeMember)
-			err := c.handleMsg(context.Background(), tc.message)
+			err := engine.handleMsg(context.Background(), tc.message)
 
 			if !errors.Is(err, tc.outcome) {
 				t.Log(tc.String())
@@ -338,21 +217,69 @@ func TestHandleMsg(t *testing.T) {
 				}
 
 				if err == constants.ErrFutureRoundMessage {
-					backlogValue := c.backlogs[sender.Address][0]
-					if backlogValue != tc.message {
-						t.Fatal("unexpected backlog message")
-					}
-				}
-
-				if err == constants.ErrFutureHeightMessage {
-					backlogValue := c.backlogUntrusted[tc.message.H()][0]
-					if backlogValue != tc.message {
-						t.Fatal("unexpected untrusted backlog message")
+					// check backlog
+					found := searchForFutureMsg(&engine, tc.message)
+					if !found {
+						t.Fatal("future round message not found in backlog")
 					}
 				}
 			}
 		}()
 	}
+}
+
+// this test differs from the previous one because we check that the future power gets updated correctly
+func TestHandleFutureRound(t *testing.T) {
+	// setup
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	committeeSet, keysMap := NewTestCommitteeSetWithKeys(10)
+	sender1, _ := committeeSet.GetByIndex(0)
+	sender2, _ := committeeSet.GetByIndex(1)
+
+	currentHeight := big.NewInt(1)
+	currentRound := int64(0)
+	logger := log.New("backend", "test", "id", 0)
+	messageMap := message.NewMap()
+	backendMock := interfaces.NewMockBackend(ctrl)
+	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
+	engine := Core{
+		logger:           logger,
+		address:          sender1.Address,
+		round:            currentRound,
+		height:           currentHeight,
+		step:             Propose,
+		futureRound:      make(map[int64][]message.Msg),
+		futurePower:      make(map[int64]*message.PowerInfo),
+		messages:         messageMap,
+		curRoundMessages: messageMap.GetOrCreate(0),
+		committee:        committeeSet,
+		proposeTimeout:   NewTimeout(Propose, logger),
+		prevoteTimeout:   NewTimeout(Prevote, logger),
+		precommitTimeout: NewTimeout(Precommit, logger),
+		backend:          backendMock,
+	}
+	engine.SetDefaultHandlers()
+
+	// handling vote
+	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), &sender2, 4)
+	err := engine.handleMsg(context.Background(), vote)
+	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
+
+	// check that vote was saved in the future messages and power was updated accordingly
+	found := searchForFutureMsg(&engine, vote)
+	require.True(t, found)
+	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Pow())
+
+	// same thing for future round proposal
+	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight), makeSigner(keysMap[sender1.Address].consensus), &sender1)
+	err = engine.handleMsg(context.Background(), propose)
+	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
+
+	found = searchForFutureMsg(&engine, propose)
+	require.True(t, found)
+	require.Equal(t, common.Big2, engine.futurePower[propose.R()].Pow())
 }
 
 func TestCoreStopDoesntPanic(t *testing.T) {

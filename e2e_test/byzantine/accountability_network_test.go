@@ -1,11 +1,11 @@
 package byzantine
 
 import (
+	"encoding/hex"
 	"math/rand"
 	"testing"
 
 	fuzz "github.com/google/gofuzz"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/autonity"
@@ -14,6 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto/blst"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/rlp"
 )
@@ -43,21 +44,21 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 		panic("cannot simulate off chain accusation PVN")
 	}
 
-	proposals := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-		return m.Code() == message.ProposalCode
+	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
+		return true
 	})
 
-	for _, p := range proposals {
-		preVotes := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.R() == p.R() && m.Value() == p.Value()
+	for _, proposal := range proposals {
+		preVotes := backEnd.MsgStore.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == proposal.R() && m.Value() == proposal.Value()
 		})
 		// remove proposal.
-		backEnd.MsgStore.RemoveMsg(p.H(), p.R(), p.Code(), p.Sender())
+		backEnd.MsgStore.RemoveMsg(proposal.H(), proposal.Code(), proposal.Hash())
 		// remove over quorum corresponding prevotes.
 		counter := 0
-		for _, pv := range preVotes {
+		for _, prevote := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code(), pv.Sender())
+				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.Code(), prevote.Hash())
 				counter++
 			} else {
 				break
@@ -94,20 +95,20 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 		panic("cannot simulate off chain accusation C1")
 	}
 
-	proposals := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-		return m.Code() == message.ProposalCode
+	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
+		return true
 	})
 
-	for _, p := range proposals {
-		preVotes := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.R() == p.R() && m.Value() == p.Value()
+	for _, proposal := range proposals {
+		preVotes := backEnd.MsgStore.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == proposal.R() && m.Value() == proposal.Value()
 		})
 
 		// remove over quorum corresponding prevotes.
 		counter := 0
-		for _, pv := range preVotes {
+		for _, prevote := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code(), pv.Sender())
+				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.Code(), prevote.Hash())
 				counter++
 			} else {
 				break
@@ -126,10 +127,24 @@ type OffChainAccusationFuzzer struct {
 	*core.Core
 }
 
+// TODO(lorenzo) not sure this manages to fuzz also the `Signers` object in message.Vote
 func fuzzedMessages() []message.Msg {
 	num := rand.Intn(10) + 1
 	var msgs []message.Msg
-	f := fuzz.New()
+	//TODO(lorenzo) properly define custom fuzzing functions for signature and signerkey
+	f := fuzz.New().Funcs(
+		func(sig *blst.Signature, c fuzz.Continue) {
+			sigHex := "0x98759b81f6595ac857dbf0a51df26c6b9bb05ada93be66a4dfff5cb7aa5b0a43cd5cf37eb7f5cdfa67df9080a4e406921484edc9596f71eb55323ec79c62a73128524db2ad3eac9d2bb2db74676a21c1b280613e574bbfd54cbd220c552b518d" //nolint
+			b, _ := hex.DecodeString(sigHex[2:])
+			*sig, _ = blst.SignatureFromBytes(b)
+		},
+		func(key *blst.PublicKey, c fuzz.Continue) {
+			keyHex := "0x9324e32ed1739ae1283888dd91a17b13881f989e94fc1b572d678392e0e0df8fa7e5dec44b8cf378000d68ecca5e36eb" //nolint
+			b, _ := hex.DecodeString(keyHex[2:])
+			*key, _ = blst.PublicKeyFromBytes(b)
+		},
+	)
+
 	for i := 0; i < num; i++ {
 		m := &message.Fake{}
 		f.Fuzz(m)
@@ -164,10 +179,11 @@ func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 
 		evidences := fuzzedMessages()
 		accusation := &accountability.Proof{
-			Type:      autonity.AccountabilityEventType(rand.Int()),
-			Rule:      autonity.Rule(rand.Int()),
-			Evidences: evidences,
-			Message:   evidences[0],
+			Type:          autonity.AccountabilityEventType(rand.Int()),
+			Rule:          autonity.Rule(rand.Int()),
+			Evidences:     evidences,
+			Message:       evidences[0],
+			OffenderIndex: rand.Int(),
 		}
 		proof, err := rlp.EncodeToBytes(accusation)
 		if err != nil {
@@ -200,26 +216,39 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 	if !ok {
 		panic("cannot simulate duplicated off chain accusation")
 	}
-	preVotes := backEnd.MsgStore.Get(msg.H()-1, func(m message.Msg) bool {
-		return m.Code() == message.PrevoteCode && m.Sender() != s.Address()
+	header := backEnd.BlockChain().GetHeaderByNumber(msg.H() - 2)
+	if header == nil {
+		panic("cannot fetch parent header")
+	}
+
+	self := int(header.CommitteeMember(s.Address()).Index)
+
+	preVotes := backEnd.MsgStore.GetPrevotes(msg.H()-1, func(m *message.Prevote) bool {
+		return true
 	})
 
 	for _, pv := range preVotes {
-		peer, ok := backEnd.Broadcaster.FindPeer(pv.Sender())
-		if ok {
-			accusation := &accountability.Proof{
-				Type:    autonity.Accusation,
-				Rule:    autonity.PVN,
-				Message: pv,
+		for _, signerIndex := range pv.Signers().FlattenUniq() {
+			if signerIndex == self {
+				continue
 			}
-			rProof, err := rlp.EncodeToBytes(accusation)
-			if err != nil {
-				panic("cannot encode accusation at e2e test for off chain accusation protocol")
+			peer, ok := backEnd.Broadcaster.FindPeer(header.Committee[signerIndex].Address)
+			if ok {
+				accusation := &accountability.Proof{
+					Type:          autonity.Accusation,
+					Rule:          autonity.PVN,
+					Message:       pv,
+					OffenderIndex: signerIndex,
+				}
+				rProof, err := rlp.EncodeToBytes(accusation)
+				if err != nil {
+					panic("cannot encode accusation at e2e test for off chain accusation protocol")
+				}
+				// send duplicated msg.
+				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+				s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 			}
-			// send duplicated msg.
-			go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-			go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-			s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 		}
 	}
 }
@@ -245,24 +274,35 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 
 	// collect some out of updated consensus msg
 	for h := uint64(2); h <= msg.H(); h++ {
-		preVotes := backEnd.MsgStore.Get(h, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.Sender() != s.Address()
+		header := backEnd.BlockChain().GetHeaderByNumber(h - 1)
+		if header == nil {
+			panic("cannot fetch parent header")
+		}
+		self := int(header.CommitteeMember(s.Address()).Index)
+		preVotes := backEnd.MsgStore.GetPrevotes(h, func(m *message.Prevote) bool {
+			return true
 		})
 		for _, pv := range preVotes {
-			peer, ok := backEnd.Broadcaster.FindPeer(pv.Sender())
-			if ok {
-				accusation := &accountability.Proof{
-					Type:    autonity.Accusation,
-					Rule:    autonity.PVN,
-					Message: pv,
+			for _, signerIndex := range pv.Signers().FlattenUniq() {
+				if signerIndex == self {
+					continue
 				}
-				rProof, err := rlp.EncodeToBytes(accusation)
-				if err != nil {
-					panic("cannot encode accusation at e2e test for off chain accusation protocol")
+				peer, ok := backEnd.Broadcaster.FindPeer(header.Committee[signerIndex].Address)
+				if ok {
+					accusation := &accountability.Proof{
+						Type:          autonity.Accusation,
+						Rule:          autonity.PVN,
+						Message:       pv,
+						OffenderIndex: signerIndex,
+					}
+					rProof, err := rlp.EncodeToBytes(accusation)
+					if err != nil {
+						panic("cannot encode accusation at e2e test for off chain accusation protocol")
+					}
+					// send msg.
+					go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+					s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 				}
-				// send msg.
-				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-				s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 			}
 		}
 	}
