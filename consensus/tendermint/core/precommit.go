@@ -8,6 +8,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -30,8 +31,8 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-
-	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
+	self := c.LastHeader().CommitteeMember(c.address)
+	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
 	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
@@ -40,7 +41,6 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 }
 
-// HandlePrecommit process the incoming precommit message.
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
 	if precommit.R() > c.Round() {
 		return constants.ErrFutureRoundMessage
@@ -50,6 +50,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		// in this old round.
 		roundMessages := c.messages.GetOrCreate(precommit.R())
 		roundMessages.AddPrecommit(precommit)
+		c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
 
 		oldRoundProposal := roundMessages.Proposal()
 		if oldRoundProposal == nil {
@@ -65,7 +66,8 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
 	c.curRoundMessages.AddPrecommit(precommit)
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
+	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
+	//c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Signer().String(), c.address.String()) //TODO(lorenzo) refinements, fix
 
 	c.currentPrecommitChecks(ctx)
 	return nil

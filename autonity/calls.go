@@ -389,9 +389,16 @@ func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *type
 }
 
 func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) ([]types.CommitteeMember, error) {
-	var committee []types.CommitteeMember
-	err := c.AutonityContractCall(state, header, "getCommittee", &committee)
-	return committee, err
+	var committee types.Committee
+	if err := c.AutonityContractCall(state, header, "getCommittee", &committee); err != nil {
+		return nil, err
+	}
+
+	if err := committee.Enrich(); err != nil {
+		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
+	}
+
+	return committee, nil
 }
 
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
@@ -403,12 +410,26 @@ func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types
 	return minBaseFee, nil
 }
 
+func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.Header) (*big.Int, error) {
+	epochPeriod := new(big.Int)
+	err := c.AutonityContractCall(state, header, "getEpochPeriod", &epochPeriod)
+	if err != nil {
+		return nil, err
+	}
+	return epochPeriod, nil
+}
+
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, types.Committee, error) {
 	var updateReady bool
 	var committee types.Committee
 	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}); err != nil {
 		return false, nil, err
 	}
+
+	if err := committee.Enrich(); err != nil {
+		panic("Committee member has invalid consensus key: " + err.Error())
+	}
+
 	return updateReady, committee, nil
 }
 

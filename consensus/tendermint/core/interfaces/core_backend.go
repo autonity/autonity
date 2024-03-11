@@ -2,10 +2,12 @@ package interfaces
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
@@ -28,7 +30,7 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposalBlock *types.Block, round int64, seals [][]byte) error
+	Commit(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) error
 
 	// GetContractABI returns the Autonity Contract ABI
 	GetContractABI() *abi.ABI
@@ -49,7 +51,7 @@ type Backend interface {
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
-	Sign(hash common.Hash) ([]byte, common.Address)
+	Sign(hash common.Hash) blst.Signature
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
@@ -65,10 +67,6 @@ type Backend interface {
 	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
 
-	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
-	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
-	RemoveMessageFromLocalCache(message message.Msg)
-
 	// Logger returns the object used for logging purposes.
 	Logger() log.Logger
 
@@ -77,15 +75,28 @@ type Backend interface {
 
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
+
+	// re-injects buffered future height messages
+	ProcessFutureMsgs(height uint64)
+
+	// returns future height buffered messages. Called by core for tendermint state dump
+	FutureMsgs() []message.Msg
 }
 
 type Core interface {
 	Start(ctx context.Context, contract *autonity.ProtocolContracts)
 	Stop()
-	CurrentHeightMessages() []message.Msg
 	CoreState() CoreState
 	Broadcaster() Broadcaster
 	Proposer() Proposer
 	Prevoter() Prevoter
 	Precommiter() Precommiter
+	Height() *big.Int
+	Round() int64
+	CurrentHeightMessages() []message.Msg
+
+	// Used by the aggregator
+	Power(h uint64, r int64) *big.Int
+	VotesPower(h uint64, r int64, code uint8) *big.Int
+	VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int
 }

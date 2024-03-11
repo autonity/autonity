@@ -292,7 +292,14 @@ func TestOffChainAccusation(t *testing.T) {
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
-	// TODO(lorenzo) attempt to restore
+	//TODO(lorenzo) The following tests fail for two reasons:
+	// 1. The disconnection doesn't happen if the malicious sender is locally connected (i.e. has a LAN address such as 127.0.0.0)
+	// 2. Even if the LAN check is bypassed and every node has a different local address (e.g. 127.0.0.1, 127.0.0.2, etc.)
+	//		the remote address seen by a peer will always be 127.0.0.1 for all nodes (because all connections arrive from LAN).
+	//		This messes up the 30 second disconnection logic.
+	//
+	// see the checkInboundConn func in p2p/server.go for the code.
+
 	// Following in belows, there are 3 testcases to observe if those malicious off-chain challenger's peer is dropped
 	// due to the DoS protection of off chain accusation protocol. Due to the re-dail scheduler in P2P layer, those
 	// dropped peer are reconnected after a short while which making the tests unstable from e2e point of view. So skip

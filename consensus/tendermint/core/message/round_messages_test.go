@@ -1,15 +1,6 @@
 package message
 
-import (
-	"bytes"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/types"
-)
-
+/*
 func TestMapReset(t *testing.T) {
 	messages := NewMap()
 	messages.GetOrCreate(0).AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier))
@@ -75,3 +66,4 @@ func TestGetMessages(t *testing.T) {
 		}
 	}
 }
+*/

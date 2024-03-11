@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -13,27 +12,25 @@ import (
 	"testing"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint"
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/crypto/blst"
-
-	lru "github.com/hashicorp/golang-lru"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
@@ -42,26 +39,44 @@ import (
 
 var (
 	testAddress = common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
-	testKey, _  = crypto.HexToECDSA("bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1")
-	testSigner  = func(data common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(data[:], testKey)
-		return out, testAddress
+	testKey, _  = blst.RandKey()
+	testSigner  = func(data common.Hash) blst.Signature {
+		signature := testKey.Sign(data[:])
+		return signature
 	}
+	testCommitteeMember = &types.CommitteeMember{Address: testAddress, VotingPower: common.Big1, ConsensusKeyBytes: testKey.PublicKey().Marshal(), ConsensusKey: testKey.PublicKey(), Index: 0}
+	testSignatureBytes  = common.Hex2Bytes("8ff38c5915e56029ace231f12e6911587fac4b5618077f3dfe8068138ff1dc7a7ea45a5e0d6a51747cc5f4d990c9d4de1242f4efa93d8165936bfe111f86aaafeea5eda0c38fa3dc2f854576dde63214d7438ea398e48072bc6a0c8e6c2830ef")
+	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
 
-func newTestHeader(committeeSize int) *types.Header {
+func headerAndBlsKeys(committeeSize int) (*types.Header, []blst.SecretKey) {
 	validators := make(types.Committee, committeeSize)
+	secretKeys := make([]blst.SecretKey, committeeSize)
+
 	for i := 0; i < committeeSize; i++ {
 		privateKey, _ := crypto.GenerateKey()
+		secretKey, _ := blst.RandKey()
+		secretKeys[i] = secretKey
 		committeeMember := types.CommitteeMember{
-			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower: new(big.Int).SetUint64(1),
+			Address:           crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower:       new(big.Int).SetUint64(1),
+			ConsensusKeyBytes: secretKey.PublicKey().Marshal(),
+			ConsensusKey:      secretKey.PublicKey(),
+			Index:             uint64(i),
 		}
 		validators[i] = committeeMember
 	}
-	return &types.Header{
+
+	header := &types.Header{
 		Number:    new(big.Int).SetUint64(7),
 		Committee: validators,
+	}
+	return header, secretKeys
+}
+
+func makeSigner(key blst.SecretKey) message.Signer {
+	return func(h common.Hash) blst.Signature {
+		return key.Sign(h[:])
 	}
 }
 
@@ -69,7 +84,7 @@ func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
-	header := newTestHeader(7) // N=7, F=2, Q=5
+	header, _ := headerAndBlsKeys(7) // N=7, F=2, Q=5
 	validators := header.Committee
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
@@ -111,9 +126,10 @@ func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	header := newTestHeader(5)
+	csize := 5
+	header, blsKeys := headerAndBlsKeys(csize)
 	validators := header.Committee
-	msg := message.NewPrevote(1, 1, common.Hash{}, testSigner)
+	msg := message.NewPrevote(1, 1, common.Hash{}, makeSigner(blsKeys[0]), &validators[0], 5)
 
 	addresses := make([]common.Address, 0, len(validators))
 	peers := make(map[common.Address]ethereum.Peer)
@@ -182,26 +198,27 @@ func TestVerifyProposal(t *testing.T) {
 		if errBlock != nil {
 			t.Fatalf("could not create block %d, err=%s", i, errBlock)
 		}
-		header := block.Header()
-		seal, _ := backend.Sign(types.SigHash(header))
-		if err := types.WriteSeal(header, seal); err != nil {
-			t.Fatalf("could not write seal %d, err=%s", i, err)
-		}
-		block = block.WithSeal(header)
+		block, err := backend.AddSeal(block)
+		require.NoError(t, err)
 
 		// We need to sleep to avoid verifying a block in the future
 		time.Sleep(time.Duration(1) * time.Second)
 		if _, err := backend.VerifyProposal(block); err != nil {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
-		// VerifyProposal don't need committed seals
-		committedSeal, address := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
-		if address != backend.address {
-			t.Fatal("did not return signing address")
+
+		// VerifyProposal does not need a quorum certificate, but InsertChain does
+		committedSeal := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
+
+		// Append quorum certificate into extra-data
+		quorumCertificate := types.AggregateSignature{
+			Signature: committedSeal.(*blst.BlsSignature),
+			Signers:   types.NewSigners(len(parent.Header().Committee)),
 		}
-		// Append seals into extra-data
-		if err := types.WriteCommittedSeals(header, [][]byte{committedSeal}); err != nil {
-			t.Fatalf("could not write committed seal %d, err=%s", i, err)
+		quorumCertificate.Signers.Increment(&parent.Header().Committee[0])
+		header := block.Header()
+		if err := types.WriteQuorumCertificate(header, quorumCertificate); err != nil {
+			t.Fatalf("could not write quorum certificate %d, err=%s", i, err)
 		}
 		block = block.WithSeal(header)
 
@@ -212,6 +229,7 @@ func TestVerifyProposal(t *testing.T) {
 	}
 
 }
+
 func TestResetPeerCache(t *testing.T) {
 	addr := common.HexToAddress("0x01234567890")
 	msgCache, err := lru.NewARC(inmemoryMessages)
@@ -259,34 +277,35 @@ func TestHasBadProposal(t *testing.T) {
 func TestSign(t *testing.T) {
 	_, b := newBlockChain(4)
 	data := common.HexToHash("0x12345")
-	sig, addr := b.Sign(data)
-	if addr != b.address {
-		t.Error("error mismatch of addresses")
-	}
-	//Check signature recovery
-	signer, _ := crypto.SigToAddr(data[:], sig)
-	if signer != b.address {
-		t.Errorf("address mismatch: have %v, want %s", signer.Hex(), testAddress)
-	}
+	sig := b.Sign(data)
+
+	//Check signature verification
+	publicKey := b.consensusKey.PublicKey()
+	valid := sig.Verify(publicKey, data.Bytes())
+	require.True(t, valid)
 }
 
 func TestCommit(t *testing.T) {
 	t.Run("Broadcaster is not set", func(t *testing.T) {
-		_, backend := newBlockChain(4)
+		chain, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
 		backend.SetResultChan(commitCh)
 
+		// signature is not verified when committing, therefore we can just insert a bogus sig
+		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
+		quorumCertificate.Signers.Increment(&chain.Genesis().Header().Committee[0])
+
 		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 		testCases := []struct {
-			expectedErr       error
-			expectedSignature [][]byte
-			expectedBlock     func() *types.Block
+			expectedErr               error
+			expectedQuorumCertificate types.AggregateSignature
+			expectedBlock             func() *types.Block
 		}{
 			{
 				// normal case
 				nil,
-				[][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)},
+				quorumCertificate,
 				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -299,8 +318,8 @@ func TestCommit(t *testing.T) {
 			},
 			{
 				// invalid signature
-				types.ErrInvalidCommittedSeals,
-				nil,
+				types.ErrInvalidQuorumCertificate,
+				types.AggregateSignature{Signature: nil, Signers: types.NewSigners(4)},
 				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -317,7 +336,7 @@ func TestCommit(t *testing.T) {
 			expBlock := test.expectedBlock()
 
 			backend.proposedBlockHash = expBlock.Hash()
-			if err := backend.Commit(expBlock, 0, test.expectedSignature); err != nil {
+			if err := backend.Commit(expBlock, 0, test.expectedQuorumCertificate); err != nil {
 				if err != test.expectedErr {
 					t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 				}
@@ -341,18 +360,15 @@ func TestCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		blockFactory := func() *types.Block {
-			chain, engine := newBlockChain(1)
-			block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-			if err != nil {
-				t.Fatal(err)
-			}
-			expectedBlock, _ := engine.AddSeal(block)
-			return expectedBlock
+		chain, engine := newBlockChain(1)
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		if err != nil {
+			t.Fatal(err)
 		}
-
-		newBlock := blockFactory()
-		seals := [][]byte{append([]byte{1}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-1)...)}
+		newBlock, err := engine.AddSeal(block)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		enqueuer := consensus.NewMockEnqueuer(ctrl)
@@ -368,7 +384,11 @@ func TestCommit(t *testing.T) {
 		b.SetBroadcaster(broadcaster)
 		b.SetEnqueuer(enqueuer)
 
-		err := b.Commit(newBlock, 0, seals)
+		// signature is not verified when committing, therefore we can just insert a bogus sig
+		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
+		quorumCertificate.Signers.Increment(&chain.Genesis().Header().Committee[0])
+
+		err = b.Commit(newBlock, 0, quorumCertificate)
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
@@ -387,7 +407,7 @@ func TestSyncPeer(t *testing.T) {
 
 		peerAddr1 := common.HexToAddress("0x0123456789")
 		messages := []message.Msg{
-			message.NewPrevote(7, 8, common.HexToHash("0x1227"), dummySigner),
+			message.NewPrevote(7, 8, common.HexToHash("0x1227"), testSigner, testCommitteeMember, 1),
 		}
 
 		peersAddrMap := make(map[common.Address]struct{})
@@ -469,12 +489,12 @@ func TestBackendGetContractABI(t *testing.T) {
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
 func newBlockChain(n int) (*core.BlockChain, *Backend) {
-	genesis, nodeKeys := getGenesisAndKeys(n)
+	genesis, nodeKeys, consensusKeys := getGenesisAndKeys(n)
 
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := new(tdmcore.MsgStore)
 	// Use the first key as private key
-	b := New(nodeKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
+	b := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)
@@ -491,15 +511,21 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	return blockchain, b
 }
 
-func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
+func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.SecretKey) {
 	genesis := core.DefaultGenesisBlock()
 	// Setup committee
 	var nodeKeys = make([]*ecdsa.PrivateKey, n)
 	var addrs = make([]common.Address, n)
+	var consensusKeys = make([]blst.SecretKey, n)
 	for i := 0; i < n; i++ {
 		nodeKeys[i], _ = crypto.GenerateKey()
 		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
 		genesis.Alloc[addrs[i]] = core.GenesisAccount{Balance: new(big.Int).SetUint64(uint64(math.Pow10(18)))}
+		consensusKey, err := blst.RandKey()
+		if err != nil {
+			panic(err)
+		}
+		consensusKeys[i] = consensusKey
 	}
 
 	// generate genesis block
@@ -512,16 +538,16 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey) {
 	genesis.Mixhash = types.BFTDigest
 	genesis.Timestamp = 1
 
-	AppendValidators(genesis, nodeKeys)
+	AppendValidators(genesis, nodeKeys, consensusKeys)
 	err := genesis.Config.AutonityContractConfig.Prepare()
 	if err != nil {
 		panic(err)
 	}
 
-	return genesis, nodeKeys
+	return genesis, nodeKeys, consensusKeys
 }
 
-func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
+func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey, consensusKeys []blst.SecretKey) {
 	if genesis.Config == nil {
 		genesis.Config = &params.ChainConfig{}
 	}
@@ -536,10 +562,6 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 	for i := range keys {
 		nodeAddr := crypto.PubkeyToAddress(keys[i].PublicKey)
 		node := enode.NewV4(&keys[i].PublicKey, nil, 0, 0)
-		blsKey, err := blst.RandKey()
-		if err != nil {
-			panic(err)
-		}
 		oracleKey, err := crypto.GenerateKey()
 		if err != nil {
 			panic(err)
@@ -553,7 +575,7 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey) {
 				Treasury:      nodeAddr,
 				Enode:         node.URLv4(),
 				BondedStake:   new(big.Int).SetUint64(100),
-				ConsensusKey:  blsKey.PublicKey().Marshal(),
+				ConsensusKey:  consensusKeys[i].PublicKey().Marshal(),
 			})
 	}
 }
@@ -608,7 +630,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	for i := range txs {
 		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
 		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
-		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1337)), engine.privateKey)
+		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1337)), engine.nodeKey)
 		if err != nil {
 			return nil, err
 		}
@@ -635,8 +657,4 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	}
 
 	return block, nil
-}
-
-func dummySigner(_ common.Hash) ([]byte, common.Address) {
-	return nil, common.Address{}
 }

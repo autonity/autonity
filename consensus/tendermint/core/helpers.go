@@ -3,7 +3,6 @@ package core
 import (
 	"math/big"
 
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 )
 
@@ -11,18 +10,20 @@ import (
 // should make sure that the votes belong to a certain round and height, it returns a set of votes that the corresponding
 // voting power is over quorum, otherwise it returns nil.
 func OverQuorumVotes(msgs []message.Msg, quorum *big.Int) (overQuorumVotes []message.Msg) {
+	/* //TODO(lorenzo) refinements2, fix
 	votingPower := new(big.Int)
 	counted := make(map[common.Address]struct{})
 	for _, v := range msgs {
-		if _, ok := counted[v.Sender()]; ok {
+		if _, ok := counted[v.Signer()]; ok {
 			continue
 		}
-		counted[v.Sender()] = struct{}{}
+		counted[v.Signer()] = struct{}{}
 		votingPower = votingPower.Add(votingPower, v.Power())
 		overQuorumVotes = append(overQuorumVotes, v)
 		if votingPower.Cmp(quorum) >= 0 {
 			return overQuorumVotes
 		}
 	}
+	*/
 	return nil
 }

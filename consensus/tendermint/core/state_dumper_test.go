@@ -16,6 +16,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 )
 
@@ -91,8 +92,16 @@ func TestGetCoreState(t *testing.T) {
 	proposals[0], proposers[0] = prepareRoundMsgs(c, rounds[0], height)
 	proposals[1], proposers[1] = prepareRoundMsgs(c, rounds[1], height)
 
+	blsKeys := make([]blst.PublicKey, 2)
+	blsKey, err := blst.RandKey()
+	require.NoError(t, err)
+	blsKeys[0] = blsKey.PublicKey()
+	blsKey, err = blst.RandKey()
+	require.NoError(t, err)
+	blsKeys[1] = blsKey.PublicKey()
+
 	one := common.Big1
-	members := []types.CommitteeMember{{Address: proposers[0], VotingPower: one}, {Address: proposers[1], VotingPower: one}}
+	members := []types.CommitteeMember{{Address: proposers[0], VotingPower: one, ConsensusKey: blsKeys[1]}, {Address: proposers[1], VotingPower: one, ConsensusKey: blsKeys[0]}}
 	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
 	require.NoError(t, err)
 	setCoreState(c, height, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet,
@@ -141,7 +150,9 @@ func randomProposal(t *testing.T) *message.Propose {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
-	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(key, addr))
+	consensusKey, err := blst.RandKey()
+	require.NoError(t, err)
+	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(consensusKey, addr))
 }
 
 func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wantProposal *message.Propose, wantVerfied bool) {
@@ -158,9 +169,10 @@ func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wan
 }
 
 func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Address) {
-	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
-	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
-	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
+	verifier := stubVerifier(testConsensusKey.PublicKey())
+	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
+	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
+	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
 	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)
