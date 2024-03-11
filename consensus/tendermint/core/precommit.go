@@ -8,6 +8,8 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
+
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -30,9 +32,9 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-
-	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
-	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
+	self := c.LastHeader().CommitteeMember(c.address)
+	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
+	c.LogPrecommitMessageEvent("Precommit sent", precommit)
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
 	if metrics.Enabled {
@@ -40,8 +42,11 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	}
 }
 
-// HandlePrecommit process the incoming precommit message.
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
+	if !precommit.PreVerified() || !precommit.Verified() {
+		panic("Handling NON cryptographically verified precommit")
+	}
+
 	if precommit.R() > c.Round() {
 		return constants.ErrFutureRoundMessage
 	}
@@ -50,6 +55,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		// in this old round.
 		roundMessages := c.messages.GetOrCreate(precommit.R())
 		roundMessages.AddPrecommit(precommit)
+		c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
 
 		oldRoundProposal := roundMessages.Proposal()
 		if oldRoundProposal == nil {
@@ -65,7 +71,8 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
 	c.curRoundMessages.AddPrecommit(precommit)
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
+	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
+	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit)
 
 	c.currentPrecommitChecks(ctx)
 	return nil
@@ -83,10 +90,10 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 	}
 }
 
-func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Precommit, from, to string) {
+func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Precommit) {
 	c.logger.Debug(message,
-		"from", from,
-		"to", to,
+		"type", "Precommit",
+		"local address", log.Lazy{Fn: func() string { return c.Address().String() }},
 		"currentHeight", log.Lazy{Fn: c.Height},
 		"msgHeight", precommit.H(),
 		"currentRound", log.Lazy{Fn: c.Round},
@@ -95,10 +102,10 @@ func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *messag
 		"isProposer", log.Lazy{Fn: c.IsProposer},
 		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", precommit.Value() == common.Hash{},
-		"hash", precommit.Value(),
-		"type", "Precommit",
+		"value", precommit.Value(),
 		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrecommitsTotalPower},
 		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(common.Hash{}) }},
 		"proposedBlockVote", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(c.curRoundMessages.ProposalHash()) }},
+		"precommit", precommit.String(),
 	)
 }

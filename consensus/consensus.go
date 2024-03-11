@@ -147,9 +147,6 @@ type Handler interface {
 
 	// SetEnqueuer sets the enqueuer to inject blocks in import queue
 	SetEnqueuer(Enqueuer)
-
-	//msgCodes returns the number of extra implemented msgCodes by this consensus algorithm
-	Protocol() (protocolName string, extraMsgCodes uint64)
 }
 
 // PoW is a consensus engine based on proof-of-work.

@@ -2,6 +2,10 @@ package collusion
 
 import (
 	"context"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -9,8 +13,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 /*
@@ -88,7 +90,11 @@ func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
 	}
 
 	// send precommit for the planned invalid proposal.
-	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign)
+	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
+	if header == nil {
+		panic("cannot fetch header")
+	}
+	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
 	c.SetSentPrecommit(true)
 	c.Broadcaster().Broadcast(precommit)
 }

@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
 )
 
 func newMalPrecommitService(c interfaces.Core) interfaces.Precommiter {
@@ -23,10 +24,11 @@ type malPrecommitService struct {
 
 func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	var precommit *message.Precommit
+	self, csize := selfAndCsize(c.Core, c.Height().Uint64())
 	if isNil {
-		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
-		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.HexToHash("0xCAFE"), c.Backend().Sign)
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.HexToHash("0xCAFE"), c.Backend().Sign, self, csize)
 	}
 	c.SetSentPrecommit(true)
 	c.BroadcastAll(precommit)

@@ -5,12 +5,12 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 //
-
 // Package interfaces is a generated GoMock package.
 package interfaces
 
 import (
 	context "context"
+	big "math/big"
 	reflect "reflect"
 	time "time"
 
@@ -18,8 +18,10 @@ import (
 	autonity "github.com/autonity/autonity/autonity"
 	common "github.com/autonity/autonity/common"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
+	events "github.com/autonity/autonity/consensus/tendermint/events"
 	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
+	blst "github.com/autonity/autonity/crypto/blst"
 	event "github.com/autonity/autonity/event"
 	log "github.com/autonity/autonity/log"
 	gomock "go.uber.org/mock/gomock"
@@ -116,17 +118,31 @@ func (mr *MockBackendMockRecorder) Broadcast(committee, message any) *gomock.Cal
 }
 
 // Commit mocks base method.
-func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals [][]byte) error {
+func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, seals)
+	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, quorumCertificate)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit.
-func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, quorumCertificate any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, quorumCertificate)
+}
+
+// FutureMsgs mocks base method.
+func (m *MockBackend) FutureMsgs() []message.Msg {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FutureMsgs")
+	ret0, _ := ret[0].([]message.Msg)
+	return ret0
+}
+
+// FutureMsgs indicates an expected call of FutureMsgs.
+func (mr *MockBackendMockRecorder) FutureMsgs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FutureMsgs", reflect.TypeOf((*MockBackend)(nil).FutureMsgs))
 }
 
 // GetContractABI mocks base method.
@@ -237,6 +253,20 @@ func (mr *MockBackendMockRecorder) Logger() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logger", reflect.TypeOf((*MockBackend)(nil).Logger))
 }
 
+// MessageCh mocks base method.
+func (m *MockBackend) MessageCh() <-chan events.UnverifiedMessageEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MessageCh")
+	ret0, _ := ret[0].(<-chan events.UnverifiedMessageEvent)
+	return ret0
+}
+
+// MessageCh indicates an expected call of MessageCh.
+func (mr *MockBackendMockRecorder) MessageCh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageCh", reflect.TypeOf((*MockBackend)(nil).MessageCh))
+}
+
 // Post mocks base method.
 func (m *MockBackend) Post(ev any) {
 	m.ctrl.T.Helper()
@@ -249,16 +279,16 @@ func (mr *MockBackendMockRecorder) Post(ev any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockBackend)(nil).Post), ev)
 }
 
-// RemoveMessageFromLocalCache mocks base method.
-func (m *MockBackend) RemoveMessageFromLocalCache(message message.Msg) {
+// ProcessFutureMsgs mocks base method.
+func (m *MockBackend) ProcessFutureMsgs(height uint64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemoveMessageFromLocalCache", message)
+	m.ctrl.Call(m, "ProcessFutureMsgs", height)
 }
 
-// RemoveMessageFromLocalCache indicates an expected call of RemoveMessageFromLocalCache.
-func (mr *MockBackendMockRecorder) RemoveMessageFromLocalCache(message any) *gomock.Call {
+// ProcessFutureMsgs indicates an expected call of ProcessFutureMsgs.
+func (mr *MockBackendMockRecorder) ProcessFutureMsgs(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMessageFromLocalCache", reflect.TypeOf((*MockBackend)(nil).RemoveMessageFromLocalCache), message)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessFutureMsgs", reflect.TypeOf((*MockBackend)(nil).ProcessFutureMsgs), height)
 }
 
 // SetBlockchain mocks base method.
@@ -286,12 +316,11 @@ func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash any) *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockBackend) Sign(hash common.Hash) ([]byte, common.Address) {
+func (m *MockBackend) Sign(hash common.Hash) blst.Signature {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sign", hash)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(common.Address)
-	return ret0, ret1
+	ret0, _ := ret[0].(blst.Signature)
+	return ret0
 }
 
 // Sign indicates an expected call of Sign.
@@ -410,6 +439,34 @@ func (mr *MockCoreMockRecorder) CurrentHeightMessages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeightMessages", reflect.TypeOf((*MockCore)(nil).CurrentHeightMessages))
 }
 
+// Height mocks base method.
+func (m *MockCore) Height() *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockCoreMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockCore)(nil).Height))
+}
+
+// Power mocks base method.
+func (m *MockCore) Power(h uint64, r int64) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Power", h, r)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Power indicates an expected call of Power.
+func (mr *MockCoreMockRecorder) Power(h, r any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Power", reflect.TypeOf((*MockCore)(nil).Power), h, r)
+}
+
 // Precommiter mocks base method.
 func (m *MockCore) Precommiter() Precommiter {
 	m.ctrl.T.Helper()
@@ -452,6 +509,20 @@ func (mr *MockCoreMockRecorder) Proposer() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proposer", reflect.TypeOf((*MockCore)(nil).Proposer))
 }
 
+// Round mocks base method.
+func (m *MockCore) Round() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Round")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// Round indicates an expected call of Round.
+func (mr *MockCoreMockRecorder) Round() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Round", reflect.TypeOf((*MockCore)(nil).Round))
+}
+
 // Start mocks base method.
 func (m *MockCore) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	m.ctrl.T.Helper()
@@ -474,6 +545,34 @@ func (m *MockCore) Stop() {
 func (mr *MockCoreMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCore)(nil).Stop))
+}
+
+// VotesPower mocks base method.
+func (m *MockCore) VotesPower(h uint64, r int64, code uint8) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VotesPower", h, r, code)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// VotesPower indicates an expected call of VotesPower.
+func (mr *MockCoreMockRecorder) VotesPower(h, r, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotesPower", reflect.TypeOf((*MockCore)(nil).VotesPower), h, r, code)
+}
+
+// VotesPowerFor mocks base method.
+func (m *MockCore) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VotesPowerFor", h, r, code, v)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// VotesPowerFor indicates an expected call of VotesPowerFor.
+func (mr *MockCoreMockRecorder) VotesPowerFor(h, r, code, v any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotesPowerFor", reflect.TypeOf((*MockCore)(nil).VotesPowerFor), h, r, code, v)
 }
 
 // MockEventDispatcher is a mock of EventDispatcher interface.

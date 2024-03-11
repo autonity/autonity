@@ -1,6 +1,7 @@
 package byzantine
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -12,6 +13,14 @@ import (
 	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
 )
+
+func selfAndCsize(c *core.Core, h uint64) (*types.CommitteeMember, int) {
+	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
+	if header == nil {
+		panic(fmt.Sprintf("cannot fetch header, h: %d", (h - 1)))
+	}
+	return header.CommitteeMember(c.Address()), len(header.Committee)
+}
 
 type AccusationPO struct {
 	*core.Core
@@ -32,6 +41,8 @@ func (s *AccusationPO) Broadcast(msg message.Msg) {
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	vR := nPR - 1
 
+	self, _ := selfAndCsize(s.Core, msg.H())
+
 	// change header nonce to a random value to have a different block hash
 	header := proposal.Block().Header()
 	var nonce types.BlockNonce
@@ -40,7 +51,7 @@ func (s *AccusationPO) Broadcast(msg message.Msg) {
 	}
 	header.Nonce = nonce
 	block := types.NewBlockWithHeader(header)
-	invalidProposal := message.NewPropose(nPR, msg.H(), vR, block, s.Backend().Sign)
+	invalidProposal := message.NewPropose(nPR, msg.H(), vR, block, s.Backend().Sign, self)
 
 	s.Logger().Info("PO Accusation rule simulation")
 	s.BroadcastAll(proposal)
@@ -62,7 +73,8 @@ func (s *AccusationPVN) Broadcast(msg message.Msg) {
 		s.BroadcastAll(msg)
 		return
 	}
-	preVote := message.NewPrevote(msg.R()+1, msg.H(), e2e.NonNilValue, s.Backend().Sign)
+	self, csize := selfAndCsize(s.Core, msg.H())
+	preVote := message.NewPrevote(msg.R()+1, msg.H(), e2e.NonNilValue, s.Backend().Sign, self, csize)
 
 	s.Logger().Info("PVN Accusation rule simulation")
 	s.BroadcastAll(proposal)
@@ -97,10 +109,11 @@ func (s *AccusationPVO) Broadcast(msg message.Msg) {
 	}
 
 	// simulate a proposal at round: nPR, and with a valid round: nPR-2
-	newProposal := message.NewPropose(nPR, msg.H(), validRound, proposal.Block(), s.Backend().Sign)
+	self, csize := selfAndCsize(s.Core, msg.H())
+	newProposal := message.NewPropose(nPR, msg.H(), validRound, proposal.Block(), s.Backend().Sign, self)
 
 	// simulate a preVote at round nPR, for value v, this preVote for new value break PVO1.
-	prevote := message.NewPrevote(nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign)
+	prevote := message.NewPrevote(nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign, self, csize)
 
 	s.Logger().Info("PVO accusation rule simulation")
 	s.BroadcastAll(proposal)
@@ -123,9 +136,12 @@ func (s *AccusationC1) Broadcast(msg message.Msg) {
 		s.BroadcastAll(msg)
 		return
 	}
+
+	self, csize := selfAndCsize(s.Core, msg.H())
+
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	if s.IsProposer() { // youssef: probably not needed
-		preCommit := message.NewPrecommit(nPR, msg.H(), common.Hash{0xca, 0xfe}, s.Backend().Sign)
+		preCommit := message.NewPrecommit(nPR, msg.H(), common.Hash{0xca, 0xfe}, s.Backend().Sign, self, csize)
 		s.Logger().Info("C1 accusation rule simulation")
 		s.BroadcastAll(preCommit)
 	}
