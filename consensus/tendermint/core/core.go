@@ -255,9 +255,9 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-	committedSeals := make([][]byte, 0)
+	committedSeals := make(types.Signatures)
 	for _, v := range messages.PrecommitsFor(proposalHash) {
-		committedSeals = append(committedSeals, v.Signature())
+		committedSeals[v.Sender()] = v.Signature()
 	}
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)

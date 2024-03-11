@@ -1,6 +1,11 @@
 package blst
 
-import "errors"
+import (
+	"errors"
+	"io"
+
+	"github.com/autonity/autonity/rlp"
+)
 
 const (
 	BLSSecretKeyLength       = 32
@@ -53,4 +58,8 @@ type Signature interface {
 	Marshal() []byte
 	Copy() Signature
 	Hex() string
+	EncodeRLP(w io.Writer) error
+	DecodeRLP(stream *rlp.Stream) error
+	MarshalText() ([]byte, error)
+	UnmarshalText(input []byte) error
 }

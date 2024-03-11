@@ -4,12 +4,12 @@
 // accountability purposes. Light proposals are never directly brodcasted
 // over the network but always part of a proof object, defined in the accountability package.
 // Messages can exist in two states: unverified and verified depending on their signature verification.
-// When verified, calling `Validate` the voting power information and the sender information become available
+// When verified, calling `Validate` the voting power information becomes available, and the sender can be relied upon.
 // There are three ways that a consensus message can be instantiated:
 //   - using a "New" constructor, e.g. NewPrevote :
-//     The following created object is then fully created, with signature and final payload already
+//     The object is fully created, with signature and final payload already
 //     pre-computed. Internal state is unverified as voting power information is not available.
-//   - using "FromWire": signature and payload object available. State unverified.
+//   - decoding a RLP-encoded message from the wire. State unverified.
 //   - using a Fake constructor.
 package message
 
@@ -21,10 +21,10 @@ import (
 	"sync"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -40,7 +40,7 @@ const (
 	LightProposalCode
 )
 
-type Signer func(hash common.Hash) (signature []byte, address common.Address)
+type Signer func(hash common.Hash) (signature blst.Signature, address common.Address)
 
 type Msg interface {
 	// Code returns the message code, it must always matching the concrete type.
@@ -55,7 +55,8 @@ type Msg interface {
 	// Value returns the block hash being voted for.
 	Value() common.Hash
 
-	// Returns the sender address. This is not available until the message has been validated
+	// Returns the sender address. This is not available until the message has been validated.
+	// the sender is actually populated at decoding, but it cannot be relied upon until after signature verification.
 	Sender() common.Address
 
 	// Power returns the message voting power.
@@ -64,7 +65,7 @@ type Msg interface {
 	// String returns a string description of the message.
 	String() string
 
-	// Hash returns the hash of the messagel. This is not available if the underlying payload
+	// Hash returns the hash of the message. This is not available if the underlying payload
 	// hasn't be assigned.
 	Hash() common.Hash
 
@@ -72,9 +73,9 @@ type Msg interface {
 	Payload() []byte
 
 	// Signature returns the signature of this message
-	Signature() []byte
+	Signature() blst.Signature
 
-	// Validate execute the message's signature verification, assign the power and the sender.
+	// Validate execute the message's signature verification, cryptographically verifying the sender and assigning the power value.
 	Validate(func(address common.Address) *types.CommitteeMember) error
 }
 
@@ -82,7 +83,7 @@ type base struct {
 	// attributes are left private to avoid direct modification
 	round     int64
 	height    uint64
-	signature []byte
+	signature blst.Signature
 
 	payload        []byte
 	signatureInput []any
@@ -90,7 +91,7 @@ type base struct {
 	sender         common.Address
 	hash           common.Hash
 	verified       bool
-	sync.RWMutex   // To remove once we can merge the parallel signature verification work.
+	sync.RWMutex   //TODO(lorenzo) this might not be needed once we have the bls aggregator
 }
 
 type Propose struct {
@@ -108,7 +109,11 @@ type extPropose struct {
 	ValidRound      uint64
 	IsValidRoundNil bool
 	ProposalBlock   *types.Block
-	Signature       []byte
+	// since we do not have ecrecover with BLS signatures, we need to also send the sender in the message.
+	// It is sent not-signed to facilitate aggregation.
+	// If tampered with, the signature will fail anyways because we will fetch the wrong key.
+	Sender    common.Address
+	Signature *blst.BlsSignature
 }
 
 func (p *Propose) Code() uint8 {
@@ -164,9 +169,11 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 		ValidRound:      validRound,
 		IsValidRoundNil: isValidRoundNil,
 		ProposalBlock:   block,
-		Signature:       signature,
+		Sender:          validator,
+		Signature:       signature.(*blst.BlsSignature),
 	})
-	// we don't need to assign here the voting power neither the sender as they are going to be retrieved
+
+	// we don't need to assign here the voting power as it is going to be retrieved
 	// after a Validate() call during processing.
 	return &Propose{
 		block:      block,
@@ -198,6 +205,9 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	if ext.ProposalBlock == nil {
 		return constants.ErrInvalidMessage
 	}
+	if ext.Signature == nil {
+		return constants.ErrInvalidMessage
+	}
 	if ext.Round > constants.MaxRound || ext.ValidRound > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
@@ -218,13 +228,16 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 		}
 		p.validRound = int64(ext.ValidRound)
 	}
+
 	p.round = int64(ext.Round)
 	p.height = ext.Height
 	p.block = ext.ProposalBlock
+	p.sender = ext.Sender
 	p.signature = ext.Signature
 	p.signatureInput = []any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()}
 	p.payload = payload
 	p.hash = crypto.Hash(payload)
+
 	return nil
 }
 
@@ -240,7 +253,8 @@ type extLightProposal struct {
 	ValidRound      uint64
 	IsValidRoundNil bool
 	ProposalBlock   common.Hash
-	Signature       []byte
+	Sender          common.Address
+	Signature       blst.Signature
 }
 
 func (p *LightProposal) Code() uint8 {
@@ -258,7 +272,7 @@ func (p *LightProposal) Value() common.Hash {
 func (p *LightProposal) String() string {
 	p.RLock()
 	defer p.RUnlock()
-	return fmt.Sprintf("{sender: %v, power: %v, Code: %v, value: %v}", p.sender.String(), p.power, p.Code(), p.blockHash)
+	return fmt.Sprintf("{Round: %v, Height: %v, sender: %v, power: %v, Code: %v, value: %v}", p.R(), p.H(), p.sender.String(), p.power, p.Code(), p.blockHash)
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
@@ -280,6 +294,7 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 		ValidRound:      validRound,
 		IsValidRoundNil: isValidRoundNil,
 		ProposalBlock:   proposal.block.Hash(),
+		Sender:          proposal.sender,
 		Signature:       proposal.signature,
 	})
 	return &LightProposal{
@@ -314,6 +329,9 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	if ext.ProposalBlock == (common.Hash{}) {
 		return constants.ErrInvalidMessage
 	}
+	if ext.Signature == nil {
+		return constants.ErrInvalidMessage
+	}
 	if ext.Round > constants.MaxRound || ext.ValidRound > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
@@ -334,6 +352,7 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.round = int64(ext.Round)
 	p.height = ext.Height
 	p.blockHash = ext.ProposalBlock
+	p.sender = ext.Sender
 	p.signature = ext.Signature
 	p.signatureInput = []any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash}
 	p.payload = payload
@@ -350,7 +369,8 @@ type extVote struct {
 	Round     uint64
 	Height    uint64
 	Value     common.Hash
-	Signature []byte
+	Sender    common.Address
+	Signature *blst.BlsSignature
 }
 
 type Prevote struct {
@@ -423,7 +443,8 @@ func newVote[
 		Round:     uint64(r),
 		Height:    h,
 		Value:     value,
-		Signature: signature,
+		Sender:    validator,
+		Signature: signature.(*blst.BlsSignature),
 	})
 	vote := E{
 		value: value,
@@ -454,6 +475,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
+
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
 		return err
@@ -461,19 +483,20 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Code != PrevoteCode {
 		return constants.ErrFailedDecodePrevote
 	}
-	p.value = encoded.Value
-	p.height = encoded.Height
-	if p.height == 0 {
+	if encoded.Signature == nil {
 		return constants.ErrInvalidMessage
 	}
-	p.signature = encoded.Signature
+	if encoded.Height == 0 {
+		return constants.ErrInvalidMessage
+	}
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
+	p.height = encoded.Height
 	p.round = int64(encoded.Round)
-	if p.round < 0 {
-		return constants.ErrInvalidMessage
-	}
+	p.value = encoded.Value
+	p.sender = encoded.Sender
+	p.signature = encoded.Signature
 	p.signatureInput = []any{PrevoteCode, encoded.Round, encoded.Height, encoded.Value}
 	p.payload = payload
 	p.hash = crypto.Hash(payload)
@@ -492,25 +515,27 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Code != PrecommitCode {
 		return constants.ErrFailedDecodePrevote
 	}
-	p.value = encoded.Value
-	p.height = encoded.Height
-	if p.height == 0 {
+	if encoded.Signature == nil {
 		return constants.ErrInvalidMessage
 	}
-	p.signature = encoded.Signature
+	if encoded.Height == 0 {
+		return constants.ErrInvalidMessage
+	}
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
+	p.height = encoded.Height
 	p.round = int64(encoded.Round)
-	if p.round < 0 {
-		return constants.ErrInvalidMessage
-	}
+	p.value = encoded.Value
+	p.sender = encoded.Sender
+	p.signature = encoded.Signature
 	p.signatureInput = []any{PrecommitCode, encoded.Round, encoded.Height, encoded.Value}
 	p.payload = payload
 	p.hash = crypto.Hash(payload)
 	return nil
 }
 
+// sender is populated at decoding time, however we cannot rely on it until signature verification
 func (b *base) Sender() common.Address {
 	b.RLock()
 	defer b.RUnlock()
@@ -542,7 +567,7 @@ func (b *base) Power() *big.Int {
 	return b.power
 }
 
-func (b *base) Signature() []byte {
+func (b *base) Signature() blst.Signature {
 	return b.signature
 }
 
@@ -554,27 +579,31 @@ func (b *base) Hash() common.Hash {
 	return b.hash
 }
 
-// Validate verify the signature and set appropriate sender / power fields
+// Validate verify the signature and sets the power field
 func (b *base) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
 	b.Lock()
 	defer b.Unlock()
 	if b.verified {
 		return nil
 	}
+
+	// TODO(lorenzo) improvement: catch this even earlier in the flow
+	validator := inCommittee(b.sender)
+	if validator == nil {
+		return ErrUnauthorizedAddress
+	}
+
 	// We are not saving the rlp encoded signature input data as we want
 	// to avoid this extra-serialization step if the message has already been received
 	// The call to Validate() only happen after the cache check in the backend handler.
 	sigData, _ := rlp.EncodeToBytes(b.signatureInput)
 	hash := crypto.Hash(sigData)
-	addr, err := tendermint.SigToAddr(hash, b.signature)
-	if err != nil {
+
+	valid := b.signature.Verify(validator.ConsensusKey, hash[:])
+	if !valid {
 		return ErrBadSignature
 	}
-	validator := inCommittee(addr)
-	if validator == nil {
-		return ErrUnauthorizedAddress
-	}
-	b.sender = addr
+
 	b.power = validator.VotingPower
 	b.verified = true
 	return nil
@@ -596,7 +625,7 @@ type Fake struct {
 	FakePayload   []byte
 	FakeHash      common.Hash
 	FakeSender    common.Address
-	FakeSignature []byte
+	FakeSignature blst.Signature
 	FakePower     *big.Int
 }
 
@@ -609,7 +638,7 @@ func (f Fake) String() string                                                 { 
 func (f Fake) Hash() common.Hash                                              { return f.FakeHash }
 func (f Fake) Value() common.Hash                                             { return common.Hash{} }
 func (f Fake) Payload() []byte                                                { return f.FakePayload }
-func (f Fake) Signature() []byte                                              { return f.FakeSignature }
+func (f Fake) Signature() blst.Signature                                      { return f.FakeSignature }
 func (f Fake) Validate(_ func(_ common.Address) *types.CommitteeMember) error { return nil }
 
 func NewFakePrevote(f Fake) *Prevote {

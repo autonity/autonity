@@ -29,6 +29,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -68,6 +69,7 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 
 // Header represents a block header in the Autonity blockchain.
 type Header struct {
+	// NOTE: HeaderParentHashFromRLP relies on ParentHash being the first element of the struct. Do not move it.
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
@@ -96,18 +98,90 @@ type Header struct {
 	// Used to ensure the committeeMap is created only once.
 	once sync.Once
 
-	ProposerSeal   []byte   `json:"proposerSeal"        gencodec:"required"`
-	Round          uint64   `json:"round"               gencodec:"required"`
-	CommittedSeals [][]byte `json:"committedSeals"      gencodec:"required"`
+	ProposerSeal   []byte     `json:"proposerSeal"        gencodec:"required"`
+	Round          uint64     `json:"round"               gencodec:"required"`
+	CommittedSeals Signatures `json:"committedSeals"      gencodec:"required"`
 }
 
+type Signatures map[common.Address]blst.Signature
+
+// serialize the map as an bytes key1|value1|key2|value2|...
+func (s Signatures) Marshal() []byte {
+	size := common.AddressLength + blst.BLSSignatureLength
+	n := len(s)
+	b := make([]byte, 0, n*size)
+	for addr, sig := range s {
+		b = append(b, addr.Bytes()...)
+		b = append(b, sig.Marshal()...)
+	}
+	return b
+}
+
+// deserialize the map from bytes key1|value1|key2|value2|...
+func (s Signatures) Unmarshal(b []byte) error {
+	size := common.AddressLength + blst.BLSSignatureLength
+	if len(b)%size != 0 {
+		return fmt.Errorf("Invalid BLS signature map size")
+	}
+
+	n := len(b) / size
+	for i := 0; i < n; i++ {
+		keyvalue := b[i*size : (i+1)*size]
+		addr := common.BytesToAddress(keyvalue[:common.AddressLength])
+		signatureBytes := keyvalue[common.AddressLength:]
+		signature, err := blst.SignatureFromBytes(signatureBytes)
+		if err != nil {
+			return fmt.Errorf("error while decoding BLS signature in signatures map: %w", err)
+		}
+		s[addr] = signature
+	}
+	return nil
+}
+
+func (s Signatures) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, s.Marshal())
+}
+
+func (s Signatures) DecodeRLP(stream *rlp.Stream) error {
+	b, err := stream.Bytes()
+	if err != nil {
+		return fmt.Errorf("error while decoding BLS signature map: %w", err)
+	}
+
+	if err = s.Unmarshal(b); err != nil {
+		return fmt.Errorf("error while decoding BLS signature map: %w", err)
+	}
+	return nil
+}
+
+//go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
+
 type CommitteeMember struct {
-	Address      common.Address `json:"address"            gencodec:"required"       abi:"addr"`
-	VotingPower  *big.Int       `json:"votingPower"        gencodec:"required"`
-	ConsensusKey []byte         `json:"consensusKey"        gencodec:"required"`
+	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
+	VotingPower       *big.Int       `json:"votingPower"        gencodec:"required"`
+	ConsensusKeyBytes []byte         `json:"consensusKey"       gencodec:"required" 			abi:"consensusKey"`
+	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
+	ConsensusKey blst.PublicKey `json:"-" rlp:"-"`
+}
+
+type committeeMemberMarshaling struct {
+	Address           common.Address
+	VotingPower       *hexutil.Big
+	ConsensusKeyBytes hexutil.Bytes
 }
 
 type Committee []CommitteeMember
+
+func (c Committee) DeserializeConsensusKeys() error {
+	for i := range c {
+		consensusKey, err := blst.PublicKeyFromBytes(c[i].ConsensusKeyBytes)
+		if err != nil {
+			return fmt.Errorf("Error when decoding bls key with index %d, err: %w", i, err)
+		}
+		c[i].ConsensusKey = consensusKey
+	}
+	return nil
+}
 
 // originalHeader represents the ethereum blockchain header.
 type originalHeader struct {
@@ -138,13 +212,13 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee      Committee `json:"committee"           gencodec:"required"`
-	ProposerSeal   []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round          uint64    `json:"round"               gencodec:"required"`
-	CommittedSeals [][]byte  `json:"committedSeals"      gencodec:"required"`
+	Committee      Committee  `json:"committee"           gencodec:"required"`
+	ProposerSeal   []byte     `json:"proposerSeal"        gencodec:"required"`
+	Round          uint64     `json:"round"               gencodec:"required"`
+	CommittedSeals Signatures `json:"committedSeals"      gencodec:"required"`
 }
 
-// headerMarshaling is used by gencodec (which can be invoked bu running go
+// headerMarshaling is used by gencodec (which can be invoked by running go
 // generate in this package) and defines marshalling types for fields that
 // would not marshal correctly to hex of their own accord. When modifying the
 // structure of Header, this will likely need to be updated before running go
@@ -159,12 +233,10 @@ type headerMarshaling struct {
 	BaseFee    *hexutil.Big
 	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
 	/*
-		PoS header fields type overriedes
+		PoS header fields type overrides
 	*/
-	Committee      Committee
-	ProposerSeal   hexutil.Bytes
-	Round          hexutil.Uint64
-	CommittedSeals []hexutil.Bytes
+	ProposerSeal hexutil.Bytes
+	Round        hexutil.Uint64
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -223,8 +295,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 
-	hExtra := &headerExtra{}
 	if origin.MixDigest == BFTDigest {
+		hExtra := &headerExtra{}
+		// since map is not rlp serializable by default, rlp will not allocate memory for it. We have to do it manually.
+		hExtra.CommittedSeals = make(Signatures)
 		err := rlp.DecodeBytes(origin.Extra, hExtra)
 		if err != nil {
 			return err
@@ -233,6 +307,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Committee = hExtra.Committee
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
+
+		if err := h.Committee.DeserializeConsensusKeys(); err != nil {
+			return fmt.Errorf("Error while deserializing consensus keys: %w", err)
+		}
 	} else {
 		h.Extra = origin.Extra
 	}
@@ -403,7 +481,6 @@ func NewBlockWithHeader(header *Header) *Block {
 // CopyHeader creates a deep copy of a block header to prevent side effects from
 // modifying a header variable.
 func CopyHeader(h *Header) *Header {
-
 	difficulty := big.NewInt(0)
 	if h.Difficulty != nil {
 		difficulty.Set(h.Difficulty)
@@ -429,8 +506,10 @@ func CopyHeader(h *Header) *Header {
 	committee := make([]CommitteeMember, len(h.Committee))
 	for i, val := range h.Committee {
 		committee[i] = CommitteeMember{
-			Address:     val.Address,
-			VotingPower: new(big.Int).Set(val.VotingPower),
+			Address:           val.Address,
+			VotingPower:       new(big.Int).Set(val.VotingPower),
+			ConsensusKeyBytes: append(val.ConsensusKeyBytes[:0:0], val.ConsensusKeyBytes...),
+			ConsensusKey:      val.ConsensusKey.Copy(),
 		}
 	}
 
@@ -440,12 +519,10 @@ func CopyHeader(h *Header) *Header {
 		copy(proposerSeal, h.ProposerSeal)
 	}
 
-	committedSeals := make([][]byte, 0)
+	committedSeals := make(Signatures)
 	if len(h.CommittedSeals) > 0 {
-		committedSeals = make([][]byte, len(h.CommittedSeals))
-		for i, val := range h.CommittedSeals {
-			committedSeals[i] = make([]byte, len(val))
-			copy(committedSeals[i], val)
+		for addr, sig := range h.CommittedSeals {
+			committedSeals[addr] = sig.Copy()
 		}
 	}
 

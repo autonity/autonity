@@ -39,7 +39,7 @@ const (
 	HashLength = 32
 	// AddressLength is the expected length of the address
 	AddressLength = 20
-	//SealLeangth is the expected length of a signature
+	// SealLength is the expected length of the proposer seal (ECDSA signature)
 	SealLength = 65
 )
 

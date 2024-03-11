@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
 
@@ -241,17 +240,16 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
 
 	// 1. Get committed seals from current header
-	for _, signedSeal := range header.CommittedSeals {
-		// 2. Get the address from signature
-		addr, err := tendermint.SigToAddr(headerSeal, signedSeal)
-		if err != nil {
-			sb.logger.Error("not a valid address", "err", err)
-			return types.ErrInvalidSignature
-		}
-
+	for addr, signedSeal := range header.CommittedSeals {
 		member := parent.CommitteeMember(addr)
 		if member == nil {
 			sb.logger.Error(fmt.Sprintf("block had seal from non committee member %q", addr))
+			return types.ErrInvalidCommittedSeals
+		}
+
+		valid := signedSeal.Verify(member.ConsensusKey, headerSeal[:])
+		if !valid {
+			sb.logger.Error("block had invalid committed seal")
 			return types.ErrInvalidCommittedSeals
 		}
 
@@ -370,7 +368,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	block, err := sb.AddSeal(block)
 	if err != nil {
-		sb.logger.Error("seal error updateBlock", "err", err.Error())
+		sb.logger.Error("sealing error", "err", err.Error())
 		return err
 	}
 
@@ -428,7 +426,7 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
 	hashData := types.SigHash(header)
-	signature, err := crypto.Sign(hashData[:], sb.privateKey)
+	signature, err := crypto.Sign(hashData[:], sb.nodeKey)
 	if err != nil {
 		return nil, err
 	}

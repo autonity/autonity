@@ -389,9 +389,16 @@ func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *type
 }
 
 func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) ([]types.CommitteeMember, error) {
-	var committee []types.CommitteeMember
-	err := c.AutonityContractCall(state, header, "getCommittee", &committee)
-	return committee, err
+	var committee types.Committee
+	if err := c.AutonityContractCall(state, header, "getCommittee", &committee); err != nil {
+		return nil, err
+	}
+
+	if err := committee.DeserializeConsensusKeys(); err != nil {
+		panic("Committee member has invalid consensus key")
+	}
+
+	return committee, nil
 }
 
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
@@ -409,6 +416,11 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}); err != nil {
 		return false, nil, err
 	}
+
+	if err := committee.DeserializeConsensusKeys(); err != nil {
+		panic("Committee member has invalid consensus key")
+	}
+
 	return updateReady, committee, nil
 }
 
