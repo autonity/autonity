@@ -39,6 +39,7 @@ contract VestingManager {
 
     mapping(uint256 => mapping(address => uint256)) private liquidBalances;
     mapping(uint256 => mapping(address => uint256)) private lockedLiquidBalances;
+    mapping(uint256 => mapping(address => uint256)) private withdrawnLiquid;
     mapping(uint256 => mapping(address => uint256)) private realisedFees;
     mapping(uint256 => mapping(address => uint256)) private unrealisedFeeFactors;
 
@@ -90,31 +91,38 @@ contract VestingManager {
         addressScheduless.push(scheduleID);
     }
 
-    // retrieve list of current schedules assigned to a beneficiary
-    function getSchedules(address _beneficiary) virtual public returns (Schedule[] memory) {
-        uint256[] storage scheduleIDs = addressSchedules[_beneficiary];
-        Schedule[] memory res = new Schedule[](scheduleIDs.length);
-        for(uint256 i = 0; i < res.length; i++) {
-            res[i] = schedules[scheduleIDs[i]];
-        }
-        return res;
-    }
 
     // used by beneficiary to transfer unlocked ntn
     function releaseFunds(uint256 _id) virtual public {
-        // not only unlocked token but unlocked LNTN too !!!
-        // release unlocked LNTN -> unbond?
+        releaseNTN(_id);
+        releaseLNTN(_id);
     }
 
-    function releaseUnlockedFunds(uint256 _id) public {
+    function releaseLNTN(uint256 _id) virtual public {
+        uint256 scheduleID = _getScheduleID(msg.sender, _id);
+        address[] storage validators = bondedValidators[scheduleID];
+        for(uint256 i = 0; i < validators.length; i++) {
+            address validator = validators[i];
+            uint256 amount = _releasedLNTN(scheduleID, validator);
+            if(amount > 0) {
+                Liquid liquidContract = autonity.getValidator(validator).liquidContract;
+                bool success = liquidContract.transfer(msg.sender, amount);
+                require(success, "LNTN transfer failed");
+                _decreaseLiquid(scheduleID, validator, amount);
+                withdrawnLiquid[scheduleID][validator] += amount;
+            }
+        }
+    }
+
+    function releaseNTN(uint256 _id) virtual public {
         uint256 scheduleID = _getScheduleID(msg.sender, _id);
         Schedule storage schedule = schedules[scheduleID];
         require(schedule.cliff < block.number, "not reached cliff period yet");
-        uint256 amount =
-            schedule.totalAmount * (block.number-schedule.cliff) / (schedule.end-schedule.cliff) - schedule.withdrawnAmount;
+        uint256 amount = _releasedNTN(scheduleID);
         bool sent = autonity.transfer(msg.sender, amount);
         require(sent, "NTN not transfered");
         schedule.withdrawnAmount += amount;
+        schedule.totalAmount -= amount;
     }
 
     // force release of all funds and return them to the _recipient account
@@ -132,7 +140,7 @@ contract VestingManager {
         uint256 scheduleID = _getScheduleID(msg.sender, _id);
         Schedule storage schedule = schedules[scheduleID];
         require(schedule.stackable, "not stackable");
-        require(schedule.totalAmount - schedule.withdrawnAmount >= _amount, "not enough tokens");
+        require(schedule.totalAmount >= _amount, "not enough tokens");
 
         uint256 bondingID = autonity.getHeadBondingID();
         autonity.bond(_validator, _amount);
@@ -158,7 +166,7 @@ contract VestingManager {
         return addressSchedules[msg.sender].length;
     }
 
-    function claimAllRewards() external {
+    function claimAllRewards() virtual external {
         uint256[] storage scheduleIDs = addressSchedules[msg.sender];
         uint256 totalFees = 0;
         for(uint256 i = 0; i < scheduleIDs.length; i++) {
@@ -170,7 +178,7 @@ contract VestingManager {
         require(sent, "Failed to send AUT");
     }
 
-    function claimRewards(uint256 _id) external {
+    function claimRewards(uint256 _id) virtual external {
         uint256 totalFees = _computeRewards(_getScheduleID(msg.sender, _id));
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
@@ -217,6 +225,35 @@ contract VestingManager {
     function _getScheduleID(address _beneficiary, uint256 _id) private view returns (uint256) {
         require(addressSchedules[_beneficiary].length > _id, "invalid schedule id");
         return addressSchedules[_beneficiary][_id];
+    }
+
+    function _releasedNTN(uint256 _scheduleID) private view returns (uint256) {
+        Schedule storage item = schedules[_scheduleID];
+        if(item.end <= block.number) {
+            return item.totalAmount;
+        }
+        uint256 unlocked = (item.totalAmount+item.withdrawnAmount) * (block.number-item.cliff) / (item.end-item.cliff);
+        if(unlocked > item.withdrawnAmount) {
+            return unlocked - item.withdrawnAmount;
+        }
+        return 0;
+    }
+
+    function _releasedLNTN(uint256 _scheduleID, address _validator) private view returns (uint256) {
+        Schedule storage item = schedules[_scheduleID];
+        if(item.end <= block.number) {
+            return liquidBalances[_scheduleID][_validator] - lockedLiquidBalances[_scheduleID][_validator];
+        }
+        uint256 withdrawn = withdrawnLiquid[_scheduleID][_validator];
+        uint256 unlocked = (liquidBalances[_scheduleID][_validator]+withdrawn) * (block.number-item.cliff) / (item.end-item.cliff);
+        if(unlocked > withdrawn) {
+            uint256 available = liquidBalances[_scheduleID][_validator] - lockedLiquidBalances[_scheduleID][_validator];
+            if(available > unlocked - withdrawn) {
+                return unlocked - withdrawn;
+            }
+            return available;
+        }
+        return 0;
     }
 
     function _decreaseLiquid(uint256 _scheduleID, address _validator, uint256 _amount) private {
@@ -266,9 +303,9 @@ contract VestingManager {
         if(rewardsClaimedEpoch[_validator] == _epochID()) {
             return;
         }
-        Autonity.Validator memory validator = autonity.getValidator(_validator);
+        Liquid liquidContract = autonity.getValidator(_validator).liquidContract;
         uint256 reward = address(this).balance;
-        validator.liquidContract.claimRewards();
+        liquidContract.claimRewards();
         reward = address(this).balance - reward;
         if(reward > 0) {
             LiquidInfo storage liquidInfo = validatorLiquids[_validator];
@@ -315,7 +352,75 @@ contract VestingManager {
         return epochID;
     }
 
-    // add std modifiers here
+    /*
+    ============================================================
+        Getters
+    ============================================================
+    */
+
+    // retrieve list of current schedules assigned to a beneficiary
+    function getSchedules(address _beneficiary) virtual public view returns (Schedule[] memory) {
+        uint256[] storage scheduleIDs = addressSchedules[_beneficiary];
+        Schedule[] memory res = new Schedule[](scheduleIDs.length);
+        for(uint256 i = 0; i < res.length; i++) {
+            res[i] = schedules[scheduleIDs[i]];
+        }
+        return res;
+    }
+
+    function unclaimedRewards(address _account) virtual external view returns (uint256) {
+        uint256 totalFee = 0;
+        uint256 length = addressSchedules[_account].length;
+        for(uint256 i = 0; i < length; i++) {
+            totalFee += unclaimedRewards(_account, i);
+        }
+        return totalFee;
+    }
+
+    function unclaimedRewards(address _account, uint256 _id) virtual public view returns (uint256) {
+        uint256 scheduleID = _getScheduleID(_account, _id);
+        uint256 totalFee = 0;
+        address[] storage validators = bondedValidators[scheduleID];
+        for(uint256 i = 0; i < validators.length; i++) {
+            address validator = validators[i];
+            totalFee += realisedFees[scheduleID][validator] + _computeUnrealisedFees(scheduleID, validator);
+        }
+        return totalFee;
+    }
+
+    function liquidBalanceOf(address _account, uint256 _id, address _validator) virtual external view returns (uint256) {
+        uint256 scheduleID = _getScheduleID(_account, _id);
+        return liquidBalances[scheduleID][_validator];
+    }
+
+    function unlockedLiquidBalanceOf(address _account, uint256 _id, address _validator) virtual external view returns (uint256) {
+        uint256 scheduleID = _getScheduleID(_account, _id);
+        return liquidBalances[scheduleID][_validator] - lockedLiquidBalances[scheduleID][_validator];
+    }
+
+    function getBondedValidators(address _account, uint256 _id) external view returns (address[] memory) {
+        uint256 scheduleID = _getScheduleID(_account, _id);
+        return bondedValidators[scheduleID];
+    }
+
+    function releasedNTN(address _account, uint256 _id) virtual external view returns (uint256) {
+        uint256 scheduleID = _getScheduleID(_account, _id);
+        return _releasedNTN(scheduleID);
+    }
+
+    function releasedLNTN(address _account, uint256 _id, address _validator) virtual external view returns (uint256) {
+        uint256 scheduleID = _getScheduleID(_account, _id);
+        return _releasedLNTN(scheduleID, _validator);
+    }
+
+    /*
+    ============================================================
+
+        Modifiers
+
+    ============================================================
+    */
+
     /**
     * @dev Modifier that checks if the caller is the governance operator account.
     * This should be abstracted by a separate smart-contract.
