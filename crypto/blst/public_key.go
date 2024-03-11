@@ -3,9 +3,10 @@ package blst
 import (
 	"encoding/hex"
 	"fmt"
+	"reflect"
+
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 var maxKeys = 10000
@@ -30,7 +31,6 @@ func PublicKeyBytesFromString(pubKey string) ([]byte, error) {
 
 // PublicKeyFromBytes creates a BLS public key from a  BigEndian byte slice.
 func PublicKeyFromBytes(pubKey []byte) (PublicKey, error) {
-
 	if len(pubKey) != BLSPubkeyLength {
 		return nil, fmt.Errorf("public key must be %d bytes", BLSPubkeyLength)
 	}

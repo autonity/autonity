@@ -14,14 +14,12 @@ import (
 
 	"go.uber.org/mock/gomock"
 
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/p2p"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 )
 
 func TestUnhandledMsgs(t *testing.T) {
@@ -78,8 +76,6 @@ func TestUnhandledMsgs(t *testing.T) {
 	})
 
 	t.Run("core running, unhandled messages are processed", func(t *testing.T) {
-		blockchain, backend := newBlockChain(1)
-		engine := blockchain.Engine().(consensus.BFT)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		mockedPeer := consensus.NewMockPeer(ctrl)
@@ -87,20 +83,10 @@ func TestUnhandledMsgs(t *testing.T) {
 		addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
 		mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 		broadcaster.EXPECT().FindPeer(gomock.Any()).Return(mockedPeer, true).AnyTimes()
-		backend.SetBroadcaster(broadcaster)
 
-		dis := interfaces.NewMockEventDispatcher(ctrl)
-		i := 0
-		var received [ringCapacity]bool
-		dis.EXPECT().Post(gomock.Any()).Do(func(eve events.MessageEvent) {
-			message := eve.Message
-			if message.R() != 1 || message.H() != 2 {
-				t.Fatalf("message not expected")
-			}
-			i++
-			received[message.Value().Big().Uint64()] = true
-		}).AnyTimes()
-		backend.evDispatcher = dis
+		blockchain, backend := newBlockChain(1)
+		backend.SetBroadcaster(broadcaster)
+		engine := blockchain.Engine().(consensus.BFT)
 		// we close the engine for enabling cache storing
 		if err := engine.Close(); err != nil {
 			t.Fatalf("can't stop the engine")
@@ -108,22 +94,39 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			vote := message.NewPrevote(1, 2, common.BigToHash(big.NewInt(i)), dummySigner)
+			vote := message.NewPrevote(1, 1, common.BigToHash(big.NewInt(i)), backend.Sign, &blockchain.Genesis().Header().Committee[0], 1)
 			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())}
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
 		}
+		sub := backend.eventMux.Subscribe(events.MessageEvent{})
 		if err := backend.Start(context.Background()); err != nil {
 			t.Fatalf("could not restart core")
 		}
-
 		backend.HandleUnhandledMsgs(context.Background())
+		timer := time.NewTimer(10 * time.Second)
+		i := 0
+		var received [ringCapacity]bool
+		// events can come out of order so we track them using an array.
+	LOOP:
+		for {
+			select {
+			case eve := <-sub.Chan():
+				message := eve.Data.(events.MessageEvent).Message
+				if message.R() != 1 || message.H() != 1 {
+					t.Fatalf("message not expected")
+				}
+				i++
+				received[message.Value().Big().Uint64()] = true
 
-		time.Sleep(time.Second)
-		if i != ringCapacity {
-			t.Fatalf("could not receiving events")
+			case <-timer.C:
+				if i == ringCapacity {
+					break LOOP
+				}
+				t.Fatalf("timeout receiving events")
+			}
 		}
 
 		for _, msg := range received {

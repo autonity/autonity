@@ -1,94 +1,111 @@
 package message
 
 import (
-	"math/big"
 	"sync"
 
 	"github.com/autonity/autonity/common"
 )
 
-type isVote interface {
-	*Prevote | *Precommit
-	Msg
-}
-
-func NewSet[T isVote]() *Set[T] {
-	return &Set[T]{
-		votes:    make(map[common.Hash]map[common.Address]T),
-		messages: make(map[common.Address]T),
-	}
-}
-
-type Set[T isVote] struct {
+type Set struct {
 	// In some conditions we might receive prevotes or precommit before
 	// receiving a proposal, so we must save received message with different proposed block hash.
-	votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
-	messages map[common.Address]T
+	votes map[common.Hash][]Vote // map[proposedBlockHash][]vote
+
+	/* we use AggregatedPower because we cannot simply sum the voting power of the votes. This is because we might have:
+	* 1. duplicated votes between different overlapping aggregates for the same value
+	* 2. equivocated votes from the same validator across different values
+	 */
+	powers     map[common.Hash]*AggregatedPower // cumulative voting power for each value
+	totalPower *AggregatedPower                 // total voting power of votes
+
 	sync.RWMutex
 }
 
-func (s *Set[T]) Add(vote T) {
+func NewSet() *Set {
+	return &Set{
+		votes:      make(map[common.Hash][]Vote),
+		powers:     make(map[common.Hash]*AggregatedPower),
+		totalPower: NewAggregatedPower(),
+	}
+}
+
+func (s *Set) Add(vote Vote) {
 	s.Lock()
 	defer s.Unlock()
-	sender := vote.Sender()
+
 	value := vote.Value()
-	// Check first if we already received a message from this pal.
-	if _, ok := s.messages[sender]; ok {
-		// TODO : double signing fault ! Accountability
+	previousVotes, ok := s.votes[value]
+	if !ok {
+		s.votes[value] = make([]Vote, 1)
+		s.powers[value] = NewAggregatedPower()
+	}
+
+	// update total power and power for value
+	for index, power := range vote.Signers().Powers() {
+		s.totalPower.Set(index, power)
+		s.powers[value].Set(index, power)
+	}
+
+	// check if we are adding the first vote
+	if len(previousVotes) == 0 {
+		s.votes[value][0] = vote
 		return
 	}
 
-	if _, ok := s.votes[value]; !ok {
-		s.votes[value] = make(map[common.Address]T)
-	}
-	s.votes[value][sender] = vote
-	s.messages[sender] = vote
-}
-
-func (s *Set[T]) Messages() []Msg {
-	s.RLock()
-	defer s.RUnlock()
-	result := make([]Msg, len(s.messages))
-	k := 0
-	for _, v := range s.messages {
-		result[k] = v
-		k++
-	}
-	return result
-}
-
-func (s *Set[T]) PowerFor(h common.Hash) *big.Int {
-	s.RLock()
-	defer s.RUnlock()
-	if votes, ok := s.votes[h]; ok {
-		power := new(big.Int)
-		for _, v := range votes {
-			power.Add(power, v.Power())
+	// if not first vote, aggregate previous votes and new vote
+	switch vote.(type) {
+	case *Prevote:
+		aggregatedVotes := AggregatePrevotesSimple(append(previousVotes, vote))
+		s.votes[value] = make([]Vote, len(aggregatedVotes))
+		for i, aggregatedVote := range aggregatedVotes {
+			s.votes[value][i] = aggregatedVote
 		}
-		return power
+	case *Precommit:
+		aggregatedVotes := AggregatePrecommitsSimple(append(previousVotes, vote))
+		s.votes[value] = make([]Vote, len(aggregatedVotes))
+		for i, aggregatedVote := range aggregatedVotes {
+			s.votes[value][i] = aggregatedVote
+		}
+	default:
+		panic("Trying to add a vote that is not Prevote nor Precommit")
 	}
-	return new(big.Int)
 }
 
-func (s *Set[T]) TotalPower() *big.Int {
+func (s *Set) Messages() []Msg {
 	s.RLock()
 	defer s.RUnlock()
-	power := new(big.Int)
-	for _, msg := range s.messages {
-		power.Add(power, msg.Power())
-	}
-	return power
-}
 
-func (s *Set[T]) VotesFor(blockHash common.Hash) []T {
-	s.RLock()
-	defer s.RUnlock()
-	if _, ok := s.votes[blockHash]; !ok {
-		return nil
-	}
-	messages := make([]T, 0, len(s.votes[blockHash]))
-	for _, v := range s.votes[blockHash] {
-		messages = append(messages, v)
+	messages := make([]Msg, 0)
+	for _, votes := range s.votes {
+		for _, vote := range votes {
+			messages = append(messages, vote.(Msg))
+		}
 	}
 	return messages
+}
+
+func (s *Set) PowerFor(h common.Hash) *AggregatedPower {
+	s.RLock()
+	defer s.RUnlock()
+
+	_, ok := s.powers[h]
+	if ok {
+		return s.powers[h].Copy() // return copy to avoid data race
+	}
+	return NewAggregatedPower()
+}
+
+func (s *Set) TotalPower() *AggregatedPower {
+	s.RLock()
+	defer s.RUnlock()
+
+	// NOTE: in case of equivocated messages, we count power only once
+	return s.totalPower.Copy() // return copy to avoid data race
+}
+
+func (s *Set) VotesFor(blockHash common.Hash) []Vote {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.votes[blockHash]
 }

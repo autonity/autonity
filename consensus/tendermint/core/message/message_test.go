@@ -5,89 +5,122 @@ import (
 	"errors"
 	"math/big"
 	"reflect"
+
+	"crypto/rand"
+	"fmt"
 	"testing"
 
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-
-	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 )
 
-var (
-	key, _  = crypto.GenerateKey()
-	address = crypto.PubkeyToAddress(key.PublicKey)
-	signer  = func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], key)
-		return out, address
+// locally created messages are considered as verified, we decode it to simulate a msgs arriving from the wire
+func newUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Prevote { //nolint
+	prevote := NewPrevote(r, h, value, signer, self, csize)
+	unverifiedPrevote := &Prevote{}
+	reader := bytes.NewReader(prevote.Payload())
+	if err := rlp.Decode(reader, unverifiedPrevote); err != nil {
+		panic("cannot decode prevote: " + err.Error())
 	}
-)
+	return unverifiedPrevote
+}
+
+func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Precommit {
+	precommit := NewPrecommit(r, h, value, signer, self, csize)
+	unverifiedPrecommit := &Precommit{}
+	reader := bytes.NewReader(precommit.Payload())
+	if err := rlp.Decode(reader, unverifiedPrecommit); err != nil {
+		panic("cannot decode precommit: " + err.Error())
+	}
+	return unverifiedPrecommit
+}
+
+func newUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, self *types.CommitteeMember) *Propose {
+	propose := NewPropose(r, h, vr, block, signer, self)
+	unverifiedPropose := &Propose{}
+	reader := bytes.NewReader(propose.Payload())
+	if err := rlp.Decode(reader, unverifiedPropose); err != nil {
+		panic("cannot decode propose: " + err.Error())
+	}
+	return unverifiedPropose
+}
+
+func newUnverifiedLightPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, self *types.CommitteeMember) *LightProposal {
+	propose := NewPropose(r, h, vr, block, signer, self).ToLight()
+	unverifiedPropose := &LightProposal{}
+	reader := bytes.NewReader(propose.Payload())
+	if err := rlp.Decode(reader, unverifiedPropose); err != nil {
+		panic("cannot decode light proposal: " + err.Error())
+	}
+	return unverifiedPropose
+}
+
+func makeSigner(key blst.SecretKey) func(common.Hash) blst.Signature {
+	return func(h common.Hash) blst.Signature {
+		return key.Sign(h[:])
+	}
+}
 
 func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
-		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner)
+		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1)
 		decoded := &Prevote{}
 		reader := bytes.NewReader(vote.Payload())
 		if err := rlp.Decode(reader, decoded); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
-		if decoded.Value() != vote.Value() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
-		}
-		if decoded.H() != vote.H() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
-		}
-		if decoded.R() != vote.R() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
-		}
+		require.Equal(t, vote.Code(), decoded.Code())
+		require.Equal(t, vote.R(), decoded.R())
+		require.Equal(t, vote.H(), decoded.H())
+		require.Equal(t, vote.Value(), decoded.Value())
+		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
+		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
+		require.Equal(t, vote.Signature(), decoded.Signature())
 	})
 	t.Run("precommit", func(t *testing.T) {
-		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), defaultSigner)
+		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1)
 		decoded := &Precommit{}
 		reader := bytes.NewReader(vote.Payload())
 		if err := rlp.Decode(reader, decoded); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
-		if decoded.Value() != vote.Value() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
-		}
-		if decoded.H() != vote.H() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
-		}
-		if decoded.R() != vote.R() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, vote)
-		}
+		require.Equal(t, vote.Code(), decoded.Code())
+		require.Equal(t, vote.R(), decoded.R())
+		require.Equal(t, vote.H(), decoded.H())
+		require.Equal(t, vote.Value(), decoded.Value())
+		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
+		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
+		require.Equal(t, vote.Signature(), decoded.Signature())
 	})
 	t.Run("propose", func(t *testing.T) {
 		header := &types.Header{Number: common.Big2}
 		block := types.NewBlockWithHeader(header)
-		proposal := NewPropose(1, 2, -1, block, defaultSigner)
+		proposal := NewPropose(1, 2, -1, block, defaultSigner, testCommitteeMember)
 		decoded := &Propose{}
 		reader := bytes.NewReader(proposal.Payload())
 		if err := rlp.Decode(reader, decoded); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
-		if decoded.Value() != proposal.Value() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
-		}
-		if decoded.H() != proposal.H() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
-		}
-		if decoded.R() != proposal.R() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
-		}
-		if decoded.ValidRound() != proposal.ValidRound() {
-			t.Errorf("values are not the same: have %v, want %v", decoded, proposal)
-		}
+		require.Equal(t, proposal.Code(), decoded.Code())
+		require.Equal(t, proposal.R(), decoded.R())
+		require.Equal(t, proposal.H(), decoded.H())
+		require.Equal(t, proposal.Value(), decoded.Value())
+		require.Equal(t, proposal.ValidRound(), decoded.ValidRound())
+		require.Equal(t, proposal.Signer(), decoded.Signer())
+		require.Equal(t, proposal.Signature(), decoded.Signature())
 	})
 	t.Run("invalid propose with vr > r", func(t *testing.T) {
 		header := &types.Header{Number: common.Big2}
 		block := types.NewBlockWithHeader(header)
-		proposal := NewPropose(1, 2, 57, block, defaultSigner)
+		proposal := NewPropose(1, 2, 57, block, defaultSigner, testCommitteeMember)
 		decoded := &Propose{}
 		reader := bytes.NewReader(proposal.Payload())
 		err := rlp.Decode(reader, decoded)
@@ -98,7 +131,7 @@ func TestMessageDecode(t *testing.T) {
 	t.Run("invalid propose with proposal height != block number", func(t *testing.T) {
 		header := &types.Header{Number: common.Big2}
 		block := types.NewBlockWithHeader(header)
-		proposal := NewPropose(1, 4, 57, block, defaultSigner)
+		proposal := NewPropose(1, 4, 57, block, defaultSigner, testCommitteeMember)
 		decoded := &Propose{}
 		reader := bytes.NewReader(proposal.Payload())
 		err := rlp.Decode(reader, decoded)
@@ -110,74 +143,104 @@ func TestMessageDecode(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	t.Run("invalid signature, error returned", func(t *testing.T) {
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
-		msg := newVote[Prevote](1, 25, lastHeader.Hash(), func(hash common.Hash) (signature []byte, address common.Address) {
-			out, addr := defaultSigner(hash)
-			out = append(out, 1)
-			return out, addr
-		})
-		err := msg.Validate(func(_ common.Address) *types.CommitteeMember {
-			return nil
-		})
+		header := &types.Header{Number: new(big.Int).SetUint64(25)}
+		msg := newUnverifiedPrevote(1, 25, header.Hash(), func(hash common.Hash) blst.Signature {
+			// tamper the hash to make signature invalid
+			hash[0] = 0xca
+			hash[1] = 0xfe
+			return defaultSigner(hash)
+		}, testCommitteeMember, 1)
+		err := msg.PreValidate(testHeader)
+		require.NoError(t, err)
+		err = msg.Validate()
 		require.ErrorIs(t, err, ErrBadSignature)
-	})
-
-	t.Run("not a committee member, error returned", func(t *testing.T) {
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{
-			{
-				Address:     address,
-				VotingPower: big.NewInt(2),
-			},
-		}}
-		messages := []Msg{
-			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
-			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
-			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
-		}
-
-		validateFn := func(address common.Address) *types.CommitteeMember { //nolint
-			return nil
-		}
-
-		for i := range messages {
-			err := messages[i].Validate(validateFn)
-			require.ErrorIs(t, err, ErrUnauthorizedAddress)
-		}
-	})
-
-	t.Run("valid params given, valid validator returned", func(t *testing.T) {
-		validator := &types.CommitteeMember{
-			Address:     address,
-			VotingPower: big.NewInt(2),
-		}
-		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
-		messages := []Msg{
-			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
-			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
-			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
-		}
-
-		validateFn := func(address common.Address) *types.CommitteeMember { //nolint
-			return validator
-		}
-
-		for i := range messages {
-			err := messages[i].Validate(validateFn)
-			require.NoError(t, err)
-		}
 	})
 }
 
+func TestPreValidate(t *testing.T) {
+	t.Run("proposals from not a committee member, error returned", func(t *testing.T) {
+		blsKey, err := blst.RandKey()
+		require.NoError(t, err)
+		ecdsaKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		otherCommitteeMember := types.CommitteeMember{
+			Address:           crypto.PubkeyToAddress(ecdsaKey.PublicKey),
+			VotingPower:       common.Big1,
+			ConsensusKeyBytes: blsKey.PublicKey().Marshal(),
+			ConsensusKey:      blsKey.PublicKey(),
+			Index:             1,
+		}
+		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: types.Committee{otherCommitteeMember}}
+		messages := []Msg{
+			newUnverifiedPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
+			newUnverifiedLightPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
+		}
+
+		for _, message := range messages {
+			err := message.PreValidate(header)
+			require.ErrorIs(t, err, ErrUnauthorizedAddress)
+		}
+	})
+	t.Run("proposals from a committee member, no error", func(t *testing.T) {
+		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*testCommitteeMember}}
+		messages := []Msg{
+			newUnverifiedPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
+			newUnverifiedLightPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
+		}
+
+		for _, message := range messages {
+			err := message.PreValidate(header)
+			require.NoError(t, err)
+		}
+	})
+	t.Run("votes with correct signers information, no error", func(t *testing.T) {
+		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*testCommitteeMember}}
+		messages := []Msg{
+			newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
+			newUnverifiedPrecommit(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
+		}
+
+		for _, message := range messages {
+			err := message.PreValidate(header)
+			require.NoError(t, err)
+		}
+	})
+	t.Run("votes with incorrect signers information, error is returned", func(t *testing.T) {
+		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*testCommitteeMember}}
+		messages := []Vote{
+			newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
+			newUnverifiedPrecommit(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
+		}
+
+		// tamper with signers information
+		messages[0].Signers().Bits = make([]byte, 100)
+		messages[1].Signers().Bits = make([]byte, 0)
+
+		for _, message := range messages {
+			err := message.PreValidate(header)
+			require.Error(t, err)
+		}
+	})
+	t.Run("votes is complex aggregate but does not carry quorum, error is returned", func(t *testing.T) {
+		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember}}
+		vote := newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 5)
+
+		// let's make this vote complex by tweaking the signers (NOTE: this will not pass validate since the signature doesn't actually match the signers)
+		vote.Signers().Bits.Set(0, 2)
+		vote.Signers().Bits.Set(1, 1)
+
+		err := vote.PreValidate(header)
+		require.True(t, errors.Is(err, ErrInvalidComplexAggregate))
+	})
+
+}
+
 func TestMessageEncodeDecode(t *testing.T) {
-	validator := &types.CommitteeMember{
-		Address:     address,
-		VotingPower: big.NewInt(2),
-	}
-	lastHeader := &types.Header{Number: new(big.Int).SetUint64(2), Committee: []types.CommitteeMember{*validator}}
+	header := &types.Header{Number: new(big.Int).SetUint64(2), Committee: []types.CommitteeMember{*testCommitteeMember}}
 	messages := []Msg{
-		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), signer).MustVerify(stubVerifier),
-		NewPrevote(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),
-		NewPrecommit(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),
+		NewPropose(1, 2, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
+		NewPrevote(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1),
+		NewPrecommit(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1),
 	}
 	for i := range messages {
 		buff := new(bytes.Buffer)
@@ -186,10 +249,16 @@ func TestMessageEncodeDecode(t *testing.T) {
 		decoded := reflect.New(reflect.TypeOf(messages[i]).Elem()).Interface().(Msg)
 		err = rlp.Decode(buff, decoded)
 		require.NoError(t, err)
-		decoded.Validate(stubVerifier)
+		err = decoded.PreValidate(header)
+		require.NoError(t, err)
+		err = decoded.Validate()
+		require.NoError(t, err)
 		if decoded.Value() != messages[i].Value() ||
 			decoded.R() != messages[i].R() ||
 			decoded.H() != messages[i].H() ||
+			decoded.Code() != messages[i].Code() ||
+			decoded.Value() != messages[i].Value() ||
+			!deep.Equal(decoded.SignerKey().Marshal(), messages[i].SignerKey().Marshal()) ||
 			decoded.Hash() != messages[i].Hash() ||
 			!deep.Equal(decoded.Payload(), messages[i].Payload()) {
 			t.Error("does not match", i)
@@ -197,12 +266,340 @@ func TestMessageEncodeDecode(t *testing.T) {
 	}
 }
 
+// verify that aggregating same votes in different orders doesn't change the hash
+func TestMessageHash(t *testing.T) {
+	h := uint64(1)
+	r := int64(0)
+	v := common.HexToHash("0a5843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
+	vr := int64(-1)
+	csize := len(testCommittee)
+	err := testCommittee.Enrich()
+	require.NoError(t, err)
+	header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: testCommittee}
+	block := types.NewBlockWithHeader(header)
+
+	t.Run("Aggregating same votes in different orders yields same hash", func(t *testing.T) {
+		key1, err := blst.RandKey()
+		require.NoError(t, err)
+		key2, err := blst.RandKey()
+		require.NoError(t, err)
+		key3, err := blst.RandKey()
+		require.NoError(t, err)
+
+		vote1 := NewPrevote(r, h, v, makeSigner(key1), &testCommittee[0], csize)
+		vote2 := NewPrevote(r, h, v, makeSigner(key2), &testCommittee[1], csize)
+		vote3 := NewPrevote(r, h, v, makeSigner(key3), &testCommittee[2], csize)
+
+		aggregates1 := AggregatePrevotesSimple([]Vote{vote1, vote2, vote3})
+		aggregates2 := AggregatePrevotesSimple([]Vote{vote2, vote1, vote3})
+		aggregates3 := AggregatePrevotesSimple([]Vote{vote3, vote1, vote2})
+
+		require.Equal(t, 1, len(aggregates1))
+		require.Equal(t, 1, len(aggregates2))
+		require.Equal(t, 1, len(aggregates3))
+
+		hash := aggregates1[0].Hash()
+		require.Equal(t, hash, aggregates2[0].Hash())
+		require.Equal(t, hash, aggregates3[0].Hash())
+	})
+	t.Run("Change in the signature causes change in hash", func(t *testing.T) {
+		key1, err := blst.RandKey()
+		require.NoError(t, err)
+		proposal := NewPropose(r, h, vr, block, defaultSigner, &testCommittee[0])
+		proposal2 := NewPropose(r, h, vr, block, makeSigner(key1), &testCommittee[0])
+
+		require.NotEqual(t, proposal.Hash(), proposal2.Hash())
+
+		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 := NewPrecommit(r, h, v, makeSigner(key1), &testCommittee[0], csize)
+
+		require.NotEqual(t, vote.Hash(), vote2.Hash())
+	})
+	t.Run("Change in the signers Bits and Coefficients should cause change in hash", func(t *testing.T) {
+		// change signer
+		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee[1], csize)
+		require.NotEqual(t, vote.Hash(), vote2.Hash())
+
+		// change committee size
+		vote = NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 = NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize+10)
+		require.NotEqual(t, vote.Hash(), vote2.Hash())
+	})
+	t.Run("Change in the signers auxiliary data structures should NOT cause change in hash", func(t *testing.T) {
+		// change signer
+		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+
+		// tamper with internal signers data structures of vote2 and recompute hash
+		signers := types.NewSigners(csize)
+		signers.Increment(&testCommittee[0])
+		tamperedPower := make(map[int]*big.Int)
+		tamperedPower[123] = big.NewInt(1234)
+		signers.AssignPower(tamperedPower, big.NewInt(223423))
+
+		payload, _ := rlp.EncodeToBytes(extVote{
+			Code:      PrecommitCode,
+			Round:     uint64(r),
+			Height:    h,
+			Value:     v,
+			Signers:   signers,
+			Signature: vote2.Signature().(*blst.BlsSignature),
+		})
+		vote2.hash = crypto.Hash(payload)
+
+		require.Equal(t, vote.Hash(), vote2.Hash())
+	})
+}
+
 func FuzzFromPayload(f *testing.F) {
-	msg := NewPrevote(1, 2, common.Hash{}, signer).MustVerify(stubVerifier)
+	msg := NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1)
 	f.Add(msg.Payload())
 	f.Fuzz(func(t *testing.T, seed []byte) {
 		var p Prevote
 		rlp.Decode(bytes.NewReader(seed), &p)
 	})
+}
 
+func TestAggregateVotes(t *testing.T) {
+	// Rules:
+	// 1. votes are ordered by decreasing number of distinct signers
+	// 2. a vote is aggregated to the previous ones only if it adds information (i.e. adds a new signer) and the resulting aggregate respects the boundary (max coefficient = committee size)
+	h := uint64(1)
+	r := int64(0)
+	v := common.HexToHash("0a5843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
+	csize := len(testCommittee)
+	err := testCommittee.Enrich()
+	require.NoError(t, err)
+
+	var votes []Vote
+
+	//NOTE: we can use whatever signer, the aggregation functions do not verify the signature
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize))
+	aggregate := AggregatePrevotes(votes)
+	t.Log(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
+	require.NoError(t, aggregate.Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize))
+	aggregate = AggregatePrevotes(votes)
+	t.Log(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
+	require.NoError(t, aggregate.Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[1], csize))
+	aggregate = AggregatePrevotes(votes)
+	t.Log(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010000")
+	require.NoError(t, aggregate.Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize))
+	aggregate = AggregatePrevotes(votes)
+	t.Log(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010100")
+	require.NoError(t, aggregate.Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[3], csize))
+	aggregate = AggregatePrevotes(votes)
+	t.Log(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010101")
+	require.NoError(t, aggregate.Signers().Validate(csize))
+
+	aggregate2 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize)})
+	aggregate3 := AggregatePrevotes([]Vote{aggregate, aggregate2})
+	t.Log(aggregate3.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate3.Signers().Bits[0]), "01010101")
+	require.NoError(t, aggregate3.Signers().Validate(csize))
+
+	aggregate4 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[1], csize)})
+	aggregate5 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize)})
+	aggregate6 := AggregatePrevotes([]Vote{aggregate4, aggregate5})
+	t.Log(aggregate6.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate6.Signers().Bits[0]), "10010100")
+	require.NoError(t, aggregate6.Signers().Validate(csize))
+
+	aggregate7 := AggregatePrevotes([]Vote{aggregate6, aggregate3})
+	t.Log(aggregate7.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Signers().Bits[0]), "01010101")
+	require.NoError(t, aggregate7.Signers().Validate(csize))
+
+	// TODO(lorenzo) add test to verify that we never exceed committeeSize boundary, even when merging two complex aggregates
+}
+
+func TestAggregateVotesSimple(t *testing.T) {
+	// Rules:
+	// 1. votes are ordered by decreasing number of distinct signers
+	// 2. a vote is aggregated to the previous ones only if it adds information (i.e. adds a new signer)
+	// 3. a vote is aggregated to the previous one only if it does not produce a complex signature
+	h := uint64(1)
+	r := int64(0)
+	v := common.HexToHash("0a5843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
+	csize := len(testCommittee)
+	err := testCommittee.Enrich()
+	require.NoError(t, err)
+
+	var votes []Vote
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize))
+	aggregates := AggregatePrevotesSimple(votes)
+	for _, aggregate := range aggregates {
+		t.Log(aggregate.Signers().String())
+	}
+	require.Equal(t, 1, len(aggregates))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01000000")
+	require.NoError(t, aggregates[0].Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize))
+	aggregates = AggregatePrevotesSimple(votes)
+	for _, aggregate := range aggregates {
+		t.Log(aggregate.Signers().String())
+	}
+	require.Equal(t, 1, len(aggregates))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01000000")
+	require.NoError(t, aggregates[0].Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[1], csize))
+	aggregates = AggregatePrevotesSimple(votes)
+	for _, aggregate := range aggregates {
+		t.Log(aggregate.Signers().String())
+	}
+	require.Equal(t, 1, len(aggregates))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01010000")
+	require.NoError(t, aggregates[0].Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize))
+	aggregates = AggregatePrevotesSimple(votes)
+	for _, aggregate := range aggregates {
+		t.Log(aggregate.Signers().String())
+	}
+	require.Equal(t, 1, len(aggregates))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01010100")
+	require.NoError(t, aggregates[0].Signers().Validate(csize))
+
+	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee[3], csize))
+	aggregates = AggregatePrevotesSimple(votes)
+	for _, aggregate := range aggregates {
+		t.Log(aggregate.Signers().String())
+	}
+	require.Equal(t, 1, len(aggregates))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01010101")
+	require.NoError(t, aggregates[0].Signers().Validate(csize))
+
+	// aggregate overlaps, should not get merged
+
+	aggregates2 := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[1], csize)})
+	aggregates3 := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize)})
+	aggregates4 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0]})
+	for _, aggregate := range aggregates4 {
+		t.Log(aggregate.Signers().String())
+	}
+	require.Equal(t, 2, len(aggregates4))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates4[0].Signers().Bits[0]), "01010000")
+	require.Equal(t, fmt.Sprintf("%08b", aggregates4[1].Signers().Bits[0]), "01000100")
+	require.NoError(t, aggregates4[0].Signers().Validate(csize))
+	require.NoError(t, aggregates4[1].Signers().Validate(csize))
+
+	vote := NewPrevote(r, h, v, defaultSigner, &testCommittee[3], csize)
+	aggregates5 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0], vote})
+	for _, aggregate := range aggregates5 {
+		t.Log(aggregate.Signers().String())
+	}
+	require.Equal(t, 2, len(aggregates5))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates5[0].Signers().Bits[0]), "01010001")
+	require.Equal(t, fmt.Sprintf("%08b", aggregates5[1].Signers().Bits[0]), "01000100")
+	require.NoError(t, aggregates5[0].Signers().Validate(csize))
+	require.NoError(t, aggregates5[1].Signers().Validate(csize))
+
+	//TODO(Lorenzo) absolutely needs more test cases here
+	// - add test where we feed a complex aggregate + other messages to aggregatesimple
+	// - ??
+}
+
+//TODO(lorenzo) add tests for message.Power()
+
+/* TODO: to fix in FD PR
+func TestOverQuorumVotes(t *testing.T) {
+  t.Run("with duplicated votes, it returns none duplicated votes of just quorum ones", func(t *testing.T) {
+    seats := 10
+    committee, _ := GenerateCommittee(seats)
+    quorum := bft.Quorum(big.NewInt(int64(seats)))
+    height := uint64(1)
+    round := uint64(0)
+    notNilValue := common.Hash{0x1}
+    var preVotes []message.Msg
+    for i := 0; i < len(committee); i++ {
+      preVote := message.NewFakePrevote(message.Fake{
+        FakeSender: committee[i].Address,
+        FakeRound:  round,
+        FakeHeight: height,
+        FakeValue:  notNilValue,
+        FakePower:  common.Big1,
+      })
+      preVotes = append(preVotes, preVote)
+    }
+
+    // let duplicated msg happens, the counting should skip duplicated ones.
+    preVotes = append(preVotes, preVotes...)
+
+    overQuorumVotes := OverQuorumVotes(preVotes, quorum)
+    require.Equal(t, quorum.Uint64(), uint64(len(overQuorumVotes)))
+  })
+
+  t.Run("with less quorum votes, it returns no votes", func(t *testing.T) {
+    seats := 10
+    committee, _ := GenerateCommittee(seats)
+    quorum := bft.Quorum(new(big.Int).SetInt64(int64(seats)))
+    height := uint64(1)
+    round := uint64(0)
+    noneNilValue := common.Hash{0x1}
+    var preVotes []message.Msg
+    for i := 0; i < int(quorum.Uint64()-1); i++ {
+      preVote := message.NewFakePrevote(message.Fake{
+        FakeRound:  round,
+        FakeHeight: height,
+        FakeValue:  noneNilValue,
+        FakeSender: committee[i].Address,
+        FakePower:  common.Big1,
+      })
+      preVotes = append(preVotes, preVote)
+    }
+
+    // let duplicated msg happens, the counting should skip duplicated ones.
+    preVotes = append(preVotes, preVotes...)
+
+    overQuorumVotes := OverQuorumVotes(preVotes, quorum)
+    require.Nil(t, overQuorumVotes)
+  })
+}
+*/
+
+func BenchmarkDecodeVote(b *testing.B) {
+	// setup vote
+	hashBytes := make([]byte, 32)
+	_, err := rand.Read(hashBytes)
+	if err != nil {
+		b.Fatal("failed to generate random bytes: ", err)
+	}
+	hash := common.BytesToHash(hashBytes)
+	prevote := NewPrevote(int64(15), uint64(123345), hash, defaultSigner, testCommitteeMember, 1)
+
+	// create p2p prevote
+	payload := prevote.Payload()
+	r := bytes.NewReader(payload)
+	size := len(payload)
+	p2pPrevote := p2p.Msg{Code: 0x12, Size: uint32(size), Payload: r}
+
+	// start the actual benchmarking
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		prevoteDec := new(Prevote)
+		if err := p2pPrevote.Decode(prevoteDec); err != nil {
+			b.Fatal("failed prevote decoding: ", err)
+		}
+		// without this re-initialization the payload gets discarded after the first iteration, making the decoding fail
+		b.StopTimer()
+		p2pPrevote.Payload = bytes.NewReader(payload)
+		b.StartTimer()
+	}
 }

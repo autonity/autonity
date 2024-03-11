@@ -5,7 +5,6 @@
 //
 //	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 //
-
 // Package consensus is a generated GoMock package.
 package consensus
 
@@ -15,7 +14,7 @@ import (
 	reflect "reflect"
 
 	common "github.com/autonity/autonity/common"
-	FixedCache "github.com/autonity/autonity/common/fixsizecache"
+	fixsizecache "github.com/autonity/autonity/common/fixsizecache"
 	state "github.com/autonity/autonity/core/state"
 	types "github.com/autonity/autonity/core/types"
 	p2p "github.com/autonity/autonity/p2p"
@@ -538,21 +537,6 @@ func (m *MockHandler) NewChainHead() error {
 func (mr *MockHandlerMockRecorder) NewChainHead() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainHead", reflect.TypeOf((*MockHandler)(nil).NewChainHead))
-}
-
-// Protocol mocks base method.
-func (m *MockHandler) Protocol() (string, uint64) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Protocol")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(uint64)
-	return ret0, ret1
-}
-
-// Protocol indicates an expected call of Protocol.
-func (mr *MockHandlerMockRecorder) Protocol() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Protocol", reflect.TypeOf((*MockHandler)(nil).Protocol))
 }
 
 // SetBroadcaster mocks base method.
@@ -1169,10 +1153,10 @@ func (m *MockPeer) EXPECT() *MockPeerMockRecorder {
 }
 
 // Cache mocks base method.
-func (m *MockPeer) Cache() *FixedCache.Cache[common.Hash, bool] {
+func (m *MockPeer) Cache() *fixsizecache.Cache[common.Hash, bool] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Cache")
-	ret0, _ := ret[0].(*FixedCache.Cache[common.Hash, bool])
+	ret0, _ := ret[0].(*fixsizecache.Cache[common.Hash, bool])
 	return ret0
 }
 

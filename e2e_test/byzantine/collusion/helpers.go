@@ -1,6 +1,10 @@
 package collusion
 
 import (
+	"math/big"
+	"math/rand"
+	"sync"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
@@ -11,9 +15,6 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"math/big"
-	"math/rand"
-	"sync"
 )
 
 /**
@@ -132,7 +133,11 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 	}
 
 	// send prevote for the planned invalid proposal.
-	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign)
+	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
+	if header == nil {
+		panic("cannot fetch header")
+	}
+	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
 	c.SetSentPrevote(true)
 	c.BroadcastAll(vote)
 }
@@ -157,7 +162,11 @@ func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
 	}
 
 	// send invalid proposal with the planed data.
-	p := message.NewPropose(r, h, vr, v, c.Backend().Sign)
+	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
+	if header == nil {
+		panic("cannot fetch header")
+	}
+	p := message.NewPropose(r, h, vr, v, c.Backend().Sign, header.CommitteeMember(c.Address()))
 	c.BroadcastAll(p)
 }
 

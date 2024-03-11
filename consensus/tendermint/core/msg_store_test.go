@@ -1,79 +1,114 @@
 package core
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 )
+
+//TODO(lorenzo) need to add tests on the prevotes power caching
+// + tests on the searchQuorum function
 
 func TestMsgStore(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
 
-	committee, keys := GenerateCommittee(5)
-	proposer := committee[0].Address
-	proposerKey := keys[proposer]
+	cSize := 5
+	proposerIdx := 0
+	committee, keys := GenerateCommittee(cSize)
+	proposer := committee[proposerIdx].Address
+	proposerKey := keys[proposer].consensus
 
-	addrAlice := committee[0].Address
-	addrBob := committee[1].Address
-	keyBob := keys[addrBob]
+	indexBob := 1
+	addrBob := committee[indexBob].Address
+	keyBob := keys[addrBob].consensus
 	notNilValue := common.Hash{0x1}
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := NewMsgStore()
-		proposals := ms.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.ProposalCode
+		proposals := ms.GetProposals(height, func(_ *message.Propose) bool {
+			return true
 		})
 		assert.Equal(t, 0, len(proposals))
 	})
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
 		ms.Save(preVoteNoneNil)
 		// check equivocated msg is also stored at msg store.
-		votes := ms.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Sender() == addrAlice
+		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == round && m.Signers().Contains(proposerIdx)
 		})
 		assert.Equal(t, 2, len(votes))
+		assert.Equal(t, 1, votes[0].Signers().Len())
+	})
+
+	t.Run("Save aggregated votes in msg store", func(t *testing.T) {
+		ms := NewMsgStore()
+		var prevotes []message.Vote
+		for _, member := range committee {
+			m := member
+			preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(keys[member.Address].consensus), &m, cSize)
+			prevotes = append(prevotes, preVoteNil)
+		}
+
+		aggVote := message.AggregatePrevotes(prevotes)
+		ms.Save(aggVote)
+
+		// for every account, they have the prevote saved.
+		for i, member := range committee {
+			m := member
+			votes := ms.GetPrevotes(height, func(msg *message.Prevote) bool {
+				return msg.R() == round && msg.Value() == NilValue && msg.Signers().Contains(int(m.Index))
+			})
+			require.Equal(t, 1, len(votes))
+			require.Equal(t, true, votes[0].Signers().Contains(i))
+		}
+
+		// query for the target aggregated prevote, only 1 prevote is returned.
+		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == round && m.Value() == NilValue
+		})
+
+		require.Equal(t, 1, len(votes))
 	})
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
 		ms.Save(preVote)
 
-		votes := ms.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
-				m.Value() == NilValue
+		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == round && m.Value() == NilValue && m.Signers().Contains(proposerIdx)
 		})
 
 		assert.Equal(t, 1, len(votes))
 		assert.Equal(t, message.PrevoteCode, votes[0].Code())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
-		assert.Equal(t, addrAlice, votes[0].Sender())
+		assert.Equal(t, 1, votes[0].Signers().Len())
+		assert.Equal(t, true, votes[0].Signers().Contains(proposerIdx))
 		assert.Equal(t, NilValue, votes[0].Value())
 	})
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, addrBob)).MustVerify(stubVerifier)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[1], cSize)
 		ms.Save(preVoteNoneNil)
 
-		votes := ms.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round
+		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == round
 		})
 
 		assert.Equal(t, 2, len(votes))
@@ -83,34 +118,46 @@ func TestMsgStore(t *testing.T) {
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, height, votes[1].H())
 		assert.Equal(t, round, votes[1].R())
+		assert.Equal(t, 1, votes[0].Signers().Len())
+		assert.Equal(t, 1, votes[1].Signers().Len())
 	})
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
 		ms.Save(preVoteNil)
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, addrBob)).MustVerify(stubVerifier)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[1], cSize)
 		ms.Save(preVoteNoneNil)
 		ms.DeleteOlds(height)
-		votes := ms.Get(height, func(m message.Msg) bool {
-			return m.H() == height
+		prevotes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
+			return true
 		})
-		assert.Equal(t, 0, len(votes))
+		assert.Equal(t, 0, len(prevotes))
+		require.Equal(t, uint64(0), ms.PrevotesPowerFor(height, round, NilValue).Uint64())
 	})
 
-}
-func stubVerifier(address common.Address) *types.CommitteeMember {
-	return &types.CommitteeMember{
-		Address:     address,
-		VotingPower: common.Big1,
-	}
-}
+	t.Run("get equivocated votes", func(t *testing.T) {
+		ms := NewMsgStore()
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNil)
 
-func stubVerifierWithPower(power int64) func(address common.Address) *types.CommitteeMember {
-	return func(address common.Address) *types.CommitteeMember {
-		return &types.CommitteeMember{
-			Address:     address,
-			VotingPower: big.NewInt(power),
-		}
-	}
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNoneNil)
+
+		v := common.Hash{0x23}
+		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == round && m.Signers().Contains(proposerIdx) && m.Value() != v
+		})
+		assert.Equal(t, 2, len(votes))
+		assert.Equal(t, height, votes[0].H())
+		assert.Equal(t, height, votes[1].H())
+		assert.Equal(t, round, votes[0].R())
+		assert.Equal(t, round, votes[1].R())
+		assert.Equal(t, message.PrevoteCode, votes[0].Code())
+		assert.Equal(t, message.PrevoteCode, votes[1].Code())
+		assert.NotEqual(t, v, votes[0].Value())
+		assert.NotEqual(t, v, votes[1].Value())
+		assert.Equal(t, 1, votes[0].Signers().Len())
+		assert.Equal(t, 1, votes[1].Signers().Len())
+	})
 }

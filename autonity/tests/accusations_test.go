@@ -13,6 +13,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 
@@ -20,26 +21,19 @@ import (
 )
 
 var (
-	offenderKey, _ = crypto.GenerateKey()
-	offender       = crypto.PubkeyToAddress(offenderKey.PublicKey)
-	cm             = types.CommitteeMember{Address: offender}
-	header         = &types.Header{Committee: []types.CommitteeMember{cm}}
-	signer         = func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], offenderKey)
-		return out, offender
+	offenderNodeKey, _      = crypto.GenerateKey()
+	offenderConsensusKey, _ = blst.RandKey()
+	offender                = crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
+	cm                      = types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
+	header                  = &types.Header{Committee: []types.CommitteeMember{cm}}
+	signer                  = func(hash common.Hash) blst.Signature {
+		return offenderConsensusKey.Sign(hash[:])
 	}
 	reporter = *params.TestAutonityContractConfig.Validators[0].NodeAddress
 )
 
-func stubVerifier(address common.Address) *types.CommitteeMember {
-	return &types.CommitteeMember{
-		Address:     address,
-		VotingPower: common.Big1,
-	}
-}
-
 func NewAccusationEvent(height uint64, value common.Hash) AccountabilityEvent {
-	prevote := message.NewPrevote(0, height, value, signer).MustVerify(stubVerifier)
+	prevote := message.NewPrevote(0, height, value, signer, &cm, 1)
 
 	p := &accountability.Proof{
 		Type:    autonity.Accusation,
@@ -55,7 +49,7 @@ func NewAccusationEvent(height uint64, value common.Hash) AccountabilityEvent {
 		EventType:      uint8(p.Type),
 		Rule:           uint8(p.Rule),
 		Reporter:       reporter,
-		Offender:       p.Message.Sender(),
+		Offender:       offender,
 		RawProof:       rawProof,
 		Id:             common.Big0,                           // assigned contract-side
 		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side

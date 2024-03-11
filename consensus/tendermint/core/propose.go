@@ -31,10 +31,11 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if c.sentProposal {
 		return
 	}
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
+	self := c.LastHeader().CommitteeMember(c.address)
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)
 	c.sentProposal = true
 	c.backend.SetProposedBlockHash(block.Hash())
-	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
+	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal)
 	c.Broadcaster().Broadcast(proposal)
 	if metrics.Enabled {
 		now := time.Now()
@@ -45,6 +46,10 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 }
 
 func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose) error {
+	if !proposal.PreVerified() || !proposal.Verified() {
+		panic("Handling NON cryptographically verified proposal")
+	}
+
 	if proposal.R() > c.Round() {
 		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages
@@ -63,8 +68,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	// check if proposal comes from the correct proposer for pair (h,r)
-	if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
-		c.logger.Warn("Ignoring proposal from non-proposer", "sender", proposal.Sender())
+	if !c.IsFromProposer(proposal.R(), proposal.Signer()) {
+		c.logger.Warn("Ignoring proposal from non-proposer", "signer", proposal.Signer())
 		return constants.ErrNotFromProposer
 	}
 
@@ -105,6 +110,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// if it's a future block, we will handle it again after the duration
 		// TODO: implement wiggle time / median time
 		if errors.Is(err, consensus.ErrFutureTimestampBlock) {
+			c.logger.Debug("delaying processing of proposal due to future timestamp", "delay", duration)
 			c.StopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
 				c.SendEvent(backlogMessageEvent{
@@ -133,7 +139,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
-	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Sender().String(), c.address.String())
+	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal)
 
 	// check upon conditions for current round proposal
 	c.currentProposalChecks(ctx, proposal)
@@ -175,11 +181,10 @@ func (c *Proposer) StopFutureProposalTimer() {
 	}
 }
 
-func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Propose, from, to string) {
+func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Propose) {
 	c.logger.Debug(message,
 		"type", "Proposal",
-		"from", from,
-		"to", to,
+		"local address", log.Lazy{Fn: func() string { return c.Address().String() }},
 		"currentHeight", log.Lazy{Fn: c.Height},
 		"msgHeight", proposal.H(),
 		"currentRound", log.Lazy{Fn: c.Round},
@@ -188,6 +193,7 @@ func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Pro
 		"isProposer", log.Lazy{Fn: c.IsProposer},
 		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", log.Lazy{Fn: func() bool { return proposal.Block().Hash() == common.Hash{} }},
-		"hash", log.Lazy{Fn: func() common.Hash { return proposal.Block().Hash() }},
+		"value", log.Lazy{Fn: func() common.Hash { return proposal.Block().Hash() }},
+		"proposal", log.Lazy{Fn: func() string { return proposal.String() }},
 	)
 }
