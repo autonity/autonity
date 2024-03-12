@@ -252,8 +252,7 @@ func TestHandleProposal(t *testing.T) {
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
-		verifier := stubVerifier(keys[addr].consensus.PublicKey())
-		proposal := message.NewPropose(round, height, 2, block, makeSigner(keys[addr].consensus, addr)).MustVerify(verifier)
+		proposal := message.NewPropose(round, height, 2, block, signer).MustVerify(verifier)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 
@@ -294,8 +293,8 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		verifier := stubVerifier(keys[proposer.Address].consensus.PublicKey())
-		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address].consensus, proposer.Address)).MustVerify(verifier)
+		proposerVerifier := stubVerifier(keys[proposer.Address].consensus.PublicKey())
+		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address].consensus, proposer.Address)).MustVerify(proposerVerifier)
 
 		assert.NoError(t, err)
 
@@ -322,8 +321,8 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.GetByIndex(i)
-			verifier := stubVerifier(keys[val.Address].consensus.PublicKey())
-			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus, val.Address)).MustVerify(verifier)
+			verif := stubVerifier(keys[val.Address].consensus.PublicKey())
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus, val.Address)).MustVerify(verif)
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			assert.NoError(t, err)
 		}
