@@ -13,6 +13,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 
@@ -20,26 +21,20 @@ import (
 )
 
 var (
-	offenderKey, _ = crypto.GenerateKey()
-	offender       = crypto.PubkeyToAddress(offenderKey.PublicKey)
-	cm             = types.CommitteeMember{Address: offender}
-	header         = &types.Header{Committee: []types.CommitteeMember{cm}}
-	signer         = func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], offenderKey)
-		return out, offender
+	offenderNodeKey, _      = crypto.GenerateKey()
+	offenderConsensusKey, _ = blst.RandKey()
+	offender                = crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
+	cm                      = types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey()}
+	header                  = &types.Header{Committee: []types.CommitteeMember{cm}}
+	signer                  = func(hash common.Hash) (blst.Signature, common.Address) {
+		signature := offenderConsensusKey.Sign(hash[:])
+		return signature, offender
 	}
 	reporter = *params.TestAutonityContractConfig.Validators[0].NodeAddress
 )
 
-func stubVerifier(address common.Address) *types.CommitteeMember {
-	return &types.CommitteeMember{
-		Address:     address,
-		VotingPower: common.Big1,
-	}
-}
-
 func NewAccusationEvent(height uint64, value common.Hash) AccountabilityEvent {
-	prevote := message.NewPrevote(0, height, value, signer).MustVerify(stubVerifier)
+	prevote := message.NewPrevote(0, height, value, signer).MustVerify(func(_ common.Address) *types.CommitteeMember { return &cm })
 
 	p := &accountability.Proof{
 		Type:    autonity.Accusation,

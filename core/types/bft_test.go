@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto/blst"
 )
 
 func TestHeaderHash(t *testing.T) {
@@ -29,7 +30,11 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0x0a86281e49b390cd8347b1f2522a0f854da572d11b27f690814ec81259e59127")
+	posHeaderHash := common.HexToHash("0xc43c096ec826fcaad1c48f5c3418a424fc8ff1def6debc1fa5b8cd43bdacdf86")
+
+	seals := make(Signatures)
+	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
+	seals[common.HexToAddress("0xcafe")] = testKey.Sign([]byte("0xcafe"))
 
 	testCases := []struct {
 		header Header
@@ -56,13 +61,7 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				CommittedSeals: [][]byte{common.Hex2Bytes("0xfacebooc"), common.Hex2Bytes("0xbabababa")},
-			}),
-			posHeaderHash,
-		},
-		{
-			setExtra(PosHeader, headerExtra{
-				CommittedSeals: [][]byte{common.Hex2Bytes("0x123456"), common.Hex2Bytes("0x777777"), common.Hex2Bytes("0xaaaaaaa")},
+				CommittedSeals: seals,
 			}),
 			posHeaderHash,
 		},
@@ -70,22 +69,26 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				Committee: Committee{
 					{
-						Address:     common.HexToAddress("0x1234566"),
-						VotingPower: new(big.Int).SetUint64(12),
+						Address:           common.HexToAddress("0x1234566"),
+						VotingPower:       new(big.Int).SetUint64(12),
+						ConsensusKeyBytes: testKey.PublicKey().Marshal(),
+						ConsensusKey:      testKey.PublicKey(),
 					},
 					{
-						Address:     common.HexToAddress("0x13371337"),
-						VotingPower: new(big.Int).SetUint64(1337),
+						Address:           common.HexToAddress("0x13371337"),
+						VotingPower:       new(big.Int).SetUint64(1337),
+						ConsensusKeyBytes: testKey.PublicKey().Marshal(),
+						ConsensusKey:      testKey.PublicKey(),
 					},
 				},
 			}),
-			common.HexToHash("0xd2651fe9e9d7693d89f437bf7ace0f614bb27cb2ddb08c45e5eefe2fb273bf40"),
+			common.HexToHash("0x6917cd41cf89cb7a1ad33f11f543d46cc3420d365d5b2d38167af605d8992525"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0x0a86281e49b390cd8347b1f2522a0f854da572d11b27f690814ec81259e59127"),
+			common.HexToHash("0xc43c096ec826fcaad1c48f5c3418a424fc8ff1def6debc1fa5b8cd43bdacdf86"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
