@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"math/big"
@@ -52,7 +51,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		err = engine.Commit(otherBlock, 0, [][]byte{})
+		err = engine.Commit(otherBlock, 0, make(types.Signatures))
 		if err != nil {
 			t.Error("commit should not return error", err.Error())
 		}
@@ -368,25 +367,23 @@ OUT3:
 }
 
 func TestWriteCommittedSeals(t *testing.T) {
-
-	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-3)...)
-	var expectedErr error
+	expectedCommittedSeal := make(types.Signatures)
+	expectedCommittedSeal[testAddress] = testSignature
 
 	h := &types.Header{}
 
 	// normal case
-	err := types.WriteCommittedSeals(h, [][]byte{expectedCommittedSeal})
-	if err != expectedErr {
-		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
+	err := types.WriteCommittedSeals(h, expectedCommittedSeal)
+	if err != nil {
+		t.Errorf("error mismatch: have %v, want %v", err, nil)
 	}
 
-	if !reflect.DeepEqual(h.CommittedSeals, [][]byte{expectedCommittedSeal}) {
+	if !reflect.DeepEqual(h.CommittedSeals, expectedCommittedSeal) {
 		t.Errorf("extra data mismatch: have %v, want %v", h.CommittedSeals, expectedCommittedSeal)
 	}
 
 	// invalid seal
-	unexpectedCommittedSeal := append(expectedCommittedSeal, make([]byte, 1)...)
-	err = types.WriteCommittedSeals(h, [][]byte{unexpectedCommittedSeal})
+	err = types.WriteCommittedSeals(h, nil)
 	if err != types.ErrInvalidCommittedSeals {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidCommittedSeals)
 	}
