@@ -30,6 +30,14 @@ func defaultSigner(h common.Hash) (blst.Signature, common.Address) {
 	return signature, testAddr
 }
 
+func defaultVerifier(address common.Address) *types.CommitteeMember {
+	return &types.CommitteeMember{
+		Address:      address,
+		VotingPower:  common.Big1,
+		ConsensusKey: testConsensusKey.PublicKey(),
+	}
+}
+
 type AddressKeyMap map[common.Address]Keys
 
 type Keys struct {

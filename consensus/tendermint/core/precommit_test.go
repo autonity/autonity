@@ -170,11 +170,11 @@ func TestHandlePrecommit(t *testing.T) {
 		curRoundMessages.SetProposal(proposal, true)
 
 		msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address].consensus, member.Address))
-		msg.MustVerify(stubVerifier)
+		msg.MustVerify(stubVerifier(keys[member.Address].consensus.PublicKey()))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Commit(proposal.Block(), gomock.Any(), gomock.Any()).Return(nil).Do(
-			func(proposalBlock *types.Block, round int64, seals [][]byte) {
+			func(proposalBlock *types.Block, round int64, seals types.Signatures) {
 				if round != 2 {
 					t.Fatal("Commit called with round different than precommit seal")
 				}
@@ -242,13 +242,15 @@ func TestHandlePrecommit(t *testing.T) {
 
 		for _, member := range committeeSet.Committee()[1:5] {
 			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address].consensus, member.Address))
-			if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(stubVerifier)); err != nil {
+			verifier := stubVerifier(keys[member.Address].consensus.PublicKey())
+			if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(verifier)); err != nil {
 				t.Fatalf("Expected nil, got %v", err)
 			}
 		}
 
 		msg := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[me.Address].consensus, me.Address))
-		if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(stubVerifier)); err != nil {
+		verifier := stubVerifier(keys[me.Address].consensus.PublicKey())
+		if err := c.precommiter.HandlePrecommit(context.Background(), msg.MustVerify(verifier)); err != nil {
 			t.Fatalf("Expected nil, got %v", err)
 		}
 

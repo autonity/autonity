@@ -92,8 +92,16 @@ func TestGetCoreState(t *testing.T) {
 	proposals[0], proposers[0] = prepareRoundMsgs(c, rounds[0], height)
 	proposals[1], proposers[1] = prepareRoundMsgs(c, rounds[1], height)
 
+	blsKeys := make([]blst.PublicKey, 2)
+	blsKey, err := blst.RandKey()
+	require.NoError(t, err)
+	blsKeys[0] = blsKey.PublicKey()
+	blsKey, err = blst.RandKey()
+	require.NoError(t, err)
+	blsKeys[1] = blsKey.PublicKey()
+
 	one := common.Big1
-	members := []types.CommitteeMember{{Address: proposers[0], VotingPower: one}, {Address: proposers[1], VotingPower: one}}
+	members := []types.CommitteeMember{{Address: proposers[0], VotingPower: one, ConsensusKey: blsKeys[1]}, {Address: proposers[1], VotingPower: one, ConsensusKey: blsKeys[0]}}
 	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
 	require.NoError(t, err)
 	setCoreState(c, height, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet,
@@ -161,9 +169,10 @@ func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wan
 }
 
 func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Address) {
-	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey, testAddr)).MustVerify(stubVerifier)
-	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(stubVerifier)
-	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(stubVerifier)
+	verifier := stubVerifier(testConsensusKey.PublicKey())
+	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
+	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
+	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
 	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)

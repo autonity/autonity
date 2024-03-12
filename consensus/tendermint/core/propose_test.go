@@ -85,6 +85,7 @@ func TestHandleProposal(t *testing.T) {
 	height := uint64(1)
 	round := int64(3)
 	signer := makeSigner(keys[addr].consensus, addr)
+	verifier := stubVerifier(keys[addr].consensus.PublicKey())
 
 	t.Run("2 proposals received, only first one is accepted", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
@@ -93,7 +94,7 @@ func TestHandleProposal(t *testing.T) {
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
-		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(verifier)
 
 		ctrl := gomock.NewController(t)
 		backendMock := interfaces.NewMockBackend(ctrl)
@@ -111,7 +112,7 @@ func TestHandleProposal(t *testing.T) {
 		c.SetDefaultHandlers()
 		err := c.proposer.HandleProposal(context.Background(), proposal)
 		require.NoError(t, err)
-		proposal2 := message.NewPropose(round, height, 87, block, signer).MustVerify(stubVerifier)
+		proposal2 := message.NewPropose(round, height, 87, block, signer).MustVerify(verifier)
 		err = c.proposer.HandleProposal(context.Background(), proposal2)
 		if !errors.Is(err, constants.ErrAlreadyHaveProposal) {
 			t.Fatalf("Expected %v, got %v", constants.ErrAlreadyHaveProposal, err)
@@ -124,7 +125,7 @@ func TestHandleProposal(t *testing.T) {
 		})
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round + 1)
-		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(verifier)
 		c := &Core{
 			address:          addr,
 			messages:         messages,
@@ -149,7 +150,7 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(2)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(2, 1, 1, block, defaultSigner).MustVerify(stubVerifier)
+		proposal := message.NewPropose(2, 1, 1, block, defaultSigner).MustVerify(defaultVerifier)
 
 		testCommittee, _ := GenerateCommittee(3)
 		testCommittee = append(testCommittee, types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)})
@@ -217,7 +218,7 @@ func TestHandleProposal(t *testing.T) {
 		})
 		messageMap := message.NewMap()
 		curRoundMessages := messageMap.GetOrCreate(round)
-		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, 1, block, signer).MustVerify(verifier)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
 		event := backlogMessageEvent{
@@ -251,7 +252,8 @@ func TestHandleProposal(t *testing.T) {
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
-		proposal := message.NewPropose(round, height, 2, block, makeSigner(keys[addr].consensus, addr)).MustVerify(stubVerifier)
+		verifier := stubVerifier(keys[addr].consensus.PublicKey())
+		proposal := message.NewPropose(round, height, 2, block, makeSigner(keys[addr].consensus, addr)).MustVerify(verifier)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 
@@ -292,7 +294,8 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address].consensus, proposer.Address)).MustVerify(stubVerifier)
+		verifier := stubVerifier(keys[proposer.Address].consensus.PublicKey())
+		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address].consensus, proposer.Address)).MustVerify(verifier)
 
 		assert.NoError(t, err)
 
@@ -319,13 +322,14 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.GetByIndex(i)
-			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus, val.Address)).MustVerify(stubVerifier)
+			verifier := stubVerifier(keys[val.Address].consensus.PublicKey())
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus, val.Address)).MustVerify(verifier)
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			assert.NoError(t, err)
 		}
 
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
-		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ [][]byte) {
+		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ types.Signatures) {
 			assert.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
 		})
 
@@ -342,7 +346,7 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
 		logger := log.New("backend", "test", "id", 0)
-		proposal := message.NewPropose(round, height, -1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, -1, block, signer).MustVerify(verifier)
 		prevote := message.NewPrevote(round, height, block.Hash(), signer)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
@@ -382,9 +386,9 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessage := messages.GetOrCreate(round)
 
-		proposal := message.NewPropose(round, height, round-1, block, signer).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, round-1, block, signer).MustVerify(verifier)
 		prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), signer).MustVerify(func(address common.Address) *types.CommitteeMember {
-			return &types.CommitteeMember{Address: address, VotingPower: big.NewInt(3)}
+			return &types.CommitteeMember{Address: address, VotingPower: big.NewInt(3), ConsensusKey: keys[addr].consensus.PublicKey()}
 		})
 
 		messages.GetOrCreate(round - 1).AddPrevote(prevote)

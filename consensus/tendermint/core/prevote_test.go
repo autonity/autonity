@@ -12,7 +12,14 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
+)
+
+var (
+	testSignatureBytes = common.Hex2Bytes("8ff38c5915e56029ace231f12e6911587fac4b5618077f3dfe8068138ff1dc7a7ea45a5e0d6a51747cc5f4d990c9d4de1242f4efa93d8165936bfe111f86aaafeea5eda0c38fa3dc2f854576dde63214d7438ea398e48072bc6a0c8e6c2830ef")
+	testSignature, _   = blst.SignatureFromBytes(testSignatureBytes)
+	testAddress        = common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
 )
 
 func TestSendPrevote(t *testing.T) {
@@ -24,7 +31,8 @@ func TestSendPrevote(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		committeeSet := NewTestCommitteeSet(4)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
-		backendMock.EXPECT().Sign(gomock.Any()).Times(1)
+		// return random signature just to allow prevote encoding
+		backendMock.EXPECT().Sign(gomock.Any()).Times(1).Return(testSignature, testAddress)
 		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
@@ -85,6 +93,8 @@ func TestHandlePrevote(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 	member := committeeSet.Committee()[0]
 	signer := makeSigner(keys[member.Address].consensus, member.Address)
+	verifier := stubVerifier(keys[member.Address].consensus.PublicKey())
+	verifierWithPower := stubVerifierWithPower(keys[member.Address].consensus.PublicKey(), 3)
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -99,7 +109,7 @@ func TestHandlePrevote(t *testing.T) {
 			signer)
 
 		curRoundMessages.SetProposal(proposal, true)
-		prevote := message.NewPrevote(1, 2, curRoundMessages.ProposalHash(), signer).MustVerify(stubVerifier)
+		prevote := message.NewPrevote(1, 2, curRoundMessages.ProposalHash(), signer).MustVerify(verifier)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		c := &Core{
@@ -141,7 +151,7 @@ func TestHandlePrevote(t *testing.T) {
 		curRoundMessage := messagesMap.GetOrCreate(2)
 		curRoundMessage.SetProposal(proposal, true)
 
-		prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), signer).MustVerify(stubVerifierWithPower(3))
+		prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), signer).MustVerify(verifierWithPower)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer).AnyTimes()
 
@@ -183,7 +193,8 @@ func TestHandlePrevote(t *testing.T) {
 		member2 := committeeSet.Committee()[1]
 		curRoundMessage := messages.GetOrCreate(2)
 
-		expectedMsg := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[member2.Address].consensus, member2.Address)).MustVerify(stubVerifierWithPower(3))
+		verifier := stubVerifierWithPower(keys[member2.Address].consensus.PublicKey(), 3)
+		expectedMsg := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[member2.Address].consensus, member2.Address)).MustVerify(verifier)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address].consensus, member2.Address)).AnyTimes()
 
