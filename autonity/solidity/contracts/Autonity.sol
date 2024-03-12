@@ -1135,6 +1135,15 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount);
     }
 
+    function _notifyBondingApplied(uint256 _id, uint256 _liquid, bool _rejected) private view {
+        address to = bondingMap[_id].delegator;
+        bytes memory input = abi.encodeWithSignature("bondingApplied(uint256,uint256,bool)", _id, _liquid, _rejected);
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            let res := staticcall(gas(), to, add(input, 32), mload(input), 0, 0)
+        }
+    }
+
     function _applyBonding(uint256 id) internal virtual {
         BondingRequest storage _bonding = bondingMap[id];
         Validator storage _validator = validators[_bonding.delegatee];
@@ -1143,6 +1152,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         if (_validator.state != ValidatorState.active) {
             accounts[_bonding.delegator] += _bonding.amount;
             emit BondingRejected(_bonding.delegator, _bonding.delegatee, _bonding.amount, _validator.state);
+            _notifyBondingApplied(id, 0, true);
             return;
         }
 
@@ -1158,9 +1168,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             }
             _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
+            _notifyBondingApplied(id, _liquidAmount, false);
         } else {
             // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
             _validator.selfBondedStake += _bonding.amount;
+            _notifyBondingApplied(id, 0, false);
         }
         _validator.bondedStake += _bonding.amount;
     }
@@ -1187,9 +1199,19 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
     }
 
+    function _notifyUnbondingReleased(uint256 _id, uint256 _amount) private view {
+        address to = unbondingMap[_id].delegator;
+        bytes memory input = abi.encodeWithSignature("unbondingReleased(uint256,uint256)", _id, _amount);
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            let res := staticcall(gas(), to, add(input, 32), mload(input), 0, 0)
+        }
+    }
+
     function _releaseUnbondingStake(uint256 _id) internal virtual {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
         if (_unbonding.unbondingShare == 0) {
+            _notifyUnbondingReleased(_id, 0);
             return;
         }
         Validator storage _validator = validators[_unbonding.delegatee];
@@ -1204,6 +1226,16 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validator.selfUnbondingShares -= _unbonding.unbondingShare;
         }
         accounts[_unbonding.delegator] += _returnedStake;
+        _notifyUnbondingReleased(_id, _returnedStake);
+    }
+
+    function _notifyUnbondingApplied(uint256 _id) private view {
+        address to = unbondingMap[_id].delegator;
+        bytes memory input = abi.encodeWithSignature("unbondingApplied(uint256)", _id);
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            let res := staticcall(gas(), to, add(input, 32), mload(input), 0, 0)
+        }
     }
 
     function _applyUnbonding(uint256 _id) internal virtual {
@@ -1253,6 +1285,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         _unbonding.unlocked = true;
         // Final step: Reduce amount of newton bonded
         _validator.bondedStake -= _newtonAmount;
+        _notifyUnbondingApplied(_id);
     }
 
     function _applyNewCommissionRates() internal virtual {
