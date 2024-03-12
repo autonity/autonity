@@ -159,7 +159,7 @@ func (s Signatures) DecodeRLP(stream *rlp.Stream) error {
 type CommitteeMember struct {
 	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
 	VotingPower       *big.Int       `json:"votingPower"        gencodec:"required"`
-	ConsensusKeyBytes []byte         `json:"consensusKey"       gencodec:"required" 			abi:"consensusKey"`
+	ConsensusKeyBytes []byte         `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
 	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
 	ConsensusKey blst.PublicKey `json:"-" rlp:"-"`
 }

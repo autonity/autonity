@@ -118,7 +118,7 @@ func WriteCommittedSeals(h *Header, committedSeals Signatures) error {
 func (c Committee) String() string {
 	var ret string
 	for _, val := range c {
-		ret += "[" + val.Address.String() + " - " + val.VotingPower.String() + " - " + val.ConsensusKey.Hex() + "] "
+		ret += "[" + val.Address.String() + " - " + val.VotingPower.String() + " - " + val.ConsensusKey.Hex() + "] " //nolint
 	}
 	return ret
 }
