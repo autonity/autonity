@@ -16,6 +16,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 )
 
@@ -141,7 +142,9 @@ func randomProposal(t *testing.T) *message.Propose {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	addr := crypto.PubkeyToAddress(key.PublicKey)
-	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(key, addr))
+	consensusKey, err := blst.RandKey()
+	require.NoError(t, err)
+	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(consensusKey, addr))
 }
 
 func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wantProposal *message.Propose, wantVerfied bool) {
@@ -158,9 +161,9 @@ func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wan
 }
 
 func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Address) {
-	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
-	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
-	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testKey, testAddr)).MustVerify(stubVerifier)
+	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey, testAddr)).MustVerify(stubVerifier)
+	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(stubVerifier)
+	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(stubVerifier)
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
 	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)

@@ -20,6 +20,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 )
 
@@ -31,19 +32,24 @@ func TestSendPropose(t *testing.T) {
 		proposerKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		proposer := crypto.PubkeyToAddress(proposerKey.PublicKey)
+		proposerConsensusKey, err := blst.RandKey()
+		require.NoError(t, err)
 		height := new(big.Int).SetUint64(1)
 		curRoundMessages := messages.GetOrCreate(1)
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerKey, proposer))
+		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerConsensusKey, proposer))
 
 		assert.NoError(t, err)
 
 		testCommittee := types.Committee{
 			types.CommitteeMember{
-				Address:     proposer,
-				VotingPower: big.NewInt(1)},
+				Address:           proposer,
+				VotingPower:       big.NewInt(1),
+				ConsensusKey:      proposerConsensusKey.PublicKey(),
+				ConsensusKeyBytes: proposerConsensusKey.PublicKey().Marshal(),
+			},
 		}
 
 		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
@@ -53,7 +59,7 @@ func TestSendPropose(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(makeSigner(proposerKey, proposer))
+		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(makeSigner(proposerConsensusKey, proposer))
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
 
 		c := &Core{
@@ -78,7 +84,7 @@ func TestHandleProposal(t *testing.T) {
 	addr := committeeSet.Committee()[0].Address // round 3 - height 1 proposer
 	height := uint64(1)
 	round := int64(3)
-	signer := makeSigner(keys[addr], addr)
+	signer := makeSigner(keys[addr].consensus, addr)
 
 	t.Run("2 proposals received, only first one is accepted", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
@@ -245,7 +251,7 @@ func TestHandleProposal(t *testing.T) {
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
-		proposal := message.NewPropose(round, height, 2, block, makeSigner(keys[addr], addr)).MustVerify(stubVerifier)
+		proposal := message.NewPropose(round, height, 2, block, makeSigner(keys[addr].consensus, addr)).MustVerify(stubVerifier)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 
@@ -286,7 +292,7 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address], proposer.Address)).MustVerify(stubVerifier)
+		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address].consensus, proposer.Address)).MustVerify(stubVerifier)
 
 		assert.NoError(t, err)
 
@@ -313,7 +319,7 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.GetByIndex(i)
-			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address], val.Address)).MustVerify(stubVerifier)
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus, val.Address)).MustVerify(stubVerifier)
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			assert.NoError(t, err)
 		}
@@ -447,7 +453,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
 		proposer, _ := committeeSet.GetByIndex(0)
-		proposerKey := keys[proposer.Address]
+		proposerKey := keys[proposer.Address].consensus
 		height := new(big.Int).SetUint64(1)
 
 		messages := message.NewMap()

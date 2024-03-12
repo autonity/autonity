@@ -5,7 +5,6 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/broadcaster.go -package=interfaces -destination=consensus/tendermint/core/interfaces/broadcaster_mock.go
 //
-
 // Package interfaces is a generated GoMock package.
 package interfaces
 

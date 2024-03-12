@@ -5,7 +5,6 @@
 //
 //	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
 //
-
 // Package bind is a generated GoMock package.
 package bind
 

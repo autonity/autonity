@@ -12,20 +12,22 @@ import (
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/rlp"
 )
 
+/* //TODO(lorenzo) fix
 var (
-	key, _  = crypto.GenerateKey()
-	address = crypto.PubkeyToAddress(key.PublicKey)
-	signer  = func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], key)
-		return out, address
+	key, _          = crypto.GenerateKey()
+	consensusKey, _ = blst.RandKey()
+	address         = crypto.PubkeyToAddress(key.PublicKey)
+	signer          = func(hash common.Hash) (blst.Signature, common.Address) {
+		signature := consensusKey.Sign(hash[:])
+		return signature, address
 	}
-)
+)*/
 
 func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
@@ -111,13 +113,19 @@ func TestMessageDecode(t *testing.T) {
 func TestValidate(t *testing.T) {
 	t.Run("invalid signature, error returned", func(t *testing.T) {
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25)}
-		msg := newVote[Prevote](1, 25, lastHeader.Hash(), func(hash common.Hash) (signature []byte, address common.Address) {
-			out, addr := defaultSigner(hash)
-			out = append(out, 1)
-			return out, addr
+		msg := newVote[Prevote](1, 25, lastHeader.Hash(), func(hash common.Hash) (signature blst.Signature, address common.Address) {
+			// tamper the hash to make signature invalid
+			hash[0] = 0xca
+			hash[1] = 0xfe
+			signature, addr := defaultSigner(hash)
+			return signature, addr
 		})
 		err := msg.Validate(func(_ common.Address) *types.CommitteeMember {
-			return nil
+			return &types.CommitteeMember{
+				Address:      testAddr,
+				VotingPower:  common.Big1,
+				ConsensusKey: testConsensusKey.PublicKey(),
+			}
 		})
 		require.ErrorIs(t, err, ErrBadSignature)
 	})
@@ -125,14 +133,16 @@ func TestValidate(t *testing.T) {
 	t.Run("not a committee member, error returned", func(t *testing.T) {
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{
 			{
-				Address:     address,
-				VotingPower: big.NewInt(2),
+				Address:           testAddr,
+				VotingPower:       big.NewInt(2),
+				ConsensusKey:      testConsensusKey.PublicKey(),
+				ConsensusKeyBytes: testConsensusKey.PublicKey().Marshal(),
 			},
 		}}
 		messages := []Msg{
-			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
-			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
-			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
+			newVote[Prevote](1, 25, lastHeader.Hash(), defaultSigner),
+			newVote[Precommit](1, 25, lastHeader.Hash(), defaultSigner),
+			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), defaultSigner),
 		}
 
 		validateFn := func(address common.Address) *types.CommitteeMember { //nolint
@@ -147,14 +157,16 @@ func TestValidate(t *testing.T) {
 
 	t.Run("valid params given, valid validator returned", func(t *testing.T) {
 		validator := &types.CommitteeMember{
-			Address:     address,
-			VotingPower: big.NewInt(2),
+			Address:           testAddr,
+			VotingPower:       big.NewInt(2),
+			ConsensusKey:      testConsensusKey.PublicKey(),
+			ConsensusKeyBytes: testConsensusKey.PublicKey().Marshal(),
 		}
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*validator}}
 		messages := []Msg{
-			newVote[Prevote](1, 25, lastHeader.Hash(), signer),
-			newVote[Precommit](1, 25, lastHeader.Hash(), signer),
-			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), signer),
+			newVote[Prevote](1, 25, lastHeader.Hash(), defaultSigner),
+			newVote[Precommit](1, 25, lastHeader.Hash(), defaultSigner),
+			NewPropose(1, 25, 2, types.NewBlockWithHeader(lastHeader), defaultSigner),
 		}
 
 		validateFn := func(address common.Address) *types.CommitteeMember { //nolint
@@ -170,14 +182,16 @@ func TestValidate(t *testing.T) {
 
 func TestMessageEncodeDecode(t *testing.T) {
 	validator := &types.CommitteeMember{
-		Address:     address,
-		VotingPower: big.NewInt(2),
+		Address:           testAddr,
+		VotingPower:       big.NewInt(2),
+		ConsensusKey:      testConsensusKey.PublicKey(),
+		ConsensusKeyBytes: testConsensusKey.PublicKey().Marshal(),
 	}
 	lastHeader := &types.Header{Number: new(big.Int).SetUint64(2), Committee: []types.CommitteeMember{*validator}}
 	messages := []Msg{
-		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), signer).MustVerify(stubVerifier),
-		NewPrevote(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),
-		NewPrecommit(1, 2, lastHeader.Hash(), signer).MustVerify(stubVerifier),
+		NewPropose(1, 2, -1, types.NewBlockWithHeader(lastHeader), defaultSigner).MustVerify(stubVerifier),
+		NewPrevote(1, 2, lastHeader.Hash(), defaultSigner).MustVerify(stubVerifier),
+		NewPrecommit(1, 2, lastHeader.Hash(), defaultSigner).MustVerify(stubVerifier),
 	}
 	for i := range messages {
 		buff := new(bytes.Buffer)
@@ -198,7 +212,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 }
 
 func FuzzFromPayload(f *testing.F) {
-	msg := NewPrevote(1, 2, common.Hash{}, signer).MustVerify(stubVerifier)
+	msg := NewPrevote(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier)
 	f.Add(msg.Payload())
 	f.Fuzz(func(t *testing.T, seed []byte) {
 		var p Prevote

@@ -5,7 +5,6 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 //
-
 // Package interfaces is a generated GoMock package.
 package interfaces
 
@@ -20,6 +19,7 @@ import (
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
+	blst "github.com/autonity/autonity/crypto/blst"
 	event "github.com/autonity/autonity/event"
 	log "github.com/autonity/autonity/log"
 	gomock "go.uber.org/mock/gomock"
@@ -116,7 +116,7 @@ func (mr *MockBackendMockRecorder) Broadcast(committee, message any) *gomock.Cal
 }
 
 // Commit mocks base method.
-func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals [][]byte) error {
+func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals types.Signatures) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, seals)
 	ret0, _ := ret[0].(error)
@@ -286,10 +286,10 @@ func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash any) *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockBackend) Sign(hash common.Hash) ([]byte, common.Address) {
+func (m *MockBackend) Sign(hash common.Hash) (blst.Signature, common.Address) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sign", hash)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(blst.Signature)
 	ret1, _ := ret[1].(common.Address)
 	return ret0, ret1
 }

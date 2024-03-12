@@ -17,11 +17,11 @@ func TestMsgStore(t *testing.T) {
 
 	committee, keys := GenerateCommittee(5)
 	proposer := committee[0].Address
-	proposerKey := keys[proposer]
+	proposerKey := keys[proposer].consensus
 
 	addrAlice := committee[0].Address
 	addrBob := committee[1].Address
-	keyBob := keys[addrBob]
+	keyBob := keys[addrBob].consensus
 	notNilValue := common.Hash{0x1}
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {

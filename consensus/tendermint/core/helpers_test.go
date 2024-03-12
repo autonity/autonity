@@ -15,33 +15,42 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 )
 
-func makeSigner(key *ecdsa.PrivateKey, addr common.Address) message.Signer {
-	return func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], key)
-		return out, addr
+func makeSigner(key blst.SecretKey, addr common.Address) message.Signer {
+	return func(hash common.Hash) (blst.Signature, common.Address) {
+		signature := key.Sign(hash[:])
+		return signature, addr
 	}
 }
 
-func defaultSigner(h common.Hash) ([]byte, common.Address) {
-	out, _ := crypto.Sign(h[:], testKey)
-	return out, testAddr
+func defaultSigner(h common.Hash) (blst.Signature, common.Address) {
+	signature := testConsensusKey.Sign(h[:])
+	return signature, testAddr
 }
 
-type AddressKeyMap map[common.Address]*ecdsa.PrivateKey
+type AddressKeyMap map[common.Address]Keys
+
+type Keys struct {
+	consensus blst.SecretKey
+	node      *ecdsa.PrivateKey
+}
 
 func GenerateCommittee(n int) (types.Committee, AddressKeyMap) {
 	validators := make(types.Committee, 0)
 	keymap := make(AddressKeyMap)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
+		consensusKey, _ := blst.RandKey()
 		committeeMember := types.CommitteeMember{
-			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower: new(big.Int).SetUint64(1),
+			Address:           crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower:       new(big.Int).SetUint64(1),
+			ConsensusKey:      consensusKey.PublicKey(),
+			ConsensusKeyBytes: consensusKey.PublicKey().Marshal(),
 		}
 		validators = append(validators, committeeMember)
-		keymap[committeeMember.Address] = privateKey
+		keymap[committeeMember.Address] = Keys{consensus: consensusKey, node: privateKey}
 	}
 	sort.Sort(validators)
 	return validators, keymap

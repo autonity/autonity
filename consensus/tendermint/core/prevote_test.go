@@ -44,7 +44,7 @@ func TestSendPrevote(t *testing.T) {
 		defer ctrl.Finish()
 		committeSet, keys := NewTestCommitteeSetWithKeys(4)
 		member := committeSet.Committee()[0]
-		signer := makeSigner(keys[member.Address], member.Address)
+		signer := makeSigner(keys[member.Address].consensus, member.Address)
 		logger := log.New("backend", "test", "id", 0)
 
 		proposal := message.NewPropose(
@@ -84,7 +84,7 @@ func TestSendPrevote(t *testing.T) {
 func TestHandlePrevote(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 	member := committeeSet.Committee()[0]
-	signer := makeSigner(keys[member.Address], member.Address)
+	signer := makeSigner(keys[member.Address].consensus, member.Address)
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -183,11 +183,11 @@ func TestHandlePrevote(t *testing.T) {
 		member2 := committeeSet.Committee()[1]
 		curRoundMessage := messages.GetOrCreate(2)
 
-		expectedMsg := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[member2.Address], member2.Address)).MustVerify(stubVerifierWithPower(3))
+		expectedMsg := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[member2.Address].consensus, member2.Address)).MustVerify(stubVerifierWithPower(3))
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address], member2.Address)).AnyTimes()
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address].consensus, member2.Address)).AnyTimes()
 
-		precommit := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[member2.Address], member2.Address))
+		precommit := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[member2.Address].consensus, member2.Address))
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
 
