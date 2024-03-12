@@ -172,9 +172,9 @@ APE_VERSION := 0.6.26
 HARDHAT_VERSION := 2.19.1
 test-contracts-asm: test-contracts-asm-pre
 	@echo "run tests for the asm contracts"
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/acu
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/stabilization
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/supply_control
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/acu
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/stabilization
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/supply_control
 
 .PHONY: test-contracts-asm-pre
 test-contracts-asm-pre:

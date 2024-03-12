@@ -15,6 +15,7 @@ import "./asm/IStabilization.sol";
 import "./interfaces/IAccountability.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
+import "./interfaces/IInflationController.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 enum ValidatorState {active, paused, jailed, jailbound}
@@ -108,6 +109,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         ISupplyControl supplyControlContract;
         IStabilization stabilizationContract;
         UpgradeManager upgradeManagerContract;
+        IInflationController inflationControllerContract;
     }
 
     struct Policy {
@@ -142,7 +144,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 public epochTotalBondedStake;
 
     CommitteeMember[] internal committee;
-    uint256 public totalRedistributed;
+    uint256 public atnTotalRedistributed;
     uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
@@ -623,7 +625,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         config.contracts.accountabilityContract.finalize(epochEnded);
 
         if (epochEnded) {
-            _performRedistribution();
+            // calculate new NTN injected supply for this epoch
+            uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta();
+            _performRedistribution(address(this).balance, _inflationReward);
             _stakingOperations();
             _applyNewCommissionRates();
             address[] memory voters = computeCommittee();
@@ -887,50 +891,60 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     */
 
     /**
-    * @notice Perform Auton reward distribution. The transaction fees
+    * @notice Perform ATN and NTN reward distribution. The rewards fees
     * are simply re-distributed to all stake-holders, including validators,
     * pro-rata the amount of stake held.
     * @dev Emit a {Rewarded} event for every account that collected rewards.
+    * @param _atn: Amount of ATN to be redistributed. The source funds will be taken from
+    * this contract balance.
+    * @param _atn: Amount of NTN to be redistributed. The source funds will minted here.
     */
-    function _performRedistribution() internal virtual {
-        if (address(this).balance == 0) {
+    function _performRedistribution(uint256 _atn, uint256 _ntn) internal virtual {
+        // exit early if nothing to redistribute.
+        if (_atn == 0 && _ntn == 0) {
             return;
         }
-        uint256 _amount = address(this).balance;
+        // QUESTION: TODO: DO WE REDISTRIBUTE NTN TO THE TREASURY ACCOUNT?
         // take treasury fee.
-        uint256 _treasuryReward = (config.policy.treasuryFee * _amount) / 10 ** 18;
-        if (_treasuryReward > 0) {
+        uint256 _atnTreasuryReward = (config.policy.treasuryFee * _atn) / 10 ** 18;
+        if (_atnTreasuryReward > 0) {
             // Using "call" to let the treasury contract do any kind of computation on receive.
-            (bool sent,) = config.policy.treasuryAccount.call{value: _treasuryReward}("");
+            (bool sent,) = config.policy.treasuryAccount.call{value: _atnTreasuryReward}("");
             if (sent == true) {
-                _amount -= _treasuryReward;
+                _atn -= _atnTreasuryReward;
             }
         }
         // Redistribute fees through the Liquid Newton contract
-        totalRedistributed += _amount;
+        atnTotalRedistributed += _atn;
         for (uint256 i = 0; i < committee.length; i++) {
             Validator storage _val = validators[committee[i].addr];
             // votingPower in the committee struct is the amount of bonded-stake pre-slashing event.
-            uint256 _reward = (committee[i].votingPower * _amount) / epochTotalBondedStake;
-            if (_reward > 0) {
+            uint256 _atnReward = (committee[i].votingPower * _atn) / epochTotalBondedStake;
+            uint256 _atnReward = (committee[i].votingPower * _ntn) / epochTotalBondedStake;
+            if (_atnReward > 0 || _ntnReward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
                 // committee members in jailbound state are permanently jailed
                 if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
-                    config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
+                    config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[i].addr);
                     continue;
                 }
                 // non-jailed validators have a strict amount of bonded newton.
                 // the distribution account for the PAS ratio post-slashing.
-                uint256 _selfReward = (_val.selfBondedStake * _reward) / _val.bondedStake;
-                uint256 _delegationReward = _reward - _selfReward;
-                if (_selfReward > 0) {
+                uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;
+                if (_atnSelfReward > 0) {
                     // todo: handle failure scenario here although not critical.
-                    _val.treasury.call{value: _selfReward, gas: 2300}("");
+                    _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
                 }
-                if (_delegationReward > 0) {
-                    _val.liquidContract.redistribute{value: _delegationReward}();
+                uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
+                if (_ntnSelfReward > 0) {
+                    _transfer()
                 }
-                emit Rewarded(_val.nodeAddress, _reward);
+                uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
+                uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
+                if (_atnDelegationReward > 0) {
+                    _val.liquidContract.redistribute{value: _atnDelegationReward}();
+                }
+                emit Rewarded(_val.nodeAddress, _atnReward);
             }
         }
     }
