@@ -254,7 +254,7 @@ type extLightProposal struct {
 	IsValidRoundNil bool
 	ProposalBlock   common.Hash
 	Sender          common.Address
-	Signature       blst.Signature
+	Signature       *blst.BlsSignature
 }
 
 func (p *LightProposal) Code() uint8 {
@@ -295,7 +295,7 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 		IsValidRoundNil: isValidRoundNil,
 		ProposalBlock:   proposal.block.Hash(),
 		Sender:          proposal.sender,
-		Signature:       proposal.signature,
+		Signature:       proposal.signature.(*blst.BlsSignature),
 	})
 	return &LightProposal{
 		blockHash:  proposal.Block().Hash(),
