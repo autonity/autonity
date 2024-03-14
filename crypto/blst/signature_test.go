@@ -356,8 +356,7 @@ func TestCopy(t *testing.T) {
 	require.Equal(t, true, ok)
 
 	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
-	signatureB, ok := signatureA.Copy()
-	require.Equal(t, true, ok)
+	signatureB := signatureA.Copy()
 	require.Equal(t, true, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
 
 	signatureA.s.Sign(key.p, []byte("bar"), generalDST)

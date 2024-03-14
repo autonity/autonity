@@ -1418,9 +1418,10 @@ func TestQuorumPrecommit(t *testing.T) {
 	c.SetStep(context.Background(), Precommit)
 	c.curRoundMessages.SetProposal(proposal, true)
 	quorumPrecommitMsg := message.Fake{
-		FakeValue:  proposal.Block().Hash(),
-		FakePower:  new(big.Int).Sub(c.CommitteeSet().Quorum(), common.Big1),
-		FakeSender: members[2].Address,
+		FakeValue:     proposal.Block().Hash(),
+		FakePower:     new(big.Int).Sub(c.CommitteeSet().Quorum(), common.Big1),
+		FakeSender:    members[2].Address,
+		FakeSignature: new(blst.BlsSignature),
 	}
 	c.curRoundMessages.AddPrecommit(message.NewFakePrecommit(quorumPrecommitMsg))
 
