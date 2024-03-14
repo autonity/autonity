@@ -433,7 +433,7 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		if member.VotingPower.Cmp(validators[idx].BondedStake) != 0 {
 			return fmt.Errorf("Committee member stake mismatch")
 		}
-		if !bytes.Equal(member.ConsensusKey, validators[idx].ConsensusKey) {
+		if !bytes.Equal(member.ConsensusKeyBytes, validators[idx].ConsensusKey) {
 			return fmt.Errorf("Committee member consensus key mismatch")
 		}
 		if enodes[i] != validators[idx].Enode {

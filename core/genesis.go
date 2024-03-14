@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"sort"
 	"strings"
 	"time"
 
@@ -418,29 +417,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
-}
-
-// extractCommittee takes a slice of autonity users and extracts the validators
-// into a new type 'types.Committee' which is returned. It returns an error if
-// the provided users contained no validators.
-func extractCommittee(validators []*params.Validator) (types.Committee, error) {
-	var committee types.Committee
-	for _, v := range validators {
-		member := types.CommitteeMember{
-			Address:      *v.NodeAddress,
-			VotingPower:  v.BondedStake,
-			ConsensusKey: v.ConsensusKey,
-		}
-		committee = append(committee, member)
-	}
-
-	if len(committee) == 0 {
-		return nil, fmt.Errorf("no validators specified in the initial autonity validators")
-	}
-
-	sort.Sort(committee)
-
-	return committee, nil
 }
 
 func (g *Genesis) setDefaultHardforks() {

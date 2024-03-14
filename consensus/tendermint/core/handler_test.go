@@ -15,7 +15,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )
@@ -41,7 +41,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
-	senderKey := keysMap[sender.Address]
+	senderKey := keysMap[sender.Address].consensus
 
 	createPrevote := func(round int64, height int64) message.Msg {
 		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey, sender.Address))
@@ -231,7 +231,7 @@ func TestHandleMsg(t *testing.T) {
 	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
-	senderKey := keysMap[sender.Address]
+	senderKey := keysMap[sender.Address].consensus
 
 	cases := []testCase{
 		{
@@ -272,9 +272,9 @@ func TestHandleMsg(t *testing.T) {
 			1,
 			big.NewInt(2),
 			Propose,
-			message.NewPrevote(1, 2, common.BytesToHash([]byte{0x1}), func(hash common.Hash) ([]byte, common.Address) {
-				out, _ := crypto.Sign(append(hash[:], []byte{0xca, 0xfe}...), senderKey)
-				return out, sender.Address
+			message.NewPrevote(1, 2, common.BytesToHash([]byte{0x1}), func(hash common.Hash) (blst.Signature, common.Address) {
+				signature := senderKey.Sign(append(hash[:], []byte{0xca, 0xfe}...))
+				return signature, sender.Address
 			}),
 			message.ErrBadSignature,
 			false,

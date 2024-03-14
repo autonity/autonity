@@ -9,6 +9,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto/blst"
 
 	lru "github.com/hashicorp/golang-lru"
 	ring "github.com/zfjagann/golang-ring"
@@ -42,7 +43,8 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey,
+func New(nodeKey *ecdsa.PrivateKey,
+	consensusKey blst.SecretKey,
 	vmConfig *vm.Config,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
@@ -54,8 +56,9 @@ func New(privateKey *ecdsa.PrivateKey,
 
 	backend := &Backend{
 		eventMux:       event.NewTypeMuxSilent(evMux, log),
-		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
+		nodeKey:        nodeKey,
+		consensusKey:   consensusKey,
+		address:        crypto.PubkeyToAddress(nodeKey.PublicKey),
 		logger:         log,
 		coreStarted:    false,
 		recentMessages: recentMessages,
@@ -80,7 +83,8 @@ func New(privateKey *ecdsa.PrivateKey,
 
 type Backend struct {
 	eventMux     *event.TypeMuxSilent
-	privateKey   *ecdsa.PrivateKey
+	nodeKey      *ecdsa.PrivateKey
+	consensusKey blst.SecretKey
 	address      common.Address
 	logger       log.Logger
 	blockchain   *core.BlockChain
@@ -169,7 +173,7 @@ func (sb *Backend) Gossiper() interfaces.Gossiper {
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) error {
+func (sb *Backend) Commit(proposal *types.Block, round int64, seals types.Signatures) error {
 	h := proposal.Header()
 	// Append seals and round into extra-data
 	if err := types.WriteCommittedSeals(h, seals); err != nil {
@@ -328,13 +332,9 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 }
 
 // Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data common.Hash) ([]byte, common.Address) {
-	ret, err := crypto.Sign(data[:], sb.privateKey)
-	if err != nil {
-		// We panic here, it should never happen.
-		sb.logger.Crit("Consensus signing failed")
-	}
-	return ret, sb.address
+func (sb *Backend) Sign(data common.Hash) (blst.Signature, common.Address) {
+	signature := sb.consensusKey.Sign(data[:])
+	return signature, sb.address
 }
 
 func (sb *Backend) HeadBlock() *types.Block {

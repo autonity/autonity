@@ -80,7 +80,7 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			vote := message.NewPrevote(1, 2, common.BigToHash(big.NewInt(i)), dummySigner)
+			vote := message.NewPrevote(1, 2, common.BigToHash(big.NewInt(i)), testSigner)
 			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())}
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {

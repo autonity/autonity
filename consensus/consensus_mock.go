@@ -5,7 +5,6 @@
 //
 //	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 //
-
 // Package consensus is a generated GoMock package.
 package consensus
 

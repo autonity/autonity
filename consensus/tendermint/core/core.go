@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -255,9 +256,9 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-	committedSeals := make([][]byte, 0)
+	committedSeals := make(types.Signatures)
 	for _, v := range messages.PrecommitsFor(proposalHash) {
-		committedSeals = append(committedSeals, v.Signature())
+		committedSeals[v.Sender()] = v.Signature().(*blst.BlsSignature)
 	}
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/p2p/enode"
 
@@ -77,15 +78,16 @@ var (
 // *node.Node is embedded so that its api is available through Node.
 type Node struct {
 	*node.Node
-	isRunning bool
-	Config    *node.Config
-	Eth       *eth.Ethereum
-	EthConfig *ethconfig.Config
-	WsClient  *ethclient.Client
-	Nonce     uint64
-	Key       *ecdsa.PrivateKey
-	Address   common.Address
-	Tracker   *TransactionTracker
+	isRunning    bool
+	Config       *node.Config
+	Eth          *eth.Ethereum
+	EthConfig    *ethconfig.Config
+	WsClient     *ethclient.Client
+	Nonce        uint64
+	Key          *ecdsa.PrivateKey
+	ConsensusKey blst.SecretKey
+	Address      common.Address
+	Tracker      *TransactionTracker
 	// The transactions that this node has sent.
 	SentTxs     []*types.Transaction
 	CustHandler *interfaces.Services
@@ -160,13 +162,14 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 	nodeConfig.SetTendermintServices(validator.TendermintServices)
 
 	n := &Node{
-		Config:      nodeConfig,
-		EthConfig:   ethConfig,
-		Key:         validator.NodeKey,
-		Address:     address,
-		Tracker:     NewTransactionTracker(),
-		CustHandler: validator.TendermintServices,
-		ID:          id,
+		Config:       nodeConfig,
+		EthConfig:    ethConfig,
+		Key:          validator.NodeKey,
+		ConsensusKey: validator.ConsensusKey,
+		Address:      address,
+		Tracker:      NewTransactionTracker(),
+		CustHandler:  validator.TendermintServices,
+		ID:           id,
 	}
 
 	return n, nil

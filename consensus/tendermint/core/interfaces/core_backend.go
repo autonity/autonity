@@ -6,6 +6,7 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
@@ -28,7 +29,7 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposalBlock *types.Block, round int64, seals [][]byte) error
+	Commit(proposalBlock *types.Block, round int64, seals types.Signatures) error
 
 	// GetContractABI returns the Autonity Contract ABI
 	GetContractABI() *abi.ABI
@@ -49,7 +50,7 @@ type Backend interface {
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
-	Sign(hash common.Hash) ([]byte, common.Address)
+	Sign(hash common.Hash) (blst.Signature, common.Address)
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
