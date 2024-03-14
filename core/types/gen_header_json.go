@@ -5,6 +5,7 @@ package types
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -168,5 +169,12 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'committedSeals' for Header")
 	}
 	h.CommittedSeals = *dec.CommittedSeals
+
+	// TODO(lorenzo) this is manually added, and it breaks the automatic generation of the marshal/unmarshal methods
+	// I need to figure out a way to make it compatible with go generate
+	if err := h.Committee.DeserializeConsensusKeys(); err != nil {
+		return fmt.Errorf("Error while deserializing consensus keys: %w", err)
+	}
+
 	return nil
 }

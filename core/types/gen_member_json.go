@@ -19,7 +19,7 @@ func (c CommitteeMember) MarshalJSON() ([]byte, error) {
 	type CommitteeMember struct {
 		Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
 		VotingPower       *hexutil.Big   `json:"votingPower"        gencodec:"required"`
-		ConsensusKeyBytes hexutil.Bytes  `json:"consensusKey"       gencodec:"required" 			abi:"consensusKey"`
+		ConsensusKeyBytes hexutil.Bytes  `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
 		ConsensusKey      blst.PublicKey `json:"-" rlp:"-"`
 	}
 	var enc CommitteeMember
@@ -35,7 +35,7 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type CommitteeMember struct {
 		Address           *common.Address `json:"address"            gencodec:"required"       abi:"addr"`
 		VotingPower       *hexutil.Big    `json:"votingPower"        gencodec:"required"`
-		ConsensusKeyBytes *hexutil.Bytes  `json:"consensusKey"       gencodec:"required" 			abi:"consensusKey"`
+		ConsensusKeyBytes *hexutil.Bytes  `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
 		ConsensusKey      blst.PublicKey  `json:"-" rlp:"-"`
 	}
 	var dec CommitteeMember

@@ -5,9 +5,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	blst "github.com/supranational/blst/bindings/go"
-	"testing"
 )
 
 func TestSignVerify(t *testing.T) {
@@ -355,7 +356,7 @@ func TestCopy(t *testing.T) {
 	require.Equal(t, true, ok)
 
 	signatureA := &BlsSignature{s: new(blstSignature).Sign(key.p, []byte("foo"), generalDST)}
-	signatureB, ok := signatureA.Copy().(*BlsSignature)
+	signatureB, ok := signatureA.Copy()
 	require.Equal(t, true, ok)
 	require.Equal(t, true, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
 

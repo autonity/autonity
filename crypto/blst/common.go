@@ -56,7 +56,7 @@ type Signature interface {
 	AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool
 	FastAggregateVerify(pubKeys []PublicKey, msg [32]byte) bool
 	Marshal() []byte
-	Copy() Signature
+	Copy() *BlsSignature
 	Hex() string
 	EncodeRLP(w io.Writer) error
 	DecodeRLP(stream *rlp.Stream) error

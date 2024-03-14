@@ -34,7 +34,7 @@ func TestHeaderHash(t *testing.T) {
 
 	seals := make(Signatures)
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
-	seals[common.HexToAddress("0xcafe")] = testKey.Sign([]byte("0xcafe"))
+	seals[common.HexToAddress("0xcafe")] = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
 
 	testCases := []struct {
 		header Header

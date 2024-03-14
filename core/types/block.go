@@ -103,7 +103,8 @@ type Header struct {
 	CommittedSeals Signatures `json:"committedSeals"      gencodec:"required"`
 }
 
-type Signatures map[common.Address]blst.Signature
+// TODO(lorenzo) I use concrete type to make serialization easier, but to verify when changing with aggregate sig
+type Signatures map[common.Address]*blst.BlsSignature
 
 // serialize the map as an bytes key1|value1|key2|value2|...
 func (s Signatures) Marshal() []byte {
@@ -133,7 +134,7 @@ func (s Signatures) Unmarshal(b []byte) error {
 		if err != nil {
 			return fmt.Errorf("error while decoding BLS signature in signatures map: %w", err)
 		}
-		s[addr] = signature
+		s[addr] = signature.(*blst.BlsSignature)
 	}
 	return nil
 }

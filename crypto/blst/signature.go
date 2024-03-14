@@ -250,7 +250,7 @@ func (s *BlsSignature) UnmarshalText(input []byte) error {
 }
 
 // Copy returns a full deep copy of a signature.
-func (s *BlsSignature) Copy() Signature {
+func (s *BlsSignature) Copy() *BlsSignature {
 	sign := *s.s
 	return &BlsSignature{s: &sign}
 }
