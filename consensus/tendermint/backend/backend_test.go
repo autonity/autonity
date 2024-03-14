@@ -199,7 +199,7 @@ func TestVerifyProposal(t *testing.T) {
 		}
 		// Append committed seals into extra-data
 		committedSeals := make(types.Signatures)
-		committedSeals[address] = committedSeal
+		committedSeals[address] = committedSeal.(*blst.BlsSignature)
 		header := block.Header()
 		if err := types.WriteCommittedSeals(header, committedSeals); err != nil {
 			t.Fatalf("could not write committed seal %d, err=%s", i, err)
@@ -279,7 +279,7 @@ func TestCommit(t *testing.T) {
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		seals := make(types.Signatures)
-		seals[backend.address] = testSignature
+		seals[backend.address] = testSignature.(*blst.BlsSignature)
 
 		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 		testCases := []struct {
@@ -373,7 +373,7 @@ func TestCommit(t *testing.T) {
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		seals := make(types.Signatures)
-		seals[b.address] = testSignature
+		seals[b.address] = testSignature.(*blst.BlsSignature)
 
 		err := b.Commit(newBlock, 0, seals)
 		if err != nil {

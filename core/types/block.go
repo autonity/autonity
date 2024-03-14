@@ -107,6 +107,7 @@ type Header struct {
 type Signatures map[common.Address]*blst.BlsSignature
 
 // serialize the map as an bytes key1|value1|key2|value2|...
+// NOTE: since the looping over a map is undeterministic, the order of the bytes produced by this Marshal() function can differ for the same map.
 func (s Signatures) Marshal() []byte {
 	size := common.AddressLength + blst.BLSSignatureLength
 	n := len(s)
@@ -177,7 +178,7 @@ func (c Committee) DeserializeConsensusKeys() error {
 	for i := range c {
 		consensusKey, err := blst.PublicKeyFromBytes(c[i].ConsensusKeyBytes)
 		if err != nil {
-			return fmt.Errorf("Error when decoding bls key with index %d, err: %w", i, err)
+			return fmt.Errorf("Error when decoding bls key: index %d, address: %v, err: %w", i, c[i].Address, err)
 		}
 		c[i].ConsensusKey = consensusKey
 	}

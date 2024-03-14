@@ -249,7 +249,7 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 
 		valid := signedSeal.Verify(member.ConsensusKey, headerSeal[:])
 		if !valid {
-			sb.logger.Error("block had invalid committed seal")
+			sb.logger.Error("block had invalid committed seal", "address", member.Address)
 			return types.ErrInvalidCommittedSeals
 		}
 

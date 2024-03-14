@@ -109,8 +109,8 @@ func WriteCommittedSeals(h *Header, committedSeals Signatures) error {
 		return ErrInvalidCommittedSeals
 	}
 	h.CommittedSeals = make(Signatures)
-	for addr, val := range committedSeals {
-		h.CommittedSeals[addr] = val.Copy()
+	for addr, seal := range committedSeals {
+		h.CommittedSeals[addr] = seal.Copy()
 	}
 	return nil
 }

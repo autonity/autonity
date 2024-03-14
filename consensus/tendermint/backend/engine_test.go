@@ -17,6 +17,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 )
 
 func TestPrepare(t *testing.T) {
@@ -368,7 +369,7 @@ OUT3:
 
 func TestWriteCommittedSeals(t *testing.T) {
 	expectedCommittedSeal := make(types.Signatures)
-	expectedCommittedSeal[testAddress] = testSignature
+	expectedCommittedSeal[testAddress] = testSignature.(*blst.BlsSignature)
 
 	h := &types.Header{}
 

@@ -16,6 +16,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 )
 
@@ -179,7 +180,7 @@ func TestHandlePrecommit(t *testing.T) {
 					t.Fatal("Commit called with round different than precommit seal")
 				}
 				expectedSeals := make(types.Signatures)
-				expectedSeals[msg.Sender()] = msg.Signature()
+				expectedSeals[msg.Sender()] = msg.Signature().(*blst.BlsSignature)
 				if !reflect.DeepEqual(expectedSeals, seals) {
 					t.Fatal("Commit called with wrong seal")
 				}
