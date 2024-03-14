@@ -18,17 +18,6 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-/* //TODO(lorenzo) fix
-var (
-	key, _          = crypto.GenerateKey()
-	consensusKey, _ = blst.RandKey()
-	address         = crypto.PubkeyToAddress(key.PublicKey)
-	signer          = func(hash common.Hash) (blst.Signature, common.Address) {
-		signature := consensusKey.Sign(hash[:])
-		return signature, address
-	}
-)*/
-
 func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
 		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner)
