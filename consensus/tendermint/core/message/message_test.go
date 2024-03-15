@@ -95,6 +95,17 @@ func TestMessageDecode(t *testing.T) {
 			t.Error("Decoding should have failed")
 		}
 	})
+	t.Run("invalid propose with proposal height != block number", func(t *testing.T) {
+		header := &types.Header{Number: common.Big2}
+		block := types.NewBlockWithHeader(header)
+		proposal := NewPropose(1, 4, 57, block, defaultSigner)
+		decoded := &Propose{}
+		reader := bytes.NewReader(proposal.Payload())
+		err := rlp.Decode(reader, decoded)
+		if !errors.Is(err, constants.ErrInvalidMessage) {
+			t.Error("Decoding should have failed")
+		}
+	})
 }
 
 func TestValidate(t *testing.T) {

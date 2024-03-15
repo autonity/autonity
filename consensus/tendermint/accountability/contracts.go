@@ -7,7 +7,6 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -26,14 +25,24 @@ var (
 	checkInnocenceAddress    = common.BytesToAddress([]byte{0xfd})
 	checkMisbehaviourAddress = common.BytesToAddress([]byte{0xfe})
 	// error codes of the execution of precompiled contract to verify the input Proof.
-	successResult   = common.LeftPadBytes([]byte{1}, 32)
-	failureReturn   = make([]byte, 128)
-	errBadHeight    = errors.New("height invalid")
-	errMaxEvidences = errors.New("above max evidence threshold")
+	successResult          = common.LeftPadBytes([]byte{1}, 32)
+	failureReturn          = make([]byte, 128)
+	errBadHeight           = errors.New("height invalid")
+	errMaxEvidences        = errors.New("above max evidence threshold")
+	errTooRecentAccusation = errors.New("accusation is too recent")
+	errTooOldAccusation    = errors.New("accusation is too old")
+	errValueCommitted      = errors.New("accusation is for a committed value")
 )
 
 const KB = 1024
 
+/* TODO: This function subtly breaks the accusation, misbehavior and innocence e2e test.
+* This is because since the Precompiled maps are global variables, all nodes in the e2e test
+* end up using the same precompiled contracts, which contain the same chain reference.
+* I.E. all nodes will use the chain of the last started node when executing precompiled contracts.
+* We decided not to fix this issue since it does not affect a standalone client in a production test.
+* The real fix here is to remove the chain dependency from precompiled contracts.
+ */
 // LoadPrecompiles init the instances of Fault Detector contracts, and register them into EVM's context
 func LoadPrecompiles(chain ChainContext) {
 	vm.PrecompiledContractRWMutex.Lock()
@@ -64,6 +73,28 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 	return params.AutonityAFDContractGasPerKB * times
 }
 
+// executes checks that can be done before even verifying signatures
+func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64) error {
+	accusationHeight := m.H()
+
+	// has to be at least DeltaBlocks old
+	if currentHeight <= (DeltaBlocks+1) || accusationHeight >= currentHeight-DeltaBlocks {
+		return errTooRecentAccusation
+	}
+	// cannot be too old. Otherwise this could be exploited by a malicious peer to raise an undefendable accusation.
+	// additionally we allocate accountabilityHeightRange/4 more blocks as buffer time to avoid race conditions
+	// between msgStore garbage collection and innocence proof generation
+	if (currentHeight - accusationHeight) > (HeightRange - (HeightRange / 4)) {
+		return errTooOldAccusation
+	}
+
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation
+	if chain.GetBlock(m.Value(), m.H()) != nil {
+		return errValueCommitted
+	}
+	return nil
+}
+
 // Run take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg sender is returned.
 func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
@@ -75,16 +106,18 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 	if err != nil {
 		return failureReturn, nil
 	}
-	if err = verifyProofSignatures(a.chain, p); err != nil {
+
+	// Do preliminary checks that do not rely on signature correctness
+	// NOTE: We do not have guarantees that: a.chain.CurrentBlock().NumberU64() == blockNumber - 1
+	// This is because the chain head can change while we are executing this tx, therefore the blockNumber might become obsolete.
+	if err := preVerifyAccusation(a.chain, p.Message, blockNumber); err != nil {
 		return failureReturn, nil
 	}
 
-	// prevent a potential attack: a malicious fault detector can rise an accusation that contain a message
-	// corresponding to an old height, while at each Pi, they only buffer specific heights of message in msg store, thus
-	// Pi can never provide a valid proof of innocence anymore, making the malicious accusation be valid for slashing.
-	if blockNumber > p.Message.H() && (blockNumber-p.Message.H() >= consensus.AccountabilityHeightRange) {
+	if err := verifyProofSignatures(a.chain, p); err != nil {
 		return failureReturn, nil
 	}
+
 	if verifyAccusation(p) {
 		return validReturn(p.Message, p.Rule), nil
 	}
@@ -101,15 +134,17 @@ func verifyAccusation(p *Proof) bool {
 			return false
 		}
 	case autonity.PVN:
-		if p.Message.Code() != message.PrevoteCode {
+		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
 			return false
 		}
 	case autonity.PVO:
-		if p.Message.Code() != message.PrevoteCode {
+		// theoretically we do not need the non-nil check, since we will check later that prevote.value == proposal.value
+		// however added for simplicity of understanding
+		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
 			return false
 		}
 	case autonity.C1:
-		if p.Message.Code() != message.PrecommitCode {
+		if p.Message.Code() != message.PrecommitCode || p.Message.Value() == nilValue {
 			return false
 		}
 	default:
@@ -178,8 +213,6 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof) []byte {
 		valid = c.validMisbehaviourOfPVO(p)
 	case autonity.PVO12:
 		valid = c.validMisbehaviourOfPVO12(p)
-	case autonity.PVO3:
-		valid = c.validMisbehaviourOfPVO3(p)
 	case autonity.C:
 		valid = c.validMisbehaviourOfC(p)
 	case autonity.InvalidProposer:
@@ -430,28 +463,6 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	return lastRoundForNotV > lastRoundForV
 }
 
-// check if the proof of challenge of PVO3 is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPVO3(p *Proof) bool {
-	if len(p.Evidences) != 1 {
-		return false
-	}
-	prevote := p.Message
-	if prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
-		return false
-	}
-
-	// check if the corresponding proposal of preVote is presented, and it contains an invalid validRound.
-	correspondingProposal := p.Evidences[0]
-	if correspondingProposal.Code() != message.LightProposalCode ||
-		correspondingProposal.H() != prevote.H() ||
-		correspondingProposal.R() != prevote.R() ||
-		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.(*message.LightProposal).ValidRound() < correspondingProposal.R() {
-		return false
-	}
-	return true
-}
-
 // check if the Proof of challenge of C is valid.
 func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof) bool {
 	if len(p.Evidences) == 0 {
@@ -663,6 +674,7 @@ func verifyProofSignatures(chain ChainContext, p *Proof) error {
 
 	committee, err := chain.CommitteeOfHeight(h)
 	if err != nil {
+
 		return errFutureMsg
 	}
 

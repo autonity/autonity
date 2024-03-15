@@ -18,7 +18,6 @@ package main
 
 import (
 	"crypto/rand"
-	"github.com/autonity/autonity/crypto"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/params"
 )
@@ -110,7 +111,7 @@ func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
 }
 
 func getCoinBase(t *testing.T, datadir string) string {
-	keyfile := filepath.Join(datadir, "autonity", "nodekey")
+	keyfile := filepath.Join(datadir, "autonity", "autonitykeys")
 	key, _, err := crypto.LoadAutonityKeys(keyfile)
 	if err != nil {
 		t.Fatalf("cannot get node key with error: %v", err)

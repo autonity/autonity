@@ -118,8 +118,7 @@ $(GOBINDATA_BINARY):
 $(ABIGEN_BINARY):
 	go build -o $(ABIGEN_BINARY) ./cmd/abigen
 
-all: contracts
-	make bindings
+all: $(ABIGEN_BINARY) contracts
 	go run build/ci.go install
 
 android:

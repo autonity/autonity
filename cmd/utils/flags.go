@@ -1479,7 +1479,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	}
 	// Ensure Go's GC ignores the database cache for trigger percentage
 	cache := ctx.GlobalInt(CacheFlag.Name)
-	gogc := math.Max(20, math.Min(100, 100/(float64(cache)/1024)))
+	gogc := math.Max(20, math.Min(300, 300/(float64(cache)/1024)))
 
 	log.Debug("Sanitizing Go's GC trigger", "percent", int(gogc))
 	godebug.SetGCPercent(int(gogc))
@@ -1575,7 +1575,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Override any default configs for hard coded networks.
 	if ctx.GlobalBool(PiccadillyFlag.Name) {
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkID = params.PiccaddillyChainConfig.ChainID.Uint64()
+			cfg.NetworkID = params.PiccadillyChainConfig.ChainID.Uint64()
 		}
 		cfg.Genesis = core.DefaultPiccadillyGenesisBlock()
 	}

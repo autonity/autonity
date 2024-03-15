@@ -5,13 +5,19 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 )
 
 func TestNewProposalAccountabilityCheck(t *testing.T) {
@@ -116,7 +122,6 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 }
 
 func TestOldProposalsAccountabilityCheck(t *testing.T) {
-	//t.Skip("skip this test for CI jobs, it works in local, anyway there is similar case under misbehaviour_detector_test.go.")
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	height := uint64(0)
 
@@ -574,6 +579,25 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		require.Equal(t, 0, len(proofs))
 	})
 
+	t.Run("no proof when pi precommited for {B1,nil*,B} and then prevoted B", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+
+		fd.msgStore.Save(precommitForB1In0)
+
+		// fill gaps with nil
+		for i := 1; i < 4; i++ {
+			precommitNil := message.NewPrecommit(int64(i), height, nilValue, signer).MustVerify(stubVerifier)
+			fd.msgStore.Save(precommitNil)
+		}
+
+		fd.msgStore.Save(precommitForBIn4)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
 	// Testcases for PVO
 	t.Run("accusation when there is no quorum for the prevote value in the valid round", func(t *testing.T) {
 		fd := testFD()
@@ -976,7 +1000,19 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 func testFD() *FaultDetector {
 	return &FaultDetector{
-		msgStore: tendermintCore.NewMsgStore(),
-		logger:   log.Root(),
+		msgStore:   tendermintCore.NewMsgStore(),
+		logger:     log.Root(),
+		blockchain: newTestBlockchain(),
 	}
+}
+
+func newTestBlockchain() *core.BlockChain {
+	db := rawdb.NewMemoryDatabase()
+	core.GenesisBlockForTesting(db, common.Address{}, common.Big0)
+
+	chain, err := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
+	if err != nil {
+		panic(err)
+	}
+	return chain
 }

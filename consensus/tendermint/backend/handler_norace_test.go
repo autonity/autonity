@@ -7,12 +7,13 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/p2p"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/p2p"
 
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/events"
@@ -36,6 +37,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
+			msg.Discard() // simulate discarding of payload from acn handler
 		}
 
 		for i := int64(0); i < ringCapacity; i++ {
@@ -84,6 +86,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
+			msg.Discard() // simulate discarding of payload from acn handler
 		}
 		sub := backend.eventMux.Subscribe(events.MessageEvent{})
 		if err := backend.Start(context.Background()); err != nil {

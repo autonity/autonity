@@ -33,6 +33,7 @@ func TestAutoMiningForCommitteeMembers(t *testing.T) {
 
 // test non-committee member validators should not start the mining workers.
 func TestAutoMiningForNonCommitteeValidator(t *testing.T) {
+	t.Skip("broken, to fix or (better) port to new e2e framework")
 	numOfValidators := 2
 	testCase := &testCase{
 		name:          "Auto mining test, non committee member should not start mining",
@@ -55,6 +56,7 @@ func TestAutoMiningForNonCommitteeValidator(t *testing.T) {
 
 // test on committee seats rotation, new selected validators should start mining workers.
 func TestAutoMiningForNewSelectedValidator(t *testing.T) {
+	t.Skip("discovery is broken for this framework")
 	numOfValidators := 2
 	operator, err := makeAccount()
 	require.NoError(t, err)

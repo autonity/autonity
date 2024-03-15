@@ -13,6 +13,7 @@ import (
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params/generated"
 )
@@ -321,14 +322,9 @@ func (v *Validator) Validate() error {
 	if v.CommissionRate != nil && v.CommissionRate.Cmp(big.NewInt(0)) != 0 {
 		return fmt.Errorf("commission rate for enode %q not allowed", nodeAddr.String())
 	}
-
-	// todo: check below logic for the consensusKey of GVs once we use them in consensus engine, it requires update in
-	//  genesis config of Piccadilly and Barkerloo network.
-	/*
-		_, err = blst.PublicKeyFromBytes(v.ConsensusKey)
-		if err != nil {
-			return errors.New("cannot decode bls public key")
-		}*/
+	if _, err = blst.PublicKeyFromBytes(v.ConsensusKey); err != nil {
+		return errors.New("cant decode bls public key")
+	}
 	return nil
 }
 

@@ -41,5 +41,5 @@ interface IAccountability {
     /**
     * @dev Event emitted after a successful slashing.
     */
-    event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound);
+    event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId);
 }

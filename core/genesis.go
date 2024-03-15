@@ -304,10 +304,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if g.Difficulty.Cmp(big.NewInt(0)) != 0 {
 		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 0, instead got %v", g.Difficulty)
 	}
-	committee, err := extractCommittee(g.Config.AutonityContractConfig.Validators)
-	if err != nil {
-		return nil, err
-	}
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
@@ -325,15 +321,30 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 
 	genesisBonds := g.Alloc.ToGenesisBonds()
-
 	evmProvider := func(statedb vm.StateDB) *vm.EVM {
 		return genesisEVM(g, statedb)
 	}
 
 	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
-
 	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
 		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
+	}
+	genesisCommittee, err := evmContracts.AutonityContract.Committee(nil, statedb)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
+	}
+
+	committee := &types.Committee{}
+	if len(genesisCommittee) != 0 {
+		committee.Members = make([]*types.CommitteeMember, len(genesisCommittee))
+		for i, m := range genesisCommittee {
+			committee.Members[i] = &types.CommitteeMember{
+				Address:      m.Address,
+				VotingPower:  new(big.Int).Set(m.VotingPower),
+				ConsensusKey: m.ConsensusKey,
+			}
+		}
+		committee.Sort()
 	}
 
 	root := statedb.IntermediateRoot(false)
@@ -374,7 +385,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 }
 
 func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
-
 	evmContext := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -385,12 +395,10 @@ func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 		GasLimit:    genesis.GasLimit,
 		Difficulty:  genesis.Difficulty,
 	}
-
 	txContext := vm.TxContext{
 		Origin:   params.DeployerAddress,
 		GasPrice: new(big.Int).SetUint64(0x0),
 	}
-
 	return vm.NewEVM(evmContext, txContext, statedb, genesis.Config, vm.Config{})
 }
 
@@ -523,13 +531,13 @@ func DefaultGenesisBlock() *Genesis {
 // DefaultPiccadillyGenesisBlock returns the Piccadilly network genesis block.
 func DefaultPiccadillyGenesisBlock() *Genesis {
 	g := &Genesis{
-		Config:     params.PiccaddillyChainConfig,
+		Config:     params.PiccadillyChainConfig,
 		Nonce:      0,
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.PiccaddillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
+			params.PiccadillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
 		},
 	}
 	for _, v := range g.Config.AutonityContractConfig.Validators {

@@ -26,6 +26,8 @@ const (
 	LvlTrace
 )
 
+var DefaultVerbosity = LvlInfo
+
 // AlignedString returns a 5-character string containing the name of a Lvl.
 func (l Lvl) AlignedString() string {
 	switch l {
