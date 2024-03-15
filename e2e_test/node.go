@@ -116,9 +116,6 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 	nodeConfig.ConsensusP2P.PrivateKey = validator.NodeKey
 	nodeConfig.ConsensusP2P.ListenAddr = fmt.Sprintf("%s:%d", localhost, validator.AcnPort)
 
-	// consensus key used by consensus engine.
-	c.ConsensusKey = u.ConsensusKey
-
 	// Set rpc ports
 	//c.HTTPPort = freeport.GetOne(t)
 	//c.WSPort = freeport.GetOne(t)
