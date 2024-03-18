@@ -375,7 +375,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		chainMock.EXPECT().GetBlock(proposal.Value(), proposal.H()).Return(nil)
 
 		for i, m := range committee.Members {
-			preVote := message.NewPrevote(validRound, height, proposal.Value(), makeSigner(keys[i], m)).MustVerify(stubVerifier)
+			preVote := message.NewPrevote(validRound, accusationHeight, proposal.Value(), makeSigner(keys[i], m)).MustVerify(stubVerifier)
 			ms.Save(preVote)
 		}
 

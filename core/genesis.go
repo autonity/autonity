@@ -434,28 +434,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-// extractCommittee takes a slice of autonity users and extracts the validators
-// into a new type 'types.Committee' which is returned. It returns an error if
-// the provided users contained no validators.
-func extractCommittee(validators []*params.Validator) (*types.Committee, error) {
-	committee := &types.Committee{Members: make([]*types.CommitteeMember, len(validators))}
-	for i, v := range validators {
-		committee.Members[i] = &types.CommitteeMember{
-			Address:      *v.NodeAddress,
-			VotingPower:  v.BondedStake,
-			ConsensusKey: v.ConsensusKey,
-		}
-	}
-	committee.Sort()
-
-	if len(committee.Members) == 0 {
-		return nil, fmt.Errorf("no validators specified in the initial autonity validators")
-	}
-
-	log.Info("Starting DPoS-BFT consensus protocol", "validators", committee)
-	return committee, nil
-}
-
 func (g *Genesis) setDefaultHardforks() {
 	if g.Config.ByzantiumBlock == nil {
 		g.Config.ByzantiumBlock = new(big.Int)
