@@ -711,24 +711,17 @@ func TestLargeNetwork(t *testing.T) {
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 	require.NoError(t, err)
 
-	getNetworkState := func() (height uint64, committee types.Committee) {
+	getNetworkState := func() (height uint64, committee *types.Committee) {
 		for _, n := range network {
 			nodeHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 			if nodeHeight > height {
 				height = nodeHeight
-				committee = n.Eth.BlockChain().CurrentHeader().Committee
+				com, err := n.Eth.BlockChain().CommitteeOfHeight(height)
+				require.NoError(t, err)
+				committee = com
 			}
 		}
 		return
-	}
-
-	inCommittee := func(address common.Address, committee types.Committee) bool {
-		for i := range committee {
-			if committee[i].Address == address {
-				return true
-			}
-		}
-		return false
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)
@@ -761,7 +754,7 @@ func TestLargeNetwork(t *testing.T) {
 				execCountBuf.WriteString(strconv.Itoa(node.ExecutionServer().PeerCount()) + "\t")
 				consCountBuf.WriteString(strconv.Itoa(node.ConsensusServer().PeerCount()) + "\t")
 				stateBuf.WriteString(strconv.Itoa(int(node.Eth.BlockChain().CurrentHeader().Number.Uint64())) + "\t")
-				if inCommittee(node.Address, committee) {
+				if committee.CommitteeMember(node.Address) != nil {
 					committeeBuf.WriteString("X" + "\t")
 				} else {
 					committeeBuf.WriteString(" " + "\t")
