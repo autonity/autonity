@@ -241,7 +241,6 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         delete pendingBondingVesting[_bondingID];
         delete pendingBondingRequest[_bondingID];
         delete bondingToSchedule[_bondingID];
-        return true;
     }
 
     // callback function for autonity when unbonding is applied
