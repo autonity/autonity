@@ -3,6 +3,7 @@
 pragma solidity ^0.8.19;
 
 import "./interfaces/IERC20.sol";
+import "./interfaces/IStakeProxy.sol";
 import "./Liquid.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
@@ -357,10 +358,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @param _validator address of the validator to delegate stake to.
     *        _amount total amount of NTN to bond.
     */
-    function bond(address _validator, uint256 _amount) public virtual {
+    function bond(address _validator, uint256 _amount) public virtual returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(validators[_validator].state == ValidatorState.active, "validator need to be active");
-        _bond(_validator, _amount, payable(msg.sender));
+        return _bond(_validator, _amount, payable(msg.sender));
     }
 
     /**
@@ -368,10 +369,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @param _validator address of the validator to unbond stake to.
     *        _amount total amount of NTN to unbond.
     */
-    function unbond(address _validator, uint256 _amount) public virtual {
+    function unbond(address _validator, uint256 _amount) public virtual returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(_amount > 0, "unbonding amount is 0");
-        _unbond(_validator, _amount, payable(msg.sender));
+        return _unbond(_validator, _amount, payable(msg.sender));
     }
 
     /**
@@ -897,14 +898,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         return blockEpochMap[_block];
     }
 
-    function getHeadBondingID() external view returns (uint256) {
-        return headBondingID;
-    }
-
-    function getHeadUnbondingID() external view returns (uint256) {
-        return headUnbondingID;
-    }
-
     /*
     ============================================================
 
@@ -1122,7 +1115,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      *
      * This function assume that `_validator` is a valid validator address.
      */
-    function _bond(address _validator, uint256 _amount, address payable _recipient) internal virtual {
+    function _bond(address _validator, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
         require(_amount > 0, "amount need to be strictly positive");
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
@@ -1133,14 +1126,16 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         bool _selfBonded = validators[_validator].treasury == _recipient;
         emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount);
+        return headBondingID-1;
     }
 
-    function _notifyBondingApplied(uint256 _id, uint256 _liquid, bool _rejected) private view {
-        address to = bondingMap[_id].delegator;
-        bytes memory input = abi.encodeWithSignature("bondingApplied(uint256,uint256,bool)", _id, _liquid, _rejected);
-        assembly {
-            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            let res := staticcall(gas(), to, add(input, 32), mload(input), 0, 0)
+    function _notifyBondingApplied(uint256 _id, uint256 _liquid, bool _selfDelegation, bool _rejected) private {
+        address _to = bondingMap[_id].delegator;
+        // review gas limit
+        try IStakeProxy(_to).bondingApplied(_id, _liquid, _selfDelegation, _rejected) {
+            // do nothing
+        } catch {
+            // do nothing
         }
     }
 
@@ -1152,7 +1147,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         if (_validator.state != ValidatorState.active) {
             accounts[_bonding.delegator] += _bonding.amount;
             emit BondingRejected(_bonding.delegator, _bonding.delegatee, _bonding.amount, _validator.state);
-            _notifyBondingApplied(id, 0, true);
+            _notifyBondingApplied(id, 0, _bonding.delegator == _validator.treasury, true);
             return;
         }
 
@@ -1168,16 +1163,16 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             }
             _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
-            _notifyBondingApplied(id, _liquidAmount, false);
+            _notifyBondingApplied(id, _liquidAmount, false, false);
         } else {
             // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
             _validator.selfBondedStake += _bonding.amount;
-            _notifyBondingApplied(id, 0, false);
+            _notifyBondingApplied(id, 0, true, false);
         }
         _validator.bondedStake += _bonding.amount;
     }
 
-    function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual {
+    function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
         Validator storage _validator = validators[_validatorAddress];
         bool selfDelegation = _recipient == _validator.treasury;
         if(!selfDelegation) {
@@ -1197,14 +1192,15 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         headUnbondingID++;
 
         emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
+        return headUnbondingID-1;
     }
 
-    function _notifyUnbondingReleased(uint256 _id, uint256 _amount) private view {
-        address to = unbondingMap[_id].delegator;
-        bytes memory input = abi.encodeWithSignature("unbondingReleased(uint256,uint256)", _id, _amount);
-        assembly {
-            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            let res := staticcall(gas(), to, add(input, 32), mload(input), 0, 0)
+    function _notifyUnbondingReleased(uint256 _id, uint256 _amount) private {
+        address _to = unbondingMap[_id].delegator;
+        try IStakeProxy(_to).unbondingReleased(_id, _amount) {
+            // do nothing
+        } catch {
+            // do nothing
         }
     }
 
@@ -1229,12 +1225,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         _notifyUnbondingReleased(_id, _returnedStake);
     }
 
-    function _notifyUnbondingApplied(uint256 _id) private view {
-        address to = unbondingMap[_id].delegator;
-        bytes memory input = abi.encodeWithSignature("unbondingApplied(uint256)", _id);
-        assembly {
-            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
-            let res := staticcall(gas(), to, add(input, 32), mload(input), 0, 0)
+    function _notifyUnbondingApplied(uint256 _id) private {
+        address _to = unbondingMap[_id].delegator;
+        try IStakeProxy(_to).unbondingApplied(_id) {
+            // do nothing
+        } catch {
+            // do nothing
         }
     }
 
