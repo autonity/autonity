@@ -21,8 +21,8 @@ contract VestingCalculator {
     constructor() {}
 
     function releasedFunds(uint256 _id) public view returns (uint256) {
-        Vesting storage item = vestings[_id];
-        return _released(item.unreleased, item.cliff, item.end) + item.released;
+        Vesting storage _item = vestings[_id];
+        return _releasedFund(_item.unreleased, _item.cliff, _item.end) + _item.released;
     }
 
     function _newVesting(uint256 _totalAmount, uint256 _cliff, uint256 _end) internal returns (uint256) {
@@ -45,9 +45,9 @@ contract VestingCalculator {
      * @param _amount amount of new vesting
      */
     function _splitVesting(uint256 _id, uint256 _amount) internal vestingExists(_id) returns (uint256) {
-        Vesting storage oldItem = vestings[_id];
-        require(oldItem.released + oldItem.unreleased >= _amount, "cannot split, invalid amount of new vesting");
-        uint256 newVestingID = _newVesting(_amount, oldItem.cliff, oldItem.end);
+        Vesting storage _oldItem = vestings[_id];
+        require(_oldItem.released + _oldItem.unreleased >= _amount, "cannot split, invalid amount of new vesting");
+        uint256 _newVestingID = _newVesting(_amount, _oldItem.cliff, _oldItem.end);
         // Let split a vesting with released = r and unreleased = u into two vestings with unreleased u1 and u2 and
         // released r1 and r2 respectively. If both new vestings have same cliff (let c) and end (let e) block as the original one,
         // then at any block, b >= c we have released funds, r1 = r1 + u1*(b-c)/(e-c) and r2 = r2 + u2*(b-c)/(e-c)
@@ -59,16 +59,16 @@ contract VestingCalculator {
         // and the unreleased portion is divided proporional to the total amount of the new vesting.
         // Note that at any time, we have r1 = r*x and r2 = r*(1-x) where x = u1/u = (u1+r1)/(u+r), which means the vesting with
         // more funds will release more than the other but at any point. Also r1+r2 = r is true which is expected
-        uint256 released = oldItem.released * _amount / (oldItem.released+oldItem.unreleased);
-        Vesting storage newVesting = vestings[newVestingID];
-        newVesting.released = released;
-        newVesting.unreleased -= released;
-        oldItem.released -= released;
-        oldItem.unreleased -= newVesting.unreleased;
-        if (oldItem.released + oldItem.unreleased == 0) {
+        uint256 _released = _oldItem.released * _amount / (_oldItem.released+_oldItem.unreleased);
+        Vesting storage _newItem = vestings[_newVestingID];
+        _newItem.released = _released;
+        _newItem.unreleased -= _released;
+        _oldItem.released -= _released;
+        _oldItem.unreleased -= _newItem.unreleased;
+        if (_oldItem.released + _oldItem.unreleased == 0) {
             _removeVesting(_id);
         }
-        return newVestingID;
+        return _newVestingID;
     }
 
     // update the existing vesting such that released+unreleased = _amount holds
@@ -77,69 +77,70 @@ contract VestingCalculator {
         if (_amount == 0) {
             _removeVesting(_id);
         }
-        Vesting storage item = vestings[_id];
-        uint256 released = item.released * _amount / (item.released+item.unreleased);
-        item.released = released;
-        item.unreleased = _amount - released;
+        Vesting storage _item = vestings[_id];
+        uint256 _released = _item.released * _amount / (_item.released+_item.unreleased);
+        _item.released = _released;
+        _item.unreleased = _amount - _released;
     }
 
     function _mergeVesting(uint256 _id1, uint256 _id2) internal returns (uint256) {
-        Vesting storage item1 = vestings[_id1];
-        Vesting storage item2 = vestings[_id2];
-        if (item1.end == 0) {
+        Vesting storage _item1 = vestings[_id1];
+        Vesting storage _item2 = vestings[_id2];
+        if (_item1.end == 0) {
             return _id2;
         }
-        else if (item2.end == 0) {
+        else if (_item2.end == 0) {
             return _id1;
         }
         // _release will make their cliff same
         _release(_id1);
         _release(_id2);
         
-        require(item1.end == item2.end, "cannot merge vesting with different end block");
+        require(_item1.end == _item2.end, "cannot merge vesting with different end block");
         // Released amount is calculated with the following formula
         // releasedAmount = released + unreleased * (x - cliff) / (end - cliff)
         // If both item has same end and cliff block, then
         // releasedAmount1 + releasedAmount2 = (released1+released2) + (unreleased1+unreleased2) * (x - cliff) / (end - cliff)
         // So it means we get a new vesting whose released = released1+released2 and unreleased = unreleased1+unreleased2
-        item1.released += item2.released;
-        item1.unreleased += item2.unreleased;
-        item1.cliff = block.number;
+        _item1.released += _item2.released;
+        _item1.unreleased += _item2.unreleased;
+        _item1.cliff = block.number;
         _removeVesting(_id2);
         return _id1;
     }
 
     function _release(uint256 _id) internal returns (uint256) {
-        Vesting storage item = vestings[_id];
-        uint256 amount = _released(item.unreleased, item.cliff, item.end);
-        if (amount > 0) {
-            item.released += amount;
-            item.unreleased -= amount;
-            item.cliff = block.number;
+        Vesting storage _item = vestings[_id];
+        uint256 _amount = _releasedFund(_item.unreleased, _item.cliff, _item.end);
+        if (_amount > 0) {
+            _item.released += _amount;
+            _item.unreleased -= _amount;
+            _item.cliff = block.number;
         }
-        return item.released;
+        return _item.released;
     }
 
     function _withdraw(uint256 _id, uint256 _amount) internal returns (bool) {
-        uint256 releasedAmount = _release(_id);
-        require(releasedAmount >= _amount, "not enough released");
-        vestings[_id].released -= _amount;
-        if (vestings[_id].unreleased + vestings[_id].released == 0) {
+        uint256 _releasedAmount = _release(_id);
+        require(_releasedAmount >= _amount, "not enough released");
+        Vesting storage _item = vestings[_id];
+        _item.released -= _amount;
+        if (_item.unreleased + _item.released == 0) {
             _removeVesting(_id);
         }
         return true;
     }
 
     function _withdrawAll(uint256 _id) internal returns (uint256) {
-        uint256 amount = _release(_id);
+        uint256 _amount = _release(_id);
         vestings[_id].released = 0;
         if (vestings[_id].unreleased == 0) {
             _removeVesting(_id);
         }
-        return amount;
+        return _amount;
     }
 
-    function _released(uint256 _unreleased, uint256 _cliff, uint256 _end) private view returns (uint256) {
+    function _releasedFund(uint256 _unreleased, uint256 _cliff, uint256 _end) private view returns (uint256) {
         if (block.number >= _end) {
             return _unreleased;
         }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "./Autonity.sol";
-import "./Liquid.sol";
+import "../Autonity.sol";
+import "../Liquid.sol";
 
 contract LiquidRewardManager {
 
@@ -93,13 +93,13 @@ contract LiquidRewardManager {
     }
 
     function _computeUnrealisedFees(uint256 _id, address _validator) private view returns (uint256) {
-        uint256 balance = liquidBalances[_id][_validator];
-        if (balance == 0) {
+        uint256 _balance = liquidBalances[_id][_validator];
+        if (_balance == 0) {
             return 0;
         }
         uint256 _unrealisedFeeFactor =
             validatorLiquids[_validator].lastUnrealisedFeeFactor - unrealisedFeeFactors[_id][_validator];
-        uint256 _unrealisedFee = (_unrealisedFeeFactor * balance) / FEE_FACTOR_UNIT_RECIP;
+        uint256 _unrealisedFee = (_unrealisedFeeFactor * _balance) / FEE_FACTOR_UNIT_RECIP;
         return _unrealisedFee;
     }
 
@@ -107,14 +107,14 @@ contract LiquidRewardManager {
         if (rewardsClaimedEpoch[_validator] == _epochID()) {
             return;
         }
-        Liquid liquidContract = autonity.getValidator(_validator).liquidContract;
-        uint256 reward = address(this).balance;
-        liquidContract.claimRewards();
-        reward = address(this).balance - reward;
-        if (reward > 0) {
-            LiquidInfo storage liquidInfo = validatorLiquids[_validator];
-            require(liquidInfo.totalLiquid > 0, "got reward from validator with no liquid supply"); // this shouldn't happen
-            liquidInfo.lastUnrealisedFeeFactor += (reward * FEE_FACTOR_UNIT_RECIP) / liquidInfo.totalLiquid;
+        Liquid _liquidContract = autonity.getValidator(_validator).liquidContract;
+        uint256 _reward = address(this).balance;
+        _liquidContract.claimRewards();
+        _reward = address(this).balance - _reward;
+        if (_reward > 0) {
+            LiquidInfo storage _liquidInfo = validatorLiquids[_validator];
+            require(_liquidInfo.totalLiquid > 0, "got reward from validator with no liquid supply"); // this shouldn't happen
+            _liquidInfo.lastUnrealisedFeeFactor += (_reward * FEE_FACTOR_UNIT_RECIP) / _liquidInfo.totalLiquid;
         }
         rewardsClaimedEpoch[_validator] = _epochID();
     }
@@ -124,31 +124,31 @@ contract LiquidRewardManager {
      * calculates total rewards for a schedule and deletes realisedFees[id][validator] as reward is claimed
      */ 
     function _rewards(uint256 _id) internal returns (uint256) {
-        address[] storage validators = bondedValidators[_id];
-        uint256 totalFees = 0;
-        for (uint256 i = 0; i < validators.length; i++) {
-            totalFees += _realiseFees(_id, validators[i]);
-            delete realisedFees[_id][validators[i]];
+        address[] storage _validators = bondedValidators[_id];
+        uint256 _totalFees = 0;
+        for (uint256 i = 0; i < _validators.length; i++) {
+            _totalFees += _realiseFees(_id, _validators[i]);
+            delete realisedFees[_id][_validators[i]];
         }
-        return totalFees;
+        return _totalFees;
     }
 
     function _addValidator(uint256 _id, address _validator) private {
-        address[] storage validators = bondedValidators[_id];
-        validators.push(_validator);
-        validatorIdx[_id][_validator] = validators.length;
+        address[] storage _validators = bondedValidators[_id];
+        _validators.push(_validator);
+        validatorIdx[_id][_validator] = _validators.length;
     }
 
     function _removeValidator(uint256 _id, address _validator) private {
-        address[] storage validators = bondedValidators[_id];
-        uint256 idx = validatorIdx[_id][_validator]-1;
+        address[] storage _validators = bondedValidators[_id];
+        uint256 _idx = validatorIdx[_id][_validator]-1;
         // removing _validator by replacing it with last one and then deleting the last one
-        validators[idx] = validators[validators.length-1];
-        validators.pop();
+        _validators[_idx] = _validators[_validators.length-1];
+        _validators.pop();
         delete validatorIdx[_id][_validator];
 
-        if (idx < validators.length) {
-            validatorIdx[_id][validators[idx]] = idx+1;
+        if (_idx < _validators.length) {
+            validatorIdx[_id][_validators[_idx]] = _idx+1;
         }
     }
 
@@ -161,13 +161,13 @@ contract LiquidRewardManager {
     }
 
     function _unclaimedRewards(uint256 _id) internal view returns (uint256) {
-        uint256 totalFee = 0;
-        address[] storage validators = bondedValidators[_id];
-        for (uint256 i = 0; i < validators.length; i++) {
-            address validator = validators[i];
-            totalFee += realisedFees[_id][validator] + _computeUnrealisedFees(_id, validator);
+        uint256 _totalFee = 0;
+        address[] storage _validators = bondedValidators[_id];
+        for (uint256 i = 0; i < _validators.length; i++) {
+            address validator = _validators[i];
+            _totalFee += realisedFees[_id][validator] + _computeUnrealisedFees(_id, validator);
         }
-        return totalFee;
+        return _totalFee;
     }
 
     function _liquidBalanceOf(uint256 _id, address _validator) internal view returns (uint256) {

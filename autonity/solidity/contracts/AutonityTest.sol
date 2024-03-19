@@ -37,6 +37,14 @@ contract AutonityTest is Autonity {
         return unbondingMap[_id];
    }
 
+    function getHeadBondingID() external view returns (uint256) {
+        return headBondingID;
+    }
+
+    function getHeadUnbondingID() external view returns (uint256) {
+        return headUnbondingID;
+    }
+
    function getTailBondingID() public view returns (uint256) {
      return tailBondingID;
    }
