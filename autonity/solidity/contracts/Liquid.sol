@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
+import "./interfaces/IStakeProxy.sol";
 import {DECIMALS} from "./Autonity.sol";
 
 // References:
@@ -163,6 +164,11 @@ contract Liquid is IERC20
         (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) = _realiseFees(msg.sender);
         delete atnRealisedFees[msg.sender];
         delete ntnRealisedFees[msg.sender];
+
+        if (_isContract(msg.sender)) {
+            IStakeProxy(msg.sender).takeMoney{value: totalFees}();
+            return;
+        }
 
         // Send the AUT
         //   solhint-disable-next-line avoid-low-level-calls
@@ -434,6 +440,14 @@ contract Liquid is IERC20
 
         allowances[_owner][_spender] = _amount;
         emit Approval(_owner, _spender, _amount);
+    }
+
+    function _isContract(address _to) private view returns (bool) {
+        uint size;
+        assembly {
+            size := extcodesize(_to)
+        }
+        return size > 0;
     }
 
 

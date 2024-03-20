@@ -1129,8 +1129,19 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         return headBondingID-1;
     }
 
+    function _isContract(address _to) private view returns (bool) {
+        uint size;
+        assembly {
+            size := extcodesize(_to)
+        }
+        return size > 0;
+    }
+
     function _notifyBondingApplied(uint256 _id, uint256 _liquid, bool _selfDelegation, bool _rejected) private {
         address _to = bondingMap[_id].delegator;
+        if (!_isContract(_to)) {
+            return;
+        }
         // review gas limit
         try IStakeProxy(_to).bondingApplied(_id, _liquid, _selfDelegation, _rejected) {
             // do nothing
@@ -1197,6 +1208,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     function _notifyUnbondingReleased(uint256 _id, uint256 _amount) private {
         address _to = unbondingMap[_id].delegator;
+        if (!_isContract(_to)) {
+            return;
+        }
+        // review gas limit
         try IStakeProxy(_to).unbondingReleased(_id, _amount) {
             // do nothing
         } catch {
@@ -1227,6 +1242,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     function _notifyUnbondingApplied(uint256 _id) private {
         address _to = unbondingMap[_id].delegator;
+        if (!_isContract(_to)) {
+            return;
+        }
+        // review gas limit
         try IStakeProxy(_to).unbondingApplied(_id) {
             // do nothing
         } catch {

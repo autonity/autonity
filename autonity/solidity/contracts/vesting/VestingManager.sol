@@ -149,22 +149,9 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         cancelRecipient[_scheduleID] = _recipient;
     }
 
-    function _transferNTN(uint256 _scheduleID, address _to, uint256 _amount) private {
-        bool _sent = autonity.transfer(_to, _amount);
-        require(_sent, "NTN not transfered");
-        schedules[_scheduleID].totalAmount -= _amount;
-    }
-
-    function _transferLNTN(uint256 _scheduleID, address _to, uint256 _amount, address _validator) private {
-        Liquid _liquidContract = autonity.getValidator(_validator).liquidContract;
-        bool _sent = _liquidContract.transfer(_to, _amount);
-        require(_sent, "LNTN transfer failed");
-        _decreaseLiquid(_scheduleID, _validator, _amount);
-    }
-
     // ONLY APPLY WITH STACKABLE SCHEDULE
     // all bondings are delegated, as vesting manager cannot own a validator
-    function bond(uint256 _id, address _validator, uint256 _amount) virtual public onlyActive(_id) {
+    function bond(uint256 _id, address _validator, uint256 _amount) virtual public onlyActive(_id) returns (uint256) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         Schedule storage _schedule = schedules[_scheduleID];
         require(_schedule.stackable, "not stackable");
@@ -175,9 +162,10 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _validator);
         _schedule.totalAmount -= _amount;
         pendingBondingVesting[_bondingID] = _splitVesting(_schedule.vestingID, _amount);
+        return _bondingID;
     }
 
-    function unbond(uint256 _id, address _validator, uint256 _amount) virtual public onlyActive(_id) {
+    function unbond(uint256 _id, address _validator, uint256 _amount) virtual public onlyActive(_id) returns (uint256) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         require(
             _unlockedLiquidBalanceOf(_scheduleID, _validator) >= _amount,
@@ -187,6 +175,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         pendingUnbondingRequest[_unbondingID] = PendingUnbondingRequest(_amount, _validator);
         unbondingToSchedule[_unbondingID] = _scheduleID+1;
         _lock(_scheduleID, _validator, _amount);
+        return _unbondingID;
     }
 
     function claimAllRewards() virtual external {
@@ -207,6 +196,10 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         // solhint-disable-next-line avoid-low-level-calls
         (bool _sent, ) = msg.sender.call{value: _totalFees}("");
         require(_sent, "Failed to send AUT");
+    }
+
+    function takeMoney() external payable {
+        // do nothing
     }
 
     // callback function for autonity when bonding is applied
@@ -285,6 +278,19 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     function _getUniqueScheduleID(address _beneficiary, uint256 _id) private view returns (uint256) {
         require(beneficiarySchedules[_beneficiary].length > _id, "invalid schedule id");
         return beneficiarySchedules[_beneficiary][_id];
+    }
+
+    function _transferNTN(uint256 _scheduleID, address _to, uint256 _amount) private {
+        bool _sent = autonity.transfer(_to, _amount);
+        require(_sent, "NTN not transfered");
+        schedules[_scheduleID].totalAmount -= _amount;
+    }
+
+    function _transferLNTN(uint256 _scheduleID, address _to, uint256 _amount, address _validator) private {
+        Liquid _liquidContract = autonity.getValidator(_validator).liquidContract;
+        bool _sent = _liquidContract.transfer(_to, _amount);
+        require(_sent, "LNTN transfer failed");
+        _decreaseLiquid(_scheduleID, _validator, _amount);
     }
 
     /*
