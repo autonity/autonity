@@ -8,6 +8,7 @@ import (
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 const (
@@ -75,7 +76,9 @@ func (t *Timeout) StopTimer() error {
 				return constants.ErrMovedToNewRound
 			}
 		}
-		t.MeasureMetricsOnStopTimer()
+		if metrics.Enabled {
+			t.MeasureMetricsOnStopTimer()
+		}
 	}
 	return nil
 }
@@ -138,7 +141,9 @@ func (c *Core) onTimeoutPropose(r int64, h *big.Int) {
 	}
 	// It's unsafe to call logTimeoutEvent here !
 	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
-	c.measureMetricsOnTimeOut(msg.Step, r)
+	if metrics.Enabled {
+		c.measureMetricsOnTimeOut(msg.Step, r)
+	}
 	c.SendEvent(msg)
 }
 
@@ -149,7 +154,9 @@ func (c *Core) onTimeoutPrevote(r int64, h *big.Int) {
 		Step:             Prevote,
 	}
 	c.logger.Debug("TimeoutEvent(Prevote): Sent", "round", r, "height", h)
-	c.measureMetricsOnTimeOut(msg.Step, r)
+	if metrics.Enabled {
+		c.measureMetricsOnTimeOut(msg.Step, r)
+	}
 	c.SendEvent(msg)
 }
 
@@ -160,7 +167,9 @@ func (c *Core) onTimeoutPrecommit(r int64, h *big.Int) {
 		Step:             Precommit,
 	}
 	c.logger.Debug("TimeoutEvent(Precommit): Sent", "round", r, "height", h)
-	c.measureMetricsOnTimeOut(msg.Step, r)
+	if metrics.Enabled {
+		c.measureMetricsOnTimeOut(msg.Step, r)
+	}
 	c.SendEvent(msg)
 }
 
@@ -169,6 +178,9 @@ func (c *Core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == Propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.prevoter.SendPrevote(ctx, true)
+		if metrics.Enabled {
+			PrevoteSentBg.Add(time.Since(c.newRound).Nanoseconds())
+		}
 		c.SetStep(ctx, Prevote)
 	}
 }
@@ -177,6 +189,9 @@ func (c *Core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == Prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.precommiter.SendPrecommit(ctx, true)
+		if metrics.Enabled {
+			PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
+		}
 		c.SetStep(ctx, Precommit)
 	}
 }

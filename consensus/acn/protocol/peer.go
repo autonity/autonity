@@ -1,7 +1,11 @@
 package protocol
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
@@ -53,10 +57,24 @@ func (p *Peer) Address() common.Address {
 }
 
 func (p *Peer) Send(msgcode uint64, data interface{}) error {
+	if metrics.Enabled {
+		defer func(start time.Time) {
+			name := fmt.Sprintf("%s/%#02x", packetWrite, msgcode)
+			m := metrics.GetOrRegisterBufferedGauge(name, nil)
+			m.Add(time.Since(start).Nanoseconds())
+		}(time.Now())
+	}
 	return p2p.Send(p.rw, msgcode, data)
 }
 
 func (p *Peer) SendRaw(msgcode uint64, data []byte) error {
+	if metrics.Enabled {
+		defer func(start time.Time) {
+			name := fmt.Sprintf("%s/%#02x", packetWrite, msgcode)
+			m := metrics.GetOrRegisterBufferedGauge(name, nil)
+			m.Add(time.Since(start).Nanoseconds())
+		}(time.Now())
+	}
 	return p2p.SendRaw(p.rw, msgcode, data)
 }
 

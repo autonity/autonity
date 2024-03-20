@@ -30,6 +30,8 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/common/prque"
@@ -46,7 +48,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -1609,10 +1610,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 
 				go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
 					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
-
-					blockPrefetchExecuteTimer.Update(time.Since(start))
-					if atomic.LoadUint32(interrupt) == 1 {
-						blockPrefetchInterruptMeter.Mark(1)
+					if metrics.Enabled {
+						blockPrefetchExecuteTimer.Update(time.Since(start))
+						if atomic.LoadUint32(interrupt) == 1 {
+							blockPrefetchInterruptMeter.Mark(1)
+						}
 					}
 				}(time.Now(), followup, throwaway, &followupInterrupt)
 			}
@@ -1626,36 +1628,40 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			atomic.StoreUint32(&followupInterrupt, 1)
 			return it.index, err
 		}
+		var triehash, trieproc time.Duration
 
-		// Update the metrics touched during block processing
-		accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete, we can mark them
-		storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete, we can mark them
-		accountUpdateTimer.Update(statedb.AccountUpdates)             // Account updates are complete, we can mark them
-		storageUpdateTimer.Update(statedb.StorageUpdates)             // Storage updates are complete, we can mark them
-		snapshotAccountReadTimer.Update(statedb.SnapshotAccountReads) // Account reads are complete, we can mark them
-		snapshotStorageReadTimer.Update(statedb.SnapshotStorageReads) // Storage reads are complete, we can mark them
-		triehash := statedb.AccountHashes + statedb.StorageHashes     // Save to not double count in validation
-		trieproc := statedb.SnapshotAccountReads + statedb.AccountReads + statedb.AccountUpdates
-		trieproc += statedb.SnapshotStorageReads + statedb.StorageReads + statedb.StorageUpdates
-
-		blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
-		blockExecutionBg.Add((time.Since(substart) - trieproc - triehash).Nanoseconds())
+		if metrics.Enabled {
+			// Update the metrics touched during block processing
+			accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete, we can mark them
+			storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete, we can mark them
+			accountUpdateTimer.Update(statedb.AccountUpdates)             // Account updates are complete, we can mark them
+			storageUpdateTimer.Update(statedb.StorageUpdates)             // Storage updates are complete, we can mark them
+			snapshotAccountReadTimer.Update(statedb.SnapshotAccountReads) // Account reads are complete, we can mark them
+			snapshotStorageReadTimer.Update(statedb.SnapshotStorageReads) // Storage reads are complete, we can mark them
+			triehash = statedb.AccountHashes + statedb.StorageHashes      // Save to not double count in validation
+			trieproc = statedb.SnapshotAccountReads + statedb.AccountReads + statedb.AccountUpdates
+			trieproc += statedb.SnapshotStorageReads + statedb.StorageReads + statedb.StorageUpdates
+			blockExecutionTimer.Update(time.Since(substart) - trieproc - triehash)
+			blockExecutionBg.Add((time.Since(substart) - trieproc - triehash).Nanoseconds())
+		}
 
 		// Validate the state using the default validator
 		substart = time.Now()
+
 		if err := bc.validator.ValidateState(block, statedb, receipts, usedGas); err != nil {
 			bc.reportBlock(block, receipts, err)
 			atomic.StoreUint32(&followupInterrupt, 1)
 			return it.index, err
 		}
+
 		proctime := time.Since(start)
-
-		// Update the metrics touched during block validation
-		accountHashTimer.Update(statedb.AccountHashes) // Account hashes are complete, we can mark them
-		storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
-		blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
-		blockValidationBg.Add((time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash)).Nanoseconds())
-
+		if metrics.Enabled {
+			// Update the metrics touched during block validation
+			accountHashTimer.Update(statedb.AccountHashes) // Account hashes are complete, we can mark them
+			storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
+			blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
+			blockValidationBg.Add((time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash)).Nanoseconds())
+		}
 		// Write the block to the chain and get the status.
 		substart = time.Now()
 		var status WriteStatus
@@ -1669,16 +1675,18 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		if err != nil {
 			return it.index, err
 		}
-		// Update the metrics touched during block commit
-		accountCommitTimer.Update(statedb.AccountCommits)   // Account commits are complete, we can mark them
-		storageCommitTimer.Update(statedb.StorageCommits)   // Storage commits are complete, we can mark them
-		snapshotCommitTimer.Update(statedb.SnapshotCommits) // Snapshot commits are complete, we can mark them
 
-		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits)
-		blockWriteBg.Add((time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits).Nanoseconds())
-		now := time.Now()
-		blockInsertTimer.Update(now.Sub(start))
-		blockInsertBg.Add(now.Sub(start).Nanoseconds())
+		if metrics.Enabled {
+			// Update the metrics touched during block commit
+			accountCommitTimer.Update(statedb.AccountCommits)   // Account commits are complete, we can mark them
+			storageCommitTimer.Update(statedb.StorageCommits)   // Storage commits are complete, we can mark them
+			snapshotCommitTimer.Update(statedb.SnapshotCommits) // Snapshot commits are complete, we can mark them
+			blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits)
+			blockWriteBg.Add((time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits).Nanoseconds())
+			now := time.Now()
+			blockInsertTimer.Update(now.Sub(start))
+			blockInsertBg.Add(now.Sub(start).Nanoseconds())
+		}
 
 		if !setHead {
 			// We did not setHead, so we don't have any stats to update

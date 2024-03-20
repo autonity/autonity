@@ -123,12 +123,7 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 	if metrics.Enabled {
 		h := fmt.Sprintf("%s/%s/%d/%#02x", p2p.HandleHistName, ProtocolName, peer.Version(), msg.Code)
 		defer func(start time.Time) {
-			sampler := func() metrics.Sample {
-				return metrics.ResettingSample(
-					metrics.NewExpDecaySample(1028, 0.015),
-				)
-			}
-			metrics.GetOrRegisterHistogramLazy(h, nil, sampler).Update(time.Since(start).Microseconds())
+			metrics.GetOrRegisterBufferedGauge(h, nil).Add(time.Since(start).Nanoseconds())
 		}(time.Now())
 	}
 	if handler, ok := backend.Chain().Engine().(consensus.Handler); ok {
