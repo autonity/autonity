@@ -119,6 +119,7 @@ contract VestingCalculator {
         }
         // end > 0 means it exists, otherwise the vesting does not exist and everying is set to 0
         if (_item.end > 0 && block.number > _item.cliff) {
+            _item.start = block.number;
             _item.cliff = block.number;
         }
         return _item.unlocked;
