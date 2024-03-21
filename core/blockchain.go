@@ -75,10 +75,10 @@ var (
 	blockWriteTimer      = metrics.NewRegisteredTimer("chain/write", nil)
 
 	// instant metrics
-	blockInsertBg     = metrics.NewRegisteredBufferedGauge("chain/inserts.bg", nil)
-	blockValidationBg = metrics.NewRegisteredBufferedGauge("chain/validation.bg", nil)
-	blockExecutionBg  = metrics.NewRegisteredBufferedGauge("chain/execution.bg", nil)
-	blockWriteBg      = metrics.NewRegisteredBufferedGauge("chain/write.bg", nil)
+	blockInsertBg     = metrics.NewRegisteredBufferedGauge("chain/inserts.bg", nil, nil)
+	blockValidationBg = metrics.NewRegisteredBufferedGauge("chain/validation.bg", nil, nil)
+	blockExecutionBg  = metrics.NewRegisteredBufferedGauge("chain/execution.bg", nil, nil)
+	blockWriteBg      = metrics.NewRegisteredBufferedGauge("chain/write.bg", nil, nil)
 
 	blockReorgMeter         = metrics.NewRegisteredMeter("chain/reorg/executes", nil)
 	blockReorgAddMeter      = metrics.NewRegisteredMeter("chain/reorg/add", nil)

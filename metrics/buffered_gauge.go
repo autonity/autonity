@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	BufferedGaugeCapacity = 20
+	BufferedGaugeDefaultCapacity = 16
 )
 
 // value with its associated timestamp
@@ -33,20 +33,26 @@ func GetOrRegisterBufferedGauge(name string, r Registry) BufferedGauge {
 	if nil == r {
 		r = DefaultRegistry
 	}
-	return r.GetOrRegister(name, NewBufferedGauge).(BufferedGauge)
+	return r.GetOrRegister(name, NewBufferedGauge(nil)).(BufferedGauge)
 }
 
 // NewBufferedGauge constructs a new BufferedGauge.
-func NewBufferedGauge() BufferedGauge {
+func NewBufferedGauge(capacity *int) BufferedGauge {
 	if !Enabled {
 		return NilBufferedGauge{}
 	}
-	return &StandardBufferedGauge{values: make([]GaugeValue, 0, BufferedGaugeCapacity)}
+
+	if capacity == nil || *capacity < 0 {
+		c := BufferedGaugeDefaultCapacity
+		capacity = &c
+	}
+
+	return &StandardBufferedGauge{values: make([]GaugeValue, 0, *capacity), capacity: *capacity}
 }
 
 // NewRegisteredBufferedGauge constructs and registers a new StandardBufferedGauge.
-func NewRegisteredBufferedGauge(name string, r Registry) BufferedGauge {
-	c := NewBufferedGauge()
+func NewRegisteredBufferedGauge(name string, r Registry, capacity *int) BufferedGauge {
+	c := NewBufferedGauge(capacity)
 	if nil == r {
 		r = DefaultRegistry
 	}
@@ -103,7 +109,9 @@ func (NilBufferedGauge) Values() []GaugeValue { return nil }
 
 // StandardBufferedGauge is the standard implementation of a BufferedGauge
 type StandardBufferedGauge struct {
-	values []GaugeValue
+	values   []GaugeValue
+	capacity int
+	rIndex   int
 	sync.RWMutex
 }
 
@@ -127,7 +135,14 @@ func (g *StandardBufferedGauge) SnapshotAndClear() BufferedGauge {
 func (g *StandardBufferedGauge) Add(v int64) {
 	g.Lock()
 	defer g.Unlock()
-	g.values = append(g.values, GaugeValue{value: v, timestamp: time.Now()})
+
+	if len(g.values) < g.capacity {
+		g.values = append(g.values, GaugeValue{value: v, timestamp: time.Now()})
+	} else {
+		g.rIndex = g.rIndex % g.capacity
+		g.values[g.rIndex] = GaugeValue{value: v, timestamp: time.Now()}
+		g.rIndex++
+	}
 }
 
 func (g *StandardBufferedGauge) Len() int {

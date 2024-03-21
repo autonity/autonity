@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/autonity/autonity/crypto"
@@ -9,6 +8,17 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
+)
+
+func getIntPointer(val int) *int {
+	return &val
+}
+
+var (
+	ProposalWriteBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/write", nil, getIntPointer(1000))  // time between round start and proposal sent
+	PrevoteWriteBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/write", nil, getIntPointer(5000))   // time between round start and proposal received
+	PrecommitWriteBg = metrics.NewRegisteredBufferedGauge("acn/precommit/write", nil, getIntPointer(5000)) // time to verify proposal
+	DefaultWriteBg   = metrics.NewRegisteredBufferedGauge("acn/any/write", nil, nil)                       // time to verify proposal
 )
 
 // Peer is a collection of relevant information we have about a `acn` peer.
@@ -59,9 +69,7 @@ func (p *Peer) Address() common.Address {
 func (p *Peer) Send(msgcode uint64, data interface{}) error {
 	if metrics.Enabled {
 		defer func(start time.Time) {
-			name := fmt.Sprintf("%s/%#02x", packetWrite, msgcode)
-			m := metrics.GetOrRegisterBufferedGauge(name, nil)
-			m.Add(time.Since(start).Nanoseconds())
+			getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
 		}(time.Now())
 	}
 	return p2p.Send(p.rw, msgcode, data)
@@ -70,12 +78,22 @@ func (p *Peer) Send(msgcode uint64, data interface{}) error {
 func (p *Peer) SendRaw(msgcode uint64, data []byte) error {
 	if metrics.Enabled {
 		defer func(start time.Time) {
-			name := fmt.Sprintf("%s/%#02x", packetWrite, msgcode)
-			m := metrics.GetOrRegisterBufferedGauge(name, nil)
-			m.Add(time.Since(start).Nanoseconds())
+			getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
 		}(time.Now())
 	}
 	return p2p.SendRaw(p.rw, msgcode, data)
+}
+
+func getWriteMetric(msgCode uint64) metrics.BufferedGauge {
+	switch msgCode {
+	case 0x11:
+		return ProposalWriteBg
+	case 0x12:
+		return PrevoteWriteBg
+	case 0x13:
+		return PrecommitWriteBg
+	}
+	return DefaultWriteBg
 }
 
 // Version retrieves the peer's negoatiated `acn` protocol version.
