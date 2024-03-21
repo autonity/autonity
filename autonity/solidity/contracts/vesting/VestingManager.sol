@@ -114,7 +114,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         }
     }
 
-    function releaseNTN(uint256 _id, uint256 _amount) public onlyActive(_id) {
+    function releaseNTN(uint256 _id, uint256 _amount) virtual public onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         Schedule storage _schedule = schedules[_scheduleID];
         require(_schedule.cliff < block.number, "not reached cliff period yet");
@@ -122,7 +122,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         _transferNTN(_scheduleID, msg.sender, _amount);
     }
 
-    function releaseLNTN(uint256 _id, address _validator, uint256 _amount) public onlyActive(_id) {
+    function releaseLNTN(uint256 _id, address _validator, uint256 _amount) virtual public onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         _withdraw(liquidVestingIDs[_scheduleID][_validator], _amount);
         _transferLNTN(_scheduleID, msg.sender, _amount, _validator);
@@ -198,12 +198,49 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         require(_sent, "Failed to send AUT");
     }
 
-    function takeMoney() external payable {
+    function receiveAut() external payable {
         // do nothing
     }
 
     // callback function for autonity when bonding is applied
     function bondingApplied(uint256 _bondingID, uint256 _liquid, bool _selfDelegation, bool _rejected) external onlyAutonity {
+        _applyBonding(_bondingID, _liquid, _selfDelegation, _rejected);
+    }
+
+    // callback function for autonity when unbonding is applied
+    function unbondingApplied(uint256 _unbondingID) external onlyAutonity {
+        _applyUnbonding(_unbondingID);
+    }
+
+    // callback function for autonity when unbonding is released
+    function unbondingReleased(uint256 _unbondingID, uint256 _amount) external onlyAutonity {
+        _releaseUnbonding(_unbondingID, _amount);
+    }
+
+    /**
+     * @dev returns a unique id for each schedule
+     * @param _beneficiary address of the schedule holder
+     * @param _id id of the schedule assigned to beneficiary numbered from 0 to (n-1) where n = total schedules assigned to beneficiary
+     */
+    function _getUniqueScheduleID(address _beneficiary, uint256 _id) private view returns (uint256) {
+        require(beneficiarySchedules[_beneficiary].length > _id, "invalid schedule id");
+        return beneficiarySchedules[_beneficiary][_id];
+    }
+
+    function _transferNTN(uint256 _scheduleID, address _to, uint256 _amount) private {
+        bool _sent = autonity.transfer(_to, _amount);
+        require(_sent, "NTN not transfered");
+        schedules[_scheduleID].totalAmount -= _amount;
+    }
+
+    function _transferLNTN(uint256 _scheduleID, address _to, uint256 _amount, address _validator) private {
+        Liquid _liquidContract = autonity.getValidator(_validator).liquidContract;
+        bool _sent = _liquidContract.transfer(_to, _amount);
+        require(_sent, "LNTN transfer failed");
+        _decreaseLiquid(_scheduleID, _validator, _amount);
+    }
+
+    function _applyBonding(uint256 _bondingID, uint256 _liquid, bool _selfDelegation, bool _rejected) internal {
         require(_selfDelegation == false, "bonding should be delegated");
         require(bondingToSchedule[_bondingID] > 0, "invalid bonding id");
         uint256 _scheduleID = bondingToSchedule[_bondingID]-1;
@@ -236,8 +273,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         delete bondingToSchedule[_bondingID];
     }
 
-    // callback function for autonity when unbonding is applied
-    function unbondingApplied(uint256 _unbondingID) external onlyAutonity {
+    function _applyUnbonding(uint256 _unbondingID) internal {
         require(unbondingToSchedule[_unbondingID] > 0, "invalid unbonding id");
         uint256 _scheduleID = unbondingToSchedule[_unbondingID]-1;
         PendingUnbondingRequest storage _unbondingRequst = pendingUnbondingRequest[_unbondingID];
@@ -250,8 +286,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         delete pendingUnbondingRequest[_unbondingID];
     }
 
-    // callback function for autonity when unbonding is released
-    function unbondingReleased(uint256 _unbondingID, uint256 _amount) external onlyAutonity {
+    function _releaseUnbonding(uint256 _unbondingID, uint256 _amount) internal {
         require(unbondingToSchedule[_unbondingID] > 0, "invalid unbonding id");
         uint256 _scheduleID = unbondingToSchedule[_unbondingID]-1;
         Schedule storage _item = schedules[_scheduleID];
@@ -270,41 +305,18 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         delete pendingUnbondingVesting[_unbondingID];
     }
 
-    /**
-     * @dev returns a unique id for each schedule
-     * @param _beneficiary address of the schedule holder
-     * @param _id id of the schedule assigned to beneficiary numbered from 0 to (n-1) where n = total schedules assigned to beneficiary
-     */
-    function _getUniqueScheduleID(address _beneficiary, uint256 _id) private view returns (uint256) {
-        require(beneficiarySchedules[_beneficiary].length > _id, "invalid schedule id");
-        return beneficiarySchedules[_beneficiary][_id];
-    }
-
-    function _transferNTN(uint256 _scheduleID, address _to, uint256 _amount) private {
-        bool _sent = autonity.transfer(_to, _amount);
-        require(_sent, "NTN not transfered");
-        schedules[_scheduleID].totalAmount -= _amount;
-    }
-
-    function _transferLNTN(uint256 _scheduleID, address _to, uint256 _amount, address _validator) private {
-        Liquid _liquidContract = autonity.getValidator(_validator).liquidContract;
-        bool _sent = _liquidContract.transfer(_to, _amount);
-        require(_sent, "LNTN transfer failed");
-        _decreaseLiquid(_scheduleID, _validator, _amount);
-    }
-
     /*
     ============================================================
         Getters
     ============================================================
     */
 
-   function totalSchedules(address _beneficiary) public view returns (uint256) {
+   function totalSchedules(address _beneficiary) virtual external view returns (uint256) {
         return beneficiarySchedules[_beneficiary].length;
     }
 
     // retrieve list of current schedules assigned to a beneficiary
-    function getSchedules(address _beneficiary) virtual public view returns (Schedule[] memory) {
+    function getSchedules(address _beneficiary) virtual external view returns (Schedule[] memory) {
         uint256[] storage _scheduleIDs = beneficiarySchedules[_beneficiary];
         Schedule[] memory _res = new Schedule[](_scheduleIDs.length);
         for (uint256 i = 0; i < _res.length; i++) {
@@ -313,8 +325,12 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         return _res;
     }
 
+    function getSchedule(address _beneficiary, uint256 _id) virtual external view returns (Schedule memory) {
+        return schedules[_getUniqueScheduleID(_beneficiary, _id)];
+    }
+
     // unclaimed rewards for all the schedules assigned to _account
-    function unclaimedRewards(address _account) virtual external view returns (uint256) {
+    function allUnclaimedRewards(address _account) virtual external view returns (uint256) {
         uint256 _totalFee = 0;
         uint256[] storage _scheduleIDs = beneficiarySchedules[_account];
         for (uint256 i = 0; i < _scheduleIDs.length; i++) {
@@ -323,7 +339,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         return _totalFee;
     }
 
-    function unclaimedRewards(address _account, uint256 _id) virtual public view returns (uint256) {
+    function unclaimedRewards(address _account, uint256 _id) virtual external view returns (uint256) {
         uint256 _scheduleID = _getUniqueScheduleID(_account, _id);
         return _unclaimedRewards(_scheduleID);
     }
@@ -344,7 +360,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     }
 
     // returns the list of validator addresses wich are bonded to schedule _id assigned to _account
-    function getBondedValidators(address _account, uint256 _id) external view returns (address[] memory) {
+    function getBondedValidators(address _account, uint256 _id) virtual external view returns (address[] memory) {
         uint256 _scheduleID = _getUniqueScheduleID(_account, _id);
         return _bondedValidators(_scheduleID);
     }

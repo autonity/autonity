@@ -156,7 +156,7 @@ contract Liquid is IERC20
         delete realisedFees[msg.sender];
 
         if (_isContract(msg.sender)) {
-            IStakeProxy(msg.sender).takeMoney{value: totalFees}();
+            IStakeProxy(msg.sender).receiveAut{value: totalFees}();
             return;
         }
 
