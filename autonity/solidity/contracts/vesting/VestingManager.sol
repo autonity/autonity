@@ -79,7 +79,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         require(_transferred, "amount not approved");
 
         uint256 _scheduleID = schedules.length;
-        uint256 _vestingID = _newVesting(_amount, _cliffBlock, _endBlock);
+        uint256 _vestingID = _newVesting(_amount, _startBlock, _cliffBlock, _endBlock);
         schedules.push(Schedule(_amount, _startBlock, _cliffBlock, _endBlock, _vestingID, _stackable, false));
         beneficiarySchedules[_beneficiary].push(_scheduleID);
     }
@@ -96,7 +96,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         address[] memory _validators = _bondedValidators(_scheduleID);
         for (uint256 i = 0; i < _validators.length; i++) {
-            uint256 _amount = _withdrawAll(liquidVestingIDs[_scheduleID][_validators[i]]);
+            uint256 _amount = _decreaseUnlockedAll(liquidVestingIDs[_scheduleID][_validators[i]]);
             if (_amount > 0) {
                 _transferLNTN(_scheduleID, msg.sender, _amount, _validators[i]);
             }
@@ -108,23 +108,25 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         Schedule storage _schedule = schedules[_scheduleID];
         require(_schedule.cliff < block.number, "not reached cliff period yet");
-        uint256 _amount = _withdrawAll(_schedule.vestingID);
+        uint256 _amount = _decreaseUnlockedAll(_schedule.vestingID);
         if (_amount > 0) {
             _transferNTN(_scheduleID, msg.sender, _amount);
         }
     }
 
+    // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     function releaseNTN(uint256 _id, uint256 _amount) virtual public onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         Schedule storage _schedule = schedules[_scheduleID];
         require(_schedule.cliff < block.number, "not reached cliff period yet");
-        _withdraw(_schedule.vestingID, _amount);
+        _decreaseUnlocked(_schedule.vestingID, _amount);
         _transferNTN(_scheduleID, msg.sender, _amount);
     }
 
+    // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     function releaseLNTN(uint256 _id, address _validator, uint256 _amount) virtual public onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
-        _withdraw(liquidVestingIDs[_scheduleID][_validator], _amount);
+        _decreaseUnlocked(liquidVestingIDs[_scheduleID][_validator], _amount);
         _transferLNTN(_scheduleID, msg.sender, _amount, _validator);
     }
 
@@ -161,7 +163,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         bondingToSchedule[_bondingID] = _scheduleID+1;
         pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _validator);
         _schedule.totalAmount -= _amount;
-        pendingBondingVesting[_bondingID] = _splitVesting(_schedule.vestingID, _amount);
+        pendingBondingVesting[_bondingID] = _createOrUpdateDelegation(_schedule.vestingID, _amount);
         return _bondingID;
     }
 
@@ -281,7 +283,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         _decreaseLiquid(_scheduleID, _unbondingRequst.validator, _unbondingRequst.amount);
         if (schedules[_scheduleID].canceled == false) {
             pendingUnbondingVesting[_unbondingID]
-                = _splitVesting(liquidVestingIDs[_scheduleID][_unbondingRequst.validator], _unbondingRequst.amount);
+                = _createOrUpdateDelegation(liquidVestingIDs[_scheduleID][_unbondingRequst.validator], _unbondingRequst.amount);
         }
         delete pendingUnbondingRequest[_unbondingID];
     }

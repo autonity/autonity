@@ -4,13 +4,14 @@ pragma solidity ^0.8.0;
 contract VestingCalculator {
 
     // cliff is the effective cliff which can be updated
-    // when released is updated, cliff is updated
+    // when unlocked is updated, cliff is updated
     // this cliff is not the original cliff block
     // the original data is stored in VestingManager.sol
-    // this data is for calculation of released funds
+    // this data is for calculation of unlocked funds
     struct Vesting {
-        uint256 released;
-        uint256 unreleased;
+        uint256 unlocked;
+        uint256 locked;
+        uint256 start;
         uint256 cliff;
         uint256 end;
     }
@@ -22,14 +23,15 @@ contract VestingCalculator {
 
     function releasedFunds(uint256 _id) public view returns (uint256) {
         Vesting storage _item = vestings[_id];
-        return _releasedFund(_item.unreleased, _item.cliff, _item.end) + _item.released;
+        return _releasedFund(_item.locked, _item.start, _item.cliff, _item.end) + _item.unlocked;
     }
 
-    function _newVesting(uint256 _totalAmount, uint256 _cliff, uint256 _end) internal returns (uint256) {
+    function _newVesting(uint256 _totalAmount, uint256 _start, uint256 _cliff, uint256 _end) internal returns (uint256) {
+        require(_start <= _cliff, "cliff block must not be smaller than start block");
         require(_cliff < _end, "end block must be greater than cliff block");
         require(_totalAmount > 0, "total amount needs to be positive");
         vestingID++;
-        vestings[vestingID] = Vesting(0, _totalAmount, _cliff, _end);
+        vestings[vestingID] = Vesting(0, _totalAmount, _start, _cliff, _end);
         return vestingID;
     }
 
@@ -40,47 +42,47 @@ contract VestingCalculator {
     /**
      * @dev vesting[_id] will be split into two new vestings, where the new vesting will have a total _amount funds
      * and the vesting[_id] will have (_total - _amount) funds, where _total = current funds of the vesting[_id]
-     * returns the id of the new vesting created with released+unreleased = _amount
+     * returns the id of the new vesting created with unlocked+locked = _amount
      * @param _id unique id of the vesting, which will be split
      * @param _amount amount of new vesting
      */
-    function _splitVesting(uint256 _id, uint256 _amount) internal vestingExists(_id) returns (uint256) {
+    function _createOrUpdateDelegation(uint256 _id, uint256 _amount) internal vestingExists(_id) returns (uint256) {
         Vesting storage _oldItem = vestings[_id];
-        require(_oldItem.released + _oldItem.unreleased >= _amount, "cannot split, invalid amount of new vesting");
-        uint256 _newVestingID = _newVesting(_amount, _oldItem.cliff, _oldItem.end);
-        // Let split a vesting with released = r and unreleased = u into two vestings with unreleased u1 and u2 and
-        // released r1 and r2 respectively. If both new vestings have same cliff (let c) and end (let e) block as the original one,
-        // then at any block, b >= c we have released funds, r1 = r1 + u1*(b-c)/(e-c) and r2 = r2 + u2*(b-c)/(e-c)
-        // If we can maintain r1+r2 = r and u1+u2 = u then we have the total released funds from both vestings,
-        // r1+r2 = (r1+r2) + (u1+u2)*(b-c)/(e-c) = r + u*(b-c)/(e-c) = released funds of the original vesting, which is expected.
+        require(_oldItem.unlocked + _oldItem.locked >= _amount, "cannot split, invalid amount of new vesting");
+        uint256 _newVestingID = _newVesting(_amount, _oldItem.start, _oldItem.cliff, _oldItem.end);
+        // Let split a vesting with unlocked = r and locked = u into two vestings with locked u1 and u2 and
+        // unlocked r1 and r2 respectively. If both new vestings have same start (let s), cliff and end (let e) block as the original one,
+        // then at any block, b >= c we have unlocked funds, r1' = r1 + u1*(b-s)/(e-s) and r2' = r2 + u2*(b-s)/(e-s)
+        // If we can maintain r1+r2 = r and u1+u2 = u then we have the total unlocked funds from both vestings,
+        // r1'+r2' = (r1+r2) + (u1+u2)*(b-s)/(e-s) = r + u*(b-s)/(e-s) = unlocked funds of the original vesting, which is expected.
         // If we can make u1 = u*x, r1 = r*x and u2 = u*(1-x), r2 = r*(1-x), then we will have r1+r2 = r and u1+u2 = u
         // Which means u2/r2 = u/r or u2/(u2+r2) = u/(u+r) or r2/(u2+r2) = r/(u+r). Same is true for u1 and r1
-        // This will ensure that both new vesting have some released and unreleased portion as the original one,
-        // and the unreleased portion is divided proporional to the total amount of the new vesting.
+        // This will ensure that both new vesting have some unlocked and locked portion as the original one,
+        // and the locked portion is divided proporional to the total amount of the new vesting.
         // Note that at any time, we have r1 = r*x and r2 = r*(1-x) where x = u1/u = (u1+r1)/(u+r), which means the vesting with
         // more funds will release more than the other but at any point. Also r1+r2 = r is true which is expected
-        uint256 _released = _oldItem.released * _amount / (_oldItem.released+_oldItem.unreleased);
+        uint256 _unlocked = _oldItem.unlocked * _amount / (_oldItem.unlocked+_oldItem.locked);
         Vesting storage _newItem = vestings[_newVestingID];
-        _newItem.released = _released;
-        _newItem.unreleased -= _released;
-        _oldItem.released -= _released;
-        _oldItem.unreleased -= _newItem.unreleased;
-        if (_oldItem.released + _oldItem.unreleased == 0) {
+        _newItem.unlocked = _unlocked;
+        _newItem.locked -= _unlocked;
+        _oldItem.unlocked -= _unlocked;
+        _oldItem.locked -= _newItem.locked;
+        if (_oldItem.unlocked + _oldItem.locked == 0) {
             _removeVesting(_id);
         }
         return _newVestingID;
     }
 
-    // update the existing vesting such that released+unreleased = _amount holds
+    // update the existing vesting such that unlocked+locked = _amount holds
     // useful when the vesting represented LNTN release, but the whole LNTN was unbonded and converted to NTN or vice versa
     function _updateVesting(uint256 _id, uint256 _amount) internal vestingExists(_id) {
         if (_amount == 0) {
             _removeVesting(_id);
         }
         Vesting storage _item = vestings[_id];
-        uint256 _released = _item.released * _amount / (_item.released+_item.unreleased);
-        _item.released = _released;
-        _item.unreleased = _amount - _released;
+        uint256 _unlocked = _item.unlocked * _amount / (_item.unlocked+_item.locked);
+        _item.unlocked = _unlocked;
+        _item.locked = _amount - _unlocked;
     }
 
     function _mergeVesting(uint256 _id1, uint256 _id2) internal returns (uint256) {
@@ -96,55 +98,58 @@ contract VestingCalculator {
         _release(_id1);
         _release(_id2);
         
-        require(_item1.end == _item2.end, "cannot merge vesting with different end block");
+        require(_item1.end == _item2.end && _item1.cliff == _item2.cliff, "cannot merge vesting");
         // Released amount is calculated with the following formula
-        // releasedAmount = released + unreleased * (x - cliff) / (end - cliff)
+        // unlockedAmount = unlocked + locked * (x - cliff) / (end - cliff)
         // If both item has same end and cliff block, then
-        // releasedAmount1 + releasedAmount2 = (released1+released2) + (unreleased1+unreleased2) * (x - cliff) / (end - cliff)
-        // So it means we get a new vesting whose released = released1+released2 and unreleased = unreleased1+unreleased2
-        _item1.released += _item2.released;
-        _item1.unreleased += _item2.unreleased;
-        _item1.cliff = block.number;
+        // unlockedAmount1 + unlockedAmount2 = (unlocked1+unlocked2) + (locked1+locked2) * (x - cliff) / (end - cliff)
+        // So it means we get a new vesting whose unlocked = unlocked1+unlocked2 and locked = locked1+locked2
+        _item1.unlocked += _item2.unlocked;
+        _item1.locked += _item2.locked;
         _removeVesting(_id2);
         return _id1;
     }
 
     function _release(uint256 _id) internal returns (uint256) {
         Vesting storage _item = vestings[_id];
-        uint256 _amount = _releasedFund(_item.unreleased, _item.cliff, _item.end);
+        uint256 _amount = _releasedFund(_item.locked, _item.start, _item.cliff, _item.end);
         if (_amount > 0) {
-            _item.released += _amount;
-            _item.unreleased -= _amount;
+            _item.unlocked += _amount;
+            _item.locked -= _amount;
+        }
+        // end > 0 means it exists, otherwise the vesting does not exist and everying is set to 0
+        if (_item.end > 0 && block.number > _item.cliff) {
             _item.cliff = block.number;
         }
-        return _item.released;
+        return _item.unlocked;
     }
 
-    function _withdraw(uint256 _id, uint256 _amount) internal returns (bool) {
-        uint256 _releasedAmount = _release(_id);
-        require(_releasedAmount >= _amount, "not enough released");
+    function _decreaseUnlocked(uint256 _id, uint256 _amount) internal returns (bool) {
+        uint256 _unlockedAmount = _release(_id);
+        require(_unlockedAmount >= _amount, "not enough unlocked tokens");
         Vesting storage _item = vestings[_id];
-        _item.released -= _amount;
-        if (_item.unreleased + _item.released == 0) {
+        _item.unlocked -= _amount;
+        if (_item.locked + _item.unlocked == 0) {
             _removeVesting(_id);
         }
         return true;
     }
 
-    function _withdrawAll(uint256 _id) internal returns (uint256) {
+    function _decreaseUnlockedAll(uint256 _id) internal returns (uint256) {
         uint256 _amount = _release(_id);
-        vestings[_id].released = 0;
-        if (vestings[_id].unreleased == 0) {
+        vestings[_id].unlocked = 0;
+        if (vestings[_id].locked == 0) {
             _removeVesting(_id);
         }
         return _amount;
     }
 
-    function _releasedFund(uint256 _unreleased, uint256 _cliff, uint256 _end) private view returns (uint256) {
+    function _releasedFund(uint256 _locked, uint256 _start, uint256 _cliff, uint256 _end) private view returns (uint256) {
         if (block.number >= _end) {
-            return _unreleased;
+            return _locked;
         }
-        return _unreleased * (block.number - _cliff) / (_end - _cliff);
+        if (block.number < _cliff) return 0;
+        return _locked * (block.number - _start) / (_end - _start);
     }
 
     function getVesting(uint256 _id) public view vestingExists(_id) returns (Vesting memory) {
