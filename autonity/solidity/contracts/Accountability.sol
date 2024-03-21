@@ -50,8 +50,6 @@ contract Accountability is IAccountability {
     }
 
     struct Event {
-        uint8 chunks;        // Counter of number of chunks for oversize accountability event
-        uint8 chunkId;       // Chunk index to construct the oversize accountability event
         EventType eventType; // Accountability event types: Misbehaviour, Accusation, Innocence.
         Rule rule;           // Rule ID defined in AFD rule engine.
         address reporter;    // The node address of the validator who report this event, for incentive protocol.
@@ -79,8 +77,6 @@ contract Accountability is IAccountability {
     // validatorAccusation maps a validator with an accusation
     // the id is incremented by one to handle the special case id = 0.
     mapping(address => uint256) private validatorAccusation;
-
-    mapping(address => Event) internal reporterChunksMap;
 
     // mapping address => epoch => severity
     mapping (address =>  mapping(uint256 => uint256)) public slashingHistory;
@@ -125,36 +121,36 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @notice Handle an accountability event. Need to be called by a registered validator account
+    * @notice Handle a misbehaviour event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
-    * todo(youssef): rethink modifiers here, consider splitting this into multiple functions.
+    * todo(youssef): rethink modifiers here.
     */
-    function handleEvent(Event memory _event) public onlyValidator {
+    function handleMisbehaviour(Event memory _event) public onlyValidator {
         require(_event.reporter == msg.sender, "event reporter must be caller");
-        // if the event is a chunked event, store it.
-        if (_event.chunks > 1) {
-            bool _readyToProcess = _storeChunk(_event);
-            // for the last chunk we should process directly the event from here.
-            if (!_readyToProcess) {
-                return;
-            }
-            _event = reporterChunksMap[msg.sender];
-        }
+        require(_event.eventType == EventType.FaultProof, "wrong event type for misbehaviour");
+        _handleFaultProof(_event);
+    }
 
-        if (_event.eventType == EventType.FaultProof) {
-            _handleFaultProof(_event);
-            return;
-        }
-        if (_event.eventType == EventType.Accusation) {
-            _handleAccusation(_event);
-            return;
-        }
-        if (_event.eventType == EventType.InnocenceProof) {
-            _handleInnocenceProof(_event);
-            return;
-        }
-        // todo(youssef): consider reverting here to help with refund
-        return;
+    /**
+    * @notice Handle an accusation event. Need to be called by a registered validator account
+    * as the treasury-linked account will be used in case of a successful slashing event.
+    * todo(youssef): rethink modifiers here.
+    */
+    function handleAccusation(Event memory _event) public onlyValidator {
+        require(_event.reporter == msg.sender, "event reporter must be caller");
+        require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
+        _handleAccusation(_event);
+    }
+
+    /**
+    * @notice Handle an innocence proof. Need to be called by a registered validator account
+    * as the treasury-linked account will be used in case of a successful slashing event.
+    * todo(youssef): rethink modifiers here.
+    */
+    function handleInnocenceProof(Event memory _event) public onlyValidator {
+        require(_event.reporter == msg.sender, "event reporter must be caller");
+        require(_event.eventType == EventType.InnocenceProof, "wrong event type for innocence proof");
+        _handleInnocenceProof(_event);
     }
 
     // @dev return true if sending the event can lead to slashing
@@ -298,20 +294,6 @@ contract Accountability is IAccountability {
         validatorAccusation[_ev.offender] = 0;
 
         emit InnocenceProven(_ev.offender, 0);
-    }
-
-    // @dev only supporting one chunked event per sender
-    function _storeChunk(Event memory _event) internal returns (bool){
-        // saving a chunk with id 0 will reset the local store
-        if (_event.chunkId == 0) {
-            reporterChunksMap[msg.sender] = _event;
-            return false;
-        }
-        require(reporterChunksMap[msg.sender].chunkId + 1 == _event.chunkId, "chunks must be contiguous");
-        BytesLib.concatStorage(reporterChunksMap[msg.sender].rawProof, _event.rawProof);
-        reporterChunksMap[msg.sender].chunkId += 1;
-        // return true if it's the final chunk, to be processed immediately
-        return _event.chunkId + 1 == _event.chunks;
     }
 
     /**

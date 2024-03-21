@@ -20,10 +20,9 @@ const toBN = web3.utils.toBN;
 const config = require("./config");
 
 
-function checkEvent(event, offender, reporter, chunkId, rawProof) {
+function checkEvent(event, offender, reporter, rawProof) {
   assert.equal(event.offender, offender, "event offender mismatch");
   assert.equal(event.reporter, reporter, "event reporter mismatch");
-  assert.equal(event.chunkId, chunkId, "event chunkId mismatch");
   assert.equal(event.rawProof, rawProof, "event rawProof mismatch")
 }
 
@@ -188,8 +187,6 @@ contract('Accountability', function (accounts) {
 
       // trigger slash event
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": 0, // PN rule --> severity mid
         "reporter": reporter,
@@ -215,8 +212,6 @@ contract('Accountability', function (accounts) {
       const epochOffenceCount = offenderAddresses.length
       const reporter = validators[3].treasury
       const event = {
-        "chunks": 1, 
-        "chunkId": 1,
         "eventType": 0,
         "rule": 0, // PN rule --> severity mid
         "reporter": reporter,
@@ -262,8 +257,6 @@ contract('Accountability', function (accounts) {
       let reporter = validators[0]
       let offender = validators[1]
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": 0, // PN rule --> severity mid
         "reporter": reporter.treasury,
@@ -310,8 +303,6 @@ contract('Accountability', function (accounts) {
       let PNrule = 0
       let currentBlock = await web3.eth.getBlockNumber()
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter.treasury,
@@ -380,8 +371,6 @@ contract('Accountability', function (accounts) {
       let offender = validators[1]
       let PNrule = 0
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter.treasury,
@@ -421,8 +410,6 @@ contract('Accountability', function (accounts) {
       let offender = validators[1]
       let PNrule = 0
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter.treasury,
@@ -459,8 +446,6 @@ contract('Accountability', function (accounts) {
       let offender = validators[1]
       let PNrule = 0
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter.treasury,
@@ -495,8 +480,6 @@ contract('Accountability', function (accounts) {
       let offender3 = validators[3] // will be accused later than offender1 and offender2, thus his accusation will not be expired when accusation are promoted
       let PNrule = 0
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter.treasury,
@@ -542,8 +525,6 @@ contract('Accountability', function (accounts) {
 
       // submit valid proof of innocence for offender2
       const proof = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter.treasury,
@@ -574,8 +555,6 @@ contract('Accountability', function (accounts) {
 
       // offender1 should fail to submit proof of innocence, he is too late
       const proof2 = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter.treasury,
@@ -608,8 +587,6 @@ contract('Accountability', function (accounts) {
       let offender = validators[1].nodeAddress;
       let PNrule = 0
       const event = {
-        "chunks": 1,
-        "chunkId": 1,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter,
@@ -622,65 +599,9 @@ contract('Accountability', function (accounts) {
         "messageHash": 0, 
       }
       await truffleAssert.fails(
-        accountability.handleEvent(event, {from: reporter}),
+        accountability.handleMisbehaviour(event, {from: reporter}),
         truffleAssert.ErrorType.REVERT,
         "validator not registered"
-      );
-    });
-
-    it("handles chunked events", async function () {
-      let reporter = validators[1].nodeAddress;
-      let offender = validators[0].nodeAddress;
-      let reporterPrivateKey = genesisPrivateKeys[1];
-      let PNrule = 0;
-      let event = {
-        "chunks": 4,
-        "chunkId": 2,
-        "eventType": 0,
-        "rule": PNrule,
-        "reporter": reporter,
-        "offender": offender,
-        "rawProof": [],
-        "block": 10,
-        "epoch": 0,
-        "reportingBlock": 11,
-        "messageHash": 0,
-        "id": 0,
-      };
-      let balance = web3.utils.toWei("10", "ether");
-      await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
-      
-      // cannot submit transaction from reporter because the address is not unlocked and will require signing
-      // however sendSignedTransaction method returns general error message instead of detailed error message
-      // using call is similar to sending transaction but it will always revert, so does not require signing
-      await truffleAssert.fails(
-        accountability.handleEvent.call(event, {from: reporter}),
-        truffleAssert.ErrorType.REVERT,
-        "chunks must be contiguous"
-      );
-      
-      let eventCount = event.chunks - 1;
-      let currentProof = "0x";
-      for (let i = 0; i < eventCount; i++) {
-        let rawProof = [];
-        rawProof.push(i);
-        event.chunkId = i;
-        event.rawProof = rawProof;
-        let request = (await accountability.handleEvent.request(event, {from: reporter}));
-        let receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
-        assert.equal(receipt.status, true, "transaction failed");
-        let currentEvent = await accountability.getReporterChunksMap({from: reporter});
-        let hexNumber = (i > 15) ? i.toString(16) : "0" + i.toString(16);
-        currentProof = currentProof + hexNumber;
-        checkEvent(currentEvent, offender, reporter, i, currentProof);
-      }
-
-      // the error prooves that it is the last call and is ready to process
-      event.chunkId = eventCount;
-      await truffleAssert.fails(
-        accountability.handleEvent.call(event, {from: reporter}),
-        truffleAssert.ErrorType.REVERT,
-        "failed proof verification"
       );
     });
 
@@ -689,8 +610,6 @@ contract('Accountability', function (accounts) {
       let offender = validators[1].nodeAddress;
       let PNrule = 0;
       let event = {
-        "chunks": 4,
-        "chunkId": 2,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter,
@@ -707,7 +626,7 @@ contract('Accountability', function (accounts) {
       // however sendSignedTransaction method returns general error message instead of detailed error message
       // using call is similar to sending transaction but it will always revert, so does not require signing
       await truffleAssert.fails(
-        accountability.handleEvent.call(event, {from: offender}),
+        accountability.handleMisbehaviour.call(event, {from: offender}),
         truffleAssert.ErrorType.REVERT,
         "event reporter must be caller"
       );
@@ -721,8 +640,6 @@ contract('Accountability', function (accounts) {
       await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
       let PNrule = 0;
       let event = {
-        "chunks": 4,
-        "chunkId": 0,
         "eventType": 0,
         "rule": PNrule,
         "reporter": reporter,
@@ -738,130 +655,26 @@ contract('Accountability', function (accounts) {
       rawProof.push(20);
       event.rawProof = rawProof;
 
-      let request = (await accountability.handleEvent.request(event, {from: reporter}));
+      let request = (await accountability.handleMisbehaviour.request(event, {from: reporter}));
       let receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
       assert.equal(receipt.status, true, "transaction failed");
       
-      event.chunkId = 1;
-      request = (await accountability.handleEvent.request(event, {from: reporter}));
+      request = (await accountability.handleMisbehaviour.request(event, {from: reporter}));
       receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
       assert.equal(receipt.status, true, "transaction failed");
 
       let currentEvent = await accountability.getReporterChunksMap({from: reporter});
       let hexProof = "0x" + rawProof[0].toString(16) + rawProof[0].toString(16);
-      checkEvent(currentEvent, offender, reporter, event.chunkId, hexProof);
+      checkEvent(currentEvent, offender, reporter, hexProof);
 
       // reset
-      event.chunkId = 0;
-      request = (await accountability.handleEvent.request(event, {from: reporter}));
+      request = (await accountability.handleMisbehaviour.request(event, {from: reporter}));
       receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
       assert.equal(receipt.status, true, "transaction failed");
 
       currentEvent = await accountability.getReporterChunksMap({from: reporter});
       hexProof = "0x" + rawProof[0].toString(16);
-      checkEvent(currentEvent, offender, reporter, event.chunkId, hexProof);
-    });
-
-    it("sends chunked events from multiple validator", async function () {
-      let reporter = [];
-      let reporterPrivateKey = [];
-      let rawProof = [];
-      reporter.push(validators[0].nodeAddress);
-      reporter.push(validators[1].nodeAddress);
-      reporterPrivateKey.push(genesisPrivateKeys[0]);
-      reporterPrivateKey.push(genesisPrivateKeys[1]);
-      for (let i = 0; i < reporter.length; i++) {
-        rawProof.push([]);
-      }
-
-      let offender = reporter;
-
-      let balance = web3.utils.toWei("10", "ether");
-      for (let i = 0; i < reporter.length; i++) {
-        await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter[i], value: balance});
-      }
-
-      let PNrule = 0;
-      let event = {
-        "chunks": 3,
-        "chunkId": 0,
-        "eventType": 0,
-        "rule": PNrule,
-        "reporter": reporter,
-        "offender": offender,
-        "rawProof": [],
-        "block": 10,
-        "epoch": 0,
-        "reportingBlock": 11,
-        "messageHash": 0,
-        "id": 0,
-      };
-
-      let currentProof = "0x";
-      let eventCount = event.chunks - 1;
-      let count = 0;
-      for (let chunkId = 0; chunkId < eventCount; chunkId++) {
-        event.chunkId = chunkId;
-        // reporter[i] sends event for offender[i];
-        for (let i = 0; i < reporter.length; i++) {
-          let sender = reporter[i];
-          event.rawProof = [];
-          event.rawProof.push(count);
-          event.reporter = sender;
-          event.offender = offender[i];
-          let request = (await accountability.handleEvent.request(event, {from: sender}));
-          let receipt = await utils.signAndSendTransaction(sender, accountability.address, reporterPrivateKey[i], request);
-          assert.equal(receipt.status, true, "transaction failed");
-          let currentEvent = await accountability.getReporterChunksMap({from: sender});
-          rawProof[i].push(count);
-          checkEvent(currentEvent, offender[i], sender, chunkId, utils.bytesToHex(rawProof[i]));
-          count++;
-        }
-      }
-
-      event.chunkId = eventCount;
-      for (let i = 0; i < reporter.length; i++) {
-        event.reporter = reporter[i];
-        event.offender = offender[i];
-        await truffleAssert.fails(
-          accountability.handleEvent.call(event, {from: reporter[i]}),
-          truffleAssert.ErrorType.REVERT,
-          "failed proof verification"
-        );
-      }
-
-    });
-
-    it.skip("Can send event chunks with chunkId = 1", async function () {
-      // right now it fails in case chunked events start with chunkId = 1
-      // see https://github.com/autonity/autonity/issues/840
-      let reporter = validators[0].nodeAddress;
-      let offender = validators[1].nodeAddress;
-      let reporterPrivateKey = genesisPrivateKeys[0];
-      let balance = web3.utils.toWei("10", "ether");
-      await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
-      let PNrule = 0;
-      let event = {
-        "chunks": 4,
-        "chunkId": 1,
-        "eventType": 0,
-        "rule": PNrule,
-        "reporter": reporter,
-        "offender": offender,
-        "rawProof": [],
-        "block": 10,
-        "epoch": 0,
-        "reportingBlock": 11,
-        "messageHash": 0,
-        "id":0,
-      };
-
-      let request = (await accountability.handleEvent.request(event, {from: reporter}));
-      let receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
-      assert.equal(receipt.status, true, "transaction failed");
-      let currentEvent = await accountability.getReporterChunksMap({from: reporter});
-      // checkEvent(currentEvent, offender, reporter, event.chunkId, "0x");
-      checkEvent(currentEvent, zeroAddress, zeroAddress, event.chunkId, "0x");
+      checkEvent(currentEvent, offender, reporter, hexProof);
     });
   });
 
