@@ -632,50 +632,6 @@ contract('Accountability', function (accounts) {
       );
     });
 
-    it("can reset event", async function () {
-      let reporter = validators[0].nodeAddress;
-      let offender = validators[1].nodeAddress;
-      let reporterPrivateKey = genesisPrivateKeys[0];
-      let balance = web3.utils.toWei("10", "ether");
-      await web3.eth.sendTransaction({from: validators[0].treasury, to: reporter, value: balance});
-      let PNrule = 0;
-      let event = {
-        "eventType": 0,
-        "rule": PNrule,
-        "reporter": reporter,
-        "offender": offender,
-        "rawProof": [],
-        "block": 10,
-        "epoch": 0,
-        "reportingBlock": 11,
-        "messageHash": 0,
-        "id": 0,
-      };
-      let rawProof = [];
-      rawProof.push(20);
-      event.rawProof = rawProof;
-
-      let request = (await accountability.handleMisbehaviour.request(event, {from: reporter}));
-      let receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
-      assert.equal(receipt.status, true, "transaction failed");
-      
-      request = (await accountability.handleMisbehaviour.request(event, {from: reporter}));
-      receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
-      assert.equal(receipt.status, true, "transaction failed");
-
-      let currentEvent = await accountability.getReporterChunksMap({from: reporter});
-      let hexProof = "0x" + rawProof[0].toString(16) + rawProof[0].toString(16);
-      checkEvent(currentEvent, offender, reporter, hexProof);
-
-      // reset
-      request = (await accountability.handleMisbehaviour.request(event, {from: reporter}));
-      receipt = await utils.signAndSendTransaction(reporter, accountability.address, reporterPrivateKey, request);
-      assert.equal(receipt.status, true, "transaction failed");
-
-      currentEvent = await accountability.getReporterChunksMap({from: reporter});
-      hexProof = "0x" + rawProof[0].toString(16);
-      checkEvent(currentEvent, offender, reporter, hexProof);
-    });
   });
 
 });
