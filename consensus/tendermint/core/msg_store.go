@@ -1,9 +1,10 @@
 package core
 
 import (
+	"sync"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"sync"
 )
 
 var NilValue = common.Hash{}
@@ -27,37 +28,46 @@ func NewMsgStore() *MsgStore {
 func (ms *MsgStore) Save(m message.Msg) {
 	ms.Lock()
 	defer ms.Unlock()
+	//TODO(lorenzo) fix
+	return
+	/*
+	   	if ms.firstHeight == uint64(0) {
+	   		ms.firstHeight = m.H()
+	   	}
 
-	if ms.firstHeight == uint64(0) {
-		ms.firstHeight = m.H()
-	}
-	height := m.H()
-	roundMap, ok := ms.messages[height]
-	if !ok {
-		roundMap = make(map[int64]map[uint8]map[common.Address][]message.Msg)
-		ms.messages[height] = roundMap
-	}
+	   height := m.H()
+	   roundMap, ok := ms.messages[height]
 
-	round := m.R()
-	msgTypeMap, ok := roundMap[round]
-	if !ok {
-		msgTypeMap = make(map[uint8]map[common.Address][]message.Msg)
-		roundMap[round] = msgTypeMap
-	}
+	   	if !ok {
+	   		roundMap = make(map[int64]map[uint8]map[common.Address][]message.Msg)
+	   		ms.messages[height] = roundMap
+	   	}
 
-	addressMap, ok := msgTypeMap[m.Code()]
-	if !ok {
-		addressMap = make(map[common.Address][]message.Msg)
-		msgTypeMap[m.Code()] = addressMap
-	}
+	   round := m.R()
+	   msgTypeMap, ok := roundMap[round]
 
-	msgs, ok := addressMap[m.Sender()]
-	if !ok {
-		var msgList []message.Msg
-		addressMap[m.Sender()] = append(msgList, m)
-		return
-	}
-	addressMap[m.Sender()] = append(msgs, m)
+	   	if !ok {
+	   		msgTypeMap = make(map[uint8]map[common.Address][]message.Msg)
+	   		roundMap[round] = msgTypeMap
+	   	}
+
+	   addressMap, ok := msgTypeMap[m.Code()]
+
+	   	if !ok {
+	   		addressMap = make(map[common.Address][]message.Msg)
+	   		msgTypeMap[m.Code()] = addressMap
+	   	}
+
+	   msgs, ok := addressMap[m.Sender()]
+
+	   	if !ok {
+	   		var msgList []message.Msg
+	   		addressMap[m.Sender()] = append(msgList, m)
+	   		return
+	   	}
+
+	   addressMap[m.Sender()] = append(msgs, m)
+	*/
 }
 
 func (ms *MsgStore) FirstHeightBuffered() uint64 {

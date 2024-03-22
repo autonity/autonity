@@ -28,7 +28,6 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		logger:                 logger,
 		backend:                backend,
 		backlogs:               make(map[common.Address][]message.Msg),
-		backlogUntrusted:       make(map[uint64][]message.Msg),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -77,9 +76,8 @@ type Core struct {
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
-	backlogs             map[common.Address][]message.Msg
-	backlogUntrusted     map[uint64][]message.Msg
-	backlogUntrustedSize int
+	backlogs map[common.Address][]message.Msg
+
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
 
@@ -147,6 +145,15 @@ func (c *Core) Address() common.Address {
 func (c *Core) Step() Step {
 	return c.step
 }
+
+/* //TODO(lorenzo) for later
+func (c *Core) Power() *big.Int {
+	_, member, err := c.CommitteeSet().GetByAddress(c.address)
+	if err != nil {
+		return new(big.Int) // if not in the committee, voting power = 0
+	}
+	return member.VotingPower
+}*/
 
 func (c *Core) CurRoundMessages() *message.RoundMessages {
 	return c.curRoundMessages
@@ -256,10 +263,16 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-	committedSeals := make(types.Signatures)
+	//committedSeals := make(types.Signatures)
+	var seals []blst.Signature
+	coef := message.NewCoefficients(100) //TODO(lorenzo) fix
 	for _, v := range messages.PrecommitsFor(proposalHash) {
-		committedSeals[v.Sender()] = v.Signature().(*blst.BlsSignature)
+		seals = append(seals, v.Signature())
+		coef.Merge(v.SendersCoeff())
+		//committedSeals[v.Sender()] = v.Signature().(*blst.BlsSignature)
 	}
+	aggsig := blst.AggregateSignatures(seals).(*blst.BlsSignature)
+	committedSeals := types.NewAggregateSignature(aggsig, coef)
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return

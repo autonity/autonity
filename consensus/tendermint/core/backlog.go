@@ -9,20 +9,16 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 )
 
-const MaxSizeBacklogUnchecked = 1000
-
 type backlogMessageEvent struct {
-	msg message.Msg
-}
-type backlogUntrustedMessageEvent struct {
 	msg message.Msg
 }
 
 func (c *Core) checkMessage(round int64, height uint64) error {
 	h := new(big.Int).SetUint64(height)
 	switch {
+	// future height messages get buffered at the peer handler context, they shouldn't arrive at tendermint. panic.
 	case h.Cmp(c.Height()) > 0:
-		return constants.ErrFutureHeightMessage
+		panic("Received future height message in tendermint routine")
 	case h.Cmp(c.Height()) < 0:
 		return constants.ErrOldHeightMessage
 	case round > c.Round():
@@ -41,45 +37,13 @@ func (c *Core) storeBacklog(msg message.Msg, src common.Address) {
 		return
 	}
 
-	logger.Debug("Storing future message")
 	c.backlogs[src] = append(c.backlogs[src], msg)
-}
-
-// storeFutureMessage push to a special backlog future height consensus messages
-// this is done in a way that prevents memory exhaustion in the case of a malicious peer.
-func (c *Core) storeFutureMessage(msg message.Msg) {
-	// future height messages of a gap wider than one block should not occur frequently as block sync should happen
-	// Todo : implement a double ended priority queue (DEPQ)
-	msgHeight := msg.H()
-	c.backlogUntrusted[msgHeight] = append(c.backlogUntrusted[msgHeight], msg)
-	c.backlogUntrustedSize++
-	// We discard the furthest ahead messages in priority.
-	if c.backlogUntrustedSize == MaxSizeBacklogUnchecked+1 {
-		maxHeight := msgHeight
-		for k := range c.backlogUntrusted {
-			if k > maxHeight && len(c.backlogUntrusted[k]) > 0 {
-				maxHeight = k
-			}
-		}
-
-		// Forget in the local cache that we ever received this message.
-		// It's needed for it to be able to be re-received and processed later, after a consensus sync, if needed.
-		c.backend.RemoveMessageFromLocalCache(c.backlogUntrusted[maxHeight][len(c.backlogUntrusted[maxHeight])-1])
-
-		// Remove it from the backlog buffer.
-		c.backlogUntrusted[maxHeight] = c.backlogUntrusted[maxHeight][:len(c.backlogUntrusted[maxHeight])-1]
-		c.backlogUntrustedSize--
-
-		if len(c.backlogUntrusted[maxHeight]) == 0 {
-			delete(c.backlogUntrusted, maxHeight)
-		}
-	}
-
 }
 
 func (c *Core) processBacklog() {
 	var capToLenRatio = 5
 
+	// process future round and future step msgs
 	for src, backlog := range c.backlogs {
 		logger := c.logger.New("from", src, "step", c.step)
 
@@ -97,7 +61,7 @@ func (c *Core) processBacklog() {
 				r := curMsg.R()
 				h := curMsg.H()
 				err := c.checkMessage(r, h)
-				if errors.Is(err, constants.ErrFutureHeightMessage) || errors.Is(err, constants.ErrFutureRoundMessage) {
+				if errors.Is(err, constants.ErrFutureRoundMessage) {
 					logger.Debug("Future message in backlog", "msg", curMsg, "err", err)
 					continue
 
@@ -122,17 +86,7 @@ func (c *Core) processBacklog() {
 		c.backlogs[src] = backlog
 
 	}
-	for height := range c.backlogUntrusted {
-		if height == c.height.Uint64() {
-			for _, msg := range c.backlogUntrusted[height] {
-				go c.SendEvent(backlogUntrustedMessageEvent{
-					msg: msg,
-				})
-				c.logger.Debug("Post unchecked backlog event", "msg", msg)
-			}
-		}
-		if height <= c.height.Uint64() {
-			delete(c.backlogUntrusted, height)
-		}
-	}
+	//TODO(lorenzo do we need parallelization)
+	// process future height messages
+	go c.backend.ProcessFutureMsgs(c.Height().Uint64())
 }

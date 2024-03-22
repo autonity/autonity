@@ -27,11 +27,26 @@ type NewCandidateBlockEvent struct {
 	NewCandidateBlock types.Block
 }
 
-// MessageEvent is posted for Istanbul engine communication
+//TODO(lorenzo) can we save the errch into the message ? or anyways avoid always having to bring it along the message
+
+// UnverifiedMessageEvent is posted from the peer handlers to the aggregator
+type UnverifiedMessageEvent struct {
+	Message message.Msg
+	ErrCh   chan<- error //error channel
+}
+
+// MessageEvent is posted from the aggregator to core and the fault detector
 type MessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error //error channel
 }
+
+/*  //TODO(lorenzo) for later
+// old messages are posted only to the fault detector
+type OldMessageEvent struct {
+	Message message.Msg
+	ErrCh   chan<- error
+}*/
 
 type Poster interface {
 	Post(interface{}) error

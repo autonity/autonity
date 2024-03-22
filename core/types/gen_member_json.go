@@ -21,12 +21,14 @@ func (c CommitteeMember) MarshalJSON() ([]byte, error) {
 		VotingPower       *hexutil.Big   `json:"votingPower"        gencodec:"required"`
 		ConsensusKeyBytes hexutil.Bytes  `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
 		ConsensusKey      blst.PublicKey `json:"-" rlp:"-"`
+		Index             uint64         `json:"-" rlp:"-"`
 	}
 	var enc CommitteeMember
 	enc.Address = c.Address
 	enc.VotingPower = (*hexutil.Big)(c.VotingPower)
 	enc.ConsensusKeyBytes = c.ConsensusKeyBytes
 	enc.ConsensusKey = c.ConsensusKey
+	enc.Index = c.Index
 	return json.Marshal(&enc)
 }
 
@@ -37,6 +39,7 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 		VotingPower       *hexutil.Big    `json:"votingPower"        gencodec:"required"`
 		ConsensusKeyBytes *hexutil.Bytes  `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
 		ConsensusKey      blst.PublicKey  `json:"-" rlp:"-"`
+		Index             *uint64         `json:"-" rlp:"-"`
 	}
 	var dec CommitteeMember
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -56,6 +59,9 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	c.ConsensusKeyBytes = *dec.ConsensusKeyBytes
 	if dec.ConsensusKey != nil {
 		c.ConsensusKey = dec.ConsensusKey
+	}
+	if dec.Index != nil {
+		c.Index = *dec.Index
 	}
 	return nil
 }

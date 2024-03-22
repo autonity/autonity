@@ -44,7 +44,6 @@ func (p *Peer) Close() {
 
 // ID retrieves the peer's unique identifier.
 func (p *Peer) ID() string {
-
 	return p.id
 }
 

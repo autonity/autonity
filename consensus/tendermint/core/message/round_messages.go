@@ -72,16 +72,16 @@ func (s *Map) GetRounds() []int64 {
 type RoundMessages struct {
 	verifiedProposal bool
 	proposal         *Propose
-	prevotes         *Set[*Prevote]
-	precommits       *Set[*Precommit]
+	prevotes         *Set[*AggregatePrevote]
+	precommits       *Set[*AggregatePrecommit]
 	sync.RWMutex
 }
 
 // we need a reference to proposal also for proposing a proposal with vr!=0 if needed
 func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
-		prevotes:         NewSet[*Prevote](),
-		precommits:       NewSet[*Precommit](),
+		prevotes:         NewSet[*AggregatePrevote](),
+		precommits:       NewSet[*AggregatePrecommit](),
 		verifiedProposal: false,
 	}
 }
@@ -109,7 +109,7 @@ func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
 	return s.precommits.TotalPower()
 }
 
-func (s *RoundMessages) AddPrevote(prevote *Prevote) {
+func (s *RoundMessages) AddPrevote(prevote *AggregatePrevote) {
 	s.prevotes.Add(prevote)
 }
 
@@ -121,11 +121,11 @@ func (s *RoundMessages) AllPrecommits() []Msg {
 	return s.precommits.Messages()
 }
 
-func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
+func (s *RoundMessages) AddPrecommit(precommit *AggregatePrecommit) {
 	s.precommits.Add(precommit)
 }
 
-func (s *RoundMessages) PrecommitsFor(hash common.Hash) []*Precommit {
+func (s *RoundMessages) PrecommitsFor(hash common.Hash) []*AggregatePrecommit {
 	return s.precommits.VotesFor(hash)
 }
 

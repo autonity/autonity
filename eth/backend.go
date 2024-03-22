@@ -282,11 +282,11 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
 	accountability.LoadPrecompiles(eth.blockchain)
 	// Create Fault Detector for each full node for the time being,
-
+	//TODO(lorenzo) I think it would make more sense to move this into the tendermint backend if possible
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,
-		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}),
+		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}), //TODO(lorenzo) add old message
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
 		eth.log)
