@@ -70,12 +70,14 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
 func getBacklogMsgs(c *Core) []*interfaces.MsgForDump {
+	/* //TODO(lorenzo)
 	result := make([]*interfaces.MsgForDump, 0)
 	for _, ms := range c.backlogs {
 		result = append(result, msgForDump(ms)...)
 	}
 
-	return result
+	return result*/
+	return msgForDump(c.backlogs)
 }
 
 func msgForDump(messages []message.Msg) []*interfaces.MsgForDump {

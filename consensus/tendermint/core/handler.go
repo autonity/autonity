@@ -271,15 +271,16 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 
 	// Store the message if it's a future message
 	testBacklog := func(err error) error {
-		/*TODO(lorenzo) fix msg backlogging
 		// We want to store only future messages in backlog
 		switch {
 		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, msg.Sender())
+			//c.storeBacklog(msg, msg.Sender())
+			c.storeBacklog(msg)
 			// decoding must have been successful to return
-			c.roundSkipCheck(ctx, msg, msg.Sender())
-		}*/
+			//c.roundSkipCheck(ctx, msg, msg.Sender())
+			c.roundSkipCheck(ctx, msg)
+		}
 		return err
 	}
 
