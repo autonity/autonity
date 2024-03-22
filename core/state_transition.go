@@ -21,10 +21,10 @@ import (
 	"math"
 	"math/big"
 
+	cmath "github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/common"
-	cmath "github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
@@ -269,17 +269,15 @@ func (st *StateTransition) preCheck() error {
 	return st.buyGas()
 }
 
+// resolveReimburseType resolve oracle vote event, misbehaviour event, and innocence event as instantly reimbursable,
+// while the accusation event is resolved as future reimbursable, and the others are resolved as not reimbursable.
 func resolveReimburseType(msg Message) int {
-	if msg.To() == nil {
-		return NotReimbursable
-	}
-	target := *msg.To()
-	if target != params.AccountabilityContractAddress || target != params.OracleContractAddress {
+	if (msg.To() != nil) && *msg.To() != params.AccountabilityContractAddress && *msg.To() != params.OracleContractAddress {
 		return NotReimbursable
 	}
 
-	// check oracle vote first.
-	if target == params.OracleContractAddress {
+	// resolve oracle votes first.
+	if *msg.To() == params.OracleContractAddress {
 		method, err := generated.OracleAbi.MethodById(msg.Data())
 		if err != nil {
 			return NotReimbursable
@@ -292,7 +290,7 @@ func resolveReimburseType(msg Message) int {
 		return NotReimbursable
 	}
 
-	// check accountability event.
+	// resolve accountability event then.
 	method, err := generated.AccountabilityAbi.MethodById(msg.Data())
 	if err != nil {
 		return NotReimbursable
@@ -387,12 +385,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		if reimburseType != NotReimbursable {
 			gasUsed := new(big.Int).SetUint64(st.gasUsed())
 			fee := new(big.Int).Mul(st.gasPrice, gasUsed)
+			// Refund tx Fee, if this is an instant reimbursable transaction
 			if reimburseType == InstantReimbursable {
-				// Refund tx Fee, if this is an instant reimbursable transaction
 				st.state.AddBalance(st.msg.From(), fee)
 			}
+			// transfer fee to protocol contract for future reimbursable transaction
 			if reimburseType == FutureReimbursable {
-				// transfer fee to protocol contract.
 				st.state.AddBalance(params.AutonityContractAddress, fee)
 				// todo: protocol deployer record fee for reporter by calling AC or ACCOUNTABILITY contract.
 			}
