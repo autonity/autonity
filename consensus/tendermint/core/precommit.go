@@ -35,7 +35,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	c.Broadcaster().Broadcast(precommit)
 	if metrics.Enabled {
 		PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
-		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.proposalSent).Nanoseconds())
+		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 }
 

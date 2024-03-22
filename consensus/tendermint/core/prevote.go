@@ -33,7 +33,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	c.Broadcaster().Broadcast(prevote)
 	if metrics.Enabled {
 		PrevoteSentBg.Add(time.Since(c.newRound).Nanoseconds())
-		PrevoteSentBlockTSDeltaBg.Add(time.Since(c.proposalSent).Nanoseconds())
+		PrevoteSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 }
 
