@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"math/big"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -28,6 +27,11 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	c.setCommitteeSet(committeeSet)
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
+
+	//TODO(lorenzo) start round
+	// Start a new round from last height + 1
+	//c.StartRound(ctx, 0)
+
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
 	go c.backend.HandleUnhandledMsgs(ctx)
@@ -53,7 +57,6 @@ func (c *Core) subscribeEvents() {
 	c.messageSub = c.backend.Subscribe(
 		events.MessageEvent{},
 		backlogMessageEvent{},
-		backlogUntrustedMessageEvent{},
 		StateRequestEvent{})
 	c.candidateBlockSub = c.backend.Subscribe(events.NewCandidateBlockEvent{})
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
@@ -72,8 +75,10 @@ func (c *Core) unsubscribeEvents() {
 
 func shouldDisconnectSender(err error) bool {
 	switch {
+	/* //TODO(lorenzo) double check
 	case errors.Is(err, constants.ErrFutureHeightMessage):
 		fallthrough
+	*/
 	case errors.Is(err, constants.ErrOldHeightMessage):
 		fallthrough
 	case errors.Is(err, constants.ErrOldRoundMessage):
@@ -94,18 +99,22 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false
-	case errors.Is(err, ErrValidatorJailed):
-		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
-		// really assume that all the other committee members have the same view on the
-		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
-		// This needs to verified though. Returning false for the time being.
-		return false
+
+		/* //TODO(lorenzo) dealt with at peer handler
+		case errors.Is(err, ErrValidatorJailed):
+			// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
+			// really assume that all the other committee members have the same view on the
+			// jailed validator list before gossip, that is risking then to disconnect honest nodes.
+			// This needs to verified though. Returning false for the time being.
+			return false
+		*/
 	default:
 		return true
 	}
 }
 
 func (c *Core) mainEventLoop(ctx context.Context) {
+	//TODO(lorenzo) I had moved this to the Start method but I kinda forgot why (probably a race condition)
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
 	go c.syncLoop(ctx)
@@ -117,10 +126,9 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			// A real ev arrived, process interesting content
+			// An event arrived, process content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-
 				// At this stage, a message is parsed and all the internal fields must be accessible
 				if err := c.handleMsg(ctx, e.Message); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
@@ -132,19 +140,13 @@ eventLoop:
 				}
 				c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
 			case backlogMessageEvent:
+				// TODO(lorenzo) should we check for disconnection also here?
+				// I am not sure we can get the error ch though
+
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling consensus backlog event")
-				if err := c.handleValidMsg(ctx, e.msg); err != nil {
-					c.logger.Debug("BacklogEvent message handling failed", "err", err)
-					continue
-				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
-
-			case backlogUntrustedMessageEvent:
-				c.logger.Debug("Started handling backlog unchecked event")
-				// messages in the untrusted buffer were successfully decoded
 				if err := c.handleMsg(ctx, e.msg); err != nil {
-					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
+					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
 				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
@@ -247,43 +249,14 @@ func (c *Core) SendEvent(ev any) {
 	c.backend.Post(ev)
 }
 
-// handleMsg assume msg has already been decoded
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
-	msgHeight := new(big.Int).SetUint64(msg.H())
-	if msgHeight.Cmp(c.Height()) > 0 {
-		// Future height message. Skip processing and put it in the untrusted backlog buffer.
-		c.storeFutureMessage(msg)
-		return constants.ErrFutureHeightMessage // No gossip
-	}
-	if msgHeight.Cmp(c.Height()) < 0 {
-		// Old height messages. Do nothing.
-		return constants.ErrOldHeightMessage // No gossip
-	}
-	// current height message
-
-	// if we already decided on this height block, discard the message. It is useless by now.
-	if c.step == PrecommitDone {
-		return constants.ErrHeightClosed
-	}
-
-	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
-		c.logger.Error("Failed to validate message", "err", err)
-		c.logger.Error(msg.String())
-		return err
-	}
-	if c.backend.IsJailed(msg.Sender()) {
-		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Sender())
-		return ErrValidatorJailed
-	}
-	return c.handleValidMsg(ctx, msg)
-}
-
-func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
-	logger := c.logger.New("from", msg.Sender())
+	logger := c.logger.New("from", "TODO") //TODO(lorenzo) fix
+	//logger := c.logger.New("from", msg.Sender())
 
 	// These checks need to be repeated here due to backlogged messages being re-injected
-
 	if c.Height().Uint64() > msg.H() {
+		c.logger.Debug("ignoring stale consensus message", "hash", msg.Hash()) //TODO(lorenzo) this happens quite a lot
+		//TODO(lorenzo) should we gossip it?
 		return constants.ErrOldHeightMessage
 	}
 
@@ -302,9 +275,11 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 		switch {
 		case errors.Is(err, constants.ErrFutureRoundMessage):
 			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, msg.Sender())
+			//c.storeBacklog(msg, msg.Sender())
+			c.storeBacklog(msg)
 			// decoding must have been successful to return
-			c.roundSkipCheck(ctx, msg, msg.Sender())
+			//c.roundSkipCheck(ctx, msg, msg.Sender())
+			c.roundSkipCheck(ctx, msg)
 		}
 		return err
 	}
@@ -313,20 +288,35 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 	case *message.Propose:
 		logger.Debug("Handling Proposal")
 		return testBacklog(c.proposer.HandleProposal(ctx, m))
-	case *message.Prevote:
-		logger.Debug("Handling Prevote")
-		return testBacklog(c.prevoter.HandlePrevote(ctx, m))
-	case *message.Precommit:
-		logger.Debug("Handling Precommit")
-		return testBacklog(c.precommiter.HandlePrecommit(ctx, m))
+	/*
+		//TODO(lorenzo) core handles only aggregates or also single msgs?
+			case *message.Prevote:
+				logger.Debug("Handling Prevote")
+				return testBacklog(c.prevoter.HandlePrevote(ctx, m))
+			case *message.Precommit:
+				logger.Debug("Handling Precommit")
+				return testBacklog(c.precommiter.HandlePrecommit(ctx, m))
+	*/
+	case *message.AggregatePrevote:
+		logger.Debug("Handling Aggregate prevote")
+		return testBacklog(c.prevoter.HandleAggregatePrevote(ctx, m))
+	case *message.AggregatePrecommit:
+		logger.Debug("Handling Aggregate precommit")
+		return testBacklog(c.precommiter.HandleAggregatePrecommit(ctx, m))
 	default:
 		logger.Error("Invalid message", "msg", msg)
 	}
+	//TODO(lorenzo) fix
 	// this should never happen, decoding only returns us propose, prevote or precommit
 	panic("handled message that is not propose, prevote or precommit")
 }
 
 func tryDisconnect(errorCh chan<- error, err error) {
+	//TODO(lorenzo) if aggregated vote, we will have no error channel. Or we can try to figure out still which peer sends this message
+	if errorCh == nil {
+		return
+	}
+
 	select {
 	case errorCh <- err:
 	default: // do nothing

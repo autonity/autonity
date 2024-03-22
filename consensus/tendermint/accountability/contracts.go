@@ -3,7 +3,6 @@ package accountability
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -279,14 +278,14 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 	switch vote := p.Evidences[0].(type) {
 	case *message.Precommit:
 		if vote.R() == proposal.ValidRound() &&
-			vote.Sender() == p.Message.Sender() &&
+			//	vote.Sender() == p.Message.Sender() && //TODO(lorenzo) fix this
 			vote.Value() != nilValue &&
 			vote.Value() != proposal.Value() {
 			return true
 		}
 		if vote.R() > proposal.ValidRound() &&
 			vote.R() < proposal.R() &&
-			vote.Sender() == p.Message.Sender() &&
+			//vote.Sender() == p.Message.Sender() && //TODO(lorenzo) fix this
 			vote.Value() != nilValue {
 			return true
 		}
@@ -343,9 +342,10 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	lastIndex := len(preCommits) - 1
 
 	for i, pc := range preCommits {
+		/* //TODO(lorenzo) fix
 		if pc.Code() != message.PrecommitCode || pc.Sender() != prevote.Sender() || pc.R() >= prevote.R() {
 			return false
-		}
+		}*/
 
 		// preCommit at R'
 		if i == 0 {
@@ -444,10 +444,11 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	// check if all precommits between range (validRound, currentRound) are presented. There should be only one pc per round.
 	presentedRounds := make(map[int64]struct{})
 	for _, pc := range allPreCommits {
+		/* //TODO(lorenzo) fix this
 		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode || pc.Sender() != prevote.Sender() ||
 			pc.H() != prevote.H() {
 			return false
-		}
+		}*/
 		if _, ok := presentedRounds[pc.R()]; ok {
 			return false
 		}
@@ -677,6 +678,7 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 }
 
 func hasEquivocatedVotes(votes []message.Msg) bool {
+	/* //TODO(lorenzo) fix
 	voteMap := make(map[common.Address]struct{})
 	for _, vote := range votes {
 		_, ok := voteMap[vote.Sender()]
@@ -687,6 +689,7 @@ func hasEquivocatedVotes(votes []message.Msg) bool {
 		}
 	}
 
+	*/
 	return false
 }
 
@@ -701,6 +704,7 @@ func decodeRawProof(b []byte) (*Proof, error) {
 
 // checkMsgSignature checks if the consensus message is from valid member of the committee.
 func verifyProofSignatures(chain ChainContext, p *Proof) error {
+	/*  //TODO(lorenzo) fix, might need to verify single message signatures here --> DoS?
 	h := p.Message.H()
 	lastHeader := chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
@@ -721,6 +725,7 @@ func verifyProofSignatures(chain ChainContext, p *Proof) error {
 			return errNotCommitteeMsg
 		}
 	}
+	*/
 	return nil
 }
 
@@ -736,21 +741,27 @@ func checkEquivocation(m message.Msg, proof []message.Msg) error {
 }
 
 func validReturn(m message.Msg, rule autonity.Rule) []byte {
+	/* //TODO(lorenzo) fix
 	offender := common.LeftPadBytes(m.Sender().Bytes(), 32)
 	ruleID := common.LeftPadBytes([]byte{byte(rule)}, 32)
 	block := make([]byte, 32)
 	block = common.LeftPadBytes(new(big.Int).SetUint64(m.H()).Bytes(), 32)
+	*/
 	result := make([]byte, 160)
-	copy(result[0:32], successResult)
-	copy(result[32:64], offender)
-	copy(result[64:96], ruleID)
-	copy(result[96:128], block)
-	copy(result[128:160], m.Hash().Bytes())
+	//copy(result[0:32], successResult)
+	//copy(result[32:64], offender)
+	//copy(result[64:96], ruleID)
+	//copy(result[96:128], block)
+	//copy(result[128:160], m.Hash().Bytes())
 	return result
 }
 
+// TODO(lorenzo) this might not be true anymore due to bls agg
+// proofs that include the maximum amount of messages are the ones that require:
+// 1. a proposal + a quorum of prevotes (worst-case number of evidence = MaxCommitteeSize + 1)
+// 2. a proposal + a list of precommits (worst-case number of evidence = MaxRound + 1).
+// thus the maximum number of evidence possible is the max between those two values
 func maxEvidenceMessages(header *types.Header) int {
-	// todo(youssef): I dont understand that
 	committeeSize := len(header.Committee)
 	if committeeSize > constants.MaxRound {
 		return committeeSize + 1

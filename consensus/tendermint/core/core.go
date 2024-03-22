@@ -23,26 +23,27 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
-		blockPeriod:            1, // todo: retrieve it from contract
-		address:                address,
-		logger:                 logger,
-		backend:                backend,
-		backlogs:               make(map[common.Address][]message.Msg),
-		backlogUntrusted:       make(map[uint64][]message.Msg),
+		blockPeriod: 1, // todo: retrieve it from contract
+		address:     address,
+		logger:      logger,
+		backend:     backend,
+		//backlogs:               make(map[common.Address][]message.Msg),
+		backlogs:               make([]message.Msg, 0),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
-		futureRoundChange:      make(map[int64]map[common.Address]*big.Int),
-		messages:               messagesMap,
-		lockedRound:            -1,
-		validRound:             -1,
-		curRoundMessages:       roundMessage,
-		proposeTimeout:         NewTimeout(Propose, logger),
-		prevoteTimeout:         NewTimeout(Prevote, logger),
-		precommitTimeout:       NewTimeout(Precommit, logger),
-		newHeight:              time.Now(),
-		newRound:               time.Now(),
-		stepChange:             time.Now(),
+		//futureRoundChange:      make(map[int64]map[common.Address]*big.Int),
+		futureRoundChange: make(map[int64][]message.Msg),
+		messages:          messagesMap,
+		lockedRound:       -1,
+		validRound:        -1,
+		curRoundMessages:  roundMessage,
+		proposeTimeout:    NewTimeout(Propose, logger),
+		prevoteTimeout:    NewTimeout(Prevote, logger),
+		precommitTimeout:  NewTimeout(Precommit, logger),
+		newHeight:         time.Now(),
+		newRound:          time.Now(),
+		stepChange:        time.Now(),
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -77,9 +78,10 @@ type Core struct {
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
-	backlogs             map[common.Address][]message.Msg
-	backlogUntrusted     map[uint64][]message.Msg
-	backlogUntrustedSize int
+	//TODO(lorenzo) do we need something liek the address partioning (I think it was to avoid someone sending a lot of future msgs
+	// and evicting the ones of the honest peers
+	backlogs []message.Msg
+
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
 
@@ -112,7 +114,9 @@ type Core struct {
 	prevoteTimeout   *Timeout
 	precommitTimeout *Timeout
 
-	futureRoundChange map[int64]map[common.Address]*big.Int
+	//TODO(lorenzo) might be worth to unify this and the backlogs array
+	//futureRoundChange map[int64]map[common.Address]*big.Int
+	futureRoundChange map[int64][]message.Msg
 
 	protocolContracts *autonity.ProtocolContracts
 
@@ -147,6 +151,15 @@ func (c *Core) Address() common.Address {
 func (c *Core) Step() Step {
 	return c.step
 }
+
+/* //TODO(lorenzo) for later
+func (c *Core) Power() *big.Int {
+	_, member, err := c.CommitteeSet().GetByAddress(c.address)
+	if err != nil {
+		return new(big.Int) // if not in the committee, voting power = 0
+	}
+	return member.VotingPower
+}*/
 
 func (c *Core) CurRoundMessages() *message.RoundMessages {
 	return c.curRoundMessages
@@ -232,13 +245,14 @@ func (c *Core) PrecommitTimeout() *Timeout {
 	return c.precommitTimeout
 }
 
+/* //TODO(lorenzo) delete?
 func (c *Core) FutureRoundChange() map[int64]map[common.Address]*big.Int {
 	return c.futureRoundChange
 }
 
 func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Address]*big.Int) {
 	c.futureRoundChange = futureRoundChange
-}
+}*/
 
 func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
@@ -256,10 +270,15 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-	committedSeals := make(types.Signatures)
+	//committedSeals := make(types.Signatures)
+	var seals []blst.Signature
+	sendersInfo := types.NewSendersInfo(len(c.lastHeader.Committee))
 	for _, v := range messages.PrecommitsFor(proposalHash) {
-		committedSeals[v.Sender()] = v.Signature().(*blst.BlsSignature)
+		seals = append(seals, v.Signature())
+		sendersInfo.Merge(v.Senders())
 	}
+	aggsig := blst.AggregateSignatures(seals).(*blst.BlsSignature)
+	committedSeals := types.NewAggregateSignature(aggsig, sendersInfo)
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
@@ -333,7 +352,8 @@ func (c *Core) setInitialState(r int64) {
 		c.validRound = -1
 		c.validValue = nil
 		c.messages.Reset()
-		c.futureRoundChange = make(map[int64]map[common.Address]*big.Int)
+		//c.futureRoundChange = make(map[int64]map[common.Address]*big.Int)
+		c.futureRoundChange = make(map[int64][]message.Msg)
 		// update height duration timer
 		if metrics.Enabled {
 			now := time.Now()

@@ -14,6 +14,7 @@ var (
 	ErrHeightClosed = errors.New("consensus instance already concluded")
 	// ErrFutureHeightMessage is returned when curRoundMessages view is earlier than the
 	// view of the received message.
+	//TODO(lorenzo) probably can delete
 	ErrFutureHeightMessage = errors.New("future height message")
 	// ErrOldHeightMessage is returned when the received message's view is earlier
 	// than curRoundMessages view.
@@ -26,14 +27,6 @@ var (
 	ErrInvalidMessage = errors.New("invalid message")
 	// ErrInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
 	ErrInvalidSenderOfCommittedSeal = errors.New("invalid sender of committed seal")
-	// ErrFailedDecodeProposal is returned when the PROPOSAL message is malformed.
-	ErrFailedDecodeProposal = errors.New("failed to decode PROPOSAL")
-	// ErrFailedDecodePrevote is returned when the PREVOTE message is malformed.
-	ErrFailedDecodePrevote = errors.New("failed to decode PREVOTE")
-	// ErrFailedDecodePrecommit is returned when the PRECOMMIT message is malformed.
-	ErrFailedDecodePrecommit = errors.New("failed to decode PRECOMMIT")
-	// ErrFailedDecodeVote is returned for when PREVOTE or PRECOMMIT is malformed.
-	ErrFailedDecodeVote = errors.New("failed to decode vote")
 	// ErrNilPrevoteSent is returned when timer could not be stopped in time
 	ErrNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// ErrNilPrecommitSent is returned when timer could not be stopped in time

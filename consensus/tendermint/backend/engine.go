@@ -9,6 +9,7 @@ import (
 
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -27,9 +28,8 @@ import (
 )
 
 const (
-	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 150
-	inmemoryMessages  = 8192
+	inmemoryPeers    = 150
+	inmemoryMessages = 8192
 )
 
 // ErrStartedEngine is returned if the engine is already started
@@ -221,23 +221,45 @@ func (sb *Backend) verifySigner(header, parent *types.Header) error {
 // a quorum.
 func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	// The length of Committed seals should be larger than 0
-	if len(header.CommittedSeals) == 0 {
+	//TODO(lorenzo) additional check on legnth == parent.header.committee?
+	if header.CommittedSeals == nil || !header.CommittedSeals.Valid() {
 		return types.ErrEmptyCommittedSeals
 	}
 
-	// Setup map to track votes made by committee members
-	votes := make(map[common.Address]int, len(parent.Committee))
-
-	// Calculate total voting power
+	// Calculate total voting power of committee
 	committeeVotingPower := new(big.Int)
 	for _, member := range parent.Committee {
 		committeeVotingPower.Add(committeeVotingPower, member.VotingPower)
 	}
 
-	// Total Voting power for this block
-	power := new(big.Int)
 	// The data that was signed over for this block
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+
+	// Total Voting power for this block
+	power := new(big.Int)
+	for _, index := range header.CommittedSeals.Senders.FlattenUniq() {
+		power.Add(power, parent.Committee[index].VotingPower)
+	}
+
+	// verify signature
+	//TODO(lorenzo) save this into sender?
+	var keys [][]byte
+	for _, index := range header.CommittedSeals.Senders.Flatten() {
+		keys = append(keys, parent.Committee[index].ConsensusKey.Marshal())
+	}
+	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	if err != nil {
+		sb.logger.Crit("Failed to aggregate keys from committee members", "err", err)
+	}
+	valid := header.CommittedSeals.Signature.Verify(aggregatedKey, headerSeal[:])
+	if !valid {
+		sb.logger.Error("block had invalid committed seal")
+		return types.ErrInvalidCommittedSeals
+	}
+
+	/* TODO(Lorenzo) check if new mech is coherent with past one
+	// Setup map to track votes made by committee members
+	votes := make(map[common.Address]int, len(parent.Committee))
 
 	// 1. Get committed seals from current header
 	for addr, signedSeal := range header.CommittedSeals {
@@ -259,7 +281,7 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 			return types.ErrInvalidCommittedSeals
 		}
 		power.Add(power, member.VotingPower)
-	}
+	}*/
 
 	// We need at least a quorum for the block to be considered valid
 	if power.Cmp(bft.Quorum(committeeVotingPower)) < 0 {
@@ -468,9 +490,12 @@ func (sb *Backend) Start(ctx context.Context) error {
 	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
-	// Start Tendermint
-	go sb.faultyValidatorsWatcher(ctx)
+
 	sb.wg.Add(1)
+	go sb.faultyValidatorsWatcher(ctx)
+
+	// Start Tendermint
+	sb.aggregator.start(ctx)
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
 	sb.coreStarted = true
 	return nil
@@ -492,6 +517,7 @@ func (sb *Backend) Close() error {
 	// never return because we did not close sb.stopped.
 	close(sb.stopped)
 	// Stop Tendermint
+	sb.aggregator.stop()
 	sb.core.Stop()
 	sb.wg.Wait()
 	return nil

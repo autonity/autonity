@@ -219,6 +219,7 @@ func (s *BlsSignature) EncodeRLP(w io.Writer) error {
 func (s *BlsSignature) DecodeRLP(stream *rlp.Stream) error {
 	b, err := stream.Bytes()
 	if err != nil {
+		panic("fail")
 		return fmt.Errorf("error while decoding BLS signature: %w", err)
 	}
 	signature, err := SignatureFromBytes(b)

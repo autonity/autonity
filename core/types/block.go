@@ -98,14 +98,44 @@ type Header struct {
 	// Used to ensure the committeeMap is created only once.
 	once sync.Once
 
-	ProposerSeal   []byte     `json:"proposerSeal"        gencodec:"required"`
-	Round          uint64     `json:"round"               gencodec:"required"`
-	CommittedSeals Signatures `json:"committedSeals"      gencodec:"required"`
+	ProposerSeal []byte `json:"proposerSeal"        gencodec:"required"`
+	Round        uint64 `json:"round"               gencodec:"required"`
+	//CommittedSeals *AggregateSignature `json:"committedSeals"      gencodec:"required"` //TODO(lorenzo) json tags add
+	CommittedSeals *AggregateSignature `rlp:"nil"`
 }
 
 // TODO(lorenzo) I use concrete type to make serialization easier, but to verify when changing with aggregate sig
-type Signatures map[common.Address]*blst.BlsSignature
+//type Signatures map[common.Address]*blst.BlsSignature
 
+// TODO(lorenzo) define as standlaone type?
+type AggregateSignature struct {
+	Signature *blst.BlsSignature
+	Senders   *SendersInfo
+}
+
+func NewAggregateSignature(signature *blst.BlsSignature, senders *SendersInfo) *AggregateSignature {
+	return &AggregateSignature{Signature: signature, Senders: senders}
+}
+
+// TODO(lorenzo) used for committed seals verification, double cehck
+func (a *AggregateSignature) Valid() bool {
+	return a.Signature != nil && a.Senders.Len() != 0
+}
+
+func (a *AggregateSignature) Copy() *AggregateSignature {
+	return &AggregateSignature{Signature: a.Signature.Copy(), Senders: a.Senders.Copy()}
+}
+
+/* //TODO(lorenzo) delete if fine
+func (a *AggregateSignature) Senders() SendersInfo {
+	return a.Sendrs
+}
+
+func (a *AggregateSignature) Signature() *blst.BlsSignature {
+	return a.Sig
+}*/
+
+/*
 // serialize the map as an bytes key1|value1|key2|value2|...
 // NOTE: since the looping over a map is undeterministic, the order of the bytes produced by this Marshal() function can differ for the same map.
 func (s Signatures) Marshal() []byte {
@@ -154,7 +184,7 @@ func (s Signatures) DecodeRLP(stream *rlp.Stream) error {
 		return fmt.Errorf("error while decoding BLS signature map: %w", err)
 	}
 	return nil
-}
+}*/
 
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
 
@@ -164,6 +194,7 @@ type CommitteeMember struct {
 	ConsensusKeyBytes []byte         `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
 	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
 	ConsensusKey blst.PublicKey `json:"-" rlp:"-"`
+	Index        uint64         `json:"-" rlp:"-"` // index of this committee member in the committee array
 }
 
 type committeeMemberMarshaling struct {
@@ -174,13 +205,15 @@ type committeeMemberMarshaling struct {
 
 type Committee []CommitteeMember
 
-func (c Committee) DeserializeConsensusKeys() error {
+// Enrich adds some convenience information to the committee member structs
+func (c Committee) Enrich() error {
 	for i := range c {
 		consensusKey, err := blst.PublicKeyFromBytes(c[i].ConsensusKeyBytes)
 		if err != nil {
 			return fmt.Errorf("Error when decoding bls key: index %d, address: %v, err: %w", i, c[i].Address, err)
 		}
 		c[i].ConsensusKey = consensusKey
+		c[i].Index = uint64(i)
 	}
 	return nil
 }
@@ -214,10 +247,12 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee      Committee  `json:"committee"           gencodec:"required"`
-	ProposerSeal   []byte     `json:"proposerSeal"        gencodec:"required"`
-	Round          uint64     `json:"round"               gencodec:"required"`
-	CommittedSeals Signatures `json:"committedSeals"      gencodec:"required"`
+	Committee    Committee `json:"committee"           gencodec:"required"`
+	ProposerSeal []byte    `json:"proposerSeal"        gencodec:"required"`
+	Round        uint64    `json:"round"               gencodec:"required"`
+	//	CommittedSeals Signatures `json:"committedSeals"      gencodec:"required"`
+	//CommittedSeals *AggregateSignature `json:"committedSeals"      gencodec:"required"` //TODO(lorenzo) json tags
+	CommittedSeals *AggregateSignature `rlp:"nil"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -299,8 +334,9 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 
 	if origin.MixDigest == BFTDigest {
 		hExtra := &headerExtra{}
+		//TODO(lorenzo) remove?
 		// since map is not rlp serializable by default, rlp will not allocate memory for it. We have to do it manually.
-		hExtra.CommittedSeals = make(Signatures)
+		//hExtra.CommittedSeals = make(Signatures)
 		err := rlp.DecodeBytes(origin.Extra, hExtra)
 		if err != nil {
 			return err
@@ -310,7 +346,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
 
-		if err := h.Committee.DeserializeConsensusKeys(); err != nil {
+		if err := h.Committee.Enrich(); err != nil {
 			return fmt.Errorf("Error while deserializing consensus keys: %w", err)
 		}
 	} else {
@@ -512,6 +548,7 @@ func CopyHeader(h *Header) *Header {
 			VotingPower:       new(big.Int).Set(val.VotingPower),
 			ConsensusKeyBytes: append(val.ConsensusKeyBytes[:0:0], val.ConsensusKeyBytes...),
 			ConsensusKey:      val.ConsensusKey.Copy(),
+			Index:             val.Index,
 		}
 	}
 
@@ -521,11 +558,16 @@ func CopyHeader(h *Header) *Header {
 		copy(proposerSeal, h.ProposerSeal)
 	}
 
-	committedSeals := make(Signatures)
+	/*committedSeals := make(Signatures)
 	if len(h.CommittedSeals) > 0 {
 		for addr, sig := range h.CommittedSeals {
 			committedSeals[addr] = sig.Copy()
 		}
+	}*/
+	//TODO(lorenzo) fix properly
+	var committedSeals *AggregateSignature
+	if h.CommittedSeals != nil {
+		committedSeals = h.CommittedSeals.Copy()
 	}
 
 	cpy := &Header{
