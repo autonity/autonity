@@ -40,6 +40,8 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 		now := time.Now()
 		ProposalSentTimer.Update(now.Sub(c.newRound))
 		ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
+		ProposalSentBlockTSDeltaBg.Add(time.Unix(int64(block.Header().Time), 0).Sub(now).Nanoseconds())
+		c.proposalSent = now
 	}
 }
 
@@ -87,6 +89,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		now := time.Now()
 		ProposalReceivedTimer.Update(now.Sub(c.newRound))
 		ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
+		ProposalReceivedBlockTSDeltaBg.Add(time.Since(c.proposalSent).Nanoseconds())
 	}
 
 	// Verify the proposal we received
@@ -124,9 +127,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			c.prevoter.SendPrevote(ctx, true)
 			// do not to accept another proposal in current round
 			c.SetStep(ctx, Prevote)
-			if metrics.Enabled {
-				PrevoteSentBg.Add(time.Since(c.newRound).Nanoseconds())
-			}
 		}
 		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
 		return err

@@ -178,9 +178,6 @@ func (c *Core) handleTimeoutPropose(ctx context.Context, msg TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == Propose {
 		c.logTimeoutEvent("TimeoutEvent(Propose): Received", "Propose", msg)
 		c.prevoter.SendPrevote(ctx, true)
-		if metrics.Enabled {
-			PrevoteSentBg.Add(time.Since(c.newRound).Nanoseconds())
-		}
 		c.SetStep(ctx, Prevote)
 	}
 }
@@ -189,9 +186,6 @@ func (c *Core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() && c.step == Prevote {
 		c.logTimeoutEvent("TimeoutEvent(Prevote): Received", "Prevote", msg)
 		c.precommiter.SendPrecommit(ctx, true)
-		if metrics.Enabled {
-			PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
-		}
 		c.SetStep(ctx, Precommit)
 	}
 }

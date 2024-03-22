@@ -54,14 +54,20 @@ var (
 	PrecommitStepBg     = metrics.NewRegisteredBufferedGauge("tendermint/step/precommit.bg", nil, nil)     // duration of precommit phase
 	PrecommitDoneStepBg = metrics.NewRegisteredBufferedGauge("tendermint/step/precommitDone.bg", nil, nil) // duration of precommit done phase
 
-	ProposalSentBg            = metrics.NewRegisteredBufferedGauge("tendermint/proposal/sent.bg", nil, getIntPointer(1024))     // time between round start and proposal sent
-	ProposalReceivedBg        = metrics.NewRegisteredBufferedGauge("tendermint/proposal/received.bg", nil, getIntPointer(1024)) // time between round start and proposal received
-	ProposalVerifiedBg        = metrics.NewRegisteredBufferedGauge("tendermint/proposal/verified.bg", nil, getIntPointer(1024)) // time to verify proposal
-	PrevoteSentBg             = metrics.NewRegisteredBufferedGauge("tendermint/prevote/sent.bg", nil, getIntPointer(1024))      // time between round start and prevote sent
-	PrevoteQuorumReceivedBg   = metrics.NewRegisteredBufferedGauge("tendermint/prevote/quorum/received.bg", nil, nil)           // time between round start and prevote quorum received
-	PrecommitSentBg           = metrics.NewRegisteredBufferedGauge("tendermint/precommit/sent.bg", nil, getIntPointer(1024))    // time between round start and precommit sent
-	PrecommitQuorumReceivedBg = metrics.NewRegisteredBufferedGauge("tendermint/precommit/quorum/received.bg", nil, nil)         // time between round start and precommit quorum received
-	CommitBg                  = metrics.NewRegisteredBufferedGauge("tendermint/commit.bg", nil, nil)                            // time between round start and commit (--> block queued for insertion)
+	ProposalSentBg                 = metrics.NewRegisteredBufferedGauge("tendermint/proposal/sent.bg", nil, getIntPointer(1024))                      // time between round start and proposal sent
+	ProposalSentBlockTSDeltaBg     = metrics.NewRegisteredBufferedGauge("tendermint/proposal/relative/blockTS/sent.bg", nil, getIntPointer(1024))     // time between round start and proposal sent
+	ProposalReceivedBg             = metrics.NewRegisteredBufferedGauge("tendermint/proposal/received.bg", nil, getIntPointer(1024))                  // time between round start and proposal received
+	ProposalReceivedBlockTSDeltaBg = metrics.NewRegisteredBufferedGauge("tendermint/proposal/relative/blockTS/received.bg", nil, getIntPointer(1024)) // time between round start and proposal sent
+	ProposalVerifiedBg             = metrics.NewRegisteredBufferedGauge("tendermint/proposal/verified.bg", nil, getIntPointer(1024))                  // time to verify proposal
+	PrevoteSentBg                  = metrics.NewRegisteredBufferedGauge("tendermint/prevote/sent.bg", nil, getIntPointer(1024))                       // time between round start and prevote sent
+	PrevoteSentBlockTSDeltaBg      = metrics.NewRegisteredBufferedGauge("tendermint/prevote/relative/blockTS/sent.bg", nil, getIntPointer(1024))      // time between round start and prevote sent
+	PrevoteQuorumReceivedBg        = metrics.NewRegisteredBufferedGauge("tendermint/prevote/quorum/received.bg", nil, nil)                            // time between round start and prevote quorum received
+	PrevoteQuorumBlockTSDeltaBg    = metrics.NewRegisteredBufferedGauge("tendermint/prevote/relative/blockTS/quorum/received.bg", nil, nil)           // time between round start and prevote quorum received
+	PrecommitSentBg                = metrics.NewRegisteredBufferedGauge("tendermint/precommit/sent.bg", nil, getIntPointer(1024))                     // time between round start and precommit sent
+	PrecommitSentBlockTSDeltaBg    = metrics.NewRegisteredBufferedGauge("tendermint/precommit/relative/blockTS/sent.bg", nil, getIntPointer(1024))    // time between round start and precommit sent
+	PrecommitQuorumReceivedBg      = metrics.NewRegisteredBufferedGauge("tendermint/precommit/quorum/received.bg", nil, nil)                          // time between round start and precommit quorum received
+	PrecommitQuorumBlockTSDeltaBg  = metrics.NewRegisteredBufferedGauge("tendermint/precommit/relative/blockTS/quorum/received.bg", nil, nil)         // time between round start and precommit quorum received
+	CommitBg                       = metrics.NewRegisteredBufferedGauge("tendermint/commit.bg", nil, nil)                                             // time between round start and commit (--> block queued for insertion)
 )
 
 func getIntPointer(val int) *int {

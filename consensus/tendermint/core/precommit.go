@@ -3,10 +3,12 @@ package core
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/metrics"
 )
 
 type Precommiter struct {
@@ -31,6 +33,10 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
+	if metrics.Enabled {
+		PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
+		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.proposalSent).Nanoseconds())
+	}
 }
 
 // HandlePrecommit process the incoming precommit message.

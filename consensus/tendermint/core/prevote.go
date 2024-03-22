@@ -2,10 +2,12 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/metrics"
 )
 
 type Prevoter struct {
@@ -29,6 +31,10 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)
+	if metrics.Enabled {
+		PrevoteSentBg.Add(time.Since(c.newRound).Nanoseconds())
+		PrevoteSentBlockTSDeltaBg.Add(time.Since(c.proposalSent).Nanoseconds())
+	}
 }
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {
