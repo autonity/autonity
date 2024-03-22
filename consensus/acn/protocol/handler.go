@@ -18,6 +18,13 @@ import (
 // exchanges have passed.
 type HandlerFunc func(peer *Peer) error
 
+var (
+	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, getIntPointer(1000))  // time between round start and proposal sent
+	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, getIntPointer(5000))   // time between round start and proposal receiv
+	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, getIntPointer(5000)) // time to verify proposal
+	DefaultProcessBg   = metrics.NewRegisteredBufferedGauge("acn/any/process", nil, nil)                       // time to verify proposal
+)
+
 // Backend defines the data retrieval methods to serve remote requests and the
 // callback methods to invoke on remote deliveries.
 type Backend interface {
@@ -121,14 +128,8 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 
 	// Track the amount of time it takes to serve the request and run the ACN
 	if metrics.Enabled {
-		h := fmt.Sprintf("%s/%s/%d/%#02x", p2p.HandleHistName, ProtocolName, peer.Version(), msg.Code)
 		defer func(start time.Time) {
-			sampler := func() metrics.Sample {
-				return metrics.ResettingSample(
-					metrics.NewExpDecaySample(1028, 0.015),
-				)
-			}
-			metrics.GetOrRegisterHistogramLazy(h, nil, sampler).Update(time.Since(start).Microseconds())
+			getProcessMetric(msg.Code).Add((time.Since(start).Nanoseconds()))
 		}(time.Now())
 	}
 	if handler, ok := backend.Chain().Engine().(consensus.Handler); ok {
@@ -137,4 +138,15 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 		}
 	}
 	return fmt.Errorf("%w: %v", errInvalidMsgCode, msg.Code)
+}
+func getProcessMetric(msgCode uint64) metrics.BufferedGauge {
+	switch msgCode {
+	case 0x11:
+		return ProposalProcessBg
+	case 0x12:
+		return PrevoteProcessBg
+	case 0x13:
+		return PrecommitProcessBg
+	}
+	return DefaultProcessBg
 }

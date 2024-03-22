@@ -170,7 +170,6 @@ func (exp *exp) syncToExpvar() {
 		case metrics.Gauge:
 			exp.publishGauge(name, i)
 		case metrics.BufferedGauge:
-			//TODO:
 		case metrics.GaugeFloat64:
 			exp.publishGaugeFloat64(name, i)
 		case metrics.Histogram:

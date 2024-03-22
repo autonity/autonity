@@ -123,8 +123,9 @@ type Core struct {
 	proposer    interfaces.Proposer
 
 	// these timestamps are used to compute metrics for tendermint
-	newHeight time.Time
-	newRound  time.Time
+	newHeight    time.Time
+	newRound     time.Time
+	proposalSent time.Time
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {

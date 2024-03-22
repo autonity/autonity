@@ -33,14 +33,16 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
 	c.sentProposal = true
 	c.backend.SetProposedBlockHash(block.Hash())
+	c.logger.Info("Proposing new block", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
+	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
+	c.Broadcaster().Broadcast(proposal)
 	if metrics.Enabled {
 		now := time.Now()
 		ProposalSentTimer.Update(now.Sub(c.newRound))
 		ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
+		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
+		ProposalSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
-	c.logger.Info("Proposing new block", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
-	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
-	c.Broadcaster().Broadcast(proposal)
 }
 
 func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose) error {
@@ -87,6 +89,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		now := time.Now()
 		ProposalReceivedTimer.Update(now.Sub(c.newRound))
 		ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
+		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
+		ProposalReceivedBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 
 	// Verify the proposal we received
