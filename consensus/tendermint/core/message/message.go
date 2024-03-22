@@ -16,9 +16,7 @@ package message
 import (
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
-	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -31,6 +29,7 @@ import (
 var (
 	ErrBadSignature        = errors.New("bad signature")
 	ErrUnauthorizedAddress = errors.New("unauthorized address")
+	ErrInvalidSenders      = errors.New("invalid senders information")
 )
 
 const (
@@ -38,66 +37,16 @@ const (
 	PrevoteCode
 	PrecommitCode
 	LightProposalCode
+	AggregatePrevoteCode
+	AggregatePrecommitCode
 )
 
-type Signer func(hash common.Hash) (signature blst.Signature, address common.Address)
-
-type Msg interface {
-	// Code returns the message code, it must always matching the concrete type.
-	Code() uint8
-
-	// R returns the message round.
-	R() int64
-
-	// H returns the message height.
-	H() uint64
-
-	// Value returns the block hash being voted for.
-	Value() common.Hash
-
-	// Returns the sender address. This is not available until the message has been validated.
-	// the sender is actually populated at decoding, but it cannot be relied upon until after signature verification.
-	Sender() common.Address
-
-	// Power returns the message voting power.
-	Power() *big.Int
-
-	// String returns a string description of the message.
-	String() string
-
-	// Hash returns the hash of the message. This is not available if the underlying payload
-	// hasn't be assigned.
-	Hash() common.Hash
-
-	// Payload returns the rlp-encoded payload ready to be broadcasted.
-	Payload() []byte
-
-	// Signature returns the signature of this message
-	Signature() blst.Signature
-
-	// Validate execute the message's signature verification, cryptographically verifying the sender and assigning the power value.
-	Validate(func(address common.Address) *types.CommitteeMember) error
-}
-
-type base struct {
-	// attributes are left private to avoid direct modification
-	round     int64
-	height    uint64
-	signature blst.Signature
-
-	payload        []byte
-	signatureInput []any
-	power          *big.Int
-	sender         common.Address
-	hash           common.Hash
-	verified       bool
-	sync.RWMutex   //TODO(lorenzo) this might not be needed once we have the bls aggregator
-}
+type Signer func(hash common.Hash) (signature blst.Signature, address common.Address) //TODO(lorenzo) add power
 
 type Propose struct {
 	block      *types.Block
 	validRound int64
-	base
+	individualMsg
 }
 
 // extPropose is the actual proposal object being exchanged on the network
@@ -132,18 +81,17 @@ func (p *Propose) Value() common.Hash {
 }
 
 func (p *Propose) String() string {
-	p.RLock()
-	defer p.RUnlock()
-	return fmt.Sprintf("{Round: %v, Height: %v, ValidRound: %v, ProposedBlockHash: %v}",
-		p.round, p.H(), p.validRound, p.block.Hash().String())
+	return fmt.Sprintf("{%s, ValidRound: %v, ProposedBlockHash: %v}",
+		p.base.String(), p.validRound, p.block.Hash().String())
 }
 
-func (p *Propose) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Propose {
-	if err := p.Validate(inCommittee); err != nil {
+/*
+func (p *Propose) MustVerify(header *types.Header) *Propose {
+	if err := p.Validate(header); err != nil {
 		panic("validation failed")
 	}
 	return p
-}
+}*/
 
 func (p *Propose) ToLight() *LightProposal {
 	return NewLightProposal(p)
@@ -158,9 +106,9 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 		validRound = uint64(vr)
 	}
 	// Calculate signature first
-	signatureInput := []any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, block.Hash()}
-	signatureInputEncoded, _ := rlp.EncodeToBytes(signatureInput)
-	signature, validator := signer(crypto.Hash(signatureInputEncoded))
+	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, block.Hash()})
+	signatureInput := crypto.Hash(signaturePayload)
+	signature, validator := signer(signatureInput)
 
 	payload, _ := rlp.EncodeToBytes(&extPropose{
 		Code:            ProposalCode,
@@ -174,22 +122,33 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 	})
 
 	// we don't need to assign here the voting power as it is going to be retrieved
-	// after a Validate() call during processing.
+	// after a PreValidate() call during processing.
 	return &Propose{
 		block:      block,
 		validRound: vr,
-		base: base{
-			round:          r,
-			height:         h,
-			signatureInput: signatureInput,
-			sender:         validator,
-			signature:      signature,
-			payload:        payload,
-			hash:           crypto.Hash(payload),
-			verified:       false,
+		individualMsg: individualMsg{
+			sender: validator,
+			base: base{
+				round:          r,
+				height:         h,
+				signatureInput: signatureInput,
+				signature:      signature,
+				payload:        payload,
+				hash:           crypto.Hash(payload),
+				verified:       false,
+			},
 		},
 	}
 }
+
+/* //TODO(lorenzo) for later
+// used in tests. Simulates an unverified proposal coming from a remote peer
+func NewUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) *Propose {
+	propose := NewPropose(r, h, vr, block, signer)
+	propose.unvalidate()
+	return propose
+}*/
+
 func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()
 	if err != nil {
@@ -234,17 +193,18 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	p.block = ext.ProposalBlock
 	p.sender = ext.Sender
 	p.signature = ext.Signature
-	p.signatureInput = []any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()}
 	p.payload = payload
+	// precompute hash and signature hash
+	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()})
+	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
-
 	return nil
 }
 
 type LightProposal struct {
 	blockHash  common.Hash
 	validRound int64
-	base
+	individualMsg
 }
 type extLightProposal struct {
 	Code            uint8
@@ -269,10 +229,9 @@ func (p *LightProposal) Value() common.Hash {
 	return p.blockHash
 }
 
+// TODO(lorenzo) would be useful to print also sender and power, but we need to make sure they are trsuted (verified)
 func (p *LightProposal) String() string {
-	p.RLock()
-	defer p.RUnlock()
-	return fmt.Sprintf("{Round: %v, Height: %v, sender: %v, power: %v, Code: %v, value: %v}", p.R(), p.H(), p.sender.String(), p.power, p.Code(), p.blockHash)
+	return fmt.Sprintf("{%s, Code: %v, value: %v}", p.base.String(), p.Code(), p.blockHash)
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
@@ -300,16 +259,18 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 	return &LightProposal{
 		blockHash:  proposal.Block().Hash(),
 		validRound: proposal.validRound,
-		base: base{
-			round:          proposal.round,
-			height:         proposal.height,
-			signature:      proposal.signature,
-			signatureInput: proposal.signatureInput,
-			payload:        payload,
-			power:          proposal.Power(),
-			sender:         proposal.sender,
-			hash:           crypto.Hash(payload),
-			verified:       true,
+		individualMsg: individualMsg{
+			sender: proposal.sender,
+			base: base{
+				round:          proposal.round,
+				height:         proposal.height,
+				signature:      proposal.signature,
+				signatureInput: proposal.signatureInput,
+				payload:        payload,
+				power:          proposal.Power(),
+				hash:           crypto.Hash(payload),
+				verified:       true,
+			},
 		},
 	}
 }
@@ -354,8 +315,10 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.blockHash = ext.ProposalBlock
 	p.sender = ext.Sender
 	p.signature = ext.Signature
-	p.signatureInput = []any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash}
 	p.payload = payload
+	// precompute hash and signature hash
+	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash})
+	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
 	return nil
 }
@@ -375,7 +338,7 @@ type extVote struct {
 
 type Prevote struct {
 	value common.Hash
-	base
+	individualMsg
 }
 
 func (p *Prevote) Code() uint8 {
@@ -386,23 +349,22 @@ func (p *Prevote) Value() common.Hash {
 	return p.value
 }
 
-func (p *Prevote) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Prevote {
-	if err := p.Validate(inCommittee); err != nil {
+/*
+func (p *Prevote) MustVerify(header *types.Header) *Prevote {
+	if err := p.Validate(header); err != nil {
 		panic("verification failed")
 	}
 	return p
-}
+}*/
 
 func (p *Prevote) String() string {
-	p.RLock()
-	defer p.RUnlock()
 	return fmt.Sprintf("{r:  %v, h: %v , sender: %v, power: %v, Code: %v, value: %v}",
 		p.round, p.height, p.sender, p.power, p.Code(), p.value)
 }
 
 type Precommit struct {
 	value common.Hash
-	base
+	individualMsg
 }
 
 func (p *Precommit) Code() uint8 {
@@ -413,16 +375,15 @@ func (p *Precommit) Value() common.Hash {
 	return p.value
 }
 
-func (p *Precommit) MustVerify(inCommittee func(address common.Address) *types.CommitteeMember) *Precommit {
-	if err := p.Validate(inCommittee); err != nil {
+/*
+func (p *Precommit) MustVerify(header *types.Header) *Precommit {
+	if err := p.Validate(header); err != nil {
 		panic("verification failed")
 	}
 	return p
-}
+}*/
 
 func (p *Precommit) String() string {
-	p.RLock()
-	defer p.RUnlock()
 	return fmt.Sprintf("{r:  %v, h: %v , sender: %v, power: %v, Code: %v, value: %v}",
 		p.round, p.height, p.sender, p.power, p.Code(), p.value)
 }
@@ -434,10 +395,12 @@ func newVote[
 		Msg
 	}](r int64, h uint64, value common.Hash, signer Signer) *E {
 	code := PE(new(E)).Code()
+
 	// Pay attention that we're adding the message Code to the signature input data.
-	signatureInput := []any{code, uint64(r), h, value}
-	signatureEncodedInput, _ := rlp.EncodeToBytes(signatureInput)
-	signature, validator := signer(crypto.Hash(signatureEncodedInput))
+	signaturePayload, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
+	signatureInput := crypto.Hash(signaturePayload)
+	signature, validator := signer(signatureInput)
+
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,
 		Round:     uint64(r),
@@ -448,15 +411,17 @@ func newVote[
 	})
 	vote := E{
 		value: value,
-		base: base{
-			round:          r,
-			height:         h,
-			signature:      signature,
-			sender:         validator,
-			payload:        payload,
-			hash:           crypto.Hash(payload),
-			signatureInput: signatureInput,
-			verified:       false,
+		individualMsg: individualMsg{
+			sender: validator,
+			base: base{
+				round:          r,
+				height:         h,
+				signature:      signature,
+				payload:        payload,
+				hash:           crypto.Hash(payload),
+				signatureInput: signatureInput,
+				verified:       false,
+			},
 		},
 	}
 	return &vote
@@ -466,9 +431,24 @@ func NewPrevote(r int64, h uint64, value common.Hash, signer Signer) *Prevote {
 	return newVote[Prevote](r, h, value, signer)
 }
 
+/* //TODO(lorenzo) for later
+// used in tests. Simulates an unverified prevote coming from a remote peer
+func NewUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer) *Prevote {
+	prevote := newVote[Prevote](r, h, value, signer)
+	prevote.unvalidate()
+	return prevote
+}*/
+
 func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommit {
 	return newVote[Precommit](r, h, value, signer)
 }
+
+/* //TODO(lorenzo) for alter
+func NewUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommit {
+	precommit := newVote[Precommit](r, h, value, signer)
+	precommit.unvalidate()
+	return precommit
+}*/
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()
@@ -481,7 +461,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 	if encoded.Code != PrevoteCode {
-		return constants.ErrFailedDecodePrevote
+		return constants.ErrInvalidMessage
 	}
 	if encoded.Signature == nil {
 		return constants.ErrInvalidMessage
@@ -497,8 +477,10 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.sender = encoded.Sender
 	p.signature = encoded.Signature
-	p.signatureInput = []any{PrevoteCode, encoded.Round, encoded.Height, encoded.Value}
 	p.payload = payload
+	// precompute hash and signature hash
+	signaturePayload, _ := rlp.EncodeToBytes([]any{PrevoteCode, encoded.Round, encoded.Height, encoded.Value})
+	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
 	return nil
 }
@@ -513,7 +495,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 	if encoded.Code != PrecommitCode {
-		return constants.ErrFailedDecodePrevote
+		return constants.ErrInvalidMessage
 	}
 	if encoded.Signature == nil {
 		return constants.ErrInvalidMessage
@@ -529,83 +511,39 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.sender = encoded.Sender
 	p.signature = encoded.Signature
-	p.signatureInput = []any{PrecommitCode, encoded.Round, encoded.Height, encoded.Value}
 	p.payload = payload
+	// precompute hash and signature hash
+	signaturePayload, _ := rlp.EncodeToBytes([]any{PrecommitCode, encoded.Round, encoded.Height, encoded.Value})
+	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
 	return nil
 }
 
-// sender is populated at decoding time, however we cannot rely on it until signature verification
-func (b *base) Sender() common.Address {
-	b.RLock()
-	defer b.RUnlock()
-	if !b.verified {
-		panic("unverified message")
-	}
-	return b.sender
+type individualMsg struct {
+	// node address of the sender, populated at decoding phase
+	sender common.Address
+	// index of the sender in the committee, populated at PreValidate phase
+	senderIndex int
+	base
 }
 
-func (b *base) H() uint64 {
-	return b.height
+func (im *individualMsg) Sender() common.Address {
+	return im.sender
 }
 
-func (b *base) EncodeRLP(w io.Writer) error {
-	_, err := w.Write(b.payload)
-	return err
+func (im *individualMsg) SenderIndex() int {
+	return im.senderIndex
 }
 
-func (b *base) R() int64 {
-	return b.round
-}
-
-func (b *base) Power() *big.Int {
-	b.RLock()
-	defer b.RUnlock()
-	if !b.verified {
-		panic("unverified message")
-	}
-	return b.power
-}
-
-func (b *base) Signature() blst.Signature {
-	return b.signature
-}
-
-func (b *base) Payload() []byte {
-	return b.payload
-}
-
-func (b *base) Hash() common.Hash {
-	return b.hash
-}
-
-// Validate verify the signature and sets the power field
-func (b *base) Validate(inCommittee func(address common.Address) *types.CommitteeMember) error {
-	b.Lock()
-	defer b.Unlock()
-	if b.verified {
-		return nil
-	}
-
-	// TODO(lorenzo) improvement: catch this even earlier in the flow
-	validator := inCommittee(b.sender)
+func (im *individualMsg) PreValidate(header *types.Header) error {
+	validator := header.CommitteeMember(im.sender)
 	if validator == nil {
 		return ErrUnauthorizedAddress
 	}
 
-	// We are not saving the rlp encoded signature input data as we want
-	// to avoid this extra-serialization step if the message has already been received
-	// The call to Validate() only happen after the cache check in the backend handler.
-	sigData, _ := rlp.EncodeToBytes(b.signatureInput)
-	hash := crypto.Hash(sigData)
-
-	valid := b.signature.Verify(validator.ConsensusKey, hash[:])
-	if !valid {
-		return ErrBadSignature
-	}
-
-	b.power = validator.VotingPower
-	b.verified = true
+	im.senderKey = validator.ConsensusKey
+	im.senderIndex = int(validator.Index)
+	im.power = validator.VotingPower
 	return nil
 }
 
@@ -616,6 +554,7 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 	return crypto.Hash(buf)
 }
 
+// TODO(lorenzo) update fake msg
 // Fake is a dummy object used for internal testing.
 type Fake struct {
 	FakeCode      uint8
@@ -644,15 +583,17 @@ func (f Fake) Validate(_ func(_ common.Address) *types.CommitteeMember) error { 
 func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{
 		value: f.FakeValue,
-		base: base{
-			round:     f.FakeRound,
-			height:    f.FakeHeight,
-			signature: f.FakeSignature,
-			payload:   f.FakePayload,
-			power:     f.FakePower,
-			sender:    f.FakeSender,
-			hash:      f.FakeHash,
-			verified:  true,
+		individualMsg: individualMsg{
+			sender: f.FakeSender,
+			base: base{
+				round:     f.FakeRound,
+				height:    f.FakeHeight,
+				signature: f.FakeSignature,
+				payload:   f.FakePayload,
+				power:     f.FakePower,
+				hash:      f.FakeHash,
+				verified:  true,
+			},
 		},
 	}
 }
@@ -660,15 +601,17 @@ func NewFakePrevote(f Fake) *Prevote {
 func NewFakePrecommit(f Fake) *Precommit {
 	return &Precommit{
 		value: f.FakeValue,
-		base: base{
-			round:     f.FakeRound,
-			height:    f.FakeHeight,
-			signature: f.FakeSignature,
-			payload:   f.FakePayload,
-			power:     f.FakePower,
-			sender:    f.FakeSender,
-			hash:      f.FakeHash,
-			verified:  true,
+		individualMsg: individualMsg{
+			sender: f.FakeSender,
+			base: base{
+				round:     f.FakeRound,
+				height:    f.FakeHeight,
+				signature: f.FakeSignature,
+				payload:   f.FakePayload,
+				power:     f.FakePower,
+				hash:      f.FakeHash,
+				verified:  true,
+			},
 		},
 	}
 }

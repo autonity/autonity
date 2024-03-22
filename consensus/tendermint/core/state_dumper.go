@@ -29,7 +29,7 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 		BlockPeriod:       c.blockPeriod,
 		CurHeightMessages: msgForDump(c.messages.All()),
 		BacklogMessages:   getBacklogMsgs(c),
-		UncheckedMsgs:     getBacklogUncheckedMsgs(c),
+		FutureMsgs:        msgForDump(c.backend.FutureMsgs()), //TODO(lorenzo) still needed?
 		// tendermint Core state:
 		Height:      c.Height(),
 		Round:       c.Round(),
@@ -66,25 +66,18 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 	close(e.StateChan)
 }
 
-func getBacklogUncheckedMsgs(c *Core) []*interfaces.MsgForDump {
-	result := make([]*interfaces.MsgForDump, 0)
-	for _, ms := range c.backlogUntrusted {
-		result = append(result, msgForDump(ms)...)
-	}
-
-	return result
-}
-
 // getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
 func getBacklogMsgs(c *Core) []*interfaces.MsgForDump {
+	/* //TODO(lorenzo)
 	result := make([]*interfaces.MsgForDump, 0)
 	for _, ms := range c.backlogs {
 		result = append(result, msgForDump(ms)...)
 	}
 
-	return result
+	return result*/
+	return msgForDump(c.backlogs)
 }
 
 func msgForDump(messages []message.Msg) []*interfaces.MsgForDump {

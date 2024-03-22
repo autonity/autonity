@@ -1,10 +1,11 @@
 package interfaces
 
 import (
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"math/big"
 )
 
 // VoteState save the prevote or precommit voting status for a specific value.
@@ -70,8 +71,9 @@ type CoreState struct {
 	CurHeightMessages []*MsgForDump
 	// backlog msgs
 	BacklogMessages []*MsgForDump
-	// backlog unchecked msgs.
-	UncheckedMsgs []*MsgForDump
+	//TODO(lorenzo) neeedd?
+	// backlog of future height msgs.
+	FutureMsgs []*MsgForDump
 	// Known msg of gossip.
 	KnownMsgHash []common.Hash
 }

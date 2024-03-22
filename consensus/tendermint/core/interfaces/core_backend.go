@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -29,7 +30,8 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposalBlock *types.Block, round int64, seals types.Signatures) error
+	//Commit(proposalBlock *types.Block, round int64, seals types.Signatures) error
+	Commit(proposalBlock *types.Block, round int64, seals *types.AggregateSignature) error
 
 	// GetContractABI returns the Autonity Contract ABI
 	GetContractABI() *abi.ABI
@@ -51,6 +53,8 @@ type Backend interface {
 
 	// Sign signs input data with the backend's private key
 	Sign(hash common.Hash) (blst.Signature, common.Address)
+	//TODO(lorenzo) for later
+	//Sign(hash common.Hash) ([]byte, common.Address, *big.Int)
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
@@ -68,7 +72,8 @@ type Backend interface {
 
 	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
 	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
-	RemoveMessageFromLocalCache(message message.Msg)
+	//RemoveMessageFromLocalCache(message message.Msg)
+	//TODO(lorenzo) delete
 
 	// Logger returns the object used for logging purposes.
 	Logger() log.Logger
@@ -78,6 +83,12 @@ type Backend interface {
 
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
+
+	// re-injects buffered future height messages
+	ProcessFutureMsgs(height uint64)
+
+	// returns future height buffered messages. Called by core for tendermint state dump
+	FutureMsgs() []message.Msg
 }
 
 type Core interface {
@@ -89,4 +100,6 @@ type Core interface {
 	Proposer() Proposer
 	Prevoter() Prevoter
 	Precommiter() Precommiter
+	Height() *big.Int
+	//Power() *big.Int //TODO(lorenzo) for later
 }

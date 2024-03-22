@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"math/rand"
 	"reflect"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/p2p"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/rlp"
@@ -207,5 +209,30 @@ func FuzzFromPayload(f *testing.F) {
 		var p Prevote
 		rlp.Decode(bytes.NewReader(seed), &p)
 	})
+}
 
+// TODO(lorenzo) fix this benchmark, I think the p2p MSg payload gets discarded after a couple iteration of decoding
+func BenchmarkDecodeVote(b *testing.B) {
+	// setup vote
+	hashBytes := make([]byte, 32)
+	_, err := rand.Read(hashBytes)
+	if err != nil {
+		b.Fatal("failed to generate random bytes: ", err)
+	}
+	prevote := NewPrevote(int64(15), uint64(123345), common.BytesToHash(hashBytes), defaultSigner)
+
+	// create p2p prevote
+	payload := prevote.Payload()
+	r := bytes.NewReader(payload)
+	size := len(payload)
+	p2pPrevote := p2p.Msg{Code: 0x12, Size: uint32(size), Payload: r}
+
+	// start the actual benchmarking
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		prevoteDec := new(Prevote)
+		if err := p2pPrevote.Decode(prevoteDec); err != nil {
+			b.Fatal("failed prevote decoding: ", err)
+		}
+	}
 }

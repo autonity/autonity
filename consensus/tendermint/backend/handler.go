@@ -13,15 +13,18 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 )
 
 const (
-	ProposeNetworkMsg        uint64 = 0x11
-	PrevoteNetworkMsg        uint64 = 0x12
-	PrecommitNetworkMsg      uint64 = 0x13
-	SyncNetworkMsg           uint64 = 0x14
-	AccountabilityNetworkMsg uint64 = 0x15
+	ProposeNetworkMsg            uint64 = 0x11
+	PrevoteNetworkMsg            uint64 = 0x12
+	PrecommitNetworkMsg          uint64 = 0x13
+	SyncNetworkMsg               uint64 = 0x14
+	AccountabilityNetworkMsg     uint64 = 0x15
+	AggregatePrevoteNetworkMsg   uint64 = 0x16
+	AggregatePrecommitNetworkMsg uint64 = 0x17
 )
 
 type UnhandledMsg struct {
@@ -33,15 +36,18 @@ var (
 	// errDecodeFailed is returned when decode message fails
 	errDecodeFailed = errors.New("fail to decode tendermint message")
 	NetworkCodes    = map[uint8]uint64{
-		message.ProposalCode:  ProposeNetworkMsg,
-		message.PrevoteCode:   PrevoteNetworkMsg,
-		message.PrecommitCode: PrecommitNetworkMsg,
+		message.ProposalCode:           ProposeNetworkMsg,
+		message.PrevoteCode:            PrevoteNetworkMsg,
+		message.PrecommitCode:          PrecommitNetworkMsg,
+		message.AggregatePrevoteCode:   AggregatePrevoteNetworkMsg,
+		message.AggregatePrecommitCode: AggregatePrecommitNetworkMsg,
 	}
 )
 
+// TODO(lorenzo) this is actually not called anywhere, and protocol length is set into the acn itself.confusing
 // Protocol implements consensus.Handler.Protocol
 func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
-	return "tendermint", 5 //nolint
+	return "tendermint", 7 //nolint
 }
 
 func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
@@ -63,7 +69,7 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code < ProposeNetworkMsg || msg.Code > AccountabilityNetworkMsg {
+	if msg.Code < ProposeNetworkMsg || msg.Code > AggregatePrecommitNetworkMsg {
 		return false, nil
 	}
 
@@ -77,6 +83,10 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
 	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
+	case AggregatePrevoteNetworkMsg:
+		return handleConsensusMsg[message.AggregatePrevote](sb, addr, msg, errCh)
+	case AggregatePrecommitNetworkMsg:
+		return handleConsensusMsg[message.AggregatePrecommit](sb, addr, msg, errCh)
 	case SyncNetworkMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Sync message received but core not running")
@@ -120,6 +130,7 @@ func handleConsensusMsg[T any, PT interface {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
+
 	hash := crypto.Hash(buffer.Bytes())
 	// Mark peer's message as known.
 	ms, ok := sb.recentMessages.Get(sender)
@@ -141,11 +152,148 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
-	go sb.Post(events.MessageEvent{
+	// if the message is for a future height wrt to consensus engine, buffer it
+	// it will be re-injected into the handleDecodedMsg function at the right height
+	if msg.H() > sb.core.Height().Uint64() {
+		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", sb.core.Height().Uint64())
+		sb.saveFutureMsg(msg, errCh)
+		return true, nil
+	}
+	return sb.handleDecodedMsg(msg, errCh)
+}
+
+func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, error) {
+	header := sb.BlockChain().GetHeaderByNumber(msg.H() - 1)
+	if header == nil {
+		// since this is not a future message, we should always have the header of the parent block.
+		sb.logger.Crit("Missing parent header for non-future consensus message", "height", msg.H())
+	}
+
+	if err := msg.PreValidate(header); err != nil {
+		return true, err //TODO(lorenzo) double check
+	}
+
+	// if the sender is jailed, discard its messages
+	switch m := msg.(type) {
+	case *message.Propose, *message.Prevote, *message.Precommit:
+		if sb.IsJailed(m.(message.IndividualMsg).Sender()) {
+			sb.logger.Debug("Ignoring message from jailed validator", "address", msg.(message.IndividualMsg).Sender())
+			// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
+			// really assume that all the other committee members have the same view on the
+			// jailed validator list before gossip, that is risking then to disconnect honest nodes.
+			// This needs to verified though. Returning nil for the time being.
+			return true, nil
+		}
+	case *message.AggregatePrevote, *message.AggregatePrecommit:
+		for _, sender := range m.(message.AggregateMsg).Senders().Addresses() {
+			if sb.IsJailed(sender) {
+				sb.logger.Debug("Aggregate msg contains message from jailed validator, ignoring message", "address", sender)
+				// same
+				return true, nil
+			}
+		}
+	}
+
+	go sb.Post(events.UnverifiedMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,
 	})
 	return true, nil
+
+	/* TODO(lorenzo) re-add this distinction
+	// if the message is for current height, post both to tendermint core and FD
+	if msg.H() == sb.core.Height().Uint64() {
+		go sb.Post(events.MessageEvent{
+			Message: msg,
+			ErrCh:   errCh,
+		})
+		return true, nil
+	}
+
+	// if a message arrives here, it means it is a valid old height message.
+	// this will be picked up only by the FD.
+	go sb.Post(events.OldMessageEvent{
+		Message: msg,
+		ErrCh:   errCh,
+	})
+	return true, nil*/
+}
+
+func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
+	// create event that will be re-injected in handleDecodedMsg when we reach the correct height
+	e := &events.MessageEvent{ //TODO(lorenzo) not really correct to store MessageEvents
+		Message: msg,
+		ErrCh:   errCh,
+	}
+	h := msg.H()
+
+	sb.futureLock.Lock()
+	defer sb.futureLock.Unlock()
+
+	if h < sb.futureMinHeight {
+		sb.futureMinHeight = h
+	}
+	if h > sb.futureMaxHeight {
+		sb.futureMaxHeight = h
+	}
+	sb.future[h] = append(sb.future[h], e)
+	sb.futureSize++
+
+	// if needed, drop heights until we are back under the threshold
+	for sb.futureSize > maxFutureMsgs {
+		maxHeightEvs, ok := sb.future[sb.futureMaxHeight]
+		sb.logger.Debug("deleting excess future height messages", "height", sb.futureMaxHeight)
+		if ok {
+			sb.futureSize -= uint64(len(maxHeightEvs))
+			// remove messages from knowMessages cache so they can be received again
+			//TODO(lorenzo) not sure whether it is really worth it to do in a go routine
+			go func(evs []*events.MessageEvent) {
+				for _, e := range evs {
+					sb.knownMessages.Remove(e.Message.Hash())
+				}
+			}(maxHeightEvs)
+			delete(sb.future, sb.futureMaxHeight)
+		}
+		// This value might be different wrt the actual maximum in the map (because of holes in future msg heights)
+		// however it is always going to be >= actualMaximum, so it is fine
+		sb.futureMaxHeight--
+
+		// TODO(lorenzo) might want to remove this once we are sure everything works as intended
+		if sb.futureMaxHeight < sb.futureMinHeight-1 {
+			log.Crit("inconsistent state in future message buffer")
+		}
+	}
+}
+
+// re-inject future height messages
+func (sb *Backend) ProcessFutureMsgs(height uint64) {
+	sb.futureLock.Lock()
+	defer sb.futureLock.Unlock()
+
+	// shortcircuit if:
+	// - we have no future messages
+	// - minimum future height is greater than height
+	if sb.futureSize == 0 || sb.futureMinHeight > height {
+		return
+	}
+
+	// process future messages up to current height
+	for h := sb.futureMinHeight; h <= height; h++ {
+		evs, ok := sb.future[h]
+		// there might be holes in heights in the future messages
+		if ok {
+			sb.logger.Debug("processing future height messages", "height", h, "n", len(sb.future[h]))
+			for _, e := range evs {
+				sb.handleDecodedMsg(e.Message, e.ErrCh)
+				sb.futureSize--
+			}
+			delete(sb.future, h)
+		}
+	}
+
+	// This value might be different wrt the actual minimum in the map (because of holes in future msg heights)
+	// however it is always going to be <= actualMinimum, so it is fine (even though not optimal)
+	sb.futureMinHeight = height + 1
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster

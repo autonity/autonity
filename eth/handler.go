@@ -522,6 +522,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		return
 	}
 	// Otherwise if the block is indeed in our own chain, announce it
+	// note: sometimes blocks get gossiped to other peers before getting inserted in the local chain, thus this check
 	if h.chain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
 			peer.AsyncSendNewBlockHash(block)

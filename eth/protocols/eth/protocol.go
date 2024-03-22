@@ -71,6 +71,7 @@ const (
 	// 0x11 reserved for tendermintMsg
 	// 0x12 reserved for tendermintSyncMsg
 	// 0x13 reserved for TendermintOffChainAccountabilityMsg
+	//TODO(lorenzo) fix comment
 )
 
 var (

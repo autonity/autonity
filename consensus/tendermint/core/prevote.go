@@ -32,6 +32,10 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 }
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {
+	return nil
+}
+
+func (c *Prevoter) HandleAggregatePrevote(ctx context.Context, prevote *message.AggregatePrevote) error {
 	if prevote.R() > c.Round() {
 		return constants.ErrFutureRoundMessage
 	}
@@ -57,7 +61,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
 	c.curRoundMessages.AddPrevote(prevote)
-	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Sender().String(), c.address.String())
+	//c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Sender().String(), c.address.String()) //TODO(lorenzo)fix
 
 	// check upon conditions for current round proposal
 	c.currentPrevoteChecks(ctx)
