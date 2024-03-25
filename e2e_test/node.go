@@ -499,6 +499,38 @@ func (nw Network) WaitForHeight(height uint64, numSec int) error {
 	}
 }
 
+func (nw Network) CheckReimbursement(height uint64, reporter common.Address) error {
+	for _, n := range nw {
+		if !n.isRunning {
+			continue
+		}
+
+		// get state before the event is mined
+		preHeight := n.Eth.BlockChain().GetBlockByNumber(height - 1)
+		preState, err := n.Eth.BlockChain().StateAt(preHeight.Root())
+		if err != nil {
+			return err
+		}
+
+		// get state of the event being mined.
+		curHeight := n.Eth.BlockChain().GetBlockByNumber(height)
+		curState, err := n.Eth.BlockChain().StateAt(curHeight.Root())
+		if err != nil {
+			return err
+		}
+
+		preBalance := preState.GetBalance(reporter)
+		curBalance := curState.GetBalance(reporter)
+
+		if preBalance.Cmp(curBalance) != 0 {
+			return fmt.Errorf("accountability event is not reimbursed correctly")
+		}
+
+		break
+	}
+	return nil
+}
+
 // NewNetworkFromValidators generates a network of nodes that are running and
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be

@@ -343,7 +343,7 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 		if n.Address == challengerAddress {
 			continue
 		}
-		detected := e2e.AccountabilityEventDetected(t, n.Address, tp, rule, network)
-		require.Equal(t, false, detected)
+		err = e2e.AccountabilityEventDetected(t, n.Address, tp, rule, network)
+		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
 	}
 }

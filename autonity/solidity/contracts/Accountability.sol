@@ -78,6 +78,9 @@ contract Accountability is IAccountability {
     // the id is incremented by one to handle the special case id = 0.
     mapping(address => uint256) private validatorAccusation;
 
+    // reporting counters of rising accusation during an epoch, resets to zero on epoch rotation.
+    mapping(address => uint256) private accusationCounter;
+
     // mapping address => epoch => severity
     mapping (address =>  mapping(uint256 => uint256)) public slashingHistory;
 
@@ -102,6 +105,7 @@ contract Accountability is IAccountability {
         // on each block, try to promote accusations without proof of innocence into misconducts.
         _promoteGuiltyAccusations();
         if (_epochEnd) {
+            _resetAccusationCounters();
             _performSlashingTasks();
         }
     }
@@ -137,8 +141,10 @@ contract Accountability is IAccountability {
     * todo(youssef): rethink modifiers here.
     */
     function handleAccusation(Event memory _event) public onlyValidator {
+        accusationCounter[msg.sender] += 1;
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
+        require(accusationCounter[msg.sender] <= epochPeriod, "report too much accusation in epoch");
         _handleAccusation(_event);
     }
 
@@ -271,7 +277,7 @@ contract Accountability is IAccountability {
         
         _ev.block = _block;
         _ev.messageHash = _messageHash;
-
+        _ev.reportingBlock = block.number;
         _handleValidInnocenceProof(_ev);
     }
 
@@ -398,7 +404,15 @@ contract Accountability is IAccountability {
         emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false, _event.id);
     }
 
-
+    /**
+    * @notice reset the accusation counter to zero, it is called on epoch rotation.
+    */
+    function _resetAccusationCounters() internal {
+        address[] memory _validators = autonity.getValidators();
+        for (uint256 i=0; i < _validators.length; i++) {
+            accusationCounter[_validators[i]] = 0;
+        }
+    }
 
     /**
     * @notice perform slashing over faulty validators at the end of epoch. The fine in stake token are moved from

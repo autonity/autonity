@@ -295,12 +295,18 @@ func resolveReimburseType(msg Message) int {
 	if err != nil {
 		return NotReimbursable
 	}
-	if method.Name == "handleMisbehaviour" || method.Name == "handleInnocenceProof" {
+
+	if method.Name == "handleMisbehaviour" || method.Name == "handleInnocenceProof" ||
+		method.Name == "handleAccusation" {
 		return InstantReimbursable
 	}
-	if method.Name == "handleAccusation" {
-		return FutureReimbursable
-	}
+
+	// todo: making accusation event future reimbursable?
+	/*
+		if method.Name == "handleAccusation" {
+			return FutureReimbursable
+		}
+	*/
 
 	return NotReimbursable
 }
@@ -389,11 +395,13 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			if reimburseType == InstantReimbursable {
 				st.state.AddBalance(st.msg.From(), fee)
 			}
-			// transfer fee to protocol contract for future reimbursable transaction
-			if reimburseType == FutureReimbursable {
-				st.state.AddBalance(params.AutonityContractAddress, fee)
-				// todo: protocol deployer record fee for reporter by calling AC or ACCOUNTABILITY contract.
-			}
+
+			// todo: make accusation event future reimbursable?
+			/*
+				if reimburseType == FutureReimbursable {
+					st.state.AddBalance(params.AutonityContractAddress, fee)
+					// todo: protocol deployer record fee for reporter by calling AC or ACCOUNTABILITY contract.
+				}*/
 		}
 	}
 
