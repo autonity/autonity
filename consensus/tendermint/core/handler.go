@@ -78,9 +78,9 @@ func shouldDisconnectSender(err error) bool {
 	/* //TODO(lorenzo) double check
 	case errors.Is(err, constants.ErrFutureHeightMessage):
 		fallthrough
+	*/
 	case errors.Is(err, constants.ErrOldHeightMessage):
 		fallthrough
-	*/
 	case errors.Is(err, constants.ErrOldRoundMessage):
 		fallthrough
 	case errors.Is(err, constants.ErrFutureRoundMessage):
@@ -255,7 +255,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 
 	// These checks need to be repeated here due to backlogged messages being re-injected
 	if c.Height().Uint64() > msg.H() {
-		c.logger.Debug("ignoring stale consensus message", "hash", msg.Hash())
+		c.logger.Debug("ignoring stale consensus message", "hash", msg.Hash()) //TODO(lorenzo) this happens quite a lot
 		//TODO(lorenzo) should we gossip it?
 		return constants.ErrOldHeightMessage
 	}
@@ -298,8 +298,10 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 				return testBacklog(c.precommiter.HandlePrecommit(ctx, m))
 	*/
 	case *message.AggregatePrevote:
+		logger.Debug("Handling Aggregate prevote")
 		return testBacklog(c.prevoter.HandleAggregatePrevote(ctx, m))
 	case *message.AggregatePrecommit:
+		logger.Debug("Handling Aggregate precommit")
 		return testBacklog(c.precommiter.HandleAggregatePrecommit(ctx, m))
 	default:
 		logger.Error("Invalid message", "msg", msg)

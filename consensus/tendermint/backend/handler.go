@@ -44,6 +44,7 @@ var (
 	}
 )
 
+// TODO(lorenzo) this is actually not called anywhere, and protocol length is set into the acn itself.confusing
 // Protocol implements consensus.Handler.Protocol
 func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
 	return "tendermint", 7 //nolint
@@ -220,7 +221,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, 
 
 func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
 	// create event that will be re-injected in handleDecodedMsg when we reach the correct height
-	e := &events.MessageEvent{
+	e := &events.MessageEvent{ //TODO(lorenzo) not really correct to store MessageEvents
 		Message: msg,
 		ErrCh:   errCh,
 	}

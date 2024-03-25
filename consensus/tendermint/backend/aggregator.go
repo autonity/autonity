@@ -48,8 +48,9 @@ loop:
 			}
 			event := ev.Data.(events.UnverifiedMessageEvent)
 			msg := event.Message
-			// if proposal verify right away
-			if msg.Code() == message.ProposalCode {
+			// if proposal or aggregatedVote, verify right away
+			switch msg.(type) {
+			case *message.Propose:
 				propose := msg.(*message.Propose)
 				if propose.Validate() == nil {
 					go a.backend.Post(events.MessageEvent{
@@ -59,10 +60,22 @@ loop:
 				} else {
 					panic("TODO: signature verification failed") //TODO(lorenzo) disconnect peer and eventually remove msgs
 				}
-			} else {
+			case *message.AggregatePrevote, *message.AggregatePrecommit:
+				if msg.(message.AggregateMsg).Validate() == nil {
+					go a.backend.Post(events.MessageEvent{
+						Message: msg,
+						ErrCh:   event.ErrCh,
+					})
+				} else {
+					panic("TODO: signature verification failed") //TODO(lorenzo) disconnect peer and eventually remove msgs
+				}
+
+			case *message.Prevote, *message.Precommit:
 				// batch
 				signatureHash := event.Message.SignatureHash()
 				a.messages[signatureHash] = append(a.messages[signatureHash], event) //TODO(lorenzo) does this work + optimize allocation
+			default:
+				panic("TODO") //TODO(lorenzo) fix
 			}
 		case <-timer.C:
 			for hash, batch := range a.messages {
@@ -95,6 +108,8 @@ loop:
 						aggregateVote = message.NewAggregatePrevote(messages, parent)
 					case *message.Precommit:
 						aggregateVote = message.NewAggregatePrecommit(messages, parent)
+					default:
+						panic("TODO") //TODO(lorenzo) fix
 					}
 					//TODO(lorenzo) is this the bestway?
 					err := aggregateVote.PreValidate(parent)

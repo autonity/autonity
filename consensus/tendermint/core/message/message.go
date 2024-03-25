@@ -99,6 +99,7 @@ type AggregateMsg interface {
 	Senders() []common.Address
 	SendersCoeff() Coefficients //TODO(lorenzo) name sucks
 	Powers() []*big.Int
+	Validate() error //TODO(lorenzo) aggregated votes are verified right away in aggregatro
 	Msg
 }
 
@@ -947,6 +948,22 @@ func (am *aggregateMsg) PreValidate(header *types.Header) error {
 	am.powers = powers
 	am.senderKey = aggregatedKey
 	am.verified = true
+	return nil
+}
+
+func (am *aggregateMsg) Validate() error {
+	//TODO(lorenzo) check
+	am.Lock()
+	defer am.Unlock()
+	/*	if im.verified {
+		return nil
+	}*/
+
+	valid := am.signature.Verify(am.senderKey, am.signatureHash[:])
+	if !valid {
+		return ErrBadSignature
+	}
+
 	return nil
 }
 
