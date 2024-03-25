@@ -601,7 +601,7 @@ contract('Accountability', function (accounts) {
       await truffleAssert.fails(
         accountability.handleMisbehaviour(event, {from: reporter}),
         truffleAssert.ErrorType.REVERT,
-        "validator not registered"
+        "function restricted to a committee member"
       );
     });
 
