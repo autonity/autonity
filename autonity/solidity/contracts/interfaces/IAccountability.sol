@@ -23,9 +23,9 @@ interface IAccountability {
 
     /**
     * @notice called by the Autonity Contract when the committee is updated.
-    * @param _reporters the new committee member addresses;
+    * @param _afdReporters the new committee member addresses;
     */
-    function setReporters(address[] memory _reporters) external;
+    function setAFDReporters(address[] memory _afdReporters) external;
 
     /**
     * @dev Event emitted when a fault proof has been submitted. The reported validator

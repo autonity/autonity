@@ -19,8 +19,8 @@ contract Accountability is IAccountability {
     }
 
     uint256 public epochPeriod;
-    address[] internal committee;
-    mapping(address => bool) private isCommitteeMember;
+    address[] internal afdReporters;
+    mapping(address => bool) private isAFDReporter;
     enum EventType {
         FaultProof,
         Accusation,
@@ -90,13 +90,13 @@ contract Accountability is IAccountability {
     uint256[] private accusationsQueue;
     uint256 internal accusationsQueueFirst = 0;
 
-    constructor(address payable _autonity, Config memory _config){
+    constructor(address payable _autonity, Config memory _config) {
         autonity = Autonity(_autonity);
         epochPeriod = autonity.getEpochPeriod();
-        Autonity.CommitteeMember[] memory com = autonity.getCommittee();
-        for (uint256 i=0; i < com.length; i++) {
-            committee.push(com[i].addr);
-            isCommitteeMember[com[i].addr] = true;
+        Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
+        for (uint256 i=0; i < committee.length; i++) {
+            afdReporters.push(committee[i].addr);
+            isAFDReporter[committee[i].addr] = true;
         }
         config = _config;
     }
@@ -133,7 +133,7 @@ contract Accountability is IAccountability {
     * @notice Handle a misbehaviour event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
     */
-    function handleMisbehaviour(Event memory _event) public onlyCommittee {
+    function handleMisbehaviour(Event memory _event) public onlyAFDReporter {
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.FaultProof, "wrong event type for misbehaviour");
         _handleFaultProof(_event);
@@ -143,11 +143,11 @@ contract Accountability is IAccountability {
     * @notice Handle an accusation event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
     */
-    function handleAccusation(Event memory _event) public onlyCommittee {
+    function handleAccusation(Event memory _event) public onlyAFDReporter {
         accusationCounter[msg.sender] += 1;
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
-        require(accusationCounter[msg.sender] <= epochPeriod, "report too much accusation in epoch");
+        require(accusationCounter[msg.sender] <= epochPeriod, "report too much accusations in an epoch");
         _handleAccusation(_event);
     }
 
@@ -155,7 +155,7 @@ contract Accountability is IAccountability {
     * @notice Handle an innocence proof. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
     */
-    function handleInnocenceProof(Event memory _event) public onlyCommittee {
+    function handleInnocenceProof(Event memory _event) public onlyAFDReporter {
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.InnocenceProof, "wrong event type for innocence proof");
         _handleInnocenceProof(_event);
@@ -511,16 +511,16 @@ contract Accountability is IAccountability {
         epochPeriod = _newPeriod;
     }
 
-    function setReporters(address[] memory _reporters) external onlyAutonity{
-        // clean up last committee
-        for (uint256 i=0; i < committee.length; i++) {
-            isCommitteeMember[committee[i]] = false;
+    function setAFDReporters(address[] memory _afdReporters) external onlyAutonity{
+        // clean up last reporter set
+        for (uint256 i=0; i < afdReporters.length; i++) {
+            delete isAFDReporter[afdReporters[i]];
         }
-        delete committee;
-        // set new committee
-        for (uint256 i=0; i < _reporters.length; i++) {
-            committee.push(_reporters[i]);
-            isCommitteeMember[_reporters[i]] = true;
+        delete afdReporters;
+        // set new reporter set
+        for (uint256 i=0; i < _afdReporters.length; i++) {
+            afdReporters.push(_afdReporters[i]);
+            isAFDReporter[_afdReporters[i]] = true;
         }
     }
 
@@ -533,10 +533,10 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @dev Modifier that checks if the caller is a committee member.
+    * @dev Modifier that checks if the caller is an AFD reporter (a committee member).
     */
-    modifier onlyCommittee {
-        require(isCommitteeMember[msg.sender] == true, "function restricted to a committee member");
+    modifier onlyAFDReporter {
+        require(isAFDReporter[msg.sender] == true, "function restricted to a committee member");
         _;
     }
 }
