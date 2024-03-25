@@ -277,7 +277,7 @@ func resolveReimburseType(msg Message) int {
 	}
 
 	// resolve oracle votes first.
-	if *msg.To() == params.OracleContractAddress {
+	if msg.To() != nil && *msg.To() == params.OracleContractAddress {
 		method, err := generated.OracleAbi.MethodById(msg.Data())
 		if err != nil {
 			return NotReimbursable
@@ -291,22 +291,24 @@ func resolveReimburseType(msg Message) int {
 	}
 
 	// resolve accountability event then.
-	method, err := generated.AccountabilityAbi.MethodById(msg.Data())
-	if err != nil {
-		return NotReimbursable
-	}
-
-	if method.Name == "handleMisbehaviour" || method.Name == "handleInnocenceProof" ||
-		method.Name == "handleAccusation" {
-		return InstantReimbursable
-	}
-
-	// todo: making accusation event future reimbursable?
-	/*
-		if method.Name == "handleAccusation" {
-			return FutureReimbursable
+	if msg.To() != nil && *msg.To() == params.AccountabilityContractAddress {
+		method, err := generated.AccountabilityAbi.MethodById(msg.Data())
+		if err != nil {
+			return NotReimbursable
 		}
-	*/
+
+		if method.Name == "handleMisbehaviour" || method.Name == "handleInnocenceProof" ||
+			method.Name == "handleAccusation" {
+			return InstantReimbursable
+		}
+
+		// todo: making accusation event future reimbursable?
+		/*
+			if method.Name == "handleAccusation" {
+				return FutureReimbursable
+			}
+		*/
+	}
 
 	return NotReimbursable
 }
