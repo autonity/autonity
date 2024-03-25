@@ -19,7 +19,8 @@ contract Accountability is IAccountability {
     }
 
     uint256 public epochPeriod;
-
+    address[] internal committee;
+    mapping(address => bool) private isCommitteeMember;
     enum EventType {
         FaultProof,
         Accusation,
@@ -92,7 +93,11 @@ contract Accountability is IAccountability {
     constructor(address payable _autonity, Config memory _config){
         autonity = Autonity(_autonity);
         epochPeriod = autonity.getEpochPeriod();
-
+        Autonity.CommitteeMember[] memory com = autonity.getCommittee();
+        for (uint256 i=0; i < com.length; i++) {
+            committee.push(com[i].addr);
+            isCommitteeMember[com[i].addr] = true;
+        }
         config = _config;
     }
 
@@ -127,9 +132,8 @@ contract Accountability is IAccountability {
     /**
     * @notice Handle a misbehaviour event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
-    * todo(youssef): rethink modifiers here.
     */
-    function handleMisbehaviour(Event memory _event) public onlyValidator {
+    function handleMisbehaviour(Event memory _event) public onlyCommittee {
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.FaultProof, "wrong event type for misbehaviour");
         _handleFaultProof(_event);
@@ -138,9 +142,8 @@ contract Accountability is IAccountability {
     /**
     * @notice Handle an accusation event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
-    * todo(youssef): rethink modifiers here.
     */
-    function handleAccusation(Event memory _event) public onlyValidator {
+    function handleAccusation(Event memory _event) public onlyCommittee {
         accusationCounter[msg.sender] += 1;
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
@@ -151,9 +154,8 @@ contract Accountability is IAccountability {
     /**
     * @notice Handle an innocence proof. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
-    * todo(youssef): rethink modifiers here.
     */
-    function handleInnocenceProof(Event memory _event) public onlyValidator {
+    function handleInnocenceProof(Event memory _event) public onlyCommittee {
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.InnocenceProof, "wrong event type for innocence proof");
         _handleInnocenceProof(_event);
@@ -509,6 +511,19 @@ contract Accountability is IAccountability {
         epochPeriod = _newPeriod;
     }
 
+    function setReporters(address[] memory _reporters) external onlyAutonity{
+        // clean up last committee
+        for (uint256 i=0; i < committee.length; i++) {
+            isCommitteeMember[committee[i]] = false;
+        }
+        delete committee;
+        // set new committee
+        for (uint256 i=0; i < _reporters.length; i++) {
+            committee.push(_reporters[i]);
+            isCommitteeMember[_reporters[i]] = true;
+        }
+    }
+
     /**
     * @dev Modifier that checks if the caller is the slashing contract.
     */
@@ -518,12 +533,10 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @dev Modifier that checks if the caller is a registered validator.
+    * @dev Modifier that checks if the caller is a committee member.
     */
-    modifier onlyValidator {
-        Autonity.Validator memory _val = autonity.getValidator(msg.sender);
-        require(_val.nodeAddress == msg.sender, "function restricted to a registered validator");
+    modifier onlyCommittee {
+        require(isCommitteeMember[msg.sender] == true, "function restricted to a committee member");
         _;
     }
-
 }

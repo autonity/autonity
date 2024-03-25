@@ -22,6 +22,12 @@ interface IAccountability {
     function setEpochPeriod(uint256 _newPeriod) external;
 
     /**
+    * @notice called by the Autonity Contract when the committee is updated.
+    * @param _reporters the new committee member addresses;
+    */
+    function setReporters(address[] memory _reporters) external;
+
+    /**
     * @dev Event emitted when a fault proof has been submitted. The reported validator
     * will be silencied and slashed at the end of the current epoch.
     */

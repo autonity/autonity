@@ -131,5 +131,6 @@
   "55463ceb": "autonity()",
   "570ca735": "operator()",
   "6e3d9ff0": "upgrade(address,string)",
-  "ceaad455": "setUpgradeManagerContract(address)"
+  "ceaad455": "setUpgradeManagerContract(address)",
+  "4c9f72e3": "setReporters(address[])"
 }
