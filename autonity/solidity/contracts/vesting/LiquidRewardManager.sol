@@ -103,7 +103,7 @@ contract LiquidRewardManager {
         return _unrealisedFee;
     }
 
-    function _claimRewards(address _validator) private {
+    function _claimRewards(address _validator) internal {
         if (rewardsClaimedEpoch[_validator] == _epochID()) {
             return;
         }
@@ -160,11 +160,12 @@ contract LiquidRewardManager {
         return epochID;
     }
 
-    function _unclaimedRewards(uint256 _id) internal view returns (uint256) {
+    function _unclaimedRewards(uint256 _id) internal returns (uint256) {
         uint256 _totalFee = 0;
         address[] storage _validators = bondedValidators[_id];
         for (uint256 i = 0; i < _validators.length; i++) {
             address validator = _validators[i];
+            _claimRewards(validator);
             _totalFee += realisedFees[_id][validator] + _computeUnrealisedFees(_id, validator);
         }
         return _totalFee;
