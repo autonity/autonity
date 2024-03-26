@@ -1174,13 +1174,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             }
             _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
+            _validator.bondedStake += _bonding.amount;
             _notifyBondingApplied(id, _liquidAmount, false, false);
         } else {
             // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
             _validator.selfBondedStake += _bonding.amount;
+            _validator.bondedStake += _bonding.amount;
             _notifyBondingApplied(id, 0, true, false);
         }
-        _validator.bondedStake += _bonding.amount;
     }
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
