@@ -394,7 +394,7 @@ func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Head
 		return nil, err
 	}
 
-	if err := committee.DeserializeConsensusKeys(); err != nil {
+	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
 	}
 
@@ -417,7 +417,7 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 		return false, nil, err
 	}
 
-	if err := committee.DeserializeConsensusKeys(); err != nil {
+	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error())
 	}
 

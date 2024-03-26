@@ -72,8 +72,8 @@ loop:
 
 			case *message.Prevote, *message.Precommit:
 				// batch
-				signatureHash := event.Message.SignatureHash()
-				a.messages[signatureHash] = append(a.messages[signatureHash], event) //TODO(lorenzo) does this work + optimize allocation
+				signatureInput := event.Message.SignatureInput()
+				a.messages[signatureInput] = append(a.messages[signatureInput], event) //TODO(lorenzo) does this work + optimize allocation
 			default:
 				panic("TODO") //TODO(lorenzo) fix
 			}

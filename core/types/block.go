@@ -184,7 +184,7 @@ type CommitteeMember struct {
 	ConsensusKeyBytes []byte         `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
 	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
 	ConsensusKey blst.PublicKey `json:"-" rlp:"-"`
-	Index        uint64         `json:"-" rlp:"-"` //TODO(lorenzo) comment
+	Index        uint64         `json:"-" rlp:"-"` // index of this committee member in the committee array
 }
 
 type committeeMemberMarshaling struct {
@@ -195,14 +195,15 @@ type committeeMemberMarshaling struct {
 
 type Committee []CommitteeMember
 
-func (c Committee) DeserializeConsensusKeys() error {
+// Enrich adds some convenience information to the committee member structs
+func (c Committee) Enrich() error {
 	for i := range c {
 		consensusKey, err := blst.PublicKeyFromBytes(c[i].ConsensusKeyBytes)
 		if err != nil {
 			return fmt.Errorf("Error when decoding bls key: index %d, address: %v, err: %w", i, c[i].Address, err)
 		}
 		c[i].ConsensusKey = consensusKey
-		c[i].Index = uint64(i) //TODO(lorenzo) convenient to do it here but I need probably to change function name
+		c[i].Index = uint64(i)
 	}
 	return nil
 }
@@ -335,7 +336,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
 
-		if err := h.Committee.DeserializeConsensusKeys(); err != nil {
+		if err := h.Committee.Enrich(); err != nil {
 			return fmt.Errorf("Error while deserializing consensus keys: %w", err)
 		}
 	} else {
