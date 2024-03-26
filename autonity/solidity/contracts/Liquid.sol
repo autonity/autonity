@@ -85,7 +85,7 @@ contract Liquid is IERC20
         commissionRate = _commissionRate;
         _name = string.concat("LNTN-", _index);
         _symbol = string.concat("LNTN-", _index);
-        autonityContract = msg.sender;
+        autonityContract = IERC20(msg.sender);
     }
 
     /**
@@ -148,9 +148,11 @@ contract Liquid is IERC20
     * @notice  Returns the total claimable fees (AUT) earned by the delegator to-date.
     * @param _account the delegator account.
     */
-    function unclaimedRewards(address _account) external view returns(uint256)
+    function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN)
     {
-        return atnRealisedFees[_account] + _computeUnrealisedFees(_account);
+        (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) = _computeUnrealisedFees(_account);
+        _unclaimedATN =  atnRealisedFees[_account] + _atnUnrealisedFee;
+        _unclaimedNTN =  ntnRealisedFees[_account] + _ntnUnrealisedFee;
     }
 
     /**
@@ -158,13 +160,18 @@ contract Liquid is IERC20
     */
     function claimRewards() external
     {
-        uint256 totalFees = _realiseFees(msg.sender);
+        (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) = _realiseFees(msg.sender);
         delete atnRealisedFees[msg.sender];
+        delete ntnRealisedFees[msg.sender];
 
         // Send the AUT
         //   solhint-disable-next-line avoid-low-level-calls
-        (bool sent, ) = msg.sender.call{value: totalFees}("");
-        require(sent, "Failed to send Ether");
+        (bool sent, ) = msg.sender.call{value: _atnRealisedFees}("");
+        require(sent, "Failed to send ATN");
+
+        // Send the NTN
+        sent = autonityContract.transfer(msg.sender,_ntnRealisedFees);
+        require(sent, "Failed to send NTN");
     }
 
     /**
@@ -344,6 +351,7 @@ contract Liquid is IERC20
         if (_value == _balance) { // aka balances[_delegator] == 0
             // get back some gas
             delete atnUnrealisedFeeFactors[_delegator];
+            delete ntnUnrealisedFeeFactors[_delegator];
         }
         // when transferring, this value will just be increased
         // again by the same amount.
@@ -358,20 +366,27 @@ contract Liquid is IERC20
     * delegator, so should not be called if the delegators balance is
     * known to be zero (or the caller should handle this case itself).
     * @param _delegator, the target account to compute fees.
-    * @return _realisedFees that is the calculated amount of AUT that
+    * @return _atnRealisedFees that is the calculated amount of AUT that
+    * the delegator is entitled to withdraw.
+    * @return _ntnRealisedFees that is the calculated amount of NTN that
     * the delegator is entitled to withdraw.
     */
     function _realiseFees(address _delegator) private
-        returns (uint256 _realisedFees)
+        returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees)
     {
-        uint256 _unrealisedFees = _computeUnrealisedFees(_delegator);
-        _realisedFees = atnRealisedFees[_delegator] + _unrealisedFees;
-        atnRealisedFees[_delegator] = _realisedFees;
+        (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) = _computeUnrealisedFees(_delegator);
+
+        _atnRealisedFees = atnRealisedFees[_delegator] + _atnUnrealisedFee;
+        atnRealisedFees[_delegator] = _atnRealisedFees;
         atnUnrealisedFeeFactors[_delegator] = atnLastUnrealisedFeeFactor;
+
+        _ntnRealisedFees = ntnRealisedFees[_delegator] + _ntnUnrealisedFee;
+        ntnRealisedFees[_delegator] = _ntnRealisedFees;
+        ntnUnrealisedFeeFactors[_delegator] = ntnLastUnrealisedFeeFactor;
     }
 
     function _computeUnrealisedFees(address _delegator)
-        private view returns (uint256)
+        private view returns (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee)
     {
         // TODO: save looking up the LNEW balance multiple times by passing it
         // in here.
@@ -380,7 +395,7 @@ contract Liquid is IERC20
 
          // Early out if _lnewBalance == 0
          if (_stakerBalance == 0) {
-             return 0;
+             return (0,0);
          }
 
         // If the delegator has a non-zero balance, there should
@@ -391,14 +406,14 @@ contract Liquid is IERC20
         // Unrealised fees are:
         //     balance x (f_{last_epoch} - f_{deposit_epoch})
 
-        uint256 _unrealisedFeeFactor =
+        uint256 _atnUnrealisedFeeFactor =
             atnLastUnrealisedFeeFactor - atnUnrealisedFeeFactors[_delegator];
+        uint256 _ntnUnrealisedFeeFactor =
+            ntnLastUnrealisedFeeFactor - ntnUnrealisedFeeFactors[_delegator];
 
         // FEE_FACTOR_UNIT_RECIP = 10^9 won't cause overflow
-        uint256 _unrealisedFee =
-            (_unrealisedFeeFactor * _stakerBalance) / FEE_FACTOR_UNIT_RECIP;
-
-        return _unrealisedFee;
+        _atnUnrealisedFee = (_atnUnrealisedFeeFactor * _stakerBalance) / FEE_FACTOR_UNIT_RECIP;
+        _ntnUnrealisedFee = (_ntnUnrealisedFeeFactor * _stakerBalance) / FEE_FACTOR_UNIT_RECIP;
     }
 
     /**

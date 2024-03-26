@@ -184,8 +184,8 @@ eventLoop:
 				break eventLoop
 			}
 			newCandidateBlockEvent := ev.Data.(events.NewCandidateBlockEvent)
-			pb := &newCandidateBlockEvent.NewCandidateBlock
-			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
+
+			c.proposer.HandleNewCandidateBlockMsg(ctx, &newCandidateBlockEvent.NewCandidateBlock)
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
 			break eventLoop

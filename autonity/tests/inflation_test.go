@@ -88,7 +88,7 @@ func (p goParams) calculateSupplyDelta(currentSupply, lastEpochBlock, currentBlo
 
 func TestInflationContract(t *testing.T) {
 	r := setup(t, nil)
-	T := big.NewInt(5 * SecondsInYear)
+	T := big.NewInt(10 * SecondsInYear)
 	p := &InflationControllerParams{
 		IInit:  new(big.Int).Div(new(big.Int).Mul(big.NewInt(10), DecimalFactor), big.NewInt(100*SecondsInYear)),
 		ITrans: new(big.Int).Div(new(big.Int).Mul(big.NewInt(6), DecimalFactor), big.NewInt(100*SecondsInYear)),

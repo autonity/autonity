@@ -21,9 +21,9 @@ contract InflationController is IInflationController {
     /**
     * @notice Main function. Calculate NTN current supply delta.
     */
-    function calculateSupplyDelta(uint256 _currentSupply, uint256 _lastEpochBlock, uint256 _currentBlock) public view returns (uint256) {
+    function calculateSupplyDelta(uint256 _currentSupply, uint256 _lastEpochBlock, uint256 _currentEpochBlock) public view returns (uint256) {
         SD59x18 _t0 = convert(int256(_lastEpochBlock));
-        SD59x18 _t1 = convert(int256(_currentBlock));
+        SD59x18 _t1 = convert(int256(_currentEpochBlock));
 
         SD59x18 _lExp0 = (params.aE * _t0)/params.T;
         SD59x18 _lExp1 = (params.aE * _t1)/params.T;

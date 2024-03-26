@@ -544,9 +544,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @dev emit a MintStake event.
     */
     function mint(address _addr, uint256 _amount) public virtual onlyOperator {
-        accounts[_addr] += _amount;
-        stakeSupply += _amount;
-        emit MintedStake(_addr, _amount);
+        _mint(_addr, _amount);
     }
 
     /**
@@ -569,6 +567,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     */
     function transfer(address _recipient, uint256 _amount) external virtual override returns (bool) {
         _transfer(msg.sender, _recipient, _amount);
+        emit Transfer(msg.sender, _recipient, _amount);
         return true;
     }
 
@@ -596,10 +595,13 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) external virtual override returns (bool){
-        _transfer(sender, recipient, amount);
-        uint256 newAllowance = allowances[sender][msg.sender] - amount;
-        _approve(sender, msg.sender, newAllowance);
+    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual override returns (bool){
+        //TODO URGENT require(allowances[_sender][msg.sender] > 0, "no allowance");
+        //require(allowances[_sender][msg.sender] >= _amount, "unsufficient allowance");
+        _transfer(_sender, _recipient, _amount);
+        uint256 newAllowance = allowances[_sender][msg.sender] - _amount;
+        _approve(_sender, msg.sender, newAllowance);
+        emit Transfer(_sender, _recipient, _amount);
         return true;
     }
 
@@ -626,8 +628,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
         if (epochEnded) {
             // calculate new NTN injected supply for this epoch
-            uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta();
+            uint256 _inflationReward =
+                config.contracts.inflationControllerContract.calculateSupplyDelta(stakeSupply, lastEpochBlock, block.number);
+            // mint inflation NTN that to this address
+            // - all rewards belong to the Autonity Contract before redistribution.
+            _mint(address(this), _inflationReward);
+            // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
+            // end of epoch here
             _stakingOperations();
             _applyNewCommissionRates();
             address[] memory voters = computeCommittee();
@@ -904,8 +912,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         if (_atn == 0 && _ntn == 0) {
             return;
         }
-        // QUESTION: TODO: DO WE REDISTRIBUTE NTN TO THE TREASURY ACCOUNT?
-        // take treasury fee.
+        // Take ATN treasury fee.
         uint256 _atnTreasuryReward = (config.policy.treasuryFee * _atn) / 10 ** 18;
         if (_atnTreasuryReward > 0) {
             // Using "call" to let the treasury contract do any kind of computation on receive.
@@ -920,7 +927,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             Validator storage _val = validators[committee[i].addr];
             // votingPower in the committee struct is the amount of bonded-stake pre-slashing event.
             uint256 _atnReward = (committee[i].votingPower * _atn) / epochTotalBondedStake;
-            uint256 _atnReward = (committee[i].votingPower * _ntn) / epochTotalBondedStake;
+            uint256 _ntnReward = (committee[i].votingPower * _ntn) / epochTotalBondedStake;
             if (_atnReward > 0 || _ntnReward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
                 // committee members in jailbound state are permanently jailed
@@ -937,23 +944,35 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 }
                 uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
                 if (_ntnSelfReward > 0) {
-                    _transfer()
+                    _transfer(address(this), _val.treasury, _ntnSelfReward);
                 }
                 uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
                 uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
-                if (_atnDelegationReward > 0) {
-                    _val.liquidContract.redistribute{value: _atnDelegationReward}();
+                if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
+                    _transfer(address(this), address(_val.liquidContract), _ntnDelegationReward);
+                    _val.liquidContract.redistribute{value: _atnDelegationReward}(_ntnDelegationReward);
                 }
+                // TODO: This has to be reconsidered - I feel it is too expensive
+                // to emit an event per validator. But what is our recommend way to track rewards
+                // from a user perspective then ?
                 emit Rewarded(_val.nodeAddress, _atnReward);
             }
         }
     }
 
+    // @dev No side effects on this function, so safe to be called in the middle of something (but may revert).
+    // We may want to switch to OZ's ERC20 at one point to deal with callbacks
+    // but we'll have to deal with re-entrency stuff in this case. For the time being we are conservative.
     function _transfer(address _sender, address _recipient, uint256 _amount) internal virtual {
         require(accounts[_sender] >= _amount, "amount exceeds balance");
         accounts[_sender] -= _amount;
         accounts[_recipient] += _amount;
-        emit Transfer(_sender, _recipient, _amount);
+    }
+
+    function _mint(address _addr, uint256 _amount) internal virtual {
+        accounts[_addr] += _amount;
+        stakeSupply += _amount;
+        emit MintedStake(_addr, _amount);
     }
 
     /**
