@@ -147,10 +147,12 @@ contract Accountability is IAccountability {
         accusationCounter[msg.sender] += 1;
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
-        // By according to the canAccuse(), the reporter's rate limit of an EPOCH is calculated as:
-        // len(committee) * the max levels of rule severity, as all the severity is MID now, we take
-        // the rate cap to len(committee) * 3 of per EPOCH for a reporter.
-        require(accusationCounter[msg.sender] <= afdReporters.length*3, "report too much accusations in an epoch");
+        // By according to the canAccuse(), in an EPOCH, the accusations over a validator are graded by severity, a
+        // validator cannot be accused more then once unless it breaks higher severity rules, thus rate limit of rising
+        // accusation during an EPOCH is calculated as: len(committee) * the max levels of rule severity. As all the
+        // severity is MID now, we cap it to: len(committee) * (Severity.Mid+1) of per EPOCH for a reporter.
+        require(accusationCounter[msg.sender] <= afdReporters.length*(uint256(Severity.Mid)+1),
+            "report too much accusations in an epoch");
         _handleAccusation(_event);
     }
 

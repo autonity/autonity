@@ -301,13 +301,7 @@ func resolveReimburseType(msg Message) int {
 			method.Name == "handleAccusation" {
 			return InstantReimbursable
 		}
-
 		// todo: making accusation event future reimbursable?
-		/*
-			if method.Name == "handleAccusation" {
-				return FutureReimbursable
-			}
-		*/
 	}
 
 	return NotReimbursable
