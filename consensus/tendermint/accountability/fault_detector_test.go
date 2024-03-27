@@ -219,7 +219,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 	})
 
 	t.Run("Test abi packing of onChainProof", func(t *testing.T) {
-		methodName := "handleEvent"
+		methodName := "handleMisbehaviour"
 		_, err := generated.AccountabilityAbi.Pack(methodName, onChainEvent)
 		require.NoError(t, err)
 	})

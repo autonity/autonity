@@ -477,8 +477,11 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	require.NoError(t, err)
 	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
 	require.NoError(t, err)
+
 	voters := make([]common.Address, committeeSize)
-	err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
+	reporters := make([]common.Address, committeeSize)
+	output := [][]common.Address{voters, reporters}
+	err = contractAbi.UnpackIntoInterface(&output, "computeCommittee", res)
 	require.NoError(t, err)
 	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
 	require.NoError(t, err)
@@ -501,6 +504,6 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	totalStake := big.NewInt(0)
 	err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
 	require.NoError(t, err)
-	err = isVotersSorted(voters, members, validators, enodes, totalStake)
+	err = isVotersSorted(output[0], members, validators, enodes, totalStake)
 	require.NoError(t, err)
 }

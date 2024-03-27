@@ -21,10 +21,10 @@ import (
 	"math"
 	"math/big"
 
+	cmath "github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/common"
-	cmath "github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
@@ -32,6 +32,12 @@ import (
 )
 
 var emptyCodeHash = crypto.Keccak256Hash(nil)
+
+const (
+	NotReimbursable = iota
+	InstantReimbursable
+	FutureReimbursable
+)
 
 /*
 The State Transitioning Model
@@ -263,16 +269,42 @@ func (st *StateTransition) preCheck() error {
 	return st.buyGas()
 }
 
-// check if it is a vote transaction of the oracle Contract
-func isOracleVote(msg Message) bool {
-	if (msg.To() != nil) && (*msg.To() != params.OracleContractAddress) {
-		return false
+// resolveReimburseType resolve oracle vote event, misbehaviour event, and innocence event as instantly reimbursable,
+// while the accusation event is resolved as future reimbursable, and the others are resolved as not reimbursable.
+func resolveReimburseType(msg Message) int {
+	if (msg.To() != nil) && *msg.To() != params.AccountabilityContractAddress && *msg.To() != params.OracleContractAddress {
+		return NotReimbursable
 	}
-	method, err := generated.OracleAbi.MethodById(msg.Data())
-	if err != nil {
-		return false
+
+	// resolve oracle votes first.
+	if msg.To() != nil && *msg.To() == params.OracleContractAddress {
+		method, err := generated.OracleAbi.MethodById(msg.Data())
+		if err != nil {
+			return NotReimbursable
+		}
+
+		if method.Name == "vote" {
+			return InstantReimbursable
+		}
+
+		return NotReimbursable
 	}
-	return method.Name == "vote"
+
+	// resolve accountability event then.
+	if msg.To() != nil && *msg.To() == params.AccountabilityContractAddress {
+		method, err := generated.AccountabilityAbi.MethodById(msg.Data())
+		if err != nil {
+			return NotReimbursable
+		}
+
+		if method.Name == "handleMisbehaviour" || method.Name == "handleInnocenceProof" ||
+			method.Name == "handleAccusation" {
+			return InstantReimbursable
+		}
+		// todo: making accusation event future reimbursable?
+	}
+
+	return NotReimbursable
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -349,18 +381,27 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
-	var oracleVote bool
+	var reimburseType int
 	if vmerr == nil {
-		oracleVote = isOracleVote(msg)
-		if oracleVote {
-			// Refund tx Fee, if this is a successful vote transaction
+		reimburseType = resolveReimburseType(msg)
+		if reimburseType != NotReimbursable {
 			gasUsed := new(big.Int).SetUint64(st.gasUsed())
 			fee := new(big.Int).Mul(st.gasPrice, gasUsed)
-			st.state.AddBalance(st.msg.From(), fee)
+			// Refund tx Fee, if this is an instant reimbursable transaction
+			if reimburseType == InstantReimbursable {
+				st.state.AddBalance(st.msg.From(), fee)
+			}
+
+			// todo: make accusation event future reimbursable?
+			/*
+				if reimburseType == FutureReimbursable {
+					st.state.AddBalance(params.AutonityContractAddress, fee)
+					// todo: protocol deployer record fee for reporter by calling AC or ACCOUNTABILITY contract.
+				}*/
 		}
 	}
 
-	if london && !oracleVote {
+	if london && reimburseType == NotReimbursable {
 		effectiveTip := cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 		st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
 		st.state.AddBalance(params.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))

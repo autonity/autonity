@@ -389,8 +389,6 @@ function keccakHash(input) {
 
 async function slash(config, accountability, epochOffenceCount, offender, reporter) {
   const event = {
-    "chunks": 1,
-    "chunkId": 1,
     "eventType": 0,
     "rule": 0, // PN rule --> severity mid
     "reporter": reporter,

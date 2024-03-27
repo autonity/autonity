@@ -22,8 +22,6 @@ async function modifiedSlashingFeeAccountability(autonity, accountabilityConfig,
 
 async function killValidatorWithSlash(config, accountability, offender, reporter) {
   const event = {
-    "chunks": 1, 
-    "chunkId": 1,
     "eventType": 0,
     "rule": 0, // PN rule --> severity mid
     "reporter": reporter,
