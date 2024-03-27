@@ -330,9 +330,6 @@ jobs:
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Install Solidity Compiler
-        run: npm install -g solc@0.8.24
-
       - name: Install dependencies
         run: make test-contracts-asm-pre
       - name: run test
