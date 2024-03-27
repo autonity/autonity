@@ -229,6 +229,9 @@ func (am *aggregateMsg) PreValidate(header *types.Header) error {
 		panic("Error while aggregating keys from committee: " + err.Error())
 	}
 
+	//TODO(lorenzo) with this construction it means we cannot do random access into the addresses and powers array.
+	// to know to which message those addresses and powers correspond to, we have to sequentially parse the bits array
+	// is this fine?
 	indexesUniq := am.senders.FlattenUniq()
 	addresses := make([]common.Address, len(indexesUniq))
 	powers := make([]*big.Int, len(indexesUniq))
@@ -239,8 +242,6 @@ func (am *aggregateMsg) PreValidate(header *types.Header) error {
 		powers[i] = member.VotingPower
 	}
 
-	//TODO(lorenzo) with this construction it means we cannot do random access into the addresses and powers array
-	// is this fine?
 	am.senders.powers = powers
 	am.senders.addresses = addresses
 

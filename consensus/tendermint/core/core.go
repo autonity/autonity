@@ -272,14 +272,13 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	c.logger.Debug("Committing a block", "hash", proposalHash)
 	//committedSeals := make(types.Signatures)
 	var seals []blst.Signature
-	coef := message.NewCoefficients(100) //TODO(lorenzo) fix
+	sendersInfo := message.NewSendersInfo(len(c.lastHeader.Committee))
 	for _, v := range messages.PrecommitsFor(proposalHash) {
 		seals = append(seals, v.Signature())
-		coef.Merge(v.SendersCoeff())
-		//committedSeals[v.Sender()] = v.Signature().(*blst.BlsSignature)
+		sendersInfo.Merge(v.Senders())
 	}
 	aggsig := blst.AggregateSignatures(seals).(*blst.BlsSignature)
-	committedSeals := types.NewAggregateSignature(aggsig, coef)
+	committedSeals := types.NewAggregateSignature(aggsig, sendersInfo)
 	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return

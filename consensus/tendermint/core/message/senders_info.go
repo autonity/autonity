@@ -31,7 +31,7 @@ type SendersInfo struct {
 //
 // powers [0x1 0x2]
 func NewSendersInfo(committeeSize int) SendersInfo {
-	return &SendersInfo{bits: make([]byte, committeeSize)}
+	return SendersInfo{bits: make([]byte, committeeSize)}
 }
 
 // Len returns how many committee members the sendersInfo contains
@@ -69,17 +69,17 @@ func (s SendersInfo) Powers() []*big.Int {
 
 // TODO(lorenzo) what if different size
 func (s SendersInfo) Merge(other SendersInfo) {
-	for i, coefficient := range other.bitmap {
+	for i, coefficient := range other.bits {
 		if coefficient == 0 {
 			continue
 		}
-		if s[i] == 0 {
+		if s.bits[i] == 0 {
 			s.addresses = append(s.addresses[:i+1], s.addresses[i:]...)
 			s.addresses[i] = other.addresses[i]
 			s.powers = append(s.powers[:i+1], s.powers[i:]...)
 			s.powers[i] = other.powers[i]
 		}
-		s[i] = s[i] + coefficient
+		s.bits[i] = s.bits[i] + coefficient
 	}
 }
 
