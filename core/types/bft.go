@@ -210,7 +210,7 @@ func (c *Committee) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-func (c *Committee) CopyCommittee() *Committee {
+func (c *Committee) Copy() *Committee {
 	var clone = &Committee{}
 	if c.Members != nil {
 		clone.Members = make([]*CommitteeMember, len(c.Members))

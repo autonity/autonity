@@ -420,7 +420,7 @@ func CopyHeader(h *Header) *Header {
 	/* PoS fields deep copy section*/
 	committee := &Committee{}
 	if h.Committee != nil {
-		committee = h.Committee.CopyCommittee()
+		committee = h.Committee.Copy()
 	}
 
 	proposerSeal := make([]byte, 0)

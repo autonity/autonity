@@ -130,13 +130,6 @@ type WeightedRandomSamplingCommittee struct {
 	committee        *types.Committee
 	previousHeader   *types.Header
 	autonityContract *autonity.ProtocolContracts
-	/*
-	   =======
-	   	previousHeader         *types.Header
-	   	bc                     *ethcore.BlockChain // Todo : remove this dependency
-	   	autonityContract       *autonity.ProtocolContracts
-	   	previousBlockStateRoot common.Hash
-	   >>>>>>> develop*/
 }
 
 func NewWeightedRandomSamplingCommittee(previousHeader *types.Header, committee *types.Committee, autonityContract *autonity.ProtocolContracts) *WeightedRandomSamplingCommittee {
