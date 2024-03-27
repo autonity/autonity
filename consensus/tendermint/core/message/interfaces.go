@@ -49,11 +49,11 @@ type Msg interface {
 
 type IndividualMsg interface {
 	Sender() common.Address
-	SenderIndex() uint64
+	SenderIndex() int
 	Msg
 }
 
 type AggregateMsg interface {
-	Senders() SendersInfo
+	Senders() *types.SendersInfo
 	Msg
 }

@@ -523,7 +523,7 @@ type individualMsg struct {
 	// node address of the sender, populated at decoding phase
 	sender common.Address
 	// index of the sender in the committee, populated at PreValidate phase
-	senderIndex uint64
+	senderIndex int
 	base
 }
 
@@ -531,7 +531,7 @@ func (im *individualMsg) Sender() common.Address {
 	return im.sender
 }
 
-func (im *individualMsg) SenderIndex() uint64 {
+func (im *individualMsg) SenderIndex() int {
 	return im.senderIndex
 }
 
@@ -542,7 +542,7 @@ func (im *individualMsg) PreValidate(header *types.Header) error {
 	}
 
 	im.senderKey = validator.ConsensusKey
-	im.senderIndex = validator.Index
+	im.senderIndex = int(validator.Index)
 	im.power = validator.VotingPower
 	return nil
 }

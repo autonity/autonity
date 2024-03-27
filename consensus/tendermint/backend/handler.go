@@ -185,7 +185,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, 
 			return true, nil
 		}
 	case *message.AggregatePrevote, *message.AggregatePrecommit:
-		for _, sender := range m.(message.AggregateMsg).Senders() {
+		for _, sender := range m.(message.AggregateMsg).Senders().Addresses() {
 			if sb.IsJailed(sender) {
 				sb.logger.Debug("Aggregate msg contains message from jailed validator, ignoring message", "address", sender)
 				// same

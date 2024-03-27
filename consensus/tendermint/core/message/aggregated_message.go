@@ -18,7 +18,7 @@ type extAggregateVote struct {
 	Round     uint64
 	Height    uint64
 	Value     common.Hash
-	Senders   SendersInfo
+	Senders   *types.SendersInfo
 	Signature *blst.BlsSignature
 }
 
@@ -61,7 +61,7 @@ func (ap *AggregatePrevote) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	if encoded.Senders.bits == nil || encoded.Senders.Len() == 0 {
+	if encoded.Senders == nil || encoded.Senders.Bits == nil || encoded.Senders.Len() == 0 {
 		return constants.ErrInvalidMessage
 	}
 	ap.height = encoded.Height
@@ -117,7 +117,7 @@ func (ap *AggregatePrecommit) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	if encoded.Senders.bits == nil || encoded.Senders.Len() == 0 {
+	if encoded.Senders == nil || encoded.Senders.Bits == nil || encoded.Senders.Len() == 0 {
 		return constants.ErrInvalidMessage
 	}
 	ap.height = encoded.Height
@@ -154,7 +154,7 @@ func NewAggregateVote[
 	code := PE(new(E)).Code()
 
 	// TODO(lorenzo) aggregates for different heights might have different len(senders.bits)
-	senders := NewSendersInfo(len(header.Committee))
+	senders := types.NewSendersInfo(len(header.Committee))
 
 	// compute new aggregated signature and related sender information
 	var signatures []blst.Signature
@@ -206,11 +206,11 @@ func NewAggregateVote[
 }
 
 type aggregateMsg struct {
-	senders SendersInfo
+	senders *types.SendersInfo
 	base
 }
 
-func (am *aggregateMsg) Senders() SendersInfo {
+func (am *aggregateMsg) Senders() *types.SendersInfo {
 	return am.senders
 }
 
@@ -221,29 +221,26 @@ func (am *aggregateMsg) PreValidate(header *types.Header) error {
 	// compute aggregated key
 	indexes := am.senders.Flatten()
 	keys := make([][]byte, len(indexes))
-	for _, index := range indexes {
-		keys = append(keys, header.Committee[index].ConsensusKeyBytes)
+	for i, index := range indexes {
+		keys[i] = header.Committee[index].ConsensusKeyBytes
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
 		panic("Error while aggregating keys from committee: " + err.Error())
 	}
 
-	//TODO(lorenzo) with this construction it means we cannot do random access into the addresses and powers array.
-	// to know to which message those addresses and powers correspond to, we have to sequentially parse the bits array
-	// is this fine?
 	indexesUniq := am.senders.FlattenUniq()
-	addresses := make([]common.Address, len(indexesUniq))
-	powers := make([]*big.Int, len(indexesUniq))
+	addresses := make(map[int]common.Address)
+	powers := make(map[int]*big.Int)
 
-	for i, index := range indexesUniq {
+	for _, index := range indexesUniq {
 		member := header.Committee[index]
-		addresses[i] = member.Address
-		powers[i] = member.VotingPower
+		addresses[index] = member.Address
+		powers[index] = member.VotingPower
 	}
 
-	am.senders.powers = powers
-	am.senders.addresses = addresses
+	am.senders.SetPowers(powers)
+	am.senders.SetAddresses(addresses)
 
 	am.power = am.senders.Power()
 	am.senderKey = aggregatedKey

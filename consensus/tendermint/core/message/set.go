@@ -109,13 +109,13 @@ func (s *Set[T]) power(votes []T, accountedFor map[common.Address]struct{}) *big
 	for _, v := range votes {
 		addresses := v.Senders().Addresses()
 		powers := v.Senders().Powers()
-		for i, _ := range v.Senders().FlattenUniq() {
-			_, accounted := accountedFor[addresses[i]]
+		for _, index := range v.Senders().FlattenUniq() {
+			_, accounted := accountedFor[addresses[index]]
 			if accounted {
 				continue
 			}
-			power.Add(power, powers[i])
-			accountedFor[addresses[i]] = struct{}{}
+			power.Add(power, powers[index])
+			accountedFor[addresses[index]] = struct{}{}
 		}
 	}
 	return power

@@ -108,14 +108,14 @@ func WriteRound(h *Header, round int64) error {
 // WriteCommittedSeals writes the extra-data field of a block header with given committed seals.
 func WriteCommittedSeals(h *Header, committedSeals *AggregateSignature) error {
 	//TODO(lorenzo) better check (with flaten uniq"?)
-	if len(committedSeals.C) == 0 {
+	if committedSeals.Senders.Len() == 0 {
 		return ErrInvalidCommittedSeals
 	}
 	/*h.CommittedSeals = make(Signatures)
 	for addr, seal := range committedSeals {
 		h.CommittedSeals[addr] = seal.Copy()
 	}*/
-	h.CommittedSeals = &AggregateSignature{Signature: committedSeals.Signature.Copy(), C: append(committedSeals.C[:0:0], committedSeals.C...)}
+	h.CommittedSeals = committedSeals.Copy()
 	return nil
 }
 

@@ -110,20 +110,30 @@ type Header struct {
 // TODO(lorenzo) define as standlaone type?
 type AggregateSignature struct {
 	Signature *blst.BlsSignature
-	C         []byte //TODO(lorenzo) fix
+	Senders   *SendersInfo
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, c []byte) *AggregateSignature {
-	return &AggregateSignature{Signature: signature, C: c}
+func NewAggregateSignature(signature *blst.BlsSignature, senders *SendersInfo) *AggregateSignature {
+	return &AggregateSignature{Signature: signature, Senders: senders}
 }
 
-func (a *AggregateSignature) Coef() []byte {
-	return a.C
+// TODO(lorenzo) used for committed seals verification, double cehck
+func (a *AggregateSignature) Valid() bool {
+	return a.Signature != nil && a.Senders.Len() != 0
 }
 
-func (a *AggregateSignature) S() *blst.BlsSignature {
-	return a.Signature
+func (a *AggregateSignature) Copy() *AggregateSignature {
+	return &AggregateSignature{Signature: a.Signature.Copy(), Senders: a.Senders.Copy()}
 }
+
+/* //TODO(lorenzo) delete if fine
+func (a *AggregateSignature) Senders() SendersInfo {
+	return a.Sendrs
+}
+
+func (a *AggregateSignature) Signature() *blst.BlsSignature {
+	return a.Sig
+}*/
 
 /*
 // serialize the map as an bytes key1|value1|key2|value2|...
@@ -557,7 +567,7 @@ func CopyHeader(h *Header) *Header {
 	//TODO(lorenzo) fix properly
 	var committedSeals *AggregateSignature
 	if h.CommittedSeals != nil {
-		committedSeals = &AggregateSignature{Signature: h.CommittedSeals.Signature.Copy(), C: append(h.CommittedSeals.C[:0:0], h.CommittedSeals.C...)}
+		committedSeals = h.CommittedSeals.Copy()
 	}
 
 	cpy := &Header{

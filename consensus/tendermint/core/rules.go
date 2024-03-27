@@ -155,7 +155,7 @@ func (c *Core) roundSkipCheck(ctx context.Context, msg message.Msg) {
 	}
 	c.futureRoundChange[msgRound] = append(c.futureRoundChange[msgRound], msg)
 
-	//TODO(lorenzo) double check correctness
+	//TODO(lorenzo) double check correctness, check if you can replace with the s.power function
 	totalFutureRoundMessagesPower := new(big.Int)
 	accountedFor := make(map[common.Address]struct{})
 	for _, msg := range c.futureRoundChange[msgRound] {
@@ -169,8 +169,8 @@ func (c *Core) roundSkipCheck(ctx context.Context, msg message.Msg) {
 				accountedFor[sender] = struct{}{}
 			}
 		case *message.AggregatePrevote, *message.AggregatePrecommit:
-			senders := msg.(message.AggregateMsg).Senders()
-			powers := msg.(message.AggregateMsg).Powers()
+			senders := msg.(message.AggregateMsg).Senders().Addresses()
+			powers := msg.(message.AggregateMsg).Senders().Powers()
 			for i, sender := range senders {
 				_, accounted := accountedFor[sender]
 				if !accounted {

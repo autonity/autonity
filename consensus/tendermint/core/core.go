@@ -272,7 +272,7 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	c.logger.Debug("Committing a block", "hash", proposalHash)
 	//committedSeals := make(types.Signatures)
 	var seals []blst.Signature
-	sendersInfo := message.NewSendersInfo(len(c.lastHeader.Committee))
+	sendersInfo := types.NewSendersInfo(len(c.lastHeader.Committee))
 	for _, v := range messages.PrecommitsFor(proposalHash) {
 		seals = append(seals, v.Signature())
 		sendersInfo.Merge(v.Senders())

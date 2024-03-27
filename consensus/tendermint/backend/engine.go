@@ -221,8 +221,8 @@ func (sb *Backend) verifySigner(header, parent *types.Header) error {
 // a quorum.
 func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	// The length of Committed seals should be larger than 0
-	//TODO(lorenzo) fix
-	if header.CommittedSeals == nil {
+	//TODO(lorenzo) additional check on legnth == parent.header.committee?
+	if header.CommittedSeals == nil || !header.CommittedSeals.Valid() {
 		return types.ErrEmptyCommittedSeals
 	}
 
@@ -232,26 +232,26 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 		committeeVotingPower.Add(committeeVotingPower, member.VotingPower)
 	}
 
-	// Total Voting power for this block
-	power := new(big.Int)
 	// The data that was signed over for this block
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
 
-	// verify quorum
-	for _, index := range message.Coefficients(header.CommittedSeals.Coef()).FlattenUniq() {
+	// Total Voting power for this block
+	power := new(big.Int)
+	for _, index := range header.CommittedSeals.Senders.FlattenUniq() {
 		power.Add(power, parent.Committee[index].VotingPower)
 	}
 
 	// verify signature
+	//TODO(lorenzo) save this into sender?
 	var keys [][]byte
-	for _, index := range message.Coefficients(header.CommittedSeals.Coef()).Flatten() {
+	for _, index := range header.CommittedSeals.Senders.Flatten() {
 		keys = append(keys, parent.Committee[index].ConsensusKey.Marshal())
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
-		panic(err) //TODO(lorenzo) fix
+		sb.logger.Crit("Failed to aggregate keys from committee members", "err", err)
 	}
-	valid := header.CommittedSeals.S().Verify(aggregatedKey, headerSeal[:])
+	valid := header.CommittedSeals.Signature.Verify(aggregatedKey, headerSeal[:])
 	if !valid {
 		sb.logger.Error("block had invalid committed seal")
 		return types.ErrInvalidCommittedSeals
