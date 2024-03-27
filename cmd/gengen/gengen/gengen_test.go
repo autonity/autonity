@@ -59,6 +59,7 @@ func TestGenesisCommand(t *testing.T) {
 func TestEncodeDecodeConsistency(t *testing.T) {
 	validators, err := parseValidators(validValidators)
 	require.NoError(t, err)
+
 	g, err := NewGenesis(validators)
 	g.Config.AutonityContractConfig.ABI = nil
 	require.NoError(t, err)

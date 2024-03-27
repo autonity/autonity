@@ -60,6 +60,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 		//stake := new(big.Int).Exp(big.NewInt(10), big.NewInt(50), nil)
 		if strings.HasPrefix(name, ValidatorPrefix) {
 			nodeAddr := crypto.PubkeyToAddress(nodes[name].nodeKey.PublicKey)
+
 			validators = append(validators, &params.Validator{
 				NodeAddress:    &nodeAddr,
 				OracleAddress:  crypto.PubkeyToAddress(nodes[name].oracleKey.PublicKey),

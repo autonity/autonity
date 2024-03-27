@@ -116,14 +116,12 @@ contract('Autonity', function (accounts) {
 
         it('Pause a validator', async function () {
             let treasury = accounts[8];
-
             // disabling a non registered validator should fail
             await truffleAssert.fails(
                 autonity.pauseValidator(node, {from: treasury}),
                 truffleAssert.ErrorType.REVERT,
                 "validator must be registered"
             );
-
             await autonity.registerValidator(enode, oracle, consensusKey, pop, {from: treasury});
 
             // try disabling it with msg.sender not the treasury account, it should fails
@@ -147,7 +145,6 @@ contract('Autonity', function (accounts) {
 
         it("Re-active a paused validator", async function () {
             let treasury = accounts[8];
-
             // activating a non-existing validator should fail
             await truffleAssert.fails(
                 autonity.activateValidator(node, {from: treasury}),
@@ -156,7 +153,6 @@ contract('Autonity', function (accounts) {
             );
 
             await autonity.registerValidator(enode, oracle, consensusKey, pop, {from: treasury});
-
             // activating from non-treasury account should fail
             await truffleAssert.fails(
                 autonity.activateValidator(node, {from: accounts[7]}),
@@ -180,7 +176,6 @@ contract('Autonity', function (accounts) {
     });
 
     describe('Test committee members rotation through bonding/unbonding', function () {
-
         let vals = [
             { ...baseValidator,
                 "treasury": accounts[0],
@@ -240,6 +235,7 @@ contract('Autonity', function (accounts) {
             // system operator mint Newton for user.
             let user = accounts[7];
             let tokenMint = 100;
+
             await autonity.mint(user, tokenMint, {from: operator});
 
             // user bond Newton to node 2.
@@ -271,6 +267,7 @@ contract('Autonity', function (accounts) {
             // system operator mint Newton for user.
             let user = accounts[7];
             let tokenMint = 100;
+
             await autonity.mint(user, tokenMint, {from: operator});
 
             // bond NTN to the 2 validators

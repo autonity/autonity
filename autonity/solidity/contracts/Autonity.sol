@@ -29,7 +29,6 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
-
     struct Validator {
         // any change in Validator struct must be synced with offset constants in core/evm/contracts.go
         address payable treasury;
@@ -613,10 +612,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * protocol only.
     *
     * @return upgrade Set to true if an autonity contract upgrade is available.
-    * @return committee The next block consensus committee.
+    * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
+    * @return lastEpochBlock The last epoch block number.
     */
     function finalize() external virtual onlyProtocol
-    returns (bool, CommitteeMember[] memory) {
+    returns (bool, CommitteeMember[] memory, uint256) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
@@ -638,7 +638,13 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             try config.contracts.acuContract.update() {}
             catch {}
         }
-        return (contractUpgradeReady, committee);
+        // return newly elected committee set on epoch rotation,
+        // otherwise return empty committee set for no changes.
+        if (epochEnded) {
+            return (contractUpgradeReady, committee, lastEpochBlock);
+        }
+        CommitteeMember[] memory emptySet;
+        return (contractUpgradeReady, emptySet, lastEpochBlock);
     }
 
     /**

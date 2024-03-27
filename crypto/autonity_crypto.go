@@ -41,6 +41,7 @@ func LoadAutonityKeys(file string) (*ecdsa.PrivateKey, blst.SecretKey, error) {
 	defer fd.Close()
 
 	r := bufio.NewReader(fd)
+
 	buf := make([]byte, AutonityKeysLenInChar)
 	n, err := readASCII(buf, r)
 	if err != nil {
@@ -161,6 +162,7 @@ func BLSPOPVerify(pubKey blst.PublicKey, sig blst.Signature, treasury []byte) er
 }
 
 func AutonityPOPProof(nodeKey, oracleKey *ecdsa.PrivateKey, treasuryHex string, consensusKey blst.SecretKey) ([]byte, error) {
+
 	treasury, err := hexutil.Decode(treasuryHex)
 	if err != nil {
 		return nil, err

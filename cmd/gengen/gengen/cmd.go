@@ -284,6 +284,7 @@ func ParseValidator(u string) (*Validator, error) {
 	}
 
 	nodeKeyPath := fields[4]
+
 	nodeKey, consensusKey, err := readAutonityKeys(nodeKeyPath)
 	if err != nil {
 		return nil, err

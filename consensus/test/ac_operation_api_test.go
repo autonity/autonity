@@ -55,6 +55,7 @@ func TestACPublicWritters(t *testing.T) {
 	require.NoError(t, err)
 	newValidatorAddr := crypto.PubkeyToAddress(newValidator.PublicKey)
 	enodeUrl := enode.V4DNSUrl(newValidator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
+
 	treasury := crypto.PubkeyToAddress(newValidator.PublicKey).Bytes()
 
 	consensusKey, err := blst.RandKey()

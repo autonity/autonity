@@ -187,6 +187,7 @@ type BlockChain struct {
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
+	epochHeadFeed event.Feed
 	logsFeed      event.Feed
 	blockProcFeed event.Feed
 	scope         event.SubscriptionScope
@@ -1329,6 +1330,10 @@ func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types
 		if len(logs) > 0 {
 			bc.logsFeed.Send(logs)
 		}
+		if block.IsEpochHead() {
+			bc.epochHeadFeed.Send(EpochHeadEvent{block.Header()})
+		}
+
 		// In theory we should fire a ChainHeadEvent when we inject
 		// a canonical block, but sometimes we can insert a batch of
 		// canonicial blocks. Avoid firing too many ChainHeadEvents,
@@ -2133,6 +2138,11 @@ func (bc *BlockChain) SetChainHead(newBlock *types.Block) error {
 	if len(logs) > 0 {
 		bc.logsFeed.Send(logs)
 	}
+
+	if newBlock.IsEpochHead() {
+		bc.epochHeadFeed.Send(newBlock.Header())
+	}
+
 	bc.chainHeadFeed.Send(ChainHeadEvent{Block: newBlock})
 	bc.log.Info("Set the chain head", "number", newBlock.Number(), "hash", newBlock.Hash())
 	return nil

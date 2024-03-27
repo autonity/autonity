@@ -14,6 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
@@ -38,7 +39,6 @@ func (tc *testCase) String() string {
 
 func TestHandleCheckedMessage(t *testing.T) {
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
@@ -198,7 +198,7 @@ func TestHandleCheckedMessage(t *testing.T) {
 					t.Errorf("Unexpected panic")
 				}
 			}()
-			tc.message.Validate(header.CommitteeMember)
+			tc.message.Validate(committeeSet.CommitteeMember)
 			err := engine.handleValidMsg(context.Background(), tc.message)
 
 			if !errors.Is(err, tc.outcome) {
@@ -228,7 +228,6 @@ func TestHandleCheckedMessage(t *testing.T) {
 
 func TestHandleMsg(t *testing.T) {
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	header := types.Header{Committee: committeeSet.Committee(), Number: common.Big1}
 	currentValidator, _ := committeeSet.GetByIndex(0)
 	sender, _ := committeeSet.GetByIndex(1)
 	senderKey := keysMap[sender.Address]
@@ -307,7 +306,6 @@ func TestHandleMsg(t *testing.T) {
 		c.round = tc.round
 		c.step = tc.step
 		c.committee = committeeSet
-		c.setLastHeader(&header)
 
 		func() {
 			defer func() {
@@ -321,7 +319,7 @@ func TestHandleMsg(t *testing.T) {
 					t.Errorf("Unexpected panic")
 				}
 			}()
-			tc.message.Validate(header.CommitteeMember)
+			tc.message.Validate(committeeSet.CommitteeMember)
 			err := c.handleMsg(context.Background(), tc.message)
 
 			if !errors.Is(err, tc.outcome) {

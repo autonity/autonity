@@ -144,13 +144,13 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 
 	var quorumPrevotes0VPrime []message.Msg
 	for i := int64(0); i < quorum.Int64(); i++ {
-		prevote := message.NewPrevote(0, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+		prevote := message.NewPrevote(0, height, block1.Hash(), makeSigner(keys[i], committee.Members[i])).MustVerify(stubVerifier)
 		quorumPrevotes0VPrime = append(quorumPrevotes0VPrime, prevote)
 	}
 
 	var quorumPrevotes0V []message.Msg
 	for i := int64(0); i < quorum.Int64(); i++ {
-		prevote := message.NewPrevote(0, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+		prevote := message.NewPrevote(0, height, block.Hash(), makeSigner(keys[i], committee.Members[i])).MustVerify(stubVerifier)
 		quorumPrevotes0V = append(quorumPrevotes0V, prevote)
 	}
 
@@ -408,7 +408,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	precommitForBIn0 := message.NewPrecommit(0, height, block.Hash(), signer).MustVerify(stubVerifier)
 	precommitForBIn4 := message.NewPrecommit(4, height, block.Hash(), signer).MustVerify(stubVerifier)
 
-	signerBis := makeSigner(keys[1], committee[1])
+	signerBis := makeSigner(keys[1], committee.Members[1])
 	oldProposalB10 := newProposalMessage(height, 10, 5, signerBis, committee, block).MustVerify(stubVerifier)
 	newProposalB1In5 := newProposalMessage(height, 5, -1, signerBis, committee, block1).MustVerify(stubVerifier)
 	newProposalBIn5 := newProposalMessage(height, 5, -1, signerBis, committee, block).MustVerify(stubVerifier)
@@ -628,7 +628,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		// quorum of prevotes for B1 in vr = 6
 		var vr5Prevotes []message.Msg
 		for i := uint64(0); i < quorum.Uint64(); i++ {
-			vr6Prevote := message.NewPrevote(5, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			vr6Prevote := message.NewPrevote(5, height, block1.Hash(), makeSigner(keys[i], committee.Members[i])).MustVerify(stubVerifier)
 			vr5Prevotes = append(vr5Prevotes, vr6Prevote)
 			fd.msgStore.Save(vr6Prevote)
 		}
@@ -658,8 +658,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 		for i := newProposalBIn5.R(); i < precommitForBIn7.R(); i++ {
 			fd.msgStore.Save(message.NewPrecommit(i, height, nilValue, signer).MustVerify(stubVerifier))
@@ -698,8 +698,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 		fd.msgStore.Save(precommitForBIn7)
 		for i := precommitForBIn7.R() + 1; i < oldProposalB10.R(); i++ {
@@ -717,8 +717,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 		fd.msgStore.Save(precommitForBIn7)
 		fd.msgStore.Save(precommitForB1In8)
@@ -733,8 +733,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 
 		var precommitsFromPiAfterVR []message.Msg
@@ -773,8 +773,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 
 		for i := newProposalBIn5.R() + 1; i < oldProposalB10.R(); i++ {
@@ -790,8 +790,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 
 		fd.msgStore.Save(precommitForB1In8)
@@ -809,8 +809,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		fd.msgStore.Save(prevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 
 		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
@@ -832,8 +832,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(prevoteForOldB10)
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(6, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(6, height, block1.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum)
@@ -859,7 +859,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	header1 := newBlockHeader(height, committee)
 	block1 := types.NewBlockWithHeader(header1)
 
-	newProposalForB := newProposalMessage(height, 2, -1, makeSigner(keys[1], committee[1]), committee, block).MustVerify(stubVerifier)
+	newProposalForB := newProposalMessage(height, 2, -1, makeSigner(keys[1], committee.Members[1]), committee, block).MustVerify(stubVerifier)
 
 	precommitForB := message.NewPrecommit(2, height, block.Hash(), signer).MustVerify(stubVerifier)
 	precommitForB1 := message.NewPrecommit(2, height, block1.Hash(), signer).MustVerify(stubVerifier)
@@ -871,7 +871,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(precommitForB)
 
 		for i := int64(0); i < quorum.Int64()-1; i++ {
-			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], committee.Members[i])).MustVerify(stubVerifier))
 		}
 
 		expectedAccusation := &Proof{
@@ -891,7 +891,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 		var prevotesForB1 []message.Msg
 		for i := int64(0); i < quorum.Int64(); i++ {
-			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[i], committee.Members[i])).MustVerify(stubVerifier)
 			fd.msgStore.Save(p)
 			prevotesForB1 = append(prevotesForB1, p)
 		}
@@ -922,7 +922,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 		var prevotesForB1 []message.Msg
 		for i := int64(0); i < quorum.Int64(); i++ {
-			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[i], committee.Members[i])).MustVerify(stubVerifier)
 			fd.msgStore.Save(p)
 			prevotesForB1 = append(prevotesForB1, p)
 		}
@@ -966,8 +966,8 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(precommitForB)
 
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 
 		proofs := fd.precommitsAccountabilityCheck(height, quorum)
@@ -979,8 +979,8 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(precommitForB)
 
-		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		for i, m := range committee.Members {
+			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], m)).MustVerify(stubVerifier))
 		}
 
 		proofs := fd.precommitsAccountabilityCheck(height, quorum)

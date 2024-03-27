@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"crypto/ecdsa"
+	"github.com/autonity/autonity/consensus"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -135,7 +136,7 @@ func TestAccusationVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		invalidCommittee, invalKeys := generateCommittee()
-		p.Message = newProposalMessage(height, 1, 0, makeSigner(invalKeys[0], invalidCommittee[0]), invalidCommittee, nil)
+		p.Message = newProposalMessage(height, 1, 0, makeSigner(invalKeys[0], invalidCommittee.Members[0]), invalidCommittee, nil)
 
 		ret := verifyAccusation(&p)
 		assert.False(t, ret)
@@ -195,12 +196,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	defer ctrl.Finish()
 
 	height := uint64(100)
-	lastHeight := height - 1
-	lastHeader := newBlockHeader(lastHeight, committee)
 	noneNilValue := common.Hash{0x1}
 
 	chainMock := NewMockChainContext(ctrl)
-	chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
+	chainMock.EXPECT().CommitteeOfHeight(height).AnyTimes().Return(committee, nil)
 
 	t.Run("Test misbehaviour verifier required gas", func(t *testing.T) {
 		mv := MisbehaviourVerifier{chain: chainMock}
@@ -226,7 +225,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		invalidCommittee, iKeys := generateCommittee()
-		invalidProposal := newProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee[0]), invalidCommittee, nil)
+		invalidProposal := newProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee.Members[0]), invalidCommittee, nil)
 		p.Message = invalidProposal
 		mv := MisbehaviourVerifier{chain: chainMock}
 
@@ -242,7 +241,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proposal := newProposalMessage(height, 1, 0, signer, committee, nil)
 		p.Message = proposal
 
-		invalidPreCommit := message.NewPrecommit(1, height, proposal.Value(), makeSigner(ikeys[0], invalidCommittee[0]))
+		invalidPreCommit := message.NewPrecommit(1, height, proposal.Value(), makeSigner(ikeys[0], invalidCommittee.Members[0]))
 		p.Evidences = append(p.Evidences, invalidPreCommit)
 
 		mv := MisbehaviourVerifier{chain: chainMock}
@@ -328,8 +327,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.Message = newProposalMessage(height, 3, 0, signer, committee, nil).MustVerify(stubVerifier).ToLight()
-		for i := range committee {
-			prevote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			prevote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, prevote)
 		}
 
@@ -370,7 +369,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := message.NewPrecommit(0, height, noneNilValue, signer)
 		preCommitR1 := message.NewPrecommit(1, height, nilValue, signer)
 		preCommitR2 := message.NewPrecommit(2, height, nilValue, signer)
-		proposal := message.NewLightProposal(newProposalMessage(height, 3, -1, signer, committee, nil).MustVerify(lastHeader.CommitteeMember))
+		proposal := message.NewLightProposal(newProposalMessage(height, 3, -1, signer, committee, nil).MustVerify(committee.CommitteeMember))
 		// node preVote for V2 at round 3
 		p.Message = message.NewPrevote(3, height, proposal.Value(), signer)
 		p.Evidences = append(p.Evidences, proposal, preCommit, preCommitR1, preCommitR2)
@@ -541,8 +540,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = maliciousPreVote
 		p.Evidences = append(p.Evidences, message.NewLightProposal(correspondingProposal))
 		// simulate quorum prevote for not v at valid round.
-		for i := range committee {
-			preVote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -576,8 +575,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = maliciousPreVote
 		p.Evidences = append(p.Evidences, correspondingProposal)
 		// simulate quorum prevote for not v at a round rather than valid round
-		for i := range committee {
-			preVote := message.NewPrevote(1, height, noneNilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(1, height, noneNilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -614,8 +613,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// Node preCommit for V at round R.
 		preCommit := message.NewPrecommit(0, height, noneNilValue, signer)
 		p.Message = preCommit
-		for i := range committee {
-			preVote := message.NewPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
 		mv := MisbehaviourVerifier{chain: chainMock}
@@ -642,8 +641,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.C
 		preCommit := message.NewPrecommit(0, height, nilValue, signer)
 		p.Message = preCommit
-		for i := range committee {
-			preVote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -658,8 +657,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		wrongMsg := message.NewPrevote(0, height, noneNilValue, signer)
 		p.Message = wrongMsg
-		for i := range committee {
-			preVote := message.NewPrevote(0, height, nilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(0, height, nilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -676,8 +675,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := message.NewPrecommit(0, height, noneNilValue, signer)
 		p.Message = preCommit
 		// quorum preVotes of same value, this shouldn't be a valid evidence.
-		for i := range committee {
-			preVote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -694,7 +693,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		preCommit := message.NewPrecommit(0, height, noneNilValue, signer)
 		p.Message = preCommit
 		// duplicated preVotes msg in evidence, should be addressed.
-		for i := 0; i < len(committee); i++ {
+		for i := 0; i < len(committee.Members); i++ {
 			preVote := message.NewPrevote(0, height, nilValue, signer)
 			p.Evidences = append(p.Evidences, preVote)
 		}
@@ -727,11 +726,8 @@ func TestInnocenceVerifier(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	height := uint64(100)
-	lastHeight := height - 1
 	noneNilValue := common.Hash{0x1}
-	lastHeader := newBlockHeader(lastHeight, committee)
 	chainMock := NewMockChainContext(ctrl)
-	chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
 
 	t.Run("Test innocence verifier required gas", func(t *testing.T) {
 		iv := InnocenceVerifier{chain: nil}
@@ -749,8 +745,9 @@ func TestInnocenceVerifier(t *testing.T) {
 		invalidCommittee, iKeys := generateCommittee()
 		p := &Proof{
 			Rule:    autonity.PO,
-			Message: message.NewLightProposal(newProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee[0]), invalidCommittee, nil).MustVerify(stubVerifier)),
+			Message: message.NewLightProposal(newProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee.Members[0]), invalidCommittee, nil).MustVerify(stubVerifier)),
 		}
+		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil).AnyTimes()
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
@@ -766,9 +763,9 @@ func TestInnocenceVerifier(t *testing.T) {
 		invalidCommittee, iKeys := generateCommittee()
 		proposal := newProposalMessage(height, 1, 0, signer, committee, nil).MustVerify(stubVerifier)
 		p.Message = message.NewLightProposal(proposal)
-		invalidPreVote := message.NewPrevote(1, height, proposal.Value(), makeSigner(iKeys[0], invalidCommittee[0]))
+		invalidPreVote := message.NewPrevote(1, height, proposal.Value(), makeSigner(iKeys[0], invalidCommittee.Members[0]))
 		p.Evidences = append(p.Evidences, invalidPreVote)
-
+		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil).AnyTimes()
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
@@ -874,12 +871,12 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, message.NewLightProposal(proposal))
 		// prepare quorum prevotes at valid round.
-		for i := range committee {
-			prevote := message.NewPrevote(vr, height, proposal.Value(), makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			prevote := message.NewPrevote(vr, height, proposal.Value(), makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, prevote)
 		}
-
-		validateProof(&p, lastHeader)
+		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil).AnyTimes()
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfPVO(&p, chainMock)
 		assert.Equal(t, true, ret)
 	})
@@ -894,11 +891,11 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare quorum prevotes at valid round.
-		for i := range committee {
-			preVote := message.NewPrevote(vr, height, proposal.Value(), makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(vr, height, proposal.Value(), makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfPVO(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -913,11 +910,11 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare quorum prevotes at wrong round.
-		for i := range committee {
-			preVote := message.NewPrevote(1, height, proposal.Value(), makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(1, height, proposal.Value(), makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfPVO(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -934,7 +931,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		v := message.NewPrevote(vr, height, proposal.Value(), signer)
 		p.Evidences = append(p.Evidences, v)
 
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfPVO(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -948,11 +945,11 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare only one prevotes at valid round.
-		for i := range committee {
-			preVote := message.NewPrevote(vr, height, noneNilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(vr, height, noneNilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfPVO(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -963,7 +960,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		wrongMsg := message.NewPrevote(1, height, noneNilValue, signer)
 		p.Message = wrongMsg
 
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfC1(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -974,7 +971,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		wrongMsg := message.NewPrecommit(1, height, nilValue, signer)
 		p.Message = wrongMsg
 
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfC1(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -988,7 +985,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		preVote := message.NewPrevote(0, height, noneNilValue, signer)
 		p.Evidences = append(p.Evidences, preVote)
 
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfC1(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -1003,7 +1000,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, preVote)
 		p.Evidences = append(p.Evidences, p.Evidences...)
 
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfC1(&p, nil)
 		assert.Equal(t, false, ret)
 	})
@@ -1017,7 +1014,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		preVote := message.NewPrevote(1, height, noneNilValue, signer)
 		p.Evidences = append(p.Evidences, preVote)
 
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfC1(&p, chainMock)
 		assert.Equal(t, false, ret)
 	})
@@ -1027,12 +1024,12 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Rule = autonity.C1
 		preCommit := message.NewPrecommit(1, height, noneNilValue, signer)
 		p.Message = preCommit
-		for i := range committee {
-			preVote := message.NewPrevote(1, height, noneNilValue, makeSigner(keys[i], committee[i]))
+		for i := range committee.Members {
+			preVote := message.NewPrevote(1, height, noneNilValue, makeSigner(keys[i], committee.Members[i]))
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
-		validateProof(&p, lastHeader)
+		validateProof(&p, committee)
 		ret := validInnocenceProofOfC1(&p, chainMock)
 		assert.Equal(t, true, ret)
 	})
@@ -1043,13 +1040,11 @@ func TestVerifyProofSignatures(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	height := uint64(100)
-	lastHeight := height - 1
 	round := int64(0)
 	chainMock := NewMockChainContext(ctrl)
-	currentHeader := newBlockHeader(lastHeight, committee)
-	chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(currentHeader).AnyTimes()
 
 	t.Run("normal case, proposal msg is checked correctly", func(t *testing.T) {
+		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil).AnyTimes()
 		proposal := newProposalMessage(height, round, -1, signer, committee, nil)
 		require.Nil(t, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
@@ -1057,19 +1052,19 @@ func TestVerifyProofSignatures(t *testing.T) {
 	t.Run("a future msg is received, expect an error of errFutureMsg", func(t *testing.T) {
 		futureHeight := height + 1
 		proposal := newProposalMessage(futureHeight, round, -1, signer, committee, nil)
-		chainMock.EXPECT().GetHeaderByNumber(height).Return(nil)
+		chainMock.EXPECT().CommitteeOfHeight(futureHeight).Return(nil, consensus.ErrUnknownAncestor)
 		require.Equal(t, errFutureMsg, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
 
 	t.Run("chain cannot provide the last header of the height that msg votes on, expect an error of errFutureMsg", func(t *testing.T) {
 		proposal := newProposalMessage(height-5, round, -1, signer, committee, nil)
-		chainMock.EXPECT().GetHeaderByNumber(height - 6).Return(nil)
+		chainMock.EXPECT().CommitteeOfHeight(height-5).Return(nil, consensus.ErrUnknownAncestor)
 		require.Equal(t, errFutureMsg, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
 
 	t.Run("abnormal case, msg is not signed by committee", func(t *testing.T) {
 		wrongCommitte, ks := generateCommittee()
-		proposal := newProposalMessage(height, round, -1, makeSigner(ks[0], wrongCommitte[0]), wrongCommitte, nil)
+		proposal := newProposalMessage(height, round, -1, makeSigner(ks[0], wrongCommitte.Members[0]), wrongCommitte, nil)
 		require.Equal(t, errNotCommitteeMsg, verifyProofSignatures(chainMock, &Proof{Message: proposal}))
 	})
 }
@@ -1095,14 +1090,14 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 }
 
-func validateProof(p *Proof, header *types.Header) {
-	p.Message.Validate(header.CommitteeMember)
+func validateProof(p *Proof, committee *types.Committee) {
+	p.Message.Validate(committee.CommitteeMember)
 	for _, m := range p.Evidences {
-		m.Validate(header.CommitteeMember)
+		m.Validate(committee.CommitteeMember)
 	}
 }
 
-func makeSigner(key *ecdsa.PrivateKey, val types.CommitteeMember) message.Signer {
+func makeSigner(key *ecdsa.PrivateKey, val *types.CommitteeMember) message.Signer {
 	return func(hash common.Hash) ([]byte, common.Address) {
 		out, _ := crypto.Sign(hash[:], key)
 		return out, val.Address

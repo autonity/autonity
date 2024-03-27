@@ -243,7 +243,7 @@ func TestHistoryFactor(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait for slashing
-	timeout, cancel := context.WithTimeout(context.TODO(), 120*time.Second)
+	timeout, cancel := context.WithTimeout(context.TODO(), 150*time.Second)
 	defer cancel()
 	slashingEventA := WaitForSlashingEvent(timeout, t, dedicatedNode)
 

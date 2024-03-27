@@ -1219,6 +1219,7 @@ func setConsensusP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
+
 	setAutonityKeys(ctx, cfg)
 	setP2PConfig(ctx, &cfg.ExecutionP2P)
 	setConsensusP2PConfig(ctx, &cfg.ConsensusP2P)

@@ -191,6 +191,7 @@ func VerifyMultipleSignatures(sigs [][]byte, msgs [][32]byte, pubKeys []PublicKe
 		// Ignore error as the error will always be nil in `read` in math/rand.
 		_, _ = rand.Read(rbytes[:])
 		randLock.Unlock()
+
 		// Protect against the generator returning 0. Since the scalar value is
 		// derived from a big endian byte slice, we take the last byte.
 		rbytes[len(rbytes)-1] |= 0x01

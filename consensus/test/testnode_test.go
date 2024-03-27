@@ -44,14 +44,15 @@ type testNode struct {
 
 type netNode struct {
 	listener []net.Listener
-	nodeKey  *ecdsa.PrivateKey
-	host     string
-	acnhost  string
-	address  common.Address
-	port     int
-	acnPort  int
-	url      string
-	rpcPort  int
+
+	nodeKey *ecdsa.PrivateKey
+	host    string
+	acnhost string
+	address common.Address
+	port    int
+	acnPort int
+	url     string
+	rpcPort int
 }
 
 func (n *netNode) EthAddress() common.Address {

@@ -16,11 +16,11 @@ func TestMsgStore(t *testing.T) {
 	round := int64(0)
 
 	committee, keys := GenerateCommittee(5)
-	proposer := committee[0].Address
+	proposer := committee.Members[0].Address
 	proposerKey := keys[proposer]
 
-	addrAlice := committee[0].Address
-	addrBob := committee[1].Address
+	addrAlice := committee.Members[0].Address
+	addrBob := committee.Members[1].Address
 	keyBob := keys[addrBob]
 	notNilValue := common.Hash{0x1}
 

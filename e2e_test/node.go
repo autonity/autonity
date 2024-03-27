@@ -726,6 +726,7 @@ func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validat
 		if err != nil {
 			return nil, err
 		}
+
 		//add port ip for consensus channel
 		u.AcnIP = u.NodeIP
 		u.AcnPort = freeport.GetOne(t)

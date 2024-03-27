@@ -2,6 +2,7 @@ package blst
 
 import (
 	"crypto/rand"
+
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"

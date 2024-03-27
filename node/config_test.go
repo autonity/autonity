@@ -142,6 +142,7 @@ func TestAutonityKeysPersistency(t *testing.T) {
 	if _, err := os.Stat(keyfile); err != nil {
 		t.Fatalf("node key not persisted to data directory: %v", err)
 	}
+
 	if _, _, err = crypto.LoadAutonityKeys(keyfile); err != nil {
 		t.Fatalf("failed to load freshly persisted node key: %v", err)
 	}

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"sort"
 	"strings"
 	"time"
 
@@ -334,22 +333,37 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}
+
+	committee := &types.Committee{}
+	if len(genesisCommittee) != 0 {
+		committee.Members = make([]*types.CommitteeMember, len(genesisCommittee))
+		for i, m := range genesisCommittee {
+			committee.Members[i] = &types.CommitteeMember{
+				Address:      m.Address,
+				VotingPower:  new(big.Int).Set(m.VotingPower),
+				ConsensusKey: m.ConsensusKey,
+			}
+		}
+		committee.Sort()
+	}
+
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
-		Number:     new(big.Int).SetUint64(g.Number),
-		Nonce:      types.EncodeNonce(g.Nonce),
-		Time:       g.Timestamp,
-		ParentHash: g.ParentHash,
-		Extra:      g.ExtraData,
-		GasLimit:   g.GasLimit,
-		GasUsed:    g.GasUsed,
-		BaseFee:    g.BaseFee,
-		Difficulty: g.Difficulty,
-		MixDigest:  g.Mixhash,
-		Coinbase:   g.Coinbase,
-		Root:       root,
-		Round:      0,
-		Committee:  genesisCommittee,
+		Number:         new(big.Int).SetUint64(g.Number),
+		Nonce:          types.EncodeNonce(g.Nonce),
+		Time:           g.Timestamp,
+		ParentHash:     g.ParentHash,
+		Extra:          g.ExtraData,
+		GasLimit:       g.GasLimit,
+		GasUsed:        g.GasUsed,
+		BaseFee:        g.BaseFee,
+		Difficulty:     g.Difficulty,
+		MixDigest:      g.Mixhash,
+		Coinbase:       g.Coinbase,
+		Root:           root,
+		Round:          0,
+		Committee:      committee,
+		LastEpochBlock: common.Big0,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
@@ -418,29 +432,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
-}
-
-// extractCommittee takes a slice of autonity users and extracts the validators
-// into a new type 'types.Committee' which is returned. It returns an error if
-// the provided users contained no validators.
-func extractCommittee(validators []*params.Validator) (types.Committee, error) {
-	var committee types.Committee
-	for _, v := range validators {
-		member := types.CommitteeMember{
-			Address:      *v.NodeAddress,
-			VotingPower:  v.BondedStake,
-			ConsensusKey: v.ConsensusKey,
-		}
-		committee = append(committee, member)
-	}
-
-	if len(committee) == 0 {
-		return nil, fmt.Errorf("no validators specified in the initial autonity validators")
-	}
-
-	sort.Sort(committee)
-
-	return committee, nil
 }
 
 func (g *Genesis) setDefaultHardforks() {

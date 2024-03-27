@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/require"
+
 	blst "github.com/supranational/blst/bindings/go"
 	"testing"
 )

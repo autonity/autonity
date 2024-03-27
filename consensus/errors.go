@@ -41,4 +41,11 @@ var (
 	// ErrCommitteeMemberNotFound is returned if the committee member is missing from
 	// the committee set.
 	ErrCommitteeMemberNotFound = errors.New("committee member not found")
+
+	// ErrUnknownEpoch is returned when validating a block requires an epoch header
+	// that is unknown.
+	ErrUnknownEpoch = errors.New("unknown epoch header")
+
+	// ErrInconsistentLastEpochBlock is returned if the lastEpochBlock is inconsistent
+	ErrInconsistentLastEpochBlock = errors.New("inconsistent lastEpochBlock value")
 )

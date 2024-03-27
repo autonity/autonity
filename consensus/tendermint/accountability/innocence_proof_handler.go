@@ -185,12 +185,12 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if the proof does not come from a committee member
 	msgHeight := proof.Message.H()
-	lastHeader := fd.blockchain.GetHeaderByNumber(msgHeight - 1)
-	if lastHeader == nil {
-		return errNoParentHeader
+	committee, err := fd.blockchain.CommitteeOfHeight(msgHeight)
+	if err != nil {
+		return err
 	}
-	memberShip := lastHeader.CommitteeMember(sender)
-	if memberShip == nil {
+
+	if committee.CommitteeMember(sender) == nil {
 		return errAccusationFromNoneValidator
 	}
 

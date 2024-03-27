@@ -16,7 +16,7 @@ import (
 )
 
 func TestGetCommittee(t *testing.T) {
-	want := types.Committee{}
+	want := &types.Committee{}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	c := consensus.NewMockChainReader(ctrl)
@@ -24,7 +24,7 @@ func TestGetCommittee(t *testing.T) {
 	c.EXPECT().GetHeaderByNumber(uint64(1)).Return(h)
 	api := &API{
 		chain: c,
-		getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
+		getCommittee: func(header *types.Header, chain consensus.ChainReader) (*types.Committee, error) {
 			if header == h && chain == c {
 				return want, nil
 			}
@@ -69,11 +69,11 @@ func TestGetCommitteeAtHash(t *testing.T) {
 		h := &types.Header{Number: big.NewInt(1)}
 		c.EXPECT().GetHeaderByHash(hash).Return(h)
 
-		want := types.Committee{}
+		want := &types.Committee{}
 
 		api := &API{
 			chain: c,
-			getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
+			getCommittee: func(header *types.Header, chain consensus.ChainReader) (*types.Committee, error) {
 				if header == h && chain == c {
 					return want, nil
 				}

@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"encoding/hex"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto/blst"

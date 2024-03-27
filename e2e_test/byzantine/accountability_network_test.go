@@ -138,7 +138,7 @@ func (s *GarbageOffChainAccusation) Broadcast(msg message.Msg) {
 
 	committee := s.Core.CommitteeSet().Committee()
 
-	for _, c := range committee {
+	for _, c := range committee.Members {
 		if c.Address == s.Address() {
 			continue
 		}

@@ -173,6 +173,36 @@ func (mr *MockChainContextMockRecorder) GetTd(hash, number any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTd", reflect.TypeOf((*MockChainContext)(nil).GetTd), hash, number)
 }
 
+// ChainHeadAndCommittee mocks base method
+func (m *MockChainContext) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChainHeadAndCommittee")
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[0].(*types.Header)
+	return ret0, ret1
+}
+
+// ChainHeadAndCommittee indicates an expected call of ChainHeadAndCommittee
+func (mr *MockChainContextMockRecorder) ChainHeadAndCommittee() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainHeadAndCommittee", reflect.TypeOf((*MockChainContext)(nil).ChainHeadAndCommittee))
+}
+
+// CommitteeOfHeight mocks base method
+func (m *MockChainContext) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeOfHeight", number)
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitteeOfHeight indicates an expected call of CommitteeOfHeight
+func (mr *MockChainContextMockRecorder) CommitteeOfHeight(number interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainContext)(nil).CommitteeOfHeight), number)
+}
+
 // HasBadBlock mocks base method.
 func (m *MockChainContext) HasBadBlock(hash common.Hash) bool {
 	m.ctrl.T.Helper()
