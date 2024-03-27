@@ -191,6 +191,7 @@ test-contracts-asm-pre:
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
+	@echo "dependencies installed"
 
 # start an autonity network for contract tests
 start-autonity:
