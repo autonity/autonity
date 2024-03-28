@@ -124,7 +124,7 @@ contract ACU is IACU {
                     latestRound,
                     _symbols[i]
                 );
-                if (roundData.status != 0) return false;
+                if (!roundData.isValid) return false;
                 price = roundData.price;
             }
             sumProduct += (price * int256(_quantities[i]));

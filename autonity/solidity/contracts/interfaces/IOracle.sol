@@ -9,7 +9,7 @@ interface IOracle {
         uint256 round;
         int256 price;
         uint timestamp;
-        uint status;
+        bool isValid;
     }
 
     /**
