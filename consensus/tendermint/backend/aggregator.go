@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
@@ -11,12 +12,11 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
 )
 
-//TODO(lorenzo) add logs to start and stop
-
-func newAggregator(backend interfaces.Backend) *aggregator {
-	return &aggregator{backend: backend, messages: make(map[common.Hash][]events.UnverifiedMessageEvent)}
+func newAggregator(backend interfaces.Backend, logger log.Logger) *aggregator {
+	return &aggregator{backend: backend, messages: make(map[common.Hash][]events.UnverifiedMessageEvent), logger: logger}
 }
 
 type aggregator struct {
@@ -25,13 +25,22 @@ type aggregator struct {
 	sub      *event.TypeMuxSubscription
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
+	logger   log.Logger
 }
 
 func (a *aggregator) start(ctx context.Context) {
+	a.logger.Info("Starting the aggregator routine")
 	a.sub = a.backend.Subscribe(events.UnverifiedMessageEvent{})
 	ctx, a.cancel = context.WithCancel(ctx)
 	a.wg.Add(1)
 	go a.loop(ctx)
+}
+
+func tryDisconnect(errorCh chan<- error, err error) {
+	select {
+	case errorCh <- err:
+	default: // do nothing
+	}
 }
 
 func (a *aggregator) loop(ctx context.Context) {
@@ -52,30 +61,30 @@ loop:
 			switch msg.(type) {
 			case *message.Propose:
 				propose := msg.(*message.Propose)
-				if propose.Validate() == nil {
-					go a.backend.Post(events.MessageEvent{
-						Message: msg,
-						ErrCh:   event.ErrCh,
-					})
-				} else {
-					panic("TODO: signature verification failed") //TODO(lorenzo) disconnect peer and eventually remove msgs
+				if err := propose.Validate(); err != nil {
+					//TODO(lorenzo) also remove msgs sent by same p2p peer?
+					tryDisconnect(event.ErrCh, err)
 				}
+				go a.backend.Post(events.MessageEvent{
+					Message: msg,
+					ErrCh:   event.ErrCh,
+				})
 			case *message.AggregatePrevote, *message.AggregatePrecommit:
-				if msg.(message.AggregateMsg).Validate() == nil {
-					go a.backend.Post(events.MessageEvent{
-						Message: msg,
-						ErrCh:   event.ErrCh,
-					})
-				} else {
-					panic("TODO: signature verification failed") //TODO(lorenzo) disconnect peer and eventually remove msgs
+				if err := msg.(message.AggregateMsg).Validate(); err != nil {
+					//TODO(lorenzo) also remove msgs sent by same p2p peer?
+					tryDisconnect(event.ErrCh, err)
 				}
+				go a.backend.Post(events.MessageEvent{
+					Message: msg,
+					ErrCh:   event.ErrCh,
+				})
 
 			case *message.Prevote, *message.Precommit:
 				// batch
 				signatureInput := event.Message.SignatureInput()
 				a.messages[signatureInput] = append(a.messages[signatureInput], event) //TODO(lorenzo) does this work + optimize allocation
 			default:
-				panic("TODO") //TODO(lorenzo) fix
+				a.logger.Crit("unknown message type arrived in aggregator")
 			}
 		case <-timer.C:
 			for hash, batch := range a.messages {
@@ -91,15 +100,15 @@ loop:
 				aggregateSignature := blst.Aggregate(signatures)
 				valid := aggregateSignature.FastAggregateVerify(pubkeys, hash)
 				if valid {
-					// send to core and FD
+					// all votes are valid, send to core and FD
 
-					// same batch --> same height
-					height := batch[0].Message.H()
+					// same batch --> same signature input --> same height
+					height := messages[0].H()
 
 					parent := a.backend.BlockChain().GetHeaderByNumber(height - 1)
 					if parent == nil {
 						// shouldn't happen due to future msgs being buffered before
-						panic("TODO")
+						a.logger.Crit("Cannot fetch parent header for non-future consensus message")
 					}
 
 					var aggregateVote message.Msg
@@ -109,19 +118,12 @@ loop:
 					case *message.Precommit:
 						aggregateVote = message.NewAggregatePrecommit(messages, parent)
 					default:
-						panic("TODO") //TODO(lorenzo) fix
-					}
-					//TODO(lorenzo) is this the bestway?
-					err := aggregateVote.PreValidate(parent)
-					if err != nil {
-						panic(err)
+						a.logger.Crit("messages being aggregated are not individual votes", "type", reflect.TypeOf(messages[0]))
 					}
 
-					//TODO fix
 					go a.backend.Post(events.MessageEvent{
 						Message: aggregateVote,
-						ErrCh:   nil, //TODO(lorenzo) fix (custom event type)
-						//ErrCh:   errCh,
+						ErrCh:   nil, //TODO(lorenzo) do we add an errCh here?
 					})
 				} else {
 					panic("TODO") //TODO(lorenzo) deal with unhappy case
@@ -136,6 +138,7 @@ loop:
 }
 
 func (a *aggregator) stop() {
+	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
 	a.wg.Wait()
 }

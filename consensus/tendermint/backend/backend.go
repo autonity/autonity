@@ -74,17 +74,12 @@ func New(nodeKey *ecdsa.PrivateKey,
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	//TODO(lorenzo) merge? reorganize also core
-	aggregator := newAggregator(backend)
-	backend.aggregator = aggregator
-
-	core := tendermintCore.New(backend, services, backend.address, log)
-
+	backend.aggregator = newAggregator(backend, log)
 	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
-	backend.core = core
+	backend.core = tendermintCore.New(backend, services, backend.address, log)
 	return backend
 }
 

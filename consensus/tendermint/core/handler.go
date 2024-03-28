@@ -312,6 +312,11 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 }
 
 func tryDisconnect(errorCh chan<- error, err error) {
+	//TODO(lorenzo) if aggregated vote, we will have no error channel. Or we can try to figure out still which peer sends this message
+	if errorCh == nil {
+		return
+	}
+
 	select {
 	case errorCh <- err:
 	default: // do nothing

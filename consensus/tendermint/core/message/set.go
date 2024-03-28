@@ -90,7 +90,7 @@ func (s *Set[T]) TotalPower() *big.Int {
 	s.RLock()
 	defer s.RUnlock()
 	power := new(big.Int)
-	// NOTE: in case of equivocated messages, we count power only once
+	// NOTE: in case of equivocated messages, we count power only once --> write a test for it
 	accountedFor := make(map[common.Address]struct{})
 	for _, votes := range s.votes {
 		power.Add(power, s.power(votes, accountedFor))
