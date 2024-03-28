@@ -7,7 +7,7 @@ import "../Liquid.sol";
 import "./LiquidRewardManager.sol";
 import "./VestingCalculator.sol";
 
-contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
+contract VestingManager is IStakeProxy, LiquidRewardManager {
     // NTN can be here: LOCKED or UNLOCKED
     // LOCKED are tokens that can't be withdrawn yet, need to wait for the release schedule
     // UNLOCKED are tokens that got released but not yet transferred
@@ -16,16 +16,18 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     address private operator;
 
     struct Schedule {
+        uint256 initialAmount;
+        uint256 releasedAmount;
         uint256 totalAmount;
         uint256 start;
         uint256 cliff;
         uint256 end;
-        uint256 vestingID;
+        // uint256 vestingID;
         bool canStake;
         bool canceled;
     }
 
-    mapping(uint256 => mapping(address => uint256)) private liquidVestingIDs;
+    // mapping(uint256 => mapping(address => uint256)) private liquidVestingIDs;
 
     // stores the unique ids of schedules assigned to a beneficiary, but beneficiary does not need to know the id
     // beneficiary will number his schedules as: 0 for first schedule, 1 for 2nd and so on
@@ -48,9 +50,7 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     }
 
     mapping(uint256 => PendingBondingRequest) private pendingBondingRequest;
-    mapping(uint256 => uint256) private pendingBondingVesting;
     mapping(uint256 => PendingUnbondingRequest) private pendingUnbondingRequest;
-    mapping(uint256 => uint256) private pendingUnbondingVesting;
 
     // bondingToSchedule[bondingID] stores the unique schedule (id+1) which requested the bonding
     mapping(uint256 => uint256) private bondingToSchedule;
@@ -59,6 +59,19 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     mapping(uint256 => uint256) private unbondingToSchedule;
 
     mapping(uint256 => address) private cancelRecipient;
+
+    struct Ratio {
+        uint256 liquid;
+        uint256 valueNTN;
+        uint256 lastUpdateEpoch;
+    }
+
+    // Stores ratio for each pair of (id,v) where id = unique schedule id and v = validator address.
+    // There should be only one ratio for one valdiator, but if we keep only one object of ratio for a validator then
+    // each time the ratio is updated, all schedules bonded to that validator will have to be updated.
+    // To make it efficient, we store object of ratio for each pair of (id,v), if schedule id has bonded to validator v.
+    // So if the ratio of (id,v) is updated then only the schedule of id needs to be updated.
+    mapping(uint256 => mapping(address => Ratio)) private liquidValue;
 
     constructor(address payable _autonity, address _operator) LiquidRewardManager(_autonity) {
         operator = _operator;
@@ -87,8 +100,8 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         require(_transferred, "amount not approved");
 
         uint256 _scheduleID = schedules.length;
-        uint256 _vestingID = _newVesting(_amount, _startBlock, _cliffBlock, _endBlock);
-        schedules.push(Schedule(_amount, _startBlock, _cliffBlock, _endBlock, _vestingID, _canStake, false));
+        // uint256 _vestingID = _newVesting(_amount, _startBlock, _cliffBlock, _endBlock);
+        schedules.push(Schedule(_amount, 0, _amount, _startBlock, _cliffBlock, _endBlock, _canStake, false));
         beneficiarySchedules[_beneficiary].push(_scheduleID);
     }
 
@@ -97,33 +110,52 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
      * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (including canceled ones)
      */
     function releaseFunds(uint256 _id) virtual public onlyActive(_id) {
-        releaseAllLNTN(_id);
+        // first NTN is released
         releaseAllNTN(_id);
+        // if there still remains some released amount, i.e. not enough NTN, then LNTN is released
+        releaseAllLNTN(_id);
     }
 
-    /** @notice used by beneficiary to transfer all unlocked LNTN of some schedule to his own address
-     */
-    function releaseAllLNTN(uint256 _id) virtual public onlyActive(_id) {
-        uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
-        address[] memory _validators = _bondedValidators(_scheduleID);
-        for (uint256 i = 0; i < _validators.length; i++) {
-            uint256 _amount = _decreaseAllUnlocked(liquidVestingIDs[_scheduleID][_validators[i]]);
-            if (_amount > 0) {
-                _transferLNTN(_scheduleID, msg.sender, _amount, _validators[i]);
-            }
-        }
-    }
-
-    /** @notice used by beneficiary to transfer all unlocked NTN of some schedule to his own address
-     */
+    /** @notice used by beneficiary to transfer all unlocked NTN of some schedule to his own address */
     function releaseAllNTN(uint256 _id) virtual public onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.cliff < block.number, "not reached cliff period yet");
-        uint256 _amount = _decreaseAllUnlocked(_schedule.vestingID);
-        if (_amount > 0) {
-            _transferNTN(_scheduleID, msg.sender, _amount);
+        require(_schedule.cliff <= block.number, "not reached cliff period yet");
+        uint256 _released = _releasedFunds(_scheduleID);
+        if (_released > _schedule.totalAmount) {
+            _transferNTN(_scheduleID, msg.sender, _schedule.totalAmount);
         }
+        else if (_released > 0) {
+            _transferNTN(_scheduleID, msg.sender, _released);
+        }
+    }
+
+    /** @notice used by beneficiary to transfer all unlocked LNTN of some schedule to his own address */
+    function releaseAllLNTN(uint256 _id) virtual public onlyActive(_id) {
+        uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
+        Schedule storage _schedule = schedules[_scheduleID];
+        require(_schedule.cliff <= block.number, "not reached cliff period yet");
+        uint256 _released = _releasedFunds(_scheduleID);
+        uint256 _remaining = _released;
+        address[] memory _validators = _bondedValidators(_scheduleID);
+        for (uint256 i = 0; i < _validators.length && _remaining > 0; i++) {
+            uint256 _balance = _unlockedLiquidBalanceOf(_scheduleID, _validators[i]);
+            if (_balance == 0) {
+                continue;
+            }
+            Ratio storage _ratio = liquidValue[_scheduleID][_validators[i]];
+            uint256 _value = _fromLiquid(_ratio.liquid, _ratio.valueNTN, _balance);
+            if (_remaining >= _value) {
+                _remaining -= _value;
+                _transferLNTN(_scheduleID, msg.sender, _balance, _validators[i]);
+            }
+            else {
+                uint256 _liquid = _toLiquid(_ratio.valueNTN, _ratio.liquid, _remaining);
+                _remaining = 0;
+                _transferLNTN(_scheduleID, msg.sender, _liquid, _validators[i]);
+            }
+        }
+        _schedule.releasedAmount += _released - _remaining;
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
@@ -133,20 +165,37 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     function releaseNTN(uint256 _id, uint256 _amount) virtual public onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.cliff < block.number, "not reached cliff period yet");
-        _decreaseUnlocked(_schedule.vestingID, _amount);
-        _transferNTN(_scheduleID, msg.sender, _amount);
+        require(_schedule.cliff <= block.number, "not reached cliff period yet");
+        uint256 _released = _releasedFunds(_scheduleID);
+        if (_amount < _released) {
+            _transferNTN(_scheduleID, msg.sender, _amount);
+        }
+        else {
+            _transferNTN(_scheduleID, msg.sender, _released);
+        }
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     /** @notice used by beneficiary to transfer some amount of unlocked LNTN of some schedule to his own address
      * @param _validator address of the validator
-     * @param _amount amount to transfer
+     * @param _amount amount of LNTN to transfer
      */
     function releaseLNTN(uint256 _id, address _validator, uint256 _amount) virtual public onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
-        _decreaseUnlocked(liquidVestingIDs[_scheduleID][_validator], _amount);
+        Schedule storage _schedule = schedules[_scheduleID];
+        require(_schedule.cliff <= block.number, "not reached cliff period yet");
+        require(_unlockedLiquidBalanceOf(_scheduleID, _validator) >= _amount, "not enough unlocked LNTN");
+        uint256 _released = _releasedFunds(_scheduleID);
+        Ratio storage _ratio = liquidValue[_scheduleID][_validator];
+        uint256 _value = _fromLiquid(_ratio.liquid, _ratio.valueNTN, _amount);
+        if (_value > _released) {
+            // not enough released, reduce liquid accordingly
+            _value = _released;
+            _amount = _toLiquid(_ratio.valueNTN, _ratio.liquid, _released);
+        }
+        _schedule.releasedAmount += _value;
         _transferLNTN(_scheduleID, msg.sender, _amount, _validator);
+        
     }
 
     /** @notice force release of all funds, NTN and LNTN, of some schedule and return them to the _recipient account
@@ -157,21 +206,20 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
      * @param _recipient to whome the all funds will be transferred
      */
     function cancelSchedule(address _beneficiary, uint256 _id, address _recipient) virtual public onlyOperator {
+        // we don't care about updating the schedule as the schedule is canceled
         uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
         Schedule storage _item = schedules[_scheduleID];
-        _transferNTN(_scheduleID, _recipient, _item.totalAmount);
-        _removeVesting(_item.vestingID);
+        require(_item.canceled == false, "schedule already canceled");
         address[] memory _validators = _bondedValidators(_scheduleID);
         for (uint256 i = 0; i < _validators.length; i++) {
             uint256 _amount = _unlockedLiquidBalanceOf(_scheduleID, _validators[i]);
             if (_amount > 0) {
                 _transferLNTN(_scheduleID, _recipient, _amount, _validators[i]);
             }
-            _removeVesting(liquidVestingIDs[_scheduleID][_validators[i]]);
-            delete liquidVestingIDs[_scheduleID][_validators[i]];
         }
         _item.canceled = true;
         cancelRecipient[_scheduleID] = _recipient;
+        _transferNTN(_scheduleID, _recipient, _item.totalAmount);
     }
 
     /** @notice Used by beneficiary to bond some NTN of some schedule. only schedules with canStake = true can be staked. Use canStake function
@@ -190,7 +238,6 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         bondingToSchedule[_bondingID] = _scheduleID+1;
         pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _validator);
         _schedule.totalAmount -= _amount;
-        pendingBondingVesting[_bondingID] = _createDelegation(_schedule.vestingID, _amount);
         return _bondingID;
     }
 
@@ -254,6 +301,93 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         _releaseUnbonding(_unbondingID, _amount);
     }
 
+    /** @dev returns equivalent amount of NTN using the ratio.
+     * takes floor to match the calculation with Autonity
+     * @param _liquid amount of LNTN in the ratio
+     * @param _valueNTN amount of NTN in the ratio
+     * @param _amount amount of LNTN to be converted
+     */
+    function _fromLiquid(uint256 _liquid, uint256 _valueNTN, uint256 _amount) private pure returns (uint256) {
+        // return math.floor(_liquid * _ratio.valueNTN / _ratio.liquid)
+        return _amount * _valueNTN / _liquid;
+    }
+
+    /** @dev returns equivalent amount of NTN using the ratio.
+     * takes ceil to match the conversion from liquid to NTN in _fromLiquid
+     * @param _valueNTN amount of NTN in the ratio
+     * @param _liquid amount of LNTN in the ratio
+     * @param _amount amount of NTN to be converted
+     */
+    function _toLiquid(uint256 _valueNTN, uint256 _liquid, uint256 _amount) private pure returns (uint256) {
+        // return math.ceil(_amount * _ratio.liquid / _ratio.valueNTN)
+        return (_amount * _liquid + _valueNTN - 1) / _valueNTN;
+    }
+
+    function _updateSchedule(uint256 _scheduleID) private {
+        uint256 _epochID = _epochID();
+        address[] memory _validators = _bondedValidators(_scheduleID);
+        for (uint256 i = 0; i < _validators.length; i++) {
+            uint256 _balance = _liquidBalanceOf(_scheduleID, _validators[i]);
+            if (_balance == 0 || liquidValue[_scheduleID][_validators[i]].lastUpdateEpoch == _epochID) {
+                continue;
+            }
+            // view only call
+            Autonity.Validator memory _validatorInfo = autonity.getValidator(_validators[i]);
+            _updateRatio(
+                _scheduleID, _validators[i], _validatorInfo.bondedStake - _validatorInfo.selfBondedStake,
+                _validatorInfo.liquidSupply, _epochID
+            );
+        }
+    }
+
+    function _updateRatio(
+        uint256 _scheduleID,
+        address _validator,
+        uint256 _valueNTN,
+        uint256 _liquid,
+        uint256 _epochID
+    ) private {
+        require(_liquid > 0, "liquid supply cannot be zero");
+        Ratio storage _ratio = liquidValue[_scheduleID][_validator];
+        _ratio.lastUpdateEpoch = _epochID;
+        // if ratio did not change, return
+        if (_ratio.valueNTN > 0 && _ratio.liquid > 0 && _ratio.valueNTN * _liquid == _ratio.liquid * _valueNTN) {
+            return;
+        }
+        Schedule storage _schedule = schedules[_scheduleID];
+        uint256 _balance = _liquidBalanceOf(_scheduleID, _validator);
+        if (_balance != 0) {
+            // old ratio
+            _schedule.initialAmount -= _fromLiquid(_ratio.liquid, _ratio.valueNTN, _balance);
+        }
+        // new ratio
+        _ratio.valueNTN = _valueNTN;
+        _ratio.liquid = _liquid;
+        if (_balance != 0) {
+            _schedule.initialAmount += _fromLiquid(_ratio.liquid, _ratio.valueNTN, _balance);
+        }
+    }
+
+    function _releasedFunds(uint256 _scheduleID) private returns (uint256) {
+        Schedule storage _schedule = schedules[_scheduleID];
+        if (block.number < _schedule.cliff) return 0;
+        // update the ratio of LNTN:NTN for each bonding of this schedule
+        // also update the initial amount of the schedule according to the value of LNTN
+        _updateSchedule(_scheduleID);
+        uint256 _released = 0;
+        if (block.number >= _schedule.end) {
+            _released = _schedule.initialAmount;
+        }
+        else {
+            _released = _schedule.initialAmount * (block.number - _schedule.start) / (_schedule.end - _schedule.start);
+        }
+
+        if (_released > _schedule.releasedAmount) {
+            return _released - _schedule.releasedAmount;
+        }
+        return 0;
+    }
+
     /** @dev returns a unique id for each schedule
      * @param _beneficiary address of the schedule holder
      * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (including canceled ones)
@@ -264,16 +398,17 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     }
 
     function _transferNTN(uint256 _scheduleID, address _to, uint256 _amount) private {
+        schedules[_scheduleID].totalAmount -= _amount;
+        schedules[_scheduleID].releasedAmount += _amount;
         bool _sent = autonity.transfer(_to, _amount);
         require(_sent, "NTN not transferred");
-        schedules[_scheduleID].totalAmount -= _amount;
     }
 
     function _transferLNTN(uint256 _scheduleID, address _to, uint256 _amount, address _validator) private {
+        _decreaseLiquid(_scheduleID, _validator, _amount);
         Liquid _liquidContract = autonity.getValidator(_validator).liquidContract;
         bool _sent = _liquidContract.transfer(_to, _amount);
         require(_sent, "LNTN transfer failed");
-        _decreaseLiquid(_scheduleID, _validator, _amount);
     }
 
     function _applyBonding(uint256 _bondingID, uint256 _liquid, bool _selfDelegation, bool _rejected) internal {
@@ -284,27 +419,24 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
         if (_rejected) {
             uint256 _amount = pendingBondingRequest[_bondingID].amount;
             _schedule.totalAmount += _amount;
-            _schedule.vestingID = _mergeVesting(_schedule.vestingID, pendingBondingVesting[_bondingID]);
         }
         else {
-            address _validator = pendingBondingRequest[_bondingID].validator;
+            PendingBondingRequest storage _request = pendingBondingRequest[_bondingID];
+            address _validator = _request.validator;
+            // ratio needs to be updated before liquid is increased
+            _updateRatio(_scheduleID, _validator, _request.amount, _liquid, _epochID());
+            // TODO: try without updating ratio for efficient gas usage -> use exisiting ratio to update _schedule.initialAmount
             _increaseLiquid(_scheduleID, _validator, _liquid);
-            _updateVesting(pendingBondingVesting[_bondingID], _liquid);
-            liquidVestingIDs[_scheduleID][_validator]
-                = _mergeVesting(liquidVestingIDs[_scheduleID][_validator], pendingBondingVesting[_bondingID]);
         }
         if (_schedule.canceled) {
             if (_rejected) {
-                _transferNTN(_scheduleID, cancelRecipient[_scheduleID], pendingBondingRequest[_bondingID].amount);
-                _removeVesting(_schedule.vestingID);
+                _transferNTN(_scheduleID, cancelRecipient[_scheduleID], _schedule.totalAmount);
             }
             else {
-                address _validator = pendingBondingRequest[_bondingID].validator;
-                _transferLNTN(_scheduleID, cancelRecipient[_scheduleID], _liquid, _validator);
-                _removeVesting(liquidVestingIDs[_scheduleID][_validator]);
+                _transferLNTN(_scheduleID, cancelRecipient[_scheduleID], _liquid, pendingBondingRequest[_bondingID].validator);
             }
         }
-        delete pendingBondingVesting[_bondingID];
+        // TODO: try without removing the elements and compare gas usage
         delete pendingBondingRequest[_bondingID];
         delete bondingToSchedule[_bondingID];
     }
@@ -312,33 +444,31 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
     function _applyUnbonding(uint256 _unbondingID) internal {
         require(unbondingToSchedule[_unbondingID] > 0, "invalid unbonding id");
         uint256 _scheduleID = unbondingToSchedule[_unbondingID]-1;
+        // TODO: try memory instead of storage and compare gas usage, because the fields are read many times
         PendingUnbondingRequest storage _unbondingRequst = pendingUnbondingRequest[_unbondingID];
         _unlock(_scheduleID, _unbondingRequst.validator, _unbondingRequst.amount);
         _decreaseLiquid(_scheduleID, _unbondingRequst.validator, _unbondingRequst.amount);
         if (schedules[_scheduleID].canceled == false) {
-            pendingUnbondingVesting[_unbondingID]
-                = _createDelegation(liquidVestingIDs[_scheduleID][_unbondingRequst.validator], _unbondingRequst.amount);
+            Ratio storage _ratio = liquidValue[_scheduleID][_unbondingRequst.validator];
+            schedules[_scheduleID].initialAmount -= _fromLiquid(_ratio.liquid, _ratio.valueNTN, _unbondingRequst.amount);
         }
+        // TODO: try without removing the elements and compare gas usage
         delete pendingUnbondingRequest[_unbondingID];
     }
 
     function _releaseUnbonding(uint256 _unbondingID, uint256 _amount) internal {
         require(unbondingToSchedule[_unbondingID] > 0, "invalid unbonding id");
         uint256 _scheduleID = unbondingToSchedule[_unbondingID]-1;
-        Schedule storage _item = schedules[_scheduleID];
-        _item.totalAmount += _amount;
-        if (_item.canceled && _amount > 0) {
-            _transferNTN(_scheduleID, cancelRecipient[_scheduleID], _amount);
+        if (_amount > 0) {
+            Schedule storage _item = schedules[_scheduleID];
+            _item.totalAmount += _amount;
+            _item.initialAmount += _amount;
+            if (_item.canceled) {
+                _transferNTN(_scheduleID, cancelRecipient[_scheduleID], _amount);
+            }
         }
-        if (_item.canceled) {
-            _removeVesting(pendingUnbondingVesting[_unbondingID]);
-        }
-        else {
-            _updateVesting(pendingUnbondingVesting[_unbondingID], _amount);
-            _item.vestingID = _mergeVesting(_item.vestingID, pendingUnbondingVesting[_unbondingID]);
-        }
+        // TODO: try without removing the elements and compare gas usage
         delete unbondingToSchedule[_unbondingID];
-        delete pendingUnbondingVesting[_unbondingID];
     }
 
     /*
@@ -399,38 +529,27 @@ contract VestingManager is IStakeProxy, LiquidRewardManager, VestingCalculator {
      * @param _validator validator address
      */
     function liquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
-        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        return _liquidBalanceOf(_scheduleID, _validator);
+        return _liquidBalanceOf(_getUniqueScheduleID(_beneficiary, _id), _validator);
     }
 
     /** @notice returns the amount of locked LNTN for some schedule */
     function lockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
-        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        return _lockedLiquidBalanceOf(_scheduleID, _validator);
+        return _lockedLiquidBalanceOf(_getUniqueScheduleID(_beneficiary, _id), _validator);
     }
 
     /** @notice returns the amount of unlocked LNTN for some schedule */
     function unlockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
-        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        return _unlockedLiquidBalanceOf(_scheduleID, _validator);
+        return _unlockedLiquidBalanceOf(_getUniqueScheduleID(_beneficiary, _id), _validator);
     }
 
     /** @notice returns the list of validators bonded some schedule */
     function getBondedValidators(address _beneficiary, uint256 _id) virtual external view returns (address[] memory) {
-        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        return _bondedValidators(_scheduleID);
+        return _bondedValidators(_getUniqueScheduleID(_beneficiary, _id));
     }
 
-    /** @notice returns the amount of NTN released for some schedule */
-    function releasedNTN(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
-        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        return releasedFunds(schedules[_scheduleID].vestingID);
-    }
-
-    /** @notice returns the amount of LNTN released for some schedule that bonded some funds */
-    function releasedLNTN(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
-        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        return releasedFunds(liquidVestingIDs[_scheduleID][_validator]);
+    /** @notice returns the amount of released funds in NTN for some schedule */
+    function releasedFunds(address _beneficiary, uint256 _id) virtual external returns (uint256) {
+        return _releasedFunds(_getUniqueScheduleID(_beneficiary, _id));
     }
 
     /*
