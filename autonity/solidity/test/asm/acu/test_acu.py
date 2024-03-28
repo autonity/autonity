@@ -322,7 +322,7 @@ def test_update_missing_price(acu_basic, users, tracing):
     ape.chain.mine(vote_period)
     acu_basic.oracle.finalize(sender=users.autonity)
     for symbol in acu_basic.symbols:
-        assert acu_basic.oracle.latestRoundData(symbol).isValid == false
+        assert acu_basic.oracle.latestRoundData(symbol).isValid is False
     receipt = acu_basic.contract.update(sender=users.autonity)
     assert receipt.return_value is False
     with ape.reverts(acu_basic.contract.NoACUValue):
