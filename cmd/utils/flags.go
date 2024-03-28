@@ -595,6 +595,10 @@ var (
 		Usage: "Allow for unprotected (non EIP155 signed) transactions to be submitted via RPC",
 	}
 
+	NoGossip = cli.BoolFlag{
+		Name:  "nogossip",
+		Usage: "disable consensensus message gossip",
+	}
 	//Consensus Network settings
 	ConsensusListenPortFlag = cli.IntFlag{
 		Name:  "consensus.port",
@@ -1230,10 +1234,12 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setDataDir(ctx, cfg)
 	setSmartCard(ctx, cfg)
 
+	if ctx.GlobalBool(NoGossip.Name) {
+		cfg.NoGossip = ctx.GlobalBool(NoGossip.Name)
+	}
 	if ctx.GlobalIsSet(ExternalSignerFlag.Name) {
 		cfg.ExternalSigner = ctx.GlobalString(ExternalSignerFlag.Name)
 	}
-
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}

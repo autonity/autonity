@@ -88,7 +88,7 @@ func TestStartRoundVariables(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().HeadBlock().Return(prevBlock)
 
-		core := New(backendMock, nil, clientAddress, log.Root())
+		core := New(backendMock, nil, clientAddress, log.Root(), false)
 
 		overrideDefaultCoreValues(core)
 		core.StartRound(context.Background(), currentRound)
@@ -110,7 +110,7 @@ func TestStartRoundVariables(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().HeadBlock().Return(prevBlock).MaxTimes(2)
 
-		core := New(backendMock, nil, clientAddress, log.Root())
+		core := New(backendMock, nil, clientAddress, log.Root(), false)
 		overrideDefaultCoreValues(core)
 		core.StartRound(context.Background(), currentRound)
 
@@ -174,7 +174,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
-		core := New(backendMock, nil, clientAddr, log.Root())
+		core := New(backendMock, nil, clientAddr, log.Root(), false)
 		core.committee = committeeSet
 		// We assume that round 0 can only happen when we move to a new height, therefore, height is
 		// incremented by 1 in start round when round = 0, However, in test case where
@@ -212,7 +212,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-		core := New(backendMock, nil, clientAddr, log.Root())
+		core := New(backendMock, nil, clientAddr, log.Root(), false)
 		core.committee = committeeSet
 		core.height = proposalHeight
 		core.validRound = validR
@@ -241,7 +241,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-		core := New(backendMock, nil, newClientAddr, log.Root())
+		core := New(backendMock, nil, newClientAddr, log.Root(), false)
 
 		if currentRound > 0 {
 			core.committee = committeeSet
@@ -270,7 +270,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -293,7 +293,7 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setCommitteeSet(committeeSet)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -322,7 +322,7 @@ func TestNewProposal(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -363,7 +363,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		// if lockedRround = - 1 then lockedValue = nil
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -398,7 +398,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -437,7 +437,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -490,7 +490,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -540,7 +540,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -589,7 +589,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -709,7 +709,7 @@ func TestOldProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 
 		c.setCommitteeSet(committeeSet)
 		// construct round state with: old round's quorum-1 prevote for v on valid round.
@@ -784,7 +784,7 @@ func TestProposeTimeout(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -826,7 +826,7 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -874,7 +874,7 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -923,7 +923,7 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -948,7 +948,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -991,7 +991,7 @@ func TestQuorumPrevote(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -1042,7 +1042,7 @@ func TestQuorumPrevote(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -1113,7 +1113,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
-	c := New(backendMock, nil, clientAddr, log.Root())
+	c := New(backendMock, nil, clientAddr, log.Root(), false)
 	c.setHeight(currentHeight)
 	c.setRound(currentRound)
 	c.setCommitteeSet(committeeSet)
@@ -1159,7 +1159,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.SetStep(context.Background(), Propose)
@@ -1208,7 +1208,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -1262,7 +1262,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(height)
 		c.setRound(round)
 		c.setCommitteeSet(committeeSet)
@@ -1312,7 +1312,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -1342,7 +1342,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -1383,7 +1383,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	defer ctrl.Finish()
 
 	backendMock := interfaces.NewMockBackend(ctrl)
-	c := New(backendMock, nil, clientAddr, log.Root())
+	c := New(backendMock, nil, clientAddr, log.Root(), false)
 	c.setHeight(currentHeight)
 	c.setRound(currentRound)
 	c.setCommitteeSet(committeeSet)
@@ -1468,7 +1468,7 @@ func TestFutureRoundChange(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -1511,7 +1511,7 @@ func TestFutureRoundChange(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		c := New(backendMock, nil, clientAddr, log.Root())
+		c := New(backendMock, nil, clientAddr, log.Root(), false)
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
@@ -1558,7 +1558,7 @@ func TestHandleMessage(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		core := New(backendMock, nil, key1PubAddr, log.Root())
+		core := New(backendMock, nil, key1PubAddr, log.Root(), false)
 		core.height = new(big.Int).Add(prevHeight, common.Big1)
 		core.setCommitteeSet(committeeSet)
 		core.setLastHeader(prevBlock.Header())
@@ -1580,7 +1580,7 @@ func TestHandleMessage(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		core := New(backendMock, nil, key1PubAddr, log.Root())
+		core := New(backendMock, nil, key1PubAddr, log.Root(), false)
 		core.setCommitteeSet(committeeSet)
 		core.setHeight(new(big.Int).Add(prevBlock.Header().Number, common.Big1))
 		core.setLastHeader(prevBlock.Header())
