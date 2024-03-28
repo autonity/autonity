@@ -10,7 +10,6 @@ import "./interfaces/IOracle.sol";
 *  should keep our upgrade mechanism
 */
 contract Oracle is IOracle {
-    enum PriceStatus {SUCCESS, FAILURE}
     // This is a special value representing unable to fetch the correct data.
     int256 internal constant INVALID_PRICE = type(int256).max;
     uint internal constant VOTING_GAS = 30_000;
@@ -38,8 +37,7 @@ contract Oracle is IOracle {
     struct Price {
         int256 price;
         uint timestamp;
-        PriceStatus status; // Do we get back a status code if couldn't compute last
-        // price in time ?
+        bool isValid;
     }
     // TODO: prices can be changed to mapping of mapping ???
     mapping(string => Price)[] internal prices;
@@ -186,16 +184,16 @@ contract Oracle is IOracle {
             _totalReports[_count++] = reports[_symbol][_voter];
         }
         int256 _priceMedian = prices[round-1][_symbol].price;
-        PriceStatus pStatus = PriceStatus.FAILURE;
+        bool isValid = false;
         if (_count > 0) {
             _priceMedian = _getMedian(_totalReports, _count);
-            pStatus = PriceStatus.SUCCESS;
+            isValid = true;
         }
         prices.push();
         prices[round][_symbol] = Price(
             _priceMedian,
             block.timestamp,
-            pStatus);
+            isValid);
 
     }
     /**
@@ -205,8 +203,7 @@ contract Oracle is IOracle {
     function latestRoundData(string memory _symbol) public view returns (RoundData memory data) {
         //return last aggregated round
         Price memory _p = prices[round-1][_symbol];
-        require(_p.timestamp != 0, "data of the asked symbol is not available");
-        RoundData memory _d = RoundData(round-1, _p.price, _p.timestamp, uint(_p.status));
+        RoundData memory _d = RoundData(round-1, _p.price, _p.timestamp, _p.isValid);
         return _d;
     }
     /**
@@ -217,8 +214,7 @@ contract Oracle is IOracle {
     function getRoundData(uint256 _round, string memory _symbol) external view returns
     (RoundData memory data) {
         Price memory _p = prices[_round][_symbol];
-        require(_p.timestamp != 0, "data of the asked symbol is not available");
-        RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, uint(_p.status));
+        RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, _p.isValid);
         return _d;
     }
     // ["NTN-USD", "NTN-EUR", ... ]

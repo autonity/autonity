@@ -470,7 +470,7 @@ contract Stabilization is IStabilization {
     /// @dev The function reverts in case the price is invalid or unavailable.
     function collateralPrice() public view returns (uint256 price) {
         IOracle.RoundData memory data = _oracle.latestRoundData(NTN_SYMBOL);
-        if (data.status != 0) revert PriceUnavailable();
+        if (!data.isValid) revert PriceUnavailable();
         if (data.price <= 0) revert InvalidPrice();
         // Convert price from Oracle precision to SCALE decimals
         if (SCALE_FACTOR > _oracle.getPrecision())
