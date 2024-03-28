@@ -205,6 +205,7 @@ contract Oracle is IOracle {
     function latestRoundData(string memory _symbol) public view returns (RoundData memory data) {
         //return last aggregated round
         Price memory _p = prices[round-1][_symbol];
+        require(_p.timestamp != 0, "data of the asked symbol is not available");
         RoundData memory _d = RoundData(round-1, _p.price, _p.timestamp, uint(_p.status));
         return _d;
     }
@@ -216,6 +217,7 @@ contract Oracle is IOracle {
     function getRoundData(uint256 _round, string memory _symbol) external view returns
     (RoundData memory data) {
         Price memory _p = prices[_round][_symbol];
+        require(_p.timestamp != 0, "data of the asked symbol is not available");
         RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, uint(_p.status));
         return _d;
     }
