@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"reflect"
+	"sort"
 	"sync"
 	"time"
 
@@ -88,18 +89,19 @@ loop:
 			}
 		case <-timer.C:
 			for hash, batch := range a.messages {
-				var pubkeys []blst.PublicKey
+				var publicKeys []blst.PublicKey
 				var signatures []blst.Signature
 				var messages []message.Msg
 				for _, e := range batch {
 					m := e.Message
 					messages = append(messages, m)
-					pubkeys = append(pubkeys, m.SenderKey())
+					publicKeys = append(publicKeys, m.SenderKey())
 					signatures = append(signatures, m.Signature())
 				}
 				aggregateSignature := blst.Aggregate(signatures)
-				valid := aggregateSignature.FastAggregateVerify(pubkeys, hash)
+				valid := aggregateSignature.FastAggregateVerify(publicKeys, hash)
 				if valid {
+					//TODO(lorenzo) wrap in function since used also later
 					// all votes are valid, send to core and FD
 
 					// same batch --> same signature input --> same height
@@ -126,7 +128,57 @@ loop:
 						ErrCh:   nil, //TODO(lorenzo) do we add an errCh here?
 					})
 				} else {
-					panic("TODO") //TODO(lorenzo) deal with unhappy case
+					//TODO(lorenzo) write tests that end up here
+
+					// at least one of the signatures is invalid
+					invalids, err := blst.FindFastInvalidSignatures(signatures, publicKeys, hash)
+					if err != nil {
+						//TODO(lorenzo) double check implementation, but I don't think we should end up here
+						// also I am not sure we even need an error in the return values
+						panic(err)
+					}
+					// remove invalid messages and sent the rest of the batch
+					//TODO(lorenzo) check if function already returns sorted
+					sort.Slice(invalids, func(i, j int) bool {
+						return invalids[i] < invalids[j]
+					})
+					validVotes := make([]message.Msg, len(messages)-len(invalids))
+					//TODO(lorenzo) should be good but test
+					j := 0
+					for i, msg := range messages {
+						if j < len(invalids) && uint(i) == invalids[j] {
+							j++
+							continue
+						}
+						validVotes[i-j] = msg
+					}
+
+					// all votes are valid, send to core and FD
+
+					// same batch --> same signature input --> same height
+					height := validVotes[0].H()
+
+					parent := a.backend.BlockChain().GetHeaderByNumber(height - 1)
+					if parent == nil {
+						// shouldn't happen due to future msgs being buffered before
+						a.logger.Crit("Cannot fetch parent header for non-future consensus message")
+					}
+
+					var aggregateVote message.Msg
+					switch validVotes[0].(type) {
+					case *message.Prevote:
+						aggregateVote = message.NewAggregatePrevote(validVotes, parent)
+					case *message.Precommit:
+						aggregateVote = message.NewAggregatePrecommit(validVotes, parent)
+					default:
+						a.logger.Crit("messages being aggregated are not individual votes", "type", reflect.TypeOf(validVotes[0]))
+					}
+
+					go a.backend.Post(events.MessageEvent{
+						Message: aggregateVote,
+						ErrCh:   nil, //TODO(lorenzo) do we add an errCh here?
+					})
+
 				}
 			}
 			a.messages = make(map[common.Hash][]events.UnverifiedMessageEvent)
