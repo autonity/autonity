@@ -17,16 +17,25 @@ import (
 )
 
 func newAggregator(backend interfaces.Backend, logger log.Logger) *aggregator {
-	return &aggregator{backend: backend, messages: make(map[common.Hash][]events.UnverifiedMessageEvent), logger: logger}
+	return &aggregator{
+		backend:   backend,
+		messages:  make(map[common.Hash][]events.UnverifiedMessageEvent),
+		logger:    logger,
+		votesFrom: make(map[common.Address][]common.Hash),
+		toIgnore:  make(map[common.Hash]struct{}),
+	}
 }
 
 type aggregator struct {
 	backend  interfaces.Backend
 	messages map[common.Hash][]events.UnverifiedMessageEvent
-	sub      *event.TypeMuxSubscription
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	logger   log.Logger
+	//TODO(lorenzo) write tests for the ignoring behaviour
+	votesFrom map[common.Address][]common.Hash
+	toIgnore  map[common.Hash]struct{}
+	sub       *event.TypeMuxSubscription
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	logger    log.Logger
 }
 
 func (a *aggregator) start(ctx context.Context) {
@@ -58,13 +67,20 @@ loop:
 			}
 			event := ev.Data.(events.UnverifiedMessageEvent)
 			msg := event.Message
+			p2pSender := event.P2pSender
+
+			a.votesFrom[p2pSender] = append(a.votesFrom[p2pSender], msg.Hash())
+
 			// if proposal or aggregatedVote, verify right away
 			switch msg.(type) {
 			case *message.Propose:
 				propose := msg.(*message.Propose)
 				if err := propose.Validate(); err != nil {
-					//TODO(lorenzo) also remove msgs sent by same p2p peer?
 					tryDisconnect(event.ErrCh, err)
+					for _, hash := range a.votesFrom[p2pSender] {
+						a.toIgnore[hash] = struct{}{}
+					}
+					break
 				}
 				go a.backend.Post(events.MessageEvent{
 					Message: msg,
@@ -72,8 +88,11 @@ loop:
 				})
 			case *message.AggregatePrevote, *message.AggregatePrecommit:
 				if err := msg.(message.AggregateMsg).Validate(); err != nil {
-					//TODO(lorenzo) also remove msgs sent by same p2p peer?
 					tryDisconnect(event.ErrCh, err)
+					for _, hash := range a.votesFrom[p2pSender] {
+						a.toIgnore[hash] = struct{}{}
+					}
+					break
 				}
 				go a.backend.Post(events.MessageEvent{
 					Message: msg,
@@ -92,12 +111,23 @@ loop:
 				var publicKeys []blst.PublicKey
 				var signatures []blst.Signature
 				var messages []message.Msg
+				var p2pSenders []common.Address
+				var errChs []chan<- error
+
 				for _, e := range batch {
 					m := e.Message
+					// skip messages to be ignored
+					_, ignore := a.toIgnore[m.Hash()]
+					if ignore {
+						continue
+					}
 					messages = append(messages, m)
 					publicKeys = append(publicKeys, m.SenderKey())
 					signatures = append(signatures, m.Signature())
+					p2pSenders = append(p2pSenders, e.P2pSender)
+					errChs = append(errChs, e.ErrCh)
 				}
+
 				aggregateSignature := blst.Aggregate(signatures)
 				valid := aggregateSignature.FastAggregateVerify(publicKeys, hash)
 				if valid {
@@ -153,7 +183,7 @@ loop:
 						validVotes[i-j] = msg
 					}
 
-					// all votes are valid, send to core and FD
+					// we discarded invalid votes, send the valid ones to core and FD
 
 					// same batch --> same signature input --> same height
 					height := validVotes[0].H()
@@ -179,9 +209,18 @@ loop:
 						ErrCh:   nil, //TODO(lorenzo) do we add an errCh here?
 					})
 
+					// disconnect validators who sent us invalid votes at p2p layer and ignore the msgs coming from them
+					for _, index := range invalids {
+						tryDisconnect(errChs[index], message.ErrBadSignature)
+						for _, hash := range a.votesFrom[p2pSenders[index]] {
+							a.toIgnore[hash] = struct{}{}
+						}
+					}
 				}
 			}
 			a.messages = make(map[common.Hash][]events.UnverifiedMessageEvent)
+			a.votesFrom = make(map[common.Address][]common.Hash)
+			a.toIgnore = make(map[common.Hash]struct{})
 			timer = time.NewTimer(20 * time.Millisecond)
 		case <-ctx.Done():
 			break loop

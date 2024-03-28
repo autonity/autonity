@@ -68,7 +68,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 		vmConfig:        vmConfig,
 		MsgStore:        ms, //TODO(lorenzo) is this even needed
 		jailed:          make(map[common.Address]uint64),
-		future:          make(map[uint64][]*events.MessageEvent),
+		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
 		futureMinHeight: math.MaxUint64,
 	}
 
@@ -129,7 +129,7 @@ type Backend struct {
 
 	// buffer for future height events and related metadata
 	// TODO(lorenzo) wrap this stuff into a separate struct?
-	future          map[uint64][]*events.MessageEvent
+	future          map[uint64][]*events.UnverifiedMessageEvent
 	futureMinHeight uint64
 	futureMaxHeight uint64
 	futureSize      uint64
@@ -157,9 +157,11 @@ func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 		panic(err)
 	}
 	//TODO(lorenzo) fix later (no verify for local messages)
-	// also, no errch?
 	go sb.Post(events.UnverifiedMessageEvent{
 		Message: message,
+		//TODO(lorenzo) fine these two values?
+		ErrCh:     nil,
+		P2pSender: sb.address,
 	})
 }
 

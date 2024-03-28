@@ -68,7 +68,7 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 }
 
 // HandleMsg implements consensus.Handler.HandleMsg
-func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
+func (sb *Backend) HandleMsg(p2pSender common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
 	if msg.Code < ProposeNetworkMsg || msg.Code > AggregatePrecommitNetworkMsg {
 		return false, nil
 	}
@@ -78,22 +78,22 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 
 	switch msg.Code {
 	case ProposeNetworkMsg:
-		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.Propose](sb, p2pSender, msg, errCh)
 	case PrevoteNetworkMsg:
-		return handleConsensusMsg[message.Prevote](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.Prevote](sb, p2pSender, msg, errCh)
 	case PrecommitNetworkMsg:
-		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.Precommit](sb, p2pSender, msg, errCh)
 	case AggregatePrevoteNetworkMsg:
-		return handleConsensusMsg[message.AggregatePrevote](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.AggregatePrevote](sb, p2pSender, msg, errCh)
 	case AggregatePrecommitNetworkMsg:
-		return handleConsensusMsg[message.AggregatePrecommit](sb, addr, msg, errCh)
+		return handleConsensusMsg[message.AggregatePrecommit](sb, p2pSender, msg, errCh)
 	case SyncNetworkMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
-		sb.logger.Debug("Received sync message", "from", addr)
-		go sb.Post(events.SyncEvent{Addr: addr})
+		sb.logger.Debug("Received sync message", "from", p2pSender)
+		go sb.Post(events.SyncEvent{Addr: p2pSender})
 	case AccountabilityNetworkMsg:
 		if !sb.coreStarted {
 			sb.logger.Debug("Accountability Msg received but core not running")
@@ -106,8 +106,8 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		}
 
 		// post the off chain accountability msg to the event handler, let the event handler to handle DoS attack vectors.
-		sb.logger.Debug("Received Accountability Msg", "from", addr)
-		go sb.Post(events.AccountabilityEvent{Sender: addr, Payload: data, ErrCh: errCh})
+		sb.logger.Debug("Received Accountability Msg", "from", p2pSender)
+		go sb.Post(events.AccountabilityEvent{Sender: p2pSender, Payload: data, ErrCh: errCh})
 	default:
 		return false, nil
 	}
@@ -118,7 +118,7 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
-}](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
+}](sb *Backend, p2pSender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
 	buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
 	// We copy the message here as it can't be saved directly due to
 	// a call to Discard in the eth handler which is going to empty this buffer.
@@ -127,19 +127,19 @@ func handleConsensusMsg[T any, PT interface {
 	}
 	p2pMsg.Payload = bytes.NewReader(buffer.Bytes())
 	if !sb.coreStarted {
-		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
+		sb.pendingMessages.Enqueue(UnhandledMsg{addr: p2pSender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
 
 	hash := crypto.Hash(buffer.Bytes())
 	// Mark peer's message as known.
-	ms, ok := sb.recentMessages.Get(sender)
+	ms, ok := sb.recentMessages.Get(p2pSender)
 	var m *lru.ARCCache
 	if ok {
 		m, _ = ms.(*lru.ARCCache)
 	} else {
 		m, _ = lru.NewARC(inmemoryMessages)
-		sb.recentMessages.Add(sender, m)
+		sb.recentMessages.Add(p2pSender, m)
 	}
 	m.Add(hash, true)
 	// Mark the message known for ourselves
@@ -156,13 +156,13 @@ func handleConsensusMsg[T any, PT interface {
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	if msg.H() > sb.core.Height().Uint64() {
 		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", sb.core.Height().Uint64())
-		sb.saveFutureMsg(msg, errCh)
+		sb.saveFutureMsg(msg, errCh, p2pSender)
 		return true, nil
 	}
-	return sb.handleDecodedMsg(msg, errCh)
+	return sb.handleDecodedMsg(msg, errCh, p2pSender)
 }
 
-func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, error) {
+func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, p2pSender common.Address) (bool, error) {
 	header := sb.BlockChain().GetHeaderByNumber(msg.H() - 1)
 	if header == nil {
 		// since this is not a future message, we should always have the header of the parent block.
@@ -195,8 +195,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, 
 	}
 
 	go sb.Post(events.UnverifiedMessageEvent{
-		Message: msg,
-		ErrCh:   errCh,
+		Message:   msg,
+		ErrCh:     errCh,
+		P2pSender: p2pSender,
 	})
 	return true, nil
 
@@ -219,11 +220,12 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error) (bool, 
 	return true, nil*/
 }
 
-func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
+func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, p2pSender common.Address) {
 	// create event that will be re-injected in handleDecodedMsg when we reach the correct height
-	e := &events.MessageEvent{ //TODO(lorenzo) not really correct to store MessageEvents
-		Message: msg,
-		ErrCh:   errCh,
+	e := &events.UnverifiedMessageEvent{ //TODO(lorenzo) UnverifiedMessageEvent fine?
+		Message:   msg,
+		ErrCh:     errCh,
+		P2pSender: p2pSender,
 	}
 	h := msg.H()
 
@@ -247,7 +249,7 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error) {
 			sb.futureSize -= uint64(len(maxHeightEvs))
 			// remove messages from knowMessages cache so they can be received again
 			//TODO(lorenzo) not sure whether it is really worth it to do in a go routine
-			go func(evs []*events.MessageEvent) {
+			go func(evs []*events.UnverifiedMessageEvent) {
 				for _, e := range evs {
 					sb.knownMessages.Remove(e.Message.Hash())
 				}
@@ -284,7 +286,7 @@ func (sb *Backend) ProcessFutureMsgs(height uint64) {
 		if ok {
 			sb.logger.Debug("processing future height messages", "height", h, "n", len(sb.future[h]))
 			for _, e := range evs {
-				sb.handleDecodedMsg(e.Message, e.ErrCh)
+				sb.handleDecodedMsg(e.Message, e.ErrCh, e.P2pSender)
 				sb.futureSize--
 			}
 			delete(sb.future, h)

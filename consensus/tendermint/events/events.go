@@ -31,8 +31,9 @@ type NewCandidateBlockEvent struct {
 
 // UnverifiedMessageEvent is posted from the peer handlers to the aggregator
 type UnverifiedMessageEvent struct {
-	Message message.Msg
-	ErrCh   chan<- error //error channel
+	Message   message.Msg
+	ErrCh     chan<- error //error channel
+	P2pSender common.Address
 }
 
 // MessageEvent is posted from the aggregator to core and the fault detector
