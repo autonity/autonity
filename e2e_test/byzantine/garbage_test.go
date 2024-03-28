@@ -13,7 +13,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
+	e2e "github.com/autonity/autonity/e2e_test"
 )
 
 func newRandomBytesBroadcaster(c interfaces.Core) interfaces.Broadcaster {
@@ -38,6 +38,10 @@ func (s *randomBytesBroadcaster) Broadcast(_ message.Msg) {
 		copy(hash[:], payload)
 		msg := message.Fake{FakeCode: 1, FakePayload: payload, FakeHash: hash}
 		s.BroadcastAll(msg)
+		/*TODO(lorenzo) for later, check sigpar PR there are other tests which are fixed like this
+			// we consider self messages as trusted, therefore we want to send garbage only to other nodes
+		s.Backend().Gossip(s.CommitteeSet().Committee(), msg)
+		*/
 	}
 }
 

@@ -33,8 +33,12 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	c.Broadcaster().Broadcast(precommit)
 }
 
-// HandlePrecommit process the incoming precommit message.
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
+	return nil
+}
+
+// HandlePrecommit process the incoming precommit message.
+func (c *Precommiter) HandleAggregatePrecommit(ctx context.Context, precommit *message.AggregatePrecommit) error {
 	if precommit.R() > c.Round() {
 		return constants.ErrFutureRoundMessage
 	}
@@ -57,7 +61,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// Precommit if for current round from here
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 	c.curRoundMessages.AddPrecommit(precommit)
-	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
+	//c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String()) //TODO(lorenzo) fix
 
 	c.currentPrecommitChecks(ctx)
 	return nil

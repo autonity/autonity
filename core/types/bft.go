@@ -45,7 +45,9 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	if !keepSeal {
 		newHeader.ProposerSeal = []byte{}
 	}
-	newHeader.CommittedSeals = make(Signatures)
+	//TODO(lorenzo) fix
+	newHeader.CommittedSeals = &AggregateSignature{}
+	//newHeader.CommittedSeals = &AggregateSignature{}
 	newHeader.Round = 0
 	newHeader.Extra = []byte{}
 	return newHeader
@@ -104,14 +106,16 @@ func WriteRound(h *Header, round int64) error {
 }
 
 // WriteCommittedSeals writes the extra-data field of a block header with given committed seals.
-func WriteCommittedSeals(h *Header, committedSeals Signatures) error {
-	if len(committedSeals) == 0 {
+func WriteCommittedSeals(h *Header, committedSeals *AggregateSignature) error {
+	//TODO(lorenzo) better check (with flaten uniq"?)
+	if committedSeals.Senders.Len() == 0 {
 		return ErrInvalidCommittedSeals
 	}
-	h.CommittedSeals = make(Signatures)
+	/*h.CommittedSeals = make(Signatures)
 	for addr, seal := range committedSeals {
 		h.CommittedSeals[addr] = seal.Copy()
-	}
+	}*/
+	h.CommittedSeals = committedSeals.Copy()
 	return nil
 }
 
