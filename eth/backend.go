@@ -281,12 +281,12 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
 	accountability.LoadPrecompiles(eth.blockchain)
-	// Create Fault Detector for each full node for the time being,
-	//TODO(lorenzo) I think it would make more sense to move this into the tendermint backend if possible
+	// Create Fault Detector for each full node for the time being.
+	//todo: I think it would make more sense to move this into the tendermint backend if possible
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,
-		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}), //TODO(lorenzo) add old message
+		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}, events.OldMessageEvent{}),
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
 		eth.log)

@@ -12,10 +12,6 @@ var (
 	ErrAlreadyHaveBlock = errors.New("proposed block is already in our local chain")
 	// ErrHeightClosed is returned when we receive a message for current height, but we already committed a proposal for it.
 	ErrHeightClosed = errors.New("consensus instance already concluded")
-	// ErrFutureHeightMessage is returned when curRoundMessages view is earlier than the
-	// view of the received message.
-	//TODO(lorenzo) probably can delete
-	ErrFutureHeightMessage = errors.New("future height message")
 	// ErrOldHeightMessage is returned when the received message's view is earlier
 	// than curRoundMessages view.
 	ErrOldHeightMessage = errors.New("old height message")

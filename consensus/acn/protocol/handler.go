@@ -98,7 +98,7 @@ func Handle(backend Backend, peer *Peer) error {
 		}
 		select {
 		case err := <-errCh:
-			peer.Log().Error("Message handling failed in consensus core", "err", err)
+			peer.Log().Error("Message handling failed in aggregator or consensus core", "err", err)
 			return err
 		default:
 			// do nothing

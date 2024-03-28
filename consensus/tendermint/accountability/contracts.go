@@ -244,6 +244,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 	if proposal.ValidRound() != -1 {
 		return false
 	}
+	/* TODO(lorenzo) refinements2, fix
 	preCommit, ok := p.Evidences[0].(*message.Precommit)
 	if !ok {
 		return false
@@ -253,6 +254,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 		preCommit.Value() != nilValue {
 		return true
 	}
+	*/
 	return false
 }
 

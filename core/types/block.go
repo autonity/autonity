@@ -98,93 +98,26 @@ type Header struct {
 	// Used to ensure the committeeMap is created only once.
 	once sync.Once
 
-	ProposerSeal []byte `json:"proposerSeal"        gencodec:"required"`
-	Round        uint64 `json:"round"               gencodec:"required"`
-	//CommittedSeals *AggregateSignature `json:"committedSeals"      gencodec:"required"` //TODO(lorenzo) json tags add
-	CommittedSeals *AggregateSignature `rlp:"nil"`
+	ProposerSeal   []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round          uint64             `json:"round"               gencodec:"required"`
+	CommittedSeals AggregateSignature `json:"committedSeals"      gencodec:"required"`
 }
 
-// TODO(lorenzo) I use concrete type to make serialization easier, but to verify when changing with aggregate sig
-//type Signatures map[common.Address]*blst.BlsSignature
-
-// TODO(lorenzo) define as standlaone type?
 type AggregateSignature struct {
-	Signature *blst.BlsSignature
-	Senders   *SendersInfo
+	// leave these pointers nil if they were nil when encoded
+	// this is because otherwise rlp creates a signature with new(blst.BlsSignature)
+	// which causes all sorts of problem because the private inner signature s.s remains nil
+	Signature *blst.BlsSignature `rlp:"nil"`
+	Senders   *SendersInfo       `rlp:"nil"`
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, senders *SendersInfo) *AggregateSignature {
-	return &AggregateSignature{Signature: signature, Senders: senders}
+func NewAggregateSignature(signature *blst.BlsSignature, senders *SendersInfo) AggregateSignature {
+	return AggregateSignature{Signature: signature, Senders: senders}
 }
 
-// TODO(lorenzo) used for committed seals verification, double cehck
-func (a *AggregateSignature) Valid() bool {
-	return a.Signature != nil && a.Senders.Len() != 0
+func (a AggregateSignature) Copy() AggregateSignature {
+	return AggregateSignature{Signature: a.Signature.Copy(), Senders: a.Senders.Copy()}
 }
-
-func (a *AggregateSignature) Copy() *AggregateSignature {
-	return &AggregateSignature{Signature: a.Signature.Copy(), Senders: a.Senders.Copy()}
-}
-
-/* //TODO(lorenzo) delete if fine
-func (a *AggregateSignature) Senders() SendersInfo {
-	return a.Sendrs
-}
-
-func (a *AggregateSignature) Signature() *blst.BlsSignature {
-	return a.Sig
-}*/
-
-/*
-// serialize the map as an bytes key1|value1|key2|value2|...
-// NOTE: since the looping over a map is undeterministic, the order of the bytes produced by this Marshal() function can differ for the same map.
-func (s Signatures) Marshal() []byte {
-	size := common.AddressLength + blst.BLSSignatureLength
-	n := len(s)
-	b := make([]byte, 0, n*size)
-	for addr, sig := range s {
-		b = append(b, addr.Bytes()...)
-		b = append(b, sig.Marshal()...)
-	}
-	return b
-}
-
-// deserialize the map from bytes key1|value1|key2|value2|...
-func (s Signatures) Unmarshal(b []byte) error {
-	size := common.AddressLength + blst.BLSSignatureLength
-	if len(b)%size != 0 {
-		return fmt.Errorf("Invalid BLS signature map size")
-	}
-
-	n := len(b) / size
-	for i := 0; i < n; i++ {
-		keyvalue := b[i*size : (i+1)*size]
-		addr := common.BytesToAddress(keyvalue[:common.AddressLength])
-		signatureBytes := keyvalue[common.AddressLength:]
-		signature, err := blst.SignatureFromBytes(signatureBytes)
-		if err != nil {
-			return fmt.Errorf("error while decoding BLS signature in signatures map: %w", err)
-		}
-		s[addr] = signature.(*blst.BlsSignature)
-	}
-	return nil
-}
-
-func (s Signatures) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, s.Marshal())
-}
-
-func (s Signatures) DecodeRLP(stream *rlp.Stream) error {
-	b, err := stream.Bytes()
-	if err != nil {
-		return fmt.Errorf("error while decoding BLS signature map: %w", err)
-	}
-
-	if err = s.Unmarshal(b); err != nil {
-		return fmt.Errorf("error while decoding BLS signature map: %w", err)
-	}
-	return nil
-}*/
 
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
 
@@ -247,12 +180,10 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee    Committee `json:"committee"           gencodec:"required"`
-	ProposerSeal []byte    `json:"proposerSeal"        gencodec:"required"`
-	Round        uint64    `json:"round"               gencodec:"required"`
-	//	CommittedSeals Signatures `json:"committedSeals"      gencodec:"required"`
-	//CommittedSeals *AggregateSignature `json:"committedSeals"      gencodec:"required"` //TODO(lorenzo) json tags
-	CommittedSeals *AggregateSignature `rlp:"nil"`
+	Committee      Committee          `json:"committee"           gencodec:"required"`
+	ProposerSeal   []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round          uint64             `json:"round"               gencodec:"required"`
+	CommittedSeals AggregateSignature `json:"committedSeals"      gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -334,9 +265,6 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 
 	if origin.MixDigest == BFTDigest {
 		hExtra := &headerExtra{}
-		//TODO(lorenzo) remove?
-		// since map is not rlp serializable by default, rlp will not allocate memory for it. We have to do it manually.
-		//hExtra.CommittedSeals = make(Signatures)
 		err := rlp.DecodeBytes(origin.Extra, hExtra)
 		if err != nil {
 			return err
@@ -558,15 +486,8 @@ func CopyHeader(h *Header) *Header {
 		copy(proposerSeal, h.ProposerSeal)
 	}
 
-	/*committedSeals := make(Signatures)
-	if len(h.CommittedSeals) > 0 {
-		for addr, sig := range h.CommittedSeals {
-			committedSeals[addr] = sig.Copy()
-		}
-	}*/
-	//TODO(lorenzo) fix properly
-	var committedSeals *AggregateSignature
-	if h.CommittedSeals != nil {
+	committedSeals := AggregateSignature{}
+	if h.CommittedSeals.Signature != nil && h.CommittedSeals.Senders != nil {
 		committedSeals = h.CommittedSeals.Copy()
 	}
 

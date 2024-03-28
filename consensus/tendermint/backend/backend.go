@@ -57,29 +57,33 @@ func New(nodeKey *ecdsa.PrivateKey,
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
 
 	backend := &Backend{
-		eventMux:        event.NewTypeMuxSilent(evMux, log),
-		nodeKey:         nodeKey,
-		consensusKey:    consensusKey,
-		address:         crypto.PubkeyToAddress(nodeKey.PublicKey),
-		logger:          log,
-		coreStarted:     false,
-		recentMessages:  recentMessages,
-		knownMessages:   knownMessages,
-		vmConfig:        vmConfig,
-		MsgStore:        ms, //TODO(lorenzo) is this even needed
+		eventMux:       event.NewTypeMuxSilent(evMux, log),
+		nodeKey:        nodeKey,
+		consensusKey:   consensusKey,
+		address:        crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:         log,
+		coreStarted:    false,
+		recentMessages: recentMessages,
+		knownMessages:  knownMessages,
+		vmConfig:       vmConfig,
+		//MsgStore:        ms, //TODO(lorenzo) refinements, seems to be used only in tests. Remove if possible.
 		jailed:          make(map[common.Address]uint64),
-		future:          make(map[uint64][]*events.MessageEvent),
+		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
 		futureMinHeight: math.MaxUint64,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	backend.aggregator = newAggregator(backend, log)
 	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
-	backend.core = tendermintCore.New(backend, services, backend.address, log)
+
+	core := tendermintCore.New(backend, services, backend.address, log)
+	backend.core = core
+
+	backend.aggregator = newAggregator(backend, core, log)
+
 	return backend
 }
 
@@ -121,15 +125,15 @@ type Backend struct {
 	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
 
-	MsgStore   *tendermintCore.MsgStore //TODO(lorenzo) is this even needed
+	//MsgStore   *tendermintCore.MsgStore //TODO(lorenzo) refinements, this seems to be used only in tests. Remove if possible.
 	jailed     map[common.Address]uint64
 	jailedLock sync.RWMutex
 
 	aggregator *aggregator
 
 	// buffer for future height events and related metadata
-	// TODO(lorenzo) wrap this stuff into a separate struct?
-	future          map[uint64][]*events.MessageEvent
+	// TODO(lorenzo) refinements, wrap this stuff into a separate struct?
+	future          map[uint64][]*events.UnverifiedMessageEvent // UnverifiedMessageEvent is used slightly inappropriately here, as the future height messages still need to pass the checks in `handleDecodedMsg` before being posted to the aggregator.
 	futureMinHeight uint64
 	futureMaxHeight uint64
 	futureSize      uint64
@@ -149,17 +153,10 @@ func (sb *Backend) Address() common.Address {
 func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	// send to others
 	sb.Gossip(committee, message)
-	// send to self
-	//TODO(lorenzo) ugly, just assign the fields here
-	header := sb.blockchain.GetHeaderByNumber(message.H() - 1)
-	err := message.PreValidate(header)
-	if err != nil {
-		panic(err)
-	}
-	//TODO(lorenzo) fix later (no verify for local messages)
-	// also, no errch?
-	go sb.Post(events.UnverifiedMessageEvent{
+	// send to self (directly to Core and FD, no need to verify local messages)
+	go sb.Post(events.MessageEvent{
 		Message: message,
+		ErrCh:   nil,
 	})
 }
 
@@ -195,8 +192,7 @@ func (sb *Backend) Gossiper() interfaces.Gossiper {
 }
 
 // Commit implements tendermint.Backend.Commit
-// func (sb *Backend) Commit(proposal *types.Block, round int64, seals types.Signatures) error {
-func (sb *Backend) Commit(proposal *types.Block, round int64, seals *types.AggregateSignature) error {
+func (sb *Backend) Commit(proposal *types.Block, round int64, seals types.AggregateSignature) error {
 	h := proposal.Header()
 	// Append seals and round into extra-data
 	if err := types.WriteCommittedSeals(h, seals); err != nil {
@@ -355,10 +351,9 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 }
 
 // Sign implements tendermint.Backend.Sign
-// TODO(lorenzo) add power? sb.core.Power()
-func (sb *Backend) Sign(data common.Hash) (blst.Signature, common.Address) {
+func (sb *Backend) Sign(data common.Hash) blst.Signature {
 	signature := sb.consensusKey.Sign(data[:])
-	return signature, sb.address
+	return signature
 }
 
 func (sb *Backend) HeadBlock() *types.Block {
@@ -424,12 +419,6 @@ func (sb *Backend) ResetPeerCache(address common.Address) {
 		m.Purge()
 	}
 }
-
-// TODO(lorenzo) delete
-/*
-func (sb *Backend) RemoveMessageFromLocalCache(message message.Msg) {
-	sb.knownMessages.Remove(message.Hash())
-}*/
 
 // called by tendermint core to dump core state
 func (sb *Backend) FutureMsgs() []message.Msg {

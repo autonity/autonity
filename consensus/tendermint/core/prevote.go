@@ -6,6 +6,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 )
 
 type Prevoter struct {
@@ -25,17 +26,15 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Prevoting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
+	//TODO(lorenzo) refactor and use the CommitteeSet() interface instead? Also add Len() method
+	self := c.LastHeader().CommitteeMember(c.address)
+	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)
 }
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {
-	return nil
-}
-
-func (c *Prevoter) HandleAggregatePrevote(ctx context.Context, prevote *message.AggregatePrevote) error {
 	if prevote.R() > c.Round() {
 		return constants.ErrFutureRoundMessage
 	}
@@ -43,6 +42,7 @@ func (c *Prevoter) HandleAggregatePrevote(ctx context.Context, prevote *message.
 		// We only process old rounds while future rounds messages are pushed on to the backlog
 		oldRoundMessages := c.messages.GetOrCreate(prevote.R())
 		oldRoundMessages.AddPrevote(prevote)
+		c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrevoteCode, Value: prevote.Value()})
 
 		// Proposal would be nil if node haven't received the proposal yet.
 		proposal := c.curRoundMessages.Proposal()
@@ -61,7 +61,8 @@ func (c *Prevoter) HandleAggregatePrevote(ctx context.Context, prevote *message.
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
 	c.curRoundMessages.AddPrevote(prevote)
-	//c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Sender().String(), c.address.String()) //TODO(lorenzo)fix
+	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrevoteCode, Value: prevote.Value()})
+	//c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Sender().String(), c.address.String()) //TODO(lorenzo) refinements, fix
 
 	// check upon conditions for current round proposal
 	c.currentPrevoteChecks(ctx)

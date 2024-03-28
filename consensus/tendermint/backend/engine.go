@@ -220,11 +220,14 @@ func (sb *Backend) verifySigner(header, parent *types.Header) error {
 // committee members and that the voting power of the committed seals constitutes
 // a quorum.
 func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
-	// The length of Committed seals should be larger than 0
-	//TODO(lorenzo) additional check on legnth == parent.header.committee?
-	if header.CommittedSeals == nil || !header.CommittedSeals.Valid() {
+	if header.CommittedSeals.Signature == nil || header.CommittedSeals.Senders == nil {
 		return types.ErrEmptyCommittedSeals
 	}
+	//TODO(lorenzo) do we need the bls sig zero check?
+	if !header.CommittedSeals.Senders.Valid(len(parent.Committee)) {
+		return types.ErrInvalidCommittedSeals
+	}
+	header.CommittedSeals.Senders.SetCommitteeSize(len(parent.Committee))
 
 	// Calculate total voting power of committee
 	committeeVotingPower := new(big.Int)
@@ -242,10 +245,9 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	}
 
 	// verify signature
-	//TODO(lorenzo) save this into sender?
 	var keys [][]byte
 	for _, index := range header.CommittedSeals.Senders.Flatten() {
-		keys = append(keys, parent.Committee[index].ConsensusKey.Marshal())
+		keys = append(keys, parent.Committee[index].ConsensusKeyBytes)
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
@@ -256,32 +258,6 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 		sb.logger.Error("block had invalid committed seal")
 		return types.ErrInvalidCommittedSeals
 	}
-
-	/* TODO(Lorenzo) check if new mech is coherent with past one
-	// Setup map to track votes made by committee members
-	votes := make(map[common.Address]int, len(parent.Committee))
-
-	// 1. Get committed seals from current header
-	for addr, signedSeal := range header.CommittedSeals {
-		member := parent.CommitteeMember(addr)
-		if member == nil {
-			sb.logger.Error(fmt.Sprintf("block had seal from non committee member %q", addr))
-			return types.ErrInvalidCommittedSeals
-		}
-
-		valid := signedSeal.Verify(member.ConsensusKey, headerSeal[:])
-		if !valid {
-			sb.logger.Error("block had invalid committed seal", "address", member.Address)
-			return types.ErrInvalidCommittedSeals
-		}
-
-		votes[member.Address]++
-		if votes[member.Address] > 1 {
-			sb.logger.Error(fmt.Sprintf("committee member %q had multiple seals on block", addr))
-			return types.ErrInvalidCommittedSeals
-		}
-		power.Add(power, member.VotingPower)
-	}*/
 
 	// We need at least a quorum for the block to be considered valid
 	if power.Cmp(bft.Quorum(committeeVotingPower)) < 0 {

@@ -30,7 +30,8 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if c.sentProposal {
 		return
 	}
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
+	self := c.LastHeader().CommitteeMember(c.address)
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)
 	c.sentProposal = true
 	c.backend.SetProposedBlockHash(block.Hash())
 	if metrics.Enabled {

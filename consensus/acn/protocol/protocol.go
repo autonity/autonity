@@ -20,12 +20,11 @@ const ProtocolName = "acn"
 // is primary).
 var ProtocolVersions = []uint{ACNv1}
 
-// TODO(lorenzo) fix  comment
 // todo(piyush): length for ACN should be 6 because of 1 status message(0x00) and
 // and 5 protocol message which have legacy codes(staring from 0x11) i.e. length 22 for now.
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-var protocolLengths = map[uint]uint64{ACNv1: 24}
+var protocolLengths = map[uint]uint64{ACNv1: 22}
 
 // MaxMessageSize is the maximum cap on the size of a consensus protocol message.
 const MaxMessageSize = 10 * 1024 * 1024

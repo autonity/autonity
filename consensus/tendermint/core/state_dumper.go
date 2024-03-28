@@ -28,8 +28,8 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 		Client:            c.address,
 		BlockPeriod:       c.blockPeriod,
 		CurHeightMessages: msgForDump(c.messages.All()),
-		BacklogMessages:   getBacklogMsgs(c),
-		FutureMsgs:        msgForDump(c.backend.FutureMsgs()), //TODO(lorenzo) still needed?
+		BacklogMessages:   getBacklogMsgs(c),                  // TODO(lorenzo) rename, it is not called backlog anymore
+		FutureMsgs:        msgForDump(c.backend.FutureMsgs()), //TODO(lorenzo) refinements, still needed?
 		// tendermint Core state:
 		Height:      c.Height(),
 		Round:       c.Round(),
@@ -70,14 +70,14 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 // don't know how to write it via golang like template in C++, since the only
 // difference is the type of the data it operate on.
 func getBacklogMsgs(c *Core) []*interfaces.MsgForDump {
-	/* //TODO(lorenzo)
+	c.futureRoundLock.RLock()
+	defer c.futureRoundLock.RUnlock()
 	result := make([]*interfaces.MsgForDump, 0)
-	for _, ms := range c.backlogs {
-		result = append(result, msgForDump(ms)...)
+	for _, msgs := range c.futureRound {
+		result = append(result, msgForDump(msgs)...)
 	}
 
-	return result*/
-	return msgForDump(c.backlogs)
+	return result
 }
 
 func msgForDump(messages []message.Msg) []*interfaces.MsgForDump {

@@ -40,20 +40,24 @@ type Msg interface {
 	// Signature returns the signature of this message
 	Signature() blst.Signature
 
-	//TODO(lorenzo) add comments
-	Validate() error
+	// PreValidate attaches auxiliary information to the message (e.g. aggregated key and power)
+	// as the name suggests, it needs to be executed before validating the message
 	PreValidate(header *types.Header) error
+
+	// Validate verifies the signature of this message
+	Validate() error
+
+	// SignatureInput returns the bytes on which the message signature is computed (i.e. the bytes that were signed)
 	SignatureInput() common.Hash
+
+	// SenderKey returns:
+	// 1. if proposal, the bls key of the proposer
+	// 2. if vote/aggregate vote, the aggregated bls key of the senders
 	SenderKey() blst.PublicKey
 }
 
-type IndividualMsg interface {
-	Sender() common.Address
-	SenderIndex() int
-	Msg
-}
-
-type AggregateMsg interface {
+// Votes have an additional method, which returns all the available information about the senders
+type Vote interface {
 	Senders() *types.SendersInfo
 	Msg
 }

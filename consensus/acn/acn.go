@@ -18,10 +18,13 @@ package acn
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/autonity/autonity/consensus/acn/protocol"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/eth"
 
 	autonity "github.com/autonity/autonity"
@@ -103,8 +106,23 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		peer.Log().Error("peer registration failed", "err", err)
 		return err
 	}
-	defer acn.peers.unregister(peer.ID())
-	return handler(peer)
+	defer acn.peers.unregister(peer.ID().String())
+
+	// read consensus msgs from wire and process them
+	err := handler(peer)
+
+	// TODO(lorenzo) implement more harsh exponential approach disconnection
+	// also we could have a jailed safeExpHeap that instead of basing the expiration on timestamps it bases it on blocks
+	// (if we want to have precise epoch*i disconnection)
+
+	// if the session terminated because the remote peer sent an invalid signature
+	// add it to the p2p jail for 1 epoch (assuming 1 block = 1 second)
+	if errors.Is(err, message.ErrBadSignature) {
+		epochPeriod := acn.chain.ProtocolContracts().Cache.EpochPeriod().Uint64()
+		acn.server.AddJail(peer.ID(), time.Duration(epochPeriod)*time.Second)
+	}
+
+	return err
 }
 
 func (acn *ACN) Stop() error {

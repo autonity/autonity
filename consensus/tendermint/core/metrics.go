@@ -58,4 +58,7 @@ var (
 	ProposalReceivedBg = metrics.NewRegisteredBufferedGauge("tendermint/proposal/received.bg", nil) // time between round start and proposal received
 	ProposalVerifiedBg = metrics.NewRegisteredBufferedGauge("tendermint/proposal/verified.bg", nil) // time to verify proposal
 	CommitBg           = metrics.NewRegisteredBufferedGauge("tendermint/commit.bg", nil)            // time between round start and commit (--> block queued for insertion)
+
+	// temporary metrics to evaluate whether core.roundChangeMu is causing lock contention issues
+	RoundChangeMuBg = metrics.NewRegisteredBufferedGauge("tendermint/roundchangemu.bg", nil)
 )

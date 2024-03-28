@@ -7,130 +7,104 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
-//TODO(lorenzo) analyze more duplicated msgs and equivocation scnearios
+//TODO(lorenzo) refinements2, analyze more duplicated msgs and equivocation scnearios
 
-/*
-type isVote interface {
-	*Prevote | *Precommit
-	IndividualMsg
-}
-
-func NewSet[T isVote]() *Set[T] {
-	return &Set[T]{
-		votes:    make(map[common.Hash]map[common.Address]T),
-		messages: make(map[common.Address]T),
+func NewSet() *Set {
+	return &Set{
+		votes: make(map[common.Hash][]Vote),
 	}
 }
 
-type Set[T isVote] struct {
+type Set struct {
 	// In some conditions we might receive prevotes or precommit before
 	// receiving a proposal, so we must save received message with different proposed block hash.
-	votes    map[common.Hash]map[common.Address]T // map[proposedBlockHash]map[validatorAddress]vote
-	messages map[common.Address]T
-	sync.RWMutex
-}*/
-
-type isVote interface {
-	*AggregatePrevote | *AggregatePrecommit
-	AggregateMsg
+	votes        map[common.Hash][]Vote // map[proposedBlockHash][]vote
+	sync.RWMutex                        //TODO(lorenzo) refinements, do we need this lock since there is already one is round_messages?
 }
 
-func NewSet[T isVote]() *Set[T] {
-	return &Set[T]{
-		votes: make(map[common.Hash][]T),
-	}
-}
-
-type Set[T isVote] struct {
-	// In some conditions we might receive prevotes or precommit before
-	// receiving a proposal, so we must save received message with different proposed block hash.
-	votes        map[common.Hash][]T // map[proposedBlockHash][]vote
-	sync.RWMutex                     //TODO(lorenzo) why this mutex (for state dumper?)
-}
-
-func (s *Set[T]) Add(vote T) {
+func (s *Set) Add(vote Vote) {
 	s.Lock()
 	defer s.Unlock()
 
-	//TODO(lorenzo) now we can have equivocated messages in core, how does this impact core?
-
 	value := vote.Value()
+	previousVotes, ok := s.votes[value]
 
-	if _, ok := s.votes[value]; !ok {
-		s.votes[value] = make([]T, 0) //TODO(lorenzo) allocate some more capacity?
+	if !ok {
+		s.votes[value] = []Vote{vote}
+		return
 	}
-	s.votes[value] = append(s.votes[value], vote)
-}
 
-func (s *Set[T]) Messages() []Msg {
-	s.RLock()
-	defer s.RUnlock()
-	result := make([]Msg, 0)
-	for _, v := range s.votes {
-		for _, vote := range v {
-			result = append(result, vote)
+	// aggregate previous votes and vote
+	//TODO(lorenzo) performance, verify that this doesn't create too much memory
+	switch vote.(type) {
+	case *Prevote:
+		aggregatedVotes := AggregatePrevotesSimple(append(previousVotes, vote))
+		s.votes[value] = make([]Vote, len(aggregatedVotes))
+		for i, aggregatedVote := range aggregatedVotes {
+			s.votes[value][i] = aggregatedVote
 		}
+	case *Precommit:
+		aggregatedVotes := AggregatePrecommitsSimple(append(previousVotes, vote))
+		s.votes[value] = make([]Vote, len(aggregatedVotes))
+		for i, aggregatedVote := range aggregatedVotes {
+			s.votes[value][i] = aggregatedVote
+		}
+	default:
+		panic("Trying to add a vote that is not Prevote nor Precommit")
 	}
-	return result
 }
 
-func (s *Set[T]) PowerFor(h common.Hash) *big.Int {
+func (s *Set) Messages() []Msg {
 	s.RLock()
 	defer s.RUnlock()
 
-	//TODO(lorenzo) can I just call the s.power?
-	if votes, ok := s.votes[h]; ok {
-		accountedFor := make(map[common.Address]struct{})
-		return s.power(votes, accountedFor)
-	}
-	return new(big.Int)
-}
-
-func (s *Set[T]) TotalPower() *big.Int {
-	s.RLock()
-	defer s.RUnlock()
-	power := new(big.Int)
-	// NOTE: in case of equivocated messages, we count power only once --> write a test for it
-	accountedFor := make(map[common.Address]struct{})
+	messages := make([]Msg, 0)
 	for _, votes := range s.votes {
-		power.Add(power, s.power(votes, accountedFor))
-	}
-
-	return power
-}
-
-// TODO(lorenzo) This logic is a bit twisted but it works.
-// the key here is that we have to count power only once per sender
-// across multiple aggregate votes.
-// TODO(lorenzo) write tests for it, and make sure accountedFor works as intended (for totalpower)
-func (s *Set[T]) power(votes []T, accountedFor map[common.Address]struct{}) *big.Int {
-	power := new(big.Int)
-
-	for _, v := range votes {
-		addresses := v.Senders().Addresses()
-		powers := v.Senders().Powers()
-		for _, index := range v.Senders().FlattenUniq() {
-			_, accounted := accountedFor[addresses[index]]
-			if accounted {
-				continue
-			}
-			power.Add(power, powers[index])
-			accountedFor[addresses[index]] = struct{}{}
+		for _, vote := range votes {
+			messages = append(messages, vote.(Msg))
 		}
-	}
-	return power
-}
-
-func (s *Set[T]) VotesFor(blockHash common.Hash) []T {
-	s.RLock()
-	defer s.RUnlock()
-	if _, ok := s.votes[blockHash]; !ok {
-		return nil
-	}
-	//TODO(lorenzo) might not need copy here, double check
-	messages := make([]T, 0, len(s.votes[blockHash]))
-	for _, v := range s.votes[blockHash] {
-		messages = append(messages, v)
 	}
 	return messages
+}
+
+func (s *Set) PowerFor(h common.Hash) *big.Int {
+	s.RLock()
+	defer s.RUnlock()
+
+	votes, ok := s.votes[h]
+	if !ok {
+		return new(big.Int)
+	}
+
+	var messages []Msg
+	for _, vote := range votes {
+		messages = append(messages, vote.(Msg))
+	}
+
+	return Power(messages)
+}
+
+func (s *Set) TotalPower() *big.Int {
+	s.RLock()
+	defer s.RUnlock()
+
+	// NOTE: in case of equivocated messages, we count power only once
+	// TODO(lorenzo) refinements, write a test for it
+
+	var messages []Msg
+
+	for _, votes := range s.votes {
+		for _, vote := range votes {
+			messages = append(messages, vote.(Msg))
+		}
+	}
+
+	return Power(messages)
+}
+
+func (s *Set) VotesFor(blockHash common.Hash) []Vote {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.votes[blockHash]
 }

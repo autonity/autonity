@@ -439,6 +439,20 @@ func (mr *MockCoreMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockCore)(nil).Height))
 }
 
+// Power mocks base method.
+func (m *MockCore) Power(h uint64, r int64) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Power", h, r)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// Power indicates an expected call of Power.
+func (mr *MockCoreMockRecorder) Power(h, r any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Power", reflect.TypeOf((*MockCore)(nil).Power), h, r)
+}
+
 // Precommiter mocks base method.
 func (m *MockCore) Precommiter() Precommiter {
 	m.ctrl.T.Helper()
@@ -481,6 +495,20 @@ func (mr *MockCoreMockRecorder) Proposer() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proposer", reflect.TypeOf((*MockCore)(nil).Proposer))
 }
 
+// Round mocks base method.
+func (m *MockCore) Round() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Round")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// Round indicates an expected call of Round.
+func (mr *MockCoreMockRecorder) Round() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Round", reflect.TypeOf((*MockCore)(nil).Round))
+}
+
 // Start mocks base method.
 func (m *MockCore) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	m.ctrl.T.Helper()
@@ -503,4 +531,32 @@ func (m *MockCore) Stop() {
 func (mr *MockCoreMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCore)(nil).Stop))
+}
+
+// VotesPower mocks base method.
+func (m *MockCore) VotesPower(h uint64, r int64, code uint8) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VotesPower", h, r, code)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// VotesPower indicates an expected call of VotesPower.
+func (mr *MockCoreMockRecorder) VotesPower(h, r, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotesPower", reflect.TypeOf((*MockCore)(nil).VotesPower), h, r, code)
+}
+
+// VotesPowerFor mocks base method.
+func (m *MockCore) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VotesPowerFor", h, r, code, v)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// VotesPowerFor indicates an expected call of VotesPowerFor.
+func (mr *MockCoreMockRecorder) VotesPowerFor(h, r, code, v any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotesPowerFor", reflect.TypeOf((*MockCore)(nil).VotesPowerFor), h, r, code, v)
 }

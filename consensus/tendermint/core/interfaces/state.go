@@ -71,7 +71,7 @@ type CoreState struct {
 	CurHeightMessages []*MsgForDump
 	// backlog msgs
 	BacklogMessages []*MsgForDump
-	//TODO(lorenzo) neeedd?
+	//TODO(lorenzo) refinements, is this needed?
 	// backlog of future height msgs.
 	FutureMsgs []*MsgForDump
 	// Known msg of gossip.
