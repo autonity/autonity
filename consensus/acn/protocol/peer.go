@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/enode"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
@@ -9,7 +10,7 @@ import (
 
 // Peer is a collection of relevant information we have about a `acn` peer.
 type Peer struct {
-	id      string // Unique ID for the peer, cached
+	id      enode.ID // Unique ID for the peer, cached
 	address common.Address
 
 	*p2p.Peer                   // The embedded P2P package peer
@@ -28,7 +29,7 @@ type peerInfo struct {
 // version.
 func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 	peer := &Peer{
-		id:      p.ID().String(),
+		id:      p.ID(),
 		address: crypto.PubkeyToAddress(*p.Node().Pubkey()),
 		Peer:    p,
 		rw:      rw,
@@ -43,7 +44,7 @@ func (p *Peer) Close() {
 }
 
 // ID retrieves the peer's unique identifier.
-func (p *Peer) ID() string {
+func (p *Peer) ID() enode.ID {
 	return p.id
 }
 

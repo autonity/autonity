@@ -37,6 +37,7 @@ import (
 
 const (
 	localhost = "127.0.0.1"
+	verbosity = log.LvlDebug
 )
 
 var (
@@ -67,7 +68,7 @@ var (
 		background: log.BackgroundLightYellow,
 	}, {
 		foreground: log.Black,
-		background: log.BackgroundCyan,
+		background: log.BackgroundLightMagenta,
 	}, {
 		foreground: log.Black,
 		background: log.BackgroundLightGreen,
@@ -154,7 +155,7 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 		return b
 	})))
 
-	logger.Verbosity(log.DefaultVerbosity)
+	logger.Verbosity(verbosity)
 	nodeConfig.Logger = log.New()
 	nodeConfig.Logger.SetHandler(logger)
 

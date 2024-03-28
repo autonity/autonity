@@ -410,6 +410,15 @@ func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types
 	return minBaseFee, nil
 }
 
+func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.Header) (*big.Int, error) {
+	epochPeriod := new(big.Int)
+	err := c.AutonityContractCall(state, header, "getEpochPeriod", &epochPeriod)
+	if err != nil {
+		return nil, err
+	}
+	return epochPeriod, nil
+}
+
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, types.Committee, error) {
 	var updateReady bool
 	var committee types.Committee

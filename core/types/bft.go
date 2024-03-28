@@ -45,9 +45,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	if !keepSeal {
 		newHeader.ProposerSeal = []byte{}
 	}
-	//TODO(lorenzo) fix
-	newHeader.CommittedSeals = &AggregateSignature{}
-	//newHeader.CommittedSeals = &AggregateSignature{}
+	newHeader.CommittedSeals = AggregateSignature{}
 	newHeader.Round = 0
 	newHeader.Extra = []byte{}
 	return newHeader
@@ -86,6 +84,8 @@ func ECRecover(header *Header) (common.Address, error) {
 	return addr, nil
 }
 
+// TODO: All these Write* functions do useless checks as we always create the input ourselves. Remove them?
+
 // WriteSeal writes the extra-data field of the given header with the given seals.
 func WriteSeal(h *Header, seal []byte) error {
 	if len(seal) != common.SealLength {
@@ -106,15 +106,10 @@ func WriteRound(h *Header, round int64) error {
 }
 
 // WriteCommittedSeals writes the extra-data field of a block header with given committed seals.
-func WriteCommittedSeals(h *Header, committedSeals *AggregateSignature) error {
-	//TODO(lorenzo) better check (with flaten uniq"?)
-	if committedSeals.Senders.Len() == 0 {
+func WriteCommittedSeals(h *Header, committedSeals AggregateSignature) error {
+	if committedSeals.Senders.Len() == 0 || committedSeals.Signature == nil {
 		return ErrInvalidCommittedSeals
 	}
-	/*h.CommittedSeals = make(Signatures)
-	for addr, seal := range committedSeals {
-		h.CommittedSeals[addr] = seal.Copy()
-	}*/
 	h.CommittedSeals = committedSeals.Copy()
 	return nil
 }

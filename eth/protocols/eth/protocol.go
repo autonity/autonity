@@ -68,10 +68,11 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
-	// 0x11 reserved for tendermintMsg
-	// 0x12 reserved for tendermintSyncMsg
-	// 0x13 reserved for TendermintOffChainAccountabilityMsg
-	//TODO(lorenzo) fix comment
+	// 0x11 reserved for ProposeNetworkMsg
+	// 0x12 reserved for PrevoteNetworkMsg
+	// 0x13 reserved for PrecommitNetworkMsg
+	// 0x14 reserved for SyncNetworkMsg
+	// 0x15 reserved for AccountabilityNetworkMsg
 )
 
 var (

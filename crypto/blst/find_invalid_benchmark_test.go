@@ -593,10 +593,7 @@ func runBenchmarkFastAggregateVerifyInvalid(b *testing.B, size int, failedNs ...
 
 	for i := 0; i < b.N; i++ {
 
-		invalidSigs, err := FindFastInvalidSignatures(sigs, pks, msg)
-		if err != nil {
-			b.Fatalf("not expected err %s", err)
-		}
+		invalidSigs := FindInvalid(sigs, pks, msg)
 		if len(invalidSigs) != len(failedNs) {
 			b.Fatalf("expected %d invalid sigs, got %d\n", len(failedNs), len(invalidSigs))
 		}

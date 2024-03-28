@@ -17,8 +17,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -27,9 +29,10 @@ import (
 )
 
 var (
-	ErrBadSignature        = errors.New("bad signature")
-	ErrUnauthorizedAddress = errors.New("unauthorized address")
-	ErrInvalidSenders      = errors.New("invalid senders information")
+	ErrBadSignature            = errors.New("bad signature")
+	ErrUnauthorizedAddress     = errors.New("unauthorized address")
+	ErrInvalidSenders          = errors.New("invalid senders information")
+	ErrInvalidComplexAggregate = errors.New("complex aggregate does not carry quorum")
 )
 
 const (
@@ -37,16 +40,19 @@ const (
 	PrevoteCode
 	PrecommitCode
 	LightProposalCode
-	AggregatePrevoteCode
-	AggregatePrecommitCode
 )
 
-type Signer func(hash common.Hash) (signature blst.Signature, address common.Address) //TODO(lorenzo) add power
+type Signer func(hash common.Hash) blst.Signature
 
+// TODO(lorenzo) refinements, maybe we can just send the sender index instead of the sender address
 type Propose struct {
 	block      *types.Block
 	validRound int64
-	individualMsg
+	// node address of the sender, populated at decoding phase
+	sender common.Address
+	// index of the sender in the committee, populated at PreValidate phase
+	senderIndex int
+	base
 }
 
 // extPropose is the actual proposal object being exchanged on the network
@@ -85,19 +91,11 @@ func (p *Propose) String() string {
 		p.base.String(), p.validRound, p.block.Hash().String())
 }
 
-/*
-func (p *Propose) MustVerify(header *types.Header) *Propose {
-	if err := p.Validate(header); err != nil {
-		panic("validation failed")
-	}
-	return p
-}*/
-
 func (p *Propose) ToLight() *LightProposal {
 	return NewLightProposal(p)
 }
 
-func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) *Propose {
+func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, self *types.CommitteeMember) *Propose {
 	isValidRoundNil := false
 	validRound := uint64(0)
 	if vr == -1 {
@@ -105,10 +103,13 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 	} else {
 		validRound = uint64(vr)
 	}
+
 	// Calculate signature first
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, uint64(r), h, validRound, isValidRoundNil, block.Hash()})
 	signatureInput := crypto.Hash(signaturePayload)
-	signature, validator := signer(signatureInput)
+	signature := signer(signatureInput)
+
+	validator := self.Address
 
 	payload, _ := rlp.EncodeToBytes(&extPropose{
 		Code:            ProposalCode,
@@ -121,27 +122,26 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) 
 		Signature:       signature.(*blst.BlsSignature),
 	})
 
-	// we don't need to assign here the voting power as it is going to be retrieved
-	// after a PreValidate() call during processing.
 	return &Propose{
-		block:      block,
-		validRound: vr,
-		individualMsg: individualMsg{
-			sender: validator,
-			base: base{
-				round:          r,
-				height:         h,
-				signatureInput: signatureInput,
-				signature:      signature,
-				payload:        payload,
-				hash:           crypto.Hash(payload),
-				verified:       false,
-			},
+		block:       block,
+		validRound:  vr,
+		sender:      validator,
+		senderIndex: int(self.Index),
+		base: base{
+			height:         h,
+			round:          r,
+			signatureInput: signatureInput,
+			signature:      signature,
+			payload:        payload,
+			hash:           crypto.Hash(payload),
+			verified:       true,
+			senderKey:      self.ConsensusKey,
+			power:          new(big.Int).Set(self.VotingPower),
 		},
 	}
 }
 
-/* //TODO(lorenzo) for later
+/* //TODO(lorenzo) refinements, for later
 // used in tests. Simulates an unverified proposal coming from a remote peer
 func NewUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) *Propose {
 	propose := NewPropose(r, h, vr, block, signer)
@@ -198,14 +198,40 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()})
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
+	p.verified = false
+	return nil
+}
+
+func (p *Propose) Sender() common.Address {
+	return p.sender
+}
+
+func (p *Propose) SenderIndex() int {
+	return p.senderIndex
+}
+
+func (p *Propose) PreValidate(header *types.Header) error {
+	validator := header.CommitteeMember(p.sender)
+	if validator == nil {
+		return ErrUnauthorizedAddress
+	}
+
+	p.senderKey = validator.ConsensusKey
+	p.senderIndex = int(validator.Index)
+	p.power = validator.VotingPower //TODO(lorenzo) do I need a copy here?
 	return nil
 }
 
 type LightProposal struct {
 	blockHash  common.Hash
 	validRound int64
-	individualMsg
+	// node address of the sender, populated at decoding phase
+	sender common.Address
+	// index of the sender in the committee, populated at PreValidate phase
+	senderIndex int
+	base
 }
+
 type extLightProposal struct {
 	Code            uint8
 	Round           uint64
@@ -229,7 +255,8 @@ func (p *LightProposal) Value() common.Hash {
 	return p.blockHash
 }
 
-// TODO(lorenzo) would be useful to print also sender and power, but we need to make sure they are trsuted (verified)
+// TODO(lorenzo) refinements, would be useful to print also sender and power, but we need to make sure they are trsuted (verified)
+// same goes for the other message types
 func (p *LightProposal) String() string {
 	return fmt.Sprintf("{%s, Code: %v, value: %v}", p.base.String(), p.Code(), p.blockHash)
 }
@@ -257,20 +284,20 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 		Signature:       proposal.signature.(*blst.BlsSignature),
 	})
 	return &LightProposal{
-		blockHash:  proposal.Block().Hash(),
-		validRound: proposal.validRound,
-		individualMsg: individualMsg{
-			sender: proposal.sender,
-			base: base{
-				round:          proposal.round,
-				height:         proposal.height,
-				signature:      proposal.signature,
-				signatureInput: proposal.signatureInput,
-				payload:        payload,
-				power:          proposal.Power(),
-				hash:           crypto.Hash(payload),
-				verified:       true,
-			},
+		blockHash:   proposal.Block().Hash(),
+		validRound:  proposal.validRound,
+		sender:      proposal.sender,
+		senderIndex: proposal.senderIndex,
+		base: base{
+			round:          proposal.round,
+			height:         proposal.height,
+			signature:      proposal.signature,
+			signatureInput: proposal.signatureInput,
+			payload:        payload,
+			power:          proposal.Power(),
+			hash:           crypto.Hash(payload),
+			verified:       true,
+			senderKey:      proposal.senderKey,
 		},
 	}
 }
@@ -320,6 +347,27 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash})
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
+	p.verified = false
+	return nil
+}
+
+func (p *LightProposal) Sender() common.Address {
+	return p.sender
+}
+
+func (p *LightProposal) SenderIndex() int {
+	return p.senderIndex
+}
+
+func (p *LightProposal) PreValidate(header *types.Header) error {
+	validator := header.CommitteeMember(p.sender)
+	if validator == nil {
+		return ErrUnauthorizedAddress
+	}
+
+	p.senderKey = validator.ConsensusKey
+	p.senderIndex = int(validator.Index)
+	p.power = validator.VotingPower
 	return nil
 }
 
@@ -332,13 +380,64 @@ type extVote struct {
 	Round     uint64
 	Height    uint64
 	Value     common.Hash
-	Sender    common.Address
+	Senders   *types.SendersInfo
 	Signature *blst.BlsSignature
+}
+
+// TODO: would be good to do the same thing for proposal and lightproposal (to avoid code repetition)
+type vote struct {
+	senders *types.SendersInfo
+	base
+}
+
+func (v *vote) Senders() *types.SendersInfo {
+	return v.senders
+}
+
+func (v *vote) PreValidate(header *types.Header) error {
+	if !v.senders.Valid(len(header.Committee)) {
+		return ErrInvalidSenders
+	}
+	v.senders.SetCommitteeSize(len(header.Committee))
+
+	// compute aggregated key
+	indexes := v.senders.Flatten()
+	keys := make([][]byte, len(indexes))
+	for i, index := range indexes {
+		keys[i] = header.Committee[index].ConsensusKeyBytes
+	}
+	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	if err != nil {
+		panic("Error while aggregating keys from committee: " + err.Error())
+	}
+
+	// build auxiliary data structures
+	indexesUniq := v.senders.FlattenUniq()
+	addresses := make(map[int]common.Address)
+	powers := make(map[int]*big.Int)
+
+	for _, index := range indexesUniq {
+		member := header.Committee[index]
+		addresses[index] = member.Address
+		powers[index] = new(big.Int).Set(member.VotingPower)
+	}
+
+	v.senders.SetPowers(powers)
+	v.senders.SetAddresses(addresses)
+
+	v.power = v.senders.Power()
+	v.senderKey = aggregatedKey
+
+	// if the aggregate is a complex aggregate, it needs to carry quorum
+	if v.senders.IsComplex() && v.power.Cmp(bft.Quorum(header.TotalVotingPower())) < 0 {
+		return ErrInvalidComplexAggregate
+	}
+	return nil
 }
 
 type Prevote struct {
 	value common.Hash
-	individualMsg
+	vote
 }
 
 func (p *Prevote) Code() uint8 {
@@ -349,22 +448,14 @@ func (p *Prevote) Value() common.Hash {
 	return p.value
 }
 
-/*
-func (p *Prevote) MustVerify(header *types.Header) *Prevote {
-	if err := p.Validate(header); err != nil {
-		panic("verification failed")
-	}
-	return p
-}*/
-
 func (p *Prevote) String() string {
-	return fmt.Sprintf("{r:  %v, h: %v , sender: %v, power: %v, Code: %v, value: %v}",
-		p.round, p.height, p.sender, p.power, p.Code(), p.value)
+	return fmt.Sprintf("{r:  %v, h: %v , power: %v, Code: %v, value: %v}",
+		p.round, p.height, p.power, p.Code(), p.value)
 }
 
 type Precommit struct {
 	value common.Hash
-	individualMsg
+	vote
 }
 
 func (p *Precommit) Code() uint8 {
@@ -375,17 +466,9 @@ func (p *Precommit) Value() common.Hash {
 	return p.value
 }
 
-/*
-func (p *Precommit) MustVerify(header *types.Header) *Precommit {
-	if err := p.Validate(header); err != nil {
-		panic("verification failed")
-	}
-	return p
-}*/
-
 func (p *Precommit) String() string {
-	return fmt.Sprintf("{r:  %v, h: %v , sender: %v, power: %v, Code: %v, value: %v}",
-		p.round, p.height, p.sender, p.power, p.Code(), p.value)
+	return fmt.Sprintf("{r:  %v, h: %v , power: %v, Code: %v, value: %v}",
+		p.round, p.height, p.power, p.Code(), p.value)
 }
 
 func newVote[
@@ -393,26 +476,30 @@ func newVote[
 	PE interface {
 		*E
 		Msg
-	}](r int64, h uint64, value common.Hash, signer Signer) *E {
+	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
 	code := PE(new(E)).Code()
 
 	// Pay attention that we're adding the message Code to the signature input data.
 	signaturePayload, _ := rlp.EncodeToBytes([]any{code, uint64(r), h, value})
 	signatureInput := crypto.Hash(signaturePayload)
-	signature, validator := signer(signatureInput)
+	signature := signer(signatureInput)
+
+	// TODO(lorenzo) refinements, aggregates for different heights might have different len(senders.bits). Is that a problem?
+	senders := types.NewSendersInfo(csize)
+	senders.Increment(self)
 
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,
 		Round:     uint64(r),
 		Height:    h,
 		Value:     value,
-		Sender:    validator,
+		Senders:   senders,
 		Signature: signature.(*blst.BlsSignature),
 	})
 	vote := E{
 		value: value,
-		individualMsg: individualMsg{
-			sender: validator,
+		vote: vote{
+			senders: senders,
 			base: base{
 				round:          r,
 				height:         h,
@@ -420,18 +507,20 @@ func newVote[
 				payload:        payload,
 				hash:           crypto.Hash(payload),
 				signatureInput: signatureInput,
-				verified:       false,
+				verified:       true,
+				senderKey:      self.ConsensusKey,
+				power:          new(big.Int).Set(self.VotingPower),
 			},
 		},
 	}
 	return &vote
 }
 
-func NewPrevote(r int64, h uint64, value common.Hash, signer Signer) *Prevote {
-	return newVote[Prevote](r, h, value, signer)
+func NewPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Prevote {
+	return newVote[Prevote](r, h, value, signer, self, csize)
 }
 
-/* //TODO(lorenzo) for later
+/* //TODO(lorenzo) refinements, for later
 // used in tests. Simulates an unverified prevote coming from a remote peer
 func NewUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer) *Prevote {
 	prevote := newVote[Prevote](r, h, value, signer)
@@ -439,16 +528,225 @@ func NewUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer) *
 	return prevote
 }*/
 
-func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommit {
-	return newVote[Precommit](r, h, value, signer)
+func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Precommit {
+	return newVote[Precommit](r, h, value, signer, self, csize)
 }
 
-/* //TODO(lorenzo) for alter
+/* //TODO(lorenzo) refinements, for later
 func NewUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommit {
 	precommit := newVote[Precommit](r, h, value, signer)
 	precommit.unvalidate()
 	return precommit
 }*/
+
+// NOTE: these functions allow for the creation of complex aggregates
+func AggregatePrevotes(votes []Vote) *Prevote {
+	return AggregateVotes[Prevote](votes)
+}
+
+func AggregatePrecommits(votes []Vote) *Precommit {
+	return AggregateVotes[Precommit](votes)
+}
+
+//TODO(lorenzo) refinements2, Instead of creating a new message object I can re-use one of the votes being aggregated
+
+// NOTE: this function assumes that:
+// 1. all votes are for the same signature input (code,h,r,value)
+// 2. all votes have previously been cryptographically verified
+func AggregateVotes[
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](votes []Vote) *E {
+	// TODO(lorenzo) what if len(votes) == 0? is it possible?
+	code := PE(new(E)).Code()
+
+	// use votes[0] as a set representative
+	representative := votes[0]
+
+	// TODO(lorenzo) refinements, aggregates for different heights might have different len(senders.bits). Is that a problem?
+	senders := types.NewSendersInfo(representative.Senders().CommitteeSize())
+
+	// order votes by decreasing number of distinct signers.
+	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
+	sort.Slice(votes, func(i, j int) bool {
+		return votes[i].Senders().Len() > votes[j].Senders().Len()
+	})
+
+	// compute new aggregated signature and related sender information
+	var signatures []blst.Signature
+	var publicKeys [][]byte
+	for _, vote := range votes {
+		// do not aggregate votes if they do not add any useful information
+		// e.g. senders contains already at least 1 signature for all signers of vote.Senders()
+		// we would just create and gossip new aggregates that would uselessly flood the network
+		if senders.AddsInformation(vote.Senders()) {
+			senders.Merge(vote.Senders())
+			signatures = append(signatures, vote.Signature())
+			publicKeys = append(publicKeys, vote.SenderKey().Marshal())
+		}
+		//TODO(lorenzo) here we are silently dropping votes. This is not good + we should probably do it before signature verification
+	}
+	aggregatedSignature := blst.Aggregate(signatures)
+	aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys)
+	if err != nil {
+		panic("Cannot generate aggregate public key from valid votes: " + err.Error())
+	}
+
+	h := representative.H()
+	r := representative.R()
+	value := representative.Value()
+	signatureInput := representative.SignatureInput()
+
+	payload, _ := rlp.EncodeToBytes(extVote{
+		Code:      code,
+		Round:     uint64(r),
+		Height:    h,
+		Value:     value,
+		Senders:   senders,
+		Signature: aggregatedSignature.(*blst.BlsSignature),
+	})
+
+	aggregateVote := E{
+		value: value,
+		vote: vote{
+			senders: senders,
+			base: base{
+				height:         h,
+				round:          r,
+				signatureInput: signatureInput,
+				signature:      aggregatedSignature,
+				payload:        payload,
+				hash:           crypto.Hash(payload),
+				verified:       true,                // verified due to all votes being verified
+				power:          senders.Power(),     // aggregated power
+				senderKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
+			},
+		},
+	}
+	return &aggregateVote
+}
+
+// NOTE: these functions will aggregate votes as much as possible without creating complex aggregates
+func AggregatePrevotesSimple(votes []Vote) []*Prevote {
+	return AggregateVotesSimple[Prevote](votes)
+}
+
+func AggregatePrecommitsSimple(votes []Vote) []*Precommit {
+	return AggregateVotesSimple[Precommit](votes)
+}
+
+// NOTE: this function assumes that:
+// 1. all votes are for the same signature input (code,h,r,value)
+// 2. all votes have previously been cryptographically verified
+func AggregateVotesSimple[
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](votes []Vote) []*E {
+	// TODO(lorenzo) what if len(votes) == 0? is it possible?
+	code := PE(new(E)).Code()
+
+	skip := make([]bool, len(votes))
+	var sendersList []*types.SendersInfo
+	var signaturesList [][]blst.Signature
+	var publicKeysList [][][]byte
+
+	// order votes by decreasing number of distinct signers.
+	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
+	sort.Slice(votes, func(i, j int) bool {
+		return votes[i].Senders().Len() > votes[j].Senders().Len()
+	})
+
+	//TODO(lorenzo) in the following we are silently dropping votes. This is not good + we should probably do it before signature verification
+
+	// TODO(lorenzo) this is not the most optimized version I believe
+	// at least add an early termination
+	for i, vote := range votes {
+		if skip[i] {
+			continue
+		}
+		senders := vote.Senders().Copy()
+		signatures := []blst.Signature{vote.Signature()}
+		publicKeys := [][]byte{vote.SenderKey().Marshal()}
+		for j := i + 1; j < len(votes); j++ {
+			if skip[j] {
+				continue
+			}
+			other := votes[j]
+			if !senders.AddsInformation(other.Senders()) {
+				skip[j] = true // TODO(lorenzo) consider keeping it, it might aggregate with other votes
+				continue
+			}
+			if !senders.CanMergeSimple(other.Senders()) {
+				continue
+			}
+			senders.Merge(other.Senders())
+			signatures = append(signatures, other.Signature())
+			publicKeys = append(publicKeys, other.SenderKey().Marshal())
+			skip[j] = true
+		}
+		sendersList = append(sendersList, senders)
+		signaturesList = append(signaturesList, signatures)
+		publicKeysList = append(publicKeysList, publicKeys)
+	}
+
+	// build aggregates
+	representative := votes[0]
+	h := representative.H()
+	r := representative.R()
+	value := representative.Value()
+	signatureInput := representative.SignatureInput()
+
+	n := len(sendersList)
+	aggregateVotes := make([]*E, n)
+	for i := 0; i < n; i++ {
+		var aggregatedSignature blst.Signature
+		var aggregatedPublicKey blst.PublicKey
+		var err error
+		if len(signaturesList[i]) == 1 {
+			aggregatedSignature = signaturesList[i][0]
+			aggregatedPublicKey, _ = blst.PublicKeyFromBytes(publicKeysList[i][0])
+		} else {
+			aggregatedSignature = blst.Aggregate(signaturesList[i])
+			aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeysList[i])
+			if err != nil {
+				panic("Cannot generate aggregate public key from valid votes: " + err.Error())
+			}
+		}
+
+		payload, _ := rlp.EncodeToBytes(extVote{
+			Code:      code,
+			Round:     uint64(r),
+			Height:    h,
+			Value:     value,
+			Senders:   sendersList[i],
+			Signature: aggregatedSignature.(*blst.BlsSignature),
+		})
+
+		aggregateVote := E{
+			value: value,
+			vote: vote{
+				senders: sendersList[i],
+				base: base{
+					height:         h,
+					round:          r,
+					signatureInput: signatureInput,
+					signature:      aggregatedSignature,
+					payload:        payload,
+					hash:           crypto.Hash(payload),
+					verified:       true,                   // verified due to all votes being verified
+					power:          sendersList[i].Power(), // aggregated power
+					senderKey:      aggregatedPublicKey,    // this is not strictly necessary since the vote is already verified
+				},
+			},
+		}
+		aggregateVotes[i] = &aggregateVote
+	}
+	return aggregateVotes
+}
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()
@@ -472,16 +770,20 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
+	if encoded.Senders == nil || encoded.Senders.Bits == nil || len(encoded.Senders.Bits) == 0 {
+		return constants.ErrInvalidMessage
+	}
 	p.height = encoded.Height
 	p.round = int64(encoded.Round)
 	p.value = encoded.Value
-	p.sender = encoded.Sender
 	p.signature = encoded.Signature
+	p.senders = encoded.Senders
 	p.payload = payload
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{PrevoteCode, encoded.Round, encoded.Height, encoded.Value})
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
+	p.verified = false
 	return nil
 }
 
@@ -506,44 +808,20 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
+	if encoded.Senders == nil || encoded.Senders.Bits == nil || len(encoded.Senders.Bits) == 0 {
+		return constants.ErrInvalidMessage
+	}
 	p.height = encoded.Height
 	p.round = int64(encoded.Round)
 	p.value = encoded.Value
-	p.sender = encoded.Sender
 	p.signature = encoded.Signature
+	p.senders = encoded.Senders
 	p.payload = payload
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{PrecommitCode, encoded.Round, encoded.Height, encoded.Value})
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
-	return nil
-}
-
-type individualMsg struct {
-	// node address of the sender, populated at decoding phase
-	sender common.Address
-	// index of the sender in the committee, populated at PreValidate phase
-	senderIndex int
-	base
-}
-
-func (im *individualMsg) Sender() common.Address {
-	return im.sender
-}
-
-func (im *individualMsg) SenderIndex() int {
-	return im.senderIndex
-}
-
-func (im *individualMsg) PreValidate(header *types.Header) error {
-	validator := header.CommitteeMember(im.sender)
-	if validator == nil {
-		return ErrUnauthorizedAddress
-	}
-
-	im.senderKey = validator.ConsensusKey
-	im.senderIndex = int(validator.Index)
-	im.power = validator.VotingPower
+	p.verified = false
 	return nil
 }
 
@@ -554,7 +832,41 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 	return crypto.Hash(buf)
 }
 
-// TODO(lorenzo) update fake msg
+// computes the power of a set of messages. Every sender's power is counted only once
+// TODO(lorenzo) write tests for this and add caches
+func Power(messages []Msg) *big.Int {
+	accountedFor := make(map[common.Address]struct{})
+	power := new(big.Int)
+
+	for _, msg := range messages {
+		switch m := msg.(type) {
+		case *Propose:
+			_, accounted := accountedFor[m.Sender()]
+			if !accounted {
+				power.Add(power, m.Power())
+				accountedFor[m.Sender()] = struct{}{}
+			}
+		case *Prevote, *Precommit:
+			vote := m.(Vote)
+			addresses := vote.Senders().Addresses()
+			powers := vote.Senders().Powers()
+			for _, index := range vote.Senders().FlattenUniq() {
+				_, accounted := accountedFor[addresses[index]]
+				if !accounted {
+					power.Add(power, powers[index])
+					accountedFor[addresses[index]] = struct{}{}
+				}
+			}
+		default:
+			panic("unknown message type")
+		}
+	}
+	return power
+}
+
+// TODO(lorenzo) refinements, update fake msg
+
+/*
 // Fake is a dummy object used for internal testing.
 type Fake struct {
 	FakeCode      uint8
@@ -614,4 +926,4 @@ func NewFakePrecommit(f Fake) *Precommit {
 			},
 		},
 	}
-}
+}*/

@@ -30,8 +30,7 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	//Commit(proposalBlock *types.Block, round int64, seals types.Signatures) error
-	Commit(proposalBlock *types.Block, round int64, seals *types.AggregateSignature) error
+	Commit(proposalBlock *types.Block, round int64, seals types.AggregateSignature) error
 
 	// GetContractABI returns the Autonity Contract ABI
 	GetContractABI() *abi.ABI
@@ -52,9 +51,7 @@ type Backend interface {
 	SetProposedBlockHash(hash common.Hash)
 
 	// Sign signs input data with the backend's private key
-	Sign(hash common.Hash) (blst.Signature, common.Address)
-	//TODO(lorenzo) for later
-	//Sign(hash common.Hash) ([]byte, common.Address, *big.Int)
+	Sign(hash common.Hash) blst.Signature
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
@@ -69,11 +66,6 @@ type Backend interface {
 
 	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
-
-	// RemoveMessageFromLocalCache removes a local message from the known messages cache.
-	// It is called by Core when some unprocessed messages are removed from the untrusted backlog buffer.
-	//RemoveMessageFromLocalCache(message message.Msg)
-	//TODO(lorenzo) delete
 
 	// Logger returns the object used for logging purposes.
 	Logger() log.Logger
@@ -94,12 +86,17 @@ type Backend interface {
 type Core interface {
 	Start(ctx context.Context, contract *autonity.ProtocolContracts)
 	Stop()
-	CurrentHeightMessages() []message.Msg
 	CoreState() CoreState
 	Broadcaster() Broadcaster
 	Proposer() Proposer
 	Prevoter() Prevoter
 	Precommiter() Precommiter
 	Height() *big.Int
-	//Power() *big.Int //TODO(lorenzo) for later
+	Round() int64
+	CurrentHeightMessages() []message.Msg
+
+	// Used by the aggregator
+	Power(h uint64, r int64) *big.Int
+	VotesPower(h uint64, r int64, code uint8) *big.Int
+	VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int
 }

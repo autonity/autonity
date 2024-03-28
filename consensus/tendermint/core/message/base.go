@@ -9,7 +9,7 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 )
 
-// TODO(lorenzo) removed the lock, check that after the aggregator no-one modifies fields
+// TODO(lorenzo) refinements, removed the lock, check that after the aggregator no-one modifies fields
 
 type base struct {
 	// populated at decoding phase
@@ -83,7 +83,7 @@ func (b *base) String() string {
 		b.height, b.round, b.power, b.verified)
 }
 
-/* //TODO(lorenzo) for later
+/* //TODO(lorenzo) refinements, for later
 // used by tests to simulate unverified messages
 func (b *base) unvalidate() {
 	b.verified = false

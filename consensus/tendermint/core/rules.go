@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -147,77 +146,15 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 
 // Line 55 in Algorithm 1 of The latest gossip on BFT consensus
 // check if we need to skip to a new round
-// func (c *Core) roundSkipCheck(ctx context.Context, msg message.Msg, sender common.Address) {
-func (c *Core) roundSkipCheck(ctx context.Context, msg message.Msg) {
-	msgRound := msg.R()
-	if _, ok := c.futureRoundChange[msgRound]; !ok {
-		c.futureRoundChange[msgRound] = make([]message.Msg, 0)
+func (c *Core) roundSkipCheck(ctx context.Context, r int64) {
+	c.futureRoundLock.RLock()
+	futureRoundMsgs := c.futureRound[r]
+	c.futureRoundLock.RUnlock()
+
+	if message.Power(futureRoundMsgs).Cmp(c.CommitteeSet().F()) > 0 {
+		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", r)
+		c.StartRound(ctx, r)
 	}
-	c.futureRoundChange[msgRound] = append(c.futureRoundChange[msgRound], msg)
-
-	//TODO(lorenzo) double check correctness, check if you can replace with the s.power function
-	totalFutureRoundMessagesPower := new(big.Int)
-	accountedFor := make(map[common.Address]struct{})
-	for _, msg := range c.futureRoundChange[msgRound] {
-		switch msg.(type) {
-		case *message.Propose:
-			sender := msg.(*message.Propose).Sender()
-			_, accounted := accountedFor[sender]
-			if !accounted {
-				power := msg.Power()
-				totalFutureRoundMessagesPower.Add(totalFutureRoundMessagesPower, power)
-				accountedFor[sender] = struct{}{}
-			}
-		case *message.AggregatePrevote, *message.AggregatePrecommit:
-			senders := msg.(message.AggregateMsg).Senders().Addresses()
-			powers := msg.(message.AggregateMsg).Senders().Powers()
-			for i, sender := range senders {
-				_, accounted := accountedFor[sender]
-				if !accounted {
-					totalFutureRoundMessagesPower.Add(totalFutureRoundMessagesPower, powers[i])
-					accountedFor[sender] = struct{}{}
-				}
-			}
-		}
-	}
-
-	/*
-	   for _, v := range votes {
-	     senders := v.Senders()
-	     powers := v.Powers()
-	     //TODO(lorenzo) twisted logic but should work
-	     for i, _ := range v.SendersCoeff().FlattenUniq() {
-	       _, accounted := accountedFor[senders[i]]
-	       if accounted {
-	         continue
-	       }
-	       power.Add(power, powers[i])
-	       accountedFor[senders[i]] = struct{}{}
-	     }
-	   }
-	   return power
-	 }*/
-
-	if totalFutureRoundMessagesPower.Cmp(c.CommitteeSet().F()) > 0 {
-		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", msgRound)
-		c.StartRound(ctx, msgRound)
-	}
-	/*
-		msgRound := msg.R()
-		if _, ok := c.futureRoundChange[msgRound]; !ok {
-			c.futureRoundChange[msgRound] = make(map[common.Address]*big.Int)
-		}
-		c.futureRoundChange[msgRound][sender] = msg.Power()
-
-		totalFutureRoundMessagesPower := new(big.Int)
-		for _, power := range c.futureRoundChange[msgRound] {
-			totalFutureRoundMessagesPower.Add(totalFutureRoundMessagesPower, power)
-		}
-
-		if totalFutureRoundMessagesPower.Cmp(c.CommitteeSet().F()) > 0 {
-			c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", msgRound)
-			c.StartRound(ctx, msgRound)
-		}*/
 }
 
 // -------------------------------------

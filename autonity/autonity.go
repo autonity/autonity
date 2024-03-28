@@ -66,15 +66,23 @@ func NewEVMContract(evmProvider EVMProvider, contractABI *abi.ABI, db ethdb.Data
 }
 
 type Cache struct {
+	// minimum base fee
 	minBaseFee    atomic.Pointer[big.Int]
 	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
 	subMinBaseFee event.Subscription
-	subscriptions *event.SubscriptionScope // will be useful when we have multiple subscriptions
+
+	// epoch period
+	epochPeriod    atomic.Pointer[big.Int]
+	epochPeriodCh  chan *AutonityEpochPeriodUpdated
+	subEpochPeriod event.Subscription
+
+	subscriptions *event.SubscriptionScope
 	quit          chan struct{}
 	done          chan struct{}
 }
 
 func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cache, error) {
+	// initialize minimum base fee through contract call and subscribe to updated event
 	minBaseFee, err := ac.MinimumBaseFee(head, state)
 	if err != nil {
 		return nil, err
@@ -84,16 +92,35 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 	if err != nil {
 		return nil, err
 	}
+
+	// initialize epoch period and subscribe to updated event
+	epochPeriod, err := ac.EpochPeriod(head, state)
+	if err != nil {
+		return nil, err
+	}
+	epochPeriodCh := make(chan *AutonityEpochPeriodUpdated)
+	subEpochPeriod, err := ac.WatchEpochPeriodUpdated(nil, epochPeriodCh)
+	if err != nil {
+		return nil, err
+	}
+
 	scope := new(event.SubscriptionScope)
 	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
+	subEpochPeriodWrapped := scope.Track(subEpochPeriod)
 	cache := &Cache{
-		minBaseFeeCh:  minBaseFeeCh,
-		subMinBaseFee: subMinBaseFeeWrapped,
-		subscriptions: scope,
-		quit:          make(chan struct{}),
-		done:          make(chan struct{}),
+		minBaseFeeCh:   minBaseFeeCh,
+		subMinBaseFee:  subMinBaseFeeWrapped,
+		epochPeriodCh:  epochPeriodCh,
+		subEpochPeriod: subEpochPeriodWrapped,
+		subscriptions:  scope,
+		quit:           make(chan struct{}),
+		done:           make(chan struct{}),
 	}
+
+	// store initial values
 	cache.minBaseFee.Store(minBaseFee)
+	cache.epochPeriod.Store(epochPeriod)
+
 	go cache.Listen()
 	return cache, nil
 }
@@ -168,13 +195,17 @@ func (c *Cache) Listen() {
 
 	for {
 		select {
-		case <-c.subMinBaseFee.Err():
-			// This should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
-			// In that case network errors can occur. Since everything is local here, no error should ever occur.
-			// we crash the client to avoid using a out-of-date value of minBaseFee in case something goes very wrong.
-			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case ev := <-c.minBaseFeeCh:
 			c.minBaseFee.Store(ev.GasPrice)
+		case ev := <-c.epochPeriodCh:
+			c.epochPeriod.Store(ev.Period)
+		// These should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
+		// In that case network errors can occur. Since everything is local here, no error should ever occur.
+		// we crash the client to avoid using a out-of-date value in case something goes very wrong.
+		case <-c.subEpochPeriod.Err():
+			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
+		case <-c.subMinBaseFee.Err():
+			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case <-c.quit:
 			return
 		}
@@ -190,6 +221,10 @@ func (c *Cache) MinimumBaseFee() *big.Int {
 	return new(big.Int).Set(c.minBaseFee.Load())
 }
 
+func (c *Cache) EpochPeriod() *big.Int {
+	return new(big.Int).Set(c.epochPeriod.Load())
+}
+
 func (c *AutonityContract) CommitteeEnodes(block *types.Block, db vm.StateDB, asACN bool) (*types.Nodes, error) {
 	return c.callGetCommitteeEnodes(db, block.Header(), asACN)
 }
@@ -203,6 +238,13 @@ func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*
 		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.MinBaseFee), nil
 	}
 	return c.callGetMinimumBaseFee(db, block)
+}
+
+func (c *AutonityContract) EpochPeriod(block *types.Header, db vm.StateDB) (*big.Int, error) {
+	if block.Number.Uint64() <= 1 {
+		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.EpochPeriod), nil
+	}
+	return c.callGetEpochPeriod(db, block)
 }
 
 func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
