@@ -53,6 +53,7 @@ var (
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			peersFlag,
+			configFlag,
 			gcpProjectIDFlag,
 			gcpInstanceTemplateFlag,
 		},
@@ -176,7 +177,10 @@ func setup(c *cli.Context) error {
 			return err
 		}
 	}
-
+	zones, err := listZones(projectId)
+	if err != nil {
+		log.Crit("can't retrieve available zone list", "err", err)
+	}
 	log.Info("Deploying new runner network", "count", n, "template", instanceTemplate, "project-id", projectId)
 	vms := make([]*vm, n)
 	var wg sync.WaitGroup
@@ -186,7 +190,7 @@ func setup(c *cli.Context) error {
 		go func(id int) {
 			var err error
 			name := "netdiag-runner-" + uuid.New().String()
-			vms[id], err = deployVM(projectId, name, "test", instanceTemplate)
+			vms[id], err = deployVM(projectId, name, zones[id%len(zones)], instanceTemplate)
 			wg.Done()
 			if err != nil {
 				log.Crit("error deploying VM", "id", id, "err", err)
@@ -196,7 +200,7 @@ func setup(c *cli.Context) error {
 	wg.Wait()
 	// generate keys and enodes
 	cfg := config{nodes: make([]nodeConfig, n)}
-	for i := 0; i <= n; i++ {
+	for i := 0; i < n; i++ {
 		key, err := crypto.GenerateKey()
 		if err != nil {
 			return err
@@ -207,10 +211,10 @@ func setup(c *cli.Context) error {
 		}
 	}
 
-	// create config file
 	configFile, err := os.Create(c.String(configFlag.Name))
 	if err != nil {
-		log.Error("can't create config file", "err", err)
+		wd, _ := os.Getwd()
+		log.Error("can't create config file", "err", err, "file", c.String(configFlag.Name), "wd", wd)
 		return err
 	}
 
@@ -222,7 +226,7 @@ func setup(c *cli.Context) error {
 	}
 
 	// deploy runners
-	for i := 0; i <= n; i++ {
+	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(id int) {
 			if err := vms[id].deployRunner(c.String(configFlag.Name)); err != nil {
@@ -234,7 +238,7 @@ func setup(c *cli.Context) error {
 	wg.Wait()
 
 	// start runners
-	for i := 0; i <= n; i++ {
+	for i := 0; i < n; i++ {
 		go func(id int) {
 			wg.Add(1)
 			if err := vms[id].startRunner(); err != nil {

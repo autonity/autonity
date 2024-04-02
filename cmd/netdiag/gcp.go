@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 
 	"google.golang.org/api/iterator"
@@ -54,14 +55,21 @@ func (vm *vm) deployRunner(configFileName string) error {
 	fmt.Println("Transferring the config to the VM...")
 	// Send the binary to the VM
 	fmt.Println("Transferring the binary to the VM...")
-	scpCmd := exec.Command("gcloud", "compute", "scp", binaryFilePath, fmt.Sprintf("%s@%s:~/%s", "YOUR_VM_USER", vm.ip, binaryName), "--zone", vm.zone)
-	return scpCmd.Run()
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	scpCmd := exec.Command("scp", exePath, fmt.Sprintf("%s@%s:~/%s", "ya", vm.ip, binaryName))
+	if err := scpCmd.Run(); err != nil {
+		log.Error("command failure", "cmd", scpCmd.String(), "err", err.Error())
+	}
+	return err
 }
 
 func (vm *vm) startRunner() error {
 	// Execute the binary on the VM
 	fmt.Println("Executing the binary on the VM...")
-	execCmd := exec.Command("gcloud", "compute", "ssh", fmt.Sprintf("%s@%s", "YOUR_VM_USER", vm.ip), "--zone", vm.zone, "--command", fmt.Sprintf("chmod +x ~/%s && ./%s > %s", binaryName, binaryName, logFileName))
+	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", "YOUR_VM_USER", vm.ip), "--zone", vm.zone, "--command", fmt.Sprintf("chmod +x ~/%s && ./%s > %s", binaryName, binaryName, logFileName))
 	err := execCmd.Run()
 	if err != nil {
 		log.Error("Error executing binary: %v", err)
@@ -97,7 +105,7 @@ func createInstance(ctx context.Context, client *compute.InstancesClient, projec
 		return fmt.Errorf("unable to create instance: %v", err)
 	}
 
-	log.Info("Waiting for the operation to complete...")
+	log.Info("Waiting for the vm to deploy...", "name", instanceName)
 	if err = op.Wait(ctx); err != nil {
 		return fmt.Errorf("unable to wait for the operation: %w", err)
 	}
@@ -172,7 +180,7 @@ func listZones(projectID string) ([]string, error) {
 		}
 
 		zones = append(zones, zone.GetName())
-		fmt.Println(zone.GetName())
+		//fmt.Println(zone.GetName())
 	}
 
 	return zones, nil

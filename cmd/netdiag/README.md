@@ -12,7 +12,7 @@ facilitates the dispatch of on-demand requests through RPC.
 ### Requirements:
 
 - You must have gloud installed along with proper adc credentials setups. 
-See https://cloud.google.com/docs/authentication/external/set-up-adc for more informations.
+See https://cloud.google.com/docs/authentication/external/set-up-adc for more informations
 
 ### Deploy New GCP cluster
 
