@@ -31,12 +31,12 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-// CommitteeOfHeight retries the committee of a given block number.
+// CommitteeOfHeight retrieves the committee of a given block number.
 func (bc *BlockChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
 	return bc.hc.CommitteeOfHeight(number)
 }
 
-// ChainHeadAndCommittee retries the latest committee and chain head of current chain.
+// ChainHeadAndCommittee retrieves the latest committee and chain head of current chain.
 func (bc *BlockChain) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	return bc.hc.ChainHeadAndCommittee()
 }

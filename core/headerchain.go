@@ -493,7 +493,7 @@ func (hc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
 	return rawdb.HasHeader(hc.chainDb, hash, number)
 }
 
-// ChainHeadAndCommittee retries the latest committee and the current chain head of chain.
+// ChainHeadAndCommittee retrieves the latest committee and the current chain head of chain.
 func (hc *HeaderChain) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	currentHead := hc.CurrentHeader()
 
@@ -504,7 +504,7 @@ func (hc *HeaderChain) ChainHeadAndCommittee() (*types.Committee, *types.Header)
 	return hc.GetHeaderByNumber(currentHead.LastEpochBlock.Uint64()).Committee, currentHead
 }
 
-// CommitteeOfHeight retries the committee of a given block number.
+// CommitteeOfHeight retrieves the committee of a given block number.
 func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
 	if number == 0 {
 		return hc.genesisHeader.Committee, nil

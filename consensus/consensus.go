@@ -52,10 +52,10 @@ type ChainHeaderReader interface {
 	// GetTd retrieves the total difficulty from the database by hash and number.
 	GetTd(hash common.Hash, number uint64) *big.Int
 
-	// CommitteeOfHeight retries the committee for a given block number.
+	// CommitteeOfHeight retrieves the committee for a given block number.
 	CommitteeOfHeight(number uint64) (*types.Committee, error)
 
-	// ChainHeadAndCommittee retries the latest committee and chain head of block chain.
+	// ChainHeadAndCommittee retrieves the latest committee and chain head of block chain.
 	ChainHeadAndCommittee() (*types.Committee, *types.Header)
 }
 

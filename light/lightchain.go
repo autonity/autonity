@@ -312,12 +312,12 @@ func (lc *LightChain) GetBlockByNumber(ctx context.Context, number uint64) (*typ
 	return lc.GetBlock(ctx, hash, number)
 }
 
-// ChainHeadAndCommittee retries the latest committee and the chain head of block chain.
+// ChainHeadAndCommittee retrieves the latest committee and the chain head of block chain.
 func (lc *LightChain) ChainHeadAndCommittee() (*types.Committee, *types.Header) {
 	return lc.hc.ChainHeadAndCommittee()
 }
 
-// CommitteeOfHeight retries the committee of a given block number.
+// CommitteeOfHeight retrieves the committee of a given block number.
 func (lc *LightChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
 	return lc.hc.CommitteeOfHeight(number)
 }
