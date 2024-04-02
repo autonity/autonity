@@ -36,7 +36,7 @@ var emptyCodeHash = crypto.Keccak256Hash(nil)
 const (
 	NotReimbursable = iota
 	InstantReimbursable
-	FutureReimbursable
+	//FutureReimbursable // todo: making accusation events future reimbursable?
 )
 
 /*
@@ -269,8 +269,7 @@ func (st *StateTransition) preCheck() error {
 	return st.buyGas()
 }
 
-// resolveReimburseType resolve oracle vote event, misbehaviour event, and innocence event as instantly reimbursable,
-// while the accusation event is resolved as future reimbursable, and the others are resolved as not reimbursable.
+// resolveReimburseType resolve oracle vote event, and accountability events as instantly reimbursable,
 func resolveReimburseType(msg Message) int {
 	if (msg.To() != nil) && *msg.To() != params.AccountabilityContractAddress && *msg.To() != params.OracleContractAddress {
 		return NotReimbursable
