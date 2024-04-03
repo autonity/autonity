@@ -24,8 +24,17 @@ See https://cloud.google.com/docs/authentication/external/set-up-adc for more in
 
 This will start an interactive session where you can execute any remote control command.
 
-### Windown deployed cluster
+### Clear deployed cluster
 
 This command will clear
 
 `./netdiag clean --gcp-project`
+
+#### Misc
+
+Ssh agent can help to avoid the password prompt everytime.
+
+```
+ eval (ssh-agent -c) 
+ ssh-add ~/.ssh/id_rsa
+```

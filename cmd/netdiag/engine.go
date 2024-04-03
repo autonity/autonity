@@ -1,25 +1,27 @@
 package main
 
 import (
+	"crypto/ecdsa"
 	"sync"
 
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
 )
 
-type engine struct {
+type Engine struct {
 	config
 	id     int
 	server *p2p.Server
 
-	peers  []*peer
+	peers  []*peer // nil never connected, can do probably cleaner
 	enodes []*enode.Node
 	sync.RWMutex
 }
 
-func newEngine(cfg config) *engine {
-	e := new(engine)
+func newEngine(cfg config, key *ecdsa.PrivateKey) *Engine {
+	e := new(Engine)
 	runner := func(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 		node, err := e.addPeer(peer, rw)
 		if err != nil {
@@ -38,7 +40,7 @@ func newEngine(cfg config) *engine {
 	}
 
 	p2pConfig := p2p.Config{
-		PrivateKey:      nil,
+		PrivateKey:      key,
 		MaxPeers:        1000,
 		MaxPendingPeers: 25,
 		DialRatio:       0,
@@ -51,27 +53,31 @@ func newEngine(cfg config) *engine {
 			Length:  5,
 			Run:     runner,
 		}},
-		ListenAddr:      "",
+		ListenAddr:      "0.0.0.0:20203",
 		NAT:             nil,
 		Dialer:          nil, // nil is default TCP, have UDP supported at one point
 		NoDial:          false,
 		EnableMsgEvents: false,
-		Logger:          nil,
+		Logger:          log.Root(),
 	}
 	e.config = cfg
 	e.server = &p2p.Server{Net: p2p.Consensus, Config: p2pConfig}
 
-	enodesToResolve := make([]string, len(e.config.nodes))
+	enodesToResolve := make([]string, len(e.config.Nodes))
 	for i := range enodesToResolve {
-		enodesToResolve[i] = e.config.nodes[i].enode
+		enodesToResolve[i] = e.config.Nodes[i].Enode
 	}
 	e.enodes = types.NewNodes(enodesToResolve, true).List
 	e.peers = make([]*peer, len(e.enodes))
 	return e
 }
 
-func (e *engine) start() {
+func (e *Engine) start() error {
 	// attempt to connect to everyone. Use our logic.
+	if err := e.server.Start(); err != nil {
+		log.Error("error starting p2p server", "err", err)
+		return err
+	}
 	e.server.UpdateConsensusEnodes(e.enodes, e.enodes)
 
 	/*
@@ -121,17 +127,20 @@ func (e *engine) start() {
 
 		// 10kb 50kb 200kb . CONFIRM AGAINST TIME
 	*/
+	return nil
 }
 
-func (e *engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*peer, error) {
+func (e *Engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*peer, error) {
 	e.Lock()
 	defer e.Unlock()
 	p := &peer{
 		Peer:          node,
 		MsgReadWriter: rw,
+		connected:     true,
 	}
-	for i := 0; i < len(e.config.nodes); i++ {
+	for i := 0; i < len(e.config.Nodes); i++ {
 		if e.enodes[i].ID() == node.ID() {
+			p.ip = e.enodes[i].IP().String()
 			e.peers[i] = p
 			break
 		}
@@ -140,13 +149,13 @@ func (e *engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*peer, error) {
 	return p, nil
 }
 
-func (e *engine) peerCount() int {
+func (e *Engine) peerCount() int {
 	e.Lock()
 	defer e.Unlock()
 	return len(e.peers)
 }
 
-func (e *engine) peersDo(f func(p *peer)) {
+func (e *Engine) peersDo(f func(p *peer)) {
 	e.Lock()
 	defer e.Unlock()
 	for _, p := range e.peers {

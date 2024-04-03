@@ -17,19 +17,20 @@ import (
 )
 
 const (
-	binaryFilePath = "/root/netdiag"
-	binaryName     = "netdiag"
-	logFileName    = "output.log"
+	binaryName  = "netdiag"
+	logFileName = "output.log"
 )
 
 type vm struct {
+	id             int
 	ip             string
 	instanceName   string
 	zone           string
+	user           string
 	instanceClient *compute.InstancesClient // don't forget to close ! defer instancesClient.Close()
 }
 
-func deployVM(projectID, instanceName, zone, instanceTemplate string) (*vm, error) {
+func deployVM(id int, projectID, instanceName, zone, instanceTemplate, user string) (*vm, error) {
 	ctx := context.Background()
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
@@ -44,43 +45,56 @@ func deployVM(projectID, instanceName, zone, instanceTemplate string) (*vm, erro
 	// Get instance external IP
 	ipAddress := getInstanceExternalIP(ctx, instancesClient, projectID, zone, instanceName)
 	return &vm{
+		id:             id,
 		ip:             ipAddress,
 		instanceClient: instancesClient,
 		instanceName:   instanceName,
 		zone:           zone,
+		user:           user,
 	}, nil
 }
 
 func (vm *vm) deployRunner(configFileName string) error {
-	fmt.Println("Transferring the config to the VM...")
+	log.Info("Transferring config file to the VM...", "id", vm.id)
 	// Send the binary to the VM
-	fmt.Println("Transferring the binary to the VM...")
+	cmd := exec.Command("scp", configFileName, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, configFileName))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Error("command failure", "err", err, "cmd", cmd.String())
+		return err
+	}
+	log.Info("Transferring the binary to the VM...", "id", vm.id)
 	exePath, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	scpCmd := exec.Command("scp", exePath, fmt.Sprintf("%s@%s:~/%s", "ya", vm.ip, binaryName))
-	if err := scpCmd.Run(); err != nil {
-		log.Error("command failure", "cmd", scpCmd.String(), "err", err.Error())
+	//scpCmd.Stdout = os.Stdout
+	//scpCmd.Stderr = os.Stderr
+	if err := exec.Command("scp", exePath, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, binaryName)).Run(); err != nil {
+		log.Error("command failure", "err", err, "id", vm.id)
 	}
 	return err
 }
 
-func (vm *vm) startRunner() error {
+func (vm *vm) startRunner(configFileName string) error {
 	// Execute the binary on the VM
-	fmt.Println("Executing the binary on the VM...")
-	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", "YOUR_VM_USER", vm.ip), "--zone", vm.zone, "--command", fmt.Sprintf("chmod +x ~/%s && ./%s > %s", binaryName, binaryName, logFileName))
-	err := execCmd.Run()
-	if err != nil {
-		log.Error("Error executing binary: %v", err)
+	log.Info("Executing the runner on the VM...", "id", vm.id)
+	flags := fmt.Sprintf("run --config %s --id %d", configFileName, vm.id)
+	localCommand := fmt.Sprintf("chmod +x ~/%s && nohup sudo -b ./%s %s > %s 2>&1 ", binaryName, binaryName, flags, logFileName)
+	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
+	if err := execCmd.Start(); err != nil {
+		log.Error("Error executing binary: %v", err, "id", vm.id)
 	}
-	return err
+	return nil
 }
 
 func (vm *vm) deleteRunner(ctx context.Context, projectID string) {
 	// Download the log file
-	fmt.Println("Downloading the log file...")
+	log.Info("Downloading the log file...", "id", vm.id)
 	scpLogCmd := exec.Command("gcloud", "compute", "scp", fmt.Sprintf("%s@%s:~/%s", "YOUR_VM_USER", vm.ip, logFileName), ".", "--zone", vm.zone)
+	scpLogCmd.Stdout = os.Stdout
+	scpLogCmd.Stderr = os.Stderr
 	if err := scpLogCmd.Run(); err != nil {
 		log.Info("Error downloading log file: %v", err)
 	}
@@ -129,7 +143,7 @@ func getInstanceExternalIP(ctx context.Context, client *compute.InstancesClient,
 			return ac[0].GetNatIP()
 		}
 	}
-	log.Crit("No external IP found for the instance.")
+	log.Crit("No external IP found for the ineval $(ssh-agent)stance.")
 	return ""
 }
 
