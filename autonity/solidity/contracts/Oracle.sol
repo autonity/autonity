@@ -37,7 +37,7 @@ contract Oracle is IOracle {
     struct Price {
         int256 price;
         uint timestamp;
-        bool isValid;
+        bool success;
     }
     // TODO: prices can be changed to mapping of mapping ???
     mapping(string => Price)[] internal prices;
@@ -184,16 +184,16 @@ contract Oracle is IOracle {
             _totalReports[_count++] = reports[_symbol][_voter];
         }
         int256 _priceMedian = prices[round-1][_symbol].price;
-        bool isValid = false;
+        bool success = false;
         if (_count > 0) {
             _priceMedian = _getMedian(_totalReports, _count);
-            isValid = true;
+            success = true;
         }
         prices.push();
         prices[round][_symbol] = Price(
             _priceMedian,
             block.timestamp,
-            isValid);
+            success);
 
     }
     /**
@@ -203,7 +203,7 @@ contract Oracle is IOracle {
     function latestRoundData(string memory _symbol) public view returns (RoundData memory data) {
         //return last aggregated round
         Price memory _p = prices[round-1][_symbol];
-        RoundData memory _d = RoundData(round-1, _p.price, _p.timestamp, _p.isValid);
+        RoundData memory _d = RoundData(round-1, _p.price, _p.timestamp, _p.success);
         return _d;
     }
     /**
@@ -214,7 +214,7 @@ contract Oracle is IOracle {
     function getRoundData(uint256 _round, string memory _symbol) external view returns
     (RoundData memory data) {
         Price memory _p = prices[_round][_symbol];
-        RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, _p.isValid);
+        RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, _p.success);
         return _d;
     }
     // ["NTN-USD", "NTN-EUR", ... ]
