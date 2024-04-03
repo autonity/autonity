@@ -465,9 +465,9 @@ func TestNewProposal(t *testing.T) {
 // The following tests aim to test lines 28 - 33 of Tendermint Algorithm described on page 6 of
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestOldProposal(t *testing.T) {
-	//t.Skip("Broken for some random values https://github.com/autonity/autonity/issues/715")
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
+	// extend committeeSet by 1 to prevent the out of range access in members slice with random generated currentRound.
+	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound+1)
 	members := committeeSet.Committee()
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
