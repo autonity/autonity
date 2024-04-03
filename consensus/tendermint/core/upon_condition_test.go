@@ -55,6 +55,8 @@ func TestStartRoundVariables(t *testing.T) {
 	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
 	committeeSet, keys := prepareCommittee(t, committeeSizeAndMaxRound)
 
+	t.Log("curHeight", currentHeight, "curRound", currentRound, "committeeSize&MaxRound", committeeSizeAndMaxRound)
+
 	// This header now needs to be signed  and have a committee to be able to construct a round robin committeeSet.
 	setCommitteeAndSealOnBlock(t, prevBlock, committeeSet, keys, 0)
 	members := committeeSet.Committee()
@@ -192,6 +194,7 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(committeeSet.Committee(), proposal)
 
+		t.Log("preHeight", prevHeight, "curRound", currentRound, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		core.StartRound(context.Background(), currentRound)
 	})
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
@@ -220,6 +223,8 @@ func TestStartRound(t *testing.T) {
 
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(committeeSet.Committee(), proposal)
+
+		t.Log("curRound", currentRound, "proposalHeight", proposalHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		core.StartRound(context.Background(), currentRound)
 	})
@@ -251,6 +256,8 @@ func TestStartRound(t *testing.T) {
 			backendMock.EXPECT().HeadBlock().Return(prevBlock, clientAddr)
 		}
 
+		t.Log("curRound", currentRound, "preHeight", prevHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
+
 		core.StartRound(context.Background(), currentRound)
 
 		assert.Equal(t, currentRound, core.Round())
@@ -269,6 +276,7 @@ func TestStartRound(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setCommitteeSet(committeeSet)
@@ -300,6 +308,8 @@ func TestStartRound(t *testing.T) {
 
 		backendMock.EXPECT().Broadcast(committeeSet.Committee(), prevoteMsg)
 
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
+
 		c.handleTimeoutPropose(context.Background(), timeoutE)
 		assert.Equal(t, Prevote, c.step)
 	})
@@ -321,6 +331,8 @@ func TestNewProposal(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -363,6 +375,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		c := New(backendMock, nil, clientAddr, log.Root())
 		// if lockedRround = - 1 then lockedValue = nil
 		c.setHeight(currentHeight)
@@ -398,6 +411,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -437,6 +451,7 @@ func TestNewProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -490,6 +505,10 @@ func TestOldProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
 
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "proposalValidRound", proposalValidRound,
+			"clientLockedRound", clientLockedRound,
+			"committeeSizeAndMaxRound", committeeSizeAndMaxRound)
+
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -539,7 +558,8 @@ func TestOldProposal(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
-
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "proposalValidRound", proposalValidRound,
+			"committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -588,7 +608,8 @@ func TestOldProposal(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
-
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "proposalValidRound", proposalValidRound,
+			"committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
@@ -737,6 +758,10 @@ func TestOldProposal(t *testing.T) {
 		backendMock.EXPECT().Broadcast(committeeSet.Committee(), prevoteMsgToBroadcast)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
 
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "proposalValidRound", proposalValidRound,
+			"clientLockedRound", clientLockedRound,
+			"committeeSizeAndMaxRound", committeeSizeAndMaxRound)
+
 		// now we handle new round's proposal with round_p > vr on value v.
 		err := c.handleValidMsg(context.Background(), proposal)
 		assert.NoError(t, err)
@@ -793,7 +818,7 @@ func TestProposeTimeout(t *testing.T) {
 		// propose timer should be started
 		c.proposeTimeout.ScheduleTimeout(2*time.Second, c.Round(), c.Height(), c.onTimeoutPropose)
 		assert.True(t, c.proposeTimeout.TimerStarted())
-
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		err := c.handleValidMsg(context.Background(), proposal)
 		assert.NoError(t, err)
 		// propose timer should still be running
@@ -825,6 +850,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -873,6 +899,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -922,6 +949,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -946,6 +974,7 @@ func TestPrevoteTimeout(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		c := New(backendMock, nil, clientAddr, log.Root())
@@ -990,6 +1019,7 @@ func TestQuorumPrevote(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
+		t.Log("curStep", currentStep, "curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -1041,6 +1071,7 @@ func TestQuorumPrevote(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
+		t.Log("curStep", currentStep, "curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -1112,6 +1143,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(clientSigner)
+	t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 	c := New(backendMock, nil, clientAddr, log.Root())
 	c.setHeight(currentHeight)
@@ -1158,6 +1190,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -1207,6 +1240,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -1241,19 +1275,19 @@ func TestPrecommitTimeout(t *testing.T) {
 		assert.Equal(t, Precommit, c.step)
 	})
 	t.Run("precommit Timeout is not started multiple times", func(t *testing.T) {
-		height := big.NewInt(int64(rand.Intn(maxSize) + 1))
-		round := int64(rand.Intn(committeeSizeAndMaxRound))
+		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
+		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
 
-		precommitFrom1 := message.NewPrecommit(round,
-			height.Uint64(),
-			generateBlock(height).Hash(),
+		precommitFrom1 := message.NewPrecommit(currentRound,
+			currentHeight.Uint64(),
+			generateBlock(currentHeight).Hash(),
 			makeSigner(privateKeys[members[1].Address], members[1].Address),
 		).MustVerify(stubVerifier)
 
 		precommitFrom2 := message.NewPrecommit(
-			round,
-			height.Uint64(),
-			generateBlock(height).Hash(),
+			currentRound,
+			currentHeight.Uint64(),
+			generateBlock(currentHeight).Hash(),
 			makeSigner(privateKeys[members[2].Address], members[2].Address),
 		).MustVerify(stubVerifier)
 
@@ -1261,13 +1295,12 @@ func TestPrecommitTimeout(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-
 		c := New(backendMock, nil, clientAddr, log.Root())
-		c.setHeight(height)
-		c.setRound(round)
+		c.setHeight(currentHeight)
+		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		step := Step(rand.Intn(3))
-		c.SetStep(context.Background(), step)
+		currentStep := Step(rand.Intn(3))
+		c.SetStep(context.Background(), currentStep)
 		// create quorum prevote messages however there is no quorum on a specific hash
 		fakePrecommit1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -1276,13 +1309,14 @@ func TestPrecommitTimeout(t *testing.T) {
 		}
 		c.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1))
 		fakePrecommit2 := message.Fake{
-			FakeValue:  generateBlock(height).Hash(),
+			FakeValue:  generateBlock(currentHeight).Hash(),
 			FakeSender: members[0].Address,
 			FakePower:  common.Big1,
 		}
 		c.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit2))
 
 		assert.False(t, c.precommitTimeout.TimerStarted())
+		t.Log("curStep", currentStep, "curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		err := c.handleValidMsg(context.Background(), precommitFrom1)
 		assert.NoError(t, err)
@@ -1299,9 +1333,9 @@ func TestPrecommitTimeout(t *testing.T) {
 		err = c.precommitTimeout.StopTimer()
 		assert.NoError(t, err)
 
-		assert.Equal(t, height, c.Height())
-		assert.Equal(t, round, c.Round())
-		assert.Equal(t, step, c.step)
+		assert.Equal(t, currentHeight, c.Height())
+		assert.Equal(t, currentRound, c.Round())
+		assert.Equal(t, currentStep, c.step)
 	})
 	t.Run("at precommit Timeout expiry Timeout event is sent", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -1316,16 +1350,17 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		step := Step(rand.Intn(3))
-		c.SetStep(context.Background(), step)
+		currentStep := Step(rand.Intn(3))
+		c.SetStep(context.Background(), currentStep)
 
 		assert.False(t, c.precommitTimeout.TimerStarted())
 		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: currentRound, HeightWhenCalled: currentHeight, Step: Precommit})
+		t.Log("curStep", currentStep, "curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		assert.True(t, c.precommitTimeout.TimerStarted())
 		assert.Equal(t, currentHeight, c.Height())
 		assert.Equal(t, currentRound, c.Round())
-		assert.Equal(t, step, c.step)
+		assert.Equal(t, currentStep, c.step)
 		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of precommit Timeout event next round will be started", func(t *testing.T) {
@@ -1346,8 +1381,9 @@ func TestPrecommitTimeout(t *testing.T) {
 		c.setHeight(currentHeight)
 		c.setRound(currentRound)
 		c.setCommitteeSet(committeeSet)
-		step := Step(rand.Intn(3))
-		c.SetStep(context.Background(), step)
+		currentStep := Step(rand.Intn(3))
+		c.SetStep(context.Background(), currentStep)
+		t.Log("curStep", currentStep, "curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c.handleTimeoutPrecommit(context.Background(), timeoutE)
 
@@ -1401,6 +1437,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	backendMock.EXPECT().Commit(proposal.Block(), currentRound, gomock.Any())
 	// In case of Timeout propose
 	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
+	t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 	err := c.handleValidMsg(context.Background(), precommit)
 	assert.NoError(t, err)
@@ -1467,6 +1504,7 @@ func TestFutureRoundChange(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
+		t.Log("curStep", currentStep, "curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -1510,6 +1548,7 @@ func TestFutureRoundChange(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("curStep", currentStep, "curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
 
 		c := New(backendMock, nil, clientAddr, log.Root())
 		c.setHeight(currentHeight)
@@ -1557,6 +1596,7 @@ func TestHandleMessage(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("preHeight", prevHeight)
 
 		core := New(backendMock, nil, key1PubAddr, log.Root())
 		core.height = new(big.Int).Add(prevHeight, common.Big1)
@@ -1579,6 +1619,7 @@ func TestHandleMessage(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		t.Log("preHeight", prevHeight)
 
 		core := New(backendMock, nil, key1PubAddr, log.Root())
 		core.setCommitteeSet(committeeSet)
