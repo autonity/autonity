@@ -22,47 +22,47 @@ const (
 )
 
 type vm struct {
-	id             int
-	ip             string
-	instanceName   string
-	zone           string
-	user           string
-	instanceClient *compute.InstancesClient // don't forget to close ! defer instancesClient.Close()
+	id           int
+	ip           string
+	instanceName string
+	zone         string
+	user         string
 }
 
-func deployVM(id int, projectID, instanceName, zone, instanceTemplate, user string) (*vm, error) {
-	ctx := context.Background()
-	instancesClient, err := compute.NewInstancesRESTClient(ctx)
-	if err != nil {
-		log.Error("NewInstancesRESTClient: %v", err)
-		return nil, err
-	}
-	// Create a new VM instance
-	if err := createInstance(ctx, instancesClient, projectID, zone, instanceName, instanceTemplate); err != nil {
-		return nil, err
-	}
-
-	// Get instance external IP
-	ipAddress := getInstanceExternalIP(ctx, instancesClient, projectID, zone, instanceName)
+// prefer using newVM over directly instantiating a vm object
+func newVM(id int, ip, instanceName, zone, user string) *vm {
 	return &vm{
-		id:             id,
-		ip:             ipAddress,
-		instanceClient: instancesClient,
-		instanceName:   instanceName,
-		zone:           zone,
-		user:           user,
-	}, nil
+		id:           id,
+		ip:           ip,
+		instanceName: instanceName,
+		zone:         zone,
+		user:         user,
+	}
 }
 
-func (vm *vm) deployRunner(configFileName string) error {
-	log.Info("Transferring config file to the VM...", "id", vm.id)
-	// Send the binary to the VM
-	cmd := exec.Command("scp", configFileName, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, configFileName))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		log.Error("command failure", "err", err, "cmd", cmd.String())
-		return err
+func deployVM(ctx context.Context, client *compute.InstancesClient, id int, projectID, instanceName, zone, instanceTemplate, user string) (*vm, error) {
+	// Create a new VM instance
+	if err := createInstance(ctx, client, projectID, zone, instanceName, instanceTemplate); err != nil {
+		return nil, err
+	}
+	// Get instance external IP
+	ipAddress := getInstanceExternalIP(ctx, client, projectID, zone, instanceName)
+	return newVM(id, ipAddress, instanceName, zone, user), nil
+}
+
+func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy bool) error {
+	if !skipConfigDeploy {
+		log.Info("Transferring config file to the VM...", "id", vm.id)
+		// Send the binary to the VM
+		cmd := exec.Command("scp", configFileName, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, configFileName))
+		if debug {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err != nil {
+			log.Error("command failure", "err", err, "cmd", cmd.String())
+			return err
+		}
 	}
 	log.Info("Transferring the binary to the VM...", "id", vm.id)
 	exePath, err := os.Executable()
@@ -81,7 +81,7 @@ func (vm *vm) startRunner(configFileName string) error {
 	// Execute the binary on the VM
 	log.Info("Executing the runner on the VM...", "id", vm.id)
 	flags := fmt.Sprintf("run --config %s --id %d", configFileName, vm.id)
-	localCommand := fmt.Sprintf("chmod +x ~/%s && nohup sudo -b ./%s %s > %s 2>&1 ", binaryName, binaryName, flags, logFileName)
+	localCommand := fmt.Sprintf("chmod +x ~/%s && sudo -b ./%s %s > %s 2>&1 ", binaryName, binaryName, flags, logFileName)
 	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
 	if err := execCmd.Start(); err != nil {
 		log.Error("Error executing binary: %v", err, "id", vm.id)
@@ -89,7 +89,7 @@ func (vm *vm) startRunner(configFileName string) error {
 	return nil
 }
 
-func (vm *vm) deleteRunner(ctx context.Context, projectID string) {
+func (vm *vm) deleteRunner(ctx context.Context, client *compute.InstancesClient, projectID string) {
 	// Download the log file
 	log.Info("Downloading the log file...", "id", vm.id)
 	scpLogCmd := exec.Command("gcloud", "compute", "scp", fmt.Sprintf("%s@%s:~/%s", "YOUR_VM_USER", vm.ip, logFileName), ".", "--zone", vm.zone)
@@ -100,7 +100,7 @@ func (vm *vm) deleteRunner(ctx context.Context, projectID string) {
 	}
 	// Delete the VM
 	fmt.Println("Deleting the VM...")
-	deleteInstance(ctx, vm.instanceClient, projectID, vm.zone, vm.instanceName)
+	deleteInstance(ctx, client, projectID, vm.zone, vm.instanceName)
 }
 
 func createInstance(ctx context.Context, client *compute.InstancesClient, projectID, zone, instanceName, instanceTemplate string) error {

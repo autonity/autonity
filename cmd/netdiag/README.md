@@ -5,8 +5,8 @@ Network Diagnosis tooling suite for Autonity Networks.
 This toolkit is designed to evaluate and diagnose network reliability within a real-world context, aiming in the
 long-run to serve as a comprehensive testing framework for sophisticated network propagation methodologies.
 At present, it operates by establishing a cluster of DevP2P nodes that execute a bespoke protocol
-developed specifically for network diagnostics. Those nodes are remotely controlled by a supervisory program that 
-facilitates the dispatch of on-demand requests through RPC.
+developed specifically for network diagnostics. Those nodes are remotely controlled by a supervisory program that
+facilitates the dispatch of on-demand p2p protocol messages through RPC.
 
 ## Usage
 ### Requirements:
@@ -32,7 +32,7 @@ This command will clear
 
 #### Misc
 
-Ssh agent can help to avoid the password prompt everytime.
+Ssh agent can help to avoid the password prompt at every deployment.
 
 ```
  eval (ssh-agent -c) 

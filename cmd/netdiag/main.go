@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,12 +12,14 @@ import (
 	"net/rpc"
 	"os"
 	"os/signal"
+	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	compute "cloud.google.com/go/compute/apiv1"
 	"github.com/google/uuid"
 	"gopkg.in/urfave/cli.v1"
 
@@ -61,7 +64,7 @@ var (
 	setupCommand = cli.Command{
 		Action:    setup,
 		Name:      "setup",
-		Usage:     "Setup a new autonity diagnosis deployment",
+		Usage:     "Setup a new netdiag runner cluster",
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			peersFlag,
@@ -73,7 +76,18 @@ var (
 		Description: `
 The setup command deploys a new network of nodes.`,
 	}
-
+	// update command
+	updateCommand = cli.Command{
+		Action:    update,
+		Name:      "update",
+		Usage:     "Update a deployed cluster",
+		ArgsUsage: "",
+		Flags: []cli.Flag{
+			configFlag,
+		},
+		Description: `
+Update a cluster with current binary.`,
+	}
 	// control command
 	controlCommand = cli.Command{
 		Action:    control,
@@ -117,17 +131,22 @@ func init() {
 		setupCommand,
 		runCommand,
 		controlCommand,
+		updateCommand,
 		// run flag
 	}
 }
 
 type nodeConfig struct {
-	Enode string
-	Ip    string
-	Key   string
+	Enode        string
+	Ip           string
+	Key          string
+	Zone         string
+	InstanceName string
 }
 type config struct {
-	Nodes []nodeConfig
+	Nodes        []nodeConfig
+	GcpProjectId string
+	GcpUsername  string
 }
 
 func readConfigFile(file string) config {
@@ -162,8 +181,10 @@ func main() {
 }
 
 func run(c *cli.Context) error {
+	user, _ := user.Current()
+	fmt.Printf("Username: %s\n", user.Username)
 	localId := c.Int(idFlag.Name)
-	log.Info("Runner started", "cmd", strings.Join(os.Args, " "), "id", localId)
+	log.Info("Runner started", "cmd", strings.Join(os.Args, " "), "id", localId, "user", user.Username, "uid", user.Uid)
 	// Listen for Ctrl-C.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
@@ -299,6 +320,12 @@ func setup(c *cli.Context) error {
 		log.Crit("can't retrieve available zone list", "err", err)
 	}
 	log.Info("Deploying new runner network", "count", n, "template", instanceTemplate, "project-id", projectId)
+	ctx := context.Background()
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		log.Error("NewInstancesRESTClient: %v", err)
+		return err
+	}
 	vms := make([]*vm, n)
 	var wg sync.WaitGroup
 	// create VM instances on GCP
@@ -307,7 +334,7 @@ func setup(c *cli.Context) error {
 		go func(id int) {
 			var err error
 			name := "netdiag-runner-" + uuid.New().String()
-			vms[id], err = deployVM(id, projectId, name, zones[id%len(zones)], instanceTemplate, c.String(gcpUsername.Name))
+			vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zones[id%len(zones)], instanceTemplate, c.String(gcpUsername.Name))
 			wg.Done()
 			if err != nil {
 				log.Crit("error deploying VM", "id", id, "err", err)
@@ -317,16 +344,22 @@ func setup(c *cli.Context) error {
 	wg.Wait()
 	log.Info("Instances deployment completed")
 	// generate keys and enodes
-	cfg := config{Nodes: make([]nodeConfig, n)}
+	cfg := config{
+		Nodes:        make([]nodeConfig, n),
+		GcpProjectId: projectId,
+		GcpUsername:  c.String(gcpUsername.Name),
+	}
 	for i := 0; i < n; i++ {
 		key, err := crypto.GenerateKey()
 		if err != nil {
 			return err
 		}
 		cfg.Nodes[i] = nodeConfig{
-			Ip:    vms[i].ip,
-			Key:   hex.EncodeToString(crypto.FromECDSA(key)),
-			Enode: fmt.Sprintf("enode://%x@%s:31337", crypto.FromECDSAPub(&key.PublicKey)[1:], vms[i].ip),
+			Ip:           vms[i].ip,
+			Key:          hex.EncodeToString(crypto.FromECDSA(key)),
+			Enode:        fmt.Sprintf("enode://%x@%s:31337", crypto.FromECDSAPub(&key.PublicKey)[1:], vms[i].ip),
+			Zone:         vms[i].zone,
+			InstanceName: vms[i].instanceName,
 		}
 	}
 
@@ -351,7 +384,7 @@ func setup(c *cli.Context) error {
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(id int) {
-			if err := vms[id].deployRunner(configFileName); err != nil {
+			if err := vms[id].deployRunner(configFileName, false, false); err != nil {
 				log.Crit("error deploying runner", "id", id, "err", err)
 			}
 			wg.Done()
@@ -374,5 +407,30 @@ func setup(c *cli.Context) error {
 	for i := range vms {
 		log.Info("Netdiag runner deployed", "id", i, "ip", vms[i].ip)
 	}
+	return nil
+}
+
+func update(c *cli.Context) error {
+	log.Info("Updating cluster")
+	cfg := readConfigFile(c.String(configFlag.Name))
+	vms := make([]*vm, len(cfg.Nodes))
+	var wg sync.WaitGroup
+	now := time.Now()
+	for i, n := range cfg.Nodes {
+		wg.Add(1)
+		vms[i] = newVM(i, n.Ip, n.InstanceName, n.Zone, cfg.GcpUsername)
+		go func(id int) {
+			if err := vms[id].deployRunner(c.String(configFlag.Name), false, true); err != nil {
+				log.Crit("error deploying runner", "id", id, "err", err)
+			}
+			log.Info("Runner binary deployed", "id", id)
+			if err := vms[id].startRunner(c.String(configFlag.Name)); err != nil {
+				log.Crit("error starting runner", "id", id, "err", err)
+			}
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	log.Info("Cluster deployed and running!", "duration(s)", time.Now().Sub(now).Seconds())
 	return nil
 }
