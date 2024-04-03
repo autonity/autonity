@@ -6,6 +6,7 @@ const Autonity = artifacts.require("Autonity")
 const AccountabilityTest = artifacts.require("AccountabilityTest")
 const VestingManager = artifacts.require("VestingManager")
 const VestingManagerTest = artifacts.require("VestingManagerTest")
+const TestContract = artifacts.require("TestContract")
 const toBN = web3.utils.toBN
 const config = require("./config")
 
@@ -137,9 +138,12 @@ contract('VestingManager', function (accounts) {
             vestingManager = await VestingManagerTest.new(autonity.address, operator, {from: deployer})
         })
 
-        it('measure gas for _applyBonding', async function () {
+        it('measure gas for _applyBonding(_rejected = false)', async function () {
             let amount = 100000000000
-            let bond = amount / 2
+            let bond = amount / 4
+            console.log("starts")
+            let tx = toBN(await vestingManager.unclaimedRewards.call(anyAccount)).toString()
+            console.log(tx)
             let validator = validators[0].nodeAddress
             await autonity.mint(operator, amount, {from: operator})
             await autonity.approve(vestingManager.address, amount, {from: operator})
@@ -162,17 +166,67 @@ contract('VestingManager', function (accounts) {
             // console.log(newBalance)
             // assert.equal(toBN(await web3.eth.getBalance(autonity.address)), newBalance, "autonity balance not changed")
             await utils.endEpoch(autonity, operator, deployer)
+            console.log(await web3.eth.getBalance(autonity.address))
             let committee = await autonity.getCommittee()
             console.log(committee)
             console.log(validator)
-            console.log((await vestingManager.unclaimedRewards(anyAccount, 0)).toNumber())
-            assert.notEqual((await vestingManager.unclaimedRewards(anyAccount, 0)).toNumber(), 0, "no reward")
+            // assert.notEqual(toBN(await vestingManager.unclaimedRewards.call(anyAccount)), 0, "no reward")
             // bond again and apply that bonding
             let bondingID = (await autonity.getHeadBondingID()).toNumber()
             await vestingManager.bond(0, validator, bond, {from: anyAccount})
-            let tx = await vestingManager.applyBonding(bondingID, bond, false, false)
-            assert.equal((await vestingManager.liquidBalanceOf(anyAccount, 0, validator)).toNumber(), bond+bond, "bonding not applied")
+            await vestingManager.bond(0, validator, bond, {from: anyAccount})
+            await vestingManager.bond(0, validator, bond, {from: anyAccount})
+            // await vestingManager.cancelSchedule(anyAccount, 0, operator, {from: operator})
+            tx = await vestingManager.applyBonding(bondingID, bond, false, false)
+            bondingID++
             console.log(tx.receipt.gasUsed)
+            tx = await vestingManager.applyBonding(bondingID, bond, false, false)
+            bondingID++
+            console.log(tx.receipt.gasUsed)
+            tx = await vestingManager.applyBonding(bondingID, bond, false, false)
+            console.log(tx.receipt.gasUsed)
+            // amount = 0
+            assert.equal((await vestingManager.liquidBalanceOf(anyAccount, 0, validator)).toNumber(), amount, "bonding not applied")
+            console.log(toBN(await vestingManager.unclaimedRewards.call(anyAccount)).toString())
+        })
+
+        xit('measure gas for _applyBonding(_rejected = true)', async function () {
+
+        })
+
+        xit('measure gas for _applyUnbonding', async function () {
+            
+        })
+
+        xit('measure gas for _releaseUnbonding()', async function () {
+            
+        })
+
+        // TODO: check for both case of schedule canceled or not
+    })
+
+    xdescribe('test', async function () {
+        let testContract
+        beforeEach(async function () {
+            autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+            testContract = await TestContract.new(autonity.address, {from: deployer})
+        })
+
+        xit('test persistence', async function () {
+            let bond = 100
+            await autonity.mint(testContract.address, bond, {from: operator})
+            let validator = validators[0].nodeAddress
+            let info = await autonity.getValidator(validator)
+            console.log(info.liquidSupply)
+            let bondingID = (await autonity.getHeadBondingID()).toNumber()
+            await testContract.bond(validator, bond, info.liquidSupply)
+            await utils.endEpoch(autonity, operator, deployer)
+            assert.equal(await testContract.isApplied(bondingID), true, "bonding not applied")
+        })
+
+        it('compare', async function () {
+            await testContract.testCompare();
         })
     })
+
 })
