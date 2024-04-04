@@ -15,7 +15,7 @@ type Engine struct {
 	id     int
 	server *p2p.Server
 
-	peers  []*peer // nil never connected, can do probably cleaner
+	peers  []*Peer // nil never connected, can do probably cleaner
 	enodes []*enode.Node
 	sync.RWMutex
 }
@@ -68,7 +68,7 @@ func newEngine(cfg config, key *ecdsa.PrivateKey) *Engine {
 		enodesToResolve[i] = e.config.Nodes[i].Enode
 	}
 	e.enodes = types.NewNodes(enodesToResolve, true).List
-	e.peers = make([]*peer, len(e.enodes))
+	e.peers = make([]*Peer, len(e.enodes))
 	return e
 }
 
@@ -130,13 +130,14 @@ func (e *Engine) start() error {
 	return nil
 }
 
-func (e *Engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*peer, error) {
+func (e *Engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*Peer, error) {
 	e.Lock()
 	defer e.Unlock()
-	p := &peer{
+	p := &Peer{
 		Peer:          node,
 		MsgReadWriter: rw,
 		connected:     true,
+		requests:      make(map[uint64]chan any),
 	}
 	for i := 0; i < len(e.config.Nodes); i++ {
 		if e.enodes[i].ID() == node.ID() {
@@ -155,7 +156,7 @@ func (e *Engine) peerCount() int {
 	return len(e.peers)
 }
 
-func (e *Engine) peersDo(f func(p *peer)) {
+func (e *Engine) peersDo(f func(p *Peer)) {
 	e.Lock()
 	defer e.Unlock()
 	for _, p := range e.peers {

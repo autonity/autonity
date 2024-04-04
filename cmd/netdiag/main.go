@@ -196,7 +196,7 @@ func run(c *cli.Context) error {
 		log.Crit("can't load key", "key", key)
 	}
 	engine := newEngine(cfg, skey)
-	if err := rpc.Register(&P2pRpc{engine}); err != nil {
+	if err := rpc.Register(&P2POp{engine}); err != nil {
 		log.Error("can't register RPC", "err", err)
 		os.Exit(1)
 	}
@@ -217,15 +217,16 @@ func run(c *cli.Context) error {
 }
 
 func control(c *cli.Context) error {
+	targetPeer := 0
 	cfg := readConfigFile(c.String(configFlag.Name))
-	client, err := rpc.Dial("tcp", cfg.Nodes[0].Ip+":1337")
+	client, err := rpc.Dial("tcp", cfg.Nodes[targetPeer].Ip+":1337")
 	if err != nil {
-		fmt.Printf("Dialing:", err)
+		log.Error("Dialing error", "err", err)
 		return err
 	}
-	log.Info("Connected!", "ip", cfg.Nodes[0].Ip)
+	log.Info("Connected!", "ip", cfg.Nodes[targetPeer].Ip)
 	reader := bufio.NewReader(os.Stdin)
-	p := &P2pRpc{}
+	p := &P2POp{}
 	typeName := reflect.TypeOf(p).Elem().Name()
 	methods := reflect.TypeOf(p)
 	for {
@@ -237,7 +238,7 @@ func control(c *cli.Context) error {
 		}
 
 		// User selects a method
-		fmt.Print(">> ")
+		fmt.Printf("\n%s(%d)>> ", cfg.Nodes[targetPeer].Ip, targetPeer)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		methodIndex, err := strconv.Atoi(input)

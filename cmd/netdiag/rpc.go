@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	probing "github.com/prometheus-community/pro-bing"
@@ -24,8 +25,8 @@ type ArgTarget struct {
 type ArgEmpty struct {
 }
 
-// P2pRpc represents p2p operation commands
-type P2pRpc struct {
+// P2POp represents p2p operation commands
+type P2POp struct {
 	engine *Engine
 }
 
@@ -56,7 +57,7 @@ func (r *ResultConnectedPeers) String() string {
 	return builder.String() // Print the builder's content
 }
 
-func (p *P2pRpc) ConnectedPeers(_ *ArgEmpty, reply *ResultConnectedPeers) error {
+func (p *P2POp) ConnectedPeers(_ *ArgEmpty, reply *ResultConnectedPeers) error {
 	log.Info("RPC request for connected peers") // dunno if could be generated somehow dynamically
 	c := 0
 	connected := make([]bool, len(p.engine.peers))
@@ -84,7 +85,7 @@ func (r *ResultPingIcmp) String() string {
 		r.MinRtt, r.AvgRtt, r.MaxRtt, r.StdDevRtt)
 	return builder.String()
 }
-func (p *P2pRpc) PingIcmp(args *ArgTarget, reply *ResultPingIcmp) error {
+func (p *P2POp) PingIcmp(args *ArgTarget, reply *ResultPingIcmp) error {
 	if args.Target < 0 || args.Target >= len(p.engine.peers) {
 		return errInvalidRpcArg
 	}
@@ -134,7 +135,7 @@ func (r *ResultIcmpAll) String() string {
 	return builder.String() // Print the builder's content
 }
 
-func (p *P2pRpc) PingIcmpAll(_ *ArgEmpty, reply *ResultIcmpAll) error {
+func (p *P2POp) PingIcmpAll(_ *ArgEmpty, reply *ResultIcmpAll) error {
 	replyChannels := make([]<-chan *probing.Statistics, len(p.engine.peers))
 	*reply = make([]*probing.Statistics, len(p.engine.peers))
 	for i, peer := range p.engine.peers {
@@ -152,10 +153,50 @@ func (p *P2pRpc) PingIcmpAll(_ *ArgEmpty, reply *ResultIcmpAll) error {
 	return nil
 }
 
-func (p *P2pRpc) Ping(args *ArgTarget, reply *probing.Statistics) error {
+type ResultPing struct {
+	Id                    int
+	RequestTime           time.Time
+	ReceiverReceptionTime time.Time
+	PongReceivedTime      time.Time
+}
+
+func (r *ResultPing) String() string {
+	var builder strings.Builder
+	format := "15:04:05.000"
+	fmt.Fprintf(&builder, "DevP2P Ping results for target %d:\n", r.Id)
+	fmt.Fprintf(&builder, "Request time: %s\n", r.RequestTime.Format(format))
+	fmt.Fprintf(&builder, "Receiver Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(format))
+	fmt.Fprintf(&builder, "Pong Received: %s\n", r.PongReceivedTime.Format(format))
+	RTT := r.PongReceivedTime.Sub(r.RequestTime)
+	fmt.Fprintf(&builder, "RTT: %s\n", RTT)
+	theoryReceptionTimestamp := r.RequestTime.Add(RTT / 2)
+	fmt.Fprintf(&builder, "Theoretical Reception Timestamp (TRT): %s\n", theoryReceptionTimestamp.Format(format))
+	if theoryReceptionTimestamp.After(r.ReceiverReceptionTime) {
+		fmt.Fprintf(&builder, "Delta TRT/RCT: %s\n", theoryReceptionTimestamp.Sub(r.ReceiverReceptionTime))
+	} else {
+		fmt.Fprintf(&builder, "Delta RCT/TRT: %s\n", r.ReceiverReceptionTime.Sub(theoryReceptionTimestamp))
+	}
+	return builder.String()
+}
+
+func (p *P2POp) Ping(args *ArgTarget, reply *ResultPing) error {
 	if args.Target < 0 || args.Target >= len(p.engine.peers) {
 		return errInvalidRpcArg
 	}
-	*reply = *<-pingIcmp(p.engine.peers[args.Target].ip)
+	peer := p.engine.peers[args.Target]
+	if peer == nil || !peer.connected {
+		return errTargetNotConnected
+	}
+	result := ResultPing{
+		Id:          args.Target,
+		RequestTime: time.Now(),
+	}
+	timeReceived, err := peer.sendPing()
+	if err != nil {
+		return err
+	}
+	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
+	result.PongReceivedTime = time.Now()
+	*reply = result
 	return nil
 }
