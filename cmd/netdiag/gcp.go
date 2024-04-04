@@ -69,10 +69,13 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 	if err != nil {
 		return err
 	}
-	//scpCmd.Stdout = os.Stdout
-	//scpCmd.Stderr = os.Stderr
-	if err := exec.Command("scp", exePath, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, binaryName)).Run(); err != nil {
-		log.Error("command failure", "err", err, "id", vm.id)
+	cmd := exec.Command("scp", exePath, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, binaryName))
+	if debug {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		log.Error("command failure", "err", err, "id", vm.id, "cmd", cmd.String())
 	}
 	return err
 }
@@ -85,6 +88,17 @@ func (vm *vm) startRunner(configFileName string) error {
 	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
 	if err := execCmd.Start(); err != nil {
 		log.Error("Error executing binary: %v", err, "id", vm.id)
+	}
+	return nil
+}
+
+func (vm *vm) killRunner(configFileName string) error {
+	// Execute the binary on the VM
+	log.Info("Killing the runner on the VM...", "id", vm.id)
+	localCommand := fmt.Sprintf("sudo killall -9 %s", binaryName)
+	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
+	if err := execCmd.Start(); err != nil {
+		log.Error("Error killing binary: %v", err, "id", vm.id)
 	}
 	return nil
 }

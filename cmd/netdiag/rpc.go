@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/olekukonko/tablewriter"
 	probing "github.com/prometheus-community/pro-bing"
@@ -76,7 +77,7 @@ type ResultPingIcmp probing.Statistics
 
 func (r *ResultPingIcmp) String() string {
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "\n--- %s ping statistics ---\n", r.Addr)
+	fmt.Fprintf(&builder, "%s ping statistics\n", r.Addr)
 	fmt.Fprintf(&builder, "%d packets transmitted, %d packets received, %v%% packet loss\n",
 		r.PacketsSent, r.PacketsRecv, r.PacketLoss)
 	fmt.Fprintf(&builder, "round-trip min/avg/max/stddev = %v/%v/%v/%v\n",
@@ -97,45 +98,39 @@ func (p *P2pRpc) PingIcmp(args *ArgTarget, reply *ResultPingIcmp) error {
 type ResultIcmpAll []*probing.Statistics
 
 func (r *ResultIcmpAll) String() string {
-	var builder strings.Builder
-	table := tablewriter.NewWriter(&builder)
-	headers := make([]string, len(*r))
-	headers[0] = ""
+	var (
+		builder     strings.Builder
+		header      = ""
+		packetsSent = "PacketsSent"
+		PacketsRecv = "PacketsRecv"
+		PacketLoss  = "PacketLoss"
+		MinRtt      = "MinRtt"
+		AvgRtt      = "AvgRtt"
+		MaxRtt      = "MaxRtt"
+		StdDevRtt   = "StdDevRtt"
+	)
+	table := tabwriter.NewWriter(&builder, 0, 8, 2, '\t', 0)
 	for i := range *r {
-		headers[i+1] = strconv.Itoa(i + 1)
+		header += "\t" + strconv.Itoa(i)
 	}
-	table.SetHeader(headers)
-	packetsSent := make([]string, len(*r)+1)
-	packetsSent[0] = "PacketsSent"
-	PacketsRecv := make([]string, len(*r)+1)
-	PacketsRecv[0] = "PacketsRecv"
-	PacketLoss := make([]string, len(*r)+1)
-	PacketLoss[0] = "PacketLoss"
-	MinRtt := make([]string, len(*r)+1)
-	MinRtt[0] = "MinRtt"
-	AvgRtt := make([]string, len(*r)+1)
-	AvgRtt[0] = "AvgRtt"
-	MaxRtt := make([]string, len(*r)+1)
-	MaxRtt[0] = "MaxRtt"
-	StdDevRtt := make([]string, len(*r)+1)
-	StdDevRtt[0] = "StdDev"
-	for i, result := range *r {
-		packetsSent[i+1] = strconv.Itoa(result.PacketsSent)
-		PacketsRecv[i+1] = strconv.Itoa(result.PacketsSent)
-		PacketLoss[i+1] = strconv.Itoa(result.PacketsSent)
-		MinRtt[i+1] = strconv.Itoa(result.PacketsSent)
-		AvgRtt[i+1] = strconv.Itoa(result.PacketsSent)
-		MaxRtt[i+1] = strconv.Itoa(result.PacketsSent)
-		StdDevRtt[i+1] = strconv.Itoa(result.PacketsSent)
+	table.Write([]byte(header + "\n"))
+	for _, result := range *r {
+		packetsSent += "\t" + strconv.Itoa(result.PacketsSent)
+		PacketsRecv += "\t" + strconv.Itoa(result.PacketsRecv)
+		PacketLoss += "\t" + strconv.FormatFloat(result.PacketLoss, 'f', 2, 64)
+		MinRtt += "\t" + result.MinRtt.String()
+		AvgRtt += "\t" + result.AvgRtt.String()
+		MaxRtt += "\t" + result.MaxRtt.String()
+		StdDevRtt += "\t" + result.StdDevRtt.String()
 	}
-	table.Append(packetsSent)
-	table.Append(PacketsRecv)
-	table.Append(PacketLoss)
-	table.Append(MinRtt)
-	table.Append(AvgRtt)
-	table.Append(MaxRtt)
-	table.Append(StdDevRtt)
-	table.Render()
+	table.Write([]byte(packetsSent + "\n"))
+	table.Write([]byte(PacketsRecv + "\n"))
+	table.Write([]byte(PacketLoss + "\n"))
+	table.Write([]byte(MinRtt + "\n"))
+	table.Write([]byte(AvgRtt + "\n"))
+	table.Write([]byte(MaxRtt + "\n"))
+	table.Write([]byte(StdDevRtt + "\n"))
+	table.Flush()
 	return builder.String() // Print the builder's content
 }
 

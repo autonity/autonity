@@ -237,7 +237,7 @@ func control(c *cli.Context) error {
 		}
 
 		// User selects a method
-		fmt.Print("Enter command: ")
+		fmt.Print(">> ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		methodIndex, err := strconv.Atoi(input)
@@ -279,7 +279,7 @@ func control(c *cli.Context) error {
 			return err
 		}
 
-		fmt.Printf("Result:\n%+v", reply.Interface())
+		fmt.Printf("%v", reply.Interface())
 		fmt.Printf("----------------------------------------\n")
 	}
 	return nil
@@ -420,7 +420,11 @@ func update(c *cli.Context) error {
 		wg.Add(1)
 		vms[i] = newVM(i, n.Ip, n.InstanceName, n.Zone, cfg.GcpUsername)
 		go func(id int) {
-			if err := vms[id].deployRunner(c.String(configFlag.Name), false, true); err != nil {
+			log.Info("Killing runner", "id", id)
+			if err := vms[id].killRunner(c.String(configFlag.Name)); err != nil {
+				log.Crit("error starting runner", "id", id, "err", err)
+			}
+			if err := vms[id].deployRunner(c.String(configFlag.Name), true, true); err != nil {
 				log.Crit("error deploying runner", "id", id, "err", err)
 			}
 			log.Info("Runner binary deployed", "id", id)
