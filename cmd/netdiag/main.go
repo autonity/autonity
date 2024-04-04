@@ -441,7 +441,7 @@ func update(c *cli.Context) error {
 			if err := vms[id].killRunner(c.String(configFlag.Name)); err != nil {
 				log.Crit("error starting runner", "id", id, "err", err)
 			}
-			if err := vms[id].deployRunner(c.String(configFlag.Name), true, true); err != nil {
+			if err := vms[id].deployRunner(c.String(configFlag.Name), false, true); err != nil {
 				log.Crit("error deploying runner", "id", id, "err", err)
 			}
 			log.Info("Runner binary deployed", "id", id)

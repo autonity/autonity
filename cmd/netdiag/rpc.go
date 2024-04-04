@@ -268,8 +268,8 @@ type ResultSendRandomData struct {
 	Size                  int
 	PacketCount           int
 	RequestTime           time.Time
-	ReceiverReceptionTime time.Time
-	AckReceivedTime       time.Time
+	ReceiverReceptionTime time.Time // The one in the ACK
+	AckReceivedTime       time.Time // locally
 	TotalSyscallDuration  time.Duration
 }
 
@@ -285,8 +285,13 @@ func (r *ResultSendRandomData) String() string {
 	duration := r.ReceiverReceptionTime.Sub(r.RequestTime)
 	fmt.Fprintf(&builder, "Duration RCT-RT: %s\n", duration)
 	fmt.Fprintf(&builder, "Total syscall wait: %s\n", r.TotalSyscallDuration)
-	bandwith := float64(r.PacketCount*r.Size) / (duration.Seconds() * 1e6)
-	fmt.Fprintf(&builder, "Bandwidth: %.6f MB/s\n", bandwith)
+
+	bandwithWithLatency := float64(r.PacketCount*r.Size) / (duration.Seconds() * 1e6)
+	// duration is here TimeOfAdvertisedReception
+	fmt.Fprintf(&builder, "Bandwidth with latency : %.6f MB/s\n", bandwithWithLatency)
+	durationWithoutLatency := duration - (r.AckReceivedTime.Sub(r.ReceiverReceptionTime))
+	bandwithWithoutLatency := float64(r.PacketCount*r.Size) / (durationWithoutLatency.Seconds() * 1e6)
+	fmt.Fprintf(&builder, "Bandwidth without latency : %.6f MB/s\n", bandwithWithoutLatency)
 	return builder.String()
 }
 
@@ -334,4 +339,93 @@ func (p *P2POp) SendRandomData(args *ArgTargetDataSize, reply *ResultSendRandomD
 	result.AckReceivedTime = time.Now()
 	*reply = result
 	return nil
+}
+
+type ResultTCPSocketTuning struct {
+	Target      int
+	MinDuration time.Duration
+	NoDelay     bool
+	BufferSize  int
+	Durations   []time.Duration
+}
+
+func (r *ResultTCPSocketTuning) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "DevP2P TCP tuning for target %d 200kB:\n", r.Target)
+	fmt.Fprintf(&builder, "Duration: %s\n", r.MinDuration)
+	fmt.Fprintf(&builder, "NoDelay: %v\n", r.NoDelay)
+	fmt.Fprintf(&builder, "BufferSize: %d\n", r.BufferSize)
+	for i := range r.Durations {
+		fmt.Fprintf(&builder, "Delay %s: %s\n", time.Duration(i)*500*time.Millisecond, r.Durations[i])
+	}
+	return builder.String()
+}
+
+func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) error {
+	peer, err := checkPeer(args.Target, p.engine.peers)
+	if err != nil {
+		return err
+	}
+	bufferSizes := []int{1024, 2 * 1024, 4 * 1024, 8 * 1024, 16 * 1024, 32 * 1024, 64 * 1024, 128 * 1024, 256 * 1024, 512 * 1024, 1024 * 1024}
+	minDuration := 99 * time.Second
+	minNoDelay := false
+	minBufferSize := 0
+	for _, noDelay := range []bool{false, true} {
+		for _, buffSize := range bufferSizes {
+			if err := peer.sendUpdateTcpSocket(buffSize, noDelay); err != nil {
+				log.Error("error sending update", "err", err)
+			}
+			peer.UpdateSocketOptions(buffSize, noDelay)
+			// warmup
+			res := &ResultSendRandomData{}
+			_ = p.SendRandomData(&ArgTargetDataSize{
+				Target:      args.Target,
+				PacketCount: 10,
+				Size:        1024,
+			}, res)
+			time.Sleep(2 * time.Second)
+			// measure
+			res2 := &ResultSendRandomData{}
+			_ = p.SendRandomData(&ArgTargetDataSize{
+				Target:      args.Target,
+				PacketCount: 1,
+				Size:        200000,
+			}, res2)
+			duration := res2.ReceiverReceptionTime.Sub(res2.RequestTime)
+			if duration < minDuration {
+				minDuration = duration
+				minNoDelay = noDelay
+				minBufferSize = buffSize
+			}
+		}
+	}
+	*reply = ResultTCPSocketTuning{
+		Target:      args.Target,
+		MinDuration: minDuration,
+		NoDelay:     minNoDelay,
+		BufferSize:  minBufferSize,
+		Durations:   make([]time.Duration, 10),
+	}
+	for i := 0; i < 10; i++ {
+		res := &ResultSendRandomData{}
+		_ = p.SendRandomData(&ArgTargetDataSize{
+			Target:      args.Target,
+			PacketCount: 1,
+			Size:        200000,
+		}, res)
+		reply.Durations[i] = res.ReceiverReceptionTime.Sub(res.RequestTime)
+		time.Sleep(time.Duration(i) * 500 * time.Millisecond)
+	}
+	return nil
+}
+
+func checkPeer(id int, peers []*Peer) (*Peer, error) {
+	if id < 0 || id >= len(peers) {
+		return nil, errInvalidRpcArg
+	}
+	peer := peers[id]
+	if peer == nil || !peer.connected {
+		return nil, errTargetNotConnected
+	}
+	return peer, nil
 }

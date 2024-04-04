@@ -245,6 +245,15 @@ func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 	return p
 }
 
+func (p *Peer) UpdateSocketOptions(bufferSize int, noDelay bool) {
+	if tcp, ok := p.rw.fd.(*net.TCPConn); ok {
+		tcp.SetWriteBuffer(bufferSize)
+		tcp.SetReadBuffer(bufferSize)
+		tcp.SetNoDelay(noDelay)
+		log.Info("Socket options updated")
+	}
+}
+
 func (p *Peer) Log() log.Logger {
 	return p.log
 }

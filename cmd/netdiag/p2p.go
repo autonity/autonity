@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 )
@@ -16,13 +17,16 @@ const (
 	PongMsg
 	DataMsg
 	AckDataMsg
+	UpdateTCPSocket
+	ProtocolMessages
 )
 
 var protocolHandlers = map[uint64]func(p *Peer, data io.Reader) error{
-	PingMsg:    handlePing,
-	PongMsg:    handlePong,
-	DataMsg:    handleData, // random string of bytes
-	AckDataMsg: handleAckData,
+	PingMsg:         handlePing,
+	PongMsg:         handlePong,
+	DataMsg:         handleData, // random string of bytes
+	AckDataMsg:      handleAckData,
+	UpdateTCPSocket: handleUpdateTcpSocket,
 	//BlockMsg //serialized block
 	//AckBlockMsg
 }
@@ -152,4 +156,28 @@ func handleAckData(p *Peer, msg io.Reader) error {
 		return err
 	}
 	return p.dispatchResponse(ack.RequestId, ack)
+}
+
+// **** TCPSOCKETOPTIONS *****
+type TCPOptionsPacket struct {
+	BufferSize uint64
+	NoDelay    bool
+}
+
+func (p *Peer) sendUpdateTcpSocket(bufferSize int, noDelay bool) error {
+	id := rand.Uint64()
+	log.Info("sending update")
+	_, err := p.dispatchRequest(id, UpdateTCPSocket, TCPOptionsPacket{uint64(bufferSize), noDelay}) // this will leak for now
+	return err
+}
+
+func handleUpdateTcpSocket(p *Peer, msg io.Reader) error {
+	log.Info("received handle update")
+	var opts TCPOptionsPacket
+	if err := rlp.Decode(msg, &opts); err != nil {
+
+		return err
+	}
+	p.UpdateSocketOptions(int(opts.BufferSize), opts.NoDelay)
+	return nil
 }

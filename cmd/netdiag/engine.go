@@ -66,7 +66,7 @@ func newEngine(cfg config, key *ecdsa.PrivateKey, networkMode string) *Engine {
 		Protocols: []p2p.Protocol{{
 			Name:    "diag",
 			Version: 1,
-			Length:  5,
+			Length:  ProtocolMessages + 1,
 			Run:     runner,
 		}},
 		ListenAddr:      "0.0.0.0:20203",
@@ -145,6 +145,7 @@ func (e *Engine) start() error {
 
 		tcpConn, ok := fd.(*net.TCPConn)
 		if ok {
+			// - Core buffer to adjust - check Piyush slack
 			if err := tcpConn.SetWriteBuffer(1024 * 1024); err != nil {
 				log.Error("error setting write buffer", "err", err)
 			}
