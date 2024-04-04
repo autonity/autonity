@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
@@ -271,6 +270,7 @@ type ResultSendRandomData struct {
 	RequestTime           time.Time
 	ReceiverReceptionTime time.Time
 	AckReceivedTime       time.Time
+	TotalSyscallDuration  time.Duration
 }
 
 func (r *ResultSendRandomData) String() string {
@@ -280,11 +280,12 @@ func (r *ResultSendRandomData) String() string {
 	fmt.Fprintf(&builder, "Packet Count: %d\n", r.PacketCount)
 	fmt.Fprintf(&builder, "Total Data Size: %dkB\n", (r.PacketCount*r.Size)/1000)
 	fmt.Fprintf(&builder, "Request time (RT): %s\n", r.RequestTime.Format(timeFormat))
-	fmt.Fprintf(&builder, "Receiver Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(timeFormat))
+	fmt.Fprintf(&builder, "Last Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(timeFormat))
 	fmt.Fprintf(&builder, "All ACK Received: %s\n", r.AckReceivedTime.Format(timeFormat))
 	duration := r.ReceiverReceptionTime.Sub(r.RequestTime)
 	fmt.Fprintf(&builder, "Duration RCT-RT: %s\n", duration)
-	bandwith := float64(r.Size) / (duration.Seconds() * 1e6)
+	fmt.Fprintf(&builder, "Total syscall wait: %s\n", r.TotalSyscallDuration)
+	bandwith := float64(r.PacketCount*r.Size) / (duration.Seconds() * 1e6)
 	fmt.Fprintf(&builder, "Bandwidth: %.6f MB/s\n", bandwith)
 	return builder.String()
 }
@@ -307,22 +308,28 @@ func (p *P2POp) SendRandomData(args *ArgTargetDataSize, reply *ResultSendRandomD
 		Size:        args.Size,
 		RequestTime: time.Now(),
 	}
+	finishedCh := make(chan uint64, 1)
 	var lastReceived atomic.Uint64
 	var hasError atomic.Value
-	var wg sync.WaitGroup
 	for i := 0; i < args.PacketCount; i++ {
-		wg.Add(1)
 		go func() {
-			timeReceived, err := peer.sendData(buff)
+			timeReceived, syscallDuration, err := peer.sendData(buff)
 			if err != nil {
 				hasError.Store(true)
 			}
 			lastReceived.Store(timeReceived)
-			wg.Done()
+			finishedCh <- uint64(syscallDuration.Nanoseconds())
 		}()
 	}
-	wg.Wait()
+	var totalSyscallDuration uint64
+	for i := 0; i < args.PacketCount; i++ {
+		finishedTime := <-finishedCh
+		if finishedTime > totalSyscallDuration {
+			totalSyscallDuration = finishedTime
+		}
+	}
 	timeReceived := lastReceived.Load()
+	result.TotalSyscallDuration = time.Duration(totalSyscallDuration)
 	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
 	result.AckReceivedTime = time.Now()
 	*reply = result

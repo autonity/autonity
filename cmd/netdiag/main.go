@@ -46,10 +46,15 @@ var (
 		Value: "",
 		Usage: "GCP VM instance template",
 	}
-	gcpUsername = cli.StringFlag{
+	gcpUsernameFlag = cli.StringFlag{
 		Name:  "gcp-username",
 		Value: "root",
 		Usage: "Username to access gcp instances",
+	}
+	networkModeFlag = cli.StringFlag{
+		Name:  "network",
+		Value: "tcp",
+		Usage: "Network type tcp/udp",
 	}
 	peersFlag = cli.IntFlag{
 		Name:  "peers",
@@ -72,7 +77,7 @@ var (
 			configFlag,
 			gcpProjectIDFlag,
 			gcpInstanceTemplateFlag,
-			gcpUsername,
+			gcpUsernameFlag,
 		},
 		Description: `
 The setup command deploys a new network of nodes.`,
@@ -85,6 +90,7 @@ The setup command deploys a new network of nodes.`,
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			configFlag,
+			networkModeFlag,
 		},
 		Description: `
 Update a cluster with current binary.`,
@@ -112,6 +118,7 @@ The control command starts the netdiag command center.`,
 		Flags: []cli.Flag{
 			configFlag,
 			idFlag,
+			networkModeFlag,
 		},
 		Description: `
 The run command start a local runner`,
@@ -185,7 +192,7 @@ func run(c *cli.Context) error {
 	user, _ := user.Current()
 	fmt.Printf("Username: %s\n", user.Username)
 	localId := c.Int(idFlag.Name)
-	log.Info("Runner started", "cmd", strings.Join(os.Args, " "), "id", localId, "user", user.Username, "uid", user.Uid)
+	log.Info("Runner started", "cmd", strings.Join(os.Args, " "), "id", localId, "user", user.Username, "uid", user.Uid, "network", c.String(networkModeFlag.Name))
 	// Listen for Ctrl-C.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
@@ -196,7 +203,7 @@ func run(c *cli.Context) error {
 	if err != nil {
 		log.Crit("can't load key", "key", key)
 	}
-	engine := newEngine(cfg, skey)
+	engine := newEngine(cfg, skey, c.String(networkModeFlag.Name))
 	if err := rpc.Register(&P2POp{engine}); err != nil {
 		log.Error("can't register RPC", "err", err)
 		os.Exit(1)
@@ -344,7 +351,7 @@ func setup(c *cli.Context) error {
 		go func(id int) {
 			var err error
 			name := "netdiag-runner-" + uuid.New().String()
-			vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zones[id%len(zones)], instanceTemplate, c.String(gcpUsername.Name))
+			vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zones[id%len(zones)], instanceTemplate, c.String(gcpUsernameFlag.Name))
 			wg.Done()
 			if err != nil {
 				log.Crit("error deploying VM", "id", id, "err", err)
@@ -357,7 +364,7 @@ func setup(c *cli.Context) error {
 	cfg := config{
 		Nodes:        make([]nodeConfig, n),
 		GcpProjectId: projectId,
-		GcpUsername:  c.String(gcpUsername.Name),
+		GcpUsername:  c.String(gcpUsernameFlag.Name),
 	}
 	for i := 0; i < n; i++ {
 		key, err := crypto.GenerateKey()
@@ -406,7 +413,7 @@ func setup(c *cli.Context) error {
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(id int) {
-			if err := vms[id].startRunner(configFileName); err != nil {
+			if err := vms[id].startRunner(configFileName, "tcp"); err != nil {
 				log.Crit("error starting runner", "id", id, "err", err)
 			}
 			wg.Done()
@@ -438,7 +445,7 @@ func update(c *cli.Context) error {
 				log.Crit("error deploying runner", "id", id, "err", err)
 			}
 			log.Info("Runner binary deployed", "id", id)
-			if err := vms[id].startRunner(c.String(configFlag.Name)); err != nil {
+			if err := vms[id].startRunner(c.String(configFlag.Name), c.String(networkModeFlag.Name)); err != nil {
 				log.Crit("error starting runner", "id", id, "err", err)
 			}
 			wg.Done()

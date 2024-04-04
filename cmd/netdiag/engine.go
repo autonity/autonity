@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"net"
 	"sync"
 
 	"github.com/autonity/autonity/core/types"
@@ -20,7 +22,18 @@ type Engine struct {
 	sync.RWMutex
 }
 
-func newEngine(cfg config, key *ecdsa.PrivateKey) *Engine {
+type UDPDialer struct{}
+
+func (u UDPDialer) Dial(ctx context.Context, node *enode.Node) (net.Conn, error) {
+	addr := &net.UDPAddr{
+		IP:   node.IP(),
+		Port: 20203,
+	}
+	conn, err := net.DialUDP("udp", nil, addr)
+	return conn, err
+}
+
+func newEngine(cfg config, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := new(Engine)
 	runner := func(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 		node, err := e.addPeer(peer, rw)
@@ -38,7 +51,10 @@ func newEngine(cfg config, key *ecdsa.PrivateKey) *Engine {
 			}
 		}
 	}
-
+	var dialer p2p.NodeDialer
+	if networkMode == "udp" {
+		dialer = UDPDialer{}
+	}
 	p2pConfig := p2p.Config{
 		PrivateKey:      key,
 		MaxPeers:        1000,
@@ -55,7 +71,7 @@ func newEngine(cfg config, key *ecdsa.PrivateKey) *Engine {
 		}},
 		ListenAddr:      "0.0.0.0:20203",
 		NAT:             nil,
-		Dialer:          nil, // nil is default TCP, have UDP supported at one point
+		Dialer:          dialer, // nil is default TCP, have UDP supported at one point
 		NoDial:          false,
 		EnableMsgEvents: false,
 		Logger:          log.Root(),
@@ -126,6 +142,21 @@ func (e *Engine) start() error {
 		// Now test sending one small packet (less than MTU)
 
 		// 10kb 50kb 200kb . CONFIRM AGAINST TIME
+
+		tcpConn, ok := fd.(*net.TCPConn)
+		if ok {
+			if err := tcpConn.SetWriteBuffer(1024 * 1024); err != nil {
+				log.Error("error setting write buffer", "err", err)
+			}
+			if err := tcpConn.SetReadBuffer(1024 * 1024); err != nil {
+				log.Error("error setting read buffer", "err", err)
+			}
+			// Disable Nagle's algorithm
+			if err := tcpConn.SetNoDelay(true); err != nil {
+				log.Error("disabling nagle's", "err", err)
+			}
+			log.Trace("all good")
+		}
 	*/
 	return nil
 }

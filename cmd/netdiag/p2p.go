@@ -125,14 +125,16 @@ type AckDataPacket struct {
 	Time      uint64
 }
 
-func (p *Peer) sendData(data []byte) (uint64, error) {
+func (p *Peer) sendData(data []byte) (uint64, time.Duration, error) {
+	startTime := time.Now()
 	id := rand.Uint64()
 	req, err := p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	// we should check for timeout here
-	return (<-req).(AckDataPacket).Time, nil
+	dispatchDuration := time.Now().Sub(startTime)
+	ackTime := (<-req).(AckDataPacket).Time
+	return ackTime, dispatchDuration, nil
 }
 
 func handleData(p *Peer, data io.Reader) error {

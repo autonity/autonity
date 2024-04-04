@@ -80,10 +80,10 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 	return err
 }
 
-func (vm *vm) startRunner(configFileName string) error {
+func (vm *vm) startRunner(configFileName, networkMode string) error {
 	// Execute the binary on the VM
 	log.Info("Executing the runner on the VM...", "id", vm.id)
-	flags := fmt.Sprintf("run --config %s --id %d", configFileName, vm.id)
+	flags := fmt.Sprintf("run --config %s --id %d --network %s", configFileName, vm.id, networkMode)
 	localCommand := fmt.Sprintf("chmod +x ~/%s && sudo -b ./%s %s > %s 2>&1 ", binaryName, binaryName, flags, logFileName)
 	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
 	if err := execCmd.Start(); err != nil {
