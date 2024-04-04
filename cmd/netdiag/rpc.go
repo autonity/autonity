@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
@@ -14,14 +19,72 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
+const (
+	timeFormat = "15:04:05.000"
+)
+
 var (
 	errInvalidRpcArg      = errors.New("invalid RPC argument")
 	errTargetNotConnected = errors.New("target peer not connected")
 )
 
+type Argument interface {
+	AskUserInput() error
+}
+
 type ArgTarget struct {
 	Target int
 }
+
+func (a *ArgTarget) AskUserInput() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter target peer index: ")
+	input, _ := reader.ReadString('\n')
+	targetIndex, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil {
+		fmt.Println("Invalid target index.")
+		return err
+	}
+	a.Target = targetIndex
+	return nil
+}
+
+type ArgTargetDataSize struct {
+	Target      int
+	PacketCount int
+	Size        int
+}
+
+func (a *ArgTargetDataSize) AskUserInput() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter target index: ")
+	input, _ := reader.ReadString('\n')
+	targetIndex, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil {
+		fmt.Println("Invalid target index.")
+		return err
+	}
+	a.Target = targetIndex
+	fmt.Print("Enter number of DevP2P packets: ")
+	input, _ = reader.ReadString('\n')
+	packetCount, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil {
+		fmt.Println("Invalid number.")
+		return err
+	}
+	a.PacketCount = packetCount
+	fmt.Print("Enter size (kB) - max 15000: ")
+	input, _ = reader.ReadString('\n')
+	size, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil {
+		fmt.Println("Invalid size.")
+		return err
+	}
+	a.Target = targetIndex
+	a.Size = size * 1000
+	return nil
+}
+
 type ArgEmpty struct {
 }
 
@@ -135,7 +198,7 @@ func (r *ResultIcmpAll) String() string {
 	return builder.String() // Print the builder's content
 }
 
-func (p *P2POp) PingIcmpAll(_ *ArgEmpty, reply *ResultIcmpAll) error {
+func (p *P2POp) PingIcmpBroadcast(_ *ArgEmpty, reply *ResultIcmpAll) error {
 	replyChannels := make([]<-chan *probing.Statistics, len(p.engine.peers))
 	*reply = make([]*probing.Statistics, len(p.engine.peers))
 	for i, peer := range p.engine.peers {
@@ -162,15 +225,15 @@ type ResultPing struct {
 
 func (r *ResultPing) String() string {
 	var builder strings.Builder
-	format := "15:04:05.000"
-	fmt.Fprintf(&builder, "DevP2P Ping results for target %d:\n", r.Id)
-	fmt.Fprintf(&builder, "Request time: %s\n", r.RequestTime.Format(format))
-	fmt.Fprintf(&builder, "Receiver Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(format))
-	fmt.Fprintf(&builder, "Pong Received: %s\n", r.PongReceivedTime.Format(format))
+
+	fmt.Fprintf(&builder, "DevP2P PingDevP2P results for target %d:\n", r.Id)
+	fmt.Fprintf(&builder, "Request time: %s\n", r.RequestTime.Format(timeFormat))
+	fmt.Fprintf(&builder, "Receiver Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(timeFormat))
+	fmt.Fprintf(&builder, "Pong Received: %s\n", r.PongReceivedTime.Format(timeFormat))
 	RTT := r.PongReceivedTime.Sub(r.RequestTime)
 	fmt.Fprintf(&builder, "RTT: %s\n", RTT)
 	theoryReceptionTimestamp := r.RequestTime.Add(RTT / 2)
-	fmt.Fprintf(&builder, "Theoretical Reception Timestamp (TRT): %s\n", theoryReceptionTimestamp.Format(format))
+	fmt.Fprintf(&builder, "Theoretical Reception Timestamp (TRT): %s\n", theoryReceptionTimestamp.Format(timeFormat))
 	if theoryReceptionTimestamp.After(r.ReceiverReceptionTime) {
 		fmt.Fprintf(&builder, "Delta TRT/RCT: %s\n", theoryReceptionTimestamp.Sub(r.ReceiverReceptionTime))
 	} else {
@@ -179,7 +242,7 @@ func (r *ResultPing) String() string {
 	return builder.String()
 }
 
-func (p *P2POp) Ping(args *ArgTarget, reply *ResultPing) error {
+func (p *P2POp) PingDevP2P(args *ArgTarget, reply *ResultPing) error {
 	if args.Target < 0 || args.Target >= len(p.engine.peers) {
 		return errInvalidRpcArg
 	}
@@ -197,6 +260,71 @@ func (p *P2POp) Ping(args *ArgTarget, reply *ResultPing) error {
 	}
 	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
 	result.PongReceivedTime = time.Now()
+	*reply = result
+	return nil
+}
+
+type ResultSendRandomData struct {
+	Id                    int
+	Size                  int
+	PacketCount           int
+	RequestTime           time.Time
+	ReceiverReceptionTime time.Time
+	AckReceivedTime       time.Time
+}
+
+func (r *ResultSendRandomData) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "DevP2P Send Rand Data results for target %d:\n", r.Id)
+	fmt.Fprintf(&builder, "Packet Size: %dkB\n", r.Size/1000)
+	fmt.Fprintf(&builder, "Packet Count: %d\n", r.PacketCount)
+	fmt.Fprintf(&builder, "Total Data Size: %dkB\n", (r.PacketCount*r.Size)/1000)
+	fmt.Fprintf(&builder, "Request time (RT): %s\n", r.RequestTime.Format(timeFormat))
+	fmt.Fprintf(&builder, "Receiver Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(timeFormat))
+	fmt.Fprintf(&builder, "All ACK Received: %s\n", r.AckReceivedTime.Format(timeFormat))
+	duration := r.ReceiverReceptionTime.Sub(r.RequestTime)
+	fmt.Fprintf(&builder, "Duration RCT-RT: %s\n", duration)
+	bandwith := float64(r.Size) / (duration.Seconds() * 1e6)
+	fmt.Fprintf(&builder, "Bandwidth: %.6f MB/s\n", bandwith)
+	return builder.String()
+}
+
+func (p *P2POp) SendRandomData(args *ArgTargetDataSize, reply *ResultSendRandomData) error {
+	if args.Target < 0 || args.Target >= len(p.engine.peers) {
+		return errInvalidRpcArg
+	}
+	peer := p.engine.peers[args.Target]
+	if peer == nil || !peer.connected {
+		return errTargetNotConnected
+	}
+	buff := make([]byte, args.Size)
+	if _, err := rand.Read(buff); err != nil {
+		return err
+	}
+	result := ResultSendRandomData{
+		Id:          args.Target,
+		PacketCount: args.PacketCount,
+		Size:        args.Size,
+		RequestTime: time.Now(),
+	}
+	var lastReceived atomic.Uint64
+	var hasError atomic.Value
+	var wg sync.WaitGroup
+	for i := 0; i < args.PacketCount; i++ {
+		wg.Add(1)
+		go func() {
+			timeReceived, err := peer.sendData(buff)
+			if err != nil {
+				hasError.Store(true)
+			}
+			lastReceived.Store(timeReceived)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	timeReceived := lastReceived.Load()
+	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
+	result.AckReceivedTime = time.Now()
 	*reply = result
 	return nil
 }

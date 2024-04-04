@@ -13,7 +13,7 @@ func pingIcmp(address string) <-chan *probing.Statistics {
 	if err != nil {
 		panic(err)
 	}
-
+	pinger.Count = 5
 	pinger.OnRecv = func(pkt *probing.Packet) {
 		fmt.Printf("%d bytes from %s: icmp_seq=%d time=%v\n",
 			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt)
@@ -34,9 +34,12 @@ func pingIcmp(address string) <-chan *probing.Statistics {
 	}
 
 	fmt.Printf("PING %s (%s):\n", pinger.Addr(), pinger.IPAddr())
-	err = pinger.Run()
-	if err != nil {
-		panic(err)
-	}
+
+	go func() {
+		if err = pinger.Run(); err != nil {
+			panic(err)
+		}
+	}()
+
 	return resultCh
 }

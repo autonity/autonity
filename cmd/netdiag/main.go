@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"os/user"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -217,6 +218,7 @@ func run(c *cli.Context) error {
 }
 
 func control(c *cli.Context) error {
+	// This is very ugly and need to be refactored :(
 	targetPeer := 0
 	cfg := readConfigFile(c.String(configFlag.Name))
 	client, err := rpc.Dial("tcp", cfg.Nodes[targetPeer].Ip+":1337")
@@ -229,6 +231,9 @@ func control(c *cli.Context) error {
 	p := &P2POp{}
 	typeName := reflect.TypeOf(p).Elem().Name()
 	methods := reflect.TypeOf(p)
+
+	peerRegexCmd := regexp.MustCompile(`^p(\d+)$`)
+
 	for {
 		// List available methods
 		fmt.Println("Available commands:")
@@ -241,6 +246,21 @@ func control(c *cli.Context) error {
 		fmt.Printf("\n%s(%d)>> ", cfg.Nodes[targetPeer].Ip, targetPeer)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
+		matches := peerRegexCmd.FindStringSubmatch(input)
+		if len(matches) == 2 {
+			var err error
+			if targetPeer, err = strconv.Atoi(matches[1]); err != nil {
+				fmt.Printf("Invalid peer")
+				return err
+			}
+			if client, err = rpc.Dial("tcp", cfg.Nodes[targetPeer].Ip+":1337"); err != nil {
+				log.Error("Dialing error", "err", err)
+				return err
+			}
+			fmt.Printf("Connected to peer %d\n", targetPeer)
+			continue
+		}
+
 		methodIndex, err := strconv.Atoi(input)
 		if err != nil || methodIndex < 1 || methodIndex > methods.NumMethod() {
 			fmt.Printf("Invalid method selection.")
@@ -248,22 +268,11 @@ func control(c *cli.Context) error {
 		}
 		method := methods.Method(methodIndex - 1)
 		argType := method.Func.Type().In(1) // Assuming first is receiver, second is context (if present)
-		var args interface{}
-		switch argType {
-		case reflect.TypeOf((*ArgTarget)(nil)):
-			fmt.Print("Enter target peer index: ")
-			input, _ := reader.ReadString('\n')
-			targetIndex, err := strconv.Atoi(strings.TrimSpace(input))
-			if err != nil {
-				fmt.Println("Invalid target index.")
+		args := reflect.New(argType.Elem()).Interface()
+		if userArg, ok := args.(Argument); ok {
+			if err := userArg.AskUserInput(); err != nil {
 				return err
 			}
-			args = &ArgTarget{Target: targetIndex}
-		case reflect.TypeOf((*ArgEmpty)(nil)):
-			args = &ArgEmpty{}
-		default:
-			fmt.Printf("Unsupported argument type: %s", argType)
-			return err
 		}
 
 		replyType := method.Func.Type().In(2)
