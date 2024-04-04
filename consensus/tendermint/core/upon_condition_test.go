@@ -39,13 +39,13 @@ func TestStartRoundVariables(t *testing.T) {
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().HeadBlock().Return(env.view.previousValue)
+		backendMock.EXPECT().HeadBlock().Return(env.previousValue)
 
 		env.setupCore(backendMock, env.clientAddress)
-		env.core.StartRound(context.Background(), env.state.curRound)
+		env.core.StartRound(context.Background(), env.curRound)
 
 		// Check the initial consensus state
-		env.checkState(t, env.state.curHeight, env.state.curRound, Propose, nil, int64(-1), nil, int64(-1))
+		env.checkState(t, env.curHeight, env.curRound, Propose, nil, int64(-1), nil, int64(-1))
 
 		env.logging(t)
 		// stop the timer to clean up
@@ -61,36 +61,36 @@ func TestStartRoundVariables(t *testing.T) {
 		// have an impact on the actions performed in the following round (in case of round change) are persisted
 		// through to the subsequent round.
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().HeadBlock().Return(env.view.previousValue).MaxTimes(2)
+		backendMock.EXPECT().HeadBlock().Return(env.previousValue).MaxTimes(2)
 
 		env.setupCore(backendMock, env.clientAddress)
 
 		// Check the initial consensus state
-		env.core.StartRound(context.Background(), env.state.curRound)
-		env.checkState(t, env.state.curHeight, env.state.curRound, Propose, nil, int64(-1), nil, int64(-1))
+		env.core.StartRound(context.Background(), env.curRound)
+		env.checkState(t, env.curHeight, env.curRound, Propose, nil, int64(-1), nil, int64(-1))
 
 		// Update locked and valid Value (if locked value changes then valid value also changes, ie quorum(prevotes)
 		// delivered in prevote step)
 		env.core.SetLockedValue(env.curBlock)
-		env.core.SetLockedRound(env.state.curRound)
+		env.core.SetLockedRound(env.curRound)
 		env.core.SetValidValue(env.curBlock)
-		env.core.SetValidRound(env.state.curRound)
+		env.core.SetValidRound(env.curRound)
 
 		// Move to next round and check the expected state
-		env.core.StartRound(context.Background(), env.state.curRound+1)
+		env.core.StartRound(context.Background(), env.curRound+1)
 
-		env.checkState(t, env.state.curHeight, env.state.curRound+1, Propose, env.curBlock, env.state.curRound, env.curBlock, env.state.curRound)
+		env.checkState(t, env.curHeight, env.curRound+1, Propose, env.curBlock, env.curRound, env.curBlock, env.curRound)
 
 		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
 		// value and valid value are different)
-		currentBlock2 := generateBlock(env.state.curHeight)
+		currentBlock2 := generateBlock(env.curHeight)
 		env.core.SetValidValue(currentBlock2)
-		env.core.SetValidRound(env.state.curRound + 1)
+		env.core.SetValidRound(env.curRound + 1)
 
 		// Move to next round and check the expected state
-		env.core.StartRound(context.Background(), env.state.curRound+2)
+		env.core.StartRound(context.Background(), env.curRound+2)
 
-		env.checkState(t, env.state.curHeight, env.state.curRound+2, Propose, env.curBlock, env.state.curRound, currentBlock2, env.state.curRound+1)
+		env.checkState(t, env.curHeight, env.curRound+2, Propose, env.curBlock, env.curRound, currentBlock2, env.curRound+1)
 
 		env.logging(t)
 		// stop the timer to clean up
@@ -102,35 +102,35 @@ func TestStartRoundVariables(t *testing.T) {
 func TestStartRound(t *testing.T) {
 	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
 		e := NewConsensusEnv(t, nil)
-		proposal := generateBlockProposal(e.state.curRound, e.state.curHeight, -1, false, e.clientSigner)
+		proposal := generateBlockProposal(e.curRound, e.curHeight, -1, false, e.clientSigner)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
-		backendMock.EXPECT().Broadcast(e.view.committee.Committee(), proposal)
-		if e.state.curRound == 0 {
+		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
+		if e.curRound == 0 {
 			// We expect the following extra calls when round = 0
-			backendMock.EXPECT().HeadBlock().Return(e.view.previousValue)
+			backendMock.EXPECT().HeadBlock().Return(e.previousValue)
 		}
 		e.setupCore(backendMock, e.clientAddress)
-		e.core.pendingCandidateBlocks[e.state.curHeight.Uint64()] = proposal.Block()
+		e.core.pendingCandidateBlocks[e.curHeight.Uint64()] = proposal.Block()
 		e.logging(t)
-		e.core.StartRound(context.Background(), e.state.curRound)
+		e.core.StartRound(context.Background(), e.curRound)
 	})
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
 			// Valid round can only be set after round 0, hence the smallest value the round can have is 1 for the valid
 			// value to have the smallest value which is 0
-			currentRound := int64(rand.Intn(e.view.committeeSize) + 1)
-			for currentRound%int64(e.view.committeeSize) != 0 {
-				currentRound = int64(rand.Intn(e.view.committeeSize) + 1)
+			currentRound := int64(rand.Intn(e.committeeSize) + 1)
+			for currentRound%int64(e.committeeSize) != 0 {
+				currentRound = int64(rand.Intn(e.committeeSize) + 1)
 			}
-			e.state.curRound = currentRound
-			e.state.validRound = e.state.curRound - 1
+			e.curRound = currentRound
+			e.validRound = e.curRound - 1
 		}
 		env := NewConsensusEnv(t, customizer)
-		proposal := generateBlockProposal(env.state.curRound, env.state.curHeight, env.state.validRound, false, env.clientSigner)
+		proposal := generateBlockProposal(env.curRound, env.curHeight, env.validRound, false, env.clientSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -138,26 +138,26 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(env.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
-		backendMock.EXPECT().Broadcast(env.view.committee.Committee(), proposal)
+		backendMock.EXPECT().Broadcast(env.committee.Committee(), proposal)
 
 		env.setupCore(backendMock, env.clientAddress)
 		env.core.validValue = proposal.Block()
 
 		env.logging(t)
-		env.core.StartRound(context.Background(), env.state.curRound)
+		env.core.StartRound(context.Background(), env.curRound)
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
 
 		e := NewConsensusEnv(t, nil)
-		clientIndex := e.view.committeeSize - 1
-		newClientAddr := e.view.committee.Committee()[clientIndex].Address
+		clientIndex := e.committeeSize - 1
+		newClientAddr := e.committee.Committee()[clientIndex].Address
 
 		// ensure the client is not the proposer for current round
-		currentRound := int64(rand.Intn(e.view.committeeSize))
+		currentRound := int64(rand.Intn(e.committeeSize))
 		for currentRound%int64(clientIndex) == 0 {
-			currentRound = int64(rand.Intn(e.view.committeeSize))
+			currentRound = int64(rand.Intn(e.committeeSize))
 		}
-		e.state.curRound = currentRound
+		e.curRound = currentRound
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -166,10 +166,10 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 
 		e.core = New(backendMock, nil, newClientAddr, log.Root())
-		e.core.setCommitteeSet(e.view.committee)
+		e.core.setCommitteeSet(e.committee)
 
 		if currentRound == 0 {
-			backendMock.EXPECT().HeadBlock().Return(e.view.previousValue)
+			backendMock.EXPECT().HeadBlock().Return(e.previousValue)
 		}
 
 		e.logging(t)
@@ -189,7 +189,7 @@ func TestStartRound(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
-		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: e.state.curRound, HeightWhenCalled: e.state.curHeight, Step: Propose})
+		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: e.curRound, HeightWhenCalled: e.curHeight, Step: Propose})
 
 		e.logging(t)
 		e.setupCore(backendMock, e.clientAddress)
@@ -200,18 +200,18 @@ func TestStartRound(t *testing.T) {
 	})
 	t.Run("at reception of proposal Timeout event prevote nil is sent", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
-			e.state.step = Propose
+			e.step = Propose
 		}
 		e := NewConsensusEnv(t, customizer)
-		timeoutE := TimeoutEvent{RoundWhenCalled: e.state.curRound, HeightWhenCalled: e.state.curHeight, Step: Propose}
-		prevoteMsg := message.NewPrevote(e.state.curRound, e.state.curHeight.Uint64(), common.Hash{}, e.clientSigner)
+		timeoutE := TimeoutEvent{RoundWhenCalled: e.curRound, HeightWhenCalled: e.curHeight, Step: Propose}
+		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), common.Hash{}, e.clientSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
-		backendMock.EXPECT().Broadcast(e.view.committee.Committee(), prevoteMsg)
+		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
 		e.logging(t)
 		e.setupCore(backendMock, e.clientAddress)
@@ -229,116 +229,97 @@ func TestNewProposal(t *testing.T) {
 	clientAddr := members[0].Address
 	clientSigner := makeSigner(privateKeys[clientAddr], clientAddr)
 	t.Run("receive invalid proposal for current round", func(t *testing.T) {
-		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		customizer := func(e *ConsensusENV) {
+			e.step = Propose
+		}
+		e := NewConsensusEnv(t, customizer)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-
-		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
-
-		c := New(backendMock, nil, clientAddr, log.Root())
-		c.setHeight(currentHeight)
-		c.setRound(currentRound)
-		c.setCommitteeSet(committeeSet)
-		c.SetStep(context.Background(), Propose)
-
-		// members[currentRound] means that the sender is the proposer for the current round
+		e.setupCore(backendMock, e.clientAddress)
+		// Committee()[e.state.curRound].Address means that the sender is the proposer for the current round
 		// assume that the message is from a member of committee set and the signature is signing the contents, however,
 		// the proposal block inside the message is invalid
-		currentProposer := members[currentRound].Address
-		currentSigner := makeSigner(privateKeys[currentProposer], currentProposer)
-		invalidProposal := generateBlockProposal(currentRound, currentHeight, -1, true, currentSigner).MustVerify(stubVerifier)
-
+		currentProposer := e.committee.Committee()[e.curRound].Address
+		currentSigner := makeSigner(e.keys[currentProposer], currentProposer)
+		invalidProposal := generateBlockProposal(e.curRound, e.curHeight, -1, true, currentSigner).MustVerify(stubVerifier)
 		// prepare prevote nil and target the malicious proposer and the corresponding value.
-		prevoteMsg := message.NewPrevote(currentRound, currentHeight.Uint64(), common.Hash{}, clientSigner)
+		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), common.Hash{}, e.clientSigner)
 
 		backendMock.EXPECT().VerifyProposal(invalidProposal.Block()).Return(time.Duration(1), errors.New("invalid proposal"))
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
-		backendMock.EXPECT().Broadcast(committeeSet.Committee(), prevoteMsg)
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
+		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
-		err := c.handleValidMsg(context.Background(), invalidProposal)
+		err := e.core.handleValidMsg(context.Background(), invalidProposal)
+		e.logging(t)
 		assert.Error(t, err, "expected an error for invalid proposal")
-		assert.Equal(t, currentHeight, c.Height())
-		assert.Equal(t, currentRound, c.Round())
-		assert.Equal(t, Prevote, c.step)
+		assert.Equal(t, e.curHeight, e.core.Height())
+		assert.Equal(t, e.curRound, e.core.Round())
+		assert.Equal(t, Prevote, e.core.step)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedRound = -1", func(t *testing.T) {
-		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
-		clientLockedRound := int64(-1)
-		currentProposer := members[currentRound].Address
-		currentSigner := makeSigner(privateKeys[currentProposer], currentProposer)
-		proposal := generateBlockProposal(currentRound, currentHeight, -1, false, currentSigner).MustVerify(stubVerifier)
-		prevoteMsg := message.NewPrevote(currentRound, currentHeight.Uint64(), proposal.Block().Hash(), clientSigner)
+		customizer := func(e *ConsensusENV) {
+			e.step = Propose
+		}
+		e := NewConsensusEnv(t, customizer)
+
+		currentProposer := e.committee.Committee()[e.curRound].Address
+		currentSigner := makeSigner(e.keys[currentProposer], currentProposer)
+		proposal := generateBlockProposal(e.curRound, e.curHeight, -1, false, currentSigner).MustVerify(stubVerifier)
+		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), proposal.Block().Hash(), e.clientSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
-
-		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
-		c := New(backendMock, nil, clientAddr, log.Root())
-		// if lockedRround = - 1 then lockedValue = nil
-		c.setHeight(currentHeight)
-		c.setRound(currentRound)
-		c.setCommitteeSet(committeeSet)
-		c.SetStep(context.Background(), Propose)
-		c.lockedRound = clientLockedRound
-		c.lockedValue = nil
-
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
-		backendMock.EXPECT().Broadcast(committeeSet.Committee(), prevoteMsg)
+		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
-		err := c.handleValidMsg(context.Background(), proposal)
+		e.setupCore(backendMock, e.clientAddress)
+		e.logging(t)
+		err := e.core.handleValidMsg(context.Background(), proposal)
 		assert.NoError(t, err)
-		assert.Equal(t, currentHeight, c.Height())
-		assert.Equal(t, currentRound, c.Round())
-		assert.Equal(t, Prevote, c.step)
-		assert.Nil(t, c.lockedValue)
-		assert.Equal(t, clientLockedRound, c.lockedRound)
+		assert.Equal(t, e.curHeight, e.core.Height())
+		assert.Equal(t, e.curRound, e.core.Round())
+		assert.Equal(t, Prevote, e.core.step)
+		assert.Nil(t, e.core.lockedValue)
+		assert.Equal(t, e.lockedRound, e.core.lockedRound)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedValue is same as proposal block", func(t *testing.T) {
-		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
-		clientLockedRound := int64(0)
-		currentProposer := members[currentRound].Address
-		currentSigner := makeSigner(privateKeys[currentProposer], currentProposer)
-		proposal := generateBlockProposal(currentRound, currentHeight, -1, false, currentSigner).MustVerify(stubVerifier)
-		prevoteMsg := message.NewPrevote(currentRound, currentHeight.Uint64(), proposal.Block().Hash(), clientSigner)
+		customizer := func(e *ConsensusENV) {
+			e.step = Propose
+			e.lockedRound = 0
+			e.validRound = 0
+
+			currentProposer := e.committee.Committee()[e.curRound].Address
+			currentSigner := makeSigner(e.keys[currentProposer], currentProposer)
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, -1, false, currentSigner).MustVerify(stubVerifier)
+			e.lockedValue = e.curProposal.Block()
+			e.validValue = e.curProposal.Block()
+		}
+		e := NewConsensusEnv(t, customizer)
+		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), e.curProposal.Block().Hash(), e.clientSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(clientSigner)
+		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
+		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
+		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
-		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
-		c := New(backendMock, nil, clientAddr, log.Root())
-		c.setHeight(currentHeight)
-		c.setRound(currentRound)
-		c.setCommitteeSet(committeeSet)
-		c.SetStep(context.Background(), Propose)
-		c.lockedRound = clientLockedRound
-		c.lockedValue = proposal.Block()
-		c.validRound = clientLockedRound
-		c.validValue = proposal.Block()
-
-		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
-		backendMock.EXPECT().Broadcast(committeeSet.Committee(), prevoteMsg)
-
-		err := c.handleValidMsg(context.Background(), proposal)
+		e.setupCore(backendMock, e.clientAddress)
+		e.logging(t)
+		err := e.core.handleValidMsg(context.Background(), e.curProposal)
 		assert.NoError(t, err)
-		assert.Equal(t, currentHeight, c.Height())
-		assert.Equal(t, currentRound, c.Round())
-		assert.Equal(t, Prevote, c.step)
-		assert.Equal(t, proposal.Block(), c.lockedValue)
-		assert.Equal(t, clientLockedRound, c.lockedRound)
-		assert.Equal(t, proposal.Block(), c.validValue)
-		assert.Equal(t, clientLockedRound, c.validRound)
+		assert.Equal(t, e.curHeight, e.core.Height())
+		assert.Equal(t, e.curRound, e.core.Round())
+		assert.Equal(t, Prevote, e.core.step)
+		assert.Equal(t, e.curProposal.Block(), e.core.lockedValue)
+		assert.Equal(t, e.lockedRound, e.core.lockedRound)
+		assert.Equal(t, e.curProposal.Block(), e.core.validValue)
+		assert.Equal(t, e.validRound, e.core.validRound)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedValue is different from proposal block", func(t *testing.T) {
 		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
@@ -1579,14 +1560,16 @@ func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c interfaces.Commi
 }
 
 type ConsensusENV struct {
-	view  *ConsensusView
-	state *TendermintState
+	ConsensusView
+	TendermintState
 
 	clientAddress common.Address
 	clientKey     *ecdsa.PrivateKey
 	clientSigner  message.Signer
 
 	curBlock *types.Block
+
+	curProposal *message.Propose
 
 	core *Core
 }
@@ -1599,19 +1582,6 @@ type ConsensusView struct {
 	keys           AddressKeyMap
 }
 
-func NewConsensusView(t *testing.T) *ConsensusView {
-	v := ConsensusView{}
-	v.previousHeight = big.NewInt(int64(rand.Intn(100) + 1))
-	v.previousValue = generateBlock(v.previousHeight)
-	v.committeeSize = rand.Intn(maxSize-minSize) + minSize
-	v.committee, v.keys = prepareCommittee(t, v.committeeSize)
-	return &v
-}
-
-func (v *ConsensusView) setup(t *testing.T, signerIndex int) {
-	setCommitteeAndSealOnBlock(t, v.previousValue, v.committee, v.keys, signerIndex)
-}
-
 type TendermintState struct {
 	curHeight   *big.Int
 	curRound    int64
@@ -1622,30 +1592,31 @@ type TendermintState struct {
 	validRound  int64
 }
 
-func NewTendermintState() *TendermintState {
-	return &TendermintState{
-		curHeight:   nil,
-		curRound:    0,
-		step:        PrecommitDone,
-		lockedValue: nil,
-		lockedRound: -1,
-		validValue:  nil,
-		validRound:  -1,
-	}
-}
-
 func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV {
 	env := &ConsensusENV{}
-	env.view = NewConsensusView(t)
-	env.state = NewTendermintState()
 
-	env.state.curHeight = big.NewInt(env.view.previousHeight.Int64() + 1)
-	env.view.setup(t, 0)
-	env.clientAddress = env.view.committee.Committee()[0].Address
-	env.clientKey = env.view.keys[env.clientAddress]
+	// setup view
+	env.previousHeight = big.NewInt(int64(rand.Intn(100) + 1))
+	env.previousValue = generateBlock(env.previousHeight)
+	env.committeeSize = rand.Intn(maxSize-minSize) + minSize
+	env.committee, env.keys = prepareCommittee(t, env.committeeSize)
+
+	// setup initial state
+	env.curHeight = big.NewInt(env.previousHeight.Int64() + 1)
+	env.curRound = 0
+	env.step = PrecommitDone
+	env.lockedValue = nil
+	env.validValue = nil
+	env.lockedRound = -1
+	env.validRound = -1
+
+	setCommitteeAndSealOnBlock(t, env.previousValue, env.committee, env.keys, 0)
+
+	env.clientAddress = env.committee.Committee()[0].Address
+	env.clientKey = env.keys[env.clientAddress]
 	env.clientSigner = makeSigner(env.clientKey, env.clientAddress)
 
-	env.curBlock = generateBlock(env.state.curHeight)
+	env.curBlock = generateBlock(env.curHeight)
 
 	if customize != nil {
 		customize(env)
@@ -1655,19 +1626,19 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 }
 
 func (e *ConsensusENV) logging(t *testing.T) {
-	t.Log("curHeight", e.state.curHeight, "curRound", e.state.curRound, "committeeSize", e.view.committeeSize)
+	t.Log("curHeight", e.curHeight, "curRound", e.curRound, "committeeSize", e.committeeSize)
 }
 
 func (e *ConsensusENV) setupCore(backend interfaces.Backend, address common.Address) {
 	e.core = New(backend, nil, address, log.Root())
-	e.core.setCommitteeSet(e.view.committee)
-	e.core.setHeight(e.state.curHeight)
-	e.core.setRound(e.state.curRound)
-	e.core.SetValidRound(e.state.validRound)
-	e.core.SetLockedRound(e.state.lockedRound)
-	e.core.SetValidValue(e.state.validValue)
-	e.core.SetLockedValue(e.state.lockedValue)
-	e.core.step = e.state.step
+	e.core.setCommitteeSet(e.committee)
+	e.core.setHeight(e.curHeight)
+	e.core.setRound(e.curRound)
+	e.core.SetValidRound(e.validRound)
+	e.core.SetLockedRound(e.lockedRound)
+	e.core.SetValidValue(e.validValue)
+	e.core.SetLockedValue(e.lockedValue)
+	e.core.SetStep(context.Background(), e.step)
 }
 
 func (e *ConsensusENV) checkState(t *testing.T, h *big.Int, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64) { //nolint
