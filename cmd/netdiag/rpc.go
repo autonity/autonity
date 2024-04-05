@@ -48,40 +48,55 @@ func (a *ArgTarget) AskUserInput() error {
 	return nil
 }
 
-type ArgTargetDataSize struct {
-	Target      int
-	PacketCount int
-	Size        int
+type ArgSize struct {
+	Size int
 }
 
-func (a *ArgTargetDataSize) AskUserInput() error {
+func (a *ArgSize) AskUserInput() error {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter target index: ")
+	fmt.Print("Enter size (kB) - max 15000: ")
 	input, _ := reader.ReadString('\n')
-	targetIndex, err := strconv.Atoi(strings.TrimSpace(input))
+	size, err := strconv.Atoi(strings.TrimSpace(input))
 	if err != nil {
-		fmt.Println("Invalid target index.")
+		fmt.Println("Invalid size.")
 		return err
 	}
-	a.Target = targetIndex
+	a.Size = size * 1000
+	return nil
+}
+
+type ArgTargetSize struct {
+	ArgTarget
+	ArgSize
+}
+
+func (a *ArgTargetSize) AskUserInput() error {
+	if err := a.ArgTarget.AskUserInput(); err != nil {
+		return err
+	}
+	return a.ArgSize.AskUserInput()
+}
+
+type ArgTargetSizeCount struct {
+	ArgTarget
+	ArgSize
+	PacketCount int
+}
+
+func (a *ArgTargetSizeCount) AskUserInput() error {
+	if err := a.ArgTarget.AskUserInput(); err != nil {
+		return err
+	}
+	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter number of DevP2P packets: ")
-	input, _ = reader.ReadString('\n')
+	input, _ := reader.ReadString('\n')
 	packetCount, err := strconv.Atoi(strings.TrimSpace(input))
 	if err != nil {
 		fmt.Println("Invalid number.")
 		return err
 	}
 	a.PacketCount = packetCount
-	fmt.Print("Enter size (kB) - max 15000: ")
-	input, _ = reader.ReadString('\n')
-	size, err := strconv.Atoi(strings.TrimSpace(input))
-	if err != nil {
-		fmt.Println("Invalid size.")
-		return err
-	}
-	a.Target = targetIndex
-	a.Size = size * 1000
-	return nil
+	return a.ArgSize.AskUserInput()
 }
 
 type ArgEmpty struct {
@@ -295,7 +310,7 @@ func (r *ResultSendRandomData) String() string {
 	return builder.String()
 }
 
-func (p *P2POp) SendRandomData(args *ArgTargetDataSize, reply *ResultSendRandomData) error {
+func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandomData) error {
 	if args.Target < 0 || args.Target >= len(p.engine.peers) {
 		return errInvalidRpcArg
 	}
@@ -378,18 +393,18 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 			peer.UpdateSocketOptions(buffSize, noDelay)
 			// warmup
 			res := &ResultSendRandomData{}
-			_ = p.SendRandomData(&ArgTargetDataSize{
-				Target:      args.Target,
+			_ = p.SendRandomData(&ArgTargetSizeCount{
+				ArgTarget:   ArgTarget{args.Target},
 				PacketCount: 10,
-				Size:        1024,
+				ArgSize:     ArgSize{1024},
 			}, res)
 			time.Sleep(2 * time.Second)
 			// measure
 			res2 := &ResultSendRandomData{}
-			_ = p.SendRandomData(&ArgTargetDataSize{
-				Target:      args.Target,
+			_ = p.SendRandomData(&ArgTargetSizeCount{
+				ArgTarget:   ArgTarget{args.Target},
 				PacketCount: 1,
-				Size:        200000,
+				ArgSize:     ArgSize{200000},
 			}, res2)
 			duration := res2.ReceiverReceptionTime.Sub(res2.RequestTime)
 			if duration < minDuration {
@@ -408,14 +423,60 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 	}
 	for i := 0; i < 10; i++ {
 		res := &ResultSendRandomData{}
-		_ = p.SendRandomData(&ArgTargetDataSize{
-			Target:      args.Target,
+		_ = p.SendRandomData(&ArgTargetSizeCount{
+			ArgTarget:   ArgTarget{args.Target},
 			PacketCount: 1,
-			Size:        200000,
+			ArgSize:     ArgSize{200000},
 		}, res)
 		reply.Durations[i] = res.ReceiverReceptionTime.Sub(res.RequestTime)
 		time.Sleep(time.Duration(i) * 500 * time.Millisecond)
 	}
+	return nil
+}
+
+type ResultSendRandomDataFrequencyAnalysis struct {
+	Target        int
+	Size          int
+	Delay         []time.Duration
+	Duration      []time.Duration
+	ReplyDuration []time.Duration
+}
+
+func (r *ResultSendRandomDataFrequencyAnalysis) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "Transmissions Analysis Report\n")
+	fmt.Fprintf(&builder, "Target Peer: %d\n", r.Target)
+	fmt.Fprintf(&builder, "Data size (kb): %d\n", r.Size/1000)
+	for i := range r.Delay {
+		bandwidth := float64(r.Size) / ((r.Duration[i] - r.ReplyDuration[i]).Seconds() * 1e6)
+		fmt.Fprintf(&builder, "%d\tDelay: %s \tDuration: %s\tReplyDuration: %s\tBandwidth: %.6fMB/s\n", i, r.Delay[i], r.Duration[i], r.ReplyDuration[i], bandwidth)
+	}
+	return builder.String()
+}
+
+func (p *P2POp) SendRandomDataFrequencyAnalysis(args *ArgTargetSize, reply *ResultSendRandomDataFrequencyAnalysis) error {
+	// TODO: do it across multiple peers, see how it goes
+	reply.Delay = make([]time.Duration, 30)
+	reply.Duration = make([]time.Duration, 30)
+	reply.ReplyDuration = make([]time.Duration, 30)
+	k := 0
+	for i := 0; i < 10; i++ {
+		for j := 0; j < 3; j++ {
+			reply.Delay[k] = time.Duration(i) * 250 * time.Millisecond
+			time.Sleep(reply.Delay[k])
+			res := &ResultSendRandomData{}
+			_ = p.SendRandomData(&ArgTargetSizeCount{
+				ArgTarget:   args.ArgTarget,
+				PacketCount: 1,
+				ArgSize:     args.ArgSize,
+			}, res)
+			reply.Duration[k] = res.ReceiverReceptionTime.Sub(res.RequestTime)
+			reply.ReplyDuration[k] = time.Now().Sub(res.ReceiverReceptionTime)
+			k++
+		}
+	}
+	reply.Target = args.Target
+	reply.Size = args.Size
 	return nil
 }
 

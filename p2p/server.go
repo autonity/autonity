@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sort"
 	"sync"
@@ -42,10 +43,16 @@ import (
 )
 
 type Network int32
+type Transport int32
 
 const (
 	Execution = iota + 1
 	Consensus
+)
+
+const (
+	TCP Transport = iota
+	UDP
 )
 
 func (ser Network) String() string {
@@ -189,7 +196,8 @@ type Server struct {
 	// Config fields may not be modified while the server is running.
 	Config
 
-	Net Network
+	Net       Network
+	Transport Transport
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
 	newTransport func(net.Conn, *ecdsa.PublicKey) transport
@@ -226,6 +234,10 @@ type Server struct {
 	inboundHistory expHeap
 	jailed         safeExpHeap
 
+	// Only for UDP connections
+	newOutboundUdpConn chan *UdpTransport
+	udpListener        *net.UDPConn
+
 	committee       []*enode.Node
 	committeeSubset []*enode.Node
 	enodeMu         sync.RWMutex
@@ -252,7 +264,8 @@ const (
 // conn wraps a network connection with information gathered
 // during the two handshakes.
 type conn struct {
-	fd net.Conn
+	fd   net.Conn
+	addr net.Addr
 	transport
 	node  *enode.Node
 	flags connFlag
@@ -280,7 +293,7 @@ func (c *conn) String() string {
 	if (c.node.ID() != enode.ID{}) {
 		s += " " + c.node.ID().String()
 	}
-	s += " " + c.fd.RemoteAddr().String()
+	s += " " + c.addr.String()
 	return s
 }
 
@@ -565,7 +578,7 @@ func (srv *Server) Start() (err error) {
 	if srv.newTransport == nil {
 		srv.newTransport = newRLPX
 	}
-	if srv.listenFunc == nil {
+	if srv.listenFunc == nil && srv.Transport == TCP {
 		srv.listenFunc = net.Listen
 	}
 	srv.quit = make(chan struct{})
@@ -578,12 +591,20 @@ func (srv *Server) Start() (err error) {
 	srv.peerOp = make(chan peerOpFunc)
 	srv.peerOpDone = make(chan struct{})
 
+	srv.newOutboundUdpConn = make(chan *UdpTransport, 100)
+
 	if err := srv.setupLocalNode(); err != nil {
 		return err
 	}
 	if srv.ListenAddr != "" {
-		if err := srv.setupListening(); err != nil {
-			return err
+		if srv.Transport == UDP {
+			if err := srv.setupUDPListening(); err != nil {
+				return err
+			}
+		} else {
+			if err := srv.setupListening(); err != nil {
+				return err
+			}
 		}
 	}
 	if err := srv.setupDiscovery(); err != nil {
@@ -673,7 +694,7 @@ func (srv *Server) setupDiscovery() error {
 		if !realaddr.IP.IsLoopback() {
 			srv.loopWG.Add(1)
 			go func() {
-				nat.Map(srv.NAT, srv.quit, "udp", realaddr.Port, realaddr.Port, "ethereum discovery")
+				nat.Map(srv.NAT, srv.quit, "udp", realaddr.Port, realaddr.Port, "autonity discovery")
 				srv.loopWG.Done()
 			}()
 		}
@@ -735,14 +756,23 @@ func (srv *Server) setupDialScheduler() {
 		clock:          srv.clock,
 		trusted:        &srv.trusted,
 		net:            srv.Net,
+		transport:      srv.Transport,
 	}
 	if srv.ntab != nil {
 		config.resolver = srv.ntab
 	}
 	if config.dialer == nil {
-		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+		if config.transport == UDP {
+			config.dialer = udpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+		} else {
+			config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+		}
 	}
-	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn)
+	setupConn := srv.SetupConn
+	if srv.Transport == UDP {
+		setupConn = srv.dialSetupUDPConn
+	}
+	srv.dialsched = newDialScheduler(config, srv.discmix, setupConn)
 	for _, n := range srv.StaticNodes {
 		srv.dialsched.addStatic(n)
 	}
@@ -765,6 +795,162 @@ func (srv *Server) maxDialedConns() (limit int) {
 		limit = 1
 	}
 	return limit
+}
+
+func (srv *Server) setupUDPListening() error {
+	addr, err := net.ResolveUDPAddr("udp", srv.ListenAddr)
+	if err != nil {
+		return err
+	}
+	srv.udpListener, err = net.ListenUDP("udp", addr)
+	if err != nil {
+		return err
+	}
+	realaddr := srv.udpListener.LocalAddr().(*net.UDPAddr)
+	srv.log.Debug("Consensus UDP listener up", "addr", realaddr, "type", srv.Net.String())
+	if srv.NAT != nil {
+		if !realaddr.IP.IsLoopback() {
+			srv.loopWG.Add(1)
+			go func() {
+				nat.Map(srv.NAT, srv.quit, "udp", realaddr.Port, realaddr.Port, "autonity consensus")
+				srv.loopWG.Done()
+			}()
+		}
+	}
+	const maxPacketSize = 65507 // TO TEST
+	buf := make([]byte, maxPacketSize)
+	go func() {
+		connections := make(map[string]*UdpTransport)
+		for {
+			var (
+				err    error
+				nbytes int
+				from   *net.UDPAddr
+			)
+			for {
+				nbytes, from, err = srv.udpListener.ReadFromUDP(buf)
+				if netutil.IsTemporaryError(err) {
+					// Ignore temporary read errors.
+					srv.log.Debug("Temporary UDP read error", "err", err)
+					continue
+				} else if err != nil {
+					// Shut down the loop for permament errors.
+					if err != io.EOF {
+						srv.log.Debug("UDP read error", "err", err)
+					}
+					return
+				}
+				break
+			}
+
+			// check if there are some new inbounds connections waiting to be created here
+			ok := false
+			for !ok {
+				select {
+				case trans := <-srv.newOutboundUdpConn:
+					if _, ok := connections[from.IP.String()]; ok {
+						log.Trace("conn already existing ??", "from", from.IP.String())
+					} else {
+						connections[from.IP.String()] = trans
+					}
+				default:
+					ok = true
+				}
+			}
+
+			if conn, ok := connections[from.IP.String()]; ok {
+				if err := conn.HandlePacket(buf[:nbytes]); err != nil {
+					log.Trace("error handling packet", "from", from.IP.String(), "err", err)
+				}
+				continue
+			}
+			// ---DevP2P over UDP ----
+			// "connection" establishment:
+			// we are simulating a connection because devp2p wants that. Not doing it means complete bypass of devp2p
+			// which could make sense and we could do that
+			pubkey := srv.CommitteeIpToPubkey(from.IP)
+			if pubkey == nil {
+				// for now IP is trusted - only for POC !!!
+				srv.log.Debug("packet received - not in committee")
+				continue
+			}
+			c := &conn{
+				fd:        srv.udpListener,
+				addr:      from,
+				flags:     inboundConn,
+				cont:      make(chan error),
+				transport: newUdpTransport(srv.udpListener, from),
+			}
+			connections[from.IP.String()] = c.transport.(*UdpTransport)
+			if err := connections[from.IP.String()].HandlePacket(buf[:nbytes]); err != nil {
+				log.Trace("error handling packet", "from", from.IP.String(), "err", err)
+			}
+			go func() {
+				node := enode.NewV4(pubkey, from.IP, from.Port, from.Port)
+				srv.setupUDPConn(c, node)
+			}()
+		}
+	}()
+	return nil
+}
+
+func (srv *Server) dialSetupUDPConn(fd net.Conn, flags connFlag, from *enode.Node) error {
+	log.Info("dial setup called")
+	udpAddr := &net.UDPAddr{IP: from.IP(), Port: from.TCP()}
+	c := &conn{
+		fd:    srv.udpListener,
+		addr:  udpAddr,
+		flags: flags,
+		cont:  make(chan error),
+		// fd needs to be retrieved from listener... dial don't really work with UDP
+		transport: newUdpTransport(srv.udpListener, udpAddr),
+	}
+	srv.newOutboundUdpConn <- c.transport.(*UdpTransport)
+	log.Info("nodeid", "id", from.ID())
+	return srv.setupUDPConn(c, from)
+}
+
+func (srv *Server) setupUDPConn(c *conn, from *enode.Node) error {
+	clog := srv.log.New("id", from.ID(), "addr", from.IP().String())
+	c.node = from
+	err := srv.checkpoint(c, srv.checkpointPostHandshake)
+	if err != nil {
+		clog.Trace("Rejected peer", "err", err, "server", srv.Net.String())
+		return err
+	}
+	// Run the capability nego
+	//tiation handshake.
+	clog.Trace("starting proto handshake")
+	phs, err := c.doProtoHandshake(srv.ourHandshake)
+	if err != nil {
+		clog.Trace("Failed p2p handshake", "err", err, "server", srv.Net.String())
+		return err
+	}
+	clog.Trace("proto handshake passed!")
+	if id := c.node.ID(); !bytes.Equal(crypto.Keccak256(phs.ID), id[:]) {
+		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID), "server", srv.Net.String())
+		return err
+	}
+	c.caps, c.name = phs.Caps, phs.Name
+	// This actually runs the conn and returns when the conn shuts down
+	err = srv.checkpoint(c, srv.checkpointAddPeer)
+	if err != nil {
+		clog.Trace("Rejected peer", "err", err, "server", srv.Net.String())
+		return err
+	}
+	clog.Trace("Connection checkpoint passed", "from", from.IP().String())
+	return nil
+}
+
+func (srv *Server) CommitteeIpToPubkey(ip net.IP) *ecdsa.PublicKey {
+	srv.enodeMu.RLock()
+	defer srv.enodeMu.RUnlock()
+	for _, node := range srv.committee {
+		if ip.Equal(node.IP()) {
+			return node.Pubkey()
+		}
+	}
+	return nil
 }
 
 func (srv *Server) setupListening() error {
@@ -862,7 +1048,6 @@ running:
 			}
 			// TODO: track in-progress inbound node IDs (pre-Peer) to avoid dialing them.
 			c.cont <- srv.postHandshakeChecks(peers, inboundCount, c)
-
 		case c := <-srv.checkpointAddPeer:
 			// At this point the connection is past the protocol handshake.
 			// Its capabilities are known and the remote identity is verified.

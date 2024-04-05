@@ -67,6 +67,16 @@ func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error)
 	return t.d.DialContext(ctx, "tcp", nodeAddr(dest).String())
 }
 
+// tcpDialer implements NodeDialer using real TCP connections.
+type udpDialer struct {
+	d *net.Dialer
+}
+
+func (t udpDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
+	updAddr := net.UDPAddr{IP: dest.IP(), Port: dest.UDP()}
+	return net.DialUDP("udp", nil, &updAddr)
+}
+
 func nodeAddr(n *enode.Node) net.Addr {
 	return &net.TCPAddr{IP: n.IP(), Port: n.TCP()}
 }
@@ -140,6 +150,7 @@ type dialConfig struct {
 	rand           *mrand.Rand
 	trusted        *sync.Map
 	net            Network
+	transport      Transport
 }
 
 func (cfg dialConfig) withDefaults() dialConfig {
@@ -556,8 +567,9 @@ func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
 		d.log.Trace("Dial error", "id", t.dest.ID(), "addr", nodeAddr(t.dest), "conn", t.flags, "err", cleanupDialErr(err))
 		return &dialError{err}
 	}
-	mfd := newMeteredConn(fd, false, &net.TCPAddr{IP: dest.IP(), Port: dest.TCP()}, d.net)
-	return d.setupFunc(mfd, t.flags, dest)
+	fmt.Printf("udp dialing seens ok %v \n", fd)
+	//mfd := newMeteredConn(fd, false, &net.TCPAddr{IP: dest.IP(), Port: dest.TCP()}, d.net)
+	return d.setupFunc(fd, t.flags, dest)
 }
 
 func (t *dialTask) String() string {

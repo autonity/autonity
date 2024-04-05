@@ -199,7 +199,7 @@ func (p *Peer) RunningCap(protocol string, versions []uint) bool {
 
 // RemoteAddr returns the remote address of the network connection.
 func (p *Peer) RemoteAddr() net.Addr {
-	return p.rw.fd.RemoteAddr()
+	return p.rw.addr
 }
 
 // LocalAddr returns the local address of the network connection.
