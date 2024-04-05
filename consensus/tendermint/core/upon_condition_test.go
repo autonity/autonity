@@ -652,42 +652,35 @@ func TestOldProposal(t *testing.T) {
 }
 
 func TestProposeTimeout(t *testing.T) {
-	committeeSizeAndMaxRound := rand.Intn(maxSize-minSize) + minSize
-	committeeSet, privateKeys := prepareCommittee(t, committeeSizeAndMaxRound)
-	members := committeeSet.Committee()
-	clientAddr := members[0].Address
 
 	t.Run("propose Timeout is not stopped if the proposal does not cause a step change", func(t *testing.T) {
-		currentHeight := big.NewInt(int64(rand.Intn(maxSize) + 1))
-		currentRound := int64(rand.Intn(committeeSizeAndMaxRound))
+		customizer := func(e *ConsensusENV) {
+			e.step = Propose
+		}
+		e := NewConsensusEnv(t, customizer)
 
+		signer := makeSigner(e.keys[e.committee.Committee()[e.curRound].Address], e.committee.Committee()[e.curRound].Address)
 		// proposal with vr > r
-		proposal := generateBlockProposal(currentRound, currentHeight, currentRound+1, false, makeSigner(privateKeys[members[currentRound].Address], members[currentRound].Address)).MustVerify(stubVerifier) //nolint:gosec
+		proposal := generateBlockProposal(e.curRound, e.curHeight, e.curRound+1, false, signer).MustVerify(stubVerifier) //nolint:gosec
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
-
-		c := New(backendMock, nil, clientAddr, log.Root())
-		c.setHeight(currentHeight)
-		c.setRound(currentRound)
-		c.setCommitteeSet(committeeSet)
-		c.SetStep(context.Background(), Propose)
+		e.setupCore(backendMock, e.clientAddress)
 
 		// propose timer should be started
-		c.proposeTimeout.ScheduleTimeout(2*time.Second, c.Round(), c.Height(), c.onTimeoutPropose)
-		assert.True(t, c.proposeTimeout.TimerStarted())
-		t.Log("curRound", currentRound, "curHeight", currentHeight, "committeeSizeAndMaxRound", committeeSizeAndMaxRound)
-		err := c.handleValidMsg(context.Background(), proposal)
+		e.core.proposeTimeout.ScheduleTimeout(2*time.Second, e.core.Round(), e.core.Height(), e.core.onTimeoutPropose)
+		assert.True(t, e.core.proposeTimeout.TimerStarted())
+		err := e.core.handleValidMsg(context.Background(), proposal)
 		assert.NoError(t, err)
 		// propose timer should still be running
-		assert.True(t, c.proposeTimeout.TimerStarted())
-		assert.Equal(t, currentHeight, c.Height())
-		assert.Equal(t, currentRound, c.Round())
-		assert.Equal(t, Propose, c.step)
-		assert.False(t, c.sentPrevote)
+		assert.True(t, e.core.proposeTimeout.TimerStarted())
+		assert.Equal(t, e.curHeight, e.core.Height())
+		assert.Equal(t, e.curRound, e.core.Round())
+		assert.Equal(t, Propose, e.core.step)
+		assert.False(t, e.core.sentPrevote)
 	})
 }
 
