@@ -1105,7 +1105,6 @@ func TestQuorumPrecommit(t *testing.T) {
 // https://arxiv.org/pdf/1807.04938.pdf.
 func TestFutureRoundChange(t *testing.T) {
 	t.Run("move to future round after receiving more than F voting power messages", func(t *testing.T) {
-
 		customizer := func(e *ConsensusENV) {
 			e.step = Step(rand.Intn(3))
 			e.curRound = int64(50)
@@ -1117,14 +1116,14 @@ func TestFutureRoundChange(t *testing.T) {
 			MustVerify(func(address common.Address) *types.CommitteeMember {
 				return &types.CommitteeMember{
 					Address:     address,
-					VotingPower: new(big.Int).Sub(e.committee.F(), common.Big1),
+					VotingPower: e.committee.F(),
 				}
 			})
 		msg2 := message.NewPrevote(e.curRound+1, e.curHeight.Uint64(), common.Hash{}, signer(e, 2)).
 			MustVerify(func(address common.Address) *types.CommitteeMember {
 				return &types.CommitteeMember{
 					Address:     address,
-					VotingPower: new(big.Int).Sub(e.committee.F(), common.Big1),
+					VotingPower: common.Big1,
 				}
 			})
 
@@ -1155,14 +1154,14 @@ func TestFutureRoundChange(t *testing.T) {
 			MustVerify(func(address common.Address) *types.CommitteeMember {
 				return &types.CommitteeMember{
 					Address:     address,
-					VotingPower: new(big.Int).Sub(e.committee.F(), common.Big1),
+					VotingPower: e.committee.F(),
 				}
 			})
 		precommitMsg := message.NewPrecommit(e.curRound+1, e.curHeight.Uint64(), common.Hash{}, signer(e, 1)).
 			MustVerify(func(address common.Address) *types.CommitteeMember {
 				return &types.CommitteeMember{
 					Address:     address,
-					VotingPower: new(big.Int).Sub(e.committee.F(), common.Big1),
+					VotingPower: common.Big1,
 				}
 			})
 
