@@ -117,6 +117,7 @@ func TestStartRound(t *testing.T) {
 		e.setupCore(backendMock, e.clientAddress)
 		e.core.pendingCandidateBlocks[e.curHeight.Uint64()] = proposal.Block()
 		e.core.StartRound(context.Background(), e.curRound)
+		e.checkState(t, e.curHeight, e.curRound, Propose, nil, int64(-1), nil, int64(-1))
 	})
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -129,34 +130,36 @@ func TestStartRound(t *testing.T) {
 			e.curRound = currentRound
 			e.validRound = e.curRound - 1
 		}
-		env := NewConsensusEnv(t, customizer)
-		proposal := generateBlockProposal(env.curRound, env.curHeight, env.validRound, false, env.clientSigner)
+		e := NewConsensusEnv(t, customizer)
+		proposal := generateBlockProposal(e.curRound, e.curHeight, e.validRound, false, e.clientSigner)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(env.clientSigner)
+		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
-		backendMock.EXPECT().Broadcast(env.committee.Committee(), proposal)
+		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
 
-		env.setupCore(backendMock, env.clientAddress)
-		env.core.validValue = proposal.Block()
-
-		env.core.StartRound(context.Background(), env.curRound)
+		e.setupCore(backendMock, e.clientAddress)
+		e.core.validValue = proposal.Block()
+		e.core.StartRound(context.Background(), e.curRound)
+		e.checkState(t, e.curHeight, e.curRound, Propose, nil, int64(-1), proposal.Block(), e.validRound)
 	})
 	t.Run("client is not the proposer", func(t *testing.T) {
-
-		e := NewConsensusEnv(t, nil)
-		clientIndex := e.committeeSize - 1
-		newClientAddr := e.committee.Committee()[clientIndex].Address
-
-		// ensure the client is not the proposer for current round
-		currentRound := int64(rand.Intn(e.committeeSize))
-		for currentRound%int64(clientIndex) == 0 {
-			currentRound = int64(rand.Intn(e.committeeSize))
+		customizer := func(e *ConsensusENV) {
+			clientIndex := e.committeeSize - 1
+			e.clientAddress = e.committee.Committee()[clientIndex].Address
+			e.clientKey = e.keys[e.clientAddress]
+			e.clientSigner = signer(e, int64(clientIndex))
+			// ensure the client is not the proposer for current round
+			currentRound := int64(rand.Intn(e.committeeSize))
+			for currentRound%int64(clientIndex) == 0 {
+				currentRound = int64(rand.Intn(e.committeeSize))
+			}
+			e.curRound = currentRound
 		}
-		e.curRound = currentRound
+		e := NewConsensusEnv(t, customizer)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -164,20 +167,21 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 
-		e.core = New(backendMock, nil, newClientAddr, log.Root())
+		e.setupCore(backendMock, e.clientAddress)
 		e.core.setCommitteeSet(e.committee)
 
-		if currentRound == 0 {
+		if e.curRound == 0 {
 			backendMock.EXPECT().HeadBlock().Return(e.previousValue)
 		}
 
-		e.core.StartRound(context.Background(), currentRound)
-		assert.Equal(t, currentRound, e.core.Round())
+		e.core.StartRound(context.Background(), e.curRound)
+		assert.Equal(t, e.curRound, e.core.Round())
 		assert.True(t, e.core.proposeTimeout.TimerStarted())
 
 		// stop the timer to clean up
 		err := e.core.proposeTimeout.StopTimer()
 		assert.NoError(t, err)
+		e.checkState(t, e.curHeight, e.curRound, Propose, nil, int64(-1), nil, int64(-1))
 	})
 
 	t.Run("at proposal Timeout expiry Timeout event is sent", func(t *testing.T) {
@@ -194,6 +198,7 @@ func TestStartRound(t *testing.T) {
 		e.core.prevoteTimeout.ScheduleTimeout(timeoutDuration, e.core.Round(), e.core.Height(), e.core.onTimeoutPropose)
 		assert.True(t, e.core.prevoteTimeout.TimerStarted())
 		time.Sleep(sleepDuration)
+		e.checkState(t, e.curHeight, e.curRound, PrecommitDone, nil, int64(-1), nil, int64(-1))
 	})
 	t.Run("at reception of proposal Timeout event prevote nil is sent", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -212,7 +217,7 @@ func TestStartRound(t *testing.T) {
 
 		e.setupCore(backendMock, e.clientAddress)
 		e.core.handleTimeoutPropose(context.Background(), timeoutE)
-		assert.Equal(t, Prevote, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, nil, int64(-1), nil, int64(-1))
 	})
 }
 
@@ -243,9 +248,7 @@ func TestNewProposal(t *testing.T) {
 
 		err := e.core.handleValidMsg(context.Background(), invalidProposal)
 		assert.Error(t, err, "expected an error for invalid proposal")
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, nil, int64(-1), nil, int64(-1))
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedRound = -1", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -266,11 +269,7 @@ func TestNewProposal(t *testing.T) {
 		e.setupCore(backendMock, e.clientAddress)
 		err := e.core.handleValidMsg(context.Background(), proposal)
 		assert.NoError(t, err)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
-		assert.Nil(t, e.core.lockedValue)
-		assert.Equal(t, e.lockedRound, e.core.lockedRound)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, nil, e.lockedRound, nil, int64(-1))
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedValue is same as proposal block", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -295,13 +294,7 @@ func TestNewProposal(t *testing.T) {
 		e.setupCore(backendMock, e.clientAddress)
 		err := e.core.handleValidMsg(context.Background(), e.curProposal)
 		assert.NoError(t, err)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
-		assert.Equal(t, e.curProposal.Block(), e.core.lockedValue)
-		assert.Equal(t, e.lockedRound, e.core.lockedRound)
-		assert.Equal(t, e.curProposal.Block(), e.core.validValue)
-		assert.Equal(t, e.validRound, e.core.validRound)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.curProposal.Block(), e.lockedRound, e.curProposal.Block(), e.validRound)
 	})
 	t.Run("receive proposal with validRound = -1 and client's lockedValue is different from proposal block", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -329,13 +322,7 @@ func TestNewProposal(t *testing.T) {
 
 		err := e.core.handleValidMsg(context.Background(), e.curProposal)
 		assert.NoError(t, err)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
-		assert.Equal(t, e.lockedValue, e.core.lockedValue)
-		assert.Equal(t, e.lockedRound, e.core.lockedRound)
-		assert.Equal(t, e.validValue, e.core.validValue)
-		assert.Equal(t, e.validRound, e.core.validRound)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
 }
 
@@ -384,13 +371,7 @@ func TestOldProposal(t *testing.T) {
 
 		err := e.core.handleValidMsg(context.Background(), e.curProposal)
 		assert.NoError(t, err)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
-		assert.Nil(t, e.core.lockedValue)
-		assert.Equal(t, e.lockedRound, e.core.lockedRound)
-		assert.Nil(t, e.validValue)
-		assert.Equal(t, e.validRound, e.core.validRound)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, nil, e.lockedRound, nil, e.validRound)
 	})
 	t.Run("receive proposal with vr >= 0 and client's lockedValue is same as proposal block", func(t *testing.T) {
 
@@ -433,13 +414,7 @@ func TestOldProposal(t *testing.T) {
 
 		err := e.core.handleValidMsg(context.Background(), e.curProposal)
 		assert.NoError(t, err)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
-		assert.Equal(t, e.curProposal.ValidRound()+1, e.core.lockedRound)
-		assert.Equal(t, e.curProposal.ValidRound()+1, e.core.validRound)
-		assert.Equal(t, e.curProposal.Block(), e.core.lockedValue)
-		assert.Equal(t, e.curProposal.Block(), e.core.validValue)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.curProposal.Block(), e.curProposal.ValidRound()+1, e.curProposal.Block(), e.curProposal.ValidRound()+1)
 	})
 	t.Run("receive proposal with vr >= 0 and client has lockedRound > vr and lockedValue != proposal", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -477,13 +452,7 @@ func TestOldProposal(t *testing.T) {
 
 		err := e.core.handleValidMsg(context.Background(), e.curProposal)
 		assert.NoError(t, err)
-		assert.Equal(t, e.curHeight, e.core.height)
-		assert.Equal(t, e.curRound, e.core.round)
-		assert.Equal(t, Prevote, e.core.step)
-		assert.Equal(t, e.curProposal.ValidRound()+1, e.core.lockedRound)
-		assert.Equal(t, e.curProposal.ValidRound()+1, e.core.validRound)
-		assert.Equal(t, e.lockedValue, e.core.lockedValue)
-		assert.Equal(t, e.validValue, e.core.validValue)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.curProposal.ValidRound()+1, e.validValue, e.curProposal.ValidRound()+1)
 	})
 
 	// line 28 check upon condition on prevote handler.
@@ -622,13 +591,7 @@ func TestOldProposal(t *testing.T) {
 			t.Fatalf("Expected %v, got %v", constants.ErrOldRoundMessage, err)
 		}
 		assert.True(t, e.core.sentPrevote)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
-		assert.Equal(t, e.lockedValue, e.core.lockedValue)
-		assert.Equal(t, e.lockedRound, e.core.lockedRound)
-		assert.Equal(t, e.validValue, e.core.validValue)
-		assert.Equal(t, e.validRound, e.core.validRound)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		// now the propose timeout should be stopped, since we moved to prevote step
 		assert.False(t, e.core.proposeTimeout.TimerStarted())
 	})
@@ -659,9 +622,7 @@ func TestProposeTimeout(t *testing.T) {
 		assert.NoError(t, err)
 		// propose timer should still be running
 		assert.True(t, e.core.proposeTimeout.TimerStarted())
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Propose, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Propose, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		assert.False(t, e.core.sentPrevote)
 	})
 }
@@ -702,10 +663,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		// stop the timer to clean up
 		err = e.core.prevoteTimeout.StopTimer()
 		assert.NoError(t, err)
-
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
 	t.Run("prevote Timeout is not started multiple times", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -751,10 +709,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		// stop the timer to clean up
 		err = e.core.prevoteTimeout.StopTimer()
 		assert.NoError(t, err)
-
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
 	t.Run("at prevote Timeout expiry Timeout event is sent", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -772,9 +727,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: e.curRound, HeightWhenCalled: e.curHeight, Step: Prevote})
 		e.core.prevoteTimeout.ScheduleTimeout(timeoutDuration, e.core.Round(), e.core.Height(), e.core.onTimeoutPrevote)
 		assert.True(t, e.core.prevoteTimeout.TimerStarted())
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Prevote, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of prevote Timeout event precommit nil is sent", func(t *testing.T) {
@@ -795,9 +748,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 
 		e.core.handleTimeoutPrevote(context.Background(), timeoutE)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Precommit, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Precommit, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
 }
 
@@ -845,9 +796,6 @@ func TestQuorumPrevote(t *testing.T) {
 			assert.Equal(t, e.curProposal.Block(), e.core.validValue)
 			assert.Equal(t, e.curRound, e.core.validRound)
 		}
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-
 	})
 
 	t.Run("receive more than quorum prevote for proposal block when in step >= prevote", func(t *testing.T) {
@@ -900,13 +848,7 @@ func TestQuorumPrevote(t *testing.T) {
 
 		err := e.core.handleValidMsg(context.Background(), prevoteMsg2)
 		assert.NoError(t, err)
-
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, lockedValueBefore, e.core.lockedValue)
-		assert.Equal(t, validValueBefore, e.core.validValue)
-		assert.Equal(t, lockedRoundBefore, e.core.lockedRound)
-		assert.Equal(t, validRoundBefore, e.core.validRound)
+		e.checkState(t, e.curHeight, e.curRound, Precommit, lockedValueBefore, lockedRoundBefore, validValueBefore, validRoundBefore)
 	})
 }
 
@@ -937,10 +879,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 
 	err := e.core.handleValidMsg(context.Background(), prevoteMsg)
 	assert.NoError(t, err)
-
-	assert.Equal(t, e.curHeight, e.core.Height())
-	assert.Equal(t, e.curRound, e.core.Round())
-	assert.Equal(t, Precommit, e.core.step)
+	e.checkState(t, e.curHeight, e.curRound, Precommit, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 }
 
 // The following tests aim to test lines 47 - 48 & 65 - 67 of Tendermint Algorithm described on page 6 of
@@ -980,9 +919,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		err = e.core.precommitTimeout.StopTimer()
 		assert.NoError(t, err)
 
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Propose, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Propose, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
 	t.Run("at vote step, precommit Timeout started after quorum of precommits with different hashes", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -1018,9 +955,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		err = e.core.precommitTimeout.StopTimer()
 		assert.NoError(t, err)
 
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, Precommit, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, Precommit, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
 	t.Run("precommit Timeout is not started multiple times", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -1066,10 +1001,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		// stop the timer to clean up
 		err = e.core.precommitTimeout.StopTimer()
 		assert.NoError(t, err)
-
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, e.step, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, e.step, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
 	t.Run("at precommit Timeout expiry Timeout event is sent", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
@@ -1085,9 +1017,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: e.curRound, HeightWhenCalled: e.curHeight, Step: Precommit})
 		e.core.precommitTimeout.ScheduleTimeout(timeoutDuration, e.core.Round(), e.core.Height(), e.core.onTimeoutPrecommit)
 		assert.True(t, e.core.precommitTimeout.TimerStarted())
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, e.step, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, e.step, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of precommit Timeout event next round will be started", func(t *testing.T) {
@@ -1108,10 +1038,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		e.setupCore(backendMock, e.clientAddress)
 
 		e.core.handleTimeoutPrecommit(context.Background(), timeoutE)
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound+1, e.core.Round())
-		assert.Equal(t, Propose, e.core.step)
-
+		e.checkState(t, e.curHeight, e.curRound+1, Propose, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		// stop the timer to clean up, since start round can start propose Timeout
 		err := e.core.proposeTimeout.StopTimer()
 		assert.NoError(t, err)
@@ -1171,10 +1098,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	// state we simulated on this test context again and again. So we assume the CommitEvent is sent from miner/worker
 	// thread via backend's interface, and it is handled to start new round here:
 	e.core.precommiter.HandleCommit(context.Background())
-
-	assert.Equal(t, big.NewInt(int64(nextHeight)), e.core.Height())
-	assert.Equal(t, int64(0), e.core.Round())
-	assert.Equal(t, Propose, e.core.step)
+	e.checkState(t, big.NewInt(int64(nextHeight)), int64(0), Propose, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 }
 
 // The following tests aim to test lines 49 - 54 of Tendermint Algorithm described on page 6 of
@@ -1216,10 +1140,7 @@ func TestFutureRoundChange(t *testing.T) {
 
 		err = e.core.handleValidMsg(context.Background(), msg2)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
-
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound+1, e.core.Round())
-		assert.Equal(t, Propose, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound+1, Propose, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		assert.Equal(t, 0, len(e.core.backlogs[e.committee.Committee()[1].Address])+len(e.core.backlogs[e.committee.Committee()[2].Address]))
 	})
 
@@ -1255,10 +1176,7 @@ func TestFutureRoundChange(t *testing.T) {
 
 		err = e.core.handleValidMsg(context.Background(), precommitMsg)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
-
-		assert.Equal(t, e.curHeight, e.core.Height())
-		assert.Equal(t, e.curRound, e.core.Round())
-		assert.Equal(t, e.step, e.core.step)
+		e.checkState(t, e.curHeight, e.curRound, e.step, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		assert.Equal(t, 2, len(e.core.backlogs[e.committee.Committee()[1].Address]))
 	})
 }
