@@ -534,10 +534,10 @@ contract VestingManager is IStakeProxy, LiquidRewardManager {
         // we assume all bondings are delegation, so liquid amount is positive
         uint256 _length;
         for (uint256 i = 0; i < _appliedBonding.length; i++) {
-            // _updateUnclaimedReward(_appliedBonding[i].validator);
+            _updateUnclaimedReward(_appliedBonding[i].validator);
             uint256 _totalDelegatedStake = totalPendingStake[_appliedBonding[i].validator];
             delete totalPendingStake[_appliedBonding[i].validator];
-            // _updateRatio(_appliedBonding[i].validator, _totalDelegatedStake, _appliedBonding[i].liquidAmount);
+            _updateRatio(_appliedBonding[i].validator, _totalDelegatedStake, _appliedBonding[i].liquidAmount);
             uint256[] storage _scheduleIDs = validatorToSchedule[_appliedBonding[i].validator];
             _length = _scheduleIDs.length;
             for (uint256 j = 0; j < _length; j++) {
