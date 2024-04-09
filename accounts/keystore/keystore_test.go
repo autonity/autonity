@@ -293,7 +293,12 @@ func TestWalletNotifications(t *testing.T) {
 		sub     = ks.Subscribe(updates)
 	)
 	defer sub.Unsubscribe()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 			case ev := <-updates:
@@ -336,6 +341,8 @@ func TestWalletNotifications(t *testing.T) {
 
 	// Shut down the event collector and check events.
 	sub.Unsubscribe()
+	wg.Wait()
+
 	for ev := range updates {
 		events = append(events, walletEvent{ev, ev.Wallet.Accounts()[0]})
 	}
