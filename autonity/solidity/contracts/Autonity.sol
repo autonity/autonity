@@ -153,6 +153,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     mapping(address => mapping(address => uint256)) internal allowances;
 
 
+    /* For callback function at epoch end in finalize() */
+    mapping(address => uint256[]) internal rejectedBondingIDs;
+    mapping(address => address[]) internal bondedValidators;
+    mapping(address => mapping(address => uint256)) increasedLiquid;
+    mapping(address => IStakeProxy.UnbondingReleased[]) internal releasedStake;
+    mapping(address => uint256) internal contractSaved;
+    address[] internal contractAddresses;
+
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
@@ -694,6 +702,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             try config.contracts.acuContract.update() {}
             catch {}
         }
+        if (epochEnded) {
+            _notifyFinalize();
+        }
         return (contractUpgradeReady, committee);
     }
 
@@ -1136,18 +1147,31 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         }
         return size > 0;
     }
+    
+    function _storeAddress(address _to) private {
+        if (contractSaved[_to] == 0) {
+            contractSaved[_to] = 1;
+            contractAddresses.push(_to);
+        }
+    }
 
-    function _notifyBondingApplied(uint256 _id, uint256 _liquid, bool _selfDelegation, bool _rejected) private {
-        address _to = bondingMap[_id].delegator;
-        if (!_isContract(_to)) {
+    function _bondingApplied(address _delegator, address _validator, uint256 _liquid) private {
+        if (!_isContract(_delegator)) {
             return;
         }
-        // review gas limit
-        try IStakeProxy(_to).bondingApplied(_id, _liquid, _selfDelegation, _rejected) {
-            // do nothing
-        } catch {
-            // do nothing
+        if (increasedLiquid[_delegator][_validator] == 0) {
+            bondedValidators[_delegator].push(_validator);
         }
+        increasedLiquid[_delegator][_validator] += _liquid;
+        _storeAddress(_delegator);
+    }
+
+    function _bondingRejected(address _delegator, uint256 _id) private {
+        if (!_isContract(_delegator)) {
+            return;
+        }
+        rejectedBondingIDs[_delegator].push(_id);
+        _storeAddress(_delegator);
     }
 
     function _applyBonding(uint256 id) internal virtual {
@@ -1158,7 +1182,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         if (_validator.state != ValidatorState.active) {
             accounts[_bonding.delegator] += _bonding.amount;
             emit BondingRejected(_bonding.delegator, _bonding.delegatee, _bonding.amount, _validator.state);
-            _notifyBondingApplied(id, 0, _bonding.delegator == _validator.treasury, true);
+            _bondingRejected(_bonding.delegator, id);
             return;
         }
 
@@ -1175,12 +1199,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
             _validator.bondedStake += _bonding.amount;
-            _notifyBondingApplied(id, _liquidAmount, false, false);
+            _bondingApplied(_bonding.delegator, _bonding.delegatee, _liquidAmount);
         } else {
             // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
             _validator.selfBondedStake += _bonding.amount;
             _validator.bondedStake += _bonding.amount;
-            _notifyBondingApplied(id, 0, true, false);
+            _bondingApplied(_bonding.delegator, _bonding.delegatee, 0);
         }
     }
 
@@ -1207,23 +1231,19 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         return headUnbondingID-1;
     }
 
-    function _notifyUnbondingReleased(uint256 _id, uint256 _amount) private {
+    function _unbondingReleased(uint256 _id, uint256 _amount) private {
         address _to = unbondingMap[_id].delegator;
         if (!_isContract(_to)) {
             return;
         }
-        // review gas limit
-        try IStakeProxy(_to).unbondingReleased(_id, _amount) {
-            // do nothing
-        } catch {
-            // do nothing
-        }
+        releasedStake[_to].push(IStakeProxy.UnbondingReleased(_id, _amount));
+        _storeAddress(_to);
     }
 
     function _releaseUnbondingStake(uint256 _id) internal virtual {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
         if (_unbonding.unbondingShare == 0) {
-            _notifyUnbondingReleased(_id, 0);
+            _unbondingReleased(_id, 0);
             return;
         }
         Validator storage _validator = validators[_unbonding.delegatee];
@@ -1238,20 +1258,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _validator.selfUnbondingShares -= _unbonding.unbondingShare;
         }
         accounts[_unbonding.delegator] += _returnedStake;
-        _notifyUnbondingReleased(_id, _returnedStake);
+        _unbondingReleased(_id, _returnedStake);
     }
 
-    function _notifyUnbondingApplied(uint256 _id) private {
-        address _to = unbondingMap[_id].delegator;
+    function _unbondingApplied(address _to) private {
         if (!_isContract(_to)) {
             return;
         }
-        // review gas limit
-        try IStakeProxy(_to).unbondingApplied(_id) {
-            // do nothing
-        } catch {
-            // do nothing
-        }
+        _storeAddress(_to);
     }
 
     function _applyUnbonding(uint256 _id) internal virtual {
@@ -1301,7 +1315,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         _unbonding.unlocked = true;
         // Final step: Reduce amount of newton bonded
         _validator.bondedStake -= _newtonAmount;
-        _notifyUnbondingApplied(_id);
+        _unbondingApplied(_unbonding.delegator);
     }
 
     function _applyNewCommissionRates() internal virtual {
@@ -1351,6 +1365,41 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             }
         }
         tailUnbondingID = _processedId;
+    }
+
+    function _notifyFinalize() private {
+        address[] memory _contractAddresses = contractAddresses;
+        delete contractAddresses;
+        // notify each contract that has bonded or unbonded
+        for (uint256 i = 0; i < _contractAddresses.length; i++) {
+            delete contractSaved[_contractAddresses[i]];
+            // prepare applied bondings
+            address[] storage _validators = bondedValidators[_contractAddresses[i]];
+            uint256 _validatorCount = _validators.length;
+            IStakeProxy.BondingApplied[] memory _appliedBonding = new IStakeProxy.BondingApplied[] (_validatorCount);
+            for (uint256 j = 0; j < _validatorCount; j++) {
+                address _validator = _validators[j];
+                _appliedBonding[j] = IStakeProxy.BondingApplied(
+                    _validator, increasedLiquid[_contractAddresses[i]][_validator]
+                );
+                delete increasedLiquid[_contractAddresses[i]][_validator];
+            }
+            delete bondedValidators[_contractAddresses[i]];
+
+            // prepare rejected bondings
+            uint256[] memory _rejectedBondingIDs = rejectedBondingIDs[_contractAddresses[i]];
+            delete rejectedBondingIDs[_contractAddresses[i]];
+
+            // prepare released unbondings
+            IStakeProxy.UnbondingReleased[] memory _releasedStake = releasedStake[_contractAddresses[i]];
+            delete releasedStake[_contractAddresses[i]];
+            // TODO: review gas limit
+            try IStakeProxy(_contractAddresses[i]).finalize(_appliedBonding, _rejectedBondingIDs, _releasedStake) {
+                // do nothing or emit event?
+            } catch {
+                // revert operations
+            }
+        }
     }
 
     function _removeFromArray(address _address, address[] storage _array) internal virtual{
