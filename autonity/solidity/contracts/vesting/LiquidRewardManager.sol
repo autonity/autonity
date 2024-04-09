@@ -8,16 +8,14 @@ contract LiquidRewardManager {
 
     uint256 public constant FEE_FACTOR_UNIT_RECIP = 1_000_000_000;
 
-    uint256 private epochID;
-    uint256 private epochFetchedBlock;
+    // uint256 private epochID;
+    // uint256 private epochFetchedBlock;
     address private operator;
     Autonity internal autonity;
 
     struct LiquidInfo {
-        uint256 totalLiquid;
         uint256 lastUnrealisedFeeFactor;
         uint256 unclaimedRewards;
-        uint256 lastUpdateEpoch;
         Liquid liquidContract;
     }
 
@@ -44,6 +42,11 @@ contract LiquidRewardManager {
         autonity = Autonity(_autonity);
     }
 
+    function _unlockAllAndBurn(uint256 _id, address _validator) internal {
+        _decreaseLiquid(_id, _validator, lockedLiquidBalances[_id][_validator]);
+        delete lockedLiquidBalances[_id][_validator];
+    }
+
     function _unlock(uint256 _id, address _validator, uint256 _amount) internal {
         lockedLiquidBalances[_id][_validator] -= _amount;
     }
@@ -60,34 +63,24 @@ contract LiquidRewardManager {
      * _claimRewards claim rewards from a validator at most once per epoch, so spamming _claimRewards is not a problem
      */
     function _decreaseLiquid(uint256 _id, address _validator, uint256 _amount) internal {
-        _updateUnclaimedReward(_validator);
         _realiseFees(_id, _validator);
         liquidBalances[_id][_validator] -= _amount;
-        liquidInfo[_validator].totalLiquid -= _amount;
-        if (liquidBalances[_id][_validator] == 0) {
-            delete unrealisedFeeFactors[_id][_validator];
-        }
     }
 
     function _increaseLiquid(uint256 _id, address _validator, uint256 _amount) internal {
-        _updateUnclaimedReward(_validator);
         _realiseFees(_id, _validator);
         liquidBalances[_id][_validator] += _amount;
-        liquidInfo[_validator].totalLiquid += _amount;
     }
 
     function _realiseFees(uint256 _id, address _validator) private returns (uint256 _realisedFees) {
-        _realisedFees = realisedFees[_id][_validator] + _computeUnrealisedFees(_id, _validator);
+        uint256 _lastUnrealisedFeeFactor = liquidInfo[_validator].lastUnrealisedFeeFactor;
+        _realisedFees = realisedFees[_id][_validator] + _computeUnrealisedFees(_id, _validator, _lastUnrealisedFeeFactor);
         realisedFees[_id][_validator] = _realisedFees;
-        unrealisedFeeFactors[_id][_validator] = liquidInfo[_validator].lastUnrealisedFeeFactor;
+        unrealisedFeeFactors[_id][_validator] = _lastUnrealisedFeeFactor;
     }
 
-    function _computeUnrealisedFees(uint256 _id, address _validator) private view returns (uint256) {
-        uint256 _balance = liquidBalances[_id][_validator];
-        if (_balance == 0) {
-            return 0;
-        }
-        return (liquidInfo[_validator].lastUnrealisedFeeFactor-unrealisedFeeFactors[_id][_validator]) * _balance / FEE_FACTOR_UNIT_RECIP;
+    function _computeUnrealisedFees(uint256 _id, address _validator, uint256 _lastUnrealisedFeeFactor) private view returns (uint256) {
+        return (_lastUnrealisedFeeFactor-unrealisedFeeFactors[_id][_validator]) * liquidBalances[_id][_validator] / FEE_FACTOR_UNIT_RECIP;
     }
 
     function _claimRewards(address _validator) internal {
@@ -150,22 +143,23 @@ contract LiquidRewardManager {
         }
     }
 
-    function _epochID() internal returns (uint256) {
-        if (epochFetchedBlock < block.number) {
-            epochFetchedBlock = block.number;
-            epochID = autonity.epochID();
-        }
-        return epochID;
-    }
+    // function _epochID() internal returns (uint256) {
+    //     if (epochFetchedBlock < block.number) {
+    //         epochFetchedBlock = block.number;
+    //         epochID = autonity.epochID();
+    //     }
+    //     return epochID;
+    // }
 
-    function _updateUnclaimedReward(address _validator) private {
+    function _updateUnclaimedReward(address _validator) internal {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        if (_liquidInfo.totalLiquid == 0 || _liquidInfo.lastUpdateEpoch == _epochID()) {
+        Liquid _contract = _liquidInfo.liquidContract;
+        uint256 _totalLiquid = _contract.balanceOf(address(this));
+        if (_totalLiquid == 0) {
             return;
         }
-        _liquidInfo.lastUpdateEpoch = _epochID();
-        uint256 _reward = _liquidInfo.liquidContract.unclaimedRewards(address(this));
-        _liquidInfo.lastUnrealisedFeeFactor += (_reward-_liquidInfo.unclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _liquidInfo.totalLiquid;
+        uint256 _reward = _contract.unclaimedRewards(address(this));
+        _liquidInfo.lastUnrealisedFeeFactor += (_reward-_liquidInfo.unclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
         _liquidInfo.unclaimedRewards = _reward;
     }
 
@@ -175,7 +169,7 @@ contract LiquidRewardManager {
         address[] memory _validators = bondedValidators[_id];
         for (uint256 i = 0; i < _validators.length; i++) {
             _updateUnclaimedReward(_validators[i]);
-            _totalFee += realisedFees[_id][_validators[i]] + _computeUnrealisedFees(_id, _validators[i]);
+            _totalFee += _realiseFees(_id, _validators[i]);
         }
         return _totalFee;
     }
