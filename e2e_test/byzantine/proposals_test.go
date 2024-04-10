@@ -227,7 +227,6 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 
-	//send same proposal twice
 	c.BroadcastAll(proposal)
 }
 
